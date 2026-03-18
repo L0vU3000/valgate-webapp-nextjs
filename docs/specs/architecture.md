@@ -12,14 +12,18 @@ src/
     pages/            # Route-level page components
     pages/property/   # Property sub-pages (nested under /property/:id)
     components/
-      ui/             # Primitive UI components (shadcn/ui pattern over Radix UI)
+      ui/             # 50+ shadcn/ui pre-built primitives (Button, Dialog, Table, etc.)
       layout/         # ShellLayout (sidebar + outlet), Sidebar
       property/       # Property-specific layout and detail components
       figma/          # ImageWithFallback utility for Figma-exported assets
     routes.ts         # All route definitions (React Router v7)
     App.tsx           # RouterProvider entry point
   imports/            # Figma-exported static screen components + SVG assets
-  styles/             # Global styles
+  styles/
+    fonts.css         # Loads Inter + Plus Jakarta Sans from Google Fonts
+    tailwind.css      # Tailwind v4 entry point (@import + content scan directives)
+    theme.css         # All CSS custom properties (semantic token values for light/dark)
+    index.css         # Root stylesheet — imports the three above in order
 ```
 
 ## Routing
@@ -34,6 +38,19 @@ src/
 - `/add-property` — Add property multi-step flow
 
 All routes except `/` are wrapped in `ShellLayout` (sidebar + main content area).
+
+## Path Aliases
+
+`@` maps to `./src` (configured in `vite.config.ts`). Always use `@/` imports — never relative `../` chains.
+
+```ts
+import { Button } from '@/app/components/ui/button'
+import { ShellLayout } from '@/app/components/layout/ShellLayout'
+```
+
+## shadcn/ui Components
+
+`src/app/components/ui/` contains 50+ pre-built components generated from shadcn/ui (Button, Dialog, Table, Select, Tabs, etc.). Before building a new UI primitive, check if it already exists here. Do not rewrite these.
 
 ## Key Conventions
 

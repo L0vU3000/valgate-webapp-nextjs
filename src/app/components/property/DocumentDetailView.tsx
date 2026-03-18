@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ArrowLeft } from "lucide-react";
-import imgDocExample1 from "figma:asset/4ed98f65a759fb11787b36f0ccf23f9041b787ce.png";
+// Figma asset — no real image available in dev
+const imgDocExample1: string | null = null;
 
 interface DocumentDetailViewProps {
   documentName: string;

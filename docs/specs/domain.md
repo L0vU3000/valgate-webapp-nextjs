@@ -46,6 +46,68 @@ A 0–100 metric visible on each property. Likely represents completeness of:
 
 Color coding: green (80–100), yellow (40–79), red (0–39).
 
+## Document Entity Structure
+
+Used in `PropertyDocumentsPage`. Three layers:
+
+**Folder** — top-level category sidebar items:
+```ts
+{ name: string; icon: LucideIcon; color: string; active?: boolean }
+// e.g. "All Documents", "Title", "Sales", "Tax Receipt"
+```
+
+**SubFolder** — secondary groupings shown inside a folder:
+```ts
+{ name: string; color: string }
+// e.g. "Contract", "Receipts", "Tax", "Rental", "Images", "Videos"
+```
+
+**File** — individual document:
+```ts
+{ name: string; type: "image" | "doc" | "archive" | "spreadsheet" | "presentation"; icon: LucideIcon; color: string; thumb: string | null }
+```
+
+View modes: `"list"` | `"grid"` | `"pages"` — toggled via `useState<ViewMode>` in the page.
+
+## Analytics Data Shapes
+
+Used in `AnalyticsPage`. All currently hardcoded:
+
+```ts
+// Monthly revenue vs expenses
+{ month: string; revenue: number; expenses: number }
+
+// Property occupancy
+{ name: string; value: number; target: number; color: string }
+
+// Upcoming lease expirations
+{ tenant: string; unit: string; expires: string; status: "Renewing" | "Pending" | "Vacating"; statusColor: string }
+
+// Maintenance queue
+{ category: string; open: number; avgDays: string; priority: "HIGH" | "MED" | "LOW"; prColor: string }
+
+// Expense breakdown (pie)
+{ name: string; pct: number; color: string }
+```
+
+## Page Implementation Status
+
+| Page | Route | Status |
+|---|---|---|
+| `HomePage` | `/` | Implemented — map + property list overview |
+| `PortfolioPage` | `/portfolio` | Implemented — filterable property list |
+| `AnalyticsPage` | `/analytics` | Implemented — charts, stats, maintenance queue |
+| `MapPage` | `/map` | Implemented — static map image with pin overlays |
+| `SettingsPage` | `/settings` | Implemented — profile, workspace, security, notifications |
+| `SuccessionPage` | `/succession` | Coming Soon — placeholder with email signup |
+| `AddPropertyPage` | `/add-property` | Partially implemented — multi-step form |
+| `PropertyDocumentsPage` | `/property/:id/documents` | Implemented — folder/file browser, 3 view modes |
+| `PropertyOwnershipPage` | `/property/:id/ownership` | Implemented |
+| `PropertyRentalPage` | `/property/:id/rental` | Implemented |
+| `PropertySafetyPage` | `/property/:id/safety` | Implemented |
+| `PropertyValuationPage` | `/property/:id/valuation` | Implemented |
+| `PropertySpatialPage` | `/property/:id/spatial` | Partially implemented |
+
 ## Geography
 
 The app is scoped to Cambodia. Province data includes all 25 provinces. Key provinces in the mockup data: Phnom Penh, Siem Reap, Kampong Chhnang, Prey Veng, Kampot.
