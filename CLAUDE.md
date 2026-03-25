@@ -17,6 +17,10 @@ Valgate is a Cambodia-focused property portfolio management web app. Currently a
 - Use `lucide-react` for icons (not MUI icons)
 - Data is currently hardcoded in page files — when adding real data, use React Query
 
+## Design System
+
+Do NOT consult the design system unless the user explicitly asks you to (e.g. "follow the design system", "use the design system", "apply the design system"). The spec is at `docs/specs/valgate-design-system-v1.1.md` — only read it on demand.
+
 ## Docs Structure
 
 ```

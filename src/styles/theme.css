@@ -1,5 +1,81 @@
 @custom-variant dark (&:is(.dark *));
 
+@keyframes cmd-open {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(-10px);
+    filter: blur(3px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    filter: blur(0px);
+  }
+}
+
+@keyframes shimmer-sweep {
+  0%   { transform: translateX(-200%); }
+  100% { transform: translateX(200%); }
+}
+
+@keyframes cmd-item-in {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-slide-down {
+  from { opacity: 0; transform: translateY(-10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-slide-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-slide-left {
+  from { opacity: 0; transform: translateX(-14px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(18px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.5); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes pin-beacon {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--interactive-primary) 50%, transparent); }
+  70%  { box-shadow: 0 0 0 8px color-mix(in srgb, var(--interactive-primary) 0%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--interactive-primary) 0%, transparent); }
+}
+
+@keyframes loading-bar {
+  0%   { width: 0%; margin-left: 0; }
+  50%  { width: 70%; margin-left: 15%; }
+  100% { width: 0%; margin-left: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ─── shadcn primitive layer (do not remove — components depend on these) ─── */
+
 :root {
   --font-size: 16px;
   --background: #F5F6F7;
@@ -10,8 +86,6 @@
   --popover-foreground: #14181B;
   --primary: #2563EB;
   --primary-foreground: #FFFFFF;
-  --secondary: #F5F6F7;
-  --secondary-foreground: #14181B;
   --muted: #E8EAED;
   --muted-foreground: #515D66;
   --accent: #EEF2F8;
@@ -39,6 +113,75 @@
   --sidebar-accent-foreground: #2563EB;
   --sidebar-border: #D1D5DB;
   --sidebar-ring: #2563EB;
+
+  /* ─── Valgate · 04 · Semantic Tokens — Light ─── */
+
+  /* Surface */
+  --surface-page:     #F5F6F7;
+  --surface-sunken:   #E8EAED;
+  --surface-base:     #FFFFFF;
+  --surface-elevated: #F5F6F7;
+  --surface-overlay:  #14181B;
+  --surface-tint:     #EEF2F8;
+
+  /* Text  (text/primary = --foreground, already mapped as text-foreground) */
+  --text-secondary:   #515D66;
+  --text-tertiary:    #6B7684;
+  --text-disabled:    #ACB4BC;
+  --text-inverse:     #FFFFFF;
+  --text-link:        #2563EB;
+  --text-link-hover:  #1D4ED8;
+
+  /* Border */
+  --border-default:   #D1D5DB;
+  --border-strong:    #ACB4BC;
+  --border-subtle:    #E8EAED;
+  --border-focus:     #2563EB;
+
+  /* Interactive */
+  --interactive-primary:          #2563EB;
+  --interactive-primary-hover:    #1D4ED8;
+  --interactive-primary-text:     #FFFFFF;
+  --interactive-secondary:        #F5F6F7;
+  --interactive-secondary-hover:  #E8EAED;
+  --interactive-secondary-text:   #14181B;
+  --brand-subtle:                 #DBEAFE;
+
+  /* Status — Success */
+  --status-success:        #059669;
+  --status-success-bg:     #ECFDF5;
+  --status-success-border: #A7F3D0;
+  --status-success-text:   #065F46;
+
+  /* Status — Warning */
+  --status-warning:        #F59E0B;
+  --status-warning-bg:     #FFFBEB;
+  --status-warning-border: #FDE68A;
+  --status-warning-text:   #92400E;
+
+  /* Status — Danger */
+  --status-danger:        #E11D48;
+  --status-danger-bg:     #FFF1F2;
+  --status-danger-border: #FECDD3;
+  --status-danger-text:   #881337;
+
+  /* Status — Info */
+  --status-info:        #0284C7;
+  --status-info-bg:     #F0F9FF;
+  --status-info-border: #BAE6FD;
+  --status-info-text:   #0369A1;
+
+  /* Glass Semantic — Light */
+  --glass-header-fill:         #ffffffd1;
+  --glass-header-border:       #ffffffcc;
+  --glass-nav-item-fill:       #ffffff6b;
+  --glass-nav-item-border:     #ffffff8c;
+  --glass-icon-btn-fill:       #ffffff6b;
+  --glass-icon-btn-border:     #ffffff8c;
+  --glass-panel-fill:          #ffffffa6;
+  --glass-panel-border:        #ffffffb2;
+  --glass-sidebar-fill:        #ffffffd1;
+  --glass-sidebar-border:      #ffffffcc;
 }
 
 .dark {
@@ -50,8 +193,6 @@
   --popover-foreground: #F5F6F7;
   --primary: #3B82F6;
   --primary-foreground: #FFFFFF;
-  --secondary: #202334;
-  --secondary-foreground: #EEF2F8;
   --muted: #171B2B;
   --muted-foreground: #8591A0;
   --accent: #202334;
@@ -71,47 +212,190 @@
   --sidebar-accent-foreground: #F5F6F7;
   --sidebar-border: #202334;
   --sidebar-ring: #3B82F6;
+
+  /* ─── Valgate · 04 · Semantic Tokens — Dark ─── */
+
+  /* Surface */
+  --surface-page:     #0F1117;
+  --surface-sunken:   #0F1117;
+  --surface-base:     #111420;
+  --surface-elevated: #202334;
+  --surface-overlay:  #0F1117;
+  --surface-tint:     #202334;
+
+  /* Text */
+  --text-secondary:   #8591A0;
+  --text-tertiary:    #6B7684;
+  --text-disabled:    #3E4850;
+  --text-inverse:     #14181B;
+  --text-link:        #60A5FA;
+  --text-link-hover:  #93C5FD;
+
+  /* Border */
+  --border-default:   #202334;
+  --border-strong:    #515D66;
+  --border-subtle:    #171B2B;
+  --border-focus:     #3B82F6;
+
+  /* Interactive */
+  --interactive-primary:          #3B82F6;
+  --interactive-primary-hover:    #60A5FA;
+  --interactive-primary-text:     #FFFFFF;
+  --interactive-secondary:        #202334;
+  --interactive-secondary-hover:  #202334;
+  --interactive-secondary-text:   #EEF2F8;
+  --brand-subtle:                 #1E3A8A;
+
+  /* Status — Success */
+  --status-success:        #10B981;
+  --status-success-bg:     #064E3B;
+  --status-success-border: #065F46;
+  --status-success-text:   #6EE7B7;
+
+  /* Status — Warning */
+  --status-warning:        #F59E0B;
+  --status-warning-bg:     #78350F;
+  --status-warning-border: #92400E;
+  --status-warning-text:   #FCD34D;
+
+  /* Status — Danger */
+  --status-danger:        #F43F5E;
+  --status-danger-bg:     #881337;
+  --status-danger-border: #9F1239;
+  --status-danger-text:   #FDA4AF;
+
+  /* Status — Info */
+  --status-info:        #38BDF8;
+  --status-info-bg:     #0C4A6E;
+  --status-info-border: #075985;
+  --status-info-text:   #7DD3FC;
+
+  /* Glass Semantic — Dark */
+  --glass-header-fill:         #0f1117bf;
+  --glass-header-border:       #ffffff38;
+  --glass-nav-item-fill:       #16192666;
+  --glass-nav-item-border:     #ffffff1f;
+  --glass-icon-btn-fill:       #16192666;
+  --glass-icon-btn-border:     #ffffff1f;
+  --glass-panel-fill:          #0f111799;
+  --glass-panel-border:        #ffffff29;
+  --glass-sidebar-fill:        #0f1117bf;
+  --glass-sidebar-border:      #ffffff38;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
+  /* ── shadcn token mappings (unchanged) ── */
+  --color-background:            var(--background);
+  --color-foreground:            var(--foreground);
+  --color-card:                  var(--card);
+  --color-card-foreground:       var(--card-foreground);
+  --color-popover:               var(--popover);
+  --color-popover-foreground:    var(--popover-foreground);
+  --color-primary:               var(--primary);
+  --color-primary-foreground:    var(--primary-foreground);
+  --color-muted:                 var(--muted);
+  --color-muted-foreground:      var(--muted-foreground);
+  --color-accent:                var(--accent);
+  --color-accent-foreground:     var(--accent-foreground);
+  --color-destructive:           var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-input-background: var(--input-background);
-  --color-switch-background: var(--switch-background);
-  --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
+  --color-border:                var(--border);
+  --color-input:                 var(--input);
+  --color-input-background:      var(--input-background);
+  --color-switch-background:     var(--switch-background);
+  --color-ring:                  var(--ring);
+  --color-chart-1:               var(--chart-1);
+  --color-chart-2:               var(--chart-2);
+  --color-chart-3:               var(--chart-3);
+  --color-chart-4:               var(--chart-4);
+  --color-chart-5:               var(--chart-5);
+  --radius-sm:                   calc(var(--radius) - 4px);
+  --radius-md:                   calc(var(--radius) - 2px);
+  --radius-lg:                   var(--radius);
+  --radius-xl:                   calc(var(--radius) + 4px);
+  --color-sidebar:               var(--sidebar);
+  --color-sidebar-foreground:    var(--sidebar-foreground);
+  --color-sidebar-primary:       var(--sidebar-primary);
   --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent:        var(--sidebar-accent);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border:        var(--sidebar-border);
+  --color-sidebar-ring:          var(--sidebar-ring);
+
+  /* ── Valgate semantic token mappings ── */
+
+  /* shadcn --secondary repurposed: text/secondary in Valgate DS
+     bg-interactive-secondary replaces bg-secondary in shadcn components */
+  --color-secondary:             var(--text-secondary);
+  --color-secondary-foreground:  var(--text-inverse);
+
+  /* Surface → bg-surface-* */
+  --color-surface-page:          var(--surface-page);
+  --color-surface-sunken:        var(--surface-sunken);
+  --color-surface-base:          var(--surface-base);
+  --color-surface-elevated:      var(--surface-elevated);
+  --color-surface-overlay:       var(--surface-overlay);
+  --color-surface-tint:          var(--surface-tint);
+
+  /* Text → text-* (text/primary = text-foreground, documented deviation) */
+  --color-text-tertiary:         var(--text-tertiary);
+  --color-text-disabled:         var(--text-disabled);
+  --color-text-inverse:          var(--text-inverse);
+  --color-text-link:             var(--text-link);
+  --color-text-link-hover:       var(--text-link-hover);
+
+  /* Border → border-border-* */
+  --color-border-default:        var(--border-default);
+  --color-border-strong:         var(--border-strong);
+  --color-border-subtle:         var(--border-subtle);
+  --color-border-focus:          var(--border-focus);
+
+  /* Interactive → bg/text-interactive-* */
+  --color-interactive-primary:         var(--interactive-primary);
+  --color-interactive-primary-hover:   var(--interactive-primary-hover);
+  --color-interactive-primary-text:    var(--interactive-primary-text);
+  --color-interactive-secondary:       var(--interactive-secondary);
+  --color-interactive-secondary-hover: var(--interactive-secondary-hover);
+  --color-interactive-secondary-text:  var(--interactive-secondary-text);
+  --color-brand-subtle:                var(--brand-subtle);
+
+  /* Status → bg/text/border-status-*-* */
+  --color-status-success:        var(--status-success);
+  --color-status-success-bg:     var(--status-success-bg);
+  --color-status-success-border: var(--status-success-border);
+  --color-status-success-text:   var(--status-success-text);
+
+  --color-status-warning:        var(--status-warning);
+  --color-status-warning-bg:     var(--status-warning-bg);
+  --color-status-warning-border: var(--status-warning-border);
+  --color-status-warning-text:   var(--status-warning-text);
+
+  --color-status-danger:         var(--status-danger);
+  --color-status-danger-bg:      var(--status-danger-bg);
+  --color-status-danger-border:  var(--status-danger-border);
+  --color-status-danger-text:    var(--status-danger-text);
+
+  --color-status-info:           var(--status-info);
+  --color-status-info-bg:        var(--status-info-bg);
+  --color-status-info-border:    var(--status-info-border);
+  --color-status-info-text:      var(--status-info-text);
+
+  /* Glass Semantic */
+  --color-glass-header-fill:     var(--glass-header-fill);
+  --color-glass-header-border:   var(--glass-header-border);
+  --color-glass-nav-item-fill:   var(--glass-nav-item-fill);
+  --color-glass-nav-item-border: var(--glass-nav-item-border);
+  --color-glass-icon-btn-fill:   var(--glass-icon-btn-fill);
+  --color-glass-icon-btn-border: var(--glass-icon-btn-border);
+  --color-glass-panel-fill:      var(--glass-panel-fill);
+  --color-glass-panel-border:    var(--glass-panel-border);
+  --color-glass-sidebar-fill:    var(--glass-sidebar-fill);
+  --color-glass-sidebar-border:  var(--glass-sidebar-border);
+
+  /* Typography */
+  --font-sans:    'Inter', system-ui, sans-serif;
+  --font-display: 'Plus Jakarta Sans', Inter, sans-serif;
+  --font-mono:    'JetBrains Mono', 'Fira Code', monospace;
 }
 
 @layer base {
@@ -122,11 +406,6 @@
   body {
     @apply bg-background text-foreground;
   }
-
-  /**
-  * Default typography styles for HTML elements (h1-h4, p, label, button, input).
-  * These are in @layer base, so Tailwind utility classes (like text-sm, text-lg) automatically override them.
-  */
 
   html {
     font-size: var(--font-size);

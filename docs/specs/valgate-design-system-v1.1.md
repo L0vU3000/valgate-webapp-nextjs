@@ -11,20 +11,24 @@ This is the single source of truth for building Valgate interfaces. Every colour
 ## Table of Contents
 
 - [1. Design Philosophy](#1-design-philosophy)
-- [2. Token Architecture](#2-token-architecture)
-- [3. Colour System](#3-colour-system)
-- [4. Token Application Rules](#4-token-application-rules)
-- [5. Dark Mode](#5-dark-mode)
-- [6. Typography](#6-typography)
-- [7. Spacing](#7-spacing)
-- [8. Radius](#8-radius)
-- [9. Bento Grid Layout](#9-bento-grid-layout)
-- [10. Sidebar](#10-sidebar)
-- [11. Responsive Behaviour](#11-responsive-behaviour)
-- [12. Component Patterns](#12-component-patterns)
-- [13. Figma Bridge](#13-figma-bridge)
-- [14. Prohibited Practices](#14-prohibited-practices)
-- [15. Checklist](#15-checklist)
+- [2. Visual Language](#2-visual-language)
+- [3. Token Architecture](#3-token-architecture)
+- [4. Colour System](#4-colour-system)
+- [5. Token Application Rules](#5-token-application-rules)
+- [6. Dark Mode](#6-dark-mode)
+- [7. Elevation & Depth](#7-elevation--depth)
+- [8. Typography](#8-typography)
+- [9. Spacing](#9-spacing)
+- [10. Radius](#10-radius)
+- [11. Bento Grid Layout](#11-bento-grid-layout)
+- [12. Sidebar](#12-sidebar)
+- [13. Responsive Behaviour](#13-responsive-behaviour)
+- [14. Component Patterns](#14-component-patterns)
+- [15. Interaction & Animation](#15-interaction--animation)
+- [16. Icons](#16-icons)
+- [17. Figma Bridge](#17-figma-bridge)
+- [18. Prohibited Practices](#18-prohibited-practices)
+- [19. Checklist](#19-checklist)
 
 ---
 
@@ -55,7 +59,26 @@ Valgate follows a **Bento / Soft Minimalist** aesthetic. Every design decision i
 
 ---
 
-## 2. Token Architecture
+## 2. Visual Language
+
+Valgate should feel like a **well-engineered productivity tool** — the kind of interface that earns trust through consistency, not flair. Think financial terminal meets modern SaaS: structured, breathable, and precise. Every screen should feel like it was laid out by someone who cares deeply about alignment.
+
+The aesthetic is achieved through **proportion and restraint**, not decoration. Visual interest comes from varied card sizes and intentional asymmetry — not gradients, heavy shadows, or illustration.
+
+### Named Rules
+
+**The Bento Rule**
+> No two adjacent rows should use the same column split. Vary the rhythm (e.g. `3+3+3+3`, then `8+4`, then `4+4+4`) to create a curated, editorial layout. Repetition signals laziness.
+
+**The Restraint Rule**
+> If you're reaching for a gradient, a heavy shadow, or a decorative element — stop. Add visual weight through size and whitespace instead.
+
+**The Token Parity Rule**
+> Every token must resolve correctly in both modes. If it looks right in light and breaks in dark, the wrong token was used. There are no exceptions.
+
+---
+
+## 3. Token Architecture
 
 Valgate uses a layered token system. Raw values (primitives) feed into semantic tokens that carry meaning. Code only ever references the semantic layer.
 
@@ -79,7 +102,7 @@ Primitive (hex value)
 
 ---
 
-## 3. Colour System
+## 4. Colour System
 
 All colours are defined as CSS custom properties in your Tailwind config, mapped from Valgate · 04 · Semantic Tokens.
 
@@ -177,7 +200,7 @@ Each status type has 4 tokens: accent, background, border, and text.
 
 ---
 
-## 4. Token Application Rules
+## 5. Token Application Rules
 
 Quick lookup: what token goes where.
 
@@ -228,7 +251,7 @@ Quick lookup: what token goes where.
 
 ---
 
-## 5. Dark Mode
+## 6. Dark Mode
 
 ### How It Works
 
@@ -261,7 +284,77 @@ In Light mode, `text/primary` and `surface/overlay` both resolve to `#14181B`. T
 
 ---
 
-## 6. Typography
+## 7. Elevation & Depth
+
+Valgate uses **tonal layering** to create depth — not shadows. Surfaces are stacked by lightness, not by z-index. A surface feels "higher" because it is lighter (in light mode) or lighter-tinted (in dark mode).
+
+### The Stacking Model
+
+```
+surface/page        ← deepest (global background)
+  └── surface/sunken   ← recessed wells, inset areas
+  └── surface/base     ← cards, panels, modals
+        └── surface/elevated  ← dropdowns, popovers, inputs
+        └── surface/tint      ← brand-tinted sections
+```
+
+Never skip levels. A `surface/elevated` element should only sit on top of `surface/base` or `surface/page` — not directly on another `surface/elevated`.
+
+### When to Use Each Surface
+
+| Surface | Use When | Never Use For |
+|---|---|---|
+| `surface/page` | The outermost screen background | Cards, panels, or any container |
+| `surface/sunken` | Inset data tables, code blocks, recessed input areas | Primary card backgrounds |
+| `surface/base` | All cards, modals, dialogs, side panels | Page background |
+| `surface/elevated` | Dropdowns, tooltips, popovers, input fills | Main card backgrounds |
+| `surface/tint` | Brand-accented sections, active accordion rows | General content areas |
+| `surface/overlay` | Modal scrims only | Any other use |
+
+### Shadows
+
+Use shadows sparingly. They exist only to communicate that something is **floating above the page**, not to add decoration.
+
+| Context | Shadow | Tailwind |
+|---|---|---|
+| Default card | None — border only | `border border-border-default` |
+| Dropdown / popover | Subtle lift | `shadow-sm` |
+| Modal / dialog | Floating | `shadow-lg` |
+| Dragging / active drag | Strong lift | `shadow-xl` |
+
+```
+✅ Correct:  shadow-sm on a dropdown
+✅ Correct:  no shadow on a standard card
+❌ Wrong:    shadow-lg on a static card
+❌ Wrong:    shadow with a custom opacity value
+```
+
+### Glass Tokens
+
+Glass is reserved for **overlaid HUD elements** — panels that float over content like maps, images, or video. Do not use glass as a general card style.
+
+| Token | CSS Variable | Usage |
+|---|---|---|
+| `glass/surface` | `--glass-surface` | Floating panel over media |
+| `glass/border` | `--glass-border` | Border on a glass panel |
+| `glass/blur` | `--glass-blur` | `backdrop-blur` value |
+
+```tsx
+{/* Glass panel — only over media/image backgrounds */}
+<div className="bg-glass-surface border border-glass-border backdrop-blur-[var(--glass-blur)] rounded-xl p-6">
+  <p className="text-primary text-sm">Floating content</p>
+</div>
+```
+
+```
+✅ Correct:  glass panel floating over a map or hero image
+❌ Wrong:    glass card on a plain surface/page background
+❌ Wrong:    glass used as a stylistic alternative to surface/base
+```
+
+---
+
+## 8. Typography
 
 Valgate uses two typefaces:
 - **Plus Jakarta Sans** — Display-level text (hero, marketing, large headings)
@@ -350,7 +443,7 @@ module.exports = {
 
 ---
 
-## 7. Spacing
+## 9. Spacing
 
 All spacing uses **base-8 multiples** applied via Tailwind utilities. The system has two tiers: **component** spacing for internal gaps and **layout** spacing for section-level structure.
 
@@ -385,12 +478,12 @@ All spacing uses **base-8 multiples** applied via Tailwind utilities. The system
 ### Key Rules
 
 - `gap-6` (24px) is the **standard gap between all cards** — no exceptions.
-- Always match padding to the size tier of the card (see [§9 Layout](#9-bento-grid-layout)).
+- Always match padding to the size tier of the card (see [§11 Bento Grid Layout](#11-bento-grid-layout)).
 - Use Tailwind spacing utilities, not arbitrary values like `p-[18px]`.
 
 ---
 
-## 8. Radius
+## 10. Radius
 
 All corner radii map to named tokens. Never hardcode a pixel value.
 
@@ -424,7 +517,7 @@ All corner radii map to named tokens. Never hardcode a pixel value.
 
 ---
 
-## 9. Bento Grid Layout
+## 11. Bento Grid Layout
 
 The Valgate layout is a **12-column Bento grid** designed for purposeful arrangement — mathematical consistency and perfect alignment.
 
@@ -544,7 +637,7 @@ Achieve this with consistent padding + `flex flex-col justify-between` to push C
 
 ---
 
-## 10. Sidebar
+## 12. Sidebar
 
 ### Dimensions
 
@@ -611,7 +704,7 @@ function NavItem({ icon: Icon, label, active }) {
 
 ---
 
-## 11. Responsive Behaviour
+## 13. Responsive Behaviour
 
 ### Breakpoints
 
@@ -640,11 +733,38 @@ function NavItem({ icon: Icon, label, active }) {
 
 ---
 
-## 12. Component Patterns
+## 14. Component Patterns
 
 Ready-to-use shadcn/ui-aligned patterns with correct token usage.
 
-### 12.1 Buttons
+### Component Usage Context
+
+Before reaching for a component, use this table to confirm you have the right one.
+
+| Component | Use When | Don't Use When |
+|---|---|---|
+| **Primary button** | The main, irreversible action on a page (e.g. Submit, Save, Confirm) | There are two competing primary actions — only one per view |
+| **Secondary button** | A supporting action alongside a primary (e.g. Cancel, Back) | It is the only action — use primary instead |
+| **Ghost button** | Low-priority inline actions (e.g. Edit, View details in a table row) | The action is destructive |
+| **Destructive button** | Permanent, irreversible actions (e.g. Delete, Remove) | The action can be undone |
+| **Outline button** | Tertiary actions in toolbars or filter bars | In forms or dialogs |
+| **Solid badge** | A definitive status — the item is clearly in one state (Active, Verified) | The state is ambiguous or transient |
+| **Tinted badge** | A cautionary or in-progress status (Pending, In Review) | A binary on/off state |
+| **Neutral badge** | A non-status label (Draft, Internal, v1.2) | Communicating urgency or health |
+| **Inline alert** | Feedback tied to a specific form field or action | Page-level announcements — use a toast |
+| **Toast** | Transient feedback after an action (saved, copied, error) | Persistent warnings — use an inline alert |
+
+#### Badge — When to Use Each Variant
+
+| Variant | When | Example |
+|---|---|---|
+| Solid (`bg-status-X text-inverse`) | Definitive, current state | Active, Paid, Verified |
+| Tinted (`bg-status-X-bg text-status-X-text`) | Cautionary or in-progress | Pending, In Review, Expiring |
+| Neutral (`bg-surface-elevated text-primary`) | Non-status labels | Draft, Internal, Beta |
+
+---
+
+### 14.1 Buttons
 
 | Variant | Classes |
 |---|---|
@@ -654,7 +774,7 @@ Ready-to-use shadcn/ui-aligned patterns with correct token usage.
 | Destructive | `bg-status-danger hover:bg-status-danger/90 text-inverse rounded-md px-4 py-2 text-sm font-medium` |
 | Outline | `bg-surface-base hover:bg-surface-elevated text-primary border border-border-default rounded-md px-4 py-2 text-sm font-medium` |
 
-### 12.2 Inputs
+### 14.2 Inputs
 
 ```tsx
 <div className="space-y-2">
@@ -680,7 +800,7 @@ Ready-to-use shadcn/ui-aligned patterns with correct token usage.
 <p className="text-status-danger-text text-xs mt-1">Please enter a valid email.</p>
 ```
 
-### 12.3 Cards
+### 14.3 Cards
 
 ```tsx
 {/* Standard card */}
@@ -700,7 +820,7 @@ Ready-to-use shadcn/ui-aligned patterns with correct token usage.
 </div>
 ```
 
-### 12.4 Alerts
+### 14.4 Alerts
 
 ```tsx
 function Alert({ variant = 'info', title, children }) {
@@ -720,7 +840,7 @@ function Alert({ variant = 'info', title, children }) {
 }
 ```
 
-### 12.5 Badges
+### 14.5 Badges
 
 ```tsx
 {/* Solid badge */}
@@ -739,7 +859,7 @@ function Alert({ variant = 'info', title, children }) {
 </span>
 ```
 
-### 12.6 Toast (Dark)
+### 14.6 Toast (Dark)
 
 ```tsx
 <div className="bg-surface-overlay text-inverse rounded-lg px-4 py-3 shadow-lg">
@@ -747,7 +867,7 @@ function Alert({ variant = 'info', title, children }) {
 </div>
 ```
 
-### 12.7 Navigation Header
+### 14.7 Navigation Header
 
 ```tsx
 <header className="h-16 bg-surface-base border-b border-border-subtle flex items-center px-8">
@@ -758,7 +878,7 @@ function Alert({ variant = 'info', title, children }) {
 </header>
 ```
 
-### 12.8 Tabs
+### 14.8 Tabs
 
 ```tsx
 <div className="flex gap-1 border-b border-border-subtle">
@@ -773,7 +893,156 @@ function Alert({ variant = 'info', title, children }) {
 
 ---
 
-## 13. Figma Bridge
+## 15. Interaction & Animation
+
+All transitions use a consistent easing and duration scale. Never use linear easing for UI transitions — it feels mechanical.
+
+### Duration Scale
+
+| Token | Value | Use |
+|---|---|---|
+| `duration/fast` | 100ms | Micro-interactions (button press, checkbox tick) |
+| `duration/base` | 150ms | Default — colour swaps, hover states |
+| `duration/slow` | 250ms | Entrance/exit of panels, dropdowns |
+| `duration/xslow` | 350ms | Page-level transitions, modals |
+
+### Easing
+
+All transitions use `ease-out` (decelerating). This feels natural — things arrive quickly and settle.
+
+```css
+transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+```
+
+```tsx
+{/* Standard hover transition */}
+className="transition-colors duration-150 ease-out"
+
+{/* Dropdown entrance */}
+className="transition-all duration-250 ease-out"
+
+{/* Modal entrance */}
+className="transition-opacity duration-350 ease-out"
+```
+
+### Component Interaction States
+
+| Component | Default | Hover | Focus | Active | Disabled |
+|---|---|---|---|---|---|
+| Primary button | `bg-interactive-primary` | `bg-interactive-primary-hover` | `ring-2 ring-border-focus` | `scale-[0.98]` | `opacity-50 cursor-not-allowed` |
+| Secondary button | `bg-interactive-secondary` | `bg-interactive-secondary-hover` | `ring-2 ring-border-focus` | `scale-[0.98]` | `opacity-50 cursor-not-allowed` |
+| Input | `border-border-default` | `border-border-strong` | `border-border-focus ring-1 ring-border-focus` | — | `border-border-subtle text-disabled` |
+| Nav item | `text-secondary` | `bg-surface-tint text-primary` | `ring-2 ring-border-focus` | `bg-brand-subtle text-interactive-primary` | — |
+| Card (clickable) | `border-border-default` | `border-border-strong shadow-sm` | `ring-2 ring-border-focus` | `scale-[0.99]` | — |
+
+### Rules
+
+```
+✅ Correct:  transition-colors duration-150 for colour-only changes
+✅ Correct:  transition-all duration-250 for panels that grow/shrink
+❌ Wrong:    transition-none — always animate interactive elements
+❌ Wrong:    duration > 400ms for any UI element (use only for illustrations)
+❌ Wrong:    ease-in or linear for hover states
+```
+
+### Status Pulse (Alert Indicators Only)
+
+Use a pulse animation exclusively on status dot indicators when a system requires immediate attention. Never pulse decoratively.
+
+```tsx
+{/* Active alert dot */}
+<span className="relative flex h-2 w-2">
+  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-status-danger opacity-75" />
+  <span className="relative inline-flex rounded-full h-2 w-2 bg-status-danger" />
+</span>
+```
+
+```
+✅ Correct:  pulse on a live system health indicator
+❌ Wrong:    pulse on a static badge or decorative dot
+```
+
+---
+
+## 16. Icons
+
+Valgate uses **Lucide React** as the icon library. Do not mix in Heroicons, Phosphor, or other libraries — inconsistent stroke weights break visual rhythm.
+
+### Lucide Config
+
+```tsx
+import { Home, Users, Settings } from 'lucide-react'
+
+// Always pass explicit size and strokeWidth — never rely on defaults
+<Home size={20} strokeWidth={1.75} />
+```
+
+### Icon Size Scale
+
+| Size | Pixels | Use |
+|---|---|---|
+| `xs` | 14px | Inline text icons, input adornments |
+| `sm` | 16px | Badges, tight UI, table row actions |
+| `md` | 20px | **Default — nav items, buttons, card actions** |
+| `lg` | 24px | Section headers, empty states |
+| `xl` | 32px | Feature icons, onboarding |
+| `2xl` | 48px | Hero / marketing only |
+
+### Stroke Weight
+
+| Context | `strokeWidth` |
+|---|---|
+| All UI icons (default) | `1.75` |
+| Small / tight contexts (14–16px) | `2` |
+| Large display icons (32px+) | `1.5` |
+
+### Colour
+
+Icons inherit text colour. Always control icon colour through the parent's text token — never set a fill or colour directly on an icon.
+
+```tsx
+{/* ✅ Correct — icon inherits text-secondary */}
+<div className="text-secondary flex items-center gap-2">
+  <Settings size={20} strokeWidth={1.75} />
+  <span>Settings</span>
+</div>
+
+{/* ❌ Wrong — hardcoded colour on the icon */}
+<Settings size={20} color="#515D66" />
+```
+
+### Icon + Label Alignment
+
+Always use `flex items-center` with `gap-2` (8px) for icon-label pairs. Never use margin to offset an icon.
+
+```tsx
+{/* ✅ Correct */}
+<button className="flex items-center gap-2 text-sm font-medium text-primary">
+  <Plus size={16} strokeWidth={2} />
+  Add item
+</button>
+
+{/* ❌ Wrong */}
+<button className="text-sm font-medium text-primary">
+  <Plus size={16} className="mr-2" />
+  Add item
+</button>
+```
+
+### Rules
+
+```
+✅ Correct:  Lucide React, size={20}, strokeWidth={1.75} for all UI icons
+✅ Correct:  Icon colour controlled by parent text token
+❌ Wrong:    Mixing Lucide with Heroicons or any other library
+❌ Wrong:    Setting color prop directly on <Icon />
+❌ Wrong:    Using margin instead of gap for icon-label spacing
+❌ Wrong:    Icons without explicit size and strokeWidth props
+```
+
+---
+
+## 17. Figma Bridge
 
 Valgate operates a **code ↔ canvas** workflow. Designs in Figma and implementations in React/Tailwind are mirrors of the same token system. This section provides the essential context for keeping them in sync.
 
@@ -849,7 +1118,7 @@ These colours are used as decorative accents and have no semantic mapping. They 
 **Design → Code (Figma to React):**
 1. Designer builds in Figma using `Valgate 04` semantic tokens
 2. Every fill, stroke, text colour binds to a named token
-3. Developer maps token names to CSS variables / Tailwind classes using this guide (§3–4)
+3. Developer maps token names to CSS variables / Tailwind classes using this guide (§4–5)
 4. If a colour can't be mapped, flag it — it may need a new semantic token
 
 **Code → Design (React to Figma / Code-to-Canvas):**
@@ -868,7 +1137,7 @@ with a high `semantic04` count. The full audit script is maintained in the Figma
 
 ---
 
-## 14. Prohibited Practices
+## 18. Prohibited Practices
 
 These will break dark mode, create inconsistency, or defeat the token system.
 
@@ -903,11 +1172,11 @@ These will break dark mode, create inconsistency, or defeat the token system.
 
 ---
 
-## 15. Checklist
+## 19. Checklist
 
 ### Before You Build
 
-- [ ] Tailwind config has all CSS custom properties from §3
+- [ ] Tailwind config has all CSS custom properties from §4
 - [ ] `font-sans` = Inter, `font-display` = Plus Jakarta Sans
 - [ ] `darkMode: 'class'` configured in Tailwind
 - [ ] Grid wrapper uses `grid grid-cols-12 gap-6`
@@ -930,9 +1199,9 @@ These will break dark mode, create inconsistency, or defeat the token system.
 - [ ] Verify scan line alignment across card rows
 - [ ] Responsive: cards collapse correctly at `md` / `sm` breakpoints
 - [ ] No arbitrary Tailwind values (`[Xpx]`) unless documented exception
-- [ ] Component tokens match the application rules in §4
+- [ ] Component tokens match the application rules in §5
 - [ ] Run a visual diff against the Figma frame if available
 
 ---
 
-*End of Valgate Design System Guide · v1.0 · March 2026*
+*End of Valgate Design System Guide · v1.1 · March 2026*

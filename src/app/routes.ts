@@ -5,20 +5,34 @@ import { PortfolioPage } from "./pages/PortfolioPage";
 import { AnalyticsPage } from "./pages/AnalyticsPage";
 import { SuccessionPage } from "./pages/SuccessionPage";
 import { SettingsPage } from "./pages/SettingsPage";
-import { MapPage } from "./pages/MapPage";
 import { PropertySpatialPage } from "./pages/PropertySpatialPage";
 import { PropertyDocumentsPage } from "./pages/property/PropertyDocumentsPage";
 import { PropertyOwnershipPage } from "./pages/property/PropertyOwnershipPage";
+import { PropertyOverviewPage } from "./pages/property/PropertyOverviewPage";
 import { PropertyRentalPage } from "./pages/property/PropertyRentalPage";
 import { PropertySafetyPage } from "./pages/property/PropertySafetyPage";
 import { PropertyValuationPage } from "./pages/property/PropertyValuationPage";
 import { PropertyOverviewRedirect } from "./pages/property/PropertyOverviewRedirect";
 import { AddPropertyPage } from "./pages/AddPropertyPage";
+import { LoginPage } from "./pages/LoginPage";
+import { RegisterPage } from "./pages/RegisterPage";
+import { ProfilePage } from "./pages/ProfilePage";
 
 export const router = createBrowserRouter([
   {
+    path: "/login",
+    Component: LoginPage,
+  },
+  {
+    path: "/register",
+    Component: RegisterPage,
+  },
+  {
     path: "/",
-    Component: HomePage,
+    Component: ShellLayout,
+    children: [
+      { index: true, Component: HomePage },
+    ],
   },
   {
     path: "/portfolio",
@@ -49,18 +63,11 @@ export const router = createBrowserRouter([
     ],
   },
   {
-    path: "/map",
-    Component: ShellLayout,
-    children: [
-      { index: true, Component: MapPage },
-    ],
-  },
-  {
     path: "/property/:id",
     Component: ShellLayout,
     children: [
       { index: true, Component: PropertyOverviewRedirect },
-      { path: "overview", Component: PropertyOwnershipPage },
+      { path: "overview", Component: PropertyOverviewPage },
       { path: "documents", Component: PropertyDocumentsPage },
       { path: "safety", Component: PropertySafetyPage },
       { path: "spatial", Component: PropertySpatialPage },
@@ -75,6 +82,13 @@ export const router = createBrowserRouter([
     Component: ShellLayout,
     children: [
       { index: true, Component: AddPropertyPage },
+    ],
+  },
+  {
+    path: "/profile",
+    Component: ShellLayout,
+    children: [
+      { index: true, Component: ProfilePage },
     ],
   },
 ]);

@@ -1,345 +1,787 @@
-import { useState } from "react";
-import { useNavigate } from "react-router";
+import { useState, useEffect, useCallback } from "react";
+import { useNavigate, useOutletContext } from "react-router";
 import {
   RefreshCw,
   ZoomIn,
   ZoomOut,
-  StickyNote,
   X,
-  Star,
-  Sun,
-  Moon,
+  ChevronUp,
+  BarChart2,
+  LayoutGrid,
+  Map as MapIcon,
+  Settings,
+  Users,
+  UserCircle,
+  Search,
+  Plus,
+  FileText,
+  Command as CommandIcon,
+  Building,
 } from "lucide-react";
+import { Button } from "../components/ui/button";
 import { ImageWithFallback } from "../components/figma/ImageWithFallback";
+import { cn } from "../components/ui/utils";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+} from "../components/ui/command";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog";
 
-const mapPins = [
-  { id: 1, x: 28, y: 22, label: "Land near river", cluster: false },
-  { id: 2, x: 38, y: 35, label: "Siem Reap Land Plot", cluster: false },
-  { id: 3, x: 45, y: 28, label: "Kampong Chhnang Prop.", cluster: true, count: 2 },
-  { id: 4, x: 52, y: 18, label: "Angkor Property", cluster: false },
-  { id: 5, x: 60, y: 32, label: "Temple View Land", cluster: false },
-  { id: 6, x: 35, y: 45, label: "Central Siem Reap", cluster: true, count: 2 },
-  { id: 7, x: 48, y: 50, label: "Commercial Building", cluster: false },
-  { id: 8, x: 68, y: 25, label: "Prey Veng Agricultural", cluster: false },
-  { id: 9, x: 42, y: 15, label: "Riverside Plot", cluster: false },
-  { id: 10, x: 55, y: 45, label: "Phnom Penh Urban", cluster: false },
+type StatusVariant = "rented" | "vacant";
+type TitleVariant = "hard" | "soft" | "none";
+
+interface Property {
+  id: number;
+  name: string;
+  code: string;
+  type: "Land" | "House" | "Building";
+  province: string;
+  status: "Rented" | "Vacant";
+  statusVariant: StatusVariant;
+  size: string;
+  buy: string;
+  buyNumeric: number;
+  title: string;
+  titleVariant: TitleVariant;
+  health: number;
+  pinX: number;
+  pinY: number;
+}
+
+const properties: Property[] = [
+  { id: 1, name: "Land near river", code: "PP00016 PH", type: "House", province: "Phnom Penh", status: "Rented", statusVariant: "rented", size: "850", buy: "$1,278,000", buyNumeric: 1278000, title: "Hard title", titleVariant: "hard", health: 100, pinX: 28, pinY: 40 },
+  { id: 2, name: "Siem Reap Land Plot", code: "SR00015 Land", type: "Land", province: "Siem Reap", status: "Vacant", statusVariant: "vacant", size: "1,200", buy: "$456,000", buyNumeric: 456000, title: "Soft title", titleVariant: "soft", health: 28, pinX: 60, pinY: 50 },
+  { id: 3, name: "Kampong Chhnang Prop.", code: "KPC00013", type: "Land", province: "Kampong Chhnang", status: "Vacant", statusVariant: "vacant", size: "2,500", buy: "$125,000", buyNumeric: 125000, title: "Hard title", titleVariant: "hard", health: 43, pinX: 38, pinY: 63 },
+  { id: 4, name: "Angkor Property", code: "SR00007 Land", type: "Land", province: "Siem Reap", status: "Vacant", statusVariant: "vacant", size: "900", buy: "$234,000", buyNumeric: 234000, title: "Soft title", titleVariant: "soft", health: 67, pinX: 55, pinY: 46 },
+  { id: 5, name: "Temple View Land", code: "SR00006 Land", type: "Land", province: "Siem Reap", status: "Vacant", statusVariant: "vacant", size: "1,100", buy: "$345,000", buyNumeric: 345000, title: "Hard title", titleVariant: "hard", health: 82, pinX: 68, pinY: 36 },
+  { id: 6, name: "Central Siem Reap", code: "SR00005 Land", type: "Land", province: "Siem Reap", status: "Rented", statusVariant: "rented", size: "750", buy: "$567,000", buyNumeric: 567000, title: "Hard title", titleVariant: "hard", health: 95, pinX: 52, pinY: 68 },
+  { id: 7, name: "Commercial Building", code: "SR00004 Building", type: "Building", province: "Siem Reap", status: "Rented", statusVariant: "rented", size: "450", buy: "$890,000", buyNumeric: 890000, title: "Hard title", titleVariant: "hard", health: 88, pinX: 45, pinY: 33 },
+  { id: 8, name: "Prey Veng Agricultural", code: "PV00002 Land", type: "Land", province: "Prey Veng", status: "Vacant", statusVariant: "vacant", size: "5,000", buy: "$180,000", buyNumeric: 180000, title: "Soft title", titleVariant: "soft", health: 34, pinX: 42, pinY: 56 },
+  { id: 9, name: "BKK1 Land", code: "PP00032 Land", type: "Land", province: "Phnom Penh", status: "Rented", statusVariant: "rented", size: "480", buy: "$1,450,000", buyNumeric: 1450000, title: "Hard title", titleVariant: "hard", health: 100, pinX: 32, pinY: 48 },
+  { id: 10, name: "Phnom Penh Urban", code: "PP00033 Land", type: "Land", province: "Phnom Penh", status: "Vacant", statusVariant: "vacant", size: "600", buy: "$980,000", buyNumeric: 980000, title: "Hard title", titleVariant: "hard", health: 75, pinX: 48, pinY: 60 },
 ];
 
-const properties = [
-  {
-    id: 1,
-    name: "Land near river",
-    code: "PP00016 PH",
-    type: "House",
-    typeColor: "#0284C7",
-    typeBg: "#ECFDF5",
-    province: "Phnom Penh",
-    status: "Rented",
-    statusColor: "#059669",
-    statusBg: "#ECFDF5",
-    size: "850",
-    buy: "$1,278,000",
-    title: "Hard title",
-    titleColor: "#2563EB",
-    health: 100,
-    healthColor: "#059669",
-  },
-  {
-    id: 2,
-    name: "Siem Reap Land Plot",
-    code: "SR00015 Land",
-    type: "Land",
-    typeColor: "#0284C7",
-    typeBg: "#ECFDF5",
-    province: "Siem Reap",
-    status: "Vacant",
-    statusColor: "#F59E0B",
-    statusBg: "#FFFBEB",
-    size: "1,200",
-    buy: "$456,000",
-    title: "Soft title",
-    titleColor: "#F59E0B",
-    health: 28,
-    healthColor: "#E11D48",
-  },
+const portfolioStats = {
+  totalProperties: properties.length,
+  totalValue: properties.reduce((sum, p) => sum + p.buyNumeric, 0),
+  rentedCount: properties.filter((p) => p.statusVariant === "rented").length,
+  vacantCount: properties.filter((p) => p.statusVariant === "vacant").length,
+  avgHealth: Math.round(
+    properties.reduce((sum, p) => sum + p.health, 0) / properties.length,
+  ),
+};
+
+function formatCurrency(value: number): string {
+  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(2)}M`;
+  if (value >= 1_000) return `$${(value / 1_000).toFixed(0)}K`;
+  return `$${value}`;
+}
+
+const statusClasses: Record<StatusVariant, string> = {
+  rented:
+    "text-status-success-text bg-status-success-bg border border-status-success-border",
+  vacant:
+    "text-status-warning-text bg-status-warning-bg border border-status-warning-border",
+};
+
+const titleClasses: Record<TitleVariant, string> = {
+  hard: "text-interactive-primary",
+  soft: "text-status-warning-text",
+  none: "text-secondary",
+};
+
+function healthClass(health: number) {
+  if (health >= 75) return "text-status-success-text";
+  if (health >= 40) return "text-status-warning-text";
+  return "text-status-danger-text";
+}
+
+const triggerPlaceholders = [
+  "Search properties, documents, tenants...",
+  "Find: Phnom Penh land plots",
+  "Find: Q1 2026 valuation report",
+  "Find: Hard title properties",
+  "Find: Vacant properties in Siem Reap",
 ];
+
 
 export function HomePage() {
   const [selectedPin, setSelectedPin] = useState<number | null>(null);
-  const [isDark, setIsDark] = useState(true);
+  const [hoveredProperty, setHoveredProperty] = useState<number | null>(null);
+  const [tableOpen, setTableOpen] = useState(false);
+  const [tableOpenCount, setTableOpenCount] = useState(0);
+  const [commandOpen, setCommandOpen] = useState(false);
+  const [placeholderIdx, setPlaceholderIdx] = useState(0);
+  const [placeholderVisible, setPlaceholderVisible] = useState(true);
+  const [mapLoaded, setMapLoaded] = useState(false);
   const navigate = useNavigate();
+  const { isDark } = useOutletContext<{ isDark: boolean }>();
 
-  const bgClass = isDark
-    ? "bg-[#0F1117]"
-    : "bg-[#F5F6F7]";
-  const textClass = isDark ? "text-white" : "text-[#14181B]";
-  const subtextClass = isDark ? "text-[#8591A0]" : "text-[#515D66]";
-  const cardBg = isDark
-    ? "bg-[rgba(17,20,32,0.85)] border-[rgba(255,255,255,0.1)]"
-    : "bg-[rgba(255,255,255,0.85)] border-[rgba(255,255,255,0.55)]";
-  const navBg = isDark
-    ? "bg-[rgba(17,20,32,0.65)] border-[rgba(255,255,255,0.15)]"
-    : "bg-[rgba(255,255,255,0.42)] border-[rgba(255,255,255,0.55)]";
-  const tableBg = isDark ? "bg-[#111420]" : "bg-white";
-  const tableBorder = isDark ? "border-[#202334]" : "border-[#E8EAED]";
-  const mapOverlay = isDark ? "brightness-[0.3] contrast-[1.2]" : "brightness-[1] contrast-[1]";
+  // Reset loading state when theme changes (different map image)
+  useEffect(() => {
+    setMapLoaded(false);
+  }, [isDark]);
+
+  // Cmd+K / Ctrl+K to open command palette
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        setCommandOpen((open) => !open);
+      }
+    };
+    document.addEventListener("keydown", down);
+    return () => document.removeEventListener("keydown", down);
+  }, []);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setPlaceholderVisible(false);
+      setTimeout(() => {
+        setPlaceholderIdx((i) => (i + 1) % triggerPlaceholders.length);
+        setPlaceholderVisible(true);
+      }, 220);
+    }, 3500);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    if (tableOpen) setTableOpenCount((n) => n + 1);
+  }, [tableOpen]);
+
+  const runCommand = useCallback((command: () => void) => {
+    setCommandOpen(false);
+    command();
+  }, []);
+
+  const selectedProperty = selectedPin
+    ? properties.find((p) => p.id === selectedPin)
+    : null;
+
+  const mapSrc = isDark
+    ? "https://www.figma.com/api/mcp/asset/f017f7c1-276f-4a70-8b07-668f0298e189"
+    : "https://www.figma.com/api/mcp/asset/75d462a8-ad31-4527-ac36-97967658ac17";
 
   return (
-    <div className={`flex flex-col h-screen w-full ${bgClass} font-['Inter',sans-serif] relative`}>
+    <div className="flex flex-col flex-1 min-w-0 h-full">
+
+      {/* Loading screen */}
+      <div
+        className={cn(
+          "absolute inset-0 z-50 flex flex-col items-center justify-center bg-surface-base gap-4 transition-opacity duration-500",
+          mapLoaded ? "opacity-0 pointer-events-none" : "opacity-100",
+        )}
+        onTransitionEnd={(e) => {
+          if (e.propertyName === "opacity" && mapLoaded) {
+            (e.currentTarget as HTMLElement).style.display = "none";
+          }
+        }}
+      >
+        <div className="flex items-center gap-3">
+          <MapIcon className="size-6 text-interactive-primary animate-pulse" />
+          <span className="text-sm font-medium text-secondary">Loading map…</span>
+        </div>
+        <div className="w-48 h-1 rounded-full bg-surface-sunken overflow-hidden">
+          <div className="h-full bg-interactive-primary rounded-full animate-[loading-bar_1.5s_ease-in-out_infinite]" />
+        </div>
+      </div>
+
       {/* Map area */}
       <div className="relative flex-1 overflow-hidden">
         {/* Map background */}
-        <div className={`absolute inset-0 ${mapOverlay}`}>
-          <ImageWithFallback
-            src="https://images.unsplash.com/photo-1645948715176-2641d507050f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxhZXJpYWwlMjBtYXAlMjBwaG5vbSUyMHBlbmglMjBjaXR5fGVufDF8fHx8MTc3MzczNDYxOHww&ixlib=rb-4.1.0&q=80&w=1080"
+        <div className="absolute inset-0">
+          <img
+            src={mapSrc}
             alt="Map"
-            className="w-full h-full object-cover"
+            className={cn(
+              "w-full h-full object-cover object-center pointer-events-none transition-opacity duration-500",
+              mapLoaded ? "opacity-100" : "opacity-0",
+            )}
+            onLoad={() => setMapLoaded(true)}
           />
         </div>
 
-        {/* Top toolbar */}
-        <div className="absolute top-3 left-3 right-3 flex items-center gap-4 z-10">
-          {/* Logo */}
-          <div className="flex items-center gap-2 shrink-0">
-            <div className="w-10 h-[30px] flex items-center justify-center">
-              <svg width="33" height="25" viewBox="0 0 33 25" fill="none">
-                <path d="M8.5 0L0 25h8l4-12.5L16.5 25h8L16 0H8.5Z" fill="#2563EB" />
-              </svg>
-            </div>
-            <span className={`text-[32px] tracking-[0.64px] ${textClass} font-light font-['Helvetica_Neue',sans-serif]`}>
-              Valgate
+        {/* Command Palette Trigger */}
+        <div className={cn(
+          "absolute top-6 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-3 w-[700px] max-w-[calc(100%-3rem)]",
+          mapLoaded ? "[animation:fade-slide-down_0.5s_cubic-bezier(0.16,1,0.3,1)_both]" : "opacity-0",
+        )}>
+          <button
+            onClick={() => setCommandOpen(true)}
+            className={cn(
+              "group w-full bg-surface-base border rounded-2xl shadow-lg flex items-center gap-3 px-5 h-14 text-left transition-all duration-200",
+              commandOpen
+                ? "border-interactive-primary/40 shadow-[0_0_0_4px_rgba(37,99,235,0.12)]"
+                : "border-border-default hover:border-interactive-primary/30 hover:shadow-[0_0_0_4px_rgba(37,99,235,0.06)]",
+            )}
+          >
+            <Search className="size-5 text-secondary shrink-0 group-hover:scale-110 group-hover:text-interactive-primary transition-all duration-200" />
+            <span
+              className={cn(
+                "flex-1 text-sm text-secondary inline-block transition-all duration-200",
+                placeholderVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1",
+              )}
+            >
+              {triggerPlaceholders[placeholderIdx]}
             </span>
-          </div>
+            <div className="flex items-center gap-1 bg-surface-sunken border border-border-default rounded-lg px-2 py-1 shrink-0 group-hover:bg-brand-subtle group-hover:border-interactive-primary/20 transition-all duration-200">
+              <CommandIcon className="size-3 text-secondary" />
+              <span className="text-xs font-medium text-text-disabled">K</span>
+            </div>
+          </button>
 
-          {/* Nav */}
-          <div className="flex-1 flex items-center justify-center gap-2">
-            <button className="bg-primary text-primary-foreground px-4 py-2 rounded-md text-[14px]">
-              Home
-            </button>
-            {["Portfolio", "Map", "Analytics", "Succession"].map((item) => (
+          {/* Quick actions */}
+          <div className="flex items-center gap-3">
+            {[
+              { label: "New Property", icon: Plus, action: () => navigate("/add-property") },
+              { label: "Analytics", icon: BarChart2, action: () => navigate("/analytics") },
+              { label: "Documents", icon: FileText, action: () => setCommandOpen(true) },
+              { label: "Tenants", icon: Users, action: () => navigate("/succession") },
+            ].map(({ label, icon: Icon, action }, i) => (
               <button
-                key={item}
-                onClick={() => {
-                  if (item === "Portfolio") navigate("/portfolio");
-                  else if (item === "Analytics") navigate("/analytics");
-                  else if (item === "Succession") navigate("/succession");
-                }}
-                className={`${navBg} border backdrop-blur-sm px-4 py-2 rounded-md text-[14px] ${subtextClass} shadow-[0px_4px_16px_0px_rgba(0,0,0,0.1)] hover:opacity-80 transition-opacity`}
+                key={label}
+                onClick={action}
+                style={{ animationDelay: `${80 + i * 50}ms` }}
+                className={cn(
+                  "flex items-center gap-2 bg-surface-base border border-border-default rounded-full px-4 py-2 text-sm font-medium text-secondary hover:bg-surface-tint hover:text-foreground hover:-translate-y-0.5 hover:shadow-sm active:translate-y-0 transition-all duration-150",
+                  mapLoaded ? "[animation:fade-slide-up_0.4s_cubic-bezier(0.16,1,0.3,1)_both]" : "opacity-0",
+                )}
               >
-                {item}
+                <Icon className="size-4 shrink-0" />
+                {label}
               </button>
             ))}
           </div>
-
-          {/* Right icons */}
-          <div className="flex items-center gap-3 shrink-0">
-            <IconButton isDark={isDark}><RefreshCw className="w-6 h-6" /></IconButton>
-            <IconButton isDark={isDark}><ZoomIn className="w-6 h-6" /></IconButton>
-            <IconButton isDark={isDark}><ZoomOut className="w-6 h-6" /></IconButton>
-            <IconButton isDark={isDark}><StickyNote className="w-6 h-6" /></IconButton>
-            <button
-              onClick={() => setIsDark(!isDark)}
-              className={`${navBg} border backdrop-blur-sm p-2 rounded-xl shadow-[0px_4px_16px_0px_rgba(0,0,0,0.1)]`}
-            >
-              {isDark ? (
-                <Sun className={`w-6 h-6 ${subtextClass}`} />
-              ) : (
-                <Moon className={`w-6 h-6 ${subtextClass}`} />
-              )}
-            </button>
-          </div>
         </div>
 
-        {/* Left overlay */}
-        <div className="absolute left-10 top-20 z-10">
-          <div className={`${textClass} text-shadow-[0px_4px_8.8px_rgba(0,0,0,0.37)]`}>
-            <h1 className="text-[48px] tracking-[-0.576px] leading-[48px] font-['Inter',sans-serif]" style={{ fontWeight: 800 }}>
-              Jon Doe's
-              <br />
-              Properties
-            </h1>
-          </div>
-          <p className={`mt-2 text-[12px] ${subtextClass} max-w-[223px]`}>
-            Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+        {/* Command Palette Dialog */}
+        <ValgateCmdK
+          open={commandOpen}
+          onOpenChange={setCommandOpen}
+          properties={properties}
+          navigate={(path) => runCommand(() => navigate(path))}
+        />
+
+        {/* Portfolio summary card */}
+        <div className={cn(
+          "absolute left-6 top-44 z-10 bg-glass-panel-fill backdrop-blur-md border border-glass-panel-border rounded-xl p-6 shadow-sm w-72",
+          mapLoaded ? "[animation:fade-slide-left_0.55s_cubic-bezier(0.16,1,0.3,1)_200ms_both]" : "opacity-0",
+        )}>
+          <p className="text-xs uppercase tracking-wider text-secondary font-medium">
+            Portfolio Overview
           </p>
-          <div className="flex gap-3 mt-3">
-            <IconButton isDark={isDark}><RefreshCw className="w-6 h-6" /></IconButton>
-            <IconButton isDark={isDark}><ZoomIn className="w-6 h-6" /></IconButton>
-            <IconButton isDark={isDark}><ZoomOut className="w-6 h-6" /></IconButton>
-            <IconButton isDark={isDark}><StickyNote className="w-6 h-6" /></IconButton>
+          <p className="text-3xl font-bold font-display text-foreground mt-1">
+            {formatCurrency(portfolioStats.totalValue)}
+          </p>
+          <div className="flex items-center gap-4 mt-3 text-sm text-secondary">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-interactive-primary" />
+              {portfolioStats.totalProperties} Properties
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-status-success" />
+              {portfolioStats.rentedCount} Rented
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-status-warning" />
+              {portfolioStats.vacantCount} Vacant
+            </span>
+          </div>
+          <div className="mt-3 pt-3 border-t border-border-subtle">
+            <span className="text-xs text-secondary">Avg Health </span>
+            <span className={cn("text-xs font-medium", healthClass(portfolioStats.avgHealth))}>
+              {portfolioStats.avgHealth}%
+            </span>
           </div>
         </div>
 
         {/* Map pins */}
-        {mapPins.map((pin) => (
+        {properties.map((p, i) => (
           <button
-            key={pin.id}
-            className="absolute z-10 transform -translate-x-1/2 -translate-y-1/2"
-            style={{ left: `${pin.x}%`, top: `${pin.y}%` }}
-            onClick={() => setSelectedPin(selectedPin === pin.id ? null : pin.id)}
+            key={p.id}
+            className="absolute z-10 -translate-x-1/2 -translate-y-1/2 group"
+            style={{ left: `${p.pinX}%`, top: `${p.pinY}%` }}
+            onClick={() =>
+              setSelectedPin(selectedPin === p.id ? null : p.id)
+            }
+            onMouseEnter={() => setHoveredProperty(p.id)}
+            onMouseLeave={() => setHoveredProperty(null)}
           >
-            <div className="relative">
-              <div className="w-5 h-5 bg-primary rounded-full border-2 border-white shadow-lg" />
-              {pin.cluster && (
-                <div className="absolute -top-1 -right-2 bg-[#14181B] text-white text-[12px] w-[17px] h-[17px] rounded-full flex items-center justify-center">
-                  {pin.count}
-                </div>
+            <div
+              className={cn(
+                "w-4 h-4 rounded-full border-2 border-surface-base bg-interactive-primary shadow-lg transition-all duration-200",
+                (selectedPin === p.id || hoveredProperty === p.id) && "scale-150 ring-2 ring-interactive-primary",
               )}
+              style={{
+                animation: (selectedPin === p.id || hoveredProperty === p.id)
+                  ? "pin-beacon 1.8s ease-out infinite"
+                  : mapLoaded
+                    ? `scale-in 0.35s cubic-bezier(0.22,1,0.36,1) ${300 + i * 35}ms both`
+                    : "none",
+                opacity: mapLoaded ? undefined : 0,
+              }}
+            />
+            {/* Hover tooltip */}
+            <div className="absolute left-1/2 -translate-x-1/2 -top-8 opacity-0 group-hover:opacity-100 pointer-events-none bg-glass-panel-fill backdrop-blur-md border border-glass-panel-border rounded px-2 py-1 text-xs text-foreground whitespace-nowrap shadow-sm transition-opacity duration-150">
+              {p.name}
             </div>
           </button>
         ))}
 
-        {/* Right sidebar controls */}
-        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex flex-col gap-3 z-10">
-          <IconButton isDark={isDark}><RefreshCw className="w-6 h-6" /></IconButton>
-          <IconButton isDark={isDark}><RefreshCw className="w-6 h-6" /></IconButton>
-          <IconButton isDark={isDark}><ZoomIn className="w-6 h-6" /></IconButton>
-          <IconButton isDark={isDark}><ZoomOut className="w-6 h-6" /></IconButton>
-          <IconButton isDark={isDark}><StickyNote className="w-6 h-6" /></IconButton>
+        {/* Map controls */}
+        <div className="absolute right-4 bottom-4 flex flex-col gap-2 z-10">
+          <MapIconButton>
+            <ZoomIn className="size-4" />
+          </MapIconButton>
+          <MapIconButton>
+            <ZoomOut className="size-4" />
+          </MapIconButton>
+          <MapIconButton spin>
+            <RefreshCw className="size-4" />
+          </MapIconButton>
         </div>
 
-        {/* Info panel */}
-        {selectedPin && (
-          <div
-            className={`absolute right-16 top-1/4 w-[292px] ${cardBg} border rounded-xl backdrop-blur-sm shadow-[0px_8px_32px_0px_rgba(0,0,0,0.2)] z-20 overflow-hidden`}
-          >
+        {/* Property info panel */}
+        {selectedProperty && (
+          <div key={selectedPin} className="absolute right-4 top-6 w-80 bg-glass-panel-fill backdrop-blur-md border border-glass-panel-border rounded-xl shadow-sm z-20 overflow-hidden [animation:slide-in-right_0.3s_cubic-bezier(0.16,1,0.3,1)_both]">
             <div className="relative">
               <ImageWithFallback
                 src="https://images.unsplash.com/photo-1665691964802-956fc06b93cf?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxsdXh1cnklMjBob3VzZSUyMGRyaXZld2F5JTIwbmlnaHR8ZW58MXx8fHwxNzczNzM0NjE4fDA&ixlib=rb-4.1.0&q=80&w=1080"
-                alt="Property"
-                className="w-full h-[205px] object-cover"
+                alt={selectedProperty.name}
+                className="w-full h-40 object-cover"
               />
-              <button
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => setSelectedPin(null)}
-                className="absolute top-2 right-2 bg-white rounded-full p-2 shadow-md"
+                className="absolute top-2 right-2 bg-glass-icon-btn-fill backdrop-blur-md hover:bg-surface-base rounded-full size-7 shadow-sm border border-glass-icon-btn-border"
               >
-                <X className="w-[9px] h-[9px] text-black" />
-              </button>
+                <X className="size-3 text-foreground" />
+              </Button>
             </div>
-            <div className="p-3">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className={`text-[14px] ${textClass}`}>House in Phnom Penh</p>
-                  <p className={`text-[14px] ${subtextClass}`}>Modern Studio</p>
-                  <p className={`text-[14px] ${subtextClass}`}>1 bed</p>
+            <div className="p-4">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-secondary">{selectedProperty.code}</p>
+                <span
+                  className={cn(
+                    "px-2 py-0.5 rounded text-xs font-medium",
+                    statusClasses[selectedProperty.statusVariant],
+                  )}
+                >
+                  {selectedProperty.status}
+                </span>
+              </div>
+              <p className="text-lg font-semibold text-foreground mt-1">
+                {selectedProperty.name}
+              </p>
+              <p className="text-sm text-secondary">{selectedProperty.province}</p>
+
+              <div className="mt-4 space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-secondary">Buy Price</span>
+                  <span className="font-medium text-foreground">
+                    {selectedProperty.buy}
+                  </span>
                 </div>
-                <div className="flex items-center gap-1">
-                  <Star className={`w-[18px] h-[18px] ${subtextClass}`} fill="currentColor" />
-                  <span className={`text-[14px] ${subtextClass}`}>New</span>
+                <div className="flex justify-between">
+                  <span className="text-secondary">Size</span>
+                  <span className="text-foreground">
+                    {selectedProperty.size} m&sup2;
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-secondary">Title</span>
+                  <span
+                    className={cn(
+                      "font-medium",
+                      titleClasses[selectedProperty.titleVariant],
+                    )}
+                  >
+                    {selectedProperty.title}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-secondary">Health</span>
+                  <span
+                    className={cn(
+                      "flex items-center gap-1 font-medium",
+                      healthClass(selectedProperty.health),
+                    )}
+                  >
+                    <span className="w-2 h-2 rounded-full bg-current" />
+                    {selectedProperty.health}%
+                  </span>
                 </div>
               </div>
-              <div className="mt-1">
-                <p className={`text-[14px] ${subtextClass}`}>$36 for 1 night</p>
-                <p className={`text-[10px] ${subtextClass}`}>Free cancellation</p>
-              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full mt-4"
+                onClick={() => navigate(`/property/${selectedProperty.id}`)}
+              >
+                View Details
+              </Button>
             </div>
           </div>
         )}
       </div>
 
       {/* Properties table */}
-      <div className={`${tableBg} border-t ${tableBorder} px-6 py-4`}>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className={`text-[20px] ${textClass} font-['Plus_Jakarta_Sans',sans-serif]`} style={{ fontWeight: 600 }}>
-            Properties
-          </h2>
-          <button
-            onClick={() => navigate("/portfolio")}
-            className={`border ${tableBorder} rounded-lg px-4 py-2 text-[14px] ${textClass} hover:bg-accent/50 transition-colors`}
-          >
-            Full List
-          </button>
+      <div className="bg-surface-base border-t border-border-default shrink-0">
+        {/* Drag handle affordance */}
+        <div
+          className="flex justify-center pt-2 pb-1 cursor-pointer group"
+          onClick={() => setTableOpen(!tableOpen)}
+        >
+          <div className="w-10 h-1 rounded-full bg-border-default group-hover:bg-border-strong transition-colors duration-150" />
         </div>
 
-        <table className="w-full text-[14px]">
-          <thead>
-            <tr className={`border-b ${tableBorder}`}>
-              <th className="text-left py-3 px-4 w-8">
-                <input type="checkbox" className="rounded" />
-              </th>
-              <th className={`text-left py-3 px-4 text-[12px] ${subtextClass} tracking-[0.012px]`}>#</th>
-              <th className={`text-left py-3 px-4 text-[12px] ${subtextClass} tracking-[0.012px]`}>Property</th>
-              <th className={`text-left py-3 px-4 text-[12px] ${subtextClass} tracking-[0.012px]`}>Type</th>
-              <th className={`text-left py-3 px-4 text-[12px] ${subtextClass} tracking-[0.012px]`}>Province</th>
-              <th className={`text-left py-3 px-4 text-[12px] ${subtextClass} tracking-[0.012px]`}>Status</th>
-              <th className={`text-left py-3 px-4 text-[12px] ${subtextClass} tracking-[0.012px]`}>Size</th>
-              <th className={`text-left py-3 px-4 text-[12px] ${subtextClass} tracking-[0.012px]`}>Buy</th>
-              <th className={`text-left py-3 px-4 text-[12px] ${subtextClass} tracking-[0.012px]`}>Title</th>
-              <th className={`text-left py-3 px-4 text-[12px] ${subtextClass} tracking-[0.012px]`}>Health</th>
-            </tr>
-          </thead>
-          <tbody>
-            {properties.map((p, i) => (
-              <tr key={p.id} className={`border-b ${tableBorder} hover:bg-accent/30 transition-colors cursor-pointer`}>
-                <td className="py-3 px-4">
-                  <input type="checkbox" className="rounded" />
-                </td>
-                <td className={`py-3 px-4 ${subtextClass}`}>{i + 1}</td>
-                <td className="py-3 px-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-muted rounded-xl shrink-0" />
-                    <div>
-                      <p className={`${textClass}`}>{p.name}</p>
-                      <p className={`text-[12px] ${subtextClass}`}>{p.code}</p>
-                    </div>
-                  </div>
-                </td>
-                <td className="py-3 px-4">
-                  <span
-                    className="px-2 py-0.5 rounded-lg text-[12px]"
-                    style={{ backgroundColor: p.typeBg, color: p.typeColor }}
+        <div className="flex items-center justify-between px-6 py-3">
+          <h2 className="text-xl font-semibold font-display text-foreground">
+            Properties
+          </h2>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate("/portfolio")}
+            >
+              Full List
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setTableOpen(!tableOpen)}
+            >
+              <ChevronUp
+                className={cn(
+                  "size-4 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
+                  tableOpen ? "rotate-180" : "rotate-0",
+                )}
+              />
+            </Button>
+          </div>
+        </div>
+
+        {/* Accordion wrapper — grid-rows trick for smooth open/close */}
+        <div
+          className={cn(
+            "grid transition-[grid-template-rows] duration-400 ease-[cubic-bezier(0.16,1,0.3,1)]",
+            tableOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+          )}
+        >
+          <div className="overflow-hidden">
+            <table className="w-full text-sm px-6" style={{ margin: "0 0 1rem" }}>
+              <thead>
+                <tr className="border-b border-border-subtle">
+                  <th className="text-left py-3 px-4 w-8">
+                    <input type="checkbox" className="rounded" />
+                  </th>
+                  {[
+                    "#",
+                    "Property",
+                    "Type",
+                    "Province",
+                    "Status",
+                    "Size",
+                    "Buy",
+                    "Title",
+                    "Health",
+                  ].map((col) => (
+                    <th
+                      key={col}
+                      className="text-left py-3 px-4 text-xs font-medium text-secondary tracking-wide"
+                    >
+                      {col}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody key={tableOpenCount}>
+                {properties.map((p, i) => (
+                  <tr
+                    key={p.id}
+                    onClick={() => navigate(`/property/${p.id}`)}
+                    onMouseEnter={() => setHoveredProperty(p.id)}
+                    onMouseLeave={() => setHoveredProperty(null)}
+                    style={{ animationDelay: `${i * 40}ms` }}
+                    className={cn(
+                      "border-b border-border-subtle transition-colors cursor-pointer [animation:fade-slide-up_0.3s_cubic-bezier(0.16,1,0.3,1)_both]",
+                      hoveredProperty === p.id
+                        ? "bg-surface-tint"
+                        : "hover:bg-surface-tint",
+                    )}
                   >
-                    {p.type}
-                  </span>
-                </td>
-                <td className={`py-3 px-4 ${subtextClass}`}>{p.province}</td>
-                <td className="py-3 px-4">
-                  <span
-                    className="px-2 py-0.5 rounded-lg text-[12px] text-white"
-                    style={{ backgroundColor: p.statusColor }}
-                  >
-                    {p.status}
-                  </span>
-                </td>
-                <td className={`py-3 px-4 ${subtextClass}`}>
-                  {p.size} m<sup>2</sup>
-                </td>
-                <td className={`py-3 px-4 ${textClass}`}>{p.buy}</td>
-                <td className="py-3 px-4">
-                  <span className="text-[12px]" style={{ color: p.titleColor }}>
-                    {p.title}
-                  </span>
-                </td>
-                <td className="py-3 px-4">
-                  <span className="flex items-center gap-1">
-                    <span
-                      className="w-2 h-2 rounded-full"
-                      style={{ backgroundColor: p.healthColor }}
-                    />
-                    <span style={{ color: p.healthColor }} className="text-[14px]">
-                      {p.health}%
-                    </span>
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                    <td className="py-3 px-4">
+                      <input
+                        type="checkbox"
+                        className="rounded"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </td>
+                    <td className="py-3 px-4 text-secondary">{i + 1}</td>
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 bg-surface-sunken rounded-xl shrink-0" />
+                        <div>
+                          <p className="text-sm font-medium text-foreground">
+                            {p.name}
+                          </p>
+                          <p className="text-xs text-secondary">{p.code}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className="px-2 py-0.5 rounded text-xs font-medium text-interactive-primary bg-brand-subtle">
+                        {p.type}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-secondary text-sm">
+                      {p.province}
+                    </td>
+                    <td className="py-3 px-4">
+                      <span
+                        className={cn(
+                          "px-2 py-0.5 rounded text-xs font-medium",
+                          statusClasses[p.statusVariant],
+                        )}
+                      >
+                        {p.status}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-secondary text-sm">
+                      {p.size} m<sup>2</sup>
+                    </td>
+                    <td className="py-3 px-4 text-sm font-medium text-foreground">
+                      {p.buy}
+                    </td>
+                    <td className="py-3 px-4">
+                      <span
+                        className={cn(
+                          "text-xs font-medium",
+                          titleClasses[p.titleVariant],
+                        )}
+                      >
+                        {p.title}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4">
+                      <span
+                        className={cn(
+                          "flex items-center gap-1",
+                          healthClass(p.health),
+                        )}
+                      >
+                        <span className="w-2 h-2 rounded-full bg-current" />
+                        <span className="text-sm">{p.health}%</span>
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
-function IconButton({ children, isDark }: { children: React.ReactNode; isDark: boolean }) {
-  const bg = isDark
-    ? "bg-[rgba(17,20,32,0.65)] border-[rgba(255,255,255,0.15)]"
-    : "bg-[rgba(255,255,255,0.42)] border-[rgba(255,255,255,0.55)]";
-  const text = isDark ? "text-[#8591A0]" : "text-[#515D66]";
+function MapIconButton({
+  children,
+  onClick,
+  spin,
+}: {
+  children: React.ReactNode;
+  onClick?: () => void;
+  spin?: boolean;
+}) {
   return (
     <button
-      className={`${bg} border backdrop-blur-sm p-2 rounded-xl shadow-[0px_4px_16px_0px_rgba(0,0,0,0.1)] ${text} hover:opacity-80 transition-opacity`}
+      onClick={onClick}
+      className={cn(
+        "bg-glass-icon-btn-fill backdrop-blur-md border border-glass-icon-btn-border rounded-lg p-2 shadow-sm text-secondary hover:bg-surface-base hover:text-foreground hover:scale-110 active:scale-95 transition-all duration-150 [&_svg]:transition-transform [&_svg]:duration-300",
+        spin && "hover:[&_svg]:rotate-180",
+      )}
     >
       {children}
     </button>
+  );
+}
+
+function ValgateCmdK({
+  open,
+  onOpenChange,
+  properties,
+  navigate,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  properties: Property[];
+  navigate: (path: string) => void;
+}) {
+  const mockDocs = [
+    { id: "doc-1", name: "Land near river - Lease Agreement.pdf", type: "pdf" as const, modified: "2 days ago" },
+    { id: "doc-2", name: "Siem Reap Land Plot - Title Deed.pdf", type: "pdf" as const, modified: "1 week ago" },
+    { id: "doc-3", name: "Maintenance Log - Commercial Building", type: "doc" as const, modified: "3 days ago" },
+    { id: "doc-4", name: "Portfolio Valuation Report Q1 2026", type: "doc" as const, modified: "5 days ago" },
+  ];
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="overflow-hidden p-0 sm:max-w-2xl top-[20%] translate-y-0 gap-0 rounded-xl border-border-default bg-surface-base shadow-[0_0_40px_-10px_rgba(37,99,235,0.3)] [&>button:last-child]:hidden [animation:cmd-open_0.22s_cubic-bezier(0.16,1,0.3,1)_both]">
+        <DialogHeader className="sr-only">
+          <DialogTitle>Command Palette</DialogTitle>
+          <DialogDescription>Search your portfolio — properties, documents, and navigation</DialogDescription>
+        </DialogHeader>
+        <Command className="bg-surface-base text-foreground [&_[cmdk-group-heading]]:text-secondary [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:tracking-wide [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:px-5 [&_[cmdk-group-heading]]:py-2 [&_[data-slot=command-input-wrapper]]:h-16 [&_[data-slot=command-input-wrapper]]:px-5 [&_[data-slot=command-input-wrapper]]:gap-3 [&_[data-slot=command-input-wrapper]_svg]:size-5">
+          <CommandInput
+            placeholder="Search properties, documents, tenants..."
+            className="h-16 text-base placeholder:text-secondary"
+          />
+          <CommandList className="max-h-96">
+            <CommandEmpty className="py-10 text-center">
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-surface-sunken flex items-center justify-center">
+                  <Search className="size-4 text-secondary" />
+                </div>
+                <p className="text-sm text-secondary">No matching properties or documents found.</p>
+              </div>
+            </CommandEmpty>
+
+            {/* Properties */}
+            <CommandGroup heading="Properties">
+              {properties.slice(0, 5).map((p, i) => (
+                <CommandItem
+                  key={p.id}
+                  value={`${p.name} ${p.code} ${p.province}`}
+                  onSelect={() => navigate(`/property/${p.id}`)}
+                  className="gap-3 pl-5 pr-4 py-3 border-l-4 border-transparent data-[selected=true]:border-interactive-primary data-[selected=true]:bg-brand-subtle [animation:cmd-item-in_0.18s_cubic-bezier(0.16,1,0.3,1)_both]"
+                  style={{ animationDelay: `${i * 35}ms` }}
+                >
+                  <div className="size-8 rounded-lg bg-surface-sunken flex items-center justify-center shrink-0">
+                    <Building className="size-4 text-secondary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-foreground truncate">{p.name}</p>
+                    <div className="flex items-center justify-between gap-2 mt-0.5">
+                      <p className="text-xs text-secondary flex items-center gap-1.5 truncate">
+                        <span className={cn("w-1.5 h-1.5 rounded-full bg-current shrink-0", healthClass(p.health))} />
+                        {p.type} · {p.province}
+                      </p>
+                      <span className="text-xs font-mono font-medium text-foreground/60 shrink-0">{p.buy}</span>
+                    </div>
+                  </div>
+                  <span className={cn(
+                    "px-2 py-0.5 rounded text-xs font-medium shrink-0",
+                    statusClasses[p.statusVariant],
+                  )}>
+                    {p.status}
+                  </span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+
+            <CommandSeparator className="bg-border-subtle" />
+
+            {/* Documents */}
+            <CommandGroup heading="Documents">
+              {mockDocs.map((doc, i) => (
+                <CommandItem
+                  key={doc.id}
+                  value={doc.name}
+                  onSelect={() => navigate("/portfolio")}
+                  className="gap-3 pl-5 pr-4 py-3 border-l-4 border-transparent data-[selected=true]:border-interactive-primary data-[selected=true]:bg-brand-subtle [animation:cmd-item-in_0.18s_cubic-bezier(0.16,1,0.3,1)_both]"
+                  style={{ animationDelay: `${i * 35}ms` }}
+                >
+                  <div className={cn(
+                    "size-8 rounded-lg flex items-center justify-center shrink-0",
+                    doc.type === "pdf" ? "bg-status-danger-bg" : "bg-status-info-bg",
+                  )}>
+                    <FileText className={cn(
+                      "size-4",
+                      doc.type === "pdf" ? "text-status-danger-text" : "text-status-info-text",
+                    )} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-foreground truncate">{doc.name}</p>
+                    <p className="text-xs text-secondary flex items-center gap-1.5">
+                      <span className="uppercase font-medium tracking-wide text-[10px] text-text-disabled">{doc.type}</span>
+                      <span className="text-text-disabled">·</span>
+                      Updated {doc.modified}
+                    </p>
+                  </div>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+
+            <CommandSeparator className="bg-border-subtle" />
+
+            {/* Navigate */}
+            <CommandGroup heading="Navigate">
+              {[
+                { label: "Add Property", icon: Plus, path: "/add-property" },
+                { label: "Analytics", icon: BarChart2, path: "/analytics" },
+                { label: "All Properties", icon: LayoutGrid, path: "/portfolio" },
+                { label: "Map View", icon: MapIcon, path: "/map" },
+                { label: "Succession Planning", icon: Users, path: "/succession" },
+                { label: "Settings", icon: Settings, path: "/settings" },
+                { label: "Profile", icon: UserCircle, path: "/profile" },
+              ].map(({ label, icon: Icon, path }, i) => (
+                <CommandItem
+                  key={path}
+                  value={label}
+                  onSelect={() => navigate(path)}
+                  className="gap-3 pl-5 pr-4 py-3 border-l-4 border-transparent data-[selected=true]:border-interactive-primary data-[selected=true]:bg-brand-subtle [animation:cmd-item-in_0.18s_cubic-bezier(0.16,1,0.3,1)_both]"
+                  style={{ animationDelay: `${i * 30}ms` }}
+                >
+                  <div className="size-8 rounded-lg bg-brand-subtle flex items-center justify-center shrink-0">
+                    <Icon className="size-4 text-interactive-primary" />
+                  </div>
+                  <span className="text-sm font-medium">{label}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+
+          {/* Footer */}
+          <div className="flex items-center justify-between px-5 py-3 border-t border-border-default bg-[#f8f9ff]">
+            <div className="flex items-center gap-1.5 text-[11px] text-secondary">
+              {["↑", "↓"].map((k) => (
+                <kbd key={k} className="bg-surface-base border border-border-default rounded px-1.5 py-0.5 font-medium text-secondary text-[11px]">
+                  {k}
+                </kbd>
+              ))}
+              <span>to navigate</span>
+              <span className="text-text-disabled mx-1">·</span>
+              <kbd className="bg-surface-base border border-border-default rounded px-1.5 py-0.5 font-medium text-secondary text-[11px]">
+                Enter
+              </kbd>
+              <span>to open</span>
+              <span className="text-text-disabled mx-1">·</span>
+              <kbd className="bg-surface-base border border-border-default rounded px-1.5 py-0.5 font-medium text-secondary text-[11px]">
+                Esc
+              </kbd>
+              <span>to dismiss</span>
+            </div>
+            <span className="text-[10px] font-semibold text-interactive-primary tracking-widest uppercase opacity-60">
+              Valgate Search
+            </span>
+          </div>
+        </Command>
+      </DialogContent>
+    </Dialog>
   );
 }

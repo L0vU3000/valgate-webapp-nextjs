@@ -136,7 +136,7 @@ export function AddPropertyPage() {
 
       {/* Step 0: Title only */}
       {step === 0 && (
-        <div className="px-8 pt-8 shrink-0">
+        <div className="px-8 pt-8 pb-[77px] shrink-0">
           <div className="max-w-[1160px] mx-auto">
             <h1 className="text-[30px] text-[#6B7684] font-['Plus_Jakarta_Sans',sans-serif]" style={{ fontWeight: 600 }}>
               Add New Property
