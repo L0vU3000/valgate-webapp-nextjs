@@ -32,7 +32,7 @@ const SESSIONS = [
 ];
  
 const FILTERS = ["All", "Documents", "Charts", "Legal"];
-
+  
 function AIAvatar() {
   return (
     <div className="ai-glass-avatar size-8 rounded-lg bg-interactive-primary flex items-center justify-center shrink-0">
