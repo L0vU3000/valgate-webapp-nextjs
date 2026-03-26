@@ -17,6 +17,7 @@ import { AddPropertyPage } from "./pages/AddPropertyPage";
 import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { ProfilePage } from "./pages/ProfilePage";
+import { RentalDashboardPage } from "./pages/RentalDashboardPage";
 
 export const router = createBrowserRouter([
   {
@@ -60,6 +61,13 @@ export const router = createBrowserRouter([
     Component: ShellLayout,
     children: [
       { index: true, Component: SettingsPage },
+    ],
+  },
+  {
+    path: "/rental",
+    Component: ShellLayout,
+    children: [
+      { index: true, Component: RentalDashboardPage },
     ],
   },
   {

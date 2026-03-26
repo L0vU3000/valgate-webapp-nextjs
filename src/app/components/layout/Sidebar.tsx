@@ -10,12 +10,15 @@ import {
   Settings,
   Sun,
   Moon,
+  Key,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "../ui/utils";
 
 const sidebarNavItems = [
   { label: "Home", path: "/", icon: Home },
   { label: "Portfolio", path: "/portfolio", icon: LayoutGrid },
+  { label: "Rental", path: "/rental", icon: Key },
   { label: "Analytics", path: "/analytics", icon: BarChart2 },
   { label: "Succession", path: "/succession", icon: Users },
   { label: "Settings", path: "/settings", icon: Settings },
@@ -24,9 +27,10 @@ const sidebarNavItems = [
 interface SidebarProps {
   isDark: boolean;
   onToggleDark: () => void;
+  onOpenAI: () => void;
 }
 
-export function Sidebar({ isDark, onToggleDark }: SidebarProps) {
+export function Sidebar({ isDark, onToggleDark, onOpenAI }: SidebarProps) {
   const [expanded, setExpanded] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -105,6 +109,21 @@ export function Sidebar({ isDark, onToggleDark }: SidebarProps) {
             </button>
           );
         })}
+
+        {/* AI Overlay button */}
+        <div className="mt-auto pt-3">
+          <button
+            onClick={onOpenAI}
+            className={cn(
+              "ai-overlay-btn flex items-center gap-2.5 h-[52px] text-sm w-full",
+              expanded ? "rounded-[50px] px-4" : "rounded-[50px] justify-center",
+            )}
+            title={!expanded ? "AI Overlay" : undefined}
+          >
+            <Sparkles className="ai-icon size-5 shrink-0" />
+            {expanded && <span className="font-semibold tracking-wide">AI Overlay</span>}
+          </button>
+        </div>
       </nav>
 
       {/* Dark mode + user avatar */}
