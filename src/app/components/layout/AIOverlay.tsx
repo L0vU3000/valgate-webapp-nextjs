@@ -30,7 +30,7 @@ const SESSIONS = [
   { id: "2", title: "Portfolio Review Q3" },
   { id: "3", title: "Archived Agreements", archived: true },
 ];
-
+ 
 const FILTERS = ["All", "Documents", "Charts", "Legal"];
 
 function AIAvatar() {
