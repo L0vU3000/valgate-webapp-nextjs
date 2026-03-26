@@ -65,9 +65,9 @@ export function AIOverlay({ open, onClose }: AIOverlayProps) {
         className="absolute inset-0 animate-[backdrop-frost_0.35s_ease-out_both]"
         onClick={onClose}
         style={{
-          background: "radial-gradient(ellipse at 50% 30%, rgba(37,99,235,0.06), rgba(0,0,0,0.25) 70%)",
-          backdropFilter: "blur(20px) saturate(1.2)",
-          WebkitBackdropFilter: "blur(20px) saturate(1.2)",
+          background: "radial-gradient(ellipse at 50% 30%, rgba(37,99,235,0.03), rgba(0,0,0,0.08) 70%)",
+          backdropFilter: "blur(4px)",
+          WebkitBackdropFilter: "blur(4px)",
         }}
       />
 
