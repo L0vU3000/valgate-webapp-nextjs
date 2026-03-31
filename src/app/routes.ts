@@ -18,6 +18,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { RentalDashboardPage } from "./pages/RentalDashboardPage";
+import { ProfessionalDirectoryPage } from "./pages/ProfessionalDirectoryPage";
 
 export const router = createBrowserRouter([
   {
@@ -43,6 +44,13 @@ export const router = createBrowserRouter([
     ],
   },
   {
+    path: "/directory",
+    Component: ShellLayout,
+    children: [
+      { index: true, Component: ProfessionalDirectoryPage },
+    ],
+  },
+  {
     path: "/analytics",
     Component: ShellLayout,
     children: [
@@ -50,7 +58,7 @@ export const router = createBrowserRouter([
     ],
   },
   {
-    path: "/succession",
+    path: "/estate-planning",
     Component: ShellLayout,
     children: [
       { index: true, Component: SuccessionPage },

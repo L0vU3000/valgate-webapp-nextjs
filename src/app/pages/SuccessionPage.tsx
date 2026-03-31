@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import {
   AlertTriangle,
   Lock,
@@ -18,7 +18,7 @@ import { cn } from "../components/ui/utils";
 
 const stats = [
   {
-    label: "Portfolio Completion",
+    label: "Plan Completion",
     value: "84.5%",
     sub: null,
     progress: 84.5,
@@ -33,15 +33,15 @@ const stats = [
     accent: false,
   },
   {
-    label: "Total Successors",
+    label: "Named Beneficiaries",
     value: "48",
-    sub: "Verified across 32 properties",
+    sub: "Verified across 32 properties in Cambodia",
     subVariant: "neutral" as const,
     progress: null,
     accent: false,
   },
   {
-    label: "Secure Documents",
+    label: "Protected Documents",
     value: "156",
     sub: "All encrypted & backed up",
     subVariant: "primary" as const,
@@ -77,34 +77,34 @@ const propertyStatusConfig: Record<
 const properties = [
   {
     id: 1,
-    name: "Harrington House",
-    address: "1284 Estate Drive, London",
+    name: "BKK1 Residence",
+    address: "No. 12, Street 302, BKK1, Phnom Penh",
     status: "complete" as PropertyStatus,
-    initials: "HH",
+    initials: "BK",
     color: "#d8e3f4",
   },
   {
     id: 2,
-    name: "Oakwood Villa",
-    address: "45 Oak Lane, Surrey",
+    name: "Tonle Bassac Villa",
+    address: "No. 45, Sothearos Blvd, Chamkarmorn, Phnom Penh",
     status: "pending" as PropertyStatus,
-    initials: "OV",
+    initials: "TB",
     color: "#d8e3f4",
   },
   {
     id: 3,
-    name: "Riverview Loft",
-    address: "Unit 402, Docklands",
+    name: "Mekong View Loft",
+    address: "Unit 14, Sisowath Quay, Daun Penh, Phnom Penh",
     status: "action" as PropertyStatus,
-    initials: "RL",
+    initials: "MV",
     color: "#d8e3f4",
   },
   {
     id: 4,
-    name: "The Gables",
-    address: "22 Heritage Row",
+    name: "Kampot Heritage House",
+    address: "No. 8, River Road, Kampot",
     status: "draft" as PropertyStatus,
-    initials: "TG",
+    initials: "KH",
     color: "#d8e3f4",
   },
 ];
@@ -113,24 +113,24 @@ type SuccessorRole = "primary" | "contingent";
 
 const successors = [
   {
-    initials: "EH",
-    name: "Eleanor Harrington",
+    initials: "SC",
+    name: "Sophea Chan",
     relation: "Spouse",
     role: "primary" as SuccessorRole,
     share: "75.00%",
     verified: true,
   },
   {
-    initials: "JH",
-    name: "Julian Harrington",
+    initials: "DC",
+    name: "Dara Chan",
     relation: "Child",
     role: "contingent" as SuccessorRole,
     share: "12.50%",
     verified: true,
   },
   {
-    initials: "CH",
-    name: "Clara Harrington",
+    initials: "CC",
+    name: "Chenda Chan",
     relation: "Child",
     role: "contingent" as SuccessorRole,
     share: "12.50%",
@@ -145,7 +145,7 @@ const documents = [
     iconBg: "#ffdad6",
   },
   {
-    name: "Succession Deed",
+    name: "Estate Transfer Deed",
     meta: "Sept 05, 2023 • PDF • 1.1 MB",
     iconBg: "#c3c7cd",
   },
@@ -153,21 +153,21 @@ const documents = [
 
 const timeline = [
   {
-    title: "Designation Finalized",
+    title: "Estate Plan Finalized",
     time: "Today, 2:45 PM",
-    desc: "Legal review completed by Sarah Chen, Portfolio Manager.",
+    desc: "Legal review completed by Ratanak Ly, Portfolio Manager.",
     active: true,
   },
   {
-    title: "Successor ID Verified",
+    title: "Beneficiary ID Verified",
     time: "Yesterday, 10:15 AM",
-    desc: "KYC verification approved for Julian Harrington.",
+    desc: "KYC verification approved for Dara Chan.",
     active: false,
   },
   {
     title: "Document Uploaded",
     time: "Oct 14, 2023",
-    desc: "New 'Succession Deed' signed and archived.",
+    desc: "New 'Estate Transfer Deed' signed and archived.",
     active: false,
   },
 ];
@@ -176,15 +176,18 @@ const timeline = [
 
 function StatCard({
   stat,
+  style,
 }: {
   stat: (typeof stats)[number];
+  style?: React.CSSProperties;
 }) {
   return (
     <div
       className={cn(
-        "relative bg-white border border-[#e8eaed] rounded-xl p-6 flex flex-col gap-2 shadow-sm overflow-hidden",
+        "relative bg-white border border-[#e8eaed] rounded-xl p-6 flex flex-col gap-2 shadow-sm overflow-hidden anim-enter",
         stat.accent && "bg-gradient-to-br from-[rgba(0,74,198,0.05)] to-white",
       )}
+      style={style}
     >
       {stat.accent && (
         <div className="absolute top-[-32px] right-[-32px] size-24 rounded-full bg-[rgba(0,74,198,0.05)]" />
@@ -193,9 +196,9 @@ function StatCard({
       <p className="text-2xl font-semibold text-[#121c28]">{stat.value}</p>
 
       {stat.progress !== null && (
-        <div className="bg-[#d8e3f4] h-1.5 rounded-full w-full">
+        <div className="bg-[#d8e3f4] h-1.5 rounded-full w-full overflow-hidden">
           <div
-            className="bg-[#004ac6] h-1.5 rounded-full"
+            className="bg-[#004ac6] h-1.5 rounded-full anim-progress"
             style={{ width: `${stat.progress}%` }}
           />
         </div>
@@ -242,10 +245,10 @@ function PropertyCard({
     <button
       onClick={onClick}
       className={cn(
-        "w-full text-left border border-[#e8eaed] rounded-xl p-4 flex gap-4 items-start transition-all",
+        "w-full text-left border border-[#e8eaed] rounded-xl p-4 flex gap-4 items-start transition-all duration-200",
         isActive
-          ? "bg-white shadow-md"
-          : "bg-white/50 hover:bg-white/80",
+          ? "bg-white shadow-md -translate-y-px"
+          : "bg-white/50 hover:bg-white/80 hover:-translate-y-px hover:shadow-sm",
       )}
     >
       {/* Property thumbnail */}
@@ -305,13 +308,13 @@ export function SuccessionPage() {
       <div className="max-w-[1280px] mx-auto flex flex-col gap-8">
 
         {/* ── Header ── */}
-        <div className="flex items-end justify-between">
+        <div className="flex items-end justify-between anim-enter" style={{ animationDelay: '0ms' }}>
           <div className="flex flex-col gap-1">
             <h1 className="text-[30px] font-bold font-['Plus_Jakarta_Sans',sans-serif] text-[#121c28] leading-[36px]">
-              Succession Planning
+              Estate Planning
             </h1>
             <p className="text-base text-[#434655]">
-              Manage asset transitions and beneficiary assignments across your portfolio.
+              Protect what matters most — plan how your properties pass to the people you love.
             </p>
           </div>
           <div className="flex items-center gap-3 shrink-0">
@@ -328,8 +331,12 @@ export function SuccessionPage() {
 
         {/* ── Stats Grid ── */}
         <div className="grid grid-cols-4 gap-6">
-          {stats.map((stat) => (
-            <StatCard key={stat.label} stat={stat} />
+          {stats.map((stat, i) => (
+            <StatCard
+              key={stat.label}
+              stat={stat}
+              style={{ animationDelay: `${80 + i * 55}ms` }}
+            />
           ))}
         </div>
 
@@ -337,7 +344,7 @@ export function SuccessionPage() {
         <div className="grid grid-cols-12 gap-8 items-start">
 
           {/* Left: Property List */}
-          <div className="col-span-4 flex flex-col gap-4">
+          <div className="col-span-4 flex flex-col gap-4 anim-enter" style={{ animationDelay: '300ms' }}>
             <div className="flex items-center justify-between px-2">
               <span className="text-xs font-semibold uppercase tracking-[0.7px] text-[#737686]">
                 Properties
@@ -358,35 +365,35 @@ export function SuccessionPage() {
           </div>
 
           {/* Right: Detail Panel */}
-          <div className="col-span-8">
+          <div className="col-span-8 anim-enter-right" style={{ animationDelay: '360ms' }}>
             <div className="bg-white border border-[#e8eaed] rounded-2xl shadow-xl overflow-hidden">
 
               {/* Panel Header */}
-              <div className="border-b border-[#e8eaed] px-8 py-6 flex flex-col gap-4">
+              <div key={`ph-${selectedProperty}`} className="border-b border-[#e8eaed] px-8 py-6 flex flex-col gap-4 anim-enter">
                 <div>
                   <h2 className="text-2xl font-bold font-['Plus_Jakarta_Sans',sans-serif] text-[#121c28]">
                     {property.name}{" "}
-                    <span className="font-semibold text-[#c3c6d7]">Succession Plan</span>
+                    <span className="font-semibold text-[#c3c6d7]">Estate Plan</span>
                   </h2>
                   <p className="text-sm text-[#434655] mt-1">Last updated: Oct 14, 2023</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <button className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#c3c6d7] text-sm font-medium text-[#121c28] hover:bg-[#f8f9ff] transition-colors">
+                  <button className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#c3c6d7] text-sm font-medium text-[#121c28] hover:bg-[#f8f9ff] transition-all duration-150 hover:scale-[1.02] active:scale-[0.97]">
                     <Download className="size-3.5" />
                     Download Summary
                   </button>
-                  <button className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#c3c6d7] text-sm font-medium text-[#121c28] hover:bg-[#f8f9ff] transition-colors">
+                  <button className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#c3c6d7] text-sm font-medium text-[#121c28] hover:bg-[#f8f9ff] transition-all duration-150 hover:scale-[1.02] active:scale-[0.97]">
                     <UserPlus className="size-3.5" />
-                    Add Successor
+                    Add Beneficiary
                   </button>
-                  <button className="px-4 py-2 rounded-lg bg-[#004ac6] text-sm font-medium text-white hover:bg-[#003a9e] shadow-sm transition-colors">
+                  <button className="px-4 py-2 rounded-lg bg-[#004ac6] text-sm font-medium text-white hover:bg-[#003a9e] shadow-sm transition-all duration-150 hover:scale-[1.02] active:scale-[0.97] hover:shadow-md">
                     Review All
                   </button>
                 </div>
               </div>
 
               {/* Panel Body */}
-              <div className="p-8 flex flex-col gap-8">
+              <div key={`pb-${selectedProperty}`} className="p-8 flex flex-col gap-8 anim-enter" style={{ animationDelay: '40ms' }}>
 
                 {/* Status Bar */}
                 <div className="bg-[#eef4ff] border border-[rgba(195,198,215,0.3)] rounded-xl p-6 flex flex-col gap-4">
@@ -395,13 +402,13 @@ export function SuccessionPage() {
                       <p className="text-xs font-semibold uppercase tracking-[1.2px] text-[#434655]">Status</p>
                       <div className="flex items-center gap-2">
                         <CheckCircle2 className="size-5 text-[#059669]" />
-                        <span className="text-lg font-semibold text-[#059669]">Ready for Execution</span>
+                        <span className="text-lg font-semibold text-[#059669]">Plan Finalized</span>
                       </div>
                     </div>
                     <span className="text-sm font-semibold text-[#121c28]">100% Finalized</span>
                   </div>
                   <div className="bg-[#e8eaed] h-3 rounded-full w-full overflow-hidden">
-                    <div className="bg-[#059669] h-full rounded-full w-full" />
+                    <div className="bg-[#059669] h-full rounded-full w-full anim-progress" style={{ animationDelay: '120ms' }} />
                   </div>
                 </div>
 
@@ -409,7 +416,7 @@ export function SuccessionPage() {
                 <div className="flex flex-col gap-4">
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-bold font-['Plus_Jakarta_Sans',sans-serif] text-[#121c28]">
-                      Designated Successors
+                      Designated Beneficiaries
                     </h3>
                     <span className="text-xs text-[#434655]">3 total entries</span>
                   </div>
@@ -473,7 +480,7 @@ export function SuccessionPage() {
                 {/* Required Documents */}
                 <div className="flex flex-col gap-4">
                   <h3 className="text-lg font-bold font-['Plus_Jakarta_Sans',sans-serif] text-[#121c28]">
-                    Required Documents
+                    Estate Documents
                   </h3>
                   <div className="grid grid-cols-2 gap-4">
                     {documents.map((doc) => (
@@ -506,7 +513,7 @@ export function SuccessionPage() {
                 {/* Recent Activities */}
                 <div className="flex flex-col gap-6 pt-4">
                   <h3 className="text-lg font-bold font-['Plus_Jakarta_Sans',sans-serif] text-[#121c28]">
-                    Recent Activities
+                    Recent Activity
                   </h3>
 
                   <div className="relative flex flex-col gap-6">
@@ -519,7 +526,7 @@ export function SuccessionPage() {
                         <div
                           className={cn(
                             "absolute left-0 top-1.5 size-5 rounded-full bg-white border-4 shadow-sm",
-                            item.active ? "border-[#004ac6]" : "border-[#c3c6d7]",
+                            item.active ? "border-[#004ac6] anim-dot-glow" : "border-[#c3c6d7]",
                           )}
                         />
                         <p className="text-xs font-semibold uppercase tracking-[0.6px] text-[#737686]">
@@ -539,14 +546,14 @@ export function SuccessionPage() {
               <div className="bg-[#eef4ff] border-t border-[#e8eaed] px-8 py-4 flex items-center justify-between">
                 <div className="flex items-center gap-2 text-[#434655]">
                   <Shield className="size-3.5 shrink-0" />
-                  <span className="text-xs font-medium">End-to-end encrypted succession data.</span>
+                  <span className="text-xs font-medium">End-to-end encrypted estate planning data.</span>
                 </div>
                 <div className="flex items-center gap-4">
                   <button className="text-xs font-semibold uppercase tracking-wide text-[#737686] hover:text-[#434655]">
                     View full history
                   </button>
                   <button className="text-xs font-semibold uppercase tracking-wide text-[#004ac6] hover:text-[#003a9e]">
-                    Download all certificates
+                    Download all documents
                   </button>
                 </div>
               </div>

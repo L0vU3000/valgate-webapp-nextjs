@@ -247,7 +247,7 @@ export function HomePage() {
               { label: "New Property", icon: Plus, action: () => navigate("/add-property") },
               { label: "Analytics", icon: BarChart2, action: () => navigate("/analytics") },
               { label: "Documents", icon: FileText, action: () => setCommandOpen(true) },
-              { label: "Tenants", icon: Users, action: () => navigate("/succession") },
+              { label: "Tenants", icon: Users, action: () => navigate("/estate-planning") },
             ].map(({ label, icon: Icon, action }, i) => (
               <button
                 key={label}
@@ -736,7 +736,7 @@ function ValgateCmdK({
                 { label: "Analytics", icon: BarChart2, path: "/analytics" },
                 { label: "All Properties", icon: LayoutGrid, path: "/portfolio" },
                 { label: "Map View", icon: MapIcon, path: "/map" },
-                { label: "Succession Planning", icon: Users, path: "/succession" },
+                { label: "Succession Planning", icon: Users, path: "/estate-planning" },
                 { label: "Settings", icon: Settings, path: "/settings" },
                 { label: "Profile", icon: UserCircle, path: "/profile" },
               ].map(({ label, icon: Icon, path }, i) => (

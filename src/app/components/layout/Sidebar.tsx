@@ -6,21 +6,23 @@ import {
   Home,
   LayoutGrid,
   BarChart2,
-  Users,
+  Landmark,
   Settings,
   Sun,
   Moon,
   Key,
   Sparkles,
+  BookUser,
 } from "lucide-react";
 import { cn } from "../ui/utils";
 
 const sidebarNavItems = [
   { label: "Home", path: "/", icon: Home },
   { label: "Portfolio", path: "/portfolio", icon: LayoutGrid },
+  { label: "Directory", path: "/directory", icon: BookUser },
   { label: "Rental", path: "/rental", icon: Key },
   { label: "Analytics", path: "/analytics", icon: BarChart2 },
-  { label: "Succession", path: "/succession", icon: Users },
+  { label: "Estate Planning", path: "/estate-planning", icon: Landmark },
   { label: "Settings", path: "/settings", icon: Settings },
 ] as const;
 
@@ -62,16 +64,15 @@ export function Sidebar({ isDark, onToggleDark, onOpenAI }: SidebarProps) {
         expanded ? "px-3" : "justify-center px-0",
       )}>
         <svg
-          viewBox="0 0 132.863 106.124"
+          viewBox="0 0 32.5889 25.0687"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
-          className="w-8 shrink-0"
-          style={{ height: "calc(2rem * 106.124 / 132.863)" }}
+          className="w-8 h-7 shrink-0"
           aria-hidden="true"
         >
-          <path d="M98.3597 74.7352L132.863 40.8166L107.951 0H24.9114L23.9449 1.58278L98.3597 74.7352Z" fill="#006AFF" />
-          <path d="M82.538 90.2886L90.5536 82.4087L18.0925 11.1724L12.0791 21.0228L82.538 90.2886Z" fill="#006AFF" />
-          <path d="M6.22795 30.6128L2.61289e-07 40.817L66.4315 106.124L74.7354 97.9602L6.22795 30.6128Z" fill="#006AFF" />
+          <path d="M24.126 17.654L32.5889 9.64172L26.4785 0H6.11034L5.87328 0.373885L24.126 17.654Z" fill="#2563EB" />
+          <path d="M20.2452 21.328L22.2112 19.4666L4.43779 2.63914L2.9628 4.96601L20.2452 21.328Z" fill="#2563EB" />
+          <path d="M1.52761 7.23137L3.07007e-07 9.6418L16.2945 25.0686L18.3313 23.1402L1.52761 7.23137Z" fill="#2563EB" />
         </svg>
         {expanded && (
           <span
