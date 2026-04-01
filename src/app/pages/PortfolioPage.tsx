@@ -1,14 +1,24 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
-import { Search, Filter, Plus, ChevronLeft, ChevronRight, ChevronsUpDown, Building2, BarChart3, DollarSign, Home, Map, type LucideIcon } from "lucide-react";
+import {
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  Building2,
+  DollarSign,
+  Home,
+  Map,
+  TrendingUp,
+  AlertTriangle,
+  Download,
+  Bell,
+  Settings,
+  Plus,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 
-const PAGE_SIZE = 10;
-
-const provinces = [
-  "All", "Banteay Meanchey", "Battambang", "Kampong Cham", "Kampong Chhnang",
-  "Kampong Speu", "Kampong Thom", "Kampot", "Kandal", "Kep", "Koh Kong",
-  "Kratie", "Mondulkiri",
-];
+const PAGE_SIZE = 16;
 
 const properties = [
   { id: 1,  name: "Land near river",              code: "PP00016 PH",       type: "House",    province: "Phnom Penh",      status: "Rented", size: "850",   buy: "$1,278,000", title: "Hard title", health: 100 },
@@ -30,44 +40,86 @@ const properties = [
 ];
 
 const TYPE_ICON: Record<string, LucideIcon> = {
-  House:    Home,
+  House: Home,
   Building: Building2,
-  Land:     Map,
+  Land: Map,
 };
 
-function statusClasses(status: string) {
-  if (status === "Rented") return "bg-status-success-bg text-status-success-text";
-  if (status === "Vacant") return "bg-status-warning-bg text-status-warning-text";
-  return "bg-muted text-muted-foreground";
+const TYPE_COLOR: Record<string, string> = {
+  House: "bg-blue-100 text-blue-600",
+  Building: "bg-amber-100 text-amber-600",
+  Land: "bg-emerald-100 text-emerald-600",
+};
+
+function typeBadgeClasses(type: string) {
+  switch (type) {
+    case "House":    return "bg-blue-50 text-blue-600";
+    case "Building": return "bg-amber-50 text-amber-600";
+    case "Land":     return "bg-emerald-50 text-emerald-600";
+    default:         return "bg-slate-100 text-slate-500";
+  }
 }
 
-function titleClasses(title: string) {
-  if (title === "Hard title") return "text-primary";
-  if (title === "Soft title") return "text-status-warning-text";
-  return "text-muted-foreground";
+function statusBadgeClasses(status: string) {
+  switch (status) {
+    case "Rented": return "bg-emerald-50 text-emerald-700 border border-emerald-200";
+    case "Vacant": return "bg-amber-50 text-amber-700 border border-amber-200";
+    default:       return "bg-slate-100 text-slate-500 border border-slate-200";
+  }
 }
 
-function healthClasses(health: number) {
-  if (health >= 80) return { dot: "bg-status-success", text: "text-status-success-text", pill: "bg-status-success-bg" };
-  if (health >= 50) return { dot: "bg-status-warning", text: "text-status-warning-text", pill: "bg-status-warning-bg" };
-  return { dot: "bg-status-danger", text: "text-status-danger-text", pill: "bg-status-danger-bg" };
+function titleBadgeClasses(title: string) {
+  switch (title) {
+    case "Hard title": return "bg-sky-50 text-sky-700 border border-sky-200";
+    case "Soft title": return "bg-amber-50 text-amber-600 border border-amber-200";
+    default:           return "";
+  }
 }
+
+function healthDotColor(health: number) {
+  if (health >= 80) return "bg-emerald-500";
+  if (health >= 50) return "bg-amber-500";
+  return "bg-red-400";
+}
+
+const provinces = [
+  "All", "Banteay Meanchey", "Battambang", "Kampong Cham", "Kampong Chhnang",
+  "Kampong Speu", "Kampong Thom", "Kampot", "Kandal", "Kep", "Koh Kong",
+  "Kratie", "Mondulkiri", "Oddar Meanchey", "Pailin", "Phnom Penh",
+  "Preah Vihear", "Prey Veng", "Pursat", "Ratanakiri", "Siem Reap",
+  "Sihanoukville", "Stung Treng", "Svay Rieng", "Takeo", "Tbong Khmum",
+];
+
+
+const avgOccupancyNum = properties.reduce((sum, p) => sum + p.health, 0) / properties.length;
+const avgOccupancy = avgOccupancyNum.toFixed(1);
+const attentionCount = properties.filter((p) => p.health < 30).length;
 
 export function PortfolioPage() {
-  const [activeFilter, setActiveFilter] = useState("All");
-  const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState("Property Type");
+  const [statusFilter, setStatusFilter] = useState("Status");
+  const [provinceFilter, setProvinceFilter] = useState("All");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [mounted, setMounted] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setMounted(true));
+    return () => cancelAnimationFrame(frame);
+  }, []);
 
   const q = searchQuery.trim().toLowerCase();
   const filtered = properties.filter((p) => {
-    const matchesProvince = activeFilter === "All" || p.province === activeFilter;
-    const matchesSearch = !q ||
+    const matchesSearch =
+      !q ||
       p.name.toLowerCase().includes(q) ||
       p.code.toLowerCase().includes(q) ||
-      p.type.toLowerCase().includes(q) ||
       p.province.toLowerCase().includes(q);
-    return matchesProvince && matchesSearch;
+    const matchesType = typeFilter === "Property Type" || p.type === typeFilter;
+    const matchesStatus = statusFilter === "Status" || p.status === statusFilter;
+    const matchesProvince = provinceFilter === "All" || p.province === provinceFilter;
+    return matchesSearch && matchesType && matchesStatus && matchesProvince;
   });
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -75,203 +127,451 @@ export function PortfolioPage() {
   const pageStart = (safePage - 1) * PAGE_SIZE;
   const pageRows = filtered.slice(pageStart, pageStart + PAGE_SIZE);
 
-  const showingFrom = filtered.length === 0 ? 0 : pageStart + 1;
-  const showingTo = Math.min(pageStart + PAGE_SIZE, filtered.length);
-
   function goToPage(p: number) {
     setCurrentPage(Math.max(1, Math.min(p, totalPages)));
   }
 
-  // Build visible page numbers: always show first, last, current ±1, with ellipsis gaps
-  function pageNumbers(): (number | "…")[] {
-    if (totalPages <= 5) return Array.from({ length: totalPages }, (_, i) => i + 1);
-    const set = new Set([1, totalPages, safePage, safePage - 1, safePage + 1].filter(n => n >= 1 && n <= totalPages));
-    const sorted = [...set].sort((a, b) => a - b);
-    const result: (number | "…")[] = [];
-    for (let i = 0; i < sorted.length; i++) {
-      if (i > 0 && (sorted[i] as number) - (sorted[i - 1] as number) > 1) result.push("…");
-      result.push(sorted[i]);
-    }
-    return result;
-  }
-
   return (
-    <div className="h-full flex flex-col">
-      {/* Header */}
-      <div className="bg-card px-6 py-4 border-b border-border">
-        <div className="grid grid-cols-3 items-center">
-          <div>
-            <h1 className="text-[24px] font-semibold text-foreground">Portfolio</h1>
-            <p className="text-[13px] text-muted-foreground tracking-wide">Explore anything in your property database</p>
-          </div>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-              placeholder="Search properties…"
-              className="w-full pl-9 pr-4 py-2 text-[14px] bg-muted/40 border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
-            />
-          </div>
-          <div className="flex items-center gap-3 justify-end">
-            <button className="border border-border rounded-lg px-4 py-2 text-[14px] text-foreground flex items-center gap-2 hover:bg-accent/50">
-              <Filter className="w-4 h-4" />
-              Filter
-            </button>
-            <button onClick={() => navigate("/add-property")} className="bg-primary text-primary-foreground rounded-lg px-4 py-2 text-[14px] flex items-center gap-2 hover:bg-primary/90">
-              <Plus className="w-4 h-4" />
-              Add Property
-            </button>
+    <main className="h-full flex flex-col bg-[#f8f9ff]">
+      {/* Top Nav Bar */}
+      <div role="banner" className="bg-white border-b border-slate-200 shadow-[0_1px_2px_rgba(0,0,0,0.05)] px-6 flex items-center justify-between h-[56px] shrink-0">
+        {/* Search */}
+        <div className="relative flex-1 max-w-[448px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-slate-400 pointer-events-none" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setCurrentPage(1);
+            }}
+            placeholder="Search portfolio..."
+            className="w-full pl-10 pr-4 py-2 text-[14px] bg-[#eef4ff] rounded text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:bg-white transition-all duration-200"
+          />
+        </div>
+
+        {/* Right actions */}
+        <div className="flex items-center gap-3">
+          <button aria-label="Notifications, unread" className="p-2 rounded hover:bg-slate-100 transition-colors duration-150 relative">
+            <Bell className="w-5 h-5 text-slate-500" />
+            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
+          </button>
+          <button aria-label="Settings" className="p-2 rounded hover:bg-slate-100 transition-colors duration-150">
+            <Settings className="w-5 h-5 text-slate-500" />
+          </button>
+
+          <div className="w-px h-8 bg-slate-200" />
+
+          <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-[14px] font-semibold text-[#121c28] rounded hover:bg-slate-50 active:scale-[0.97] transition-all duration-150">
+            <Download className="w-3.5 h-3.5" />
+            Export
+          </button>
+          <button
+            onClick={() => navigate("/add-property")}
+            className="flex items-center gap-2 px-4 py-2 text-white text-[14px] font-semibold rounded shadow-[0_4px_6px_-1px_rgba(0,74,198,0.25),0_2px_4px_-2px_rgba(0,74,198,0.15)] hover:opacity-90 active:scale-[0.97] transition-all duration-150"
+            style={{ background: "linear-gradient(168deg, #004ac6 0%, #2563eb 100%)" }}
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Add Property
+          </button>
+
+          <div className="w-9 h-9 rounded-xl bg-slate-300 border-2 border-white shadow-sm overflow-hidden ml-2">
+            <div className="w-full h-full bg-gradient-to-br from-blue-400 to-blue-600" />
           </div>
         </div>
       </div>
 
       {/* Main content */}
-      <div className="flex-1 overflow-auto px-6 py-6">
-        <div className="max-w-[1160px] mx-auto flex flex-col gap-5">
+      <div className="flex-1 overflow-auto scrollbar-none px-8 pb-8">
+        <div className="max-w-[1200px] mx-auto flex flex-col gap-5 pt-6">
+
+          {/* Page Header */}
+          <div
+            className="transition-all duration-500"
+            style={{
+              opacity: mounted ? 1 : 0,
+              transform: mounted ? "translateY(0)" : "translateY(-8px)",
+            }}
+          >
+            <h1 className="text-[22px] font-semibold text-[#121c28] tracking-tight">Portfolio</h1>
+            <p className="text-[14px] text-slate-500 mt-1">
+              Oversee and manage your complete real estate asset inventory across all regions.
+            </p>
+          </div>
 
           {/* KPI Cards */}
-          <div className="grid grid-cols-3 gap-4">
-            <KpiCard icon={Building2} label="Total Property" value="1,500" trend="+20%" trendClass="text-status-success-text" sub="vs. last month" />
-            <KpiCard icon={BarChart3} label="Number of Sales" value="320" trend="+20%" trendClass="text-status-success-text" sub="vs. last month" />
-            <KpiCard icon={DollarSign} label="Total Sales" value="$150k" trend="+20%" trendClass="text-status-success-text" sub="vs. last month" />
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+            <KpiCard index={0} mounted={mounted}>
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Properties</span>
+                <div className="w-7 h-7 rounded-md bg-blue-50 flex items-center justify-center">
+                  <Building2 className="w-3.5 h-3.5 text-blue-600" />
+                </div>
+              </div>
+              <p className="text-[24px] font-bold text-[#121c28] leading-none mt-4">{properties.length}</p>
+              <span className="text-[12px] text-emerald-600 font-semibold mt-2 block">+2 this month</span>
+            </KpiCard>
+
+            <KpiCard index={1} mounted={mounted}>
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Total Value</span>
+                <div className="w-7 h-7 rounded-md bg-emerald-50 flex items-center justify-center">
+                  <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
+                </div>
+              </div>
+              <p className="text-[24px] font-bold text-[#121c28] leading-none mt-4">$42.8M</p>
+              <div className="flex items-center gap-1 mt-2">
+                <TrendingUp className="w-3 h-3 text-emerald-500" />
+                <span className="text-[12px] text-emerald-600 font-semibold">4.2% YoY</span>
+              </div>
+            </KpiCard>
+
+            <KpiCard index={2} mounted={mounted}>
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Monthly Income</span>
+                <div className="w-7 h-7 rounded-md bg-violet-50 flex items-center justify-center">
+                  <DollarSign className="w-3.5 h-3.5 text-violet-600" />
+                </div>
+              </div>
+              <p className="text-[24px] font-bold text-[#121c28] leading-none mt-4">$312,450</p>
+              <span className="text-[12px] text-slate-400 font-semibold mt-2 block">Gross Revenue</span>
+            </KpiCard>
+
+            <KpiCard index={3} mounted={mounted}>
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Occupancy</span>
+                <div className="w-7 h-7 rounded-md bg-amber-50 flex items-center justify-center">
+                  <TrendingUp className="w-3.5 h-3.5 text-amber-600" />
+                </div>
+              </div>
+              <p className="text-[24px] font-bold text-[#121c28] leading-none mt-4">{avgOccupancy}%</p>
+              <div className="mt-3">
+                <AnimatedBar value={avgOccupancyNum} color="bg-amber-400" mounted={mounted} delay={600} />
+              </div>
+            </KpiCard>
+
+            <KpiCard index={4} mounted={mounted} accent>
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Attention</span>
+                <div className="w-7 h-7 rounded-md bg-red-50 flex items-center justify-center">
+                  <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
+                </div>
+              </div>
+              <p className="text-[24px] font-bold text-[#121c28] leading-none mt-4">{attentionCount}</p>
+              <span className="text-[12px] text-red-600 font-semibold mt-2 block">Critical tasks pending</span>
+            </KpiCard>
+          </div>
+
+          {/* Province Quick-Select Pills */}
+          <div
+            className="transition-all duration-500"
+            style={{
+              opacity: mounted ? 1 : 0,
+              transform: mounted ? "translateY(0)" : "translateY(-10px)",
+              transitionDelay: "300ms",
+              maskImage: "linear-gradient(to right, transparent, black 40px, black calc(100% - 40px), transparent)",
+              WebkitMaskImage: "linear-gradient(to right, transparent, black 40px, black calc(100% - 40px), transparent)",
+            }}
+          >
+            <div
+              role="radiogroup"
+              aria-label="Filter by province"
+              className="flex gap-1.5 overflow-x-auto pb-1.5 px-8 [&::-webkit-scrollbar]:h-[3px] [&::-webkit-scrollbar-track]:bg-[#eef4ff] [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#004ac6]/25 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-[#004ac6]/50"
+            >
+              {provinces.map((p) => (
+                <button
+                  key={p}
+                  role="radio"
+                  aria-checked={provinceFilter === p}
+                  onClick={() => { setProvinceFilter(p); setCurrentPage(1); }}
+                  className={`px-3.5 py-1.5 rounded-full text-[12px] font-semibold whitespace-nowrap shrink-0 transition-all duration-150 ${
+                    provinceFilter === p
+                      ? "bg-[#004ac6] text-white scale-[1.03]"
+                      : "bg-[#eef4ff] text-slate-500 hover:bg-blue-100 hover:text-slate-700"
+                  }`}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Filter Controls */}
+          <div
+            className="flex items-center gap-4 transition-all duration-500"
+            style={{
+              opacity: mounted ? 1 : 0,
+              transform: mounted ? "translateY(0)" : "translateY(-12px)",
+              transitionDelay: "350ms",
+            }}
+          >
+            {/* Type segmented control */}
+            <div className="flex items-center gap-2.5">
+              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-[0.05em]">Type</span>
+              <div className="bg-[#eef4ff] p-1 rounded flex">
+                {["All", "House", "Building", "Land"].map((t) => {
+                  const isActive = t === "All" ? typeFilter === "Property Type" : typeFilter === t;
+                  return (
+                    <button
+                      key={t}
+                      onClick={() => { setTypeFilter(t === "All" ? "Property Type" : t); setCurrentPage(1); }}
+                      className={`px-3.5 py-1.5 text-[12px] font-semibold rounded transition-all duration-150 ${
+                        isActive
+                          ? "bg-white text-[#004ac6] shadow-sm"
+                          : "text-slate-500 hover:text-slate-700"
+                      }`}
+                    >
+                      {t}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Status segmented control */}
+            <div className="flex items-center gap-2.5">
+              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-[0.05em]">Status</span>
+              <div className="bg-[#eef4ff] p-1 rounded flex">
+                {["All", "Rented", "Vacant"].map((s) => {
+                  const isActive = s === "All" ? statusFilter === "Status" : statusFilter === s;
+                  return (
+                    <button
+                      key={s}
+                      onClick={() => { setStatusFilter(s === "All" ? "Status" : s); setCurrentPage(1); }}
+                      className={`px-3.5 py-1.5 text-[12px] font-semibold rounded transition-all duration-150 ${
+                        isActive
+                          ? "bg-white text-[#004ac6] shadow-sm"
+                          : "text-slate-500 hover:text-slate-700"
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Clear all — visible when any filter is active */}
+            {(typeFilter !== "Property Type" || statusFilter !== "Status" || provinceFilter !== "All") && (
+              <button
+                onClick={() => {
+                  setTypeFilter("Property Type");
+                  setStatusFilter("Status");
+                  setProvinceFilter("All");
+                  setSearchQuery("");
+                  setCurrentPage(1);
+                }}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded text-[12px] font-semibold text-[#004ac6] bg-[#eef4ff] hover:bg-blue-100 transition-all duration-150 active:scale-[0.97]"
+              >
+                <X className="w-3 h-3" />
+                Clear
+              </button>
+            )}
           </div>
 
           {/* Table */}
-          <div className="bg-card rounded-xl border border-border overflow-hidden">
-
-            {/* Province filter toolbar */}
-            <div className="px-4 py-3 border-b border-border">
-              <div className="flex gap-2 overflow-x-auto">
-                {provinces.map((p) => (
-                  <button
-                    key={p}
-                    onClick={() => { setActiveFilter(p); setCurrentPage(1); }}
-                    className={`px-3.5 py-1.5 rounded-full text-[12px] whitespace-nowrap shrink-0 transition-all ${
-                      activeFilter === p
-                        ? "bg-primary text-primary-foreground shadow-sm"
-                        : "bg-muted text-muted-foreground hover:bg-muted/80"
-                    }`}
-                  >
-                    {p}
-                  </button>
-                ))}
-              </div>
-            </div>
+          <div
+            className="bg-white rounded-lg border border-slate-200 shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden transition-all duration-500"
+            style={{
+              opacity: mounted ? 1 : 0,
+              transform: mounted ? "translateY(0)" : "translateY(-16px)",
+              transitionDelay: "450ms",
+            }}
+          >
+            <div className="overflow-x-auto scrollbar-none">
             <table className="w-full text-[14px]">
               <thead>
-                <tr className="border-b border-border bg-muted/30">
-                  <th className="text-left py-3 px-4 w-8"><input type="checkbox" className="rounded" /></th>
-                  <th className="text-left py-3 px-4 text-[12px] text-muted-foreground">#</th>
-                  <th className="text-left py-3 px-4 text-[12px] text-muted-foreground">Property</th>
-                  <th className="text-left py-3 px-4 text-[12px] text-muted-foreground">Type</th>
-                  <th className="text-left py-3 px-4 text-[12px] text-muted-foreground">Province</th>
-                  <th className="text-left py-3 px-4 text-[12px] text-muted-foreground">Status</th>
-                  <th className="text-left py-3 px-4 text-[12px] text-muted-foreground">
-                    <span className="flex items-center gap-1">Size <ChevronsUpDown className="w-3 h-3" /></span>
+                <tr className="bg-slate-50/80 border-b border-slate-200">
+                  <th className="py-4 px-3 w-10">
+                    <input type="checkbox" aria-label="Select all properties" className="rounded border-slate-300 accent-blue-600" />
                   </th>
-                  <th className="text-left py-3 px-4 text-[12px] text-muted-foreground">
-                    <span className="flex items-center gap-1">Acq. Value <ChevronsUpDown className="w-3 h-3" /></span>
+                  <th className="text-left py-4 px-3 text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em] w-[48px]">
+                    #
                   </th>
-                  <th className="text-left py-3 px-4 text-[12px] text-muted-foreground">Title</th>
-                  <th className="text-left py-3 px-4 text-[12px] text-muted-foreground">
-                    <span className="flex items-center gap-1">Health <ChevronsUpDown className="w-3 h-3" /></span>
+                  <th className="text-left py-4 px-3 text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">
+                    Property
+                  </th>
+                  <th className="text-left py-4 px-3 text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">
+                    Type
+                  </th>
+                  <th className="text-left py-4 px-3 text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">
+                    Province
+                  </th>
+                  <th className="text-left py-4 px-3 text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">
+                    Status
+                  </th>
+                  <th className="text-right py-4 px-3 text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">
+                    Size
+                  </th>
+                  <th className="text-right py-4 px-3 text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">
+                    Buy
+                  </th>
+                  <th className="text-center py-4 px-3 text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">
+                    Title
+                  </th>
+                  <th className="text-right py-4 px-3 text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">
+                    Health
                   </th>
                 </tr>
               </thead>
               <tbody>
                 {pageRows.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="py-16 text-center text-[14px] text-muted-foreground">
-                      No properties match your search.
+                    <td colSpan={10} className="py-20 text-center">
+                      <p className="text-[14px] text-slate-400">No properties match your filters.</p>
+                      <button
+                        onClick={() => {
+                          setSearchQuery("");
+                          setTypeFilter("Property Type");
+                          setStatusFilter("Status");
+                          setProvinceFilter("All");
+                          setCurrentPage(1);
+                        }}
+                        className="mt-3 text-[14px] text-blue-600 font-medium hover:underline"
+                      >
+                        Clear all filters
+                      </button>
                     </td>
                   </tr>
-                ) : pageRows.map((p, i) => {
-                  const TypeIcon = TYPE_ICON[p.type] ?? Map;
-                  const h = healthClasses(p.health);
-                  return (
-                    <tr
-                      key={p.id}
-                      className="border-b border-border hover:bg-accent/30 transition-colors cursor-pointer"
-                      onClick={() => navigate(`/property/${p.id}`)}
-                    >
-                      <td className="py-3 px-4"><input type="checkbox" className="rounded" onClick={(e) => e.stopPropagation()} /></td>
-                      <td className="py-3 px-4 text-muted-foreground">{pageStart + i + 1}</td>
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                            <TypeIcon className="w-4 h-4 text-muted-foreground" />
+                ) : (
+                  pageRows.map((p, i) => {
+                    const TypeIcon = TYPE_ICON[p.type] ?? Map;
+                    const typeColor = TYPE_COLOR[p.type] ?? "bg-slate-100 text-slate-500";
+                    const hDot = healthDotColor(p.health);
+                    return (
+                      <tr
+                        key={p.id}
+                        className="border-t border-slate-100 hover:bg-blue-50/30 cursor-pointer group transition-colors duration-150"
+                        tabIndex={0}
+                        role="link"
+                        onClick={() => navigate(`/property/${p.id}`)}
+                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate(`/property/${p.id}`); } }}
+                        style={{
+                          opacity: mounted ? 1 : 0,
+                          transform: mounted ? "translateY(0)" : "translateY(-6px)",
+                          transition: `opacity 400ms cubic-bezier(0.25,1,0.5,1), transform 400ms cubic-bezier(0.25,1,0.5,1)`,
+                          transitionDelay: `${550 + i * 30}ms`,
+                        }}
+                      >
+                        {/* Checkbox */}
+                        <td className="py-3 px-3">
+                          <input
+                            type="checkbox"
+                            aria-label={`Select ${p.name}`}
+                            className="rounded border-slate-300 accent-blue-600"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </td>
+
+                        {/* Row # */}
+                        <td className="py-3 px-3 text-[12px] text-slate-400">
+                          {pageStart + i + 1}
+                        </td>
+
+                        {/* Property — thumbnail + name + code */}
+                        <td className="py-3 px-3">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-9 h-9 rounded-md flex items-center justify-center shrink-0 ${typeColor} transition-transform duration-200 group-hover:scale-105`}>
+                              <TypeIcon className="w-4 h-4" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-[14px] text-[#121c28] font-medium leading-tight truncate">{p.name}</p>
+                              <p className="text-[12px] text-slate-400 mt-0.5 truncate">{p.code}</p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-foreground">{p.name}</p>
-                            <p className="text-[12px] text-muted-foreground">{p.code}</p>
+                        </td>
+
+                        {/* Type badge */}
+                        <td className="py-3 px-3">
+                          <span className={`inline-flex px-2 py-0.5 rounded-full text-[12px] font-medium ${typeBadgeClasses(p.type)}`}>
+                            {p.type}
+                          </span>
+                        </td>
+
+                        {/* Province */}
+                        <td className="py-3 px-3 text-[14px] text-slate-700">{p.province}</td>
+
+                        {/* Status */}
+                        <td className="py-3 px-3">
+                          <span className={`inline-flex px-2 py-0.5 rounded-full text-[12px] font-medium ${statusBadgeClasses(p.status)}`}>
+                            {p.status}
+                          </span>
+                        </td>
+
+                        {/* Size */}
+                        <td className="py-3 px-3 text-right text-[14px] text-slate-600">
+                          {p.size} m&sup2;
+                        </td>
+
+                        {/* Buy */}
+                        <td className="py-3 px-3 text-right text-[14px] font-medium text-slate-900">
+                          {p.buy}
+                        </td>
+
+                        {/* Title */}
+                        <td className="py-3 px-3 text-center">
+                          {p.title === "\u2014" ? (
+                            <span className="text-slate-400">&mdash;</span>
+                          ) : (
+                            <span className={`inline-flex px-2 py-0.5 rounded-full text-[12px] font-medium ${titleBadgeClasses(p.title)}`}>
+                              {p.title}
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Health */}
+                        <td className="py-3 px-3 text-right">
+                          <div aria-label={`Health ${p.health}%`} className="inline-flex flex-col items-end gap-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className={`w-[7px] h-[7px] rounded-full ${hDot}`} />
+                              <span className="text-[12px] font-medium text-slate-700">{p.health}%</span>
+                            </div>
+                            <div className="w-[52px] h-[3px] bg-slate-200 rounded-sm overflow-hidden">
+                              <div
+                                className={`h-full rounded-sm ${hDot} transition-all duration-700 ease-out`}
+                                style={{
+                                  width: mounted ? `${p.health}%` : "0%",
+                                  transitionDelay: `${650 + i * 40}ms`,
+                                }}
+                              />
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className={`px-2 py-0.5 rounded-lg text-[12px] ${p.type === "Building" ? "bg-status-warning-bg text-status-warning-text" : "bg-status-info-bg text-status-info-text"}`}>
-                          {p.type}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-muted-foreground">{p.province}</td>
-                      <td className="py-3 px-4">
-                        <span className={`px-2 py-0.5 rounded-lg text-[12px] ${statusClasses(p.status)}`}>
-                          {p.status}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-muted-foreground text-[13px]">{p.size} m<sup>2</sup></td>
-                      <td className="py-3 px-4 text-foreground text-[13px] font-medium">{p.buy}</td>
-                      <td className="py-3 px-4">
-                        <span className={`text-[12px] ${titleClasses(p.title)}`}>{p.title}</span>
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full ${h.pill}`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${h.dot}`} />
-                          <span className={`text-[13px] font-medium ${h.text}`}>{p.health}%</span>
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
+            </div>
 
             {/* Pagination */}
-            <div className="flex items-center justify-between px-4 py-3 border-t border-border">
-              <span className="text-[14px] text-muted-foreground">
-                {filtered.length === 0
-                  ? "No results"
-                  : `Showing ${showingFrom}–${showingTo} of ${filtered.length} result${filtered.length !== 1 ? "s" : ""}`}
-              </span>
+            <div className="flex items-center justify-between px-4 py-4 bg-slate-50/60 border-t border-slate-200">
+              <p className="text-[14px] text-slate-500">
+                Showing{" "}
+                <span className="font-semibold text-[#121c28]">{filtered.length}</span>
+                {" "}of{" "}
+                <span className="font-semibold text-[#121c28]">{properties.length}</span>
+                {" "}properties
+              </p>
               {totalPages > 1 && (
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-2">
                   <button
                     disabled={safePage === 1}
                     onClick={() => goToPage(safePage - 1)}
-                    className="p-2 rounded hover:bg-accent/50 disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded border border-slate-200 hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150 active:scale-95"
                   >
-                    <ChevronLeft className="w-4 h-4" />
+                    <ChevronLeft className="w-3.5 h-3.5 text-slate-500" />
                   </button>
-                  {pageNumbers().map((item, idx) =>
-                    item === "…" ? (
-                      <span key={`ellipsis-${idx}`} className="w-8 h-8 flex items-center justify-center text-muted-foreground text-[14px]">…</span>
-                    ) : (
-                      <button
-                        key={item}
-                        onClick={() => goToPage(item as number)}
-                        className={`w-8 h-8 rounded text-[14px] ${safePage === item ? "bg-primary text-primary-foreground" : "hover:bg-accent/50 text-foreground"}`}
-                      >
-                        {item}
-                      </button>
-                    )
-                  )}
+                  <button className="px-3 py-1 rounded text-white text-[14px] font-semibold min-w-[32px] shadow-sm" style={{ background: "#004ac6" }}>
+                    {safePage}
+                  </button>
                   <button
                     disabled={safePage === totalPages}
                     onClick={() => goToPage(safePage + 1)}
-                    className="p-2 rounded hover:bg-accent/50 disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded border border-slate-200 hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150 active:scale-95"
                   >
-                    <ChevronRight className="w-4 h-4" />
+                    <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
                   </button>
                 </div>
               )}
@@ -279,26 +579,52 @@ export function PortfolioPage() {
           </div>
         </div>
       </div>
+    </main>
+  );
+}
+
+/* ── Sub-components ────────────────────────────── */
+
+function KpiCard({ children, index, mounted, accent }: {
+  children: React.ReactNode;
+  index: number;
+  mounted: boolean;
+  accent?: boolean;
+}) {
+  return (
+    <div
+      className={`bg-white rounded-lg border border-slate-200 p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)] flex flex-col hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 ${
+        accent ? "border-l-4 border-l-amber-400" : ""
+      }`}
+      style={{
+        opacity: mounted ? 1 : 0,
+        transform: mounted ? "translateY(0)" : "translateY(-16px)",
+        transition: "opacity 500ms cubic-bezier(0.25,1,0.5,1), transform 500ms cubic-bezier(0.25,1,0.5,1), box-shadow 300ms, translate 300ms",
+        transitionDelay: `${100 + index * 80}ms`,
+      }}
+    >
+      {children}
     </div>
   );
 }
 
-function KpiCard({ icon: Icon, label, value, trend, trendClass, sub }: {
-  icon: LucideIcon; label: string; value: string; trend: string; trendClass: string; sub: string;
+function AnimatedBar({ value, color, mounted, delay }: {
+  value: number;
+  color: string;
+  mounted: boolean;
+  delay: number;
 }) {
   return (
-    <div className="bg-card rounded-xl border border-border p-5 flex flex-col gap-3">
-      <div className="flex items-center gap-2.5">
-        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-          <Icon className="w-4 h-4 text-primary" />
-        </div>
-        <span className="text-[12px] text-muted-foreground font-medium tracking-wide uppercase">{label}</span>
-      </div>
-      <p className="text-[32px] font-bold text-foreground leading-none">{value}</p>
-      <div className="flex items-center gap-2">
-        <span className={`text-[12px] font-medium ${trendClass}`}>{trend}</span>
-        <span className="text-[12px] text-muted-foreground">{sub}</span>
-      </div>
+    <div className="h-[6px] bg-slate-100 rounded-full overflow-hidden">
+      <div
+        className={`h-full rounded-full ${color}`}
+        style={{
+          width: mounted ? `${value}%` : "0%",
+          transition: `width 800ms cubic-bezier(0.25,1,0.5,1)`,
+          transitionDelay: `${delay}ms`,
+        }}
+      />
     </div>
   );
 }
+
