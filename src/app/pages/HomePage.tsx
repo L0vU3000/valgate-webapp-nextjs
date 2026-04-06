@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useOutletContext } from "react-router";
 import {
   RefreshCw,
@@ -128,9 +128,80 @@ export function HomePage() {
   const navigate = useNavigate();
   const { isDark } = useOutletContext<{ isDark: boolean }>();
 
+  // Zoom & pan state
+  const MIN_ZOOM = 1;
+  const MAX_ZOOM = 3;
+  const ZOOM_STEP = 0.15;
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const dragRef = useRef<{ active: boolean; startX: number; startY: number; startPanX: number; startPanY: number }>({
+    active: false, startX: 0, startY: 0, startPanX: 0, startPanY: 0,
+  });
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+
+  const clampPan = useCallback((x: number, y: number, z: number) => {
+    // Allow panning proportional to zoom level
+    const maxPan = ((z - 1) / (MAX_ZOOM - 1)) * 300;
+    return {
+      x: Math.max(-maxPan, Math.min(maxPan, x)),
+      y: Math.max(-maxPan, Math.min(maxPan, y)),
+    };
+  }, []);
+
+  const handleZoom = useCallback((delta: number) => {
+    setZoom((prev) => {
+      const next = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, prev + delta));
+      // Clamp pan for the new zoom level
+      if (next === MIN_ZOOM) {
+        setPan({ x: 0, y: 0 });
+      } else {
+        setPan((p) => clampPan(p.x, p.y, next));
+      }
+      return next;
+    });
+  }, [clampPan]);
+
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
+    handleZoom(delta);
+  }, [handleZoom]);
+
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    // Don't start drag if clicking on a pin or UI element
+    const target = e.target as HTMLElement;
+    if (target.closest("button") || target.closest("[data-no-drag]")) return;
+    dragRef.current = {
+      active: true,
+      startX: e.clientX,
+      startY: e.clientY,
+      startPanX: pan.x,
+      startPanY: pan.y,
+    };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  }, [pan]);
+
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (!dragRef.current.active) return;
+    const dx = e.clientX - dragRef.current.startX;
+    const dy = e.clientY - dragRef.current.startY;
+    setPan(clampPan(dragRef.current.startPanX + dx, dragRef.current.startPanY + dy, zoom));
+  }, [zoom, clampPan]);
+
+  const handlePointerUp = useCallback(() => {
+    dragRef.current.active = false;
+  }, []);
+
   // Reset loading state when theme changes (different map image)
   useEffect(() => {
     setMapLoaded(false);
+  }, [isDark]);
+
+  // Reset zoom/pan when theme changes
+  useEffect(() => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
   }, [isDark]);
 
   // Cmd+K / Ctrl+K to open command palette
@@ -169,9 +240,7 @@ export function HomePage() {
     ? properties.find((p) => p.id === selectedPin)
     : null;
 
-  const mapSrc = isDark
-    ? "https://www.figma.com/api/mcp/asset/f017f7c1-276f-4a70-8b07-668f0298e189"
-    : "https://www.figma.com/api/mcp/asset/75d462a8-ad31-4527-ac36-97967658ac17";
+  const mapSrc = isDark ? "/map-dark.png" : "/map-light.png";
 
   return (
     <div className="flex flex-col flex-1 min-w-0 h-full">
@@ -198,9 +267,22 @@ export function HomePage() {
       </div>
 
       {/* Map area */}
-      <div className="relative flex-1 overflow-hidden">
-        {/* Map background */}
-        <div className="absolute inset-0">
+      <div
+        ref={mapContainerRef}
+        className="relative flex-1 overflow-hidden select-none"
+        style={{ cursor: zoom > 1 ? (dragRef.current.active ? "grabbing" : "grab") : "default" }}
+        onWheel={handleWheel}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+      >
+        {/* Zoomable/pannable layer — contains map image + pins */}
+        <div
+          className="absolute inset-0 origin-center transition-transform duration-200 ease-out"
+          style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}
+        >
+          {/* Map background */}
           <img
             src={mapSrc}
             alt="Map"
@@ -210,10 +292,47 @@ export function HomePage() {
             )}
             onLoad={() => setMapLoaded(true)}
           />
-        </div>
+          {/* Map pins — inside zoomable layer so they stick to the map */}
+          {properties.map((p, i) => (
+            <button
+              key={p.id}
+              className="absolute z-10 -translate-x-1/2 -translate-y-1/2 group"
+              style={{ left: `${p.pinX}%`, top: `${p.pinY}%` }}
+              onClick={() =>
+                setSelectedPin(selectedPin === p.id ? null : p.id)
+              }
+              onMouseEnter={() => setHoveredProperty(p.id)}
+              onMouseLeave={() => setHoveredProperty(null)}
+            >
+              <div
+                className={cn(
+                  "w-4 h-4 rounded-full border-2 border-surface-base bg-interactive-primary shadow-lg transition-all duration-200",
+                  (selectedPin === p.id || hoveredProperty === p.id) && "scale-150 ring-2 ring-interactive-primary",
+                )}
+                style={{
+                  // Counter-scale so pins stay the same visual size when zoomed
+                  transform: `scale(${1 / zoom})`,
+                  animation: (selectedPin === p.id || hoveredProperty === p.id)
+                    ? "pin-beacon 1.8s ease-out infinite"
+                    : mapLoaded
+                      ? `scale-in 0.35s cubic-bezier(0.22,1,0.36,1) ${300 + i * 35}ms both`
+                      : "none",
+                  opacity: mapLoaded ? undefined : 0,
+                }}
+              />
+              {/* Hover tooltip */}
+              <div
+                className="absolute left-1/2 -translate-x-1/2 -top-8 opacity-0 group-hover:opacity-100 pointer-events-none bg-glass-panel-fill backdrop-blur-md border border-glass-panel-border rounded px-2 py-1 text-xs text-foreground whitespace-nowrap shadow-sm transition-opacity duration-150"
+                style={{ transform: `translateX(-50%) scale(${1 / zoom})` }}
+              >
+                {p.name}
+              </div>
+            </button>
+          ))}
+        </div>{/* end zoomable layer */}
 
         {/* Command Palette Trigger */}
-        <div className={cn(
+        <div data-no-drag className={cn(
           "absolute top-6 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-3 w-[700px] max-w-[calc(100%-3rem)]",
           mapLoaded ? "[animation:fade-slide-down_0.5s_cubic-bezier(0.16,1,0.3,1)_both]" : "opacity-0",
         )}>
@@ -274,7 +393,7 @@ export function HomePage() {
         />
 
         {/* Portfolio summary card */}
-        <div className={cn(
+        <div data-no-drag className={cn(
           "absolute left-6 top-44 z-10 bg-glass-panel-fill backdrop-blur-md border border-glass-panel-border rounded-xl p-6 shadow-sm w-72",
           mapLoaded ? "[animation:fade-slide-left_0.55s_cubic-bezier(0.16,1,0.3,1)_200ms_both]" : "opacity-0",
         )}>
@@ -306,48 +425,17 @@ export function HomePage() {
           </div>
         </div>
 
-        {/* Map pins */}
-        {properties.map((p, i) => (
-          <button
-            key={p.id}
-            className="absolute z-10 -translate-x-1/2 -translate-y-1/2 group"
-            style={{ left: `${p.pinX}%`, top: `${p.pinY}%` }}
-            onClick={() =>
-              setSelectedPin(selectedPin === p.id ? null : p.id)
-            }
-            onMouseEnter={() => setHoveredProperty(p.id)}
-            onMouseLeave={() => setHoveredProperty(null)}
-          >
-            <div
-              className={cn(
-                "w-4 h-4 rounded-full border-2 border-surface-base bg-interactive-primary shadow-lg transition-all duration-200",
-                (selectedPin === p.id || hoveredProperty === p.id) && "scale-150 ring-2 ring-interactive-primary",
-              )}
-              style={{
-                animation: (selectedPin === p.id || hoveredProperty === p.id)
-                  ? "pin-beacon 1.8s ease-out infinite"
-                  : mapLoaded
-                    ? `scale-in 0.35s cubic-bezier(0.22,1,0.36,1) ${300 + i * 35}ms both`
-                    : "none",
-                opacity: mapLoaded ? undefined : 0,
-              }}
-            />
-            {/* Hover tooltip */}
-            <div className="absolute left-1/2 -translate-x-1/2 -top-8 opacity-0 group-hover:opacity-100 pointer-events-none bg-glass-panel-fill backdrop-blur-md border border-glass-panel-border rounded px-2 py-1 text-xs text-foreground whitespace-nowrap shadow-sm transition-opacity duration-150">
-              {p.name}
-            </div>
-          </button>
-        ))}
+        {/* Pins moved into zoomable layer above */}
 
         {/* Map controls */}
-        <div className="absolute right-4 bottom-4 flex flex-col gap-2 z-10">
-          <MapIconButton>
+        <div className="absolute right-4 bottom-4 flex flex-col gap-2 z-10" data-no-drag>
+          <MapIconButton onClick={() => handleZoom(ZOOM_STEP)}>
             <ZoomIn className="size-4" />
           </MapIconButton>
-          <MapIconButton>
+          <MapIconButton onClick={() => handleZoom(-ZOOM_STEP)}>
             <ZoomOut className="size-4" />
           </MapIconButton>
-          <MapIconButton spin>
+          <MapIconButton spin onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}>
             <RefreshCw className="size-4" />
           </MapIconButton>
         </div>
@@ -440,39 +528,26 @@ export function HomePage() {
 
       {/* Properties table */}
       <div className="bg-surface-base border-t border-border-default shrink-0">
-        {/* Drag handle affordance */}
         <div
-          className="flex justify-center pt-2 pb-1 cursor-pointer group"
+          className="flex items-center justify-between px-6 py-2.5 cursor-pointer group hover:bg-surface-tint transition-colors duration-150"
           onClick={() => setTableOpen(!tableOpen)}
         >
-          <div className="w-10 h-1 rounded-full bg-border-default group-hover:bg-border-strong transition-colors duration-150" />
-        </div>
-
-        <div className="flex items-center justify-between px-6 py-3">
           <h2 className="text-xl font-semibold font-display text-foreground">
             Properties
           </h2>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigate("/portfolio")}
-            >
-              Full List
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setTableOpen(!tableOpen)}
-            >
-              <ChevronUp
-                className={cn(
-                  "size-4 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
-                  tableOpen ? "rotate-180" : "rotate-0",
-                )}
-              />
-            </Button>
-          </div>
+          <ChevronUp
+            className={cn(
+              "size-5 text-secondary group-hover:text-foreground transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
+              tableOpen ? "rotate-180" : "rotate-0",
+            )}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={(e) => { e.stopPropagation(); navigate("/portfolio"); }}
+          >
+            Full List
+          </Button>
         </div>
 
         {/* Accordion wrapper — grid-rows trick for smooth open/close */}
