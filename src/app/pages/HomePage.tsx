@@ -240,9 +240,7 @@ export function HomePage() {
     ? properties.find((p) => p.id === selectedPin)
     : null;
 
-  const mapSrc = isDark
-    ? "https://www.figma.com/api/mcp/asset/f017f7c1-276f-4a70-8b07-668f0298e189"
-    : "https://www.figma.com/api/mcp/asset/75d462a8-ad31-4527-ac36-97967658ac17";
+  const mapSrc = isDark ? "/map-dark.png" : "/map-light.png";
 
   return (
     <div className="flex flex-col flex-1 min-w-0 h-full">
