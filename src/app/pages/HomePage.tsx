@@ -107,6 +107,12 @@ function healthClass(health: number) {
   return "text-status-danger-text";
 }
 
+function healthBgClass(health: number) {
+  if (health >= 75) return "bg-status-success";
+  if (health >= 40) return "bg-status-warning";
+  return "bg-status-danger";
+}
+
 const triggerPlaceholders = [
   "Search properties, documents, tenants...",
   "Find: Phnom Penh land plots",
@@ -392,36 +398,49 @@ export function HomePage() {
           navigate={(path) => runCommand(() => navigate(path))}
         />
 
-        {/* Portfolio summary card */}
+        {/* Portfolio legend — centered, bottom of map */}
         <div data-no-drag className={cn(
-          "absolute left-6 top-44 z-10 bg-glass-panel-fill backdrop-blur-md border border-glass-panel-border rounded-xl p-6 shadow-sm w-72",
-          mapLoaded ? "[animation:fade-slide-left_0.55s_cubic-bezier(0.16,1,0.3,1)_200ms_both]" : "opacity-0",
+          "absolute bottom-4 left-1/2 -translate-x-1/2 z-10",
+          mapLoaded ? "[animation:fade-slide-up_0.5s_cubic-bezier(0.16,1,0.3,1)_300ms_both]" : "opacity-0",
         )}>
-          <p className="text-xs uppercase tracking-wider text-secondary font-medium">
-            Portfolio Overview
-          </p>
-          <p className="text-3xl font-bold font-display text-foreground mt-1">
-            {formatCurrency(portfolioStats.totalValue)}
-          </p>
-          <div className="flex items-center gap-4 mt-3 text-sm text-secondary">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-interactive-primary" />
-              {portfolioStats.totalProperties} Properties
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-status-success" />
-              {portfolioStats.rentedCount} Rented
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-status-warning" />
-              {portfolioStats.vacantCount} Vacant
-            </span>
-          </div>
-          <div className="mt-3 pt-3 border-t border-border-subtle">
-            <span className="text-xs text-secondary">Avg Health </span>
-            <span className={cn("text-xs font-medium", healthClass(portfolioStats.avgHealth))}>
-              {portfolioStats.avgHealth}%
-            </span>
+          <div className="flex items-center bg-glass-panel-fill backdrop-blur-md border border-glass-panel-border rounded-full shadow-sm px-5 py-2.5 gap-4 whitespace-nowrap">
+            {/* Total value */}
+            <div className="flex items-baseline gap-2">
+              <span className="text-[10px] uppercase tracking-wider text-secondary font-medium">Portfolio</span>
+              <span className="text-sm font-bold font-display text-foreground">{formatCurrency(portfolioStats.totalValue)}</span>
+            </div>
+
+            <div className="w-px h-4 bg-border-subtle shrink-0" />
+
+            {/* Property count */}
+            <div className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-interactive-primary shrink-0" />
+              <span className="text-sm font-medium text-foreground">{portfolioStats.totalProperties}</span>
+              <span className="text-xs text-secondary">Properties</span>
+            </div>
+
+            {/* Rented */}
+            <div className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-status-success shrink-0" />
+              <span className="text-sm font-medium text-foreground">{portfolioStats.rentedCount}</span>
+              <span className="text-xs text-secondary">Rented</span>
+            </div>
+
+            {/* Vacant */}
+            <div className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-status-warning shrink-0" />
+              <span className="text-sm font-medium text-foreground">{portfolioStats.vacantCount}</span>
+              <span className="text-xs text-secondary">Vacant</span>
+            </div>
+
+            <div className="w-px h-4 bg-border-subtle shrink-0" />
+
+            {/* Avg health */}
+            <div className="flex items-center gap-1.5">
+              <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", healthBgClass(portfolioStats.avgHealth))} />
+              <span className="text-xs text-secondary">Avg Health</span>
+              <span className={cn("text-sm font-medium", healthClass(portfolioStats.avgHealth))}>{portfolioStats.avgHealth}%</span>
+            </div>
           </div>
         </div>
 
