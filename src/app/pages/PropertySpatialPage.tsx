@@ -79,7 +79,7 @@ function FullView({ viewMode, setViewMode, showLegend, setShowLegend }: { viewMo
   return (
     <div className="flex flex-col overflow-auto h-full">
       <div className="px-6 pt-6 pb-4">
-        <h2 className="text-[30px] text-foreground font-['Plus_Jakarta_Sans',sans-serif]" style={{ fontWeight: 600 }}>
+        <h2 className="text-[30px] text-foreground font-display" style={{ fontWeight: 600 }}>
           Valuation for <span style={{ fontWeight: 800 }}>SR00015</span>
         </h2>
       </div>

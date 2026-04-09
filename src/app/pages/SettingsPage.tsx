@@ -43,7 +43,7 @@ export function SettingsPage() {
   };
 
   return (
-    <div className="h-full overflow-y-auto bg-[#f8f9ff]">
+    <div className="h-full overflow-y-auto bg-val-bg-page-alt">
       <div className="max-w-[1200px] mx-auto p-8 flex flex-col gap-8">
 
         {/* Page Header */}
@@ -70,7 +70,7 @@ export function SettingsPage() {
           <div className="col-span-2 flex flex-col gap-6">
             {/* Update Password Card */}
             <div className="bg-white border border-[#d1d5db] rounded-[12px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] p-[25px] flex flex-col gap-4">
-              <h3 className="font-display font-semibold text-[16px] leading-[24px] text-[#121c28]">Update Password</h3>
+              <h3 className="font-display font-semibold text-[16px] leading-[24px] text-val-heading">Update Password</h3>
               <div className="flex flex-col gap-4">
                 <PasswordField label="Current Password" value={currentPassword} onChange={setCurrentPassword} />
                 <div className="grid grid-cols-2 gap-4">
@@ -87,7 +87,7 @@ export function SettingsPage() {
 
             {/* MFA Card */}
             <div className="bg-white border border-[#d1d5db] rounded-[12px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] p-[25px] flex flex-col gap-4">
-              <h3 className="font-display font-semibold text-[16px] leading-[24px] text-[#121c28]">Multi-Factor Authentication</h3>
+              <h3 className="font-display font-semibold text-[16px] leading-[24px] text-val-heading">Multi-Factor Authentication</h3>
               <div className="flex flex-col gap-3">
                 {/* Authenticator App — enabled */}
                 <div className="bg-[#ecfdf5] border border-[#a7f3d0] rounded-[12px] p-[17px] flex items-center justify-between transition-colors duration-150 hover:bg-[#d1fae5]">
@@ -234,12 +234,12 @@ export function SettingsPage() {
           <div className="col-span-2 bg-white border border-[#d1d5db] rounded-[12px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] p-[25px]">
             <div className="flex items-center justify-between">
               <div className="flex flex-col gap-1">
-                <h3 className="font-display font-semibold text-[16px] leading-[24px] text-[#121c28]">Export Activity Log</h3>
+                <h3 className="font-display font-semibold text-[16px] leading-[24px] text-val-heading">Export Activity Log</h3>
                 <p className="font-sans text-[14px] leading-[20px] text-tertiary">
                   Download a full history of your account actions in CSV format.
                 </p>
               </div>
-              <button className="flex items-center gap-2 border border-[#d1d5db] rounded-[8px] px-[17px] py-[9px] font-sans font-medium text-[14px] leading-[20px] text-[#121c28] hover:bg-[#f5f6f7] hover:border-[#b0b8c4] active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb] transition-all duration-150 shrink-0 cursor-pointer">
+              <button className="flex items-center gap-2 border border-[#d1d5db] rounded-[8px] px-[17px] py-[9px] font-sans font-medium text-[14px] leading-[20px] text-val-heading hover:bg-[#f5f6f7] hover:border-[#b0b8c4] active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb] transition-all duration-150 shrink-0 cursor-pointer">
                 <Download className="w-4 h-4" />
                 Export Data
               </button>
@@ -310,7 +310,7 @@ function SelectField({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="bg-[#f5f6f7] border border-[#d1d5db] rounded-[8px] px-4 h-[38px] font-sans text-[14px] text-[#121c28] outline-none focus:ring-2 focus:ring-[#2563eb] focus:border-[#2563eb] focus:bg-white hover:border-[#b0b8c4] transition-all duration-150 appearance-none cursor-pointer"
+        className="bg-[#f5f6f7] border border-[#d1d5db] rounded-[8px] px-4 h-[38px] font-sans text-[14px] text-val-heading outline-none focus:ring-2 focus:ring-[#2563eb] focus:border-[#2563eb] focus:bg-white hover:border-[#b0b8c4] transition-all duration-150 appearance-none cursor-pointer"
         style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center" }}
       >
         {options.map((opt) => (

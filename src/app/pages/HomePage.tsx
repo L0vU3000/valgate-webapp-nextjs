@@ -7,86 +7,20 @@ import {
   X,
   ChevronUp,
   BarChart2,
-  LayoutGrid,
   Map as MapIcon,
-  Settings,
   Users,
-  UserCircle,
   Search,
   Plus,
   FileText,
   Command as CommandIcon,
-  Building,
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { ImageWithFallback } from "../components/figma/ImageWithFallback";
 import { cn } from "../components/ui/utils";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  CommandSeparator,
-} from "../components/ui/command";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "../components/ui/dialog";
-
-type StatusVariant = "rented" | "vacant";
-type TitleVariant = "hard" | "soft" | "none";
-
-interface Property {
-  id: number;
-  name: string;
-  code: string;
-  type: "Land" | "House" | "Building";
-  province: string;
-  status: "Rented" | "Vacant";
-  statusVariant: StatusVariant;
-  size: string;
-  buy: string;
-  buyNumeric: number;
-  title: string;
-  titleVariant: TitleVariant;
-  health: number;
-  pinX: number;
-  pinY: number;
-}
-
-const properties: Property[] = [
-  { id: 1, name: "Land near river", code: "PP00016 PH", type: "House", province: "Phnom Penh", status: "Rented", statusVariant: "rented", size: "850", buy: "$1,278,000", buyNumeric: 1278000, title: "Hard title", titleVariant: "hard", health: 100, pinX: 28, pinY: 40 },
-  { id: 2, name: "Siem Reap Land Plot", code: "SR00015 Land", type: "Land", province: "Siem Reap", status: "Vacant", statusVariant: "vacant", size: "1,200", buy: "$456,000", buyNumeric: 456000, title: "Soft title", titleVariant: "soft", health: 28, pinX: 60, pinY: 50 },
-  { id: 3, name: "Kampong Chhnang Prop.", code: "KPC00013", type: "Land", province: "Kampong Chhnang", status: "Vacant", statusVariant: "vacant", size: "2,500", buy: "$125,000", buyNumeric: 125000, title: "Hard title", titleVariant: "hard", health: 43, pinX: 38, pinY: 63 },
-  { id: 4, name: "Angkor Property", code: "SR00007 Land", type: "Land", province: "Siem Reap", status: "Vacant", statusVariant: "vacant", size: "900", buy: "$234,000", buyNumeric: 234000, title: "Soft title", titleVariant: "soft", health: 67, pinX: 55, pinY: 46 },
-  { id: 5, name: "Temple View Land", code: "SR00006 Land", type: "Land", province: "Siem Reap", status: "Vacant", statusVariant: "vacant", size: "1,100", buy: "$345,000", buyNumeric: 345000, title: "Hard title", titleVariant: "hard", health: 82, pinX: 68, pinY: 36 },
-  { id: 6, name: "Central Siem Reap", code: "SR00005 Land", type: "Land", province: "Siem Reap", status: "Rented", statusVariant: "rented", size: "750", buy: "$567,000", buyNumeric: 567000, title: "Hard title", titleVariant: "hard", health: 95, pinX: 52, pinY: 68 },
-  { id: 7, name: "Commercial Building", code: "SR00004 Building", type: "Building", province: "Siem Reap", status: "Rented", statusVariant: "rented", size: "450", buy: "$890,000", buyNumeric: 890000, title: "Hard title", titleVariant: "hard", health: 88, pinX: 45, pinY: 33 },
-  { id: 8, name: "Prey Veng Agricultural", code: "PV00002 Land", type: "Land", province: "Prey Veng", status: "Vacant", statusVariant: "vacant", size: "5,000", buy: "$180,000", buyNumeric: 180000, title: "Soft title", titleVariant: "soft", health: 34, pinX: 42, pinY: 56 },
-  { id: 9, name: "BKK1 Land", code: "PP00032 Land", type: "Land", province: "Phnom Penh", status: "Rented", statusVariant: "rented", size: "480", buy: "$1,450,000", buyNumeric: 1450000, title: "Hard title", titleVariant: "hard", health: 100, pinX: 32, pinY: 48 },
-  { id: 10, name: "Phnom Penh Urban", code: "PP00033 Land", type: "Land", province: "Phnom Penh", status: "Vacant", statusVariant: "vacant", size: "600", buy: "$980,000", buyNumeric: 980000, title: "Hard title", titleVariant: "hard", health: 75, pinX: 48, pinY: 60 },
-];
-
-const portfolioStats = {
-  totalProperties: properties.length,
-  totalValue: properties.reduce((sum, p) => sum + p.buyNumeric, 0),
-  rentedCount: properties.filter((p) => p.statusVariant === "rented").length,
-  vacantCount: properties.filter((p) => p.statusVariant === "vacant").length,
-  avgHealth: Math.round(
-    properties.reduce((sum, p) => sum + p.health, 0) / properties.length,
-  ),
-};
-
-function formatCurrency(value: number): string {
-  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(2)}M`;
-  if (value >= 1_000) return `$${(value / 1_000).toFixed(0)}K`;
-  return `$${value}`;
-}
+import { formatCurrency } from "../lib/format";
+import { properties, type Property, type StatusVariant, type TitleVariant } from "../lib/mock-data";
+import { CommandPalette } from "../components/home/CommandPalette";
+import { QuickStats, MapIconButton } from "../components/home/QuickStats";
 
 const statusClasses: Record<StatusVariant, string> = {
   rented:
@@ -385,7 +319,7 @@ export function HomePage() {
         </div>
 
         {/* Command Palette Dialog */}
-        <ValgateCmdK
+        <CommandPalette
           open={commandOpen}
           onOpenChange={setCommandOpen}
           properties={properties}
@@ -393,37 +327,7 @@ export function HomePage() {
         />
 
         {/* Portfolio summary card */}
-        <div data-no-drag className={cn(
-          "absolute left-6 top-44 z-10 bg-glass-panel-fill backdrop-blur-md border border-glass-panel-border rounded-xl p-6 shadow-sm w-72",
-          mapLoaded ? "[animation:fade-slide-left_0.55s_cubic-bezier(0.16,1,0.3,1)_200ms_both]" : "opacity-0",
-        )}>
-          <p className="text-xs uppercase tracking-wider text-secondary font-medium">
-            Portfolio Overview
-          </p>
-          <p className="text-3xl font-bold font-display text-foreground mt-1">
-            {formatCurrency(portfolioStats.totalValue)}
-          </p>
-          <div className="flex items-center gap-4 mt-3 text-sm text-secondary">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-interactive-primary" />
-              {portfolioStats.totalProperties} Properties
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-status-success" />
-              {portfolioStats.rentedCount} Rented
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-status-warning" />
-              {portfolioStats.vacantCount} Vacant
-            </span>
-          </div>
-          <div className="mt-3 pt-3 border-t border-border-subtle">
-            <span className="text-xs text-secondary">Avg Health </span>
-            <span className={cn("text-xs font-medium", healthClass(portfolioStats.avgHealth))}>
-              {portfolioStats.avgHealth}%
-            </span>
-          </div>
-        </div>
+        <QuickStats mapLoaded={mapLoaded} />
 
         {/* Pins moved into zoomable layer above */}
 
@@ -671,192 +575,5 @@ export function HomePage() {
         </div>
       </div>
     </div>
-  );
-}
-
-function MapIconButton({
-  children,
-  onClick,
-  spin,
-}: {
-  children: React.ReactNode;
-  onClick?: () => void;
-  spin?: boolean;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "bg-glass-icon-btn-fill backdrop-blur-md border border-glass-icon-btn-border rounded-lg p-2 shadow-sm text-secondary hover:bg-surface-base hover:text-foreground hover:scale-110 active:scale-95 transition-all duration-150 [&_svg]:transition-transform [&_svg]:duration-300",
-        spin && "hover:[&_svg]:rotate-180",
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
-function ValgateCmdK({
-  open,
-  onOpenChange,
-  properties,
-  navigate,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  properties: Property[];
-  navigate: (path: string) => void;
-}) {
-  const mockDocs = [
-    { id: "doc-1", name: "Land near river - Lease Agreement.pdf", type: "pdf" as const, modified: "2 days ago" },
-    { id: "doc-2", name: "Siem Reap Land Plot - Title Deed.pdf", type: "pdf" as const, modified: "1 week ago" },
-    { id: "doc-3", name: "Maintenance Log - Commercial Building", type: "doc" as const, modified: "3 days ago" },
-    { id: "doc-4", name: "Portfolio Valuation Report Q1 2026", type: "doc" as const, modified: "5 days ago" },
-  ];
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="overflow-hidden p-0 sm:max-w-2xl top-[20%] translate-y-0 gap-0 rounded-xl border-border-default bg-surface-base shadow-[0_0_40px_-10px_rgba(37,99,235,0.3)] [&>button:last-child]:hidden [animation:cmd-open_0.22s_cubic-bezier(0.16,1,0.3,1)_both]">
-        <DialogHeader className="sr-only">
-          <DialogTitle>Command Palette</DialogTitle>
-          <DialogDescription>Search your portfolio — properties, documents, and navigation</DialogDescription>
-        </DialogHeader>
-        <Command className="bg-surface-base text-foreground [&_[cmdk-group-heading]]:text-secondary [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:tracking-wide [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:px-5 [&_[cmdk-group-heading]]:py-2 [&_[data-slot=command-input-wrapper]]:h-16 [&_[data-slot=command-input-wrapper]]:px-5 [&_[data-slot=command-input-wrapper]]:gap-3 [&_[data-slot=command-input-wrapper]_svg]:size-5">
-          <CommandInput
-            placeholder="Search properties, documents, tenants..."
-            className="h-16 text-base placeholder:text-secondary"
-          />
-          <CommandList className="max-h-96">
-            <CommandEmpty className="py-10 text-center">
-              <div className="flex flex-col items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-surface-sunken flex items-center justify-center">
-                  <Search className="size-4 text-secondary" />
-                </div>
-                <p className="text-sm text-secondary">No matching properties or documents found.</p>
-              </div>
-            </CommandEmpty>
-
-            {/* Properties */}
-            <CommandGroup heading="Properties">
-              {properties.slice(0, 5).map((p, i) => (
-                <CommandItem
-                  key={p.id}
-                  value={`${p.name} ${p.code} ${p.province}`}
-                  onSelect={() => navigate(`/property/${p.id}`)}
-                  className="gap-3 pl-5 pr-4 py-3 border-l-4 border-transparent data-[selected=true]:border-interactive-primary data-[selected=true]:bg-brand-subtle [animation:cmd-item-in_0.18s_cubic-bezier(0.16,1,0.3,1)_both]"
-                  style={{ animationDelay: `${i * 35}ms` }}
-                >
-                  <div className="size-8 rounded-lg bg-surface-sunken flex items-center justify-center shrink-0">
-                    <Building className="size-4 text-secondary" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-foreground truncate">{p.name}</p>
-                    <div className="flex items-center justify-between gap-2 mt-0.5">
-                      <p className="text-xs text-secondary flex items-center gap-1.5 truncate">
-                        <span className={cn("w-1.5 h-1.5 rounded-full bg-current shrink-0", healthClass(p.health))} />
-                        {p.type} · {p.province}
-                      </p>
-                      <span className="text-xs font-mono font-medium text-foreground/60 shrink-0">{p.buy}</span>
-                    </div>
-                  </div>
-                  <span className={cn(
-                    "px-2 py-0.5 rounded text-xs font-medium shrink-0",
-                    statusClasses[p.statusVariant],
-                  )}>
-                    {p.status}
-                  </span>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-
-            <CommandSeparator className="bg-border-subtle" />
-
-            {/* Documents */}
-            <CommandGroup heading="Documents">
-              {mockDocs.map((doc, i) => (
-                <CommandItem
-                  key={doc.id}
-                  value={doc.name}
-                  onSelect={() => navigate("/portfolio")}
-                  className="gap-3 pl-5 pr-4 py-3 border-l-4 border-transparent data-[selected=true]:border-interactive-primary data-[selected=true]:bg-brand-subtle [animation:cmd-item-in_0.18s_cubic-bezier(0.16,1,0.3,1)_both]"
-                  style={{ animationDelay: `${i * 35}ms` }}
-                >
-                  <div className={cn(
-                    "size-8 rounded-lg flex items-center justify-center shrink-0",
-                    doc.type === "pdf" ? "bg-status-danger-bg" : "bg-status-info-bg",
-                  )}>
-                    <FileText className={cn(
-                      "size-4",
-                      doc.type === "pdf" ? "text-status-danger-text" : "text-status-info-text",
-                    )} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-foreground truncate">{doc.name}</p>
-                    <p className="text-xs text-secondary flex items-center gap-1.5">
-                      <span className="uppercase font-medium tracking-wide text-[10px] text-text-disabled">{doc.type}</span>
-                      <span className="text-text-disabled">·</span>
-                      Updated {doc.modified}
-                    </p>
-                  </div>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-
-            <CommandSeparator className="bg-border-subtle" />
-
-            {/* Navigate */}
-            <CommandGroup heading="Navigate">
-              {[
-                { label: "Add Property", icon: Plus, path: "/add-property" },
-                { label: "Analytics", icon: BarChart2, path: "/analytics" },
-                { label: "All Properties", icon: LayoutGrid, path: "/portfolio" },
-                { label: "Map View", icon: MapIcon, path: "/map" },
-                { label: "Succession Planning", icon: Users, path: "/estate-planning" },
-                { label: "Settings", icon: Settings, path: "/settings" },
-                { label: "Profile", icon: UserCircle, path: "/profile" },
-              ].map(({ label, icon: Icon, path }, i) => (
-                <CommandItem
-                  key={path}
-                  value={label}
-                  onSelect={() => navigate(path)}
-                  className="gap-3 pl-5 pr-4 py-3 border-l-4 border-transparent data-[selected=true]:border-interactive-primary data-[selected=true]:bg-brand-subtle [animation:cmd-item-in_0.18s_cubic-bezier(0.16,1,0.3,1)_both]"
-                  style={{ animationDelay: `${i * 30}ms` }}
-                >
-                  <div className="size-8 rounded-lg bg-brand-subtle flex items-center justify-center shrink-0">
-                    <Icon className="size-4 text-interactive-primary" />
-                  </div>
-                  <span className="text-sm font-medium">{label}</span>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-
-          {/* Footer */}
-          <div className="flex items-center justify-between px-5 py-3 border-t border-border-default bg-[#f8f9ff]">
-            <div className="flex items-center gap-1.5 text-[11px] text-secondary">
-              {["↑", "↓"].map((k) => (
-                <kbd key={k} className="bg-surface-base border border-border-default rounded px-1.5 py-0.5 font-medium text-secondary text-[11px]">
-                  {k}
-                </kbd>
-              ))}
-              <span>to navigate</span>
-              <span className="text-text-disabled mx-1">·</span>
-              <kbd className="bg-surface-base border border-border-default rounded px-1.5 py-0.5 font-medium text-secondary text-[11px]">
-                Enter
-              </kbd>
-              <span>to open</span>
-              <span className="text-text-disabled mx-1">·</span>
-              <kbd className="bg-surface-base border border-border-default rounded px-1.5 py-0.5 font-medium text-secondary text-[11px]">
-                Esc
-              </kbd>
-              <span>to dismiss</span>
-            </div>
-            <span className="text-[10px] font-semibold text-interactive-primary tracking-widest uppercase opacity-60">
-              Valgate Search
-            </span>
-          </div>
-        </Command>
-      </DialogContent>
-    </Dialog>
   );
 }

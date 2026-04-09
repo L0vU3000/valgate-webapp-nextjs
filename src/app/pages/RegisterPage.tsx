@@ -67,7 +67,7 @@ export function RegisterPage() {
                 </h2>
                 <p className="text-base text-[#434655]">
                   Already have an account?{" "}
-                  <Link to="/login" className="text-[#004ac6] hover:underline">
+                  <Link to="/login" className="text-[--val-primary-dark] hover:underline">
                     Log in
                   </Link>
                 </p>
@@ -171,11 +171,11 @@ export function RegisterPage() {
                   </div>
                   <span className="text-xs text-[#434655] leading-[18px]">
                     I agree to the{" "}
-                    <a href="#" className="text-[#004ac6] hover:underline">
+                    <a href="#" className="text-[--val-primary-dark] hover:underline">
                       Terms of Service
                     </a>{" "}
                     and{" "}
-                    <a href="#" className="text-[#004ac6] hover:underline">
+                    <a href="#" className="text-[--val-primary-dark] hover:underline">
                       Privacy Policy
                     </a>
                     .
@@ -201,7 +201,7 @@ export function RegisterPage() {
           </div>
         ) : (
           /* Section - Success Content Area (Right) */
-          <div className="flex flex-1 items-center justify-center bg-[#eef4ff] px-6 py-12 overflow-y-auto">
+          <div className="flex flex-1 items-center justify-center bg-val-bg-tint px-6 py-12 overflow-y-auto">
             <div className="flex flex-col gap-8 w-full max-w-[480px]">
 
               {/* Success Card */}
@@ -211,7 +211,7 @@ export function RegisterPage() {
                 <div className="relative size-20 mb-8 shrink-0">
                   {/* Background */}
                   <div className="size-20 rounded-full bg-[#e4efff] flex items-center justify-center">
-                    <Mail className="size-8 text-[#004ac6]" />
+                    <Mail className="size-8 text-[--val-primary-dark]" />
                   </div>
                   {/* Background+Border — green check badge */}
                   <div className="absolute -bottom-1 -right-1 size-8 rounded-full bg-[#10b981] border-4 border-white flex items-center justify-center">
@@ -220,7 +220,7 @@ export function RegisterPage() {
                 </div>
 
                 {/* Heading 2 - Typography */}
-                <h2 className="text-[30px] font-bold text-[#121c28] font-display leading-[36px] text-center mb-4">
+                <h2 className="text-[30px] font-bold text-val-heading font-display leading-[36px] text-center mb-4">
                   Check your inbox
                 </h2>
 
@@ -228,7 +228,7 @@ export function RegisterPage() {
                 <div className="text-center text-base leading-[26px] mb-8">
                   <p className="text-[#434655]">We've sent a verification link to</p>
                   <p>
-                    <span className="font-semibold text-[#121c28]">
+                    <span className="font-semibold text-val-heading">
                       {email || "alex.doe@example.com"}
                     </span>
                     <span className="text-[#434655]">
@@ -241,14 +241,14 @@ export function RegisterPage() {
                 <div className="w-full flex flex-col gap-4">
 
                   {/* Verification Help */}
-                  <div className="w-full bg-[#eef4ff] rounded-lg px-6 py-4 flex items-center justify-center gap-3">
+                  <div className="w-full bg-val-bg-tint rounded-lg px-6 py-4 flex items-center justify-center gap-3">
                     <span className="text-sm font-medium text-[#434655]">
                       Didn't receive it?
                     </span>
                     {/* Button → Resend the email */}
                     <button
                       type="button"
-                      className="text-sm font-semibold text-[#004ac6] hover:underline"
+                      className="text-sm font-semibold text-[--val-primary-dark] hover:underline"
                     >
                       Resend the email
                     </button>
@@ -278,7 +278,7 @@ export function RegisterPage() {
               {/* Assistance Note */}
               <p className="text-sm text-[#737686] text-center">
                 Having trouble? Contact our{" "}
-                <a href="#" className="text-[#004ac6] hover:underline">
+                <a href="#" className="text-[--val-primary-dark] hover:underline">
                   Support Team
                 </a>{" "}
                 for assistance.

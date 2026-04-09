@@ -33,7 +33,7 @@ export function AuthBrandPanel() {
     <div
       className="hidden lg:flex w-[427px] shrink-0 flex-col justify-between overflow-hidden px-12 py-12 relative"
       style={{
-        background: "linear-gradient(180deg, #2563EB 0%, #004AC6 55%, #1E3A8A 100%)",
+        background: "linear-gradient(180deg, #2563EB 0%, var(--val-primary-dark) 55%, #1E3A8A 100%)",
       }}
     >
       {/* Decorative: bottom-left glow — "Decorative Elements" */}
@@ -44,7 +44,7 @@ export function AuthBrandPanel() {
       {/* Logo — "Branding > Container" */}
       <div className="relative flex items-center gap-2 shrink-0">
         <div className="flex items-center justify-center size-8 bg-white rounded-lg shrink-0">
-          <ValgateBuildingIcon className="size-[18px] text-[#004AC6]" />
+          <ValgateBuildingIcon className="size-[18px] text-[--val-primary-dark]" />
         </div>
         <span className="text-2xl font-extrabold text-white font-display tracking-[-0.6px]">
           Valgate
