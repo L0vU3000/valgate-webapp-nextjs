@@ -17,6 +17,8 @@ import {
   FileText,
   Command as CommandIcon,
   Building,
+  ArrowUpRight,
+  MapPin,
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { ImageWithFallback } from "../components/figma/ImageWithFallback";
@@ -338,10 +340,11 @@ export function HomePage() {
         </div>{/* end zoomable layer */}
 
         {/* Command Palette Trigger */}
-        <div data-no-drag className={cn(
-          "absolute top-6 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-3 w-[700px] max-w-[calc(100%-3rem)]",
-          mapLoaded ? "[animation:fade-slide-down_0.5s_cubic-bezier(0.16,1,0.3,1)_both]" : "opacity-0",
-        )}>
+        <div data-no-drag className="absolute top-6 z-10 flex justify-center transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]" style={{ left: 0, right: selectedProperty ? "20rem" : 0 }}>
+          <div className={cn(
+            "flex flex-col items-center gap-3 w-[700px] max-w-[calc(100%-3rem)]",
+            mapLoaded ? "[animation:fade-slide-down_0.5s_cubic-bezier(0.16,1,0.3,1)_both]" : "opacity-0",
+          )}>
           <button
             onClick={() => setCommandOpen(true)}
             className={cn(
@@ -388,6 +391,7 @@ export function HomePage() {
               </button>
             ))}
           </div>
+          </div>
         </div>
 
         {/* Command Palette Dialog */}
@@ -399,10 +403,10 @@ export function HomePage() {
         />
 
         {/* Portfolio legend — centered, bottom of map */}
-        <div data-no-drag className={cn(
-          "absolute bottom-4 left-1/2 -translate-x-1/2 z-10",
-          mapLoaded ? "[animation:fade-slide-up_0.5s_cubic-bezier(0.16,1,0.3,1)_300ms_both]" : "opacity-0",
-        )}>
+        <div data-no-drag className="absolute bottom-4 z-10 flex justify-center transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]" style={{ left: 0, right: selectedProperty ? "20rem" : 0 }}>
+          <div className={cn(
+            mapLoaded ? "[animation:fade-slide-up_0.5s_cubic-bezier(0.16,1,0.3,1)_300ms_both]" : "opacity-0",
+          )}>
           <div className="flex items-center bg-glass-panel-fill backdrop-blur-md border border-glass-panel-border rounded-full shadow-sm px-5 py-2.5 gap-4 whitespace-nowrap">
             {/* Total value */}
             <div className="flex items-baseline gap-2">
@@ -442,12 +446,16 @@ export function HomePage() {
               <span className={cn("text-sm font-medium", healthClass(portfolioStats.avgHealth))}>{portfolioStats.avgHealth}%</span>
             </div>
           </div>
+          </div>
         </div>
 
         {/* Pins moved into zoomable layer above */}
 
         {/* Map controls */}
-        <div className="absolute right-4 bottom-4 flex flex-col gap-2 z-10" data-no-drag>
+        <div className={cn(
+          "absolute bottom-4 flex flex-col gap-2 z-10 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]",
+          selectedProperty ? "right-[22rem]" : "right-4",
+        )} data-no-drag>
           <MapIconButton onClick={() => handleZoom(ZOOM_STEP)}>
             <ZoomIn className="size-4" />
           </MapIconButton>
@@ -459,87 +467,96 @@ export function HomePage() {
           </MapIconButton>
         </div>
 
-        {/* Property info panel */}
+        {/* Property info panel — full-height floating sidebar */}
         {selectedProperty && (
-          <div key={selectedPin} className="absolute right-4 top-6 w-80 bg-glass-panel-fill backdrop-blur-md border border-glass-panel-border rounded-xl shadow-sm z-20 overflow-hidden [animation:slide-in-right_0.3s_cubic-bezier(0.16,1,0.3,1)_both]">
-            <div className="relative">
+          <div key={selectedPin} className="absolute right-4 top-4 bottom-4 w-80 bg-glass-panel-fill backdrop-blur-md border border-glass-panel-border rounded-xl shadow-sm z-20 flex flex-col overflow-hidden [animation:slide-in-right_0.3s_cubic-bezier(0.16,1,0.3,1)_both]" data-no-drag>
+
+            {/* Hero image with overlay info */}
+            <div className="relative shrink-0 overflow-hidden">
               <ImageWithFallback
                 src="https://images.unsplash.com/photo-1665691964802-956fc06b93cf?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxsdXh1cnklMjBob3VzZSUyMGRyaXZld2F5JTIwbmlnaHR8ZW58MXx8fHwxNzczNzM0NjE4fDA&ixlib=rb-4.1.0&q=80&w=1080"
                 alt={selectedProperty.name}
-                className="w-full h-40 object-cover"
+                className="w-full h-48 object-cover [animation:card-image-reveal_0.5s_cubic-bezier(0.16,1,0.3,1)_0.15s_both]"
               />
-              <Button
-                variant="ghost"
-                size="icon"
+              {/* Scrim gradient */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+              {/* Close */}
+              <button
                 onClick={() => setSelectedPin(null)}
-                className="absolute top-2 right-2 bg-glass-icon-btn-fill backdrop-blur-md hover:bg-surface-base rounded-full size-7 shadow-sm border border-glass-icon-btn-border"
+                className="absolute top-3 right-3 size-7 rounded-full bg-black/30 backdrop-blur-sm flex items-center justify-center hover:bg-black/50 transition-colors"
               >
-                <X className="size-3 text-foreground" />
-              </Button>
-            </div>
-            <div className="p-4">
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-secondary">{selectedProperty.code}</p>
-                <span
-                  className={cn(
-                    "px-2 py-0.5 rounded text-xs font-medium",
-                    statusClasses[selectedProperty.statusVariant],
-                  )}
-                >
+                <X className="size-3.5 text-white" />
+              </button>
+              {/* Status pill on image */}
+              <div className="absolute top-3 left-3">
+                <span className={cn(
+                  "px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide uppercase",
+                  selectedProperty.statusVariant === "rented"
+                    ? "bg-emerald-500/90 text-white"
+                    : "bg-amber-400/90 text-amber-950",
+                )}>
                   {selectedProperty.status}
                 </span>
               </div>
-              <p className="text-lg font-semibold text-foreground mt-1">
-                {selectedProperty.name}
-              </p>
-              <p className="text-sm text-secondary">{selectedProperty.province}</p>
+              {/* Title overlay at bottom of image */}
+              <div className="absolute bottom-0 left-0 right-0 px-5 pb-4">
+                <p className="text-[11px] font-medium text-white/60 tracking-wide uppercase">{selectedProperty.code}</p>
+                <h3 className="text-lg font-display font-semibold text-white leading-tight mt-0.5">{selectedProperty.name}</h3>
+                <div className="flex items-center gap-1 mt-1">
+                  <MapPin className="size-3 text-white/50" />
+                  <span className="text-xs text-white/70">{selectedProperty.province}</span>
+                </div>
+              </div>
+            </div>
 
-              <div className="mt-4 space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-secondary">Buy Price</span>
-                  <span className="font-medium text-foreground">
-                    {selectedProperty.buy}
-                  </span>
+            {/* Details */}
+            <div className="px-5 pt-5 pb-4 space-y-3.5 text-sm">
+              {[
+                { label: "Buy Price", value: <span className="text-base font-display font-bold text-foreground">{selectedProperty.buy}</span> },
+                { label: "Size", value: <span className="font-medium text-foreground">{selectedProperty.size} m&sup2;</span> },
+                { label: "Type", value: <span className="font-medium text-foreground">{selectedProperty.type}</span> },
+                { label: "Title", value: <span className={cn("font-medium", titleClasses[selectedProperty.titleVariant])}>{selectedProperty.title}</span> },
+              ].map((row, i) => (
+                <div
+                  key={row.label}
+                  className="flex items-baseline justify-between [animation:card-row-in_0.35s_cubic-bezier(0.16,1,0.3,1)_both]"
+                  style={{ animationDelay: `${250 + i * 50}ms` }}
+                >
+                  <span className="text-secondary">{row.label}</span>
+                  {row.value}
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-secondary">Size</span>
-                  <span className="text-foreground">
-                    {selectedProperty.size} m&sup2;
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-secondary">Title</span>
-                  <span
-                    className={cn(
-                      "font-medium",
-                      titleClasses[selectedProperty.titleVariant],
-                    )}
-                  >
-                    {selectedProperty.title}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-secondary">Health</span>
-                  <span
-                    className={cn(
-                      "flex items-center gap-1 font-medium",
-                      healthClass(selectedProperty.health),
-                    )}
-                  >
-                    <span className="w-2 h-2 rounded-full bg-current" />
+              ))}
+              <div
+                className="flex items-center justify-between [animation:card-row-in_0.35s_cubic-bezier(0.16,1,0.3,1)_both]"
+                style={{ animationDelay: "450ms" }}
+              >
+                <span className="text-secondary">Health</span>
+                <div className="flex items-center gap-2">
+                  <div className="w-16 h-1.5 rounded-full bg-surface-sunken overflow-hidden">
+                    <div
+                      className={cn("h-full rounded-full origin-left [animation:health-bar-fill_0.6s_cubic-bezier(0.16,1,0.3,1)_0.5s_both]", healthBgClass(selectedProperty.health))}
+                      style={{ width: `${selectedProperty.health}%` }}
+                    />
+                  </div>
+                  <span className={cn("font-medium tabular-nums", healthClass(selectedProperty.health))}>
                     {selectedProperty.health}%
                   </span>
                 </div>
               </div>
+            </div>
 
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full mt-4"
+            {/* Spacer */}
+            <div className="flex-1" />
+
+            {/* CTA */}
+            <div className="px-5 py-4 shrink-0 [animation:card-row-in_0.35s_cubic-bezier(0.16,1,0.3,1)_0.5s_both]">
+              <button
                 onClick={() => navigate(`/property/${selectedProperty.id}`)}
+                className="w-full flex items-center justify-between px-4 py-2.5 rounded-lg bg-interactive-primary text-white text-sm font-medium hover:brightness-110 active:scale-[0.98] transition-all duration-150"
               >
-                View Details
-              </Button>
+                View Property
+                <ArrowUpRight className="size-4" />
+              </button>
             </div>
           </div>
         )}
