@@ -515,7 +515,7 @@ export function AIOverlay({ open, onClose }: AIOverlayProps) {
                   { h: 45, bg: "linear-gradient(180deg, #a5f3fc, rgba(165,243,252,0.6))" },
                   { h: 68, bg: "linear-gradient(180deg, #67e8f9, rgba(103,232,249,0.6))" },
                   { h: 62, bg: "linear-gradient(180deg, #22d3ee, rgba(34,211,238,0.6))" },
-                  { h: 96, bg: "linear-gradient(180deg, #004ac6, rgba(0,74,198,0.7))" },
+                  { h: 96, bg: "linear-gradient(180deg, var(--val-primary-dark), rgba(0,74,198,0.7))" },
                   { h: 79, bg: "linear-gradient(180deg, rgba(0,74,198,0.7), rgba(0,74,198,0.35))" },
                 ].map((bar, i) => (
                   <div

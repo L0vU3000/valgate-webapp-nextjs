@@ -23,7 +23,7 @@ const tenants = [
 ];
 
 const activityItems = [
-  { color: "#004ac6", time: "2h ago", text: "Rent payment received from Apex Global Logistics — $12,400" },
+  { color: "var(--val-primary-dark)", time: "2h ago", text: "Rent payment received from Apex Global Logistics — $12,400" },
   { color: "#059669", time: "5h ago", text: "Lease renewal signed: Starlight Creatives, 24 months" },
   { color: "#F59E0B", time: "1d ago", text: "Work order submitted: HVAC filter replacement, Building A" },
   { color: "#881337", time: "1d ago", text: "Alert: Quantum Tech Ltd lease expires in 30 days" },
@@ -58,7 +58,7 @@ function MetricCard({
       <div>
         <p className="text-[#434655] text-[12px] font-medium uppercase tracking-wide">{label}</p>
         <div className="flex items-baseline gap-2">
-          <p className="text-[#121c28] text-[24px] font-semibold">{value}</p>
+          <p className="text-val-heading text-[24px] font-semibold">{value}</p>
           {badge && (
             <span className="text-[14px] font-medium" style={{ color: badgeColor }}>{badge}</span>
           )}
@@ -76,7 +76,7 @@ export function PropertyOverviewPage() {
         <div
           className="relative h-80 overflow-hidden flex items-end"
           style={{
-            background: "linear-gradient(135deg, #1e3a5f 0%, #004ac6 60%, #0ea5e9 100%)",
+            background: "linear-gradient(135deg, #1e3a5f 0%, var(--val-primary-dark) 60%, #0ea5e9 100%)",
           }}
         >
           {/* Gradient overlay */}
@@ -102,11 +102,11 @@ export function PropertyOverviewPage() {
               </h1>
             </div>
             <div className="flex items-center gap-3">
-              <button className="bg-white text-[#121c28] text-[14px] font-semibold px-6 py-2.5 rounded-lg flex items-center gap-2 hover:bg-white/90 transition-colors">
+              <button className="bg-white text-val-heading text-[14px] font-semibold px-6 py-2.5 rounded-lg flex items-center gap-2 hover:bg-white/90 transition-colors">
                 <FileText className="w-4 h-4" />
                 Edit Profile
               </button>
-              <button className="bg-[#004ac6] text-white text-[14px] font-semibold px-6 py-2.5 rounded-lg flex items-center gap-2 shadow-[0px_10px_15px_-3px_rgba(0,74,198,0.3)] hover:bg-[#003ba0] transition-colors">
+              <button className="bg-[--val-primary-dark] text-white text-[14px] font-semibold px-6 py-2.5 rounded-lg flex items-center gap-2 shadow-[0px_10px_15px_-3px_rgba(0,74,198,0.3)] hover:bg-[#003ba0] transition-colors">
                 <ArrowUpRight className="w-4 h-4" />
                 Export Data
               </button>
@@ -162,7 +162,7 @@ export function PropertyOverviewPage() {
                           <span className="font-semibold">{a.title}</span>
                           <span className="font-normal">{a.body}</span>
                         </p>
-                        <button className="bg-white text-[#121c28] text-[12px] font-semibold px-3 py-1 rounded shadow-sm ml-4 shrink-0">
+                        <button className="bg-white text-val-heading text-[12px] font-semibold px-3 py-1 rounded shadow-sm ml-4 shrink-0">
                           {a.action}
                         </button>
                       </div>
@@ -176,7 +176,7 @@ export function PropertyOverviewPage() {
                 {/* Financials Widget */}
                 <div className="bg-white border border-[rgba(195,198,215,0.3)] rounded-xl p-6 shadow-sm flex flex-col gap-6">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-[#121c28] text-[18px] font-bold" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+                    <h3 className="text-val-heading text-[18px] font-bold" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
                       Financials
                     </h3>
                     <button className="text-muted-foreground hover:text-foreground">
@@ -186,10 +186,10 @@ export function PropertyOverviewPage() {
                   <div className="flex flex-col gap-4">
                     <div className="flex items-end justify-between">
                       <span className="text-[#434655] text-[14px]">Net Operating Income</span>
-                      <span className="text-[#121c28] text-[18px] font-semibold">$184.2k</span>
+                      <span className="text-val-heading text-[18px] font-semibold">$184.2k</span>
                     </div>
                     <div className="bg-[#e4efff] h-2 rounded-full overflow-hidden">
-                      <div className="bg-[#004ac6] h-full w-[72%]" />
+                      <div className="bg-[--val-primary-dark] h-full w-[72%]" />
                     </div>
                     <div className="grid grid-cols-2 gap-4 pt-1 border-t border-[rgba(195,198,215,0.2)]">
                       <div>
@@ -198,7 +198,7 @@ export function PropertyOverviewPage() {
                       </div>
                       <div>
                         <p className="text-[#434655] text-[10px] font-semibold uppercase tracking-wide">Gross Income</p>
-                        <p className="text-[#121c28] text-[14px] font-semibold">$226.7k</p>
+                        <p className="text-val-heading text-[14px] font-semibold">$226.7k</p>
                       </div>
                     </div>
                   </div>
@@ -207,7 +207,7 @@ export function PropertyOverviewPage() {
                 {/* Tenant Mix Widget */}
                 <div className="bg-white border border-[rgba(195,198,215,0.3)] rounded-xl p-6 shadow-sm flex flex-col gap-6">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-[#121c28] text-[18px] font-bold" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+                    <h3 className="text-val-heading text-[18px] font-bold" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
                       Tenant Mix
                     </h3>
                     <button className="text-muted-foreground hover:text-foreground">
@@ -220,19 +220,19 @@ export function PropertyOverviewPage() {
                       <svg viewBox="0 0 80 80" className="w-full h-full -rotate-90">
                         <circle cx="40" cy="40" r="32" fill="none" stroke="#e4efff" strokeWidth="10" />
                         {/* Commercial 85% = 200.96 of 201.06 */}
-                        <circle cx="40" cy="40" r="32" fill="none" stroke="#004ac6" strokeWidth="10"
+                        <circle cx="40" cy="40" r="32" fill="none" stroke="var(--val-primary-dark)" strokeWidth="10"
                           strokeDasharray="170.8 200.96" strokeDashoffset="0" />
                         {/* Retail 22% */}
                         <circle cx="40" cy="40" r="32" fill="none" stroke="#38bdf8" strokeWidth="10"
                           strokeDasharray="44.2 200.96" strokeDashoffset="-170.8" />
                       </svg>
                       <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="text-[#121c28] text-[12px] font-semibold">85%</span>
+                        <span className="text-val-heading text-[12px] font-semibold">85%</span>
                       </div>
                     </div>
                     <div className="flex flex-col gap-2">
                       <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-[#004ac6] shrink-0" />
+                        <span className="w-2 h-2 rounded-full bg-[--val-primary-dark] shrink-0" />
                         <span className="text-[#434655] text-[12px]">Commercial (12)</span>
                       </div>
                       <div className="flex items-center gap-2">
@@ -251,10 +251,10 @@ export function PropertyOverviewPage() {
               {/* Primary Leaseholders */}
               <div className="bg-white border border-[rgba(195,198,215,0.3)] rounded-xl overflow-hidden">
                 <div className="flex items-center justify-between px-6 py-4 border-b border-[rgba(195,198,215,0.2)]">
-                  <h3 className="text-[#121c28] text-[18px] font-bold" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+                  <h3 className="text-val-heading text-[18px] font-bold" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
                     Primary Leaseholders
                   </h3>
-                  <button className="text-[#004ac6] text-[14px] font-semibold">View All</button>
+                  <button className="text-[--val-primary-dark] text-[14px] font-semibold">View All</button>
                 </div>
                 <table className="w-full">
                   <thead>
@@ -270,14 +270,14 @@ export function PropertyOverviewPage() {
                       <tr key={t.name} className={i > 0 ? "border-t border-[rgba(195,198,215,0.1)]" : ""}>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-[#d8e3f4] flex items-center justify-center text-[#121c28] text-[12px] font-semibold shrink-0">
+                            <div className="w-8 h-8 rounded-full bg-[#d8e3f4] flex items-center justify-center text-val-heading text-[12px] font-semibold shrink-0">
                               {t.initials}
                             </div>
-                            <span className="text-[#121c28] text-[14px] font-semibold">{t.name}</span>
+                            <span className="text-val-heading text-[14px] font-semibold">{t.name}</span>
                           </div>
                         </td>
                         <td className="px-6 py-4 text-[#434655] text-[14px]">{t.unit}</td>
-                        <td className="px-6 py-4 text-[#121c28] text-[14px] font-semibold">{t.rent}</td>
+                        <td className="px-6 py-4 text-val-heading text-[14px] font-semibold">{t.rent}</td>
                         <td className="px-6 py-4">
                           <span
                             className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded ${
@@ -299,7 +299,7 @@ export function PropertyOverviewPage() {
             {/* Right: Activity Sidebar */}
             <div className="col-span-4 flex flex-col gap-6">
               {/* Quick Actions */}
-              <div className="bg-[#004ac6] rounded-xl p-6 flex flex-col gap-4 shadow-[0px_10px_15px_-3px_rgba(0,74,198,0.2),0px_4px_6px_-4px_rgba(0,74,198,0.2)]">
+              <div className="bg-[--val-primary-dark] rounded-xl p-6 flex flex-col gap-4 shadow-[0px_10px_15px_-3px_rgba(0,74,198,0.2),0px_4px_6px_-4px_rgba(0,74,198,0.2)]">
                 <h3 className="text-white text-[18px] font-bold" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
                   Quick Actions
                 </h3>
@@ -319,10 +319,10 @@ export function PropertyOverviewPage() {
               {/* Activity Feed */}
               <div className="bg-white border border-[rgba(195,198,215,0.3)] rounded-xl p-6 shadow-sm flex flex-col gap-6">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-[#121c28] text-[18px] font-bold" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+                  <h3 className="text-val-heading text-[18px] font-bold" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
                     Activity Feed
                   </h3>
-                  <button className="text-[#004ac6] text-[12px] font-semibold">View All</button>
+                  <button className="text-[--val-primary-dark] text-[12px] font-semibold">View All</button>
                 </div>
                 <div className="flex flex-col gap-4">
                   {activityItems.map((item, i) => (
@@ -332,7 +332,7 @@ export function PropertyOverviewPage() {
                         style={{ backgroundColor: item.color }}
                       />
                       <div className="flex-1 min-w-0">
-                        <p className="text-[#121c28] text-[13px] leading-snug">{item.text}</p>
+                        <p className="text-val-heading text-[13px] leading-snug">{item.text}</p>
                         <p className="text-[#434655] text-[12px] mt-0.5">{item.time}</p>
                       </div>
                     </div>
@@ -342,7 +342,7 @@ export function PropertyOverviewPage() {
 
               {/* Add Note */}
               <div className="bg-white border border-[rgba(195,198,215,0.3)] rounded-xl p-4 shadow-sm">
-                <button className="w-full flex items-center gap-2 text-[#434655] text-[14px] hover:text-[#004ac6] transition-colors">
+                <button className="w-full flex items-center gap-2 text-[#434655] text-[14px] hover:text-[--val-primary-dark] transition-colors">
                   <Plus className="w-4 h-4" />
                   Add a note or update...
                 </button>

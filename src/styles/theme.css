@@ -762,6 +762,12 @@
   --status-info-border: #BAE6FD;
   --status-info-text:   #0369A1;
 
+  /* Valgate — repeated hardcoded colors consolidated */
+  --val-primary-dark:  #004ac6;
+  --val-heading:       #121c28;
+  --val-bg-tint:       #eef4ff;
+  --val-bg-page-alt:   #f8f9ff;
+
   /* Glass Semantic — Light */
   --glass-header-fill:         #ffffffd1;
   --glass-header-border:       #ffffffcc;
@@ -860,6 +866,12 @@
   --status-info-bg:     #0C4A6E;
   --status-info-border: #075985;
   --status-info-text:   #7DD3FC;
+
+  /* Valgate — repeated hardcoded colors consolidated */
+  --val-primary-dark:  #3B82F6;
+  --val-heading:       #F5F6F7;
+  --val-bg-tint:       #171B2B;
+  --val-bg-page-alt:   #0F1117;
 
   /* Glass Semantic — Dark */
   --glass-header-fill:         #0f1117bf;
@@ -982,6 +994,12 @@
   --color-glass-panel-border:    var(--glass-panel-border);
   --color-glass-sidebar-fill:    var(--glass-sidebar-fill);
   --color-glass-sidebar-border:  var(--glass-sidebar-border);
+
+  /* Valgate consolidated */
+  --color-val-primary-dark:  var(--val-primary-dark);
+  --color-val-heading:       var(--val-heading);
+  --color-val-bg-tint:       var(--val-bg-tint);
+  --color-val-bg-page-alt:   var(--val-bg-page-alt);
 
   /* Typography */
   --font-sans:    'Inter', system-ui, sans-serif;

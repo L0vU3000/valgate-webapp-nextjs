@@ -11,12 +11,12 @@ export function ProfilePage() {
             <div className="flex flex-col items-center pt-6 pb-0">
               {/* Avatar */}
               <div className="size-24 rounded-full bg-primary/10 border-2 border-primary flex items-center justify-center mb-4">
-                <span className="font-display font-extrabold text-[30px] text-[#004ac6]">SM</span>
+                <span className="font-display font-extrabold text-[30px] text-[--val-primary-dark]">SM</span>
               </div>
               {/* Name */}
               <h2 className="font-display font-bold text-[20px] text-foreground leading-7">Samuel Miller</h2>
               {/* Role badge */}
-              <span className="mt-1 mb-0 px-3 py-0.5 rounded-full bg-primary/10 border border-primary/20 text-[12px] font-medium text-[#004ac6]">
+              <span className="mt-1 mb-0 px-3 py-0.5 rounded-full bg-primary/10 border border-primary/20 text-[12px] font-medium text-[--val-primary-dark]">
                 Administrator
               </span>
             </div>

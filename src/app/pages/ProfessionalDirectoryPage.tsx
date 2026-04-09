@@ -15,7 +15,7 @@ import {
   Plus,
   Upload,
 } from "lucide-react";
-import { cn } from "@/app/components/ui/utils";
+import { cn } from "../components/ui/utils";
 
 type Category =
   | "All"
@@ -204,7 +204,7 @@ function ProfessionalCard({ pro, index }: { pro: Professional; index: number }) 
       </div>
 
       {/* Name + company */}
-      <h3 className="text-[#121c28] font-bold text-lg leading-7">{pro.name}</h3>
+      <h3 className="text-val-heading font-bold text-lg leading-7">{pro.name}</h3>
       <p className="text-slate-500 text-sm mb-3">{pro.company}</p>
 
       {/* Rating */}
@@ -213,7 +213,7 @@ function ProfessionalCard({ pro, index }: { pro: Professional; index: number }) 
       </div>
 
       {/* Contact actions */}
-      <div className="bg-[#eef4ff] rounded-lg p-3 flex items-center justify-between mb-4">
+      <div className="bg-val-bg-tint rounded-lg p-3 flex items-center justify-between mb-4">
         <div className="flex gap-3">
           <button
             className="size-8 bg-white rounded-full flex items-center justify-center
@@ -236,7 +236,7 @@ function ProfessionalCard({ pro, index }: { pro: Professional; index: number }) 
             "flex items-center gap-1.5 text-xs font-semibold transition-all duration-200 active:scale-95",
             copied
               ? "text-green-600 pointer-events-none"
-              : "text-[#004ac6] hover:opacity-75",
+              : "text-[--val-primary-dark] hover:opacity-75",
           )}
         >
           <span
@@ -260,9 +260,9 @@ function ProfessionalCard({ pro, index }: { pro: Professional; index: number }) 
       <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
         <span className="text-slate-500 text-xs">
           Linked Properties:{" "}
-          <span className="font-semibold text-[#121c28]">{pro.linkedProperties}</span>
+          <span className="font-semibold text-val-heading">{pro.linkedProperties}</span>
         </span>
-        <button className="flex items-center gap-0.5 text-[#004ac6] text-xs font-semibold transition-all duration-150 hover:opacity-75 hover:gap-1 active:scale-95">
+        <button className="flex items-center gap-0.5 text-[--val-primary-dark] text-xs font-semibold transition-all duration-150 hover:opacity-75 hover:gap-1 active:scale-95">
           VIEW PROFILE
           <ChevronRight className="size-3" />
         </button>
@@ -318,7 +318,7 @@ export function ProfessionalDirectoryPage() {
               />
             </svg>
             <span
-              className="text-base font-bold text-[#121c28] tracking-tight"
+              className="text-base font-bold text-val-heading tracking-tight"
               style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }}
             >
               Valgate
@@ -361,7 +361,7 @@ export function ProfessionalDirectoryPage() {
       </header>
 
       {/* ── Page Content ── */}
-      <div className="flex-1 overflow-y-auto bg-[#f8f9ff]">
+      <div className="flex-1 overflow-y-auto bg-val-bg-page-alt">
         <div className="max-w-6xl mx-auto px-8 py-8">
           {/* Page Header */}
           <div
@@ -369,7 +369,7 @@ export function ProfessionalDirectoryPage() {
           >
             <div>
               <div className="flex items-center gap-2 mb-3">
-                <span className="text-xs font-semibold tracking-widest uppercase text-[#004ac6]">
+                <span className="text-xs font-semibold tracking-widest uppercase text-[--val-primary-dark]">
                   Valgate
                 </span>
                 <span className="text-xs text-slate-300">/</span>
@@ -377,7 +377,7 @@ export function ProfessionalDirectoryPage() {
                   Professional Directory
                 </span>
               </div>
-              <h1 className="text-4xl font-extrabold text-[#121c28] tracking-tight leading-10">
+              <h1 className="text-4xl font-extrabold text-val-heading tracking-tight leading-10">
                 Trusted Professionals
               </h1>
               <p className="text-slate-500 text-base mt-2">
@@ -385,13 +385,13 @@ export function ProfessionalDirectoryPage() {
               </p>
             </div>
             <div className="flex items-center gap-3 shrink-0">
-              <button className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 rounded text-sm font-semibold text-[#121c28] transition-all duration-150 hover:bg-slate-50 active:scale-[0.98]">
+              <button className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 rounded text-sm font-semibold text-val-heading transition-all duration-150 hover:bg-slate-50 active:scale-[0.98]">
                 <Upload className="size-3.5" />
                 EXPORT
               </button>
               <button
                 className="flex items-center gap-2 px-5 py-2.5 rounded text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:opacity-90 active:scale-[0.98]"
-                style={{ background: "linear-gradient(168deg, #004ac6 0%, #2563eb 100%)" }}
+                style={{ background: "linear-gradient(168deg, var(--val-primary-dark) 0%, #2563eb 100%)" }}
               >
                 <Plus className="size-3.5" />
                 ADD PROFESSIONAL
@@ -411,18 +411,18 @@ export function ProfessionalDirectoryPage() {
                 placeholder="Search by name, profession or company..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="peer w-full bg-[#eef4ff] pl-12 pr-4 py-3 text-sm placeholder-slate-400 text-slate-700 rounded outline-none focus:ring-2 focus:ring-blue-200 transition-shadow duration-200"
+                className="peer w-full bg-val-bg-tint pl-12 pr-4 py-3 text-sm placeholder-slate-400 text-slate-700 rounded outline-none focus:ring-2 focus:ring-blue-200 transition-shadow duration-200"
               />
             </div>
 
             {/* Grid / List toggle */}
-            <div className="bg-[#eef4ff] p-1 rounded flex shrink-0">
+            <div className="bg-val-bg-tint p-1 rounded flex shrink-0">
               <button
                 onClick={() => setView("grid")}
                 className={cn(
                   "px-4 py-2 text-sm font-semibold rounded transition-all duration-150",
                   view === "grid"
-                    ? "bg-white text-[#004ac6] shadow-sm"
+                    ? "bg-white text-[--val-primary-dark] shadow-sm"
                     : "text-slate-500 hover:text-slate-700",
                 )}
               >
@@ -433,7 +433,7 @@ export function ProfessionalDirectoryPage() {
                 className={cn(
                   "px-4 py-2 text-sm font-semibold rounded transition-all duration-150",
                   view === "list"
-                    ? "bg-white text-[#004ac6] shadow-sm"
+                    ? "bg-white text-[--val-primary-dark] shadow-sm"
                     : "text-slate-500 hover:text-slate-700",
                 )}
               >
@@ -443,7 +443,7 @@ export function ProfessionalDirectoryPage() {
 
             {/* Sort */}
             <div className="relative w-48 shrink-0">
-              <select className="w-full appearance-none bg-[#eef4ff] px-4 py-3 pr-8 text-sm font-semibold text-[#121c28] rounded outline-none cursor-pointer transition-shadow duration-200 focus:ring-2 focus:ring-blue-200">
+              <select className="w-full appearance-none bg-val-bg-tint px-4 py-3 pr-8 text-sm font-semibold text-val-heading rounded outline-none cursor-pointer transition-shadow duration-200 focus:ring-2 focus:ring-blue-200">
                 <option>Sort by: Rating</option>
                 <option>Sort by: Name</option>
                 <option>Sort by: Properties</option>
@@ -463,8 +463,8 @@ export function ProfessionalDirectoryPage() {
                 className={cn(
                   "px-5 py-1.5 rounded-full text-xs font-semibold transition-all duration-150",
                   activeCategory === cat
-                    ? "bg-[#004ac6] text-white scale-[1.03]"
-                    : "bg-[#eef4ff] text-slate-500 hover:bg-blue-100 hover:text-slate-700",
+                    ? "bg-[--val-primary-dark] text-white scale-[1.03]"
+                    : "bg-val-bg-tint text-slate-500 hover:bg-blue-100 hover:text-slate-700",
                 )}
               >
                 {cat}
@@ -498,13 +498,13 @@ export function ProfessionalDirectoryPage() {
           >
             <p className="text-slate-500 text-sm">
               Showing{" "}
-              <span className="font-semibold text-[#121c28]">{filtered.length}</span>{" "}
+              <span className="font-semibold text-val-heading">{filtered.length}</span>{" "}
               of{" "}
-              <span className="font-semibold text-[#121c28]">142</span>{" "}
+              <span className="font-semibold text-val-heading">142</span>{" "}
               professionals
             </p>
             <div className="flex gap-2">
-              <button className="size-10 bg-[#eef4ff] rounded flex items-center justify-center text-slate-500 transition-all duration-150 hover:bg-blue-100 active:scale-95">
+              <button className="size-10 bg-val-bg-tint rounded flex items-center justify-center text-slate-500 transition-all duration-150 hover:bg-blue-100 active:scale-95">
                 <ChevronLeft className="size-4" />
               </button>
               {[1, 2, 3].map((n) => (
@@ -513,14 +513,14 @@ export function ProfessionalDirectoryPage() {
                   className={cn(
                     "size-10 rounded text-sm font-semibold transition-all duration-150",
                     n === 1
-                      ? "bg-[#004ac6] text-white"
-                      : "bg-[#eef4ff] text-slate-500 hover:bg-blue-100 active:scale-95",
+                      ? "bg-[--val-primary-dark] text-white"
+                      : "bg-val-bg-tint text-slate-500 hover:bg-blue-100 active:scale-95",
                   )}
                 >
                   {n}
                 </button>
               ))}
-              <button className="size-10 bg-[#eef4ff] rounded flex items-center justify-center text-slate-500 transition-all duration-150 hover:bg-blue-100 active:scale-95">
+              <button className="size-10 bg-val-bg-tint rounded flex items-center justify-center text-slate-500 transition-all duration-150 hover:bg-blue-100 active:scale-95">
                 <ChevronRight className="size-4" />
               </button>
             </div>

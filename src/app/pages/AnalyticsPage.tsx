@@ -105,7 +105,7 @@ export function AnalyticsPage() {
   useEffect(() => { setMounted(true); }, []);
 
   return (
-    <div className="h-full flex flex-col bg-[#f8f9ff] font-['Inter',sans-serif] analytics-animate">
+    <div className="h-full flex flex-col bg-val-bg-page-alt font-['Inter',sans-serif] analytics-animate">
       {/* Header — slides down */}
       <div
         className="backdrop-blur-[6px] bg-white/80 h-16 flex items-center justify-between px-8 border-b border-slate-200 shrink-0 z-10"
@@ -113,7 +113,7 @@ export function AnalyticsPage() {
       >
         <div>
           <p className="text-xs font-medium text-slate-400">Portfolio · Analytics</p>
-          <h1 className="text-lg font-bold text-slate-900 tracking-tight font-['Plus_Jakarta_Sans',sans-serif]">
+          <h1 className="text-lg font-bold text-slate-900 tracking-tight font-display">
             Portfolio Analytics
           </h1>
         </div>
@@ -153,7 +153,7 @@ export function AnalyticsPage() {
                     onClick={() => setActivePeriod(p)}
                     className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 relative z-[1] ${
                       activePeriod === p
-                        ? "text-[#004ac6]"
+                        ? "text-[--val-primary-dark]"
                         : "text-slate-500 hover:text-slate-700"
                     }`}
                   >
@@ -175,10 +175,10 @@ export function AnalyticsPage() {
             </div>
             <div className="flex items-center gap-4">
               <div className="bg-slate-50 border border-slate-200 flex items-center gap-2 px-3 py-1.5 rounded transition-colors duration-200">
-                <span className={`text-xs font-semibold transition-colors duration-250 ${!grossMode ? "text-[#004ac6]" : "text-slate-400"}`}>NET</span>
+                <span className={`text-xs font-semibold transition-colors duration-250 ${!grossMode ? "text-[--val-primary-dark]" : "text-slate-400"}`}>NET</span>
                 <button
                   onClick={() => setGrossMode(!grossMode)}
-                  className={`w-8 h-4 rounded-full relative transition-colors duration-300 ${grossMode ? "bg-[#004ac6]" : "bg-slate-300"}`}
+                  className={`w-8 h-4 rounded-full relative transition-colors duration-300 ${grossMode ? "bg-[--val-primary-dark]" : "bg-slate-300"}`}
                 >
                   <div
                     className="absolute top-0.5 w-3 h-3 rounded-full bg-white shadow-sm"
@@ -188,7 +188,7 @@ export function AnalyticsPage() {
                     }}
                   />
                 </button>
-                <span className={`text-xs font-semibold transition-colors duration-250 ${grossMode ? "text-[#004ac6]" : "text-slate-400"}`}>GROSS</span>
+                <span className={`text-xs font-semibold transition-colors duration-250 ${grossMode ? "text-[--val-primary-dark]" : "text-slate-400"}`}>GROSS</span>
               </div>
               <div className="flex items-center gap-1">
                 <button className="p-1.5 rounded bg-blue-50 text-blue-600 transition-all duration-200 hover:bg-blue-100 active:scale-[0.92]"><BarChart3 size={14} /></button>
@@ -218,7 +218,7 @@ export function AnalyticsPage() {
             >
               <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-50">
                 <div>
-                  <h2 className="text-base font-bold text-slate-900 font-['Plus_Jakarta_Sans',sans-serif]">
+                  <h2 className="text-base font-bold text-slate-900 font-display">
                     Revenue vs Expenses (YTD)
                   </h2>
                   <p className="text-xs text-slate-500">Comparative analysis across all assets</p>
@@ -272,8 +272,8 @@ export function AnalyticsPage() {
               <div className="bg-slate-50 border-t border-slate-100 px-6 py-4">
                 <div className="relative h-1.5 bg-slate-200 rounded-full">
                   <div className="absolute inset-y-0 left-1/4 right-1/3 bg-blue-100 border border-blue-200 rounded-full">
-                    <div className="absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-white border-2 border-[#004ac6] rounded-full shadow-sm transition-shadow duration-200 hover:shadow-md hover:border-blue-500 cursor-grab" />
-                    <div className="absolute -right-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-white border-2 border-[#004ac6] rounded-full shadow-sm transition-shadow duration-200 hover:shadow-md hover:border-blue-500 cursor-grab" />
+                    <div className="absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-white border-2 border-[--val-primary-dark] rounded-full shadow-sm transition-shadow duration-200 hover:shadow-md hover:border-blue-500 cursor-grab" />
+                    <div className="absolute -right-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-white border-2 border-[--val-primary-dark] rounded-full shadow-sm transition-shadow duration-200 hover:shadow-md hover:border-blue-500 cursor-grab" />
                   </div>
                 </div>
                 <div className="flex items-center justify-between mt-3">
@@ -319,10 +319,10 @@ export function AnalyticsPage() {
                 style={{ animation: `analytics-fade-up 500ms ${EASE_OUT_QUART} 750ms both` }}
               >
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider font-['Plus_Jakarta_Sans',sans-serif]">
+                  <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider font-display">
                     Lease Expiry Pipeline
                   </h3>
-                  <button className="text-xs font-semibold text-[#004ac6] transition-opacity duration-200 hover:opacity-70 active:scale-[0.97]">View All</button>
+                  <button className="text-xs font-semibold text-[--val-primary-dark] transition-opacity duration-200 hover:opacity-70 active:scale-[0.97]">View All</button>
                 </div>
                 <div className="space-y-4">
                   {leasePipeline.map((item, i) => (
@@ -351,7 +351,7 @@ export function AnalyticsPage() {
                 className="bg-white border border-slate-100 rounded-lg shadow-sm p-6 transition-shadow duration-300 hover:shadow-md"
                 style={{ animation: `analytics-fade-up 500ms ${EASE_OUT_QUART} 850ms both` }}
               >
-                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider font-['Plus_Jakarta_Sans',sans-serif] mb-4">
+                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider font-display mb-4">
                   Saved Reports
                 </h3>
                 <div className="space-y-3">
@@ -362,10 +362,10 @@ export function AnalyticsPage() {
                       style={staggerStyle(i, 950)}
                     >
                       <div className="flex items-center gap-3">
-                        <FileText size={16} className="text-slate-400 transition-colors duration-200 group-hover:text-[#004ac6]" />
+                        <FileText size={16} className="text-slate-400 transition-colors duration-200 group-hover:text-[--val-primary-dark]" />
                         <span className="text-sm font-medium text-slate-700">{report}</span>
                       </div>
-                      <button className="text-xs font-semibold text-[#004ac6] opacity-0 group-hover:opacity-100 transition-opacity duration-200 active:scale-[0.95]">
+                      <button className="text-xs font-semibold text-[--val-primary-dark] opacity-0 group-hover:opacity-100 transition-opacity duration-200 active:scale-[0.95]">
                         Load
                       </button>
                     </div>
@@ -385,7 +385,7 @@ export function AnalyticsPage() {
               className="bg-white border border-slate-100 rounded-lg shadow-sm p-6 transition-shadow duration-300 hover:shadow-md"
               style={bottomRow.visible ? { animation: `analytics-fade-up 500ms ${EASE_OUT_QUART} 0ms both` } : { opacity: 0 }}
             >
-              <h3 className="text-base font-bold text-slate-900 font-['Plus_Jakarta_Sans',sans-serif] mb-6">
+              <h3 className="text-base font-bold text-slate-900 font-display mb-6">
                 Expense Breakdown
               </h3>
               <div className="flex items-center gap-6">
@@ -433,7 +433,7 @@ export function AnalyticsPage() {
               className="bg-white border border-slate-100 rounded-lg shadow-sm p-6 transition-shadow duration-300 hover:shadow-md"
               style={bottomRow.visible ? { animation: `analytics-fade-up 500ms ${EASE_OUT_QUART} 100ms both` } : { opacity: 0 }}
             >
-              <h3 className="text-base font-bold text-slate-900 font-['Plus_Jakarta_Sans',sans-serif] mb-6">
+              <h3 className="text-base font-bold text-slate-900 font-display mb-6">
                 Capital Growth (Ranked)
               </h3>
               <div className="space-y-4">
@@ -447,7 +447,7 @@ export function AnalyticsPage() {
                       </div>
                       <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
                         <div
-                          className="h-full bg-[#004ac6] rounded-full origin-left"
+                          className="h-full bg-[--val-primary-dark] rounded-full origin-left"
                           style={bottomRow.visible
                             ? { width: `${item.pct}%`, animation: `bar-fill 600ms ${EASE_OUT_QUART} ${200 + i * 120}ms both` }
                             : { width: `${item.pct}%`, transform: "scaleX(0)" }
@@ -465,7 +465,7 @@ export function AnalyticsPage() {
               className="bg-white border border-slate-100 rounded-lg shadow-sm p-6 transition-shadow duration-300 hover:shadow-md"
               style={bottomRow.visible ? { animation: `analytics-fade-up 500ms ${EASE_OUT_QUART} 200ms both` } : { opacity: 0 }}
             >
-              <h3 className="text-base font-bold text-slate-900 font-['Plus_Jakarta_Sans',sans-serif] mb-6">
+              <h3 className="text-base font-bold text-slate-900 font-display mb-6">
                 Maintenance Spend (6M)
               </h3>
               <ResponsiveContainer width="100%" height={128}>
@@ -482,7 +482,7 @@ export function AnalyticsPage() {
                     animationEasing="ease-out"
                   >
                     {maintenanceSpend.map((entry, i) => (
-                      <Cell key={entry.month} fill={i === maintenanceSpend.length - 1 ? "#004ac6" : "#e2e8f0"} />
+                      <Cell key={entry.month} fill={i === maintenanceSpend.length - 1 ? "var(--val-primary-dark)" : "#e2e8f0"} />
                     ))}
                   </Bar>
                 </BarChart>
