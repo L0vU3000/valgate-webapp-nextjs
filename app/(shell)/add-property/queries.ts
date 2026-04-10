@@ -6,10 +6,9 @@ export type PropertyDraftSummary = {
     id: string;
     title: string;
   };
-  
+
   export async function getAddPropertyPageData(): Promise<{
     drafts: PropertyDraftSummary[];
   }> {
     return { drafts: [] };
   }
-  

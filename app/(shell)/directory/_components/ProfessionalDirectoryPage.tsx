@@ -18,105 +18,7 @@ import {
   Upload,
 } from "lucide-react";
 import { cn } from "@/components/ui/utils";
-
-type Category =
-  | "All"
-  | "Agent"
-  | "Lawyer"
-  | "Notary"
-  | "Electrician"
-  | "Plumber"
-  | "Inspector"
-  | "Maintenance"
-  | "Accountant";
-
-interface Professional {
-  id: number;
-  name: string;
-  company: string;
-  category: Exclude<Category, "All">;
-  rating: number;
-  reviewCount: number;
-  linkedProperties: number;
-  available: boolean;
-  initials: string;
-  avatarBg: string;
-}
-
-const professionals: Professional[] = [
-  {
-    id: 1,
-    name: "Sarah Mitchell",
-    company: "Luxe Realty Group",
-    category: "Agent",
-    rating: 5.0,
-    reviewCount: 124,
-    linkedProperties: 12,
-    available: true,
-    initials: "SM",
-    avatarBg: "bg-blue-400",
-  },
-  {
-    id: 2,
-    name: "Sok Dara",
-    company: "Phnom Penh Notary Office",
-    category: "Notary",
-    rating: 4.9,
-    reviewCount: 82,
-    linkedProperties: 4,
-    available: false,
-    initials: "SD",
-    avatarBg: "bg-indigo-400",
-  },
-  {
-    id: 3,
-    name: "Chea Sophal",
-    company: "Pro Fix Cambodia",
-    category: "Maintenance",
-    rating: 5.0,
-    reviewCount: 206,
-    linkedProperties: 18,
-    available: true,
-    initials: "CS",
-    avatarBg: "bg-green-400",
-  },
-  {
-    id: 4,
-    name: "Ly Bopha",
-    company: "ClearBooks Cambodia",
-    category: "Accountant",
-    rating: 4.1,
-    reviewCount: 54,
-    linkedProperties: 8,
-    available: false,
-    initials: "LB",
-    avatarBg: "bg-emerald-400",
-  },
-  {
-    id: 5,
-    name: "Heng Virak",
-    company: "Virak Electric Co.",
-    category: "Electrician",
-    rating: 4.8,
-    reviewCount: 115,
-    linkedProperties: 21,
-    available: true,
-    initials: "HV",
-    avatarBg: "bg-amber-400",
-  },
-  {
-    id: 6,
-    name: "Noun Sreymom",
-    company: "Cambodia Property Inspections",
-    category: "Inspector",
-    rating: 5.0,
-    reviewCount: 39,
-    linkedProperties: 31,
-    available: true,
-    initials: "NS",
-    avatarBg: "bg-rose-400",
-  },
-];
+import type { Category, Professional, DirectoryPageData } from "../queries";
 
 const CATEGORY_BADGE: Record<Exclude<Category, "All">, string> = {
   Agent:       "bg-blue-50 text-blue-700",
@@ -128,10 +30,6 @@ const CATEGORY_BADGE: Record<Exclude<Category, "All">, string> = {
   Inspector:   "bg-rose-50 text-rose-700",
   Plumber:     "bg-teal-50 text-teal-700",
 };
-
-const CATEGORIES: Category[] = [
-  "All", "Agent", "Lawyer", "Notary", "Maintenance", "Electrician", "Plumber", "Inspector", "Accountant",
-];
 
 const TOP_NAV_LINKS = [
   { label: "Home",      path: "/" },
@@ -273,12 +171,14 @@ function ProfessionalCard({ pro, index }: { pro: Professional; index: number }) 
   );
 }
 
-export function ProfessionalDirectoryPage() {
+export function ProfessionalDirectoryPage({ data }: { data: DirectoryPageData }) {
   const router = useRouter();
   const pathname = usePathname();
   const [activeCategory, setActiveCategory] = useState<Category>("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [view, setView] = useState<"grid" | "list">("grid");
+
+  const { professionals, categories } = data;
 
   const filtered = professionals.filter((p) => {
     const matchesCat = activeCategory === "All" || p.category === activeCategory;
@@ -293,7 +193,7 @@ export function ProfessionalDirectoryPage() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* ── Top Nav Bar ── */}
+      {/* -- Top Nav Bar -- */}
       <header className="h-16 bg-white border-b border-slate-100 flex items-center justify-between px-8 shrink-0 z-10">
         {/* Logo + nav links */}
         <div className="flex items-center gap-8">
@@ -362,7 +262,7 @@ export function ProfessionalDirectoryPage() {
         </div>
       </header>
 
-      {/* ── Page Content ── */}
+      {/* -- Page Content -- */}
       <div className="flex-1 overflow-y-auto bg-val-bg-page-alt">
         <div className="max-w-6xl mx-auto px-8 py-8">
           {/* Page Header */}
@@ -458,7 +358,7 @@ export function ProfessionalDirectoryPage() {
           <div
             className="flex gap-2 flex-wrap mb-8 animate-[fade-slide-up_0.45s_cubic-bezier(0.22,1,0.36,1)_both] [animation-delay:100ms]"
           >
-            {CATEGORIES.map((cat) => (
+            {categories.map((cat) => (
               <button
                 key={cat}
                 onClick={() => setActiveCategory(cat)}
@@ -474,7 +374,7 @@ export function ProfessionalDirectoryPage() {
             ))}
           </div>
 
-          {/* Cards Grid — key triggers re-animation on filter change */}
+          {/* Cards Grid */}
           <div
             key={`${activeCategory}-${searchQuery}`}
             className={cn(

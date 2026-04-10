@@ -15,44 +15,15 @@ import {
   Filter,
 } from "lucide-react";
 import { cn } from "@/components/ui/utils";
+import type {
+  EstatePlanningPageData,
+  EstateStat,
+  EstateProperty,
+  PropertyStatus,
+  SuccessorRole,
+} from "../queries";
 
-// ─── Data ─────────────────────────────────────────────────────────────────────
-
-const stats = [
-  {
-    label: "Plan Completion",
-    value: "84.5%",
-    sub: null,
-    progress: 84.5,
-    accent: true,
-  },
-  {
-    label: "Pending Reviews",
-    value: "12",
-    sub: "Needs Immediate Attention",
-    subVariant: "danger" as const,
-    progress: null,
-    accent: false,
-  },
-  {
-    label: "Named Beneficiaries",
-    value: "48",
-    sub: "Verified across 32 properties in Cambodia",
-    subVariant: "neutral" as const,
-    progress: null,
-    accent: false,
-  },
-  {
-    label: "Protected Documents",
-    value: "156",
-    sub: "All encrypted & backed up",
-    subVariant: "primary" as const,
-    progress: null,
-    accent: true,
-  },
-];
-
-type PropertyStatus = "complete" | "pending" | "action" | "draft";
+// -- Config --
 
 const propertyStatusConfig: Record<
   PropertyStatus,
@@ -76,111 +47,13 @@ const propertyStatusConfig: Record<
   },
 };
 
-const properties = [
-  {
-    id: 1,
-    name: "BKK1 Residence",
-    address: "No. 12, Street 302, BKK1, Phnom Penh",
-    status: "complete" as PropertyStatus,
-    initials: "BK",
-    color: "#d8e3f4",
-  },
-  {
-    id: 2,
-    name: "Tonle Bassac Villa",
-    address: "No. 45, Sothearos Blvd, Chamkarmorn, Phnom Penh",
-    status: "pending" as PropertyStatus,
-    initials: "TB",
-    color: "#d8e3f4",
-  },
-  {
-    id: 3,
-    name: "Mekong View Loft",
-    address: "Unit 14, Sisowath Quay, Daun Penh, Phnom Penh",
-    status: "action" as PropertyStatus,
-    initials: "MV",
-    color: "#d8e3f4",
-  },
-  {
-    id: 4,
-    name: "Kampot Heritage House",
-    address: "No. 8, River Road, Kampot",
-    status: "draft" as PropertyStatus,
-    initials: "KH",
-    color: "#d8e3f4",
-  },
-];
-
-type SuccessorRole = "primary" | "contingent";
-
-const successors = [
-  {
-    initials: "SC",
-    name: "Sophea Chan",
-    relation: "Spouse",
-    role: "primary" as SuccessorRole,
-    share: "75.00%",
-    verified: true,
-  },
-  {
-    initials: "DC",
-    name: "Dara Chan",
-    relation: "Child",
-    role: "contingent" as SuccessorRole,
-    share: "12.50%",
-    verified: true,
-  },
-  {
-    initials: "CC",
-    name: "Chenda Chan",
-    relation: "Child",
-    role: "contingent" as SuccessorRole,
-    share: "12.50%",
-    verified: true,
-  },
-];
-
-const documents = [
-  {
-    name: "Will & Testament",
-    meta: "Oct 12, 2023 • PDF • 2.4 MB",
-    iconBg: "#ffdad6",
-  },
-  {
-    name: "Estate Transfer Deed",
-    meta: "Sept 05, 2023 • PDF • 1.1 MB",
-    iconBg: "#c3c7cd",
-  },
-];
-
-const timeline = [
-  {
-    title: "Estate Plan Finalized",
-    time: "Today, 2:45 PM",
-    desc: "Legal review completed by Ratanak Ly, Portfolio Manager.",
-    active: true,
-  },
-  {
-    title: "Beneficiary ID Verified",
-    time: "Yesterday, 10:15 AM",
-    desc: "KYC verification approved for Dara Chan.",
-    active: false,
-  },
-  {
-    title: "Document Uploaded",
-    time: "Oct 14, 2023",
-    desc: "New 'Estate Transfer Deed' signed and archived.",
-    active: false,
-  },
-];
-
-// ─── Components ───────────────────────────────────────────────────────────────
+// -- Components --
 
 function StatCard({
   stat,
   style,
 }: {
-  stat: (typeof stats)[number];
+  stat: EstateStat;
   style?: React.CSSProperties;
 }) {
   return (
@@ -238,7 +111,7 @@ function PropertyCard({
   isActive,
   onClick,
 }: {
-  property: (typeof properties)[number];
+  property: EstateProperty;
   isActive: boolean;
   onClick: () => void;
 }) {
@@ -299,17 +172,19 @@ function RoleBadge({ role }: { role: SuccessorRole }) {
   );
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
+// -- Page --
 
-export function SuccessionPage() {
+export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
   const [selectedProperty, setSelectedProperty] = useState(0);
+
+  const { stats, properties, successors, documents, timeline } = data;
   const property = properties[selectedProperty];
 
   return (
     <div className="h-full overflow-y-auto bg-val-bg-page-alt p-8">
       <div className="max-w-[1280px] mx-auto flex flex-col gap-8">
 
-        {/* ── Header ── */}
+        {/* -- Header -- */}
         <div className="flex items-end justify-between anim-enter" style={{ animationDelay: '0ms' }}>
           <div className="flex flex-col gap-1">
             <h1 className="text-[30px] font-bold font-display text-val-heading leading-[36px]">
@@ -331,7 +206,7 @@ export function SuccessionPage() {
           </div>
         </div>
 
-        {/* ── Stats Grid ── */}
+        {/* -- Stats Grid -- */}
         <div className="grid grid-cols-4 gap-6">
           {stats.map((stat, i) => (
             <StatCard
@@ -342,7 +217,7 @@ export function SuccessionPage() {
           ))}
         </div>
 
-        {/* ── Two Column Layout ── */}
+        {/* -- Two Column Layout -- */}
         <div className="grid grid-cols-12 gap-8 items-start">
 
           {/* Left: Property List */}

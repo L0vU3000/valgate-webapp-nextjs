@@ -1,5 +1,7 @@
 import { SuccessionPage } from "./_components/SuccessionPage";
+import { getEstatePlanningPageData } from "./queries";
 
 export default async function Page() {
-  return <SuccessionPage />;
+  const data = await getEstatePlanningPageData();
+  return <SuccessionPage data={data} />;
 }
