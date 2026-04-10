@@ -2,14 +2,7 @@
 
 import { useState } from "react";
 import { Check, Smartphone, Download } from "lucide-react";
-
-type NotifChannels = { email: boolean; slack: boolean; sms: boolean };
-
-const NOTIFICATION_ROWS: { key: string; label: string; description: string }[] = [
-  { key: "valuationUpdates", label: "Property Valuation Updates", description: "When an asset value changes significantly" },
-  { key: "teamComments", label: "Team Comments", description: "When a team member mentions you" },
-  { key: "marketInsights", label: "Market Insights", description: "Weekly summary of market trends" },
-];
+import type { SettingsPageData, NotifChannels } from "../queries";
 
 /* Staggered section entrance — reusable inline style helper */
 function sectionStyle(i: number): React.CSSProperties {
@@ -19,21 +12,19 @@ function sectionStyle(i: number): React.CSSProperties {
   };
 }
 
-export function SettingsPage() {
+export function SettingsPage({ data }: { data: SettingsPageData }) {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
-  const [notifications, setNotifications] = useState<Record<string, NotifChannels>>({
-    valuationUpdates: { email: true, slack: true, sms: false },
-    teamComments: { email: true, slack: true, sms: true },
-    marketInsights: { email: true, slack: false, sms: false },
-  });
+  const [notifications, setNotifications] = useState<Record<string, NotifChannels>>(
+    data.defaultNotifications,
+  );
 
   const [flashRow, setFlashRow] = useState<string | null>(null);
-  const [dashboardView, setDashboardView] = useState("portfolio-overview");
-  const [language, setLanguage] = useState("en-US");
-  const [timezone, setTimezone] = useState("America/New_York");
+  const [dashboardView, setDashboardView] = useState(data.defaults.dashboardView);
+  const [language, setLanguage] = useState(data.defaults.language);
+  const [timezone, setTimezone] = useState(data.defaults.timezone);
 
   const toggleNotif = (key: string, channel: keyof NotifChannels) => {
     setNotifications((prev) => ({
@@ -146,7 +137,7 @@ export function SettingsPage() {
               <div className="col-span-2 font-sans font-semibold text-[12px] leading-[16px] tracking-[0.6px] uppercase text-tertiary text-center">SMS</div>
             </div>
             {/* Table Rows */}
-            {NOTIFICATION_ROWS.map((row, i) => (
+            {data.notificationRows.map((row, i) => (
               <div
                 key={row.key}
                 className={`grid grid-cols-12 items-center px-6 py-4 transition-colors duration-300 ${
@@ -188,34 +179,20 @@ export function SettingsPage() {
                 label="Default Dashboard View"
                 value={dashboardView}
                 onChange={setDashboardView}
-                options={[
-                  { value: "portfolio-overview", label: "Portfolio Overview" },
-                  { value: "analytics", label: "Analytics" },
-                  { value: "map", label: "Map View" },
-                ]}
+                options={data.dashboardViewOptions}
               />
               <SelectField
                 label="Preferred Language"
                 value={language}
                 onChange={setLanguage}
-                options={[
-                  { value: "en-US", label: "English (US)" },
-                  { value: "km", label: "Khmer" },
-                  { value: "zh", label: "Chinese" },
-                ]}
+                options={data.languageOptions}
               />
               <div className="col-span-2">
                 <SelectField
                   label="Timezone"
                   value={timezone}
                   onChange={setTimezone}
-                  options={[
-                    { value: "America/New_York", label: "(GMT-05:00) Eastern Time (US & Canada)" },
-                    { value: "America/Chicago", label: "(GMT-06:00) Central Time (US & Canada)" },
-                    { value: "America/Los_Angeles", label: "(GMT-08:00) Pacific Time (US & Canada)" },
-                    { value: "Asia/Phnom_Penh", label: "(GMT+07:00) Phnom Penh" },
-                    { value: "Asia/Singapore", label: "(GMT+08:00) Singapore" },
-                  ]}
+                  options={data.timezoneOptions}
                 />
               </div>
             </div>
