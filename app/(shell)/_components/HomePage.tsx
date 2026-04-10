@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useShellContext } from "@/components/layout/shell-context";
 import {
@@ -83,6 +84,7 @@ export function HomePage({ initialProperties }: { initialProperties: Property[] 
   const [placeholderIdx, setPlaceholderIdx] = useState(0);
   const [placeholderVisible, setPlaceholderVisible] = useState(true);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [mapFailed, setMapFailed] = useState(false);
   const router = useRouter();
   const { isDark } = useShellContext();
 
@@ -154,6 +156,7 @@ export function HomePage({ initialProperties }: { initialProperties: Property[] 
   // Reset loading state when theme changes (different map image)
   useEffect(() => {
     setMapLoaded(false);
+    setMapFailed(false);
   }, [isDark]);
 
   // Reset zoom/pan when theme changes
@@ -200,6 +203,12 @@ export function HomePage({ initialProperties }: { initialProperties: Property[] 
 
   const mapSrc = isDark ? "/map-dark.png" : "/map-light.png";
 
+  // Safety net: full-screen "Loading map…" only clears on image onLoad — unblock if load fails or stalls.
+  useEffect(() => {
+    const id = window.setTimeout(() => setMapLoaded(true), 12_000);
+    return () => window.clearTimeout(id);
+  }, [mapSrc]);
+
   return (
     <div className="flex flex-col flex-1 min-w-0 h-full">
 
@@ -241,14 +250,29 @@ export function HomePage({ initialProperties }: { initialProperties: Property[] 
           style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}
         >
           {/* Map background */}
-          <img
+          {mapFailed && (
+            <div
+              className="absolute inset-0 bg-gradient-to-br from-surface-sunken via-surface-base to-surface-sunken pointer-events-none"
+              aria-hidden
+            />
+          )}
+          <Image
+            key={mapSrc}
             src={mapSrc}
             alt="Map"
+            fill
+            sizes="(max-width: 768px) 100vw, calc(100vw - 4rem)"
+            priority
             className={cn(
-              "w-full h-full object-cover object-center pointer-events-none transition-opacity duration-500",
-              mapLoaded ? "opacity-100" : "opacity-0",
+              "object-cover object-center pointer-events-none transition-opacity duration-500",
+              mapFailed && "opacity-0",
+              !mapFailed && (mapLoaded ? "opacity-100" : "opacity-0"),
             )}
             onLoad={() => setMapLoaded(true)}
+            onError={() => {
+              setMapFailed(true);
+              setMapLoaded(true);
+            }}
           />
           {/* Map pins — inside zoomable layer so they stick to the map */}
           {initialProperties.map((p, i) => (
