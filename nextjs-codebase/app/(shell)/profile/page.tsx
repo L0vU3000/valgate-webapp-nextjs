@@ -1,5 +1,5 @@
-import { ProfilePage } from "@/components/pages/ProfilePage";
+import { ProfilePage } from "./_components/ProfilePage";
 
-export default function Page() {
+export default async function Page() {
   return <ProfilePage />;
 }

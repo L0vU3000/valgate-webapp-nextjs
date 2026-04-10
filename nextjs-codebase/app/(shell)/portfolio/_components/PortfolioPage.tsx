@@ -15,7 +15,7 @@ import {
   Settings,
   Plus,
 } from "lucide-react";
-import { properties } from "@/lib/mock-data";
+import type { Property } from "@/lib/mock-data";
 import { PropertyFilters } from "@/components/portfolio/PropertyFilters";
 import { PropertyTable } from "@/components/portfolio/PropertyTable";
 
@@ -30,11 +30,12 @@ const provinces = [
 ];
 
 
-const avgOccupancyNum = properties.reduce((sum, p) => sum + p.health, 0) / properties.length;
-const avgOccupancy = avgOccupancyNum.toFixed(1);
-const attentionCount = properties.filter((p) => p.health < 30).length;
+export function PortfolioPage({ initialProperties }: { initialProperties: Property[] }) {
+  const avgOccupancyNum =
+    initialProperties.reduce((sum, p) => sum + p.health, 0) / initialProperties.length;
+  const avgOccupancy = avgOccupancyNum.toFixed(1);
+  const attentionCount = initialProperties.filter((p) => p.health < 30).length;
 
-export function PortfolioPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("Property Type");
   const [statusFilter, setStatusFilter] = useState("Status");
@@ -49,7 +50,7 @@ export function PortfolioPage() {
   }, []);
 
   const q = searchQuery.trim().toLowerCase();
-  const filtered = properties.filter((p) => {
+  const filtered = initialProperties.filter((p) => {
     const matchesSearch =
       !q ||
       p.name.toLowerCase().includes(q) ||
@@ -155,7 +156,7 @@ export function PortfolioPage() {
                   <Building2 className="w-3.5 h-3.5 text-blue-600" />
                 </div>
               </div>
-              <p className="text-[24px] font-bold text-val-heading leading-none mt-4">{properties.length}</p>
+              <p className="text-[24px] font-bold text-val-heading leading-none mt-4">{initialProperties.length}</p>
               <span className="text-[12px] text-emerald-600 font-semibold mt-2 block">+2 this month</span>
             </KpiCard>
 
@@ -229,7 +230,7 @@ export function PortfolioPage() {
             pageRows={pageRows}
             pageStart={pageStart}
             filtered={filtered}
-            properties={properties}
+            properties={initialProperties}
             mounted={mounted}
             navigate={(path) => router.push(path)}
             totalPages={totalPages}

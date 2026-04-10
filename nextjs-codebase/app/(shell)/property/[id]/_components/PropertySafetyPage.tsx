@@ -1,5 +1,6 @@
 "use client";
 
+import type { Property } from "@/lib/mock-data";
 import { PropertyLayout } from "@/components/property/PropertyLayout";
 import { Check, AlertTriangle, Shield, Phone, ExternalLink } from "lucide-react";
 
@@ -35,13 +36,13 @@ const emergencyContacts = [
   { name: "Structural Engineer", phone: "+1 (555) 911-0001", sub: "BuildRight Engineers", color: "#515D66" },
 ];
 
-export function PropertySafetyPage() {
+export function PropertySafetyPage({ property }: { property: Property }) {
   return (
-    <PropertyLayout activeTab="safety">
+    <PropertyLayout activeTab="safety" property={property}>
       <div className="p-6 space-y-6 max-w-[1160px] mx-auto w-full">
         {/* Title */}
         <h1 className="text-[30px] text-foreground" style={{ fontWeight: 600 }}>
-          Safety for <span style={{ fontWeight: 800 }}>SR00015</span>
+          Safety for <span style={{ fontWeight: 800 }}>{property.code}</span>
         </h1>
 
         {/* KPI Row */}

@@ -2,16 +2,19 @@
 
 import { useRouter } from "next/navigation";
 import { Camera, Upload, FileEdit, ChevronLeft } from "lucide-react";
+import type { PropertyDraftSummary } from "@/lib/data/add-property-page";
 import type { FormData } from "./types";
 
 export function Step0NewOrDraft({
   form,
   setForm,
   onContinue,
+  drafts,
 }: {
   form: FormData;
   setForm: (f: FormData) => void;
   onContinue: () => void;
+  drafts: PropertyDraftSummary[];
 }) {
   const router = useRouter();
   const methods = [
@@ -101,8 +104,21 @@ export function Step0NewOrDraft({
       <p className="text-[14px] text-foreground mb-3" style={{ fontWeight: 500 }}>
         Or continue from drafts
       </p>
-      <div className="border border-border rounded-xl p-8 flex items-center justify-center">
-        <p className="text-[14px] text-muted-foreground">No draft</p>
+      <div className="border border-border rounded-xl p-8 flex flex-col items-stretch justify-center gap-2 min-h-[5rem]">
+        {drafts.length === 0 ? (
+          <p className="text-[14px] text-muted-foreground text-center">No draft</p>
+        ) : (
+          <ul className="space-y-2">
+            {drafts.map((d) => (
+              <li
+                key={d.id}
+                className="text-[14px] text-foreground border border-border rounded-lg px-4 py-3"
+              >
+                {d.title}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );

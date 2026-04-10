@@ -1,5 +1,6 @@
 "use client";
 
+import type { Property } from "@/lib/mock-data";
 import { PropertyLayout } from "@/components/property/PropertyLayout";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -24,9 +25,9 @@ const payments = [
   { date: "Mar 1, 2025", type: "Security Deposit", amount: "$4,900", method: "Check", status: "Held in escrow", statusColor: "#515D66" },
 ];
 
-export function PropertyRentalPage() {
+export function PropertyRentalPage({ property }: { property: Property }) {
   return (
-    <PropertyLayout activeTab="rental">
+    <PropertyLayout activeTab="rental" property={property}>
       <div className="p-6 space-y-6 max-w-[1160px] mx-auto w-full">
         {/* Unit header */}
         <div className="bg-card border border-border rounded-xl p-4 flex items-center justify-between">

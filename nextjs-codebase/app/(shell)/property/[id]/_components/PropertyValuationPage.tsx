@@ -1,5 +1,6 @@
 "use client";
 
+import type { Property } from "@/lib/mock-data";
 import { PropertyLayout } from "@/components/property/PropertyLayout";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -28,13 +29,13 @@ const comparables = [
   { address: "1847 Oak Street", dist: "0.3 mi away", built: "Feb 2026", type: "House", builtYear: "Built '18", beds: "3/2", sqft: "1,850", price: "$492,000", psqft: "$266/sqft" },
 ];
 
-export function PropertyValuationPage() {
+export function PropertyValuationPage({ property }: { property: Property }) {
   return (
-    <PropertyLayout activeTab="valuation">
+    <PropertyLayout activeTab="valuation" property={property}>
       <div className="p-6 space-y-6 max-w-[1160px] mx-auto w-full">
         {/* Title */}
         <h1 className="text-[30px] text-foreground" style={{ fontWeight: 600 }}>
-          Valuation for <span style={{ fontWeight: 800 }}>SR00015</span>
+          Valuation for <span style={{ fontWeight: 800 }}>{property.code}</span>
         </h1>
 
         {/* KPI Row */}

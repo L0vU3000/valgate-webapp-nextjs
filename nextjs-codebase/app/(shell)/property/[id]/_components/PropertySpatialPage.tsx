@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { Property } from "@/lib/mock-data";
 import { PropertyLayout } from "@/components/property/PropertyLayout";
 import {
   ZoomIn,
@@ -15,7 +16,13 @@ import {
 
 type ViewMode = "default" | "expanded" | "full";
 
-export function PropertySpatialPage() {
+export function PropertySpatialPage({
+  property,
+  activeTab,
+}: {
+  property: Property;
+  activeTab: "spatial" | "surrounding";
+}) {
   const [viewMode, setViewMode] = useState<ViewMode>("full");
   const [activeInfoTab, setActiveInfoTab] = useState("Zoning");
   const [satelliteView, setSatelliteView] = useState(true);
@@ -25,7 +32,7 @@ export function PropertySpatialPage() {
   const [showLegend, setShowLegend] = useState(true);
 
   return (
-    <PropertyLayout activeTab="spatial">
+    <PropertyLayout activeTab={activeTab} property={property}>
       <div className="h-full max-w-[1160px] mx-auto w-full flex flex-col overflow-auto">
         {viewMode === "full" ? (
           <FullView viewMode={viewMode} setViewMode={setViewMode} showLegend={showLegend} setShowLegend={setShowLegend} />

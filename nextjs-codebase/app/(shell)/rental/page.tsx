@@ -1,5 +1,5 @@
-import { RentalDashboardPage } from "@/components/pages/RentalDashboardPage";
+import { RentalDashboardPage } from "./_components/RentalDashboardPage";
 
-export default function Page() {
+export default async function Page() {
   return <RentalDashboardPage />;
 }

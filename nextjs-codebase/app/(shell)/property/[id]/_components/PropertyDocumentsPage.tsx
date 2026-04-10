@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { Property } from "@/lib/mock-data";
 import { PropertyLayout } from "@/components/property/PropertyLayout";
 import {
   ArrowLeft,
@@ -53,13 +54,13 @@ const files = [
   { name: "Book_Wishlist_2025.xlsx", type: "spreadsheet", icon: FileSpreadsheet, color: "#059669", thumb: null },
 ];
 
-export function PropertyDocumentsPage() {
+export function PropertyDocumentsPage({ property }: { property: Property }) {
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [activeFolder, setActiveFolder] = useState("All Documents");
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
 
   return (
-    <PropertyLayout activeTab="documents">
+    <PropertyLayout activeTab="documents" property={property}>
       <div className="h-full max-w-[1160px] mx-auto w-full flex">
         {/* Left sidebar - folders */}
         <div className="w-[200px] bg-card border-r border-border p-4 shrink-0">

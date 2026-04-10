@@ -1,5 +1,5 @@
-import { ProfessionalDirectoryPage } from "@/components/pages/ProfessionalDirectoryPage";
+import { ProfessionalDirectoryPage } from "./_components/ProfessionalDirectoryPage";
 
-export default function Page() {
+export default async function Page() {
   return <ProfessionalDirectoryPage />;
 }

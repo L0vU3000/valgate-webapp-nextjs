@@ -1,18 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import type { Step } from "./add-property/types";
-import { defaultForm, stepLabels } from "./add-property/types";
-import type { FormData } from "./add-property/types";
-import { Step0NewOrDraft } from "./add-property/Step0NewOrDraft";
-import { Step1PropertyType } from "./add-property/Step1PropertyType";
-import { Step2BasicInfo } from "./add-property/Step2BasicInfo";
-import { Step3Financial } from "./add-property/Step3Financial";
-import { Step4PhotosDocs } from "./add-property/Step4PhotosDocs";
-import { Step5Review } from "./add-property/Step5Review";
-import { Step6Success } from "./add-property/Step6Success";
+import type { Step } from "./types";
+import { defaultForm, stepLabels } from "./types";
+import type { FormData } from "./types";
+import type { PropertyDraftSummary } from "@/lib/data/add-property-page";
+import { Step0NewOrDraft } from "./Step0NewOrDraft";
+import { Step1PropertyType } from "./Step1PropertyType";
+import { Step2BasicInfo } from "./Step2BasicInfo";
+import { Step3Financial } from "./Step3Financial";
+import { Step4PhotosDocs } from "./Step4PhotosDocs";
+import { Step5Review } from "./Step5Review";
+import { Step6Success } from "./Step6Success";
 
-export function AddPropertyPage() {
+export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) {
   const [step, setStep] = useState<Step>(0);
   const [form, setForm] = useState<FormData>(defaultForm);
 
@@ -74,13 +75,20 @@ export function AddPropertyPage() {
       {/* Content */}
       <div className="flex-1 px-8 pb-4 overflow-auto">
         <div className="max-w-[1160px] mx-auto">
-        {step === 0 && <Step0NewOrDraft form={form} setForm={setForm} onContinue={goNext} />}
-        {step === 1 && <Step1PropertyType form={form} setForm={setForm} />}
-        {step === 2 && <Step2BasicInfo form={form} setForm={setForm} />}
-        {step === 3 && <Step3Financial form={form} setForm={setForm} />}
-        {step === 4 && <Step4PhotosDocs form={form} setForm={setForm} />}
-        {step === 5 && <Step5Review form={form} />}
-        {step === 6 && <Step6Success />}
+          {step === 0 && (
+            <Step0NewOrDraft
+              form={form}
+              setForm={setForm}
+              onContinue={goNext}
+              drafts={drafts}
+            />
+          )}
+          {step === 1 && <Step1PropertyType form={form} setForm={setForm} />}
+          {step === 2 && <Step2BasicInfo form={form} setForm={setForm} />}
+          {step === 3 && <Step3Financial form={form} setForm={setForm} />}
+          {step === 4 && <Step4PhotosDocs form={form} setForm={setForm} />}
+          {step === 5 && <Step5Review form={form} />}
+          {step === 6 && <Step6Success />}
         </div>
       </div>
 

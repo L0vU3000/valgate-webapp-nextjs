@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useShellContext } from "@/components/layout/shell-context";
 import {
@@ -23,7 +23,7 @@ import { Button } from "@/components/ui/button";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { cn } from "@/components/ui/utils";
 import { formatCurrency } from "@/lib/format";
-import { properties, type Property, type StatusVariant, type TitleVariant } from "@/lib/mock-data";
+import type { Property, StatusVariant, TitleVariant } from "@/lib/mock-data";
 import { CommandPalette } from "@/components/home/CommandPalette";
 import { MapIconButton } from "@/components/home/QuickStats";
 
@@ -61,17 +61,20 @@ const triggerPlaceholders = [
 ];
 
 
-const portfolioStats = {
-  totalProperties: properties.length,
-  totalValue: properties.reduce((sum, p) => sum + p.buyNumeric, 0),
-  rentedCount: properties.filter((p) => p.statusVariant === "rented").length,
-  vacantCount: properties.filter((p) => p.statusVariant === "vacant").length,
-  avgHealth: Math.round(
-    properties.reduce((sum, p) => sum + p.health, 0) / properties.length,
-  ),
-};
+export function HomePage({ initialProperties }: { initialProperties: Property[] }) {
+  const portfolioStats = useMemo(
+    () => ({
+      totalProperties: initialProperties.length,
+      totalValue: initialProperties.reduce((sum, p) => sum + p.buyNumeric, 0),
+      rentedCount: initialProperties.filter((p) => p.statusVariant === "rented").length,
+      vacantCount: initialProperties.filter((p) => p.statusVariant === "vacant").length,
+      avgHealth: Math.round(
+        initialProperties.reduce((sum, p) => sum + p.health, 0) / initialProperties.length,
+      ),
+    }),
+    [initialProperties],
+  );
 
-export function HomePage() {
   const [selectedPin, setSelectedPin] = useState<number | null>(null);
   const [hoveredProperty, setHoveredProperty] = useState<number | null>(null);
   const [tableOpen, setTableOpen] = useState(false);
@@ -192,7 +195,7 @@ export function HomePage() {
   }, []);
 
   const selectedProperty = selectedPin
-    ? properties.find((p) => p.id === selectedPin)
+    ? initialProperties.find((p) => p.id === selectedPin)
     : null;
 
   const mapSrc = isDark ? "/map-dark.png" : "/map-light.png";
@@ -248,7 +251,7 @@ export function HomePage() {
             onLoad={() => setMapLoaded(true)}
           />
           {/* Map pins — inside zoomable layer so they stick to the map */}
-          {properties.map((p, i) => (
+          {initialProperties.map((p, i) => (
             <button
               key={p.id}
               className="absolute z-10 -translate-x-1/2 -translate-y-1/2 group"
@@ -345,7 +348,7 @@ export function HomePage() {
         <CommandPalette
           open={commandOpen}
           onOpenChange={setCommandOpen}
-          properties={properties}
+          properties={initialProperties}
           navigate={(path) => runCommand(() => router.push(path))}
         />
 
@@ -568,7 +571,7 @@ export function HomePage() {
                 </tr>
               </thead>
               <tbody key={tableOpenCount}>
-                {properties.map((p, i) => (
+                {initialProperties.map((p, i) => (
                   <tr
                     key={p.id}
                     onClick={() => router.push(`/property/${p.id}`)}

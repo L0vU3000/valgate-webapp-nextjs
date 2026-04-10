@@ -1,6 +1,7 @@
 "use client";
 
 import { FileText, Plus, Wrench, Receipt, Bell, MoreHorizontal, ArrowUpRight } from "lucide-react";
+import type { Property } from "@/lib/mock-data";
 import { PropertyLayout } from "@/components/property/PropertyLayout";
 
 const alerts = [
@@ -70,9 +71,9 @@ function MetricCard({
   );
 }
 
-export function PropertyOverviewPage() {
+export function PropertyOverviewPage({ property }: { property: Property }) {
   return (
-    <PropertyLayout activeTab="overview">
+    <PropertyLayout activeTab="overview" property={property}>
       <div className="pb-12">
         {/* Property Hero Header */}
         <div

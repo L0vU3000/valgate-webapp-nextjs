@@ -1,5 +1,5 @@
-import { SuccessionPage } from "@/components/pages/SuccessionPage";
+import { SuccessionPage } from "./_components/SuccessionPage";
 
-export default function Page() {
+export default async function Page() {
   return <SuccessionPage />;
 }

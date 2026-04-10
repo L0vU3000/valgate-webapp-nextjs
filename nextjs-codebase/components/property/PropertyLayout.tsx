@@ -2,6 +2,7 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { ChevronLeft, Share2, MapPin, MoreVertical, LayoutGrid, Eye, Shield, Compass, DollarSign, Key, TrendingUp, Globe } from "lucide-react";
+import type { Property } from "@/lib/mock-data";
 
 const tabs = [
   { key: "overview", label: "Overview", icon: LayoutGrid },
@@ -17,9 +18,10 @@ const tabs = [
 interface PropertyLayoutProps {
   activeTab: string;
   children: React.ReactNode;
+  property: Property;
 }
 
-export function PropertyLayout({ activeTab, children }: PropertyLayoutProps) {
+export function PropertyLayout({ activeTab, children, property }: PropertyLayoutProps) {
   const router = useRouter();
   const { id } = useParams();
 
@@ -33,11 +35,13 @@ export function PropertyLayout({ activeTab, children }: PropertyLayoutProps) {
           </button>
           <span className="text-muted-foreground text-[14px]">Property</span>
           <span className="text-muted-foreground text-[14px]">/</span>
-          <span className="text-foreground text-[16px]" style={{ fontWeight: 600 }}>SR00015 Land</span>
+          <span className="text-foreground text-[16px]" style={{ fontWeight: 600 }}>
+            {property.code} {property.type}
+          </span>
         </div>
         <div className="flex items-center gap-3">
           <span className="bg-[#ECFDF5] text-[#059669] px-3 py-1 rounded-full text-[12px] flex items-center gap-1">
-            28% health score
+            {property.health}% health score
             <span className="text-[#059669]">&#9432;</span>
           </span>
           <button className="border border-border rounded-lg px-4 py-2 text-[14px] text-foreground flex items-center gap-2 hover:bg-accent/50">

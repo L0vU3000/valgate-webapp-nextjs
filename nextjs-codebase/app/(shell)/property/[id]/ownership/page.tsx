@@ -1,5 +1,14 @@
-import { PropertyOwnershipPage } from "@/components/pages/property/PropertyOwnershipPage";
+import { notFound } from "next/navigation";
+import { PropertyOwnershipPage } from "../_components/PropertyOwnershipPage";
+import { getPropertyByIdParam } from "@/lib/data/properties";
 
-export default function Page() {
-  return <PropertyOwnershipPage />;
+export default async function Page({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const property = await getPropertyByIdParam(id);
+  if (!property) notFound();
+  return <PropertyOwnershipPage property={property} />;
 }

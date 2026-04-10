@@ -1,5 +1,5 @@
-import { RegisterPage } from "@/components/pages/RegisterPage";
+import { RegisterPage } from "./_components/RegisterPage";
 
-export default function Page() {
+export default async function Page() {
   return <RegisterPage />;
 }

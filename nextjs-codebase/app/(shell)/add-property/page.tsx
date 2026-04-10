@@ -1,5 +1,8 @@
-import { AddPropertyPage } from "@/components/pages/AddPropertyPage";
+import { AddPropertyFlow } from "./_components/AddPropertyFlow";
+import { getAddPropertyPageData } from "./actions";
 
-export default function Page() {
-  return <AddPropertyPage />;
+export default async function Page() {
+  const { drafts } = await getAddPropertyPageData();
+
+  return <AddPropertyFlow drafts={drafts} />;
 }

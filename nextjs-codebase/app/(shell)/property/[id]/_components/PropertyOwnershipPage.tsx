@@ -1,11 +1,12 @@
 "use client";
 
+import type { Property } from "@/lib/mock-data";
 import { PropertyLayout } from "@/components/property/PropertyLayout";
 import { Check, Mail, Phone, MapPin, FileText, Upload } from "lucide-react";
 
-export function PropertyOwnershipPage() {
+export function PropertyOwnershipPage({ property }: { property: Property }) {
   return (
-    <PropertyLayout activeTab="ownership">
+    <PropertyLayout activeTab="ownership" property={property}>
       <div className="p-6 space-y-6 max-w-[1160px] mx-auto w-full">
         {/* KPI Stats Row */}
         <div className="grid grid-cols-4 gap-6">
