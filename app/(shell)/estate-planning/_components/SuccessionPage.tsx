@@ -15,6 +15,7 @@ import {
   Filter,
 } from "lucide-react";
 import { cn } from "@/components/ui/utils";
+import { AppHeader } from "@/components/layout/AppHeader";
 import type {
   EstatePlanningPageData,
   EstateStat,
@@ -181,16 +182,23 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
   const property = properties[selectedProperty];
 
   return (
-    <div className="h-full overflow-y-auto bg-val-bg-page-alt p-8">
-      <div className="max-w-[1280px] mx-auto flex flex-col gap-8">
+    <div className="h-full flex flex-col bg-val-bg-page-alt">
+      <AppHeader />
+      <div className="flex-1 overflow-y-auto p-8">
+      <div className="max-w-[1200px] mx-auto flex flex-col gap-8">
 
         {/* -- Header -- */}
         <div className="flex items-end justify-between anim-enter" style={{ animationDelay: '0ms' }}>
           <div className="flex flex-col gap-1">
-            <h1 className="text-[30px] font-bold font-display text-val-heading leading-[36px]">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-xs font-semibold tracking-widest uppercase text-[--val-primary-dark]">Valgate</span>
+              <span className="text-xs text-slate-300">/</span>
+              <span className="text-xs font-semibold tracking-widest uppercase text-slate-400">Estate Planning</span>
+            </div>
+            <h1 className="text-4xl font-extrabold text-val-heading tracking-tight leading-10">
               Estate Planning
             </h1>
-            <p className="text-base text-[#434655]">
+            <p className="text-slate-500 text-base mt-2">
               Protect what matters most — plan how your properties pass to the people you love.
             </p>
           </div>
@@ -437,6 +445,7 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
             </div>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

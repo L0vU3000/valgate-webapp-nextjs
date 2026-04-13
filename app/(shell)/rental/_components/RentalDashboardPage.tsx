@@ -7,10 +7,8 @@ import {
   FileText,
   Download,
   TrendingUp,
-  Search,
-  Bell,
-  Settings,
 } from "lucide-react";
+import { AppHeader } from "@/components/layout/AppHeader";
 import { cn } from "@/components/ui/utils";
 import { KpiCards } from "@/components/rental/KpiCards";
 import { HeatmapGrid } from "@/components/rental/HeatmapGrid";
@@ -34,25 +32,33 @@ export function RentalDashboardPage({ data }: { data: RentalDashboardData }) {
 
   return (
     <div className="rental-animate flex h-full flex-col bg-surface-page">
+      <AppHeader />
+
       {/* ------------------------------------------------------------------ */}
-      {/*  Top Bar                                                           */}
+      {/*  Content                                                           */}
       {/* ------------------------------------------------------------------ */}
-      <header className="anim-enter shrink-0 border-b border-border-default bg-white px-8 py-4 shadow-sm">
-        <div className="flex items-center justify-between">
-          {/* Left: brand + nav */}
-          <div className="flex items-center gap-8">
-            <span className="text-xl font-bold text-slate-900">
-              Rental Dashboard
-            </span>
+      <main className="flex-1 overflow-y-auto p-8">
+        <div className="max-w-[1200px] mx-auto flex flex-col gap-8">
+          {/* Page title + tab nav */}
+          <div className="anim-enter flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-xs font-semibold tracking-widest uppercase text-[--val-primary-dark]">Valgate</span>
+                <span className="text-xs text-slate-300">/</span>
+                <span className="text-xs font-semibold tracking-widest uppercase text-slate-400">Rental</span>
+              </div>
+              <h1 className="text-4xl font-extrabold text-val-heading tracking-tight leading-10">Rental Dashboard</h1>
+              <p className="text-slate-500 text-base mt-2">Track units, leases, and income across your rental portfolio.</p>
+            </div>
             <nav className="flex items-center gap-6">
               {navLinks.map((link) => (
                 <button
                   key={link}
                   onClick={() => setActiveNav(link)}
                   className={cn(
-                    "text-base transition-all duration-200",
+                    "text-sm transition-all duration-200",
                     activeNav === link
-                      ? "border-b-2 border-blue-600 pb-1.5 font-medium text-blue-600"
+                      ? "border-b-2 border-blue-600 pb-1 font-medium text-blue-600"
                       : "text-slate-500 hover:text-slate-900"
                   )}
                 >
@@ -61,32 +67,6 @@ export function RentalDashboardPage({ data }: { data: RentalDashboardData }) {
               ))}
             </nav>
           </div>
-
-          {/* Right: search + icons */}
-          <div className="flex items-center gap-4">
-            <div className="relative hidden md:block">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search portfolio..."
-                className="w-64 rounded-xl bg-slate-50 py-1.5 pl-9 pr-4 text-sm text-foreground placeholder:text-slate-400 transition-shadow duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-              />
-            </div>
-            <button className="rounded-xl p-2 text-slate-500 transition-colors duration-150 hover:bg-slate-50 active:scale-95">
-              <Bell className="h-5 w-5" />
-            </button>
-            <button className="rounded-xl p-2 text-slate-500 transition-colors duration-150 hover:bg-slate-50 active:scale-95">
-              <Settings className="h-5 w-5" />
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* ------------------------------------------------------------------ */}
-      {/*  Content                                                           */}
-      {/* ------------------------------------------------------------------ */}
-      <main className="flex-1 overflow-y-auto p-8">
-        <div className="flex flex-col gap-8">
           {/* ============================================================== */}
           {/*  Zone 1: Hero Vitals                                           */}
           {/* ============================================================== */}

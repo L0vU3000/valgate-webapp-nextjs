@@ -3,21 +3,18 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Search,
   Building2,
   DollarSign,
   Home,
   Map,
   TrendingUp,
   AlertTriangle,
-  Download,
-  Bell,
-  Settings,
   Plus,
 } from "lucide-react";
 import type { Property } from "@/lib/mock-data";
 import { PropertyFilters } from "@/components/portfolio/PropertyFilters";
 import { PropertyTable } from "@/components/portfolio/PropertyTable";
+import { AppHeader } from "@/components/layout/AppHeader";
 
 const PAGE_SIZE = 16;
 
@@ -81,53 +78,7 @@ export function PortfolioPage({ initialProperties }: { initialProperties: Proper
 
   return (
     <main className="h-full flex flex-col bg-val-bg-page-alt">
-      {/* Top Nav Bar */}
-      <div role="banner" className="bg-white border-b border-slate-200 shadow-[0_1px_2px_rgba(0,0,0,0.05)] px-6 flex items-center justify-between h-[56px] shrink-0">
-        {/* Search */}
-        <div className="relative flex-1 max-w-[448px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-slate-400 pointer-events-none" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setCurrentPage(1);
-            }}
-            placeholder="Search portfolio..."
-            className="w-full pl-10 pr-4 py-2 text-[14px] bg-val-bg-tint rounded text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:bg-white transition-all duration-200"
-          />
-        </div>
-
-        {/* Right actions */}
-        <div className="flex items-center gap-3">
-          <button aria-label="Notifications, unread" className="p-2 rounded hover:bg-slate-100 transition-colors duration-150 relative">
-            <Bell className="w-5 h-5 text-slate-500" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
-          </button>
-          <button aria-label="Settings" className="p-2 rounded hover:bg-slate-100 transition-colors duration-150">
-            <Settings className="w-5 h-5 text-slate-500" />
-          </button>
-
-          <div className="w-px h-8 bg-slate-200" />
-
-          <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-[14px] font-semibold text-val-heading rounded hover:bg-slate-50 active:scale-[0.97] transition-all duration-150">
-            <Download className="w-3.5 h-3.5" />
-            Export
-          </button>
-          <button
-            onClick={() => router.push("/add-property")}
-            className="flex items-center gap-2 px-4 py-2 text-white text-[14px] font-semibold rounded shadow-[0_4px_6px_-1px_rgba(0,74,198,0.25),0_2px_4px_-2px_rgba(0,74,198,0.15)] hover:opacity-90 active:scale-[0.97] transition-all duration-150"
-            style={{ background: "linear-gradient(168deg, var(--val-primary-dark) 0%, #2563eb 100%)" }}
-          >
-            <Plus className="w-3.5 h-3.5" />
-            Add Property
-          </button>
-
-          <div className="w-9 h-9 rounded-xl bg-slate-300 border-2 border-white shadow-sm overflow-hidden ml-2">
-            <div className="w-full h-full bg-gradient-to-br from-blue-400 to-blue-600" />
-          </div>
-        </div>
-      </div>
+      <AppHeader />
 
       {/* Main content */}
       <div className="flex-1 overflow-auto scrollbar-none px-8 pb-8">
@@ -135,16 +86,31 @@ export function PortfolioPage({ initialProperties }: { initialProperties: Proper
 
           {/* Page Header */}
           <div
-            className="transition-all duration-500"
+            className="flex items-start justify-between transition-all duration-500"
             style={{
               opacity: mounted ? 1 : 0,
               transform: mounted ? "translateY(0)" : "translateY(-8px)",
             }}
           >
-            <h1 className="text-[22px] font-semibold text-val-heading tracking-tight">Portfolio</h1>
-            <p className="text-[14px] text-slate-500 mt-1">
-              Oversee and manage your complete real estate asset inventory across all regions.
-            </p>
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-xs font-semibold tracking-widest uppercase text-[--val-primary-dark]">Valgate</span>
+                <span className="text-xs text-slate-300">/</span>
+                <span className="text-xs font-semibold tracking-widest uppercase text-slate-400">Portfolio</span>
+              </div>
+              <h1 className="text-4xl font-extrabold text-val-heading tracking-tight leading-10">Portfolio</h1>
+              <p className="text-slate-500 text-base mt-2">
+                Oversee and manage your complete real estate asset inventory across all regions.
+              </p>
+            </div>
+            <button
+              onClick={() => router.push("/add-property")}
+              className="flex items-center gap-2 px-4 py-2 text-white text-[14px] font-semibold rounded shadow-[0_4px_6px_-1px_rgba(0,74,198,0.25),0_2px_4px_-2px_rgba(0,74,198,0.15)] hover:opacity-90 active:scale-[0.97] transition-all duration-150 shrink-0"
+              style={{ background: "linear-gradient(168deg, var(--val-primary-dark) 0%, #2563eb 100%)" }}
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Add Property
+            </button>
           </div>
 
           {/* KPI Cards */}
@@ -240,6 +206,7 @@ export function PortfolioPage({ initialProperties }: { initialProperties: Proper
           />
         </div>
       </div>
+
     </main>
   );
 }

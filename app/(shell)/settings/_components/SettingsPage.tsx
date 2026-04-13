@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Check, Smartphone, Download } from "lucide-react";
+import { AppHeader } from "@/components/layout/AppHeader";
 import type { SettingsPageData, NotifChannels } from "../queries";
 
 /* Staggered section entrance — reusable inline style helper */
@@ -36,15 +37,22 @@ export function SettingsPage({ data }: { data: SettingsPageData }) {
   };
 
   return (
-    <div className="h-full overflow-y-auto bg-val-bg-page-alt">
+    <div className="h-full flex flex-col bg-val-bg-page-alt">
+      <AppHeader />
+      <div className="flex-1 overflow-y-auto">
       <div className="max-w-[1200px] mx-auto p-8 flex flex-col gap-8">
 
         {/* Page Header */}
-        <div className="flex flex-col gap-2" style={sectionStyle(0)}>
-          <h1 className="font-display font-extrabold text-[30px] leading-[36px] tracking-[-0.75px] text-foreground">
+        <div className="flex flex-col gap-1" style={sectionStyle(0)}>
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-xs font-semibold tracking-widest uppercase text-[--val-primary-dark]">Valgate</span>
+            <span className="text-xs text-slate-300">/</span>
+            <span className="text-xs font-semibold tracking-widest uppercase text-slate-400">Settings</span>
+          </div>
+          <h1 className="text-4xl font-extrabold text-val-heading tracking-tight leading-10">
             Account Settings
           </h1>
-          <p className="font-sans text-[18px] leading-[28px] text-secondary">
+          <p className="text-slate-500 text-base mt-2">
             Manage your personal information, security preferences, and notification settings.
           </p>
         </div>
@@ -252,6 +260,7 @@ export function SettingsPage({ data }: { data: SettingsPageData }) {
           </div>
         </section>
 
+      </div>
       </div>
     </div>
   );

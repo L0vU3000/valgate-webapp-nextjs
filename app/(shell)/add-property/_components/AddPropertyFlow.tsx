@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AppHeader } from "@/components/layout/AppHeader";
 import type { Step } from "./types";
 import { defaultForm, stepLabels } from "./types";
 import type { FormData } from "./types";
@@ -23,16 +24,25 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
   const progressPercent = step === 0 ? 0 : (step / 6) * 100;
 
   return (
-    <div className="h-full flex flex-col overflow-auto">
+    <div className="h-full flex flex-col">
+      <AppHeader />
+      <div className="flex-1 flex flex-col overflow-auto">
       {/* Header - only show for steps 1-5 */}
       {step >= 1 && step <= 5 && (
         <div className="px-8 pt-8 pb-0 shrink-0">
           <div className="max-w-[1160px] mx-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h1 className="text-[30px] text-[#6B7684] font-display" style={{ fontWeight: 600 }}>
-                Add New Property
-              </h1>
-              <button className="border border-border rounded-lg px-4 py-2 text-[14px] text-foreground hover:bg-accent/50">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-xs font-semibold tracking-widest uppercase text-[--val-primary-dark]">Valgate</span>
+                  <span className="text-xs text-slate-300">/</span>
+                  <span className="text-xs font-semibold tracking-widest uppercase text-slate-400">Add Property</span>
+                </div>
+                <h1 className="text-4xl font-extrabold text-val-heading tracking-tight leading-10">
+                  Add New Property
+                </h1>
+              </div>
+              <button className="border border-border rounded-lg px-4 py-2 text-[14px] text-foreground hover:bg-accent/50 shrink-0 mt-1">
                 Save as Draft
               </button>
             </div>
@@ -54,7 +64,12 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
       {step === 0 && (
         <div className="px-8 pt-8 pb-[77px] shrink-0">
           <div className="max-w-[1160px] mx-auto">
-            <h1 className="text-[30px] text-[#6B7684] font-display" style={{ fontWeight: 600 }}>
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-xs font-semibold tracking-widest uppercase text-[--val-primary-dark]">Valgate</span>
+              <span className="text-xs text-slate-300">/</span>
+              <span className="text-xs font-semibold tracking-widest uppercase text-slate-400">Add Property</span>
+            </div>
+            <h1 className="text-4xl font-extrabold text-val-heading tracking-tight leading-10">
               Add New Property
             </h1>
           </div>
@@ -65,7 +80,12 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
       {step === 6 && (
         <div className="px-8 pt-8 shrink-0">
           <div className="max-w-[1160px] mx-auto">
-            <h1 className="text-[30px] text-[#6B7684] font-display" style={{ fontWeight: 600 }}>
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-xs font-semibold tracking-widest uppercase text-[--val-primary-dark]">Valgate</span>
+              <span className="text-xs text-slate-300">/</span>
+              <span className="text-xs font-semibold tracking-widest uppercase text-slate-400">Add Property</span>
+            </div>
+            <h1 className="text-4xl font-extrabold text-val-heading tracking-tight leading-10">
               Add New Property
             </h1>
           </div>
@@ -116,6 +136,7 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
