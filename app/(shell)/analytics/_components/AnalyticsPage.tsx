@@ -10,6 +10,7 @@ import {
   DollarSign, Building2, Percent, Wrench, FileText, BarChart3,
   LayoutGrid, Table2,
 } from "lucide-react";
+import { AppHeader } from "@/components/layout/AppHeader";
 import type { AnalyticsPageData, KpiIconKey } from "../queries";
 
 /* -- Icon key map -- */
@@ -71,40 +72,44 @@ export function AnalyticsPage({ data }: { data: AnalyticsPageData }) {
 
   return (
     <div className="h-full flex flex-col bg-val-bg-page-alt font-['Inter',sans-serif] analytics-animate">
-      {/* Header — slides down */}
-      <div
-        className="backdrop-blur-[6px] bg-white/80 h-16 flex items-center justify-between px-8 border-b border-slate-200 shrink-0 z-10"
-        style={{ animation: `analytics-fade-up 450ms ${EASE_OUT_QUART} 0ms both` }}
-      >
-        <div>
-          <p className="text-xs font-medium text-slate-400">Portfolio · Analytics</p>
-          <h1 className="text-lg font-bold text-slate-900 tracking-tight font-display">
-            Portfolio Analytics
-          </h1>
-        </div>
-        <div className="flex items-center gap-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-slate-400 transition-colors duration-200" />
-            <input
-              type="text"
-              placeholder="Search data..."
-              className="bg-slate-100 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-700 placeholder:text-gray-400 w-64 outline-none transition-all duration-250 focus:ring-2 focus:ring-blue-200 focus:bg-white"
-            />
-          </div>
-          <div className="flex items-center gap-2 border-r border-slate-200 pr-4">
-            <button className="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors duration-200 active:scale-[0.97]">
-              Compare
-            </button>
-            <button className="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors duration-200 active:scale-[0.97]">
-              Schedule Report
-            </button>
-          </div>
-        </div>
-      </div>
+      <AppHeader />
 
       {/* Content */}
       <div className="flex-1 overflow-auto p-8">
-        <div className="flex flex-col gap-6">
+        <div className="max-w-[1200px] mx-auto flex flex-col gap-6">
+          {/* Page title + actions */}
+          <div
+            className="flex items-center justify-between"
+            style={{ animation: `analytics-fade-up 450ms ${EASE_OUT_QUART} 0ms both` }}
+          >
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-xs font-semibold tracking-widest uppercase text-[--val-primary-dark]">Valgate</span>
+                <span className="text-xs text-slate-300">/</span>
+                <span className="text-xs font-semibold tracking-widest uppercase text-slate-400">Analytics</span>
+              </div>
+              <h1 className="text-4xl font-extrabold text-val-heading tracking-tight leading-10">
+                Portfolio Analytics
+              </h1>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-slate-400 transition-colors duration-200" />
+                <input
+                  type="text"
+                  placeholder="Search data..."
+                  className="bg-slate-100 rounded-xl pl-10 pr-4 py-2 text-sm text-slate-700 placeholder:text-gray-400 w-56 outline-none transition-all duration-250 focus:ring-2 focus:ring-blue-200 focus:bg-white"
+                />
+              </div>
+              <button className="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors duration-200 active:scale-[0.97]">
+                Compare
+              </button>
+              <button className="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors duration-200 active:scale-[0.97]">
+                Schedule Report
+              </button>
+            </div>
+          </div>
+
           {/* Filters Bar — fades up */}
           <div
             className="bg-white rounded-lg shadow-sm p-4 flex flex-col gap-4"

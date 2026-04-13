@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
 import {
   Search,
   Mail,
@@ -12,11 +11,10 @@ import {
   ChevronLeft,
   ChevronDown,
   Star,
-  Bell,
-  HelpCircle,
   Plus,
   Upload,
 } from "lucide-react";
+import { AppHeader } from "@/components/layout/AppHeader";
 import { cn } from "@/components/ui/utils";
 import type { Category, Professional, DirectoryPageData } from "../queries";
 
@@ -31,12 +29,6 @@ const CATEGORY_BADGE: Record<Exclude<Category, "All">, string> = {
   Plumber:     "bg-teal-50 text-teal-700",
 };
 
-const TOP_NAV_LINKS = [
-  { label: "Home",      path: "/" },
-  { label: "Portfolio", path: "/portfolio" },
-  { label: "Directory", path: "/directory" },
-  { label: "Analytics", path: "/analytics" },
-];
 
 function StarRating({ rating, count }: { rating: number; count: number }) {
   return (
@@ -172,8 +164,6 @@ function ProfessionalCard({ pro, index }: { pro: Professional; index: number }) 
 }
 
 export function ProfessionalDirectoryPage({ data }: { data: DirectoryPageData }) {
-  const router = useRouter();
-  const pathname = usePathname();
   const [activeCategory, setActiveCategory] = useState<Category>("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [view, setView] = useState<"grid" | "list">("grid");
@@ -193,74 +183,7 @@ export function ProfessionalDirectoryPage({ data }: { data: DirectoryPageData })
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* -- Top Nav Bar -- */}
-      <header className="h-16 bg-white border-b border-slate-100 flex items-center justify-between px-8 shrink-0 z-10">
-        {/* Logo + nav links */}
-        <div className="flex items-center gap-8">
-          <div className="flex items-center gap-2.5">
-            <svg
-              viewBox="0 0 132.863 106.124"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-7 shrink-0"
-              style={{ height: "calc(1.75rem * 106.124 / 132.863)" }}
-              aria-hidden="true"
-            >
-              <path
-                d="M98.3597 74.7352L132.863 40.8166L107.951 0H24.9114L23.9449 1.58278L98.3597 74.7352Z"
-                fill="#006AFF"
-              />
-              <path
-                d="M82.538 90.2886L90.5536 82.4087L18.0925 11.1724L12.0791 21.0228L82.538 90.2886Z"
-                fill="#006AFF"
-              />
-              <path
-                d="M6.22795 30.6128L2.61289e-07 40.817L66.4315 106.124L74.7354 97.9602L6.22795 30.6128Z"
-                fill="#006AFF"
-              />
-            </svg>
-            <span
-              className="text-base font-bold text-val-heading tracking-tight"
-              style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }}
-            >
-              Valgate
-            </span>
-          </div>
-
-          <nav className="flex items-stretch h-16">
-            {TOP_NAV_LINKS.map((link) => {
-              const isActive = pathname === link.path;
-              return (
-                <button
-                  key={link.label}
-                  onClick={() => router.push(link.path)}
-                  className={cn(
-                    "px-3 text-base font-medium relative transition-colors",
-                    isActive
-                      ? "text-blue-700 font-semibold after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-blue-600"
-                      : "text-slate-500 hover:text-slate-800",
-                  )}
-                >
-                  {link.label}
-                </button>
-              );
-            })}
-          </nav>
-        </div>
-
-        {/* Right: bell, help, avatar */}
-        <div className="flex items-center gap-1">
-          <button className="p-2 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
-            <Bell className="size-5" />
-          </button>
-          <button className="p-2 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
-            <HelpCircle className="size-5" />
-          </button>
-          <div className="size-8 rounded-full bg-blue-100 border border-blue-200 flex items-center justify-center ml-2">
-            <span className="text-xs font-semibold text-blue-700">JD</span>
-          </div>
-        </div>
-      </header>
+      <AppHeader />
 
       {/* -- Page Content -- */}
       <div className="flex-1 overflow-y-auto bg-val-bg-page-alt">

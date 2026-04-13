@@ -1,6 +1,7 @@
 "use client";
 
 import { User, Shield, Bell, Pencil, Mail, Phone, MapPin, Info } from "lucide-react";
+import { AppHeader } from "@/components/layout/AppHeader";
 import type { ProfilePageData, ProfileFieldWithIcon } from "../queries";
 
 const CONTACT_ICONS: Record<ProfileFieldWithIcon["iconKey"], React.ElementType> = {
@@ -11,8 +12,10 @@ const CONTACT_ICONS: Record<ProfileFieldWithIcon["iconKey"], React.ElementType> 
 
 export function ProfilePage({ data }: { data: ProfilePageData }) {
   return (
-    <div className="h-full overflow-auto bg-background">
-      <div className="flex gap-6 p-8 h-full items-start">
+    <div className="h-full flex flex-col bg-background">
+      <AppHeader />
+      <div className="flex-1 overflow-auto">
+      <div className="flex gap-6 p-8 items-start">
         {/* Aside */}
         <div className="flex flex-col gap-6 shrink-0 w-[234px]">
           {/* Profile card */}
@@ -55,8 +58,13 @@ export function ProfilePage({ data }: { data: ProfilePageData }) {
           {/* Page header */}
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="font-display font-bold text-[30px] leading-9 text-foreground">My Profile</h1>
-              <p className="text-[16px] text-muted-foreground mt-1">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-xs font-semibold tracking-widest uppercase text-[--val-primary-dark]">Valgate</span>
+                <span className="text-xs text-slate-300">/</span>
+                <span className="text-xs font-semibold tracking-widest uppercase text-slate-400">Profile</span>
+              </div>
+              <h1 className="text-4xl font-extrabold text-val-heading tracking-tight leading-10">My Profile</h1>
+              <p className="text-slate-500 text-base mt-2">
                 Manage your account settings and personal information.
               </p>
             </div>
@@ -116,6 +124,7 @@ export function ProfilePage({ data }: { data: ProfilePageData }) {
             </div>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );
