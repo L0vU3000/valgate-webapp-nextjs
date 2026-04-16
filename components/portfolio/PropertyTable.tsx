@@ -2,6 +2,24 @@ import { ChevronLeft, ChevronRight, Map } from "lucide-react";
 import { TYPE_ICON, TYPE_COLOR, typeBadgeClasses, statusBadgeClasses, titleBadgeClasses, healthDotColor } from "../../lib/property-helpers";
 import type { Property } from "../../lib/mock-data";
 
+export interface TableAnimationConfig {
+  containerDuration: number;
+  containerDelay: number;
+  rowDuration: number;
+  rowStagger: number;
+  healthBarDelay: number;
+  healthBarStagger: number;
+}
+
+const DEFAULT_ANIMATION_CONFIG: TableAnimationConfig = {
+  containerDuration: 250,
+  containerDelay: 0,
+  rowDuration: 400,
+  rowStagger: 25,
+  healthBarDelay: 100,
+  healthBarStagger: 30,
+};
+
 interface PropertyTableProps {
   pageRows: Property[];
   pageStart: number;
@@ -13,6 +31,7 @@ interface PropertyTableProps {
   safePage: number;
   goToPage: (page: number) => void;
   onClearFilters: () => void;
+  animationConfig?: TableAnimationConfig;
 }
 
 export function PropertyTable({
@@ -26,14 +45,17 @@ export function PropertyTable({
   safePage,
   goToPage,
   onClearFilters,
+  animationConfig,
 }: PropertyTableProps) {
+  const cfg = animationConfig ?? DEFAULT_ANIMATION_CONFIG;
   return (
     <div
-      className="bg-white rounded-lg border border-slate-200 shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden transition-all duration-500"
+      className="bg-white rounded-lg border border-slate-200 shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden"
       style={{
         opacity: mounted ? 1 : 0,
-        transform: mounted ? "translateY(0)" : "translateY(-16px)",
-        transitionDelay: "450ms",
+        transform: mounted ? "translateY(0)" : "translateY(-8px)",
+        transition: `opacity ${cfg.containerDuration}ms cubic-bezier(0.25,1,0.5,1), transform ${cfg.containerDuration}ms cubic-bezier(0.25,1,0.5,1)`,
+        transitionDelay: `${cfg.containerDelay}ms`,
       }}
     >
       <div className="overflow-x-auto scrollbar-none">
@@ -101,8 +123,8 @@ export function PropertyTable({
                     style={{
                       opacity: mounted ? 1 : 0,
                       transform: mounted ? "translateY(0)" : "translateY(-6px)",
-                      transition: `opacity 400ms cubic-bezier(0.25,1,0.5,1), transform 400ms cubic-bezier(0.25,1,0.5,1)`,
-                      transitionDelay: `${550 + i * 30}ms`,
+                      transition: `opacity ${cfg.rowDuration}ms cubic-bezier(0.25,1,0.5,1), transform ${cfg.rowDuration}ms cubic-bezier(0.25,1,0.5,1)`,
+                      transitionDelay: `${cfg.containerDelay + i * cfg.rowStagger}ms`,
                     }}
                   >
                     {/* Checkbox */}
@@ -180,10 +202,10 @@ export function PropertyTable({
                         </div>
                         <div className="w-[52px] h-[3px] bg-slate-200 rounded-sm overflow-hidden">
                           <div
-                            className={`h-full rounded-sm ${hDot} transition-all duration-700 ease-out`}
+                            className={`h-full rounded-sm ${hDot} transition-[width] duration-700 ease-out`}
                             style={{
                               width: mounted ? `${p.health}%` : "0%",
-                              transitionDelay: `${650 + i * 40}ms`,
+                              transitionDelay: `${cfg.containerDelay + cfg.healthBarDelay + i * cfg.healthBarStagger}ms`,
                             }}
                           />
                         </div>

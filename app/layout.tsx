@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Script from "next/script";
 import "../styles/index.css";
+import { AgentationProvider } from "./_components/agentation-provider";
 
 export const metadata: Metadata = {
   title: "Valgate",
@@ -21,6 +22,7 @@ export default function RootLayout({
           strategy="lazyOnload"
         />
         {children}
+        <AgentationProvider />
       </body>
     </html>
   );

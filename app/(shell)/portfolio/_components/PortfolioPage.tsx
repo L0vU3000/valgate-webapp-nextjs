@@ -11,12 +11,22 @@ import {
   AlertTriangle,
   Plus,
 } from "lucide-react";
-import type { Property } from "@/lib/mock-data";
+import type { PortfolioPageData } from "../queries";
 import { PropertyFilters } from "@/components/portfolio/PropertyFilters";
 import { PropertyTable } from "@/components/portfolio/PropertyTable";
+import type { TableAnimationConfig } from "@/components/portfolio/PropertyTable";
 import { AppHeader } from "@/components/layout/AppHeader";
 
 const PAGE_SIZE = 16;
+
+const PORTFOLIO_TABLE_ANIMATION: TableAnimationConfig = {
+  containerDuration: 250,
+  containerDelay: 280,
+  rowDuration: 400,
+  rowStagger: 25,
+  healthBarDelay: 100,
+  healthBarStagger: 30,
+};
 
 const provinces = [
   "All", "Banteay Meanchey", "Battambang", "Kampong Cham", "Kampong Chhnang",
@@ -27,11 +37,9 @@ const provinces = [
 ];
 
 
-export function PortfolioPage({ initialProperties }: { initialProperties: Property[] }) {
-  const avgOccupancyNum =
-    initialProperties.reduce((sum, p) => sum + p.health, 0) / initialProperties.length;
-  const avgOccupancy = avgOccupancyNum.toFixed(1);
-  const attentionCount = initialProperties.filter((p) => p.health < 30).length;
+export function PortfolioPage({ data }: { data: PortfolioPageData }) {
+  const { properties: initialProperties, stats, kpis } = data;
+  const avgOccupancy = stats.avgHealth.toFixed(1);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("Property Type");
@@ -122,8 +130,8 @@ export function PortfolioPage({ initialProperties }: { initialProperties: Proper
                   <Building2 className="w-3.5 h-3.5 text-blue-600" />
                 </div>
               </div>
-              <p className="text-[24px] font-bold text-val-heading leading-none mt-4">{initialProperties.length}</p>
-              <span className="text-[12px] text-emerald-600 font-semibold mt-2 block">+2 this month</span>
+              <p className="text-[24px] font-bold text-val-heading leading-none mt-4">{stats.totalProperties}</p>
+              <span className="text-[12px] text-emerald-600 font-semibold mt-2 block">+{kpis.newThisMonth} this month</span>
             </KpiCard>
 
             <KpiCard index={1} mounted={mounted}>
@@ -133,10 +141,10 @@ export function PortfolioPage({ initialProperties }: { initialProperties: Proper
                   <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
                 </div>
               </div>
-              <p className="text-[24px] font-bold text-val-heading leading-none mt-4">$42.8M</p>
+              <p className="text-[24px] font-bold text-val-heading leading-none mt-4">{kpis.totalValueFormatted}</p>
               <div className="flex items-center gap-1 mt-2">
                 <TrendingUp className="w-3 h-3 text-emerald-500" />
-                <span className="text-[12px] text-emerald-600 font-semibold">4.2% YoY</span>
+                <span className="text-[12px] text-emerald-600 font-semibold">{kpis.yoyGrowth} YoY</span>
               </div>
             </KpiCard>
 
@@ -147,7 +155,7 @@ export function PortfolioPage({ initialProperties }: { initialProperties: Proper
                   <DollarSign className="w-3.5 h-3.5 text-violet-600" />
                 </div>
               </div>
-              <p className="text-[24px] font-bold text-val-heading leading-none mt-4">$312,450</p>
+              <p className="text-[24px] font-bold text-val-heading leading-none mt-4">{kpis.monthlyIncome}</p>
               <span className="text-[12px] text-slate-400 font-semibold mt-2 block">Gross Revenue</span>
             </KpiCard>
 
@@ -160,7 +168,7 @@ export function PortfolioPage({ initialProperties }: { initialProperties: Proper
               </div>
               <p className="text-[24px] font-bold text-val-heading leading-none mt-4">{avgOccupancy}%</p>
               <div className="mt-3">
-                <AnimatedBar value={avgOccupancyNum} color="bg-amber-400" mounted={mounted} delay={600} />
+                <AnimatedBar value={stats.avgHealth} color="bg-amber-400" mounted={mounted} delay={600} />
               </div>
             </KpiCard>
 
@@ -171,7 +179,7 @@ export function PortfolioPage({ initialProperties }: { initialProperties: Proper
                   <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
                 </div>
               </div>
-              <p className="text-[24px] font-bold text-val-heading leading-none mt-4">{attentionCount}</p>
+              <p className="text-[24px] font-bold text-val-heading leading-none mt-4">{stats.attentionCount}</p>
               <span className="text-[12px] text-red-600 font-semibold mt-2 block">Critical tasks pending</span>
             </KpiCard>
           </div>
@@ -203,6 +211,7 @@ export function PortfolioPage({ initialProperties }: { initialProperties: Proper
             safePage={safePage}
             goToPage={goToPage}
             onClearFilters={clearAllFilters}
+            animationConfig={PORTFOLIO_TABLE_ANIMATION}
           />
         </div>
       </div>

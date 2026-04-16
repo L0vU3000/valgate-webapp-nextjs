@@ -1,6 +1,6 @@
 import { properties, type Property } from "@/lib/mock-data";
 
-export type { Property } from "@/lib/mock-data";
+export type { Property, StatusVariant, TitleVariant } from "@/lib/mock-data";
 
 export async function getProperties(): Promise<Property[]> {
   return structuredClone(properties);

@@ -47,3 +47,15 @@ export function healthDotColor(health: number) {
   if (health >= 50) return "bg-amber-500";
   return "bg-red-400";
 }
+
+export function healthClass(health: number) {
+  if (health >= 75) return "text-status-success-text";
+  if (health >= 40) return "text-status-warning-text";
+  return "text-status-danger-text";
+}
+
+export function healthBgClass(health: number) {
+  if (health >= 75) return "bg-status-success";
+  if (health >= 40) return "bg-status-warning";
+  return "bg-status-danger";
+}
