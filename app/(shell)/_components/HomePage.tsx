@@ -1,13 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import Image from "next/image";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useShellContext } from "@/components/layout/shell-context";
 import {
-  RefreshCw,
-  ZoomIn,
-  ZoomOut,
   X,
   ChevronUp,
   BarChart2,
@@ -26,10 +23,16 @@ import { cn } from "@/components/ui/utils";
 import { healthClass, healthBgClass } from "@/lib/property-helpers";
 import type { Property, StatusVariant, TitleVariant, PortfolioStats } from "@/app/(shell)/queries";
 import { CommandPalette } from "@/components/home/CommandPalette";
-import { MapIconButton } from "@/components/home/QuickStats";
 import { PropertyTable } from "@/components/portfolio/PropertyTable";
 import type { TableAnimationConfig } from "@/components/portfolio/PropertyTable";
 import { PortfolioLegend } from "./PortfolioLegend";
+import { MapControls } from "@/components/map/MapControls";
+import type mapboxgl from "mapbox-gl";
+
+const MapView = dynamic(
+  () => import("@/components/map/MapView").then((m) => m.MapView),
+  { ssr: false },
+);
 
 const statusClasses: Record<StatusVariant, string> = {
   rented:
@@ -73,86 +76,8 @@ export function HomePage({ initialProperties, portfolioStats }: { initialPropert
   const [placeholderIdx, setPlaceholderIdx] = useState(0);
   const [placeholderVisible, setPlaceholderVisible] = useState(true);
   const [mapLoaded, setMapLoaded] = useState(false);
-  const [mapFailed, setMapFailed] = useState(false);
+  const mapRef = useRef<mapboxgl.Map | null>(null);
   const router = useRouter();
-  const { isDark } = useShellContext();
-
-  // Zoom & pan state
-  const MIN_ZOOM = 1;
-  const MAX_ZOOM = 3;
-  const ZOOM_STEP = 0.15;
-  const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
-  const dragRef = useRef<{ active: boolean; startX: number; startY: number; startPanX: number; startPanY: number }>({
-    active: false, startX: 0, startY: 0, startPanX: 0, startPanY: 0,
-  });
-  const mapContainerRef = useRef<HTMLDivElement>(null);
-
-  const clampPan = useCallback((x: number, y: number, z: number) => {
-    // Allow panning proportional to zoom level
-    const maxPan = ((z - 1) / (MAX_ZOOM - 1)) * 300;
-    return {
-      x: Math.max(-maxPan, Math.min(maxPan, x)),
-      y: Math.max(-maxPan, Math.min(maxPan, y)),
-    };
-  }, []);
-
-  const handleZoom = useCallback((delta: number) => {
-    setZoom((prev) => {
-      const next = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, prev + delta));
-      // Clamp pan for the new zoom level
-      if (next === MIN_ZOOM) {
-        setPan({ x: 0, y: 0 });
-      } else {
-        setPan((p) => clampPan(p.x, p.y, next));
-      }
-      return next;
-    });
-  }, [clampPan]);
-
-  const handleWheel = useCallback((e: React.WheelEvent) => {
-    e.preventDefault();
-    const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
-    handleZoom(delta);
-  }, [handleZoom]);
-
-  const handlePointerDown = useCallback((e: React.PointerEvent) => {
-    if (e.button !== 0) return;
-    // Don't start drag if clicking on a pin or UI element
-    const target = e.target as HTMLElement;
-    if (target.closest("button") || target.closest("[data-no-drag]")) return;
-    dragRef.current = {
-      active: true,
-      startX: e.clientX,
-      startY: e.clientY,
-      startPanX: pan.x,
-      startPanY: pan.y,
-    };
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-  }, [pan]);
-
-  const handlePointerMove = useCallback((e: React.PointerEvent) => {
-    if (!dragRef.current.active) return;
-    const dx = e.clientX - dragRef.current.startX;
-    const dy = e.clientY - dragRef.current.startY;
-    setPan(clampPan(dragRef.current.startPanX + dx, dragRef.current.startPanY + dy, zoom));
-  }, [zoom, clampPan]);
-
-  const handlePointerUp = useCallback(() => {
-    dragRef.current.active = false;
-  }, []);
-
-  // Reset loading state when theme changes (different map image)
-  useEffect(() => {
-    setMapLoaded(false);
-    setMapFailed(false);
-  }, [isDark]);
-
-  // Reset zoom/pan when theme changes
-  useEffect(() => {
-    setZoom(1);
-    setPan({ x: 0, y: 0 });
-  }, [isDark]);
 
   // Cmd+K / Ctrl+K to open command palette
   useEffect(() => {
@@ -205,7 +130,8 @@ export function HomePage({ initialProperties, portfolioStats }: { initialPropert
   }, [selectedPin]);
 
   const handlePinClick = useCallback(
-    (pinId: number) => {
+    (pinId: number | null) => {
+      if (pinId === null) return;
       if (selectedPin === pinId) {
         closeDrawer();
       } else {
@@ -215,14 +141,6 @@ export function HomePage({ initialProperties, portfolioStats }: { initialPropert
     },
     [selectedPin, closeDrawer],
   );
-
-  const mapSrc = isDark ? "/map-dark.png" : "/map-light.png";
-
-  // Safety net: full-screen "Loading map…" only clears on image onLoad — unblock if load fails or stalls.
-  useEffect(() => {
-    const id = window.setTimeout(() => setMapLoaded(true), 12_000);
-    return () => window.clearTimeout(id);
-  }, [mapSrc]);
 
   return (
     <div className="flex flex-col flex-1 min-w-0 h-full">
@@ -249,82 +167,17 @@ export function HomePage({ initialProperties, portfolioStats }: { initialPropert
       </div>
 
       {/* Map area */}
-      <div
-        ref={mapContainerRef}
-        className="relative flex-1 overflow-hidden select-none"
-        style={{ cursor: zoom > 1 ? (dragRef.current.active ? "grabbing" : "grab") : "default" }}
-        onWheel={handleWheel}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
-      >
-        {/* Zoomable/pannable layer — contains map image + pins */}
-        <div
-          className="absolute inset-0 origin-center transition-transform duration-200 ease-out"
-          style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}
-        >
-          {/* Map background */}
-          {mapFailed && (
-            <div
-              className="absolute inset-0 bg-gradient-to-br from-surface-sunken via-surface-base to-surface-sunken pointer-events-none"
-              aria-hidden
-            />
-          )}
-          <Image
-            key={mapSrc}
-            src={mapSrc}
-            alt="Map"
-            fill
-            sizes="(max-width: 768px) 100vw, calc(100vw - 4rem)"
-            priority
-            className={cn(
-              "object-cover object-center pointer-events-none transition-opacity duration-500",
-              mapFailed && "opacity-0",
-              !mapFailed && (mapLoaded ? "opacity-100" : "opacity-0"),
-            )}
-            onLoad={() => setMapLoaded(true)}
-            onError={() => {
-              setMapFailed(true);
-              setMapLoaded(true);
-            }}
-          />
-          {/* Map pins — inside zoomable layer so they stick to the map */}
-          {initialProperties.map((p, i) => (
-            <button
-              key={p.id}
-              className="absolute z-10 -translate-x-1/2 -translate-y-1/2 group"
-              style={{ left: `${p.pinX}%`, top: `${p.pinY}%` }}
-              onClick={() => handlePinClick(p.id)}
-              onMouseEnter={() => setHoveredProperty(p.id)}
-              onMouseLeave={() => setHoveredProperty(null)}
-            >
-              <div
-                className={cn(
-                  "w-4 h-4 rounded-full border-2 border-surface-base bg-interactive-primary shadow-lg transition-all duration-200",
-                  (selectedPin === p.id || hoveredProperty === p.id) && "scale-150 ring-2 ring-interactive-primary",
-                )}
-                style={{
-                  // Counter-scale so pins stay the same visual size when zoomed
-                  transform: `scale(${1 / zoom})`,
-                  animation: (selectedPin === p.id || hoveredProperty === p.id)
-                    ? "pin-beacon 1.8s ease-out infinite"
-                    : mapLoaded
-                      ? `scale-in 0.35s cubic-bezier(0.22,1,0.36,1) ${300 + i * 35}ms both`
-                      : "none",
-                  opacity: mapLoaded ? undefined : 0,
-                }}
-              />
-              {/* Hover tooltip */}
-              <div
-                className="absolute left-1/2 -translate-x-1/2 -top-8 opacity-0 group-hover:opacity-100 pointer-events-none bg-glass-panel-fill backdrop-blur-md border border-glass-panel-border rounded px-2 py-1 text-xs text-foreground whitespace-nowrap shadow-sm transition-opacity duration-150"
-                style={{ transform: `translateX(-50%) scale(${1 / zoom})` }}
-              >
-                {p.name}
-              </div>
-            </button>
-          ))}
-        </div>{/* end zoomable layer */}
+      <div className="relative flex-1 overflow-hidden select-none">
+
+        {/* Mapbox map */}
+        <MapView
+          properties={initialProperties}
+          selectedId={selectedPin}
+          onSelectProperty={handlePinClick}
+          onMapLoaded={() => setMapLoaded(true)}
+          onMapReady={(map) => { mapRef.current = map; }}
+          className="absolute inset-0"
+        />
 
         {/* Command Palette Trigger */}
         <div data-no-drag className="absolute top-6 z-10 flex justify-center transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]" style={{ left: 0, right: selectedProperty ? "20rem" : 0 }}>
@@ -392,23 +245,8 @@ export function HomePage({ initialProperties, portfolioStats }: { initialPropert
         {/* Portfolio legend — centered, bottom of map */}
         <PortfolioLegend stats={portfolioStats} mapLoaded={mapLoaded} drawerOpen={!!drawerProperty} />
 
-        {/* Pins moved into zoomable layer above */}
-
         {/* Map controls */}
-        <div className={cn(
-          "absolute bottom-4 flex flex-col gap-2 z-10 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]",
-          selectedProperty ? "right-[22rem]" : "right-4",
-        )} data-no-drag>
-          <MapIconButton onClick={() => handleZoom(ZOOM_STEP)}>
-            <ZoomIn className="size-4" />
-          </MapIconButton>
-          <MapIconButton onClick={() => handleZoom(-ZOOM_STEP)}>
-            <ZoomOut className="size-4" />
-          </MapIconButton>
-          <MapIconButton spin onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}>
-            <RefreshCw className="size-4" />
-          </MapIconButton>
-        </div>
+        <MapControls mapRef={mapRef} drawerOpen={!!selectedProperty} />
 
         {/* Property info panel — full-height floating sidebar */}
         {drawerProperty && (
