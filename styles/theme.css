@@ -672,6 +672,56 @@
   animation: ai-dot 1.4s ease-in-out infinite;
 }
 
+/* ─── Map · Cluster & Pin Animations ─── */
+
+@keyframes cluster-appear {
+  0%   { opacity: 0; transform: scale(0.2); }
+  55%  { opacity: 1; transform: scale(1.1); }
+  75%  { transform: scale(0.97); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes cluster-exit {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(1.35); }
+}
+
+@keyframes cluster-converge-exit {
+  from { opacity: 1; transform: translate(0, 0) scale(1); }
+  to   { opacity: 0; transform: translate(var(--cluster-tx, 0px), var(--cluster-ty, 0px)) scale(0.5); }
+}
+
+@keyframes pin-appear {
+  0%   { opacity: 0; transform: scale(0); }
+  60%  { opacity: 1; transform: scale(1.15); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes pin-exit {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(0); }
+}
+
+@keyframes pin-converge-exit {
+  from { opacity: 1; transform: translate(0, 0) scale(1); }
+  to   { opacity: 0; transform: translate(var(--pin-tx, 0px), var(--pin-ty, 0px)) scale(0); }
+}
+
+@keyframes cluster-ring-pulse {
+  0%   { transform: scale(1); opacity: 0.55; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+
+@keyframes pin-emerge {
+  from { opacity: 0; transform: translate(var(--pin-ox, 0px), var(--pin-oy, 0px)) scale(0); }
+  to   { opacity: 1; transform: translate(0, 0) scale(1); }
+}
+
+@keyframes cluster-emerge {
+  from { opacity: 0; transform: translate(var(--cluster-ox, 0px), var(--cluster-oy, 0px)) scale(0.2); }
+  to   { opacity: 1; transform: translate(0, 0) scale(1); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, ::before, ::after {
     animation-duration: 0.01ms !important;
