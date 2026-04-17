@@ -1,13 +1,32 @@
 "use client";
 
+import Image from "next/image";
+import Link from "next/link";
+import { Loader2, Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Eye, EyeOff } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { AuthBrandPanel } from "@/components/auth/AuthBrandPanel";
 import { AuthFooter } from "@/components/auth/AuthFooter";
+
+const loginSchema = z.object({
+  email: z.string().min(1, "Email is required").email("Enter a valid email"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  rememberMe: z.boolean(),
+});
+type LoginValues = z.infer<typeof loginSchema>;
 
 function GoogleIcon({ className }: { className?: string }) {
   return (
@@ -33,21 +52,24 @@ function GoogleIcon({ className }: { className?: string }) {
 }
 
 export function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      router.push("/");
-    }, 800);
+  const form = useForm<LoginValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { email: "", password: "", rememberMe: false },
+    mode: "onBlur",
+  });
+
+  async function onSubmit(_values: LoginValues) {
+    try {
+      // TODO(clerk): replace with await signIn.create({ identifier: _values.email, password: _values.password })
+      toast.error("Auth not yet wired up");
+    } catch {
+      toast.error("Something went wrong. Please try again.");
+    }
   }
+
+  const isSubmitting = form.formState.isSubmitting;
 
   return (
     <div className="flex flex-col min-h-screen w-full font-sans">
@@ -60,9 +82,23 @@ export function LoginPage() {
 
         {/* Right: Login Form */}
         <div className="flex flex-1 items-center justify-center bg-surface-base px-6 py-12 lg:px-24 overflow-y-auto">
-          <div className="w-full max-w-[440px]">
+          <div className="auth-animate w-full max-w-[440px]">
 
-            <div className="mb-6">
+            {/* Mobile brand anchor — hidden on lg+ since AuthBrandPanel is visible */}
+            <div
+              className="lg:hidden mb-8 flex items-center gap-2"
+              data-auth-item
+              style={{ "--auth-delay": "0ms" } as React.CSSProperties}
+            >
+              <Image src="/valgate-icon.svg" width={28} height={28} alt="" />
+              <span className="text-xl font-extrabold font-display tracking-[-0.4px]">Valgate</span>
+            </div>
+
+            <div
+              className="mb-6"
+              data-auth-item
+              style={{ "--auth-delay": "60ms" } as React.CSSProperties}
+            >
               <h2 className="text-3xl font-semibold text-foreground font-display leading-tight">
                 Welcome back
               </h2>
@@ -73,88 +109,147 @@ export function LoginPage() {
 
             <button
               type="button"
-              className="w-full flex items-center justify-center gap-3 h-12 border border-border-default bg-surface-base rounded-xl text-base font-medium text-foreground hover:bg-surface-page transition-colors"
+              data-auth-item
+              style={{ "--auth-delay": "130ms" } as React.CSSProperties}
+              className="auth-google-btn w-full flex items-center justify-center gap-3 h-12 border border-border-default bg-surface-base rounded-xl text-base font-medium text-foreground hover:bg-surface-page"
             >
               <GoogleIcon className="size-5 shrink-0" />
               Continue with Google
             </button>
 
-            <div className="flex items-center gap-4 my-6">
+            <div
+              className="flex items-center gap-4 my-6"
+              data-auth-item
+              style={{ "--auth-delay": "180ms" } as React.CSSProperties}
+            >
               <div className="flex-1 h-px bg-border-default" />
               <span className="text-sm text-muted-foreground">or</span>
               <div className="flex-1 h-px bg-border-default" />
             </div>
 
-            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="email" className="text-sm font-medium text-foreground">
-                  Email address
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="you@company.com"
-                  autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="password" className="text-sm font-medium text-foreground">
-                  Password
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="••••••••"
-                    autoComplete="current-password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                    tabIndex={-1}
-                    aria-label={showPassword ? "Hide password" : "Show password"}
-                  >
-                    {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                    className="size-4 rounded border-border-default accent-interactive-primary cursor-pointer"
-                  />
-                  <span className="text-sm text-muted-foreground">Remember me</span>
-                </label>
-                <button
-                  type="button"
-                  className="text-sm font-medium text-text-link hover:text-text-link-hover transition-colors"
-                >
-                  Forgot password?
-                </button>
-              </div>
-
-              <Button
-                type="submit"
-                className="w-full h-11 text-base font-semibold rounded-xl mt-2"
-                disabled={isLoading}
+            <Form {...form}>
+              <form
+                onSubmit={form.handleSubmit(onSubmit)}
+                className="flex flex-col gap-4"
+                data-auth-item
+                style={{ "--auth-delay": "220ms" } as React.CSSProperties}
               >
-                {isLoading ? "Signing in…" : "Log In"}
-              </Button>
-            </form>
 
-            <p className="mt-6 text-center text-sm text-muted-foreground">
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium text-foreground">
+                        Email address
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          type="email"
+                          placeholder="you@company.com"
+                          autoComplete="email"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium text-foreground">
+                        Password
+                      </FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Input
+                            type={showPassword ? "text" : "password"}
+                            placeholder="••••••••"
+                            autoComplete="current-password"
+                            className="pr-10"
+                            {...field}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 rounded"
+                            tabIndex={-1}
+                            aria-label={showPassword ? "Hide password" : "Show password"}
+                          >
+                            <span className="relative flex size-4 items-center justify-center">
+                              <Eye
+                                className="absolute size-4 transition-all duration-150 ease-out"
+                                style={{
+                                  opacity: showPassword ? 0 : 1,
+                                  transform: showPassword ? "scale(0.7) rotate(-10deg)" : "scale(1) rotate(0deg)",
+                                }}
+                              />
+                              <EyeOff
+                                className="absolute size-4 transition-all duration-150 ease-out"
+                                style={{
+                                  opacity: showPassword ? 1 : 0,
+                                  transform: showPassword ? "scale(1) rotate(0deg)" : "scale(0.7) rotate(10deg)",
+                                }}
+                              />
+                            </span>
+                          </button>
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="rememberMe"
+                  render={({ field }) => (
+                    <div className="flex items-center justify-between">
+                      <label className="flex items-center gap-2 cursor-pointer select-none rounded-md px-2 py-1 -mx-2 -my-1 hover:bg-surface-tint transition-colors duration-150">
+                        <input
+                          type="checkbox"
+                          checked={field.value}
+                          onChange={field.onChange}
+                          className="size-4 rounded border-border-default accent-interactive-primary cursor-pointer"
+                        />
+                        <span className="text-sm text-muted-foreground">Remember me</span>
+                      </label>
+                      <Link
+                        href="/forgot-password"
+                        className="text-sm font-medium text-text-link hover:text-text-link-hover transition-colors"
+                      >
+                        Forgot password?
+                      </Link>
+                    </div>
+                  )}
+                />
+
+                <Button
+                  type="submit"
+                  className="auth-submit-btn w-full h-11 text-base font-semibold rounded-xl mt-2"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" aria-hidden />
+                      Signing in
+                    </>
+                  ) : (
+                    "Log In"
+                  )}
+                </Button>
+              </form>
+            </Form>
+
+            <p
+              className="mt-6 text-center text-sm text-muted-foreground"
+              data-auth-item
+              style={{ "--auth-delay": "280ms" } as React.CSSProperties}
+            >
               Don't have an account?{" "}
               <a
                 href="/register"
