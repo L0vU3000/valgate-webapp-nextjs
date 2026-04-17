@@ -1,17 +1,15 @@
 "use server";
 
-import { fullPropertySchema } from "./_components/schemas";
-// import { revalidateTag } from "next/cache";
-// import { auth } from "@clerk/nextjs/server";
+import type { FormData } from "./_components/types";
 
-export async function submitPropertyAction(input: unknown) {
-  const parsed = fullPropertySchema.safeParse(input);
-  if (!parsed.success) return { ok: false as const, error: "Invalid input" };
-  // TODO(backend): mutate Convex/DB, revalidateTag('portfolio'), return real id
-  const propertyId = `PR${Date.now()}`;
-  return { ok: true as const, propertyId };
+export async function submitPropertyAction(
+  _form: FormData,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    // TODO: persist to Convex
+    return { ok: true };
+  } catch (err) {
+    console.error("submitPropertyAction failed:", err);
+    return { ok: false, error: "Failed to submit property. Please try again." };
+  }
 }
-
-// Not called today — shapes are defined so callers can wire against a stable contract.
-export async function saveDraftAction(_input: unknown) {}
-export async function deleteDraftAction(_id: string) {}
