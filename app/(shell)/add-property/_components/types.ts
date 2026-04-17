@@ -11,7 +11,7 @@ export const stepLabels = [
 ];
 
 export interface FormData {
-  method: string;
+  method: "" | "photo" | "upload" | "manual";
   propertyType: string;
   propertyName: string;
   propertyId: string;
@@ -39,35 +39,47 @@ export interface FormData {
   annualInsurance: string;
   photos: string[];
   documents: string[];
+  photoFile?: File;
+  uploadFile?: File;
+  photoFileName?: string;
+  uploadFileName?: string;
 }
 
 export const defaultForm: FormData = {
   method: "",
   propertyType: "",
-  propertyName: "Sunset Villa",
-  propertyId: "SR00015",
-  addressLine: "#24, Street 337, Sangkat Boeung Kak",
+  propertyName: "",
+  propertyId: "",
+  addressLine: "",
   addressLine2: "",
-  city: "Phnom Penh",
+  city: "",
   state: "",
   zip: "",
-  country: "Cambodia",
-  yearBuilt: "2018",
-  totalArea: "2,450",
-  bedrooms: "3",
-  bathrooms: "2",
-  parkingSpaces: "2",
-  storageUnit: "1",
-  purchasePrice: "$250,000",
-  purchaseDate: "Jan 15, 2024",
-  currentMarketValue: "$275,000",
-  ownershipStatus: "Financed",
-  outstandingMortgage: "$180,000",
-  monthlyPayment: "$1,234",
-  interestRate: "4.5%",
-  annualPropertyTax: "$3,200",
-  taxAssessmentValue: "$240,000",
-  annualInsurance: "$1,800",
-  photos: ["123.jpg", "123.jpg", "123.jpg", "123.jpg", "123.jpg", "123.jpg", "123.jpg"],
-  documents: ["Title_Deed_SR00015.pdf", "Property_Inspection_Report.pdf", "Purchase_Agreement_2024.pdf"],
+  country: "",
+  yearBuilt: "",
+  totalArea: "",
+  bedrooms: "",
+  bathrooms: "",
+  parkingSpaces: "",
+  storageUnit: "",
+  purchasePrice: "",
+  purchaseDate: "",
+  currentMarketValue: "",
+  ownershipStatus: "",
+  outstandingMortgage: "",
+  monthlyPayment: "",
+  interestRate: "",
+  annualPropertyTax: "",
+  taxAssessmentValue: "",
+  annualInsurance: "",
+  photos: [],
+  documents: [],
+};
+
+export type DraftRecord = {
+  id: string;
+  title: string;
+  form: FormData;
+  step: Step;
+  updatedAt: number;
 };
