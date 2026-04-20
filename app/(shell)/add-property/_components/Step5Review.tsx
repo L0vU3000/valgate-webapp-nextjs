@@ -1,192 +1,288 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { ChevronLeft, Camera, DollarSign, Info, CheckCircle } from "lucide-react";
-import type { FormData } from "./types";
+import {
+  Home,
+  Building2,
+  Store,
+  LandPlot,
+  Factory,
+  HardHat,
+  MoreHorizontal,
+  FileText,
+  Camera,
+} from "lucide-react";
+import type { FormData, Step } from "./types";
+import { env } from "@/lib/env";
 
-export function Step5Review({ form }: { form: FormData }) {
-  const router = useRouter();
+const PROPERTY_TYPES: Record<string, { label: string; sub: string; Icon: React.ElementType }> = {
+  residential: { label: "Residential House", sub: "Single family detached", Icon: Home },
+  commercial: { label: "Commercial Building", sub: "Office or mixed use", Icon: Building2 },
+  "multi-unit": { label: "Multi-Unit Complex", sub: "Apartments, condos", Icon: Building2 },
+  retail: { label: "Retail Space", sub: "Shop or storefront", Icon: Store },
+  land: { label: "Land", sub: "Vacant plot or lot", Icon: LandPlot },
+  industrial: { label: "Industrial", sub: "Warehouse or factory", Icon: Factory },
+  construction: { label: "Under Construction", sub: "Development project", Icon: HardHat },
+  other: { label: "Other", sub: "Custom type", Icon: MoreHorizontal },
+};
 
-  const completionItems = [
-    "Property Type",
-    "Basic Info",
-    "Financial Info",
-    "Photos",
-    "Documents",
-  ];
+const OWNERSHIP_COLORS: Record<string, string> = {
+  "fully-owned": "#22c55e",
+  mortgaged: "#f59e0b",
+  leased: "#3b82f6",
+  "under-construction": "#8b5cf6",
+};
+
+function getDocMeta(filename: string): { bg: string; text: string; label: string } {
+  const ext = filename.split(".").pop()?.toLowerCase();
+  if (ext === "pdf") return { bg: "bg-[#ffdad6]", text: "text-[#ba1a1a]", label: "PDF" };
+  if (ext === "docx" || ext === "doc") return { bg: "bg-[#dbe1ff]", text: "text-[#2563eb]", label: "Word" };
+  if (ext === "xlsx" || ext === "xls") return { bg: "bg-[#d7f5e3]", text: "text-[#1b6b3a]", label: "Excel" };
+  return { bg: "bg-muted", text: "text-muted-foreground", label: (ext ?? "File").toUpperCase() };
+}
+
+function formatCurrency(value: string) {
+  const num = Number(String(value ?? "").replace(/[^0-9.]/g, ""));
+  if (!num || isNaN(num)) return value || "—";
+  return `$${num.toLocaleString()}`;
+}
+
+const DEFAULT_CENTER: [number, number] = [104.9282, 11.5564];
+
+function ReviewMap({ center }: { center?: [number, number] }) {
+  const [lng, lat] = center ?? DEFAULT_CENTER;
+  const url = `https://api.mapbox.com/styles/v1/mapbox/light-v11/static/pin-l+2563eb(${lng},${lat})/${lng},${lat},14,0/600x240@2x?access_token=${env.NEXT_PUBLIC_MAPBOX_TOKEN}`;
+  return (
+    <div className="relative h-[120px] rounded-xl overflow-hidden border border-border bg-muted">
+      <img src={url} alt="Property location" className="w-full h-full object-cover" />
+    </div>
+  );
+}
+
+function ReviewSection({
+  title,
+  titleBadge,
+  onEdit,
+  children,
+}: {
+  title: string;
+  titleBadge?: React.ReactNode;
+  onEdit: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="border border-border rounded-2xl p-6 flex flex-col gap-4">
+      <div className="flex items-start justify-between">
+        <div className="flex items-baseline gap-1.5">
+          <h3 className="text-[22px] font-semibold text-[#1a1c1c]">{title}</h3>
+          {titleBadge}
+        </div>
+        <button
+          type="button"
+          onClick={onEdit}
+          className="text-base font-semibold text-[#2563eb] hover:text-blue-700 transition-colors ml-2 shrink-0"
+        >
+          Edit
+        </button>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+export function Step5Review({
+  form,
+  goToStep,
+}: {
+  form: FormData;
+  goToStep: (step: Step) => void;
+}) {
+  const typeConfig = PROPERTY_TYPES[form.propertyType] ?? PROPERTY_TYPES.other;
+  const { Icon: TypeIcon } = typeConfig;
+
+  const ownershipDotColor = OWNERSHIP_COLORS[form.ownershipStatus] ?? "#9ca3af";
+  const ownershipLabel = form.ownershipStatus
+    ? form.ownershipStatus.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+    : "—";
+
+  const addressLines = [form.addressLine, form.addressLine2].filter(Boolean);
+  const cityLine = [form.city, form.state, form.zip].filter(Boolean).join(", ");
+
+  const extraPhotos = Math.max(0, form.photos.length - 4);
 
   return (
-    <div className="max-w-[1000px] mx-auto">
-      <button
-        onClick={() => router.push("/portfolio")}
-        className="flex items-center gap-1 text-[14px] text-muted-foreground hover:text-foreground mb-2"
-      >
-        <ChevronLeft className="w-4 h-4" />
-        Back to Portfolio
-      </button>
-      <h2 className="text-[30px] text-foreground mb-1" style={{ fontWeight: 700 }}>
-        Review Property Details
-      </h2>
-      <p className="text-[14px] text-muted-foreground mb-6">
-        Please review all information before submitting
-      </p>
+    <div className="flex flex-col gap-10 items-start pb-8 w-full max-w-[600px] mx-auto">
+      {/* Heading */}
+      <div className="flex flex-col gap-[11px] items-center w-full">
+        <h2 className="text-[28px] font-bold text-[#1a1c1c] text-center leading-10">
+          Review your property details
+        </h2>
+        <p className="text-[16px] text-[#5b5f62] text-center leading-[1.43]">
+          Please verify all information before finalizing the creation of this property record.
+        </p>
+      </div>
 
-      <div className="flex gap-6">
-        {/* Left: Review cards */}
-        <div className="flex-1 space-y-4">
-          {/* Property Overview */}
-          <div className="border border-border rounded-xl p-6">
-            <p className="text-[16px] text-foreground mb-4" style={{ fontWeight: 600 }}>
-              Property Overview
-            </p>
-            <div className="space-y-2 text-[14px]">
-              {[
-                ["Purchase Price", form.propertyName],
-                ["Property Type", "Residential House"],
-                ["Property ID", form.propertyId],
-                ["Address", `${form.addressLine}, ${form.city}`],
-                ["Year Built", form.yearBuilt],
-                ["Bedrooms", form.bedrooms],
-                ["Bathrooms", form.bathrooms],
-              ].map(([label, val]) => (
-                <div key={label} className="flex justify-between">
-                  <span className="text-muted-foreground">{label}</span>
-                  <span className="text-foreground" style={{ fontWeight: 500 }}>
-                    {val}
-                  </span>
-                </div>
-              ))}
+      {/* Cards */}
+      <div className="flex flex-col gap-6 w-full">
+
+        {/* 1. Property Type */}
+        <ReviewSection title="Property Type" onEdit={() => goToStep(1)}>
+          <div className="flex items-center gap-3">
+            <div className="bg-muted rounded-full size-12 flex items-center justify-center shrink-0">
+              <TypeIcon className="w-5 h-5 text-foreground" />
+            </div>
+            <div>
+              <p className="text-[16px] font-medium text-[#1a1c1c] leading-6">{typeConfig.label}</p>
+              <p className="text-[14px] text-[#5b5f62] leading-5">{typeConfig.sub}</p>
             </div>
           </div>
+        </ReviewSection>
 
-          {/* Financial Information */}
-          <div className="border border-border rounded-xl p-6">
-            <p className="text-[16px] text-foreground mb-4" style={{ fontWeight: 600 }}>
-              Financial Information
+        {/* 2. Name & Location */}
+        <ReviewSection title="Name & Location" onEdit={() => goToStep(2)}>
+          <div className="flex flex-col gap-0.5">
+            <p className="text-[16px] font-medium text-[#1a1c1c] leading-6">
+              {form.propertyName || "—"}
             </p>
-            <div className="space-y-2 text-[14px]">
-              {[
-                ["Purchase Price", form.purchasePrice],
-                ["purchase Date", form.purchaseDate],
-                ["Current Market Value", form.currentMarketValue],
-              ].map(([label, val]) => (
-                <div key={label} className="flex justify-between">
-                  <span className="text-muted-foreground">{label}</span>
-                  <span className="text-foreground" style={{ fontWeight: 500 }}>
-                    {val}
-                  </span>
-                </div>
+            <div className="text-[14px] text-[#5b5f62] leading-5">
+              {addressLines.map((l, i) => (
+                <p key={i}>{l}</p>
               ))}
-            </div>
-            <div className="border-t border-border mt-3 pt-3 space-y-2 text-[14px]">
-              {[
-                ["Ownership Status", form.ownershipStatus],
-                ["Outstanding Mortgage", form.outstandingMortgage],
-                ["Monthly Payment", form.monthlyPayment],
-                ["Interest Rate", form.interestRate],
-              ].map(([label, val]) => (
-                <div key={label} className="flex justify-between">
-                  <span className="text-muted-foreground">{label}</span>
-                  <span className="text-foreground" style={{ fontWeight: 500 }}>
-                    {val}
-                  </span>
-                </div>
-              ))}
+              {cityLine && <p>{cityLine}</p>}
             </div>
           </div>
+          {/* Map */}
+          <ReviewMap center={form.mapCenter} />
+        </ReviewSection>
 
-          {/* Photos and Documents */}
-          <div className="border border-border rounded-xl p-6">
-            <p className="text-[16px] text-foreground mb-4" style={{ fontWeight: 600 }}>
-              Photos and Documents
-            </p>
-            <p className="text-[14px] text-muted-foreground mb-3">
-              Photos Uploaded: {form.photos.length} photos
-            </p>
-            <div className="flex gap-3 mb-4">
-              {form.photos.slice(0, 3).map((p, i) => (
-                <div
-                  key={i}
-                  className="w-[90px] h-[90px] border border-border rounded-xl flex flex-col items-center justify-center"
-                >
-                  <Camera className="w-5 h-5 text-primary mb-1" />
-                  <p className="text-[12px] text-muted-foreground">{p}</p>
-                </div>
-              ))}
-              {form.photos.length > 3 && (
-                <div className="w-[90px] h-[90px] bg-[#F3F4F6] rounded-xl flex items-center justify-center">
-                  <p className="text-[14px] text-muted-foreground">
-                    +{form.photos.length - 3} more
+        {/* 3. Status & Ownership */}
+        <ReviewSection title="Status & Ownership" onEdit={() => goToStep(3)}>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5">
+              <p className="text-[14px] text-[#5b5f62] leading-5">Ownership Status</p>
+              {form.ownershipStatus ? (
+                <div className="flex items-center gap-2 bg-muted rounded-full px-3 py-1 w-fit">
+                  <div
+                    className="size-2 rounded-full shrink-0"
+                    style={{ backgroundColor: ownershipDotColor }}
+                  />
+                  <p className="text-[14px] font-medium text-[#1a1c1c] leading-5 whitespace-nowrap">
+                    {ownershipLabel}
                   </p>
                 </div>
+              ) : (
+                <p className="text-[14px] font-medium text-[#1a1c1c] leading-5">—</p>
               )}
             </div>
-            <p className="text-[14px] text-muted-foreground mb-1">
-              Documents Uploaded: {form.documents.length} documents
-            </p>
-            {form.documents.map((d, i) => (
-              <p key={i} className="text-[14px] text-foreground">
-                {d}
+            <div className="flex flex-col gap-1.5">
+              <p className="text-[14px] text-[#5b5f62] leading-5">Purchase Date</p>
+              <p className="text-[14px] font-medium text-[#1a1c1c] leading-5">
+                {form.purchaseDate || "—"}
               </p>
-            ))}
+            </div>
           </div>
-        </div>
+        </ReviewSection>
 
-        {/* Right: Summary */}
-        <div className="w-[300px] shrink-0 space-y-4">
-          <div className="border border-border rounded-xl p-5">
-            <div className="flex items-center gap-2 mb-3">
-              <DollarSign className="w-4 h-4 text-foreground" />
-              <p className="text-[14px] text-foreground" style={{ fontWeight: 600 }}>
-                Property Summary
+        {/* 4. Financial Details */}
+        <ReviewSection title="Financial Details" onEdit={() => goToStep(3)}>
+          <div className="grid grid-cols-2 gap-6">
+            <div className="flex flex-col gap-1">
+              <p className="text-[14px] text-[#5b5f62] leading-5">Purchase Price</p>
+              <p className="text-[20px] font-bold text-[#1a1c1c] leading-7">
+                {formatCurrency(form.purchasePrice)}
               </p>
             </div>
-            <p className="text-[#059669] text-[14px] mb-1" style={{ fontWeight: 600 }}>
-              Status: Ready to Submit
-            </p>
-            <p className="text-[12px] text-muted-foreground mb-2">Completion: 100%</p>
-            <div className="w-full h-2 bg-muted rounded-full overflow-hidden mb-4">
-              <div className="h-full bg-[#059669] rounded-full w-full" />
+            <div className="flex flex-col gap-1">
+              <p className="text-[14px] text-[#5b5f62] leading-5">Market Value</p>
+              <p className="text-[20px] font-bold text-[#1a1c1c] leading-7">
+                {formatCurrency(form.currentMarketValue)}
+              </p>
             </div>
-
-            <div className="space-y-1.5 text-[14px]">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Required Fields:</span>
-              </div>
-              {completionItems.map((item) => (
-                <div key={item} className="flex justify-between items-center">
-                  <span className="text-muted-foreground">{item}:</span>
-                  <span className="text-[#059669] flex items-center gap-1 text-[12px]">
-                    <CheckCircle className="w-3 h-3" /> Completed
-                  </span>
+            {form.interestRate && (
+              <div className="flex flex-col gap-1">
+                <p className="text-[14px] text-[#5b5f62] leading-5">Interest Rate</p>
+                <div className="flex items-baseline gap-1">
+                  <p className="text-[20px] font-bold text-[#1a1c1c] leading-7">{form.interestRate}%</p>
+                  <p className="text-[14px] text-[#5b5f62] leading-5">/ yr</p>
                 </div>
-              ))}
-            </div>
-
-            <div className="border-t border-border mt-4 pt-4">
-              <p className="text-[12px] text-muted-foreground mb-1">Estimated Value</p>
-              <p className="text-[30px] text-foreground" style={{ fontWeight: 700 }}>
-                $70,000
-              </p>
-            </div>
+              </div>
+            )}
+            {form.monthlyPayment && (
+              <div className="flex flex-col gap-1">
+                <p className="text-[14px] text-[#5b5f62] leading-5">Monthly Payment</p>
+                <p className="text-[20px] font-bold text-[#1a1c1c] leading-7">
+                  {formatCurrency(form.monthlyPayment)}
+                </p>
+              </div>
+            )}
           </div>
+        </ReviewSection>
 
-          <div className="border border-border rounded-xl p-5">
-            <div className="flex items-center gap-2 mb-3">
-              <Info className="w-4 h-4 text-muted-foreground" />
-              <p className="text-[14px] text-foreground" style={{ fontWeight: 600 }}>
-                Next Steps
-              </p>
+        {/* 5. Photos */}
+        {form.photos.length > 0 && (
+          <ReviewSection
+            title="Photos"
+            titleBadge={
+              <span className="text-[16px] font-normal text-[#5b5f62]">({form.photos.length})</span>
+            }
+            onEdit={() => goToStep(4)}
+          >
+            <div className="grid grid-cols-4 gap-4">
+              {form.photos.slice(0, 4).map((photo, i) => {
+                const isOverlay = i === 3 && extraPhotos > 0;
+                return (
+                  <div
+                    key={i}
+                    className="relative overflow-hidden rounded-xl shadow-[0px_0px_0px_1px_rgba(0,0,0,0.02),0px_2px_6px_0px_rgba(0,0,0,0.04),0px_4px_8px_0px_rgba(0,0,0,0.1)]"
+                  >
+                    <div className="h-[100px] bg-muted flex items-center justify-center px-2">
+                      <Camera className="w-5 h-5 text-muted-foreground/50 shrink-0" />
+                    </div>
+                    {i === 0 && (
+                      <div className="absolute top-2 left-2 bg-white rounded-[14px] px-2.5 py-0.5 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)]">
+                        <span className="text-[11px] font-semibold text-[#1a1c1c]">Cover</span>
+                      </div>
+                    )}
+                    {isOverlay && (
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                        <p className="text-white text-[14px] font-medium">+{extraPhotos} more</p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-            <p className="text-[14px] text-muted-foreground mb-2">After submission:</p>
-            <ul className="space-y-1 text-[14px] text-muted-foreground list-disc pl-4">
-              <li>1. Property added to portfolio</li>
-              <li>2. Generate property reports</li>
-              <li>3. Set up rent collection</li>
-              <li>4. Add maintenance schedule</li>
-            </ul>
-          </div>
-        </div>
+          </ReviewSection>
+        )}
+
+        {/* 6. Documents */}
+        {form.documents.length > 0 && (
+          <ReviewSection title="Documents" onEdit={() => goToStep(4)}>
+            <div className="flex flex-col gap-3">
+              {form.documents.map((doc, i) => {
+                const meta = getDocMeta(doc);
+                return (
+                  <div
+                    key={i}
+                    className="border border-[#c3c6d7] rounded-xl flex items-center justify-between px-4 py-4"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div
+                        className={`${meta.bg} w-10 h-10 rounded-full flex items-center justify-center shrink-0`}
+                      >
+                        <FileText className={`w-5 h-5 ${meta.text}`} />
+                      </div>
+                      <div>
+                        <p className="text-[16px] font-medium text-[#1a1c1c] leading-5">{doc}</p>
+                        <p className="text-[14px] text-[#5b5f62] leading-[21px]">{meta.label}</p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </ReviewSection>
+        )}
+
       </div>
     </div>
   );

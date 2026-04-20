@@ -38,6 +38,7 @@ export function Step0NewOrDraft({
   draftsLoading,
   onResumeDraft,
   onDeleteDraft,
+  onLoadDemo,
 }: {
   form: FormData;
   setForm: (f: FormData) => void;
@@ -47,6 +48,7 @@ export function Step0NewOrDraft({
   draftsLoading?: boolean;
   onResumeDraft: (id: string) => void;
   onDeleteDraft: (id: string) => void;
+  onLoadDemo?: () => void;
 }) {
   const router = useRouter();
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -262,6 +264,37 @@ export function Step0NewOrDraft({
           </ul>
         )}
       </div>
+
+      {onLoadDemo && (
+        <div className="mt-6 flex justify-center">
+          <button
+            onClick={onLoadDemo}
+            style={{
+              fontSize: 12,
+              fontWeight: 500,
+              color: DS.textDisabled,
+              padding: "6px 14px",
+              borderRadius: 8,
+              border: `1px dashed ${DS.border}`,
+              background: "transparent",
+              cursor: "pointer",
+              fontFamily: DS.font,
+              letterSpacing: "0.02em",
+              transition: "color 0.1s ease, border-color 0.1s ease",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLElement).style.color = DS.textSecondary;
+              (e.currentTarget as HTMLElement).style.borderColor = DS.textDisabled;
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLElement).style.color = DS.textDisabled;
+              (e.currentTarget as HTMLElement).style.borderColor = DS.border;
+            }}
+          >
+            Load demo data →
+          </button>
+        </div>
+      )}
     </div>
   );
 }
