@@ -2,7 +2,43 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Camera, Upload, FileEdit, ChevronLeft, Trash2 } from "lucide-react";
+import {
+  Camera,
+  Upload,
+  FileEdit,
+  ChevronLeft,
+  Trash2,
+  Home,
+  Building2,
+  Store,
+  LandPlot,
+  Factory,
+  HardHat,
+  MoreHorizontal,
+} from "lucide-react";
+
+const PROPERTY_TYPE_ICONS: Record<string, React.ElementType> = {
+  residential: Home,
+  commercial: Building2,
+  "multi-unit": Building2,
+  retail: Store,
+  land: LandPlot,
+  industrial: Factory,
+  construction: HardHat,
+  other: MoreHorizontal,
+};
+
+const PROPERTY_TYPE_GRADIENTS: Record<string, string> = {
+  residential: "linear-gradient(135deg, #ff6b6b 0%, #ff8c42 50%, #ffd23f 100%)",
+  commercial: "linear-gradient(135deg, #1e3799 0%, #0652dd 50%, #1289a7 100%)",
+  "multi-unit": "linear-gradient(135deg, #6c2bd9 0%, #a855f7 50%, #ec4899 100%)",
+  retail: "linear-gradient(135deg, #f72585 0%, #ff6b35 50%, #ffd60a 100%)",
+  land: "linear-gradient(135deg, #1a7a4a 0%, #22c55e 50%, #a3e635 100%)",
+  industrial: "linear-gradient(135deg, #0369a1 0%, #0ea5e9 50%, #67e8f9 100%)",
+  construction: "linear-gradient(135deg, #b45309 0%, #f59e0b 50%, #fde047 100%)",
+  other: "linear-gradient(135deg, #7c3aed 0%, #2563eb 50%, #06b6d4 100%)",
+};
+
 import { toast } from "sonner";
 import type { PropertyDraftSummary } from "@/lib/data/add-property-page";
 import type { FormData, DraftRecord } from "./types";
@@ -147,16 +183,28 @@ export function Step0NewOrDraft({
     <div className="max-w-[800px] mx-auto pt-8 pb-12" style={{ fontFamily: DS.font }}>
       <button
         onClick={() => router.push("/portfolio")}
-        className="flex items-center gap-1 mb-6"
-        style={{ fontSize: 14, fontWeight: 500, color: DS.textSecondary }}
-        onMouseEnter={(e) => (e.currentTarget.style.color = DS.textPrimary)}
-        onMouseLeave={(e) => (e.currentTarget.style.color = DS.textSecondary)}
+        className="anim-enter flex items-center gap-1 mb-6"
+        style={{
+          fontSize: 14,
+          fontWeight: 500,
+          color: DS.textSecondary,
+          transition: "color 0.15s ease, transform 0.15s cubic-bezier(0.16, 1, 0.3, 1)",
+          animationDelay: "0ms",
+        }}
+        onMouseEnter={(e) => {
+          (e.currentTarget as HTMLElement).style.color = DS.textPrimary;
+          (e.currentTarget as HTMLElement).style.transform = "translateX(-2px)";
+        }}
+        onMouseLeave={(e) => {
+          (e.currentTarget as HTMLElement).style.color = DS.textSecondary;
+          (e.currentTarget as HTMLElement).style.transform = "translateX(0)";
+        }}
       >
         <ChevronLeft className="w-4 h-4" />
         Back to Portfolio
       </button>
 
-      <div className="mb-8">
+      <div className="anim-enter mb-8" style={{ animationDelay: "60ms" }}>
         <h1
           style={{
             fontSize: 28,
@@ -190,12 +238,13 @@ export function Step0NewOrDraft({
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mb-8">
-        {methods.map((m) => (
-          <MethodCard key={m.key} method={m} isSelected={form.method === m.key} />
+        {methods.map((m, i) => (
+          <MethodCard key={m.key} method={m} isSelected={false} index={i} />
         ))}
       </div>
 
       <p
+        className="anim-enter"
         style={{
           fontSize: 13,
           fontWeight: 600,
@@ -203,24 +252,27 @@ export function Step0NewOrDraft({
           letterSpacing: "0.06em",
           textTransform: "uppercase",
           marginBottom: 10,
+          animationDelay: "310ms",
         }}
       >
         Resume a draft
       </p>
 
       <div
+        className="anim-enter"
         style={{
           background: DS.surfaceBase,
           borderRadius: 12,
           border: `1px solid ${DS.border}`,
           minHeight: "5rem",
           overflow: "hidden",
+          animationDelay: "350ms",
         }}
       >
         {draftsLoading ? (
           <DraftSkeleton />
         ) : !hasDrafts ? (
-          <div className="flex flex-col items-center justify-center py-10 px-6 gap-1">
+          <div className="anim-enter flex flex-col items-center justify-center py-10 px-6 gap-1">
             <p style={{ fontSize: 14, color: DS.textDisabled, textAlign: "center", lineHeight: 1.5 }}>
               No drafts yet.
             </p>
@@ -235,6 +287,7 @@ export function Step0NewOrDraft({
                 key={d.id}
                 id={d.id}
                 title={d.title}
+                propertyType={d.form.propertyType}
                 timestamp={formatRelativeTime(d.updatedAt)}
                 onResume={() => onResumeDraft(d.id)}
                 onRequestDelete={() => setPendingDeleteId(d.id)}
@@ -242,15 +295,17 @@ export function Step0NewOrDraft({
                 onCancelDelete={() => setPendingDeleteId(null)}
                 isConfirming={pendingDeleteId === d.id}
                 showDivider={i < localDrafts.length - 1 || serverOnlyDrafts.length > 0}
+                index={i}
               />
             ))}
             {serverOnlyDrafts.map((d, i) => (
               <li
                 key={d.id}
-                className="flex items-center"
+                className="anim-enter flex items-center"
                 style={{
                   padding: "14px 20px",
                   borderBottom: i < serverOnlyDrafts.length - 1 ? `1px solid ${DS.border}` : "none",
+                  animationDelay: `${(localDrafts.length + i) * 55}ms`,
                 }}
               >
                 <span
@@ -266,33 +321,8 @@ export function Step0NewOrDraft({
       </div>
 
       {onLoadDemo && (
-        <div className="mt-6 flex justify-center">
-          <button
-            onClick={onLoadDemo}
-            style={{
-              fontSize: 12,
-              fontWeight: 500,
-              color: DS.textDisabled,
-              padding: "6px 14px",
-              borderRadius: 8,
-              border: `1px dashed ${DS.border}`,
-              background: "transparent",
-              cursor: "pointer",
-              fontFamily: DS.font,
-              letterSpacing: "0.02em",
-              transition: "color 0.1s ease, border-color 0.1s ease",
-            }}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLElement).style.color = DS.textSecondary;
-              (e.currentTarget as HTMLElement).style.borderColor = DS.textDisabled;
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLElement).style.color = DS.textDisabled;
-              (e.currentTarget as HTMLElement).style.borderColor = DS.border;
-            }}
-          >
-            Load demo data →
-          </button>
+        <div className="anim-enter mt-6 flex justify-center" style={{ animationDelay: "400ms" }}>
+          <LoadDemoButton onClick={onLoadDemo} />
         </div>
       )}
     </div>
@@ -302,6 +332,7 @@ export function Step0NewOrDraft({
 function MethodCard({
   method,
   isSelected,
+  index,
 }: {
   method: {
     badge: string;
@@ -315,86 +346,98 @@ function MethodCard({
     onClick: () => void;
   };
   isSelected: boolean;
+  index: number;
 }) {
+  const [hovered, setHovered] = useState(false);
+  const [pressed, setPressed] = useState(false);
+
   return (
-    <button
-      onClick={method.onClick}
-      className="text-left w-full flex flex-col"
-      style={{
-        background: isSelected ? DS.blueTint : DS.surfaceBase,
-        borderRadius: 16,
-        padding: "20px",
-        border: isSelected ? `2px solid ${DS.blue}` : `1px solid ${DS.border}`,
-        transition: "border-color 0.15s ease, background 0.15s ease",
-        fontFamily: DS.font,
-        cursor: "pointer",
-        minHeight: 168,
-      }}
-      onMouseEnter={(e) => {
-        if (!isSelected) {
-          (e.currentTarget as HTMLElement).style.borderColor = "#93C5FD";
-        }
-      }}
-      onMouseLeave={(e) => {
-        if (!isSelected) {
-          (e.currentTarget as HTMLElement).style.borderColor = DS.border;
-        }
-      }}
-    >
-      <method.icon
+    <div className="anim-enter h-full" style={{ animationDelay: `${130 + index * 70}ms` }}>
+      <button
+        onClick={() => { setHovered(false); setPressed(false); method.onClick(); }}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => { setHovered(false); setPressed(false); }}
+        onMouseDown={() => setPressed(true)}
+        onMouseUp={() => setPressed(false)}
+        className="text-left w-full h-full flex flex-col"
         style={{
-          width: 22,
-          height: 22,
-          color: isSelected ? DS.blue : method.iconColor,
-          marginBottom: 16,
-          flexShrink: 0,
-        }}
-      />
-      <p
-        style={{
-          fontSize: 15,
-          fontWeight: 600,
-          color: DS.textPrimary,
-          marginBottom: 6,
-          letterSpacing: "-0.15px",
-          lineHeight: 1.3,
+          background: isSelected ? DS.blueTint : DS.surfaceBase,
+          borderRadius: 16,
+          padding: "20px",
+          border: isSelected
+            ? `2px solid ${DS.blue}`
+            : `1px solid ${hovered ? "#93C5FD" : DS.border}`,
+          transition:
+            "transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.15s ease, background 0.15s ease, box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
+          fontFamily: DS.font,
+          cursor: "pointer",
+          minHeight: 168,
+          transform: `scale(${pressed ? 0.97 : hovered ? 1.02 : 1})`,
+          boxShadow: isSelected
+            ? DS.selectedShadow
+            : hovered
+            ? DS.hoverShadow
+            : "none",
         }}
       >
-        {method.title}
-      </p>
-      <p
-        style={{
-          fontSize: 13,
-          color: DS.textSecondary,
-          lineHeight: 1.5,
-          flex: 1,
-        }}
-      >
-        {method.desc}
-      </p>
-      <span
-        style={{
-          fontSize: 11,
-          fontWeight: 600,
-          color: method.badgeColor,
-          background: method.badgeBg,
-          borderRadius: 10,
-          padding: "3px 9px",
-          display: "inline-block",
-          marginTop: 14,
-          lineHeight: 1.4,
-          alignSelf: "flex-start",
-        }}
-      >
-        {method.badge}
-      </span>
-    </button>
+        <method.icon
+          style={{
+            width: 22,
+            height: 22,
+            color: isSelected ? DS.blue : hovered ? DS.textPrimary : method.iconColor,
+            marginBottom: 16,
+            flexShrink: 0,
+            transform: hovered ? "scale(1.12)" : "scale(1)",
+            transition: "transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), color 0.15s ease",
+          }}
+        />
+        <p
+          style={{
+            fontSize: 15,
+            fontWeight: 600,
+            color: DS.textPrimary,
+            marginBottom: 6,
+            letterSpacing: "-0.15px",
+            lineHeight: 1.3,
+          }}
+        >
+          {method.title}
+        </p>
+        <p
+          style={{
+            fontSize: 13,
+            color: DS.textSecondary,
+            lineHeight: 1.5,
+            flex: 1,
+          }}
+        >
+          {method.desc}
+        </p>
+        <span
+          style={{
+            fontSize: 11,
+            fontWeight: 600,
+            color: method.badgeColor,
+            background: method.badgeBg,
+            borderRadius: 10,
+            padding: "3px 9px",
+            display: "inline-block",
+            marginTop: 14,
+            lineHeight: 1.4,
+            alignSelf: "flex-start",
+          }}
+        >
+          {method.badge}
+        </span>
+      </button>
+    </div>
   );
 }
 
 function DraftItem({
   id,
   title,
+  propertyType,
   timestamp,
   onResume,
   onRequestDelete,
@@ -402,9 +445,11 @@ function DraftItem({
   onCancelDelete,
   isConfirming,
   showDivider,
+  index,
 }: {
   id: string;
   title: string;
+  propertyType?: string;
   timestamp: string;
   onResume: () => void;
   onRequestDelete: () => void;
@@ -412,7 +457,11 @@ function DraftItem({
   onCancelDelete: () => void;
   isConfirming: boolean;
   showDivider: boolean;
+  index: number;
 }) {
+  const TypeIcon = propertyType ? PROPERTY_TYPE_ICONS[propertyType] : null;
+  const animDelay = `${index * 55}ms`;
+
   if (isConfirming) {
     return (
       <li
@@ -423,6 +472,7 @@ function DraftItem({
           display: "flex",
           alignItems: "center",
           gap: 12,
+          transition: "background 0.2s ease",
         }}
       >
         <span
@@ -444,7 +494,10 @@ function DraftItem({
               boxShadow: DS.cardShadow,
               cursor: "pointer",
               fontFamily: DS.font,
+              transition: "transform 0.15s cubic-bezier(0.16, 1, 0.3, 1)",
             }}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.transform = "scale(1.04)")}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.transform = "scale(1)")}
           >
             Cancel
           </button>
@@ -459,6 +512,15 @@ function DraftItem({
               background: DS.danger,
               cursor: "pointer",
               fontFamily: DS.font,
+              transition: "transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), background 0.15s ease",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLElement).style.transform = "scale(1.04)";
+              (e.currentTarget as HTMLElement).style.background = "#BE123C";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLElement).style.transform = "scale(1)";
+              (e.currentTarget as HTMLElement).style.background = DS.danger;
             }}
           >
             Delete
@@ -471,15 +533,32 @@ function DraftItem({
   return (
     <li
       onClick={onResume}
-      className="flex items-center cursor-pointer"
+      className="anim-enter flex items-center cursor-pointer"
       style={{
         padding: "14px 20px",
         borderBottom: showDivider ? `1px solid ${DS.border}` : "none",
-        transition: "background 0.1s ease",
+        transition: "background 0.15s ease",
+        animationDelay: animDelay,
       }}
       onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = DS.surfaceElevated)}
       onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = "transparent")}
     >
+      <span
+        className="shrink-0 flex items-center justify-center mr-3"
+        style={{
+          width: 30,
+          height: 30,
+          borderRadius: 8,
+          background: propertyType && PROPERTY_TYPE_GRADIENTS[propertyType]
+            ? PROPERTY_TYPE_GRADIENTS[propertyType]
+            : DS.surfaceElevated,
+          flexShrink: 0,
+        }}
+      >
+        {TypeIcon && (
+          <TypeIcon style={{ width: 15, height: 15, color: propertyType ? "#fff" : DS.textSecondary }} />
+        )}
+      </span>
       <span
         style={{ fontSize: 14, fontWeight: 500, color: DS.textPrimary, lineHeight: 1.29 }}
         className="truncate flex-1 mr-3"
@@ -502,23 +581,53 @@ function DraftItem({
           borderRadius: "50%",
           color: DS.textDisabled,
           background: "transparent",
-          transition: "background 0.1s ease, color 0.1s ease",
+          transition: "background 0.15s ease, color 0.15s ease, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
           cursor: "pointer",
           fontFamily: DS.font,
         }}
         onMouseEnter={(e) => {
           (e.currentTarget as HTMLElement).style.background = DS.dangerTint;
           (e.currentTarget as HTMLElement).style.color = DS.danger;
+          (e.currentTarget as HTMLElement).style.transform = "scale(1.1)";
         }}
         onMouseLeave={(e) => {
           (e.currentTarget as HTMLElement).style.background = "transparent";
           (e.currentTarget as HTMLElement).style.color = DS.textDisabled;
+          (e.currentTarget as HTMLElement).style.transform = "scale(1)";
         }}
         aria-label="Delete draft"
       >
         <Trash2 style={{ width: 15, height: 15 }} />
       </button>
     </li>
+  );
+}
+
+function LoadDemoButton({ onClick }: { onClick: () => void }) {
+  const [hovered, setHovered] = useState(false);
+
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        fontSize: 12,
+        fontWeight: 500,
+        color: hovered ? DS.textSecondary : DS.textDisabled,
+        padding: "6px 14px",
+        borderRadius: 8,
+        border: `1px dashed ${hovered ? DS.textDisabled : DS.border}`,
+        background: "transparent",
+        cursor: "pointer",
+        fontFamily: DS.font,
+        letterSpacing: "0.02em",
+        transition: "color 0.15s ease, border-color 0.15s ease, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
+        transform: hovered ? "scale(1.03)" : "scale(1)",
+      }}
+    >
+      Load demo data →
+    </button>
   );
 }
 
@@ -534,6 +643,16 @@ function DraftSkeleton() {
             borderBottom: i < 2 ? `1px solid ${DS.border}` : "none",
           }}
         >
+          <div
+            style={{
+              width: 30,
+              height: 30,
+              borderRadius: 8,
+              background: DS.surfaceElevated,
+              flexShrink: 0,
+              marginRight: 12,
+            }}
+          />
           <div
             style={{
               height: 14,
