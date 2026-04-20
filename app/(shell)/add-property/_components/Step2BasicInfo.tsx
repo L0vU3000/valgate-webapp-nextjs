@@ -20,8 +20,9 @@ export function Step2BasicInfo({
 }) {
   const [showManualAddress, setShowManualAddress] = useState(false);
   const [showModal, setShowModal] = useState(false);
-  // Single source of truth for the map location — shared between small map and modal
-  const [mapCenter, setMapCenter] = useState<[number, number]>(DEFAULT_CENTER);
+
+  const mapCenter = form.mapCenter ?? DEFAULT_CENTER;
+  const setMapCenter = (c: [number, number]) => setForm({ ...form, mapCenter: c });
 
   const update = (key: keyof FormData, val: string) =>
     setForm({ ...form, [key]: val });
@@ -30,16 +31,16 @@ export function Step2BasicInfo({
     .filter(Boolean)
     .join(", ");
 
-  const isPinned = mapCenter[0] !== DEFAULT_CENTER[0] || mapCenter[1] !== DEFAULT_CENTER[1];
+  const isPinned = !!form.mapCenter;
 
   return (
     <div className="flex-1 min-h-0 flex flex-col max-w-[560px] w-full mx-auto">
       {/* Heading */}
       <div className="shrink-0 mb-4">
-        <h2 className="text-[30px] text-foreground mb-0.5" style={{ fontWeight: 700 }}>
+        <h2 className="text-[28px] font-bold text-[#1a1c1c] text-center leading-10">
           Confirm property location
         </h2>
-        <p className="text-[14px] text-muted-foreground">
+        <p className="text-[16px] text-[#5b5f62] text-center leading-[1.43]">
           Search for your property address and confirm the pin on the map
         </p>
       </div>
@@ -113,6 +114,7 @@ export function Step2BasicInfo({
             <div className="relative flex-1 min-h-[120px] rounded-xl overflow-hidden border border-border">
               <PropertyLocationMap
                 center={mapCenter}
+                onLocationChange={(lat, lng) => setMapCenter([lng, lat])}
                 className="absolute inset-0"
               />
 

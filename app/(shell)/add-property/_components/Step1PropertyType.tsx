@@ -1,8 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import {
-  ChevronLeft,
   Home,
   Building2,
   Store,
@@ -25,24 +23,20 @@ const propertyTypes = [
 ];
 
 export function Step1PropertyType({ form, setForm }: { form: FormData; setForm: (f: FormData) => void }) {
-  const router = useRouter();
   return (
-    <div className="max-w-[800px] mx-auto">
-      <button
-        onClick={() => router.push("/portfolio")}
-        className="flex items-center gap-1 text-[14px] text-muted-foreground hover:text-foreground mb-2"
-      >
-        <ChevronLeft className="w-4 h-4" />
-        Back to Portfolio
-      </button>
-      <h2 className="text-[30px] text-foreground mb-1" style={{ fontWeight: 700 }}>
-        What type of property are you adding?
-      </h2>
-      <p className="text-[14px] text-muted-foreground mb-6">
-        Select the category that best describes your property
-      </p>
+    <div className="flex flex-col gap-10 items-start pb-8 w-full max-w-[860px] mx-auto">
+      {/* Heading */}
+      <div className="flex flex-col gap-[11px] items-center w-full">
+        <h2 className="text-[28px] font-bold text-[#1a1c1c] text-center leading-10">
+          What type of property are you adding?
+        </h2>
+        <p className="text-[16px] text-[#5b5f62] text-center leading-[1.43]">
+          Select the category that best describes your property.
+        </p>
+      </div>
 
-      <div className="grid grid-cols-4 gap-4">
+      {/* Grid */}
+      <div className="grid grid-cols-4 gap-4 w-full">
         {propertyTypes.map((t) => (
           <button
             key={t.key}
@@ -54,9 +48,7 @@ export function Step1PropertyType({ form, setForm }: { form: FormData; setForm: 
             <div className="w-12 h-12 rounded-lg bg-[#EFF6FF] flex items-center justify-center mb-3">
               <t.icon className="w-6 h-6 text-primary" />
             </div>
-            <p className="text-[14px] text-foreground mb-0.5" style={{ fontWeight: 600 }}>
-              {t.label}
-            </p>
+            <p className="text-[14px] text-foreground mb-0.5 font-semibold">{t.label}</p>
             <p className="text-[12px] text-muted-foreground">{t.sub}</p>
           </button>
         ))}

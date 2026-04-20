@@ -21,6 +21,7 @@ export interface FormData {
   state: string;
   zip: string;
   country: string;
+  mapCenter?: [number, number];
   yearBuilt: string;
   totalArea: string;
   bedrooms: string;
@@ -72,8 +73,8 @@ export const defaultForm: FormData = {
   annualPropertyTax: "",
   taxAssessmentValue: "",
   annualInsurance: "",
-  photos: [],
-  documents: [],
+  photos: ["living-room.jpg", "kitchen.jpg", "bedroom.jpg", "bathroom.jpg"],
+  documents: ["House_Rules_2023.pdf", "Wi-Fi_Instructions.docx", "Local_Guidebook.pdf"],
 };
 
 export type DraftRecord = {

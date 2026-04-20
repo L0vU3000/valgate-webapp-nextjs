@@ -16,6 +16,7 @@ import { Step3Financial } from "./Step3Financial";
 import { Step4PhotosDocs } from "./Step4PhotosDocs";
 import { Step5Review } from "./Step5Review";
 import { Step6Success } from "./Step6Success";
+import { FlowFooter } from "./FlowFooter";
 
 export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) {
   const router = useRouter();
@@ -25,6 +26,8 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
 
   const [step, setStep] = useState<Step>(0);
   const [form, setForm] = useState<FormData>(defaultForm);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const latestFormRef = useRef<FormData>(defaultForm);
 
   // Hydrate from URL params once localStorage drafts are loaded
@@ -68,6 +71,45 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
   const goNext = () => setStep((s) => Math.min(s + 1, 6) as Step);
   const goBack = () => setStep((s) => Math.max(s - 1, 0) as Step);
 
+  function handleLoadDemo() {
+    const id = "demo-" + Date.now();
+    const demoForm: FormData = {
+      method: "manual",
+      propertyType: "residential",
+      propertyName: "Sunny Vista Retreat",
+      propertyId: "PR20260001",
+      addressLine: "2847 Oceanview Drive",
+      addressLine2: "",
+      city: "Malibu",
+      state: "CA",
+      zip: "90265",
+      country: "US",
+      yearBuilt: "2018",
+      totalArea: "3200",
+      bedrooms: "4",
+      bathrooms: "3",
+      parkingSpaces: "2",
+      storageUnit: "Unit 2B",
+      purchasePrice: "1200000",
+      purchaseDate: "2022-03-15",
+      currentMarketValue: "1250000",
+      ownershipStatus: "leased",
+      outstandingMortgage: "850000",
+      monthlyPayment: "4200",
+      interestRate: "6.75",
+      annualPropertyTax: "12500",
+      taxAssessmentValue: "1100000",
+      annualInsurance: "3200",
+      photos: ["exterior.jpg", "living-room.jpg", "kitchen.jpg", "bedroom.jpg"],
+      documents: ["Purchase_Agreement.pdf", "Title_Deed.pdf", "Insurance_Policy.pdf"],
+    };
+    setActive(id);
+    setForm(demoForm);
+    upsert(id, demoForm, 5);
+    setStep(5);
+    router.replace(`/add-property?step=5&draftId=${id}`);
+  }
+
   function handleSetFormFromStep0(f: FormData) {
     latestFormRef.current = f;
     setForm(f);
@@ -93,19 +135,30 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
   }
 
   async function handleSubmit() {
-    const result = await submitPropertyAction(form);
-    if (result.ok) {
-      clearActive();
-      setStep(6);
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      const result = await submitPropertyAction(form);
+      if (result.ok) {
+        setForm((f) => ({ ...f, propertyId: result.propertyId }));
+        clearActive();
+        setStep(6);
+      } else {
+        setSubmitError(result.error ?? "Something went wrong. Please try again.");
+      }
+    } catch {
+      setSubmitError("Something went wrong. Please try again.");
+    } finally {
+      setSubmitting(false);
     }
   }
 
   const progressPercent = step === 0 ? 0 : (step / 6) * 100;
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col bg-white">
       <AppHeader />
-      <div className="flex-1 flex flex-col overflow-auto">
+      <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header — steps 1–5 */}
         {step >= 1 && step <= 5 && (
           <div className="px-8 pt-5 pb-0 shrink-0">
@@ -129,78 +182,47 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
         )}
 
 
-        {/* Header — step 6 */}
-        {step === 6 && (
-          <div className="px-8 pt-8 shrink-0">
-            <div className="max-w-[1160px] mx-auto">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-xs font-semibold tracking-widest uppercase text-[--val-primary-dark]">Valgate</span>
-                <span className="text-xs text-slate-300">/</span>
-                <span className="text-xs font-semibold tracking-widest uppercase text-slate-400">Add Property</span>
-              </div>
+        {/* Content */}
+        {step === 6 ? (
+          <div className="flex-1 overflow-auto">
+            <Step6Success form={form} />
+          </div>
+        ) : (
+          <div className="flex-1 overflow-auto px-8 pb-4 flex flex-col min-h-0">
+            <div className="max-w-[1160px] mx-auto w-full flex-1 min-h-0 flex flex-col">
+              {step === 0 && (
+                <Step0NewOrDraft
+                  form={form}
+                  setForm={handleSetFormFromStep0}
+                  onContinue={handleContinueFromStep0}
+                  drafts={drafts}
+                  localDrafts={localDrafts}
+                  draftsLoading={!mounted}
+                  onResumeDraft={handleResumeDraft}
+                  onDeleteDraft={remove}
+                  onLoadDemo={handleLoadDemo}
+                />
+              )}
+              {step === 1 && <Step1PropertyType form={form} setForm={setForm} />}
+              {step === 2 && <Step2BasicInfo form={form} setForm={setForm} />}
+              {step === 3 && <Step3Financial form={form} setForm={setForm} goNext={goNext} />}
+              {step === 4 && <Step4PhotosDocs form={form} setForm={setForm} />}
+              {step === 5 && <Step5Review form={form} goToStep={(s) => setStep(s as Step)} />}
             </div>
           </div>
         )}
 
-        {/* Content */}
-        <div className="flex-1 px-8 pb-4 flex flex-col min-h-0">
-          <div className="max-w-[1160px] mx-auto w-full flex-1 min-h-0 flex flex-col">
-            {step === 0 && (
-              <Step0NewOrDraft
-                form={form}
-                setForm={handleSetFormFromStep0}
-                onContinue={handleContinueFromStep0}
-                drafts={drafts}
-                localDrafts={localDrafts}
-                draftsLoading={!mounted}
-                onResumeDraft={handleResumeDraft}
-                onDeleteDraft={remove}
-              />
-            )}
-            {step === 1 && <Step1PropertyType form={form} setForm={setForm} />}
-            {step === 2 && <Step2BasicInfo form={form} setForm={setForm} />}
-            {step === 3 && <Step3Financial form={form} setForm={setForm} />}
-            {step === 4 && <Step4PhotosDocs form={form} setForm={setForm} />}
-            {step === 5 && <Step5Review form={form} />}
-            {step === 6 && <Step6Success />}
-          </div>
-        </div>
-
         {/* Footer — steps 1–5 */}
         {step >= 1 && step <= 5 && (
-          <div className="px-8 py-4 border-t border-border shrink-0">
-            <div className="max-w-[1160px] mx-auto flex items-center justify-between">
-              <button
-                onClick={handleSaveAsDraft}
-                className="border border-border rounded-lg px-4 py-2 text-[14px] text-foreground hover:bg-accent/50"
-              >
-                Save as Draft
-              </button>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={goBack}
-                  className="border border-border rounded-lg px-6 py-2 text-[14px] text-foreground hover:bg-accent/50"
-                >
-                  Go Back
-                </button>
-                {step < 5 ? (
-                  <button
-                    onClick={goNext}
-                    className="bg-primary text-white rounded-lg px-6 py-2 text-[14px] hover:bg-primary/90"
-                  >
-                    Continue
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleSubmit}
-                    className="bg-primary text-white rounded-lg px-6 py-2 text-[14px] hover:bg-primary/90"
-                  >
-                    Submit
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
+          <FlowFooter
+            onBack={goBack}
+            onSaveDraft={handleSaveAsDraft}
+            onContinue={goNext}
+            onSubmit={handleSubmit}
+            isFinalStep={step === 5}
+            submitting={submitting}
+            submitError={submitError}
+          />
         )}
       </div>
     </div>
