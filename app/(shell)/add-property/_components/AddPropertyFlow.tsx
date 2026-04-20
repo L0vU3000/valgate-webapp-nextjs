@@ -108,33 +108,20 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
       <div className="flex-1 flex flex-col overflow-auto">
         {/* Header — steps 1–5 */}
         {step >= 1 && step <= 5 && (
-          <div className="px-8 pt-8 pb-0 shrink-0">
+          <div className="px-8 pt-5 pb-0 shrink-0">
             <div className="max-w-[1160px] mx-auto">
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="text-xs font-semibold tracking-widest uppercase text-[--val-primary-dark]">Valgate</span>
-                    <span className="text-xs text-slate-300">/</span>
-                    <span className="text-xs font-semibold tracking-widest uppercase text-slate-400">Add Property</span>
-                  </div>
-                  <h1 className="text-4xl font-extrabold text-val-heading tracking-tight leading-10">
-                    Add New Property
-                  </h1>
-                </div>
-                <button
-                  onClick={handleSaveAsDraft}
-                  className="border border-border rounded-lg px-4 py-2 text-[14px] text-foreground hover:bg-accent/50 shrink-0 mt-1"
-                >
-                  Save as Draft
-                </button>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-xs font-semibold tracking-widest uppercase text-[--val-primary-dark]">Valgate</span>
+                <span className="text-xs text-slate-300">/</span>
+                <span className="text-xs font-semibold tracking-widest uppercase text-slate-400">Add Property</span>
               </div>
-              <div className="w-full h-2 bg-[#E8EAED] rounded-full mb-2">
+              <div className="w-full h-2 bg-[#E8EAED] rounded-full mb-1.5">
                 <div
                   className="h-full bg-primary rounded-full transition-all duration-500"
                   style={{ width: `${progressPercent}%` }}
                 />
               </div>
-              <p className="text-primary text-[14px] mb-6" style={{ fontWeight: 500 }}>
+              <p className="text-primary text-[14px] mb-4" style={{ fontWeight: 500 }}>
                 Step {step} of 6: {stepLabels[step]}
               </p>
             </div>
@@ -151,16 +138,13 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
                 <span className="text-xs text-slate-300">/</span>
                 <span className="text-xs font-semibold tracking-widest uppercase text-slate-400">Add Property</span>
               </div>
-              <h1 className="text-4xl font-extrabold text-val-heading tracking-tight leading-10">
-                Add New Property
-              </h1>
             </div>
           </div>
         )}
 
         {/* Content */}
-        <div className="flex-1 px-8 pb-4 overflow-auto">
-          <div className="max-w-[1160px] mx-auto">
+        <div className="flex-1 px-8 pb-4 flex flex-col min-h-0">
+          <div className="max-w-[1160px] mx-auto w-full flex-1 min-h-0 flex flex-col">
             {step === 0 && (
               <Step0NewOrDraft
                 form={form}
