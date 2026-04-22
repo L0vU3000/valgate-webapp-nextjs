@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { PropertySpatialPage } from "../_components/PropertySpatialPage";
+import { PropertyLocationPage } from "../_components/PropertyLocationPage";
 import { getPropertyByIdParam } from "@/lib/data/properties";
 
 export default async function Page({
@@ -10,5 +10,5 @@ export default async function Page({
   const { id } = await params;
   const property = await getPropertyByIdParam(id);
   if (!property) notFound();
-  return <PropertySpatialPage property={property} activeTab="surrounding" />;
+  return <PropertyLocationPage property={property} />;
 }
