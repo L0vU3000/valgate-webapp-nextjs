@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   FileText, Wrench, Receipt, Bell,
   MoreHorizontal, Download, Pencil,
@@ -108,28 +108,51 @@ export function PropertyOverviewPage({ property }: { property: Property }) {
   const [mounted, setMounted] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
   useEffect(() => {
-    setReducedMotion(window.matchMedia("(prefers-reduced-motion: reduce)").matches);
-    setMounted(true);
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setReducedMotion(mq.matches);
+    // Tiny rAF delay so first paint is rendered before we trigger transitions
+    requestAnimationFrame(() => requestAnimationFrame(() => setMounted(true)));
   }, []);
 
   const countUpActive = mounted && !reducedMotion;
+
+  const ease = "cubic-bezier(0.22,1,0.36,1)";
+
+  function heroIn(delay: number): React.CSSProperties {
+    if (reducedMotion) return {};
+    return {
+      opacity: mounted ? 1 : 0,
+      transform: mounted ? "translateY(0px)" : "translateY(22px)",
+      transition: `opacity 650ms ${ease} ${delay}ms, transform 650ms ${ease} ${delay}ms`,
+    };
+  }
 
   return (
     <PropertyLayout activeTab="overview" property={property}>
       <div className="bg-val-bg-page-alt min-h-full pb-10">
 
         {/* Hero */}
-        <div className="relative h-[340px] overflow-hidden flex items-end">
+        <div className="relative h-[380px] overflow-hidden flex items-end">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/property-hero.jpg"
             alt=""
             className="absolute inset-0 w-full h-full object-cover object-center"
+            style={{
+              transform: reducedMotion ? undefined : mounted ? "scale(1)" : "scale(1.06)",
+              transition: reducedMotion ? undefined : `transform 900ms cubic-bezier(0.25,1,0.5,1)`,
+            }}
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent" />
-          <div className="relative z-10 w-full flex items-end justify-between px-8 pb-7">
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center gap-2.5">
+          <div
+            className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-transparent"
+            style={{
+              opacity: reducedMotion ? 1 : mounted ? 1 : 0,
+              transition: reducedMotion ? undefined : "opacity 600ms ease",
+            }}
+          />
+          <div className="relative z-10 w-full flex items-end justify-between px-8 pb-8">
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2.5" style={heroIn(80)}>
                 <span className="bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-semibold tracking-[0.05em] uppercase px-2.5 py-0.5 rounded-full">
                   {property.status}
                 </span>
@@ -137,12 +160,17 @@ export function PropertyOverviewPage({ property }: { property: Property }) {
                   {property.province}
                 </span>
               </div>
-              <p className="text-white/60 text-[13px] font-medium -mb-0.5">Purchased {property.buy}</p>
-              <h1 className="text-white text-[34px] font-extrabold tracking-tight leading-10">
+              <p className="text-white/55 text-[13px] font-medium" style={heroIn(160)}>
+                Purchased {property.buy}
+              </p>
+              <h1
+                className="text-white font-extrabold tracking-tight leading-none"
+                style={{ fontSize: "clamp(38px, 4vw, 58px)", ...heroIn(240) }}
+              >
                 {property.name}
               </h1>
             </div>
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2.5" style={heroIn(340)}>
               <button className="bg-white/10 backdrop-blur-sm border border-white/20 text-white text-[13px] font-semibold px-4 py-2 rounded flex items-center gap-2 hover:bg-white/20 active:scale-[0.97] transition-[background-color,transform] duration-150">
                 <Pencil className="w-3.5 h-3.5" />
                 Edit Profile
