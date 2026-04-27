@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { DocumentDetailView } from "@/components/property/DocumentDetailView";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 
 type ViewMode = "list" | "grid";
 type UploadStatus = "uploading" | "done" | "failed" | "queued";
@@ -175,7 +176,7 @@ function FolderTreeItem({
           <button
             className="shrink-0 w-6 h-6 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors rounded"
             onClick={(e) => { e.stopPropagation(); onToggle(node.id); }}
-            tabIndex={-1}
+            tabIndex={0}
           >
             {isExpanded
               ? <ChevronDown className="w-[9px] h-[9px]" />
@@ -233,6 +234,7 @@ function Checkbox({
   return (
     <button
       type="button"
+      role="checkbox"
       aria-label={label ?? (checked ? "Deselect" : "Select")}
       aria-checked={indeterminate ? "mixed" : checked}
       onClick={(e) => { e.stopPropagation(); onChange(); }}
@@ -506,13 +508,14 @@ export function PropertyDocumentsPage({ property }: { property: Property }) {
                   Add Folder
                 </button>
               </div>
-              <div className="grid grid-cols-6 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
                 {subFolders.map((sf, i) => {
                   const isActive = activeSubfolder === sf;
                   return (
                     <button
                       key={sf}
                       onClick={() => setActiveSubfolder(isActive ? null : sf)}
+                      aria-pressed={isActive}
                       className={`flex items-center gap-2.5 px-4 py-3.5 rounded-xl border text-left transition-all duration-200 hover:-translate-y-0.5 ${
                         isActive
                           ? "bg-[--val-bg-tint] border-[--val-primary-dark]/25 shadow-[0px_6px_20px_0px_rgba(18,28,40,0.10)]"
@@ -570,6 +573,7 @@ export function PropertyDocumentsPage({ property }: { property: Property }) {
                   <div className="bg-val-bg-tint p-1 rounded flex">
                     <button
                       onClick={() => setViewMode("list")}
+                      aria-pressed={viewMode === "list"}
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium transition-all duration-200 ${
                         viewMode === "list"
                           ? "bg-white text-[--val-primary-dark] shadow-sm"
@@ -581,6 +585,7 @@ export function PropertyDocumentsPage({ property }: { property: Property }) {
                     </button>
                     <button
                       onClick={() => setViewMode("grid")}
+                      aria-pressed={viewMode === "grid"}
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium transition-all duration-200 ${
                         viewMode === "grid"
                           ? "bg-white text-[--val-primary-dark] shadow-sm"
@@ -595,10 +600,7 @@ export function PropertyDocumentsPage({ property }: { property: Property }) {
                     onClick={() => { setPendingFiles([]); setShowUploadModal(true); }}
                     className="px-5 py-2.5 text-white text-[14px] font-semibold rounded flex items-center gap-2
                       hover:opacity-90 active:scale-[0.97] transition-all duration-150"
-                    style={{
-                      background: "linear-gradient(168deg, var(--val-primary-dark) 0%, #2563eb 100%)",
-                      boxShadow: "0 4px 6px -1px rgba(0,74,198,0.25), 0 2px 4px -2px rgba(0,74,198,0.15)",
-                    }}
+                    style={{ background: "var(--val-primary-dark)" }}
                   >
                     <Upload className="w-4 h-4" />
                     Upload File
@@ -644,9 +646,8 @@ export function PropertyDocumentsPage({ property }: { property: Property }) {
             <div
               className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-1 px-2 py-1.5 rounded-2xl"
               style={{
-                background: "linear-gradient(135deg, #0d1f5c 0%, #1e3a8a 100%)",
-                backdropFilter: "blur(16px)",
-                boxShadow: "0 8px 32px rgba(37,99,235,0.35), 0 0 0 1px rgba(99,148,255,0.18)",
+                background: "#0d1f5c",
+                boxShadow: "0 4px 24px rgba(13,31,92,0.28)",
                 animation: "fade-slide-up 0.3s cubic-bezier(0.16,1,0.3,1) both",
               }}
             >
@@ -679,29 +680,20 @@ export function PropertyDocumentsPage({ property }: { property: Property }) {
       </div>
 
       {/* Add Folder Modal */}
-      {showAddFolder && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-[2px]"
-          style={{ background: "rgba(18,28,40,0.38)" }}
-          onClick={(e) => { if (e.target === e.currentTarget) setShowAddFolder(false); }}
+      <Dialog open={showAddFolder} onOpenChange={setShowAddFolder}>
+        <DialogContent
+          className="bg-white rounded-2xl w-[440px] max-w-[calc(100vw-32px)] p-0 border-0 gap-0 flex flex-col [&>button:last-child]:hidden"
+          style={{ boxShadow: "0 24px 48px -8px rgba(18,28,40,0.22), 0 0 0 1px rgba(18,28,40,0.06)" }}
         >
-          <div
-            className="bg-white rounded-2xl w-[440px] flex flex-col"
-            style={{
-              boxShadow: "0 24px 48px -8px rgba(18,28,40,0.22), 0 0 0 1px rgba(18,28,40,0.06)",
-              animation: "fade-slide-up 0.28s cubic-bezier(0.16,1,0.3,1) both",
-            }}
-          >
             {/* Header */}
             <div
               className="flex items-center justify-between px-6 py-4 border-b border-slate-100"
               style={{ animation: "fade-slide-up 0.22s cubic-bezier(0.16,1,0.3,1) 30ms both" }}
             >
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-val-bg-tint flex items-center justify-center shrink-0">
-                  <FolderPlus className="w-[15px] h-[15px] text-[--val-primary-dark]" />
-                </div>
-                <span className="text-[15px] font-semibold tracking-[-0.01em] text-[--val-heading] text-balance">New Folder</span>
+                <DialogTitle asChild>
+                  <span className="text-[15px] font-semibold tracking-[-0.01em] text-[--val-heading] text-balance">New Folder</span>
+                </DialogTitle>
               </div>
               <button
                 onClick={() => setShowAddFolder(false)}
@@ -730,7 +722,7 @@ export function PropertyDocumentsPage({ property }: { property: Property }) {
                   onKeyDown={(e) => { if (e.key === "Enter" && newFolderName.trim()) setShowAddFolder(false); if (e.key === "Escape") setShowAddFolder(false); }}
                   placeholder="e.g. Lease Agreements"
                   maxLength={64}
-                  className="h-10 w-full bg-[#f7f8fe] border border-slate-200 rounded-lg px-3.5 text-[14px] text-[--val-heading] placeholder:text-slate-400
+                  className="h-10 w-full bg-[--val-input-surface] border border-slate-200 rounded-lg px-3.5 text-[14px] text-[--val-heading] placeholder:text-slate-400
                     focus:outline-none focus:border-[--val-primary-dark] focus:bg-white focus:shadow-[0_0_0_3px_rgba(37,99,235,0.10)] transition-[border-color,background-color,box-shadow] duration-150"
                 />
                 {newFolderName.length > 48 && (
@@ -749,7 +741,7 @@ export function PropertyDocumentsPage({ property }: { property: Property }) {
                   <button
                     type="button"
                     onClick={() => setLocationOpen((v) => !v)}
-                    className={`h-10 w-full bg-[#f7f8fe] border rounded-lg px-3.5 flex items-center justify-between transition-[border-color,background-color,box-shadow] duration-150 ${
+                    className={`h-10 w-full bg-[--val-input-surface] border rounded-lg px-3.5 flex items-center justify-between transition-[border-color,background-color,box-shadow] duration-150 ${
                       locationOpen
                         ? "border-[--val-primary-dark] bg-white shadow-[0_0_0_3px_rgba(37,99,235,0.10)]"
                         : "border-slate-200 hover:border-slate-300"
@@ -792,7 +784,7 @@ export function PropertyDocumentsPage({ property }: { property: Property }) {
 
                   {locationOpen && (
                     <div
-                      className="absolute top-[calc(100%+4px)] left-0 right-0 z-10 bg-white rounded-lg border border-[#d8e3f4] overflow-hidden"
+                      className="absolute top-[calc(100%+4px)] left-0 right-0 z-10 bg-white rounded-lg border border-[--val-border-subtle] overflow-hidden"
                       style={{
                         boxShadow: "0px 10px 15px -3px rgba(0,0,0,0.1), 0px 4px 6px -4px rgba(0,0,0,0.1)",
                         animation: "fade-slide-up 0.18s cubic-bezier(0.16,1,0.3,1) both",
@@ -844,41 +836,29 @@ export function PropertyDocumentsPage({ property }: { property: Property }) {
                 className="h-9 px-5 rounded-lg text-[13.5px] font-semibold text-white
                   enabled:hover:opacity-90 active:enabled:scale-[0.96] disabled:opacity-40 disabled:cursor-not-allowed
                   transition-[opacity,transform] duration-150"
-                style={{ background: "linear-gradient(168deg, var(--val-primary-dark) 0%, #2563eb 100%)" }}
+                style={{ background: "var(--val-primary-dark)" }}
               >
                 Create Folder
               </button>
             </div>
-          </div>
-        </div>
-      )}
+          </DialogContent>
+        </Dialog>
       {/* Move To Modal */}
-      {showMoveModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-[2px]"
-          style={{ background: "rgba(18,28,40,0.38)" }}
-          onClick={(e) => { if (e.target === e.currentTarget) setShowMoveModal(false); }}
+      <Dialog open={showMoveModal} onOpenChange={setShowMoveModal}>
+        <DialogContent
+          className="bg-white rounded-2xl w-[440px] max-w-[calc(100vw-32px)] p-0 border-0 gap-0 flex flex-col [&>button:last-child]:hidden"
+          style={{ boxShadow: "0 24px 48px -8px rgba(18,28,40,0.22), 0 0 0 1px rgba(18,28,40,0.06)" }}
         >
-          <div
-            className="bg-white rounded-2xl w-[440px] flex flex-col"
-            style={{
-              boxShadow: "0 24px 48px -8px rgba(18,28,40,0.22), 0 0 0 1px rgba(18,28,40,0.06)",
-              animation: "fade-slide-up 0.28s cubic-bezier(0.16,1,0.3,1) both",
-            }}
-          >
             {/* Header */}
             <div
               className="flex items-center justify-between px-6 py-4 border-b border-slate-100"
               style={{ animation: "fade-slide-up 0.22s cubic-bezier(0.16,1,0.3,1) 30ms both" }}
             >
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-val-bg-tint flex items-center justify-center shrink-0">
-                  <FolderInput className="w-[15px] h-[15px] text-[--val-primary-dark]" />
-                </div>
                 <div>
-                  <span className="text-[15px] font-semibold tracking-[-0.01em] text-[--val-heading] block">
-                    Move Files
-                  </span>
+                  <DialogTitle asChild>
+                    <span className="text-[15px] font-semibold tracking-[-0.01em] text-[--val-heading] block">Move Files</span>
+                  </DialogTitle>
                   <span className="text-[12px] text-slate-400">
                     {selectedFiles.size} {selectedFiles.size === 1 ? "file" : "files"} selected
                   </span>
@@ -924,7 +904,7 @@ export function PropertyDocumentsPage({ property }: { property: Property }) {
                   <button
                     type="button"
                     onClick={() => setMoveLocationOpen((v) => !v)}
-                    className={`h-10 w-full bg-[#f7f8fe] border rounded-lg px-3.5 flex items-center justify-between transition-[border-color,background-color,box-shadow] duration-150 ${
+                    className={`h-10 w-full bg-[--val-input-surface] border rounded-lg px-3.5 flex items-center justify-between transition-[border-color,background-color,box-shadow] duration-150 ${
                       moveLocationOpen
                         ? "border-[--val-primary-dark] bg-white shadow-[0_0_0_3px_rgba(37,99,235,0.10)]"
                         : "border-slate-200 hover:border-slate-300"
@@ -967,7 +947,7 @@ export function PropertyDocumentsPage({ property }: { property: Property }) {
 
                   {moveLocationOpen && (
                     <div
-                      className="absolute top-[calc(100%+4px)] left-0 right-0 z-10 bg-white rounded-lg border border-[#d8e3f4] overflow-hidden"
+                      className="absolute top-[calc(100%+4px)] left-0 right-0 z-10 bg-white rounded-lg border border-[--val-border-subtle] overflow-hidden"
                       style={{
                         boxShadow: "0px 10px 15px -3px rgba(0,0,0,0.1), 0px 4px 6px -4px rgba(0,0,0,0.1)",
                         animation: "fade-slide-up 0.18s cubic-bezier(0.16,1,0.3,1) both",
@@ -1017,44 +997,32 @@ export function PropertyDocumentsPage({ property }: { property: Property }) {
                 onClick={() => { setShowMoveModal(false); exitSelectMode(); }}
                 className="h-9 px-5 rounded-lg text-[13.5px] font-semibold text-white
                   hover:opacity-90 active:scale-[0.96] transition-[opacity,transform] duration-150"
-                style={{ background: "linear-gradient(168deg, var(--val-primary-dark) 0%, #2563eb 100%)" }}
+                style={{ background: "var(--val-primary-dark)" }}
               >
                 Move {selectedFiles.size} {selectedFiles.size === 1 ? "File" : "Files"}
               </button>
             </div>
-          </div>
-        </div>
-      )}
+          </DialogContent>
+        </Dialog>
       {/* Upload File Modal */}
-      {showUploadModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-[3px]"
-          style={{ background: "rgba(12,20,38,0.48)" }}
-          onClick={(e) => { if (e.target === e.currentTarget) setShowUploadModal(false); }}
+      <Dialog open={showUploadModal} onOpenChange={setShowUploadModal}>
+        <DialogContent
+          className="bg-white rounded-2xl w-[480px] max-w-[calc(100vw-32px)] p-0 border-0 gap-0 flex flex-col overflow-hidden [&>button:last-child]:hidden"
+          style={{ boxShadow: "0px 32px 64px -16px rgba(0,48,160,0.22), 0 0 0 1px rgba(18,28,40,0.07)" }}
         >
-          <div
-            className="bg-white rounded-2xl w-[480px] flex flex-col overflow-hidden"
-            style={{
-              boxShadow: "0px 32px 64px -16px rgba(0,48,160,0.22), 0 0 0 1px rgba(18,28,40,0.07)",
-              animation: "fade-slide-up 0.28s cubic-bezier(0.16,1,0.3,1) both",
-            }}
-          >
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
               <div className="flex items-center gap-3">
-                <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-[#eef3ff]"
-                >
-                  <Upload className="w-[15px] h-[15px] text-[--val-primary-dark]" />
-                </div>
                 <div>
-                  <p className="text-[17px] font-semibold tracking-[-0.4px] text-[#121c28] leading-tight">Add Files</p>
+                  <DialogTitle asChild>
+                    <p className="text-[17px] font-semibold tracking-[-0.4px] text-[#121c28] leading-tight">Add Files</p>
+                  </DialogTitle>
                   <p className="text-[12px] text-slate-400 leading-tight">Drag, drop, or browse</p>
                 </div>
               </div>
               <button
                 onClick={() => setShowUploadModal(false)}
-                className="w-10 h-10 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-[color,background-color] duration-150"
+                className="w-10 h-10 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 active:scale-[0.96] transition-[color,background-color,transform] duration-150"
                 aria-label="Close"
               >
                 <X className="w-3.5 h-3.5" />
@@ -1104,7 +1072,7 @@ export function PropertyDocumentsPage({ property }: { property: Property }) {
                   </>
                 ) : (
                   <>
-                    <p className="text-[15px] font-semibold text-[--val-primary-dark] mb-3">
+                    <p className="text-[15px] font-semibold text-[--val-primary-dark] mb-3 tabular-nums">
                       {pendingFiles.length} {pendingFiles.length === 1 ? "file" : "files"} ready to upload
                     </p>
                     <div className="flex flex-wrap justify-center gap-1.5 mb-5 max-w-[380px] max-h-[72px] overflow-y-auto">
@@ -1112,7 +1080,7 @@ export function PropertyDocumentsPage({ property }: { property: Property }) {
                         <span
                           key={f.name}
                           className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-medium text-[--val-primary-dark] max-w-[180px] truncate"
-                          style={{ background: "rgba(37,99,235,0.08)", border: "1px solid rgba(37,99,235,0.18)" }}
+                          style={{ background: "color-mix(in oklch, var(--border-focus) 8%, transparent)", border: "1px solid color-mix(in oklch, var(--border-focus) 18%, transparent)" }}
                         >
                           <FileText className="w-3 h-3 shrink-0" />
                           <span className="truncate">{f.name}</span>
@@ -1124,11 +1092,11 @@ export function PropertyDocumentsPage({ property }: { property: Property }) {
 
                 <button
                   onClick={() => uploadInputRef.current?.click()}
-                  className="px-5 py-2 rounded-lg text-[13.5px] font-semibold transition-[background-color,transform] duration-150 active:scale-[0.96]"
+                  className="px-5 py-2.5 rounded-lg text-[13.5px] font-semibold transition-[background-color,transform] duration-150 active:scale-[0.96]"
                   style={{
                     color: "var(--val-primary-dark)",
-                    background: "rgba(37,99,235,0.07)",
-                    border: "1px solid rgba(37,99,235,0.22)",
+                    background: "color-mix(in oklch, var(--border-focus) 7%, transparent)",
+                    border: "1px solid color-mix(in oklch, var(--border-focus) 22%, transparent)",
                   }}
                   onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(37,99,235,0.12)")}
                   onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(37,99,235,0.07)")}
@@ -1151,10 +1119,7 @@ export function PropertyDocumentsPage({ property }: { property: Property }) {
                 onClick={startUpload}
                 className="h-9 px-5 rounded-lg text-[13.5px] font-semibold text-white flex items-center gap-2
                   hover:opacity-90 active:scale-[0.96] transition-[opacity,transform] duration-150"
-                style={{
-                  background: "linear-gradient(168deg, var(--val-primary-dark) 0%, #2563eb 100%)",
-                  boxShadow: "0 4px 6px -1px rgba(0,74,198,0.28), 0 2px 4px -2px rgba(0,74,198,0.15)",
-                }}
+                style={{ background: "var(--val-primary-dark)" }}
               >
                 <Upload className="w-3.5 h-3.5" />
                 {pendingFiles.length > 0
@@ -1162,9 +1127,8 @@ export function PropertyDocumentsPage({ property }: { property: Property }) {
                   : "Upload File"}
               </button>
             </div>
-          </div>
-        </div>
-      )}
+          </DialogContent>
+        </Dialog>
       {/* Floating Upload Status Panel */}
       {showUploadPanel && (() => {
         const allCount = uploadQueue.length;
@@ -1192,27 +1156,26 @@ export function PropertyDocumentsPage({ property }: { property: Property }) {
             style={{ animation: "fade-slide-up 0.3s cubic-bezier(0.16,1,0.3,1) both" }}
           >
             <div
-              className="flex flex-col overflow-hidden rounded-[20px] antialiased"
+              className="flex flex-col overflow-hidden rounded-[20px] antialiased bg-white"
               style={{
-                background: "#14181b",
-                boxShadow: "0 0 0 1px rgba(0,0,0,0.02), 0 4px 12px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.25)",
+                boxShadow: "0 0 0 1px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04), 0 12px 32px rgba(0,0,0,0.1)",
               }}
             >
               {/* Header — hidden when minimized */}
               {!panelMinimized && (
-                <div className="flex items-center justify-between px-5 py-4 border-b border-[#1f2937]">
-                  <span className="text-[16px] font-semibold text-white tracking-[-0.2px]">Uploads</span>
+                <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+                  <span className="text-[16px] font-semibold text-slate-900 tracking-[-0.2px]">Uploads</span>
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => setPanelMinimized(true)}
-                      className="w-8 h-8 flex items-center justify-center rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition-colors duration-150"
+                      className="w-8 h-8 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors duration-150"
                       aria-label="Minimize"
                     >
                       <ChevronDown className="w-3.5 h-3.5" />
                     </button>
                     <button
                       onClick={() => setShowUploadPanel(false)}
-                      className="w-8 h-8 flex items-center justify-center rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition-colors duration-150"
+                      className="w-8 h-8 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors duration-150"
                       aria-label="Close"
                     >
                       <X className="w-3 h-3" />
@@ -1224,15 +1187,15 @@ export function PropertyDocumentsPage({ property }: { property: Property }) {
               {!panelMinimized && (
                 <>
                   {/* Filter Tabs */}
-                  <div className="flex items-start border-b border-[#1f2937] px-2 pt-2">
+                  <div className="flex items-start border-b border-slate-200 px-2 pt-2">
                     {tabs.map((tab) => (
                       <button
                         key={tab.key}
                         onClick={() => setUploadTab(tab.key)}
                         className={`px-2.5 pb-2.5 pt-2 text-[13px] font-medium border-b-2 transition-colors duration-150 whitespace-nowrap tabular-nums ${
                           uploadTab === tab.key
-                            ? "border-[#2563eb] text-[#2563eb]"
-                            : "border-transparent text-[#9ca3af] hover:text-slate-300"
+                            ? "border-[--border-focus] text-[--border-focus]"
+                            : "border-transparent text-slate-400 hover:text-slate-600"
                         }`}
                       >
                         {tab.label} ({tab.count})
@@ -1243,12 +1206,12 @@ export function PropertyDocumentsPage({ property }: { property: Property }) {
                   {/* Upload List */}
                   <div className="flex flex-col gap-0.5 px-2 py-2 max-h-[280px] overflow-y-auto">
                     {visibleItems.length === 0 ? (
-                      <p className="text-[13px] text-slate-500 text-center py-6">No items</p>
+                      <p className="text-[13px] text-slate-400 text-center py-6">No items</p>
                     ) : visibleItems.map((item) => (
                       <div
                         key={item.id}
                         className={`flex items-center py-2 px-2.5 rounded-lg transition-colors duration-150 ${
-                          item.status === "failed" ? "bg-red-950/30" : ""
+                          item.status === "failed" ? "bg-rose-50" : ""
                         }`}
                       >
                         {/* File icon */}
@@ -1257,20 +1220,20 @@ export function PropertyDocumentsPage({ property }: { property: Property }) {
                             className="w-8 h-8 rounded-md flex items-center justify-center"
                             style={{
                               background:
-                                item.status === "done"   ? "rgba(34,197,94,0.1)" :
-                                item.status === "failed" ? "rgba(239,68,68,0.1)" :
-                                item.status === "uploading" ? "rgba(59,130,246,0.1)" :
-                                "#374151",
+                                item.status === "done"     ? "rgba(22,163,74,0.08)" :
+                                item.status === "failed"   ? "rgba(239,68,68,0.08)" :
+                                item.status === "uploading" ? "rgba(37,99,235,0.08)" :
+                                "#f1f5f9",
                             }}
                           >
                             <FileText
                               className="w-3.5 h-3.5"
                               style={{
                                 color:
-                                  item.status === "done"   ? "#22c55e" :
-                                  item.status === "failed" ? "#f87171" :
-                                  item.status === "uploading" ? "#60a5fa" :
-                                  "#9ca3af",
+                                  item.status === "done"     ? "#16a34a" :
+                                  item.status === "failed"   ? "#ef4444" :
+                                  item.status === "uploading" ? "var(--border-focus)" :
+                                  "#94a3b8",
                               }}
                             />
                           </div>
@@ -1279,23 +1242,23 @@ export function PropertyDocumentsPage({ property }: { property: Property }) {
                         {/* Info */}
                         <div className="flex-1 min-w-0 pr-2">
                           <div className="flex items-baseline justify-between mb-0.5">
-                            <span className={`text-[13px] font-medium truncate max-w-[160px] ${item.status === "queued" ? "text-white/60" : "text-white"}`}>
+                            <span className={`text-[13px] font-medium truncate max-w-[160px] ${item.status === "queued" ? "text-slate-400" : "text-slate-800"}`}>
                               {item.name}
                             </span>
-                            <span className="text-[12px] text-[#9ca3af] shrink-0 ml-2 tabular-nums">
+                            <span className="text-[12px] text-slate-400 shrink-0 ml-2 tabular-nums">
                               {item.status === "uploading" ? `${Math.round(item.progress)}%` : item.size}
                             </span>
                           </div>
 
                           {item.status === "uploading" && (
                             <>
-                              <div className="w-full h-1.5 rounded-full bg-[#374151] mb-1">
+                              <div className="w-full h-1.5 rounded-full bg-slate-200 mb-1">
                                 <div
-                                  className="h-1.5 rounded-full bg-[#2563eb] transition-[width] duration-200"
+                                  className="h-1.5 rounded-full bg-[--border-focus] transition-[width] duration-200"
                                   style={{ width: `${item.progress}%`, willChange: "width" }}
                                 />
                               </div>
-                              <span className="text-[11px] text-[#9ca3af] tabular-nums">
+                              <span className="text-[11px] text-slate-400 tabular-nums">
                                 {item.progress < 20 ? "Starting…" :
                                  item.progress < 80 ? `~${Math.ceil((100 - item.progress) / 8)} sec remaining` :
                                  "Almost done…"}
@@ -1304,24 +1267,24 @@ export function PropertyDocumentsPage({ property }: { property: Property }) {
                           )}
 
                           {item.status === "done" && (
-                            <span className="text-[12px] font-medium text-[#22c55e]">Completed</span>
+                            <span className="text-[12px] font-medium text-emerald-600">Completed</span>
                           )}
                           {item.status === "failed" && (
-                            <span className="text-[12px] font-medium text-[#f87171]">{item.error ?? "Upload failed"}</span>
+                            <span className="text-[12px] font-medium text-rose-500">{item.error ?? "Upload failed"}</span>
                           )}
                           {item.status === "queued" && (
-                            <span className="text-[12px] text-[#9ca3af]">Queued</span>
+                            <span className="text-[12px] text-slate-400">Queued</span>
                           )}
                         </div>
 
                         {/* Action */}
                         {item.status === "done" && (
-                          <CheckCircle2 className="w-4 h-4 text-[#22c55e] shrink-0" />
+                          <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
                         )}
                         {item.status === "failed" && (
                           <button
                             onClick={() => setUploadQueue((prev) => prev.map((i) => i.id === item.id ? { ...i, status: "uploading" as UploadStatus, progress: 0, error: undefined } : i))}
-                            className="w-7 h-7 flex items-center justify-center rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition-colors duration-150 shrink-0"
+                            className="w-7 h-7 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors duration-150 shrink-0"
                             aria-label="Retry"
                           >
                             <RefreshCw className="w-3 h-3" />
@@ -1330,7 +1293,7 @@ export function PropertyDocumentsPage({ property }: { property: Property }) {
                         {(item.status === "uploading" || item.status === "queued") && (
                           <button
                             onClick={() => setUploadQueue((prev) => prev.filter((i) => i.id !== item.id))}
-                            className="w-7 h-7 flex items-center justify-center rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition-colors duration-150 shrink-0"
+                            className="w-7 h-7 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors duration-150 shrink-0"
                             aria-label="Cancel"
                           >
                             {item.status === "uploading" ? <X className="w-3 h-3" /> : <Trash2 className="w-3 h-3" />}
@@ -1343,7 +1306,7 @@ export function PropertyDocumentsPage({ property }: { property: Property }) {
               )}
 
               {/* Footer */}
-              <div className={`flex items-center justify-between px-4 py-3 transition-colors duration-500 ${doneCount === allCount && activeUploads === 0 ? "bg-[#16a34a]" : "bg-[#2563eb]"}`}>
+              <div className={`flex items-center justify-between px-4 py-3 transition-colors duration-500 ${doneCount === allCount && activeUploads === 0 ? "bg-emerald-600" : "bg-[--border-focus]"}`}>
                 <div className="flex items-center gap-2.5">
                   {activeUploads > 0 ? (
                     <div
@@ -1352,13 +1315,15 @@ export function PropertyDocumentsPage({ property }: { property: Property }) {
                   ) : (
                     <CheckCircle2 className="w-4 h-4 text-white shrink-0" />
                   )}
-                  <span className="text-[13px] font-medium text-white tabular-nums">
-                    {activeUploads > 0
-                      ? `Uploading ${activeUploads} ${activeUploads === 1 ? "item" : "items"}`
-                      : doneCount === allCount
-                      ? "All uploads complete"
-                      : `${doneCount} of ${allCount} done`}
-                  </span>
+                  <div aria-live="polite" aria-atomic="true">
+                    <span className="text-[13px] font-medium text-white tabular-nums">
+                      {activeUploads > 0
+                        ? `Uploading ${activeUploads} ${activeUploads === 1 ? "item" : "items"}`
+                        : doneCount === allCount
+                        ? "All uploads complete"
+                        : `${doneCount} of ${allCount} done`}
+                    </span>
+                  </div>
                 </div>
                 <div className="flex items-center gap-1.5">
                   {!panelMinimized ? (
@@ -1449,7 +1414,9 @@ function ListView({
               <tr
                 key={f.name}
                 onClick={() => onFileClick(f.name)}
-                className={`border-t border-slate-100 cursor-pointer transition-colors duration-100 ${
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onFileClick(f.name); } }}
+                tabIndex={0}
+                className={`border-t border-slate-100 cursor-pointer transition-colors duration-100 focus-visible:outline-none focus-visible:bg-blue-50/60 ${
                   isChecked && selectMode ? "bg-blue-50/50" : "hover:bg-blue-50/30"
                 }`}
                 style={{
@@ -1506,20 +1473,21 @@ function GridView({
   onToggleFile: (name: string) => void;
 }) {
   return (
-    <div className="grid grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
       {files.map((f, i) => {
         const isChecked = selectedFiles.has(f.name);
         return (
-          <div
+          <button
             key={f.name}
+            type="button"
             onClick={() => onFileClick(f.name)}
-            className={`relative bg-white rounded-xl p-4 transition-all duration-200 cursor-pointer
-              animate-[fade-slide-up_0.45s_cubic-bezier(0.22,1,0.36,1)_both] ${
+            className={`relative bg-white rounded-xl p-4 transition-all duration-200 cursor-pointer text-left w-full
+              animate-[fade-slide-up_0.45s_cubic-bezier(0.22,1,0.36,1)_both] [animation-delay:var(--delay)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[--val-primary-dark]/40 ${
               isChecked && selectMode
                 ? "shadow-[0_0_0_2px_var(--val-primary-dark),0px_6px_20px_0px_rgba(18,28,40,0.10)] -translate-y-0.5"
                 : "shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)] hover:-translate-y-0.5 hover:shadow-[0px_6px_20px_0px_rgba(18,28,40,0.10)]"
             }`}
-            style={{ animationDelay: `${100 + i * 80}ms` }}
+            style={{ '--delay': `${100 + i * 80}ms` } as React.CSSProperties}
           >
             {/* Checkbox overlay */}
             {selectMode && (
@@ -1549,7 +1517,7 @@ function GridView({
             </div>
             <p className="text-[13px] font-medium truncate text-[--val-heading]">{f.name}</p>
             <p className="text-[11px] text-slate-400 mt-0.5">{f.size} · {f.date}</p>
-          </div>
+          </button>
         );
       })}
     </div>
