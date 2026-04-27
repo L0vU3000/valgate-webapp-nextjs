@@ -73,8 +73,8 @@ export const defaultForm: FormData = {
   annualPropertyTax: "",
   taxAssessmentValue: "",
   annualInsurance: "",
-  photos: ["living-room.jpg", "kitchen.jpg", "bedroom.jpg", "bathroom.jpg"],
-  documents: ["House_Rules_2023.pdf", "Wi-Fi_Instructions.docx", "Local_Guidebook.pdf"],
+  photos: [],
+  documents: [],
 };
 
 export type DraftRecord = {

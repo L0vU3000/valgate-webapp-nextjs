@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { AnimatePresence } from "motion/react";
 import { AppHeader } from "@/components/layout/AppHeader";
 import type { Step } from "./types";
 import { defaultForm, stepLabels } from "./types";
@@ -17,6 +18,9 @@ import { Step4PhotosDocs } from "./Step4PhotosDocs";
 import { Step5Review } from "./Step5Review";
 import { Step6Success } from "./Step6Success";
 import { FlowFooter } from "./FlowFooter";
+import { HowItWorksGate } from "./how-it-works";
+import { StepIntro } from "./how-it-works/StepIntro";
+import { AdvisorModal } from "./AdvisorModal";
 
 export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) {
   const router = useRouter();
@@ -24,11 +28,36 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
   const { drafts: localDrafts, activeId, mounted, setActive, upsert, remove, clearActive } =
     useDrafts();
 
+  const hasUrlParams = !!(searchParams.get("draftId") || searchParams.get("step"));
+  const [preFlowStage, setPreFlowStage] = useState<"landing" | null>(
+    () => hasUrlParams ? null : "landing",
+  );
+  const [advisorModalOpen, setAdvisorModalOpen] = useState(false);
+  // walkthroughGate: 1-indexed gate number currently shown, null = no gate
+  const [walkthroughGate, setWalkthroughGate] = useState<number | null>(null);
+  // track which interstitial gates have already been seen (skip on back-nav)
+  const [gate1Shown, setGate1Shown] = useState(() => hasUrlParams);
+  const [gate2Shown, setGate2Shown] = useState(() => hasUrlParams);
+  const [gate3Shown, setGate3Shown] = useState(() => hasUrlParams);
   const [step, setStep] = useState<Step>(0);
   const [form, setForm] = useState<FormData>(defaultForm);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const latestFormRef = useRef<FormData>(defaultForm);
+  const successScrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (step === 6) successScrollRef.current?.scrollTo({ top: 0 });
+  }, [step]);
+
+  // Delay modal until Step0 page animations have settled (~800ms)
+  useEffect(() => {
+    if (preFlowStage !== null || hasUrlParams) return;
+    const t = setTimeout(() => setAdvisorModalOpen(true), 800);
+    return () => clearTimeout(t);
+  // hasUrlParams is stable for the component's lifetime
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preFlowStage]);
 
   // Hydrate from URL params once localStorage drafts are loaded
   useEffect(() => {
@@ -41,11 +70,13 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
         setForm(draft.form);
         setStep(draft.step);
         setActive(urlDraftId);
+        setPreFlowStage(null);
         return;
       }
     }
     if (urlStep >= 1 && urlStep <= 6) {
       setStep(urlStep);
+      setPreFlowStage(null);
     }
   // Run once after mount; searchParams and localDrafts are stable at that point
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -68,8 +99,33 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
     [router, setActive],
   );
 
-  const goNext = () => setStep((s) => Math.min(s + 1, 6) as Step);
+  const goNext = () => {
+    const next = Math.min(step + 1, 6) as Step;
+    if (next === 3 && !gate2Shown) { setWalkthroughGate(2); return; }
+    if (next === 5 && !gate3Shown) { setWalkthroughGate(3); return; }
+    setStep(next);
+  };
   const goBack = () => setStep((s) => Math.max(s - 1, 0) as Step);
+
+  function handleGateContinue() {
+    if (walkthroughGate === 1) {
+      setGate1Shown(true);
+      setWalkthroughGate(null);
+      advanceToStep1(latestFormRef.current);
+    } else if (walkthroughGate === 2) {
+      setGate2Shown(true);
+      setWalkthroughGate(null);
+      setStep(3);
+    } else if (walkthroughGate === 3) {
+      setGate3Shown(true);
+      setWalkthroughGate(null);
+      setStep(5);
+    }
+  }
+
+  function handleGateBack() {
+    setWalkthroughGate(null);
+  }
 
   function handleLoadDemo() {
     const id = "demo-" + Date.now();
@@ -115,7 +171,11 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
     setForm(f);
   }
   function handleContinueFromStep0() {
-    advanceToStep1(latestFormRef.current);
+    if (!gate1Shown) {
+      setWalkthroughGate(1);
+    } else {
+      advanceToStep1(latestFormRef.current);
+    }
   }
 
   function handleResumeDraft(id: string) {
@@ -159,6 +219,21 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
     <div className="h-full flex flex-col bg-white">
       <AppHeader />
       <div className="flex-1 flex flex-col overflow-hidden">
+        {preFlowStage === "landing" && (
+          <div className="flex-1 overflow-hidden">
+            <StepIntro onStart={() => setPreFlowStage(null)} />
+          </div>
+        )}
+        {preFlowStage === null && walkthroughGate !== null && (
+          <div className="flex-1 overflow-hidden">
+            <HowItWorksGate
+              stepIndex={walkthroughGate - 1}
+              onContinue={handleGateContinue}
+              onBack={walkthroughGate === 1 ? handleGateBack : undefined}
+            />
+          </div>
+        )}
+        {preFlowStage === null && walkthroughGate === null && <>
         {/* Header — steps 1–5 */}
         {step >= 1 && step <= 5 && (
           <div className="px-8 pt-5 pb-0 shrink-0">
@@ -182,9 +257,19 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
         )}
 
 
+        {/* Advisor modal — shown over Step0 on first visit */}
+        <AnimatePresence>
+          {step === 0 && advisorModalOpen && (
+            <AdvisorModal
+              onSetupWithAdvisor={() => setAdvisorModalOpen(false)}
+              onSetupOwn={() => setAdvisorModalOpen(false)}
+            />
+          )}
+        </AnimatePresence>
+
         {/* Content */}
         {step === 6 ? (
-          <div className="flex-1 overflow-auto">
+          <div ref={successScrollRef} className="flex-1 overflow-auto">
             <Step6Success form={form} />
           </div>
         ) : (
@@ -203,7 +288,7 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
                   onLoadDemo={handleLoadDemo}
                 />
               )}
-              {step === 1 && <Step1PropertyType form={form} setForm={setForm} />}
+              {step === 1 && <Step1PropertyType form={form} setForm={setForm} goNext={goNext} />}
               {step === 2 && <Step2BasicInfo form={form} setForm={setForm} />}
               {step === 3 && <Step3Financial form={form} setForm={setForm} goNext={goNext} />}
               {step === 4 && <Step4PhotosDocs form={form} setForm={setForm} />}
@@ -224,6 +309,7 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
             submitError={submitError}
           />
         )}
+        </>}
       </div>
     </div>
   );
