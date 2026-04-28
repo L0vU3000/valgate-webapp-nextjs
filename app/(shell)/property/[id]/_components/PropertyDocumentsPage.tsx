@@ -16,6 +16,9 @@ import {
   LayoutGrid,
   List,
   BookOpen,
+  Check,
+  Trash2,
+  FolderInput,
 } from "lucide-react";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { DocumentDetailView } from "@/components/property/DocumentDetailView";
@@ -54,10 +57,51 @@ const files = [
   { name: "Book_Wishlist_2025.xlsx", type: "spreadsheet", icon: FileSpreadsheet, color: "#059669", thumb: null },
 ];
 
+function Checkbox({ checked, onChange }: { checked: boolean; onChange: () => void }) {
+  return (
+    <button
+      onClick={(e) => { e.stopPropagation(); onChange(); }}
+      className={`w-[18px] h-[18px] rounded-[5px] border-2 flex items-center justify-center shrink-0 transition-all duration-150 focus-visible:ring-2 focus-visible:ring-[--val-primary-dark]/30 ${
+        checked
+          ? "bg-[--val-primary-dark] border-[--val-primary-dark] shadow-sm"
+          : "bg-white border-slate-300 hover:border-slate-400"
+      }`}
+    >
+      {checked && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
+    </button>
+  );
+}
+
 export function PropertyDocumentsPage({ property }: { property: Property }) {
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [activeFolder, setActiveFolder] = useState("All Documents");
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
+
+  const allSelected = selectedFiles.size === files.length;
+
+  function toggleSelectAll() {
+    if (allSelected) {
+      setSelectedFiles(new Set());
+    } else {
+      setSelectedFiles(new Set(files.map((f) => f.name)));
+    }
+  }
+
+  function toggleFile(name: string) {
+    setSelectedFiles((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  }
+
+  function exitSelectMode() {
+    setIsSelectMode(false);
+    setSelectedFiles(new Set());
+  }
 
   return (
     <PropertyLayout activeTab="documents" property={property}>
@@ -135,7 +179,24 @@ export function PropertyDocumentsPage({ property }: { property: Property }) {
               {/* Files section */}
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <p className="text-[14px] text-foreground" style={{ fontWeight: 500 }}>Files</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-[14px] text-foreground" style={{ fontWeight: 500 }}>Files</p>
+                    {!isSelectMode ? (
+                      <button
+                        onClick={() => setIsSelectMode(true)}
+                        className="h-7 px-3 rounded border text-[12px] font-semibold flex items-center gap-1.5 transition-all duration-150 active:scale-[0.97] border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                      >
+                        Select
+                      </button>
+                    ) : (
+                      <button
+                        onClick={exitSelectMode}
+                        className="h-7 px-3 rounded border text-[12px] font-semibold flex items-center gap-1.5 transition-all duration-150 active:scale-[0.97] border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => setViewMode("grid")}
@@ -153,7 +214,14 @@ export function PropertyDocumentsPage({ property }: { property: Property }) {
                 </div>
 
                 {viewMode === "list" ? (
-                  <ListView onFileClick={(name) => setSelectedFile(name)} />
+                  <ListView
+                    onFileClick={(name) => !isSelectMode && setSelectedFile(name)}
+                    isSelectMode={isSelectMode}
+                    selectedFiles={selectedFiles}
+                    allSelected={allSelected}
+                    onToggleAll={toggleSelectAll}
+                    onToggleFile={toggleFile}
+                  />
                 ) : (
                   <GridView onFileClick={(name) => setSelectedFile(name)} />
                 )}
@@ -163,24 +231,86 @@ export function PropertyDocumentsPage({ property }: { property: Property }) {
         </div>
         )}
       </div>
+
+      {/* Floating selection action bar */}
+      {isSelectMode && selectedFiles.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-1 px-2 py-1.5 rounded-2xl bg-[--val-primary-dark] shadow-xl shadow-[--val-primary-dark]/25 border border-white/10">
+          <span className="text-[13px] font-semibold text-white px-2">
+            {selectedFiles.size} selected
+          </span>
+          <div className="w-px h-4 bg-white/20 mx-1" />
+          <button
+            onClick={() => setSelectedFiles(new Set())}
+            className="text-[13px] text-white/80 hover:text-white px-2 py-1 rounded-lg hover:bg-white/10 transition-colors"
+          >
+            Deselect all
+          </button>
+          <button className="flex items-center gap-1.5 text-[13px] text-white/80 hover:text-white px-2 py-1 rounded-lg hover:bg-white/10 transition-colors">
+            <FolderInput className="w-3.5 h-3.5" />
+            Move to…
+          </button>
+          <button className="flex items-center gap-1.5 text-[13px] text-red-300 hover:text-red-200 px-2 py-1 rounded-lg hover:bg-white/10 transition-colors">
+            <Trash2 className="w-3.5 h-3.5" />
+            Delete
+          </button>
+        </div>
+      )}
     </PropertyLayout>
   );
 }
 
-function ListView({ onFileClick }: { onFileClick: (name: string) => void }) {
+function ListView({
+  onFileClick,
+  isSelectMode,
+  selectedFiles,
+  allSelected,
+  onToggleAll,
+  onToggleFile,
+}: {
+  onFileClick: (name: string) => void;
+  isSelectMode: boolean;
+  selectedFiles: Set<string>;
+  allSelected: boolean;
+  onToggleAll: () => void;
+  onToggleFile: (name: string) => void;
+}) {
   return (
-    <div className="space-y-0">
-      {files.map((f) => (
-        <div
-          key={f.name}
-          onClick={() => onFileClick(f.name)}
-          className="flex items-center gap-3 px-3 py-2.5 hover:bg-accent/30 rounded-lg cursor-pointer transition-colors"
-        >
-          <f.icon className="w-5 h-5 shrink-0" style={{ color: f.color }} />
-          <span className="text-[14px] text-foreground">{f.name}</span>
-        </div>
-      ))}
-    </div>
+    <table className="w-full border-collapse">
+      <thead>
+        <tr className="bg-slate-50/80 border-y border-border">
+          <th className="pl-4 pr-2 py-2 w-8 text-left">
+            {isSelectMode && (
+              <Checkbox checked={allSelected} onChange={onToggleAll} />
+            )}
+          </th>
+          <th className="py-2 text-left text-[12px] font-semibold text-muted-foreground">Name</th>
+        </tr>
+      </thead>
+      <tbody>
+        {files.map((f) => (
+          <tr
+            key={f.name}
+            onClick={() => isSelectMode ? onToggleFile(f.name) : onFileClick(f.name)}
+            className="hover:bg-accent/30 cursor-pointer transition-colors border-b border-border/50 last:border-0"
+          >
+            <td className="pl-4 pr-2 py-2.5 w-8">
+              {isSelectMode && (
+                <Checkbox
+                  checked={selectedFiles.has(f.name)}
+                  onChange={() => onToggleFile(f.name)}
+                />
+              )}
+            </td>
+            <td className="py-2.5">
+              <div className="flex items-center gap-3">
+                <f.icon className="w-5 h-5 shrink-0" style={{ color: f.color }} />
+                <span className="text-[14px] text-foreground">{f.name}</span>
+              </div>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 
