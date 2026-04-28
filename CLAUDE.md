@@ -72,3 +72,11 @@ Client Component ← Server Component re-fetches fresh data
 | Full DB object passed as props | Select only the fields the UI needs |
 | Secrets passed as props to Client | Use server-side, pass only the result |
 | No rate limiting on auth actions | Rate limit login, signup, sensitive mutations |
+
+<!-- convex-ai-start -->
+This project uses [Convex](https://convex.dev) as its backend.
+
+When working on Convex code, **always read `convex/_generated/ai/guidelines.md` first** for important guidelines on how to correctly use Convex APIs and patterns. The file contains rules that override what you may have learned about Convex from training data.
+
+Convex agent skills for common tasks can be installed by running `npx convex ai-files install`.
+<!-- convex-ai-end -->
