@@ -1,5 +1,7 @@
 import { ProfessionalDirectoryPage } from "./_components/ProfessionalDirectoryPage";
+import { getDirectoryPageData } from "./queries";
 
 export default async function Page() {
-  return <ProfessionalDirectoryPage />;
+  const data = await getDirectoryPageData();
+  return <ProfessionalDirectoryPage data={data} />;
 }

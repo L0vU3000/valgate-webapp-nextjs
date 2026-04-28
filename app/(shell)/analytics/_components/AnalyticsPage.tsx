@@ -10,65 +10,24 @@ import {
   DollarSign, Building2, Percent, Wrench, FileText, BarChart3,
   LayoutGrid, Table2,
 } from "lucide-react";
+import { AppHeader } from "@/components/layout/AppHeader";
+import type { AnalyticsPageData, KpiIconKey } from "../queries";
 
-/* ─── Mock Data ─── */
+/* -- Icon key map -- */
 
-const revenueData = [
-  { month: "Jan", revenue: 95000, expenses: 38000 },
-  { month: "Feb", revenue: 108000, expenses: 42000 },
-  { month: "Mar", revenue: 118000, expenses: 45000 },
-  { month: "Apr", revenue: 105000, expenses: 40000 },
-  { month: "May", revenue: 130000, expenses: 48000 },
-  { month: "Jun", revenue: 125000, expenses: 42000 },
-  { month: "Jul", revenue: 138000, expenses: 50000 },
-  { month: "Aug", revenue: 142000, expenses: 38000 },
-  { month: "Sep", revenue: 128000, expenses: 47000 },
-];
+const KPI_ICONS: Record<KpiIconKey, React.ElementType> = {
+  DollarSign,
+  TrendingUp,
+  Building2,
+  Percent,
+  Wrench,
+};
 
-const kpiCards = [
-  { label: "Total Revenue", value: "$1,248,300", change: "+8.4%", positive: true, icon: DollarSign },
-  { label: "NOI", value: "$712,500", change: "+5.1%", positive: true, icon: TrendingUp },
-  { label: "Occupancy", value: "91.4%", change: "-1.2%", positive: false, icon: Building2 },
-  { label: "Rent\nCollection", value: "97.8%", change: "+0.6%", positive: true, icon: Percent },
-  { label: "Maintenance", value: "$48,200", change: "+12.3%", positive: false, icon: Wrench },
-];
-
-const leasePipeline = [
-  { range: "0-3 Months", units: 12, pct: 25, color: "#fb7185" },
-  { range: "4-6 Months", units: 34, pct: 60, color: "#fbbf24" },
-  { range: "7-12 Months", units: 58, pct: 80, color: "#34d399" },
-];
-
-const savedReports = [
-  "Q2 Risk Assessment",
-  "Maintenance ROI Analysis",
-  "Tax Depreciation Est.",
-];
-
-const expenseBreakdown = [
-  { name: "Maintenance", pct: 45, color: "#2563eb" },
-  { name: "Utilities", pct: 25, color: "#fbbf24" },
-  { name: "Taxes", pct: 30, color: "#10b981" },
-];
-
-const capitalGrowth = [
-  { rank: "01", name: "Skyline Tower", growth: "+14.2%", pct: 85 },
-  { rank: "02", name: "Green Valley Apt", growth: "+11.8%", pct: 70 },
-  { rank: "03", name: "Harbor Logistics", growth: "+9.5%", pct: 55 },
-];
-
-const maintenanceSpend = [
-  { month: "MAR", value: 6200 },
-  { month: "APR", value: 7800 },
-  { month: "MAY", value: 5400 },
-  { month: "JUN", value: 9100 },
-  { month: "JUL", value: 7200 },
-  { month: "AUG", value: 8400 },
-];
+/* -- UI Config (stays client-side) -- */
 
 const periods = ["MTD", "QTD", "YTD", "12M", "Custom"] as const;
 
-/* ─── Animation helpers ─── */
+/* -- Animation helpers -- */
 
 const EASE_OUT_QUART = "cubic-bezier(0.25, 1, 0.5, 1)";
 
@@ -95,9 +54,9 @@ function useInView(threshold = 0.15) {
   return { ref, visible };
 }
 
-/* ─── Page ─── */
+/* -- Page -- */
 
-export function AnalyticsPage() {
+export function AnalyticsPage({ data }: { data: AnalyticsPageData }) {
   const [activePeriod, setActivePeriod] = useState<string>("MTD");
   const [grossMode, setGrossMode] = useState(true);
   const [mounted, setMounted] = useState(false);
@@ -106,42 +65,51 @@ export function AnalyticsPage() {
 
   useEffect(() => { setMounted(true); }, []);
 
+  const {
+    revenueData, kpiCards, leasePipeline, capitalGrowth,
+    maintenanceSpend, savedReports, expenseBreakdown,
+  } = data;
+
   return (
     <div className="h-full flex flex-col bg-val-bg-page-alt font-['Inter',sans-serif] analytics-animate">
-      {/* Header — slides down */}
-      <div
-        className="backdrop-blur-[6px] bg-white/80 h-16 flex items-center justify-between px-8 border-b border-slate-200 shrink-0 z-10"
-        style={{ animation: `analytics-fade-up 450ms ${EASE_OUT_QUART} 0ms both` }}
-      >
-        <div>
-          <p className="text-xs font-medium text-slate-400">Portfolio · Analytics</p>
-          <h1 className="text-lg font-bold text-slate-900 tracking-tight font-display">
-            Portfolio Analytics
-          </h1>
-        </div>
-        <div className="flex items-center gap-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-slate-400 transition-colors duration-200" />
-            <input
-              type="text"
-              placeholder="Search data..."
-              className="bg-slate-100 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-700 placeholder:text-gray-400 w-64 outline-none transition-all duration-250 focus:ring-2 focus:ring-blue-200 focus:bg-white"
-            />
-          </div>
-          <div className="flex items-center gap-2 border-r border-slate-200 pr-4">
-            <button className="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors duration-200 active:scale-[0.97]">
-              Compare
-            </button>
-            <button className="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors duration-200 active:scale-[0.97]">
-              Schedule Report
-            </button>
-          </div>
-        </div>
-      </div>
+      <AppHeader />
 
       {/* Content */}
       <div className="flex-1 overflow-auto p-8">
-        <div className="flex flex-col gap-6">
+        <div className="max-w-[1200px] mx-auto flex flex-col gap-6">
+          {/* Page title + actions */}
+          <div
+            className="flex items-center justify-between"
+            style={{ animation: `analytics-fade-up 450ms ${EASE_OUT_QUART} 0ms both` }}
+          >
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-xs font-semibold tracking-widest uppercase text-[--val-primary-dark]">Valgate</span>
+                <span className="text-xs text-slate-300">/</span>
+                <span className="text-xs font-semibold tracking-widest uppercase text-slate-400">Analytics</span>
+              </div>
+              <h1 className="text-4xl font-extrabold text-val-heading tracking-tight leading-10">
+                Portfolio Analytics
+              </h1>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-slate-400 transition-colors duration-200" />
+                <input
+                  type="text"
+                  placeholder="Search data..."
+                  className="bg-slate-100 rounded-xl pl-10 pr-4 py-2 text-sm text-slate-700 placeholder:text-gray-400 w-56 outline-none transition-all duration-250 focus:ring-2 focus:ring-blue-200 focus:bg-white"
+                />
+              </div>
+              <button className="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors duration-200 active:scale-[0.97]">
+                Compare
+              </button>
+              <button className="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors duration-200 active:scale-[0.97]">
+                Schedule Report
+              </button>
+            </div>
+          </div>
+
           {/* Filters Bar — fades up */}
           <div
             className="bg-white rounded-lg shadow-sm p-4 flex flex-col gap-4"
@@ -207,7 +175,7 @@ export function AnalyticsPage() {
           {/* KPI Strip — staggered entrance */}
           <div className="grid grid-cols-5 gap-4">
             {kpiCards.map((kpi, i) => (
-              <KpiCard key={kpi.label} index={i} {...kpi} />
+              <KpiCard key={kpi.label} index={i} {...kpi} icon={KPI_ICONS[kpi.iconKey]} />
             ))}
           </div>
 
@@ -497,7 +465,7 @@ export function AnalyticsPage() {
   );
 }
 
-/* ─── Sub-components ─── */
+/* -- Sub-components -- */
 
 function KpiCard({ label, value, change, positive, icon: Icon, index }: {
   label: string; value: string; change: string; positive: boolean; icon: React.ElementType; index: number;

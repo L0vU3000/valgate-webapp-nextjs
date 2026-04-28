@@ -1,13 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import Image from "next/image";
+import { useState, useEffect, useCallback, useRef } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useShellContext } from "@/components/layout/shell-context";
 import {
-  RefreshCw,
-  ZoomIn,
-  ZoomOut,
   X,
   ChevronUp,
   BarChart2,
@@ -23,10 +20,19 @@ import {
 import { Button } from "@/components/ui/button";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { cn } from "@/components/ui/utils";
-import { formatCurrency } from "@/lib/format";
-import type { Property, StatusVariant, TitleVariant } from "@/lib/mock-data";
+import { healthClass, healthBgClass } from "@/lib/property-helpers";
+import type { Property, StatusVariant, TitleVariant, PortfolioStats } from "@/app/(shell)/queries";
 import { CommandPalette } from "@/components/home/CommandPalette";
-import { MapIconButton } from "@/components/home/QuickStats";
+import { PropertyTable } from "@/components/portfolio/PropertyTable";
+import type { TableAnimationConfig } from "@/components/portfolio/PropertyTable";
+import { PortfolioLegend } from "./PortfolioLegend";
+import { MapControls } from "@/components/map/MapControls";
+import type mapboxgl from "mapbox-gl";
+
+const MapView = dynamic(
+  () => import("@/components/map/MapView").then((m) => m.MapView),
+  { ssr: false },
+);
 
 const statusClasses: Record<StatusVariant, string> = {
   rented:
@@ -41,17 +47,14 @@ const titleClasses: Record<TitleVariant, string> = {
   none: "text-secondary",
 };
 
-function healthClass(health: number) {
-  if (health >= 75) return "text-status-success-text";
-  if (health >= 40) return "text-status-warning-text";
-  return "text-status-danger-text";
-}
-
-function healthBgClass(health: number) {
-  if (health >= 75) return "bg-status-success";
-  if (health >= 40) return "bg-status-warning";
-  return "bg-status-danger";
-}
+const HOME_TABLE_ANIMATION: TableAnimationConfig = {
+  containerDuration: 250,
+  containerDelay: 0,
+  rowDuration: 300,
+  rowStagger: 15,
+  healthBarDelay: 80,
+  healthBarStagger: 20,
+};
 
 const triggerPlaceholders = [
   "Search properties, documents, tenants...",
@@ -62,21 +65,10 @@ const triggerPlaceholders = [
 ];
 
 
-export function HomePage({ initialProperties }: { initialProperties: Property[] }) {
-  const portfolioStats = useMemo(
-    () => ({
-      totalProperties: initialProperties.length,
-      totalValue: initialProperties.reduce((sum, p) => sum + p.buyNumeric, 0),
-      rentedCount: initialProperties.filter((p) => p.statusVariant === "rented").length,
-      vacantCount: initialProperties.filter((p) => p.statusVariant === "vacant").length,
-      avgHealth: Math.round(
-        initialProperties.reduce((sum, p) => sum + p.health, 0) / initialProperties.length,
-      ),
-    }),
-    [initialProperties],
-  );
+export function HomePage({ initialProperties, portfolioStats }: { initialProperties: Property[]; portfolioStats: PortfolioStats }) {
 
   const [selectedPin, setSelectedPin] = useState<number | null>(null);
+  const [closingKey, setClosingKey] = useState<number | null>(null);
   const [hoveredProperty, setHoveredProperty] = useState<number | null>(null);
   const [tableOpen, setTableOpen] = useState(false);
   const [tableOpenCount, setTableOpenCount] = useState(0);
@@ -84,86 +76,8 @@ export function HomePage({ initialProperties }: { initialProperties: Property[] 
   const [placeholderIdx, setPlaceholderIdx] = useState(0);
   const [placeholderVisible, setPlaceholderVisible] = useState(true);
   const [mapLoaded, setMapLoaded] = useState(false);
-  const [mapFailed, setMapFailed] = useState(false);
+  const mapRef = useRef<mapboxgl.Map | null>(null);
   const router = useRouter();
-  const { isDark } = useShellContext();
-
-  // Zoom & pan state
-  const MIN_ZOOM = 1;
-  const MAX_ZOOM = 3;
-  const ZOOM_STEP = 0.15;
-  const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
-  const dragRef = useRef<{ active: boolean; startX: number; startY: number; startPanX: number; startPanY: number }>({
-    active: false, startX: 0, startY: 0, startPanX: 0, startPanY: 0,
-  });
-  const mapContainerRef = useRef<HTMLDivElement>(null);
-
-  const clampPan = useCallback((x: number, y: number, z: number) => {
-    // Allow panning proportional to zoom level
-    const maxPan = ((z - 1) / (MAX_ZOOM - 1)) * 300;
-    return {
-      x: Math.max(-maxPan, Math.min(maxPan, x)),
-      y: Math.max(-maxPan, Math.min(maxPan, y)),
-    };
-  }, []);
-
-  const handleZoom = useCallback((delta: number) => {
-    setZoom((prev) => {
-      const next = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, prev + delta));
-      // Clamp pan for the new zoom level
-      if (next === MIN_ZOOM) {
-        setPan({ x: 0, y: 0 });
-      } else {
-        setPan((p) => clampPan(p.x, p.y, next));
-      }
-      return next;
-    });
-  }, [clampPan]);
-
-  const handleWheel = useCallback((e: React.WheelEvent) => {
-    e.preventDefault();
-    const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
-    handleZoom(delta);
-  }, [handleZoom]);
-
-  const handlePointerDown = useCallback((e: React.PointerEvent) => {
-    if (e.button !== 0) return;
-    // Don't start drag if clicking on a pin or UI element
-    const target = e.target as HTMLElement;
-    if (target.closest("button") || target.closest("[data-no-drag]")) return;
-    dragRef.current = {
-      active: true,
-      startX: e.clientX,
-      startY: e.clientY,
-      startPanX: pan.x,
-      startPanY: pan.y,
-    };
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-  }, [pan]);
-
-  const handlePointerMove = useCallback((e: React.PointerEvent) => {
-    if (!dragRef.current.active) return;
-    const dx = e.clientX - dragRef.current.startX;
-    const dy = e.clientY - dragRef.current.startY;
-    setPan(clampPan(dragRef.current.startPanX + dx, dragRef.current.startPanY + dy, zoom));
-  }, [zoom, clampPan]);
-
-  const handlePointerUp = useCallback(() => {
-    dragRef.current.active = false;
-  }, []);
-
-  // Reset loading state when theme changes (different map image)
-  useEffect(() => {
-    setMapLoaded(false);
-    setMapFailed(false);
-  }, [isDark]);
-
-  // Reset zoom/pan when theme changes
-  useEffect(() => {
-    setZoom(1);
-    setPan({ x: 0, y: 0 });
-  }, [isDark]);
 
   // Cmd+K / Ctrl+K to open command palette
   useEffect(() => {
@@ -201,13 +115,32 @@ export function HomePage({ initialProperties }: { initialProperties: Property[] 
     ? initialProperties.find((p) => p.id === selectedPin)
     : null;
 
-  const mapSrc = isDark ? "/map-dark.png" : "/map-light.png";
+  // Keep drawer visible during exit animation
+  const drawerProperty =
+    selectedProperty ??
+    (closingKey ? initialProperties.find((p) => p.id === closingKey) : null);
+  const isDrawerClosing = !selectedProperty && closingKey !== null;
 
-  // Safety net: full-screen "Loading map…" only clears on image onLoad — unblock if load fails or stalls.
-  useEffect(() => {
-    const id = window.setTimeout(() => setMapLoaded(true), 12_000);
-    return () => window.clearTimeout(id);
-  }, [mapSrc]);
+  const closeDrawer = useCallback(() => {
+    const pin = selectedPin;
+    if (!pin) return;
+    setClosingKey(pin);
+    setSelectedPin(null);
+    setTimeout(() => setClosingKey(null), 220);
+  }, [selectedPin]);
+
+  const handlePinClick = useCallback(
+    (pinId: number | null) => {
+      if (pinId === null) return;
+      if (selectedPin === pinId) {
+        closeDrawer();
+      } else {
+        setClosingKey(null);
+        setSelectedPin(pinId);
+      }
+    },
+    [selectedPin, closeDrawer],
+  );
 
   return (
     <div className="flex flex-col flex-1 min-w-0 h-full">
@@ -234,84 +167,17 @@ export function HomePage({ initialProperties }: { initialProperties: Property[] 
       </div>
 
       {/* Map area */}
-      <div
-        ref={mapContainerRef}
-        className="relative flex-1 overflow-hidden select-none"
-        style={{ cursor: zoom > 1 ? (dragRef.current.active ? "grabbing" : "grab") : "default" }}
-        onWheel={handleWheel}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
-      >
-        {/* Zoomable/pannable layer — contains map image + pins */}
-        <div
-          className="absolute inset-0 origin-center transition-transform duration-200 ease-out"
-          style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}
-        >
-          {/* Map background */}
-          {mapFailed && (
-            <div
-              className="absolute inset-0 bg-gradient-to-br from-surface-sunken via-surface-base to-surface-sunken pointer-events-none"
-              aria-hidden
-            />
-          )}
-          <Image
-            key={mapSrc}
-            src={mapSrc}
-            alt="Map"
-            fill
-            sizes="(max-width: 768px) 100vw, calc(100vw - 4rem)"
-            priority
-            className={cn(
-              "object-cover object-center pointer-events-none transition-opacity duration-500",
-              mapFailed && "opacity-0",
-              !mapFailed && (mapLoaded ? "opacity-100" : "opacity-0"),
-            )}
-            onLoad={() => setMapLoaded(true)}
-            onError={() => {
-              setMapFailed(true);
-              setMapLoaded(true);
-            }}
-          />
-          {/* Map pins — inside zoomable layer so they stick to the map */}
-          {initialProperties.map((p, i) => (
-            <button
-              key={p.id}
-              className="absolute z-10 -translate-x-1/2 -translate-y-1/2 group"
-              style={{ left: `${p.pinX}%`, top: `${p.pinY}%` }}
-              onClick={() =>
-                setSelectedPin(selectedPin === p.id ? null : p.id)
-              }
-              onMouseEnter={() => setHoveredProperty(p.id)}
-              onMouseLeave={() => setHoveredProperty(null)}
-            >
-              <div
-                className={cn(
-                  "w-4 h-4 rounded-full border-2 border-surface-base bg-interactive-primary shadow-lg transition-all duration-200",
-                  (selectedPin === p.id || hoveredProperty === p.id) && "scale-150 ring-2 ring-interactive-primary",
-                )}
-                style={{
-                  // Counter-scale so pins stay the same visual size when zoomed
-                  transform: `scale(${1 / zoom})`,
-                  animation: (selectedPin === p.id || hoveredProperty === p.id)
-                    ? "pin-beacon 1.8s ease-out infinite"
-                    : mapLoaded
-                      ? `scale-in 0.35s cubic-bezier(0.22,1,0.36,1) ${300 + i * 35}ms both`
-                      : "none",
-                  opacity: mapLoaded ? undefined : 0,
-                }}
-              />
-              {/* Hover tooltip */}
-              <div
-                className="absolute left-1/2 -translate-x-1/2 -top-8 opacity-0 group-hover:opacity-100 pointer-events-none bg-glass-panel-fill backdrop-blur-md border border-glass-panel-border rounded px-2 py-1 text-xs text-foreground whitespace-nowrap shadow-sm transition-opacity duration-150"
-                style={{ transform: `translateX(-50%) scale(${1 / zoom})` }}
-              >
-                {p.name}
-              </div>
-            </button>
-          ))}
-        </div>{/* end zoomable layer */}
+      <div className="relative flex-1 overflow-hidden select-none">
+
+        {/* Mapbox map */}
+        <MapView
+          properties={initialProperties}
+          selectedId={selectedPin}
+          onSelectProperty={handlePinClick}
+          onMapLoaded={() => setMapLoaded(true)}
+          onMapReady={(map) => { mapRef.current = map; }}
+          className="absolute inset-0"
+        />
 
         {/* Command Palette Trigger */}
         <div data-no-drag className="absolute top-6 z-10 flex justify-center transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]" style={{ left: 0, right: selectedProperty ? "20rem" : 0 }}>
@@ -377,108 +243,58 @@ export function HomePage({ initialProperties }: { initialProperties: Property[] 
         />
 
         {/* Portfolio legend — centered, bottom of map */}
-        <div data-no-drag className="absolute bottom-4 z-10 flex justify-center transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]" style={{ left: 0, right: selectedProperty ? "20rem" : 0 }}>
-          <div className={cn(
-            mapLoaded ? "[animation:fade-slide-up_0.5s_cubic-bezier(0.16,1,0.3,1)_300ms_both]" : "opacity-0",
-          )}>
-          <div className="flex items-center bg-glass-panel-fill backdrop-blur-md border border-glass-panel-border rounded-full shadow-sm px-5 py-2.5 gap-4 whitespace-nowrap">
-            {/* Total value */}
-            <div className="flex items-baseline gap-2">
-              <span className="text-[10px] uppercase tracking-wider text-secondary font-medium">Portfolio</span>
-              <span className="text-sm font-bold font-display text-foreground">{formatCurrency(portfolioStats.totalValue)}</span>
-            </div>
-
-            <div className="w-px h-4 bg-border-subtle shrink-0" />
-
-            {/* Property count */}
-            <div className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-interactive-primary shrink-0" />
-              <span className="text-sm font-medium text-foreground">{portfolioStats.totalProperties}</span>
-              <span className="text-xs text-secondary">Properties</span>
-            </div>
-
-            {/* Rented */}
-            <div className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-status-success shrink-0" />
-              <span className="text-sm font-medium text-foreground">{portfolioStats.rentedCount}</span>
-              <span className="text-xs text-secondary">Rented</span>
-            </div>
-
-            {/* Vacant */}
-            <div className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-status-warning shrink-0" />
-              <span className="text-sm font-medium text-foreground">{portfolioStats.vacantCount}</span>
-              <span className="text-xs text-secondary">Vacant</span>
-            </div>
-
-            <div className="w-px h-4 bg-border-subtle shrink-0" />
-
-            {/* Avg health */}
-            <div className="flex items-center gap-1.5">
-              <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", healthBgClass(portfolioStats.avgHealth))} />
-              <span className="text-xs text-secondary">Avg Health</span>
-              <span className={cn("text-sm font-medium", healthClass(portfolioStats.avgHealth))}>{portfolioStats.avgHealth}%</span>
-            </div>
-          </div>
-          </div>
-        </div>
-
-        {/* Pins moved into zoomable layer above */}
+        <PortfolioLegend stats={portfolioStats} mapLoaded={mapLoaded} drawerOpen={!!drawerProperty} />
 
         {/* Map controls */}
-        <div className={cn(
-          "absolute bottom-4 flex flex-col gap-2 z-10 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]",
-          selectedProperty ? "right-[22rem]" : "right-4",
-        )} data-no-drag>
-          <MapIconButton onClick={() => handleZoom(ZOOM_STEP)}>
-            <ZoomIn className="size-4" />
-          </MapIconButton>
-          <MapIconButton onClick={() => handleZoom(-ZOOM_STEP)}>
-            <ZoomOut className="size-4" />
-          </MapIconButton>
-          <MapIconButton spin onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}>
-            <RefreshCw className="size-4" />
-          </MapIconButton>
-        </div>
+        <MapControls mapRef={mapRef} drawerOpen={!!selectedProperty} />
 
         {/* Property info panel — full-height floating sidebar */}
-        {selectedProperty && (
-          <div key={selectedPin} className="absolute right-4 top-4 bottom-4 w-80 bg-glass-panel-fill backdrop-blur-md border border-glass-panel-border rounded-xl shadow-sm z-20 flex flex-col overflow-hidden [animation:slide-in-right_0.3s_cubic-bezier(0.16,1,0.3,1)_both]" data-no-drag>
+        {drawerProperty && (
+          <div
+            key={selectedPin ?? closingKey}
+            className={cn(
+              "absolute right-4 top-4 bottom-4 w-80 bg-glass-panel-fill backdrop-blur-md border border-glass-panel-border rounded-xl shadow-sm z-20 flex flex-col overflow-hidden",
+              isDrawerClosing
+                ? "[animation:slide-out-right_0.22s_cubic-bezier(0.16,1,0.3,1)_both]"
+                : "[animation:slide-in-right_0.3s_cubic-bezier(0.16,1,0.3,1)_both]",
+            )}
+            data-no-drag
+          >
 
             {/* Hero image with overlay info */}
             <div className="relative shrink-0 overflow-hidden">
               <ImageWithFallback
                 src="https://images.unsplash.com/photo-1665691964802-956fc06b93cf?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxsdXh1cnklMjBob3VzZSUyMGRyaXZld2F5JTIwbmlnaHR8ZW58MXx8fHwxNzczNzM0NjE4fDA&ixlib=rb-4.1.0&q=80&w=1080"
-                alt={selectedProperty.name}
+                alt={drawerProperty.name}
                 className="w-full h-48 object-cover [animation:card-image-reveal_0.5s_cubic-bezier(0.16,1,0.3,1)_0.15s_both]"
               />
               {/* Scrim gradient */}
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
               {/* Close */}
               <button
-                onClick={() => setSelectedPin(null)}
+                onClick={closeDrawer}
                 className="absolute top-3 right-3 size-7 rounded-full bg-black/30 backdrop-blur-sm flex items-center justify-center hover:bg-black/50 transition-colors"
               >
                 <X className="size-3.5 text-white" />
               </button>
               {/* Status pill on image */}
-              <div className="absolute top-3 left-3">
+              <div className="absolute top-3 left-3 [animation:pill-in_0.3s_cubic-bezier(0.16,1,0.3,1)_0.1s_both]">
                 <span className={cn(
                   "px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide uppercase",
-                  selectedProperty.statusVariant === "rented"
+                  drawerProperty.statusVariant === "rented"
                     ? "bg-emerald-500/90 text-white"
                     : "bg-amber-400/90 text-amber-950",
                 )}>
-                  {selectedProperty.status}
+                  {drawerProperty.status}
                 </span>
               </div>
               {/* Title overlay at bottom of image */}
               <div className="absolute bottom-0 left-0 right-0 px-5 pb-4">
-                <p className="text-[11px] font-medium text-white/60 tracking-wide uppercase">{selectedProperty.code}</p>
-                <h3 className="text-lg font-display font-semibold text-white leading-tight mt-0.5">{selectedProperty.name}</h3>
+                <p className="text-[11px] font-medium text-white/60 tracking-wide uppercase">{drawerProperty.code}</p>
+                <h3 className="text-lg font-display font-semibold text-white leading-tight mt-0.5">{drawerProperty.name}</h3>
                 <div className="flex items-center gap-1 mt-1">
                   <MapPin className="size-3 text-white/50" />
-                  <span className="text-xs text-white/70">{selectedProperty.province}</span>
+                  <span className="text-xs text-white/70">{drawerProperty.province}</span>
                 </div>
               </div>
             </div>
@@ -486,10 +302,10 @@ export function HomePage({ initialProperties }: { initialProperties: Property[] 
             {/* Details */}
             <div className="px-5 pt-5 pb-4 space-y-3.5 text-sm">
               {[
-                { label: "Buy Price", value: <span className="text-base font-display font-bold text-foreground">{selectedProperty.buy}</span> },
-                { label: "Size", value: <span className="font-medium text-foreground">{selectedProperty.size} m&sup2;</span> },
-                { label: "Type", value: <span className="font-medium text-foreground">{selectedProperty.type}</span> },
-                { label: "Title", value: <span className={cn("font-medium", titleClasses[selectedProperty.titleVariant])}>{selectedProperty.title}</span> },
+                { label: "Buy Price", value: <span className="text-base font-display font-bold text-foreground">{drawerProperty.buy}</span> },
+                { label: "Size", value: <span className="font-medium text-foreground">{drawerProperty.size} m&sup2;</span> },
+                { label: "Type", value: <span className="font-medium text-foreground">{drawerProperty.type}</span> },
+                { label: "Title", value: <span className={cn("font-medium", titleClasses[drawerProperty.titleVariant])}>{drawerProperty.title}</span> },
               ].map((row, i) => (
                 <div
                   key={row.label}
@@ -508,12 +324,12 @@ export function HomePage({ initialProperties }: { initialProperties: Property[] 
                 <div className="flex items-center gap-2">
                   <div className="w-16 h-1.5 rounded-full bg-surface-sunken overflow-hidden">
                     <div
-                      className={cn("h-full rounded-full origin-left [animation:health-bar-fill_0.6s_cubic-bezier(0.16,1,0.3,1)_0.5s_both]", healthBgClass(selectedProperty.health))}
-                      style={{ width: `${selectedProperty.health}%` }}
+                      className={cn("h-full rounded-full origin-left [animation:health-bar-fill_0.6s_cubic-bezier(0.16,1,0.3,1)_0.5s_both]", healthBgClass(drawerProperty.health))}
+                      style={{ width: `${drawerProperty.health}%` }}
                     />
                   </div>
-                  <span className={cn("font-medium tabular-nums", healthClass(selectedProperty.health))}>
-                    {selectedProperty.health}%
+                  <span className={cn("font-medium tabular-nums", healthClass(drawerProperty.health))}>
+                    {drawerProperty.health}%
                   </span>
                 </div>
               </div>
@@ -525,11 +341,11 @@ export function HomePage({ initialProperties }: { initialProperties: Property[] 
             {/* CTA */}
             <div className="px-5 py-4 shrink-0 [animation:card-row-in_0.35s_cubic-bezier(0.16,1,0.3,1)_0.5s_both]">
               <button
-                onClick={() => router.push(`/property/${selectedProperty.id}`)}
-                className="w-full flex items-center justify-between px-4 py-2.5 rounded-lg bg-interactive-primary text-white text-sm font-medium hover:brightness-110 active:scale-[0.98] transition-all duration-150"
+                onClick={() => router.push(`/property/${drawerProperty.id}`)}
+                className="group w-full flex items-center justify-between px-4 py-2.5 rounded-lg bg-interactive-primary text-white text-sm font-medium hover:brightness-110 active:scale-[0.98] transition-all duration-150"
               >
                 View Property
-                <ArrowUpRight className="size-4" />
+                <ArrowUpRight className="size-4 transition-transform duration-150 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
               </button>
             </div>
           </div>
@@ -563,120 +379,26 @@ export function HomePage({ initialProperties }: { initialProperties: Property[] 
         {/* Accordion wrapper — grid-rows trick for smooth open/close */}
         <div
           className={cn(
-            "grid transition-[grid-template-rows] duration-400 ease-[cubic-bezier(0.16,1,0.3,1)]",
+            "grid transition-[grid-template-rows] duration-[350ms] ease-[cubic-bezier(0.4,0,0.2,1)]",
             tableOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
           )}
         >
           <div className="overflow-hidden">
-            <table className="w-full text-sm px-6" style={{ margin: "0 0 1rem" }}>
-              <thead>
-                <tr className="border-b border-border-subtle">
-                  <th className="text-left py-3 px-4 w-8">
-                    <input type="checkbox" className="rounded" />
-                  </th>
-                  {[
-                    "#",
-                    "Property",
-                    "Type",
-                    "Province",
-                    "Status",
-                    "Size",
-                    "Buy",
-                    "Title",
-                    "Health",
-                  ].map((col) => (
-                    <th
-                      key={col}
-                      className="text-left py-3 px-4 text-xs font-medium text-secondary tracking-wide"
-                    >
-                      {col}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody key={tableOpenCount}>
-                {initialProperties.map((p, i) => (
-                  <tr
-                    key={p.id}
-                    onClick={() => router.push(`/property/${p.id}`)}
-                    onMouseEnter={() => setHoveredProperty(p.id)}
-                    onMouseLeave={() => setHoveredProperty(null)}
-                    style={{ animationDelay: `${i * 40}ms` }}
-                    className={cn(
-                      "border-b border-border-subtle transition-colors cursor-pointer [animation:fade-slide-up_0.3s_cubic-bezier(0.16,1,0.3,1)_both]",
-                      hoveredProperty === p.id
-                        ? "bg-surface-tint"
-                        : "hover:bg-surface-tint",
-                    )}
-                  >
-                    <td className="py-3 px-4">
-                      <input
-                        type="checkbox"
-                        className="rounded"
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                    </td>
-                    <td className="py-3 px-4 text-secondary">{i + 1}</td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-surface-sunken rounded-xl shrink-0" />
-                        <div>
-                          <p className="text-sm font-medium text-foreground">
-                            {p.name}
-                          </p>
-                          <p className="text-xs text-secondary">{p.code}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className="px-2 py-0.5 rounded text-xs font-medium text-interactive-primary bg-brand-subtle">
-                        {p.type}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-secondary text-sm">
-                      {p.province}
-                    </td>
-                    <td className="py-3 px-4">
-                      <span
-                        className={cn(
-                          "px-2 py-0.5 rounded text-xs font-medium",
-                          statusClasses[p.statusVariant],
-                        )}
-                      >
-                        {p.status}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-secondary text-sm">
-                      {p.size} m<sup>2</sup>
-                    </td>
-                    <td className="py-3 px-4 text-sm font-medium text-foreground">
-                      {p.buy}
-                    </td>
-                    <td className="py-3 px-4">
-                      <span
-                        className={cn(
-                          "text-xs font-medium",
-                          titleClasses[p.titleVariant],
-                        )}
-                      >
-                        {p.title}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4">
-                      <span
-                        className={cn(
-                          "flex items-center gap-1",
-                          healthClass(p.health),
-                        )}
-                      >
-                        <span className="w-2 h-2 rounded-full bg-current" />
-                        <span className="text-sm">{p.health}%</span>
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="mx-auto w-full max-w-[1200px]">
+              <PropertyTable
+                pageRows={initialProperties}
+                pageStart={0}
+                filtered={initialProperties}
+                properties={initialProperties}
+                mounted={tableOpen}
+                navigate={(path) => router.push(path)}
+                totalPages={1}
+                safePage={1}
+                goToPage={() => {}}
+                onClearFilters={() => {}}
+                animationConfig={HOME_TABLE_ANIMATION}
+              />
+            </div>
           </div>
         </div>
       </div>

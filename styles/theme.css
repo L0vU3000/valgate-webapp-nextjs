@@ -34,6 +34,11 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes fade-slide-up-out {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to   { opacity: 0; transform: translateY(-8px) scale(0.98); }
+}
+
 @keyframes fade-slide-up {
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -45,8 +50,13 @@
 }
 
 @keyframes slide-in-right {
-  from { opacity: 0; transform: translateX(18px); }
-  to   { opacity: 1; transform: translateX(0); }
+  from { opacity: 0; transform: translateX(24px) scale(0.97); }
+  to   { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+@keyframes slide-out-right {
+  from { opacity: 1; transform: translateX(0) scale(1); }
+  to   { opacity: 0; transform: translateX(24px) scale(0.97); }
 }
 
 @keyframes scale-in {
@@ -72,6 +82,11 @@
 }
 
 /* ─── Property Card · Staggered Reveal ─── */
+
+@keyframes pill-in {
+  from { opacity: 0; transform: translateY(-5px) scale(0.88); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
 
 @keyframes card-image-reveal {
   from { opacity: 0; transform: scale(1.06); }
@@ -657,6 +672,146 @@
   animation: ai-dot 1.4s ease-in-out infinite;
 }
 
+/* ─── Auth Pages · Entrance Choreography & Micro-interactions ─── */
+
+@keyframes auth-fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes auth-panel-in {
+  from { opacity: 0; transform: translateX(-20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.auth-brand-panel {
+  animation: auth-panel-in 650ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.auth-animate [data-auth-item] {
+  animation: auth-fade-up 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--auth-delay, 0ms);
+}
+
+.auth-google-btn {
+  transition: background-color 200ms ease, transform 220ms cubic-bezier(0.25, 1, 0.5, 1), box-shadow 220ms ease;
+}
+.auth-google-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+}
+.auth-google-btn:active {
+  transform: translateY(0) scale(0.985);
+  box-shadow: none;
+  transition-duration: 100ms;
+}
+
+.auth-submit-btn {
+  transition-property: transform, box-shadow;
+  transition-duration: 200ms;
+  transition-timing-function: cubic-bezier(0.25, 1, 0.5, 1);
+}
+.auth-submit-btn:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--interactive-primary) 28%, transparent);
+}
+.auth-submit-btn:not(:disabled):active {
+  transform: translateY(0) scale(0.985);
+  box-shadow: none;
+  transition-duration: 100ms;
+}
+
+/* ─── Auth Pages · Success Screen ─── */
+
+@keyframes auth-success-icon-in {
+  from { transform: scale(0.55); }
+  to   { transform: scale(1); }
+}
+
+@keyframes auth-success-badge-in {
+  from { opacity: 0; transform: scale(0) rotate(-25deg); }
+  to   { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+
+.auth-success-icon {
+  animation: auth-success-icon-in 480ms cubic-bezier(0.16, 1, 0.3, 1) 180ms both;
+}
+
+.auth-success-badge {
+  animation: auth-success-badge-in 360ms cubic-bezier(0.16, 1, 0.3, 1) 360ms both;
+}
+
+.auth-back-btn {
+  transition: color 150ms ease;
+}
+.auth-back-btn:hover {
+  color: var(--foreground);
+}
+
+/* Auth · Input hover — extend shadcn's transition to include border-color */
+.auth-animate input[type="text"],
+.auth-animate input[type="email"],
+.auth-animate input[type="password"] {
+  transition-property: color, box-shadow, border-color;
+  transition-duration: 180ms;
+  transition-timing-function: ease;
+}
+.auth-animate input[type="text"]:not(:focus-visible):hover,
+.auth-animate input[type="email"]:not(:focus-visible):hover,
+.auth-animate input[type="password"]:not(:focus-visible):hover {
+  border-color: var(--border-strong);
+}
+
+/* ─── Map · Cluster & Pin Animations ─── */
+
+@keyframes cluster-appear {
+  0%   { opacity: 0; transform: scale(0.2); }
+  55%  { opacity: 1; transform: scale(1.1); }
+  75%  { transform: scale(0.97); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes cluster-exit {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(1.35); }
+}
+
+@keyframes cluster-converge-exit {
+  from { opacity: 1; transform: translate(0, 0) scale(1); }
+  to   { opacity: 0; transform: translate(var(--cluster-tx, 0px), var(--cluster-ty, 0px)) scale(0.5); }
+}
+
+@keyframes pin-appear {
+  0%   { opacity: 0; transform: scale(0); }
+  60%  { opacity: 1; transform: scale(1.15); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes pin-exit {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(0); }
+}
+
+@keyframes pin-converge-exit {
+  from { opacity: 1; transform: translate(0, 0) scale(1); }
+  to   { opacity: 0; transform: translate(var(--pin-tx, 0px), var(--pin-ty, 0px)) scale(0); }
+}
+
+@keyframes cluster-ring-pulse {
+  0%   { transform: scale(1); opacity: 0.55; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+
+@keyframes pin-emerge {
+  from { opacity: 0; transform: translate(var(--pin-ox, 0px), var(--pin-oy, 0px)) scale(0); }
+  to   { opacity: 1; transform: translate(0, 0) scale(1); }
+}
+
+@keyframes cluster-emerge {
+  from { opacity: 0; transform: translate(var(--cluster-ox, 0px), var(--cluster-oy, 0px)) scale(0.2); }
+  to   { opacity: 1; transform: translate(0, 0) scale(1); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, ::before, ::after {
     animation-duration: 0.01ms !important;
@@ -767,6 +922,8 @@
   --val-heading:       #121c28;
   --val-bg-tint:       #eef4ff;
   --val-bg-page-alt:   #f8f9ff;
+  --val-input-surface: #f7f8fe;
+  --val-border-subtle: #d8e3f4;
 
   /* Glass Semantic — Light */
   --glass-header-fill:         #ffffffd1;
@@ -1000,10 +1157,12 @@
   --color-val-heading:       var(--val-heading);
   --color-val-bg-tint:       var(--val-bg-tint);
   --color-val-bg-page-alt:   var(--val-bg-page-alt);
+  --color-val-input-surface: var(--val-input-surface);
+  --color-val-border-subtle: var(--val-border-subtle);
 
   /* Typography */
-  --font-sans:    'Inter', system-ui, sans-serif;
-  --font-display: 'Plus Jakarta Sans', Inter, sans-serif;
+  --font-sans:    'Geist', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Bricolage Grotesque', 'Geist', sans-serif;
   --font-mono:    'JetBrains Mono', 'Fira Code', monospace;
 }
 

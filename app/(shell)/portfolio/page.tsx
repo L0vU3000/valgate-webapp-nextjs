@@ -1,7 +1,7 @@
 import { PortfolioPage } from "./_components/PortfolioPage";
-import { getProperties } from "@/lib/data/properties";
+import { getPortfolioPageData } from "./queries";
 
 export default async function Page() {
-  const initialProperties = await getProperties();
-  return <PortfolioPage initialProperties={initialProperties} />;
+  const data = await getPortfolioPageData();
+  return <PortfolioPage data={data} />;
 }

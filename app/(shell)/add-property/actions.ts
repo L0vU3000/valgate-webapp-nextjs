@@ -1,15 +1,15 @@
-/**
- * Server-only data for the add-property route.
- * Swap the implementation when drafts are loaded from the database or an API.
- */
-export type PropertyDraftSummary = {
-    id: string;
-    title: string;
-  };
-  
-  export async function getAddPropertyPageData(): Promise<{
-    drafts: PropertyDraftSummary[];
-  }> {
-    return { drafts: [] };
+"use server";
+
+import type { FormData } from "./_components/types";
+
+export async function submitPropertyAction(
+  _form: FormData,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    // TODO: persist to Convex
+    return { ok: true };
+  } catch (err) {
+    console.error("submitPropertyAction failed:", err);
+    return { ok: false, error: "Failed to submit property. Please try again." };
   }
-  
+}

@@ -1,120 +1,130 @@
 import { useState } from "react";
-import { ArrowLeft } from "lucide-react";
-// Figma asset — no real image available in dev
-const imgDocExample1: string | null = null;
+import { ArrowLeft, FileText } from "lucide-react";
 
 interface DocumentDetailViewProps {
   documentName: string;
+  propertyCode?: string;
   onBack: () => void;
 }
 
-const documentPages = [
-  { id: 1, label: "1." },
-  { id: 2, label: "2." },
-  { id: 3, label: "3." },
-  { id: 4, label: "4." },
+const documentPages = [1, 2, 3, 4];
+
+const documentMeta = [
+  { label: "Purchase Price", value: "$420,000" },
+  { label: "Transfer Tax",   value: "$8,400"   },
+  { label: "Agent Fee",      value: "$12,600"  },
+  { label: "Stamp Duty",     value: "$6,300"   },
 ];
 
-const boughtPriceData = [
-  { label: "Bought Price", value: "$100,000" },
-  { label: "Bought Price", value: "$100,000" },
-  { label: "Bought Price", value: "$100,000" },
-  { label: "Bought Price", value: "$100,000" },
-];
+const summary =
+  "This document certifies the legal transfer of property title for SR00015. It includes details of the purchase agreement, settlement date, registered owner details, and encumbrance status as of the transfer date. All obligations have been satisfied and the title is unencumbered.";
 
 export function DocumentDetailView({ documentName, onBack }: DocumentDetailViewProps) {
   const [activePage, setActivePage] = useState(1);
   const [expanded, setExpanded] = useState(false);
 
-  const summaryText =
-    "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec sodales  sed sapien quis rutrum. Integer viverra a neque in rhoncus. Pellentesque ut nisi velit. Cras commodo nec urna vitae eleifend. Donec ut augue  tincidunt, sagittis enim in, lacinia eros. Proin nec tincidunt magna,  quis lobortis nunc. Nulla congue, purus quis eleifend semper, arcu velit pellentesque odio, ut dictum nunc ipsum non magna.";
+  const displayName = documentName.replace(/\.[^/.]+$/, "").replace(/_/g, " ");
 
   return (
-    <div className="flex-1 p-6 overflow-auto">
-      {/* Back button */}
-      <button
-        onClick={onBack}
-        className="flex items-center gap-1.5 text-[14px] text-foreground hover:text-foreground/80 mb-4 cursor-pointer"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Back
-      </button>
+    <div className="flex-1 min-h-full bg-val-bg-page-alt">
+      <div className="px-8 pt-8 pb-10">
 
-      {/* Title */}
-      <h1 className="text-[24px] text-foreground mb-1" style={{ fontWeight: 600 }}>
-        SR00015 Documents
-      </h1>
+        {/* Back + Title */}
+        <button onClick={onBack} className="flex items-center gap-1.5 mb-4 group">
+          <ArrowLeft className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 transition-colors" />
+          <span className="text-xs font-semibold tracking-widest uppercase text-slate-400 group-hover:text-slate-600 transition-colors">
+            Documents
+          </span>
+        </button>
 
-      {/* Document Summary heading */}
-      <h2 className="text-[20px] text-foreground mb-4" style={{ fontWeight: 600 }}>
-        Document Summary
-      </h2>
-
-      {/* Main content area */}
-      <div className="flex gap-6">
-        {/* Left column: summary + prices */}
-        <div className="w-[220px] shrink-0">
-          {/* Summary text */}
-          <p className="text-[14px] text-muted-foreground leading-[22px] mb-4">
-            {expanded ? summaryText : summaryText.slice(0, 280) + "... "}
-            <button
-              onClick={() => setExpanded(!expanded)}
-              className="text-primary hover:underline cursor-pointer"
-            >
-              {expanded ? "Show Less" : "Read More"}
-            </button>
+        <div className="mb-7">
+          <h1 className="text-4xl font-extrabold tracking-tight leading-10 text-[--val-heading]">
+            {displayName}
+          </h1>
+          <p className="text-slate-500 text-base mt-2">
+            Page {activePage} of {documentPages.length}
           </p>
+        </div>
 
-          {/* Bought Price grid */}
-          <div className="grid grid-cols-2 gap-x-8 gap-y-4">
-            {boughtPriceData.map((item, i) => (
-              <div key={i} className="flex flex-col">
-                <span className="text-[12px] text-muted-foreground" style={{ fontWeight: 500 }}>
-                  {item.label}
+        {/* Three-column content row */}
+        <div className="flex gap-6 items-start">
+
+          {/* Col 1: Summary + Financials */}
+          <div className="flex-1 min-w-0 pr-2">
+            <h2 className="text-2xl font-bold tracking-tight mb-3 text-[--val-heading]">
+              Document Summary
+            </h2>
+
+            <p className="text-[15px] text-slate-600 leading-relaxed mb-6">
+              {expanded ? summary : summary.slice(0, 180) + "… "}
+              <button
+                onClick={() => setExpanded(!expanded)}
+                className="font-semibold text-[--val-primary-dark] transition-opacity hover:opacity-75"
+              >
+                {expanded ? "Less" : "Read More"}
+              </button>
+            </p>
+
+            <div className="grid grid-cols-2 gap-x-8 gap-y-6">
+              {documentMeta.map((item) => (
+                <div key={item.label}>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.07em] text-slate-400 mb-1">
+                    {item.label}
+                  </p>
+                  <p className="text-[24px] font-bold leading-tight text-[--val-heading]">
+                    {item.value}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Col 2: Document preview */}
+          <div className="shrink-0 w-[280px] rounded-xl border border-slate-200 bg-val-bg-tint flex flex-col items-center justify-center min-h-[380px]">
+            <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center mb-3 shadow-sm border border-slate-100">
+              <FileText className="size-6 text-slate-400" />
+            </div>
+            <p className="text-sm font-semibold text-[--val-heading]">
+              Preview unavailable
+            </p>
+            <p className="text-xs text-slate-400 mt-1 text-center max-w-[160px]">
+              Open the file to view its contents.
+            </p>
+          </div>
+
+          {/* Col 3: Page thumbnails */}
+          <div className="shrink-0 w-[136px] flex flex-col gap-5 pt-1">
+            {documentPages.map((page) => (
+              <button
+                key={page}
+                onClick={() => setActivePage(page)}
+                className="flex items-center gap-2.5 group"
+              >
+                <span className="text-[11px] font-semibold text-slate-400 w-4 text-right shrink-0">
+                  {page}.
                 </span>
-                <span className="text-[16px] text-foreground leading-[28px]">{item.value}</span>
-              </div>
+                <div
+                  className={`flex-1 h-[68px] rounded-lg border transition-all duration-200 flex items-center justify-center overflow-hidden ${
+                    activePage === page
+                      ? "border-[--val-primary-dark] bg-blue-50/40 shadow-sm"
+                      : "bg-white border-slate-200 group-hover:border-slate-300"
+                  }`}
+                >
+                  <div className="space-y-1.5 w-full px-2.5">
+                    {[1, 2, 3].map((j) => (
+                      <div
+                        key={j}
+                        className={`h-[2px] rounded-full ${
+                          activePage === page ? "bg-[--val-primary-dark]/20" : "bg-slate-200"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </button>
             ))}
           </div>
-        </div>
 
-        {/* Center: Large document preview */}
-        <div className="flex-1 min-w-0">
-          <div className="bg-white rounded-lg border border-border overflow-hidden shadow-sm">
-            <img
-              src={imgDocExample1 ?? undefined}
-              alt={`${documentName} - Page ${activePage}`}
-              className="w-full h-auto object-contain"
-            />
-          </div>
-        </div>
-
-        {/* Right: Page thumbnails */}
-        <div className="w-[100px] shrink-0 flex flex-col gap-4">
-          {documentPages.map((page) => (
-            <button
-              key={page.id}
-              onClick={() => setActivePage(page.id)}
-              className={`flex items-start gap-2 cursor-pointer group`}
-            >
-              <span className="text-[12px] text-muted-foreground mt-1 w-[16px] text-right shrink-0">
-                {page.label}
-              </span>
-              <div
-                className={`w-[72px] h-[96px] bg-white border rounded-md shadow-sm overflow-hidden transition-all ${
-                  activePage === page.id
-                    ? "border-primary ring-1 ring-primary/30"
-                    : "border-border group-hover:border-primary/50"
-                }`}
-              >
-                <img
-                  src={imgDocExample1 ?? undefined}
-                  alt={`Page ${page.id}`}
-                  className="w-full h-full object-cover object-top"
-                />
-              </div>
-            </button>
-          ))}
         </div>
       </div>
     </div>

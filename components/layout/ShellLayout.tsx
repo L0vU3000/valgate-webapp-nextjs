@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Toaster } from "sonner";
 import { cn } from "../ui/utils";
 import { Sidebar } from "./Sidebar";
 import { AIOverlay } from "./AIOverlay";
@@ -27,6 +28,7 @@ export function ShellLayout({ children }: { children: React.ReactNode }) {
           {children}
         </main>
         <AIOverlay open={aiOpen} onClose={() => setAiOpen(false)} />
+        <Toaster position="bottom-right" richColors />
       </div>
     </ShellContext.Provider>
   );

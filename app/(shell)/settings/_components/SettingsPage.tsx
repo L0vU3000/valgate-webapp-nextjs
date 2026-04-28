@@ -2,14 +2,8 @@
 
 import { useState } from "react";
 import { Check, Smartphone, Download } from "lucide-react";
-
-type NotifChannels = { email: boolean; slack: boolean; sms: boolean };
-
-const NOTIFICATION_ROWS: { key: string; label: string; description: string }[] = [
-  { key: "valuationUpdates", label: "Property Valuation Updates", description: "When an asset value changes significantly" },
-  { key: "teamComments", label: "Team Comments", description: "When a team member mentions you" },
-  { key: "marketInsights", label: "Market Insights", description: "Weekly summary of market trends" },
-];
+import { AppHeader } from "@/components/layout/AppHeader";
+import type { SettingsPageData, NotifChannels } from "../queries";
 
 /* Staggered section entrance — reusable inline style helper */
 function sectionStyle(i: number): React.CSSProperties {
@@ -19,21 +13,19 @@ function sectionStyle(i: number): React.CSSProperties {
   };
 }
 
-export function SettingsPage() {
+export function SettingsPage({ data }: { data: SettingsPageData }) {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
-  const [notifications, setNotifications] = useState<Record<string, NotifChannels>>({
-    valuationUpdates: { email: true, slack: true, sms: false },
-    teamComments: { email: true, slack: true, sms: true },
-    marketInsights: { email: true, slack: false, sms: false },
-  });
+  const [notifications, setNotifications] = useState<Record<string, NotifChannels>>(
+    data.defaultNotifications,
+  );
 
   const [flashRow, setFlashRow] = useState<string | null>(null);
-  const [dashboardView, setDashboardView] = useState("portfolio-overview");
-  const [language, setLanguage] = useState("en-US");
-  const [timezone, setTimezone] = useState("America/New_York");
+  const [dashboardView, setDashboardView] = useState(data.defaults.dashboardView);
+  const [language, setLanguage] = useState(data.defaults.language);
+  const [timezone, setTimezone] = useState(data.defaults.timezone);
 
   const toggleNotif = (key: string, channel: keyof NotifChannels) => {
     setNotifications((prev) => ({
@@ -45,15 +37,22 @@ export function SettingsPage() {
   };
 
   return (
-    <div className="h-full overflow-y-auto bg-val-bg-page-alt">
+    <div className="h-full flex flex-col bg-val-bg-page-alt">
+      <AppHeader />
+      <div className="flex-1 overflow-y-auto">
       <div className="max-w-[1200px] mx-auto p-8 flex flex-col gap-8">
 
         {/* Page Header */}
-        <div className="flex flex-col gap-2" style={sectionStyle(0)}>
-          <h1 className="font-display font-extrabold text-[30px] leading-[36px] tracking-[-0.75px] text-foreground">
+        <div className="flex flex-col gap-1" style={sectionStyle(0)}>
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-xs font-semibold tracking-widest uppercase text-[--val-primary-dark]">Valgate</span>
+            <span className="text-xs text-slate-300">/</span>
+            <span className="text-xs font-semibold tracking-widest uppercase text-slate-400">Settings</span>
+          </div>
+          <h1 className="text-4xl font-extrabold text-val-heading tracking-tight leading-10">
             Account Settings
           </h1>
-          <p className="font-sans text-[18px] leading-[28px] text-secondary">
+          <p className="text-slate-500 text-base mt-2">
             Manage your personal information, security preferences, and notification settings.
           </p>
         </div>
@@ -146,7 +145,7 @@ export function SettingsPage() {
               <div className="col-span-2 font-sans font-semibold text-[12px] leading-[16px] tracking-[0.6px] uppercase text-tertiary text-center">SMS</div>
             </div>
             {/* Table Rows */}
-            {NOTIFICATION_ROWS.map((row, i) => (
+            {data.notificationRows.map((row, i) => (
               <div
                 key={row.key}
                 className={`grid grid-cols-12 items-center px-6 py-4 transition-colors duration-300 ${
@@ -188,34 +187,20 @@ export function SettingsPage() {
                 label="Default Dashboard View"
                 value={dashboardView}
                 onChange={setDashboardView}
-                options={[
-                  { value: "portfolio-overview", label: "Portfolio Overview" },
-                  { value: "analytics", label: "Analytics" },
-                  { value: "map", label: "Map View" },
-                ]}
+                options={data.dashboardViewOptions}
               />
               <SelectField
                 label="Preferred Language"
                 value={language}
                 onChange={setLanguage}
-                options={[
-                  { value: "en-US", label: "English (US)" },
-                  { value: "km", label: "Khmer" },
-                  { value: "zh", label: "Chinese" },
-                ]}
+                options={data.languageOptions}
               />
               <div className="col-span-2">
                 <SelectField
                   label="Timezone"
                   value={timezone}
                   onChange={setTimezone}
-                  options={[
-                    { value: "America/New_York", label: "(GMT-05:00) Eastern Time (US & Canada)" },
-                    { value: "America/Chicago", label: "(GMT-06:00) Central Time (US & Canada)" },
-                    { value: "America/Los_Angeles", label: "(GMT-08:00) Pacific Time (US & Canada)" },
-                    { value: "Asia/Phnom_Penh", label: "(GMT+07:00) Phnom Penh" },
-                    { value: "Asia/Singapore", label: "(GMT+08:00) Singapore" },
-                  ]}
+                  options={data.timezoneOptions}
                 />
               </div>
             </div>
@@ -275,6 +260,7 @@ export function SettingsPage() {
           </div>
         </section>
 
+      </div>
       </div>
     </div>
   );

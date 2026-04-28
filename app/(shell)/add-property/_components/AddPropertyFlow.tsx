@@ -1,10 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { AnimatePresence } from "motion/react";
+import { AppHeader } from "@/components/layout/AppHeader";
 import type { Step } from "./types";
 import { defaultForm, stepLabels } from "./types";
 import type { FormData } from "./types";
 import type { PropertyDraftSummary } from "@/lib/data/add-property-page";
+import { useDrafts } from "../_lib/use-drafts";
+import { submitPropertyAction } from "../actions";
 import { Step0NewOrDraft } from "./Step0NewOrDraft";
 import { Step1PropertyType } from "./Step1PropertyType";
 import { Step2BasicInfo } from "./Step2BasicInfo";
@@ -12,110 +17,300 @@ import { Step3Financial } from "./Step3Financial";
 import { Step4PhotosDocs } from "./Step4PhotosDocs";
 import { Step5Review } from "./Step5Review";
 import { Step6Success } from "./Step6Success";
+import { FlowFooter } from "./FlowFooter";
+import { HowItWorksGate } from "./how-it-works";
+import { StepIntro } from "./how-it-works/StepIntro";
+import { AdvisorModal } from "./AdvisorModal";
 
 export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { drafts: localDrafts, activeId, mounted, setActive, upsert, remove, clearActive } =
+    useDrafts();
+
+  const hasUrlParams = !!(searchParams.get("draftId") || searchParams.get("step"));
+  const [preFlowStage, setPreFlowStage] = useState<"landing" | null>(
+    () => hasUrlParams ? null : "landing",
+  );
+  const [advisorModalOpen, setAdvisorModalOpen] = useState(false);
+  // walkthroughGate: 1-indexed gate number currently shown, null = no gate
+  const [walkthroughGate, setWalkthroughGate] = useState<number | null>(null);
+  // track which interstitial gates have already been seen (skip on back-nav)
+  const [gate1Shown, setGate1Shown] = useState(() => hasUrlParams);
+  const [gate2Shown, setGate2Shown] = useState(() => hasUrlParams);
+  const [gate3Shown, setGate3Shown] = useState(() => hasUrlParams);
   const [step, setStep] = useState<Step>(0);
   const [form, setForm] = useState<FormData>(defaultForm);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const latestFormRef = useRef<FormData>(defaultForm);
+  const successScrollRef = useRef<HTMLDivElement>(null);
 
-  const goNext = () => setStep((s) => Math.min(s + 1, 6) as Step);
+  useEffect(() => {
+    if (step === 6) successScrollRef.current?.scrollTo({ top: 0 });
+  }, [step]);
+
+  // Delay modal until Step0 page animations have settled (~800ms)
+  useEffect(() => {
+    if (preFlowStage !== null || hasUrlParams) return;
+    const t = setTimeout(() => setAdvisorModalOpen(true), 800);
+    return () => clearTimeout(t);
+  // hasUrlParams is stable for the component's lifetime
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preFlowStage]);
+
+  // Hydrate from URL params once localStorage drafts are loaded
+  useEffect(() => {
+    if (!mounted) return;
+    const urlDraftId = searchParams.get("draftId");
+    const urlStep = Number(searchParams.get("step")) as Step;
+    if (urlDraftId) {
+      const draft = localDrafts.find((d) => d.id === urlDraftId);
+      if (draft) {
+        setForm(draft.form);
+        setStep(draft.step);
+        setActive(urlDraftId);
+        setPreFlowStage(null);
+        return;
+      }
+    }
+    if (urlStep >= 1 && urlStep <= 6) {
+      setStep(urlStep);
+      setPreFlowStage(null);
+    }
+  // Run once after mount; searchParams and localDrafts are stable at that point
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mounted]);
+
+  // Autosave form changes while on steps 1–5
+  useEffect(() => {
+    if (!mounted || !activeId || step < 1 || step > 5) return;
+    upsert(activeId, form, step);
+  }, [form, step, activeId, mounted, upsert]);
+
+  const advanceToStep1 = useCallback(
+    (newForm: FormData) => {
+      const id = crypto.randomUUID();
+      setActive(id);
+      setForm(newForm);
+      setStep(1);
+      router.replace(`/add-property?step=1&draftId=${id}`);
+    },
+    [router, setActive],
+  );
+
+  const goNext = () => {
+    const next = Math.min(step + 1, 6) as Step;
+    if (next === 3 && !gate2Shown) { setWalkthroughGate(2); return; }
+    if (next === 5 && !gate3Shown) { setWalkthroughGate(3); return; }
+    setStep(next);
+  };
   const goBack = () => setStep((s) => Math.max(s - 1, 0) as Step);
+
+  function handleGateContinue() {
+    if (walkthroughGate === 1) {
+      setGate1Shown(true);
+      setWalkthroughGate(null);
+      advanceToStep1(latestFormRef.current);
+    } else if (walkthroughGate === 2) {
+      setGate2Shown(true);
+      setWalkthroughGate(null);
+      setStep(3);
+    } else if (walkthroughGate === 3) {
+      setGate3Shown(true);
+      setWalkthroughGate(null);
+      setStep(5);
+    }
+  }
+
+  function handleGateBack() {
+    setWalkthroughGate(null);
+  }
+
+  function handleLoadDemo() {
+    const id = "demo-" + Date.now();
+    const demoForm: FormData = {
+      method: "manual",
+      propertyType: "residential",
+      propertyName: "Sunny Vista Retreat",
+      propertyId: "PR20260001",
+      addressLine: "2847 Oceanview Drive",
+      addressLine2: "",
+      city: "Malibu",
+      state: "CA",
+      zip: "90265",
+      country: "US",
+      yearBuilt: "2018",
+      totalArea: "3200",
+      bedrooms: "4",
+      bathrooms: "3",
+      parkingSpaces: "2",
+      storageUnit: "Unit 2B",
+      purchasePrice: "1200000",
+      purchaseDate: "2022-03-15",
+      currentMarketValue: "1250000",
+      ownershipStatus: "leased",
+      outstandingMortgage: "850000",
+      monthlyPayment: "4200",
+      interestRate: "6.75",
+      annualPropertyTax: "12500",
+      taxAssessmentValue: "1100000",
+      annualInsurance: "3200",
+      photos: ["exterior.jpg", "living-room.jpg", "kitchen.jpg", "bedroom.jpg"],
+      documents: ["Purchase_Agreement.pdf", "Title_Deed.pdf", "Insurance_Policy.pdf"],
+    };
+    setActive(id);
+    setForm(demoForm);
+    upsert(id, demoForm, 5);
+    setStep(5);
+    router.replace(`/add-property?step=5&draftId=${id}`);
+  }
+
+  function handleSetFormFromStep0(f: FormData) {
+    latestFormRef.current = f;
+    setForm(f);
+  }
+  function handleContinueFromStep0() {
+    if (!gate1Shown) {
+      setWalkthroughGate(1);
+    } else {
+      advanceToStep1(latestFormRef.current);
+    }
+  }
+
+  function handleResumeDraft(id: string) {
+    const draft = localDrafts.find((d) => d.id === id);
+    if (!draft) return;
+    setForm(draft.form);
+    setStep(draft.step);
+    setActive(id);
+    router.replace(`/add-property?step=${draft.step}&draftId=${id}`);
+  }
+
+  function handleSaveAsDraft() {
+    if (activeId) {
+      upsert(activeId, form, step);
+    }
+    router.push("/portfolio");
+  }
+
+  async function handleSubmit() {
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      const result = await submitPropertyAction(form);
+      if (result.ok) {
+        setForm((f) => ({ ...f, propertyId: result.propertyId }));
+        clearActive();
+        setStep(6);
+      } else {
+        setSubmitError(result.error ?? "Something went wrong. Please try again.");
+      }
+    } catch {
+      setSubmitError("Something went wrong. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   const progressPercent = step === 0 ? 0 : (step / 6) * 100;
 
   return (
-    <div className="h-full flex flex-col overflow-auto">
-      {/* Header - only show for steps 1-5 */}
-      {step >= 1 && step <= 5 && (
-        <div className="px-8 pt-8 pb-0 shrink-0">
-          <div className="max-w-[1160px] mx-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h1 className="text-[30px] text-[#6B7684] font-display" style={{ fontWeight: 600 }}>
-                Add New Property
-              </h1>
-              <button className="border border-border rounded-lg px-4 py-2 text-[14px] text-foreground hover:bg-accent/50">
-                Save as Draft
-              </button>
+    <div className="h-full flex flex-col bg-white">
+      <AppHeader />
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {preFlowStage === "landing" && (
+          <div className="flex-1 overflow-hidden">
+            <StepIntro onStart={() => setPreFlowStage(null)} />
+          </div>
+        )}
+        {preFlowStage === null && walkthroughGate !== null && (
+          <div className="flex-1 overflow-hidden">
+            <HowItWorksGate
+              stepIndex={walkthroughGate - 1}
+              onContinue={handleGateContinue}
+              onBack={walkthroughGate === 1 ? handleGateBack : undefined}
+            />
+          </div>
+        )}
+        {preFlowStage === null && walkthroughGate === null && <>
+        {/* Header — steps 1–5 */}
+        {step >= 1 && step <= 5 && (
+          <div className="px-8 pt-5 pb-0 shrink-0">
+            <div className="max-w-[1160px] mx-auto">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-xs font-semibold tracking-widest uppercase text-[--val-primary-dark]">Valgate</span>
+                <span className="text-xs text-slate-300">/</span>
+                <span className="text-xs font-semibold tracking-widest uppercase text-slate-400">Add Property</span>
+              </div>
+              <div className="w-full h-2 bg-[#E8EAED] rounded-full mb-1.5">
+                <div
+                  className="h-full bg-primary rounded-full transition-all duration-500"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+              <p className="text-primary text-[14px] mb-4" style={{ fontWeight: 500 }}>
+                Step {step} of 6: {stepLabels[step]}
+              </p>
             </div>
-            {/* Progress bar */}
-            <div className="w-full h-2 bg-[#E8EAED] rounded-full mb-2">
-              <div
-                className="h-full bg-primary rounded-full transition-all duration-500"
-                style={{ width: `${progressPercent}%` }}
-              />
-            </div>
-            <p className="text-primary text-[14px] mb-6" style={{ fontWeight: 500 }}>
-              Step {step} of 6: {stepLabels[step]}
-            </p>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Step 0: Title only */}
-      {step === 0 && (
-        <div className="px-8 pt-8 pb-[77px] shrink-0">
-          <div className="max-w-[1160px] mx-auto">
-            <h1 className="text-[30px] text-[#6B7684] font-display" style={{ fontWeight: 600 }}>
-              Add New Property
-            </h1>
-          </div>
-        </div>
-      )}
 
-      {/* Step 6: Title only */}
-      {step === 6 && (
-        <div className="px-8 pt-8 shrink-0">
-          <div className="max-w-[1160px] mx-auto">
-            <h1 className="text-[30px] text-[#6B7684] font-display" style={{ fontWeight: 600 }}>
-              Add New Property
-            </h1>
-          </div>
-        </div>
-      )}
-
-      {/* Content */}
-      <div className="flex-1 px-8 pb-4 overflow-auto">
-        <div className="max-w-[1160px] mx-auto">
-          {step === 0 && (
-            <Step0NewOrDraft
-              form={form}
-              setForm={setForm}
-              onContinue={goNext}
-              drafts={drafts}
+        {/* Advisor modal — shown over Step0 on first visit */}
+        <AnimatePresence>
+          {step === 0 && advisorModalOpen && (
+            <AdvisorModal
+              onSetupWithAdvisor={() => setAdvisorModalOpen(false)}
+              onSetupOwn={() => setAdvisorModalOpen(false)}
             />
           )}
-          {step === 1 && <Step1PropertyType form={form} setForm={setForm} />}
-          {step === 2 && <Step2BasicInfo form={form} setForm={setForm} />}
-          {step === 3 && <Step3Financial form={form} setForm={setForm} />}
-          {step === 4 && <Step4PhotosDocs form={form} setForm={setForm} />}
-          {step === 5 && <Step5Review form={form} />}
-          {step === 6 && <Step6Success />}
-        </div>
-      </div>
+        </AnimatePresence>
 
-      {/* Footer - steps 1-5 */}
-      {step >= 1 && step <= 5 && (
-        <div className="px-8 py-4 border-t border-border shrink-0">
-          <div className="max-w-[1160px] mx-auto flex items-center justify-between">
-            <button className="border border-border rounded-lg px-4 py-2 text-[14px] text-foreground hover:bg-accent/50">
-              Save as Draft
-            </button>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={goBack}
-                className="border border-border rounded-lg px-6 py-2 text-[14px] text-foreground hover:bg-accent/50"
-              >
-                Go Back
-              </button>
-              <button
-                onClick={goNext}
-                className="bg-primary text-white rounded-lg px-6 py-2 text-[14px] hover:bg-primary/90"
-              >
-                Continue
-              </button>
+        {/* Content */}
+        {step === 6 ? (
+          <div ref={successScrollRef} className="flex-1 overflow-auto">
+            <Step6Success form={form} />
+          </div>
+        ) : (
+          <div className="flex-1 overflow-auto px-8 pb-4 flex flex-col min-h-0">
+            <div className="max-w-[1160px] mx-auto w-full flex-1 min-h-0 flex flex-col">
+              {step === 0 && (
+                <Step0NewOrDraft
+                  form={form}
+                  setForm={handleSetFormFromStep0}
+                  onContinue={handleContinueFromStep0}
+                  drafts={drafts}
+                  localDrafts={localDrafts}
+                  draftsLoading={!mounted}
+                  onResumeDraft={handleResumeDraft}
+                  onDeleteDraft={remove}
+                  onLoadDemo={handleLoadDemo}
+                />
+              )}
+              {step === 1 && <Step1PropertyType form={form} setForm={setForm} goNext={goNext} />}
+              {step === 2 && <Step2BasicInfo form={form} setForm={setForm} />}
+              {step === 3 && <Step3Financial form={form} setForm={setForm} goNext={goNext} />}
+              {step === 4 && <Step4PhotosDocs form={form} setForm={setForm} />}
+              {step === 5 && <Step5Review form={form} goToStep={(s) => setStep(s as Step)} />}
             </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {/* Footer — steps 1–5 */}
+        {step >= 1 && step <= 5 && (
+          <FlowFooter
+            onBack={goBack}
+            onSaveDraft={handleSaveAsDraft}
+            onContinue={goNext}
+            onSubmit={handleSubmit}
+            isFinalStep={step === 5}
+            submitting={submitting}
+            submitError={submitError}
+          />
+        )}
+        </>}
+      </div>
     </div>
   );
 }

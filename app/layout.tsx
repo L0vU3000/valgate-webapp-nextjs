@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Script from "next/script";
 import "../styles/index.css";
-
+import { AgentationProvider } from "./_components/agentation-provider";
+import { Toaster } from "sonner";
 export const metadata: Metadata = {
   title: "Valgate",
   description: "Property portfolio management",
@@ -21,6 +22,8 @@ export default function RootLayout({
           strategy="lazyOnload"
         />
         {children}
+        <Toaster position="top-right" richColors />
+        <AgentationProvider />
       </body>
     </html>
   );

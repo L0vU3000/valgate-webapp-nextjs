@@ -39,3 +39,15 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Conductor / AI tooling (local only, re-provisioned automatically)
+.agents/
+.claude/skills/
+.codex/
+.cursor/
+.kiro/
+skills/
+skills-lock.json
+
+# clerk configuration (can include secrets)
+/.clerk/
