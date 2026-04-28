@@ -3,9 +3,6 @@ import Script from "next/script";
 import "../styles/index.css";
 import { AgentationProvider } from "./_components/agentation-provider";
 import { Toaster } from "sonner";
-import { ClerkProvider } from "@clerk/nextjs";
-import ConvexClientProvider from "@/components/convex-client-provider";
-
 export const metadata: Metadata = {
   title: "Valgate",
   description: "Property portfolio management",
@@ -24,11 +21,7 @@ export default function RootLayout({
           src="https://mcp.figma.com/mcp/html-to-design/capture.js"
           strategy="lazyOnload"
         />
-        <ClerkProvider>
-          <ConvexClientProvider>
-            {children}
-          </ConvexClientProvider>
-        </ClerkProvider>
+        {children}
         <Toaster position="top-right" richColors />
         <AgentationProvider />
       </body>
