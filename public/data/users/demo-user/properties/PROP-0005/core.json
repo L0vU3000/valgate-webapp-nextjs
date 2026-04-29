@@ -1,0 +1,14 @@
+{
+  "id": "PROP-0005",
+  "userId": "demo-user",
+  "name": "Temple View Land",
+  "code": "SR00006 Land",
+  "type": "Land",
+  "status": "Vacant",
+  "statusVariant": "vacant",
+  "health": 82,
+  "lat": 13.436,
+  "lng": 103.866,
+  "createdAt": 1777454124076,
+  "updatedAt": 1777454124076
+}

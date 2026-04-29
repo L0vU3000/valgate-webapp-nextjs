@@ -1,0 +1,10 @@
+{
+  "propertyId": "PROP-0006",
+  "severityLabel": "High",
+  "title": "Outdated wiring",
+  "desc": "Knob-and-tube wiring in west wall — needs full replacement before next inspection.",
+  "createdAt": 1775001600000,
+  "updatedAt": 1775001600000,
+  "id": "RISK-0001",
+  "userId": "demo-user"
+}

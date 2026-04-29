@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { PropertyOwnershipPage } from "../_components/PropertyOwnershipPage";
 import { getPropertyByIdParam } from "@/lib/data/properties";
+import { getOwnershipPageData } from "./queries";
 
 export default async function Page({
   params,
@@ -8,7 +9,10 @@ export default async function Page({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const property = await getPropertyByIdParam(id);
+  const [property, ownershipData] = await Promise.all([
+    getPropertyByIdParam(id),
+    getOwnershipPageData(id),
+  ]);
   if (!property) notFound();
-  return <PropertyOwnershipPage property={property} />;
+  return <PropertyOwnershipPage property={property} {...ownershipData} />;
 }

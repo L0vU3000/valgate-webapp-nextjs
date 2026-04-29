@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Property } from "@/lib/mock-data";
+import type { Property } from "@/lib/data/types/property";
 import { PropertyLayout } from "@/components/property/PropertyLayout";
 import {
   ZoomIn,
@@ -230,7 +230,7 @@ function FullView({
   setViewMode: (v: ViewMode) => void;
   showLegend: boolean;
   setShowLegend: (v: boolean) => void;
-  property: import("@/lib/mock-data").Property;
+  property: import("@/lib/data/types/property").Property;
 }) {
   return (
     <div className="flex flex-col">

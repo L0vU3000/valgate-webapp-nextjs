@@ -1,0 +1,14 @@
+{
+  "id": "PROP-0013",
+  "userId": "demo-user",
+  "name": "Kampot Riverside Villa",
+  "code": "GEN00013",
+  "type": "House",
+  "status": "Vacant",
+  "statusVariant": "vacant",
+  "health": 19,
+  "lat": 10.61,
+  "lng": 104.18,
+  "createdAt": 1777454124083,
+  "updatedAt": 1777454124083
+}

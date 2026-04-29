@@ -200,7 +200,9 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
     try {
       const result = await submitPropertyAction(form);
       if (result.ok) {
-        setForm((f) => ({ ...f, propertyId: result.propertyId }));
+        if (result.propertyId) {
+          setForm((f) => ({ ...f, propertyId: result.propertyId! }));
+        }
         clearActive();
         setStep(6);
       } else {

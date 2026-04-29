@@ -6,7 +6,9 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "seed": "node --conditions=react-server --import tsx scripts/seed.ts",
+    "seed:reset": "node --conditions=react-server --import tsx scripts/seed.ts --reset"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.53",
@@ -92,6 +94,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.5.15",
     "tailwindcss": "^4",
+    "tsx": "^4.21.0",
     "typescript": "^5"
   }
 }

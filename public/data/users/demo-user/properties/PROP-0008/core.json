@@ -1,0 +1,14 @@
+{
+  "id": "PROP-0008",
+  "userId": "demo-user",
+  "name": "Prey Veng Agricultural Land",
+  "code": "PV00002 Land",
+  "type": "Land",
+  "status": "Vacant",
+  "statusVariant": "vacant",
+  "health": 34,
+  "lat": 11.4828,
+  "lng": 105.3246,
+  "createdAt": 1777454124079,
+  "updatedAt": 1777454124079
+}

@@ -1,0 +1,14 @@
+{
+  "id": "PROP-0002",
+  "userId": "demo-user",
+  "name": "Siem Reap Land Plot",
+  "code": "SR00015 Land",
+  "type": "Land",
+  "status": "Vacant",
+  "statusVariant": "vacant",
+  "health": 28,
+  "lat": 13.3633,
+  "lng": 103.86,
+  "createdAt": 1777454124072,
+  "updatedAt": 1777454124072
+}

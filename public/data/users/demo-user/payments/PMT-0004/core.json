@@ -1,0 +1,12 @@
+{
+  "propertyId": "PROP-0006",
+  "leaseId": "LEASE-0002",
+  "tenantId": "TEN-0002",
+  "date": 1774569600000,
+  "kind": "Rent",
+  "amount": 1200,
+  "method": "Wing",
+  "status": "Overdue",
+  "id": "PMT-0004",
+  "userId": "demo-user"
+}

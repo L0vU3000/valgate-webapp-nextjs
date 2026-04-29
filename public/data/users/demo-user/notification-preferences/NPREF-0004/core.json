@@ -1,0 +1,10 @@
+{
+  "eventType": "Leasing",
+  "email": false,
+  "slack": true,
+  "sms": false,
+  "createdAt": 1775001600000,
+  "updatedAt": 1775001600000,
+  "id": "NPREF-0004",
+  "userId": "demo-user"
+}

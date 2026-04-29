@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Property } from "@/lib/mock-data";
+import type { Property } from "@/lib/data/types/property";
+import type { OwnershipRecord } from "@/lib/data/types/ownership-record";
+import type { OwnershipHistory } from "@/lib/data/types/ownership-history";
 import { PropertyLayout } from "@/components/property/PropertyLayout";
 import {
   Check, Mail, Phone, MapPin, FileText, Upload,
-  Users, DollarSign, Clock, Scale, UserPlus,
+  Users, DollarSign, Clock, Scale, UserPlus, History,
 } from "lucide-react";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 function fade(mounted: boolean, delay: number, reduced = false) {
   if (reduced) return { opacity: 1 };
@@ -25,21 +28,17 @@ const kpis = [
   { label: "Holding Period", value: "4 yrs 3 mos", sub: "Since Mar 2021", Icon: Clock },
 ];
 
-const docs = [
-  { name: "Property Deed", type: "Title Document", date: "Mar 2021", owner: "Both" },
-  { name: "Purchase Agreement", type: "Contract", date: "Feb 2021", owner: "Both" },
-  { name: "Mortgage Note", type: "Loan Document", date: "Mar 2021", owner: "Both" },
-  { name: "Co-Owner Agreement", type: "Legal Agreement", date: "Mar 2021", owner: "Both" },
-];
+interface Props {
+  property: Property;
+  ownershipRecords: OwnershipRecord[];
+  ownershipHistory: OwnershipHistory[];
+}
 
-const historyItems = [
-  { date: "Jan 15, 2026", text: "1099 forms generated and sent to both owners", color: "var(--val-primary-dark)" },
-  { date: "Dec 01, 2025", text: "Annual equity statement distributed", color: "#F59E0B" },
-  { date: "Mar 15, 2021", text: "Property acquired — Tenancy in Common established", color: "#059669" },
-  { date: "Mar 15, 2021", text: "Deed recorded with Cook County", color: "#515D66" },
-];
-
-export function PropertyOwnershipPage({ property }: { property: Property }) {
+export function PropertyOwnershipPage({
+  property,
+  ownershipRecords = [],
+  ownershipHistory = [],
+}: Props) {
   const [mounted, setMounted] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
 
@@ -349,9 +348,19 @@ export function PropertyOwnershipPage({ property }: { property: Property }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {docs.map((doc, i) => (
+                  {ownershipRecords.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-6">
+                        <EmptyState
+                          icon={<FileText className="size-6" />}
+                          title="No ownership documents yet"
+                          description="Add a deed or title to start tracking ownership for this property."
+                        />
+                      </td>
+                    </tr>
+                  ) : ownershipRecords.map((doc, i) => (
                     <tr
-                      key={doc.name}
+                      key={doc.id}
                       className="border-t border-slate-100 hover:bg-blue-50/30 cursor-pointer transition-colors"
                       style={{ animationDelay: `${i * 25}ms` }}
                     >
@@ -382,19 +391,27 @@ export function PropertyOwnershipPage({ property }: { property: Property }) {
             style={fade(mounted, 420, reducedMotion)}
           >
             <h3 className="text-base font-bold text-val-heading mb-4">Ownership History &amp; Activity</h3>
-            <div className="flex flex-col gap-4 relative">
-              <div className="absolute left-[107px] top-2 bottom-2 w-px bg-slate-100" aria-hidden="true" />
-              {historyItems.map((item, i) => (
-                <div key={i} className="flex items-start gap-4">
-                  <span className="text-[13px] text-slate-400 w-[100px] shrink-0 pt-0.5">{item.date}</span>
-                  <span
-                    className="w-1.5 h-1.5 rounded-full mt-[5px] shrink-0 relative z-10"
-                    style={{ backgroundColor: item.color }}
-                  />
-                  <span className="text-[14px] text-val-heading">{item.text}</span>
-                </div>
-              ))}
-            </div>
+            {ownershipHistory.length === 0 ? (
+              <EmptyState
+                icon={<History className="size-6" />}
+                title="No ownership history yet"
+                description="Title transfers and ownership changes will appear here."
+              />
+            ) : (
+              <div className="flex flex-col gap-4 relative">
+                <div className="absolute left-[107px] top-2 bottom-2 w-px bg-slate-100" aria-hidden="true" />
+                {ownershipHistory.map((item, i) => (
+                  <div key={item.id ?? i} className="flex items-start gap-4">
+                    <span className="text-[13px] text-slate-400 w-[100px] shrink-0 pt-0.5">{item.date}</span>
+                    <span
+                      className="w-1.5 h-1.5 rounded-full mt-[5px] shrink-0 relative z-10"
+                      style={{ backgroundColor: item.color }}
+                    />
+                    <span className="text-[14px] text-val-heading">{item.text}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
         </div>

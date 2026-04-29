@@ -5,7 +5,7 @@ import {
   FileText, Wrench, Receipt, Bell,
   MoreHorizontal, Download, Pencil,
 } from "lucide-react";
-import type { Property } from "@/lib/mock-data";
+import type { Property } from "@/lib/data/types/property";
 import { PropertyLayout } from "@/components/property/PropertyLayout";
 
 const alerts = [

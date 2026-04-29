@@ -9,10 +9,11 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import type { Property } from "@/lib/mock-data";
+import type { Property } from "@/lib/data/types/property";
+import type { PropertyValuation } from "@/lib/data/types/property-valuation";
 import { PropertyLayout } from "@/components/property/PropertyLayout";
 
-const valueHistory = [
+const FALLBACK_VALUE_HISTORY = [
   { month: "Jan", price: 380000 },
   { month: "Feb", price: 400000 },
   { month: "Mar", price: 420000 },
@@ -120,9 +121,18 @@ function KpiCard({
   );
 }
 
-export function PropertyValuationPage({ property }: { property: Property }) {
+interface Props {
+  property: Property;
+  valuations: PropertyValuation[];
+}
+
+export function PropertyValuationPage({ property, valuations = [] }: Props) {
   const [mounted, setMounted] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
+
+  const valueHistory = valuations.length > 0
+    ? valuations.map((v) => ({ month: v.month, price: v.price }))
+    : FALLBACK_VALUE_HISTORY;
 
   useEffect(() => {
     setReducedMotion(window.matchMedia("(prefers-reduced-motion: reduce)").matches);

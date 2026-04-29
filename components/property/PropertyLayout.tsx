@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ChevronLeft, Share2, MapPin, MoreVertical, LayoutGrid, Eye, Shield, DollarSign, Key, TrendingUp, Globe } from "lucide-react";
-import type { Property } from "@/lib/mock-data";
+import type { Property } from "@/lib/data/types/property";
 
 const tabs = [
   { key: "overview", label: "Overview", icon: LayoutGrid },

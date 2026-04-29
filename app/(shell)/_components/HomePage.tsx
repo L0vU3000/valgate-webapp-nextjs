@@ -67,9 +67,9 @@ const triggerPlaceholders = [
 
 export function HomePage({ initialProperties, portfolioStats }: { initialProperties: Property[]; portfolioStats: PortfolioStats }) {
 
-  const [selectedPin, setSelectedPin] = useState<number | null>(null);
-  const [closingKey, setClosingKey] = useState<number | null>(null);
-  const [hoveredProperty, setHoveredProperty] = useState<number | null>(null);
+  const [selectedPin, setSelectedPin] = useState<string | null>(null);
+  const [closingKey, setClosingKey] = useState<string | null>(null);
+  const [hoveredProperty, setHoveredProperty] = useState<string | null>(null);
   const [tableOpen, setTableOpen] = useState(false);
   const [tableOpenCount, setTableOpenCount] = useState(0);
   const [commandOpen, setCommandOpen] = useState(false);
@@ -130,7 +130,7 @@ export function HomePage({ initialProperties, portfolioStats }: { initialPropert
   }, [selectedPin]);
 
   const handlePinClick = useCallback(
-    (pinId: number | null) => {
+    (pinId: string | null) => {
       if (pinId === null) return;
       if (selectedPin === pinId) {
         closeDrawer();

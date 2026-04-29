@@ -1,3 +1,7 @@
+import "server-only";
+import * as db from "@/lib/data/db";
+import { getCurrentUserId } from "@/lib/data/auth-shim";
+
 export type PropertyStatus = "complete" | "pending" | "action" | "draft";
 
 export type EstateStat = {
@@ -51,6 +55,18 @@ export type EstatePlanningPageData = {
 };
 
 export async function getEstatePlanningPageData(): Promise<EstatePlanningPageData> {
+  const userId = getCurrentUserId();
+  const dbSuccessors = await db.successors.list(userId);
+
+  const successors: Successor[] = dbSuccessors.map((s) => ({
+    initials: s.initials,
+    name: s.name,
+    relation: s.relation,
+    role: s.role,
+    share: `${s.share.toFixed(2)}%`,
+    verified: s.verified,
+  }));
+
   return {
     stats: [
       {
@@ -119,7 +135,7 @@ export async function getEstatePlanningPageData(): Promise<EstatePlanningPageDat
         color: "#d8e3f4",
       },
     ],
-    successors: [
+    successors: successors.length > 0 ? successors : [
       {
         initials: "SC",
         name: "Sophea Chan",

@@ -6,9 +6,16 @@ import { Search, Bell } from "lucide-react";
 import { CommandPalette } from "@/components/home/CommandPalette";
 import { NotificationsPanel, type NotificationsPanelHandle } from "@/components/layout/NotificationsPanel";
 import { useNotifications } from "@/lib/hooks/use-notifications";
-import { properties } from "@/lib/mock-data";
+import type { PropertyListItem } from "@/lib/data/types/property";
+import { useAppHeaderProperties } from "./AppHeaderPropertiesContext";
 
-export function AppHeader() {
+export function AppHeader({
+  properties: propertiesProp,
+}: {
+  properties?: PropertyListItem[];
+} = {}) {
+  const propertiesFromContext = useAppHeaderProperties();
+  const properties = propertiesProp ?? propertiesFromContext;
   const [commandOpen, setCommandOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const bellRef = useRef<HTMLButtonElement>(null);

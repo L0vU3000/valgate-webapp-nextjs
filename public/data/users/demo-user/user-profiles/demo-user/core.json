@@ -1,0 +1,19 @@
+{
+  "firstName": "Ratanak",
+  "lastName": "Ly",
+  "createdAt": 1777454124119,
+  "jobTitle": "Portfolio Manager",
+  "employeeId": "EMP-0421",
+  "email": "ratanak@valgate.example",
+  "phone": "+855 12 000 4421",
+  "officeLocation": "Phnom Penh HQ",
+  "language": "English",
+  "timezone": "Asia/Phnom_Penh",
+  "currency": "USD",
+  "role": "Owner",
+  "memberSince": 1705276800000,
+  "lastLogin": 1775001600000,
+  "id": "demo-user",
+  "userId": "demo-user",
+  "updatedAt": 1777454124119
+}

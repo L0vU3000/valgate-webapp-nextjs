@@ -6,15 +6,15 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import Supercluster from "supercluster";
 import { env } from "@/lib/env";
 import { useShellContext } from "@/components/layout/shell-context";
-import type { Property } from "@/lib/mock-data";
+import type { Property } from "@/lib/data/types/property";
 
 const CAMBODIA_CENTER: [number, number] = [104.9, 12.5];
 const CAMBODIA_ZOOM = 7;
 
 interface MapViewProps {
   properties: Property[];
-  selectedId: number | null;
-  onSelectProperty: (id: number | null) => void;
+  selectedId: string | null;
+  onSelectProperty: (id: string | null) => void;
   onMapLoaded?: () => void;
   onMapReady?: (map: mapboxgl.Map) => void;
   className?: string;
@@ -31,7 +31,7 @@ export function MapView({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const activeMarkersRef = useRef<Map<string, mapboxgl.Marker>>(new Map());
-  const pinMarkersRef = useRef<Map<number, mapboxgl.Marker>>(new Map());
+  const pinMarkersRef = useRef<Map<string, mapboxgl.Marker>>(new Map());
   const clusterIndex = useRef<Supercluster | null>(null);
   const exitingMarkersRef = useRef<
     Map<string, { marker: mapboxgl.Marker; timeout: ReturnType<typeof setTimeout> }>
@@ -341,7 +341,7 @@ export function MapView({
           marker.remove();
           exitingMarkersRef.current.delete(key);
           if (isPin) {
-            pinMarkersRef.current.delete(Number(key.replace("point-", "")));
+            pinMarkersRef.current.delete(key.replace("point-", ""));
           }
         }, 220);
         exitingMarkersRef.current.set(key, { marker, timeout });
@@ -369,7 +369,7 @@ export function MapView({
         if (innerEl) innerEl.style.animation = "";
         activeMarkersRef.current.set(key, entry.marker);
         if (key.startsWith("point-")) {
-          const id = Number(key.replace("point-", ""));
+          const id = key.replace("point-", "");
           pinMarkersRef.current.set(id, entry.marker);
         }
         continue;

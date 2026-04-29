@@ -13,9 +13,11 @@ import {
   Star,
   Plus,
   Upload,
+  UsersRound,
 } from "lucide-react";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { cn } from "@/components/ui/utils";
+import { EmptyState } from "@/components/ui/EmptyState";
 import type { Category, Professional, DirectoryPageData } from "../queries";
 
 const CATEGORY_BADGE: Record<Exclude<Category, "All">, string> = {
@@ -311,8 +313,12 @@ export function ProfessionalDirectoryPage({ data }: { data: DirectoryPageData })
               <ProfessionalCard key={pro.id} pro={pro} index={i} />
             ))}
             {filtered.length === 0 && (
-              <div className="col-span-3 text-center py-16 text-slate-400 text-sm animate-[fade-slide-up_0.3s_cubic-bezier(0.22,1,0.36,1)_both]">
-                No professionals found matching your search.
+              <div className="col-span-3 animate-[fade-slide-up_0.3s_cubic-bezier(0.22,1,0.36,1)_both]">
+                <EmptyState
+                  icon={<UsersRound className="size-6" />}
+                  title="No professionals found"
+                  description="Try a different search or category filter."
+                />
               </div>
             )}
           </div>

@@ -1,0 +1,12 @@
+{
+  "propertyId": "PROP-0001",
+  "date": "Mar 14, 2026",
+  "type": "Annual Fire Safety",
+  "inspector": "Noun Sreymom",
+  "status": "Passed",
+  "issues": 0,
+  "createdAt": 1775001600000,
+  "updatedAt": 1775001600000,
+  "id": "INSP-0001",
+  "userId": "demo-user"
+}

@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef, Fragment, useCallback } from "react";
-import type { Property } from "@/lib/mock-data";
+import type { Property } from "@/lib/data/types/property";
+import type { Document as DbDocument } from "@/lib/data/types/document";
+import type { Folder as DbFolder } from "@/lib/data/types/folder";
 import { PropertyLayout } from "@/components/property/PropertyLayout";
 import {
   FolderOpen,
@@ -28,6 +30,8 @@ import {
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { DocumentDetailView } from "@/components/property/DocumentDetailView";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { formatBytes } from "@/lib/format";
 
 type ViewMode = "list" | "grid";
 type UploadStatus = "uploading" | "done" | "failed" | "queued";
@@ -65,9 +69,9 @@ const mainFolders = [
   { name: "Tax Receipt",   icon: FileText   },
 ];
 
-const subFolders = ["Contract", "Receipts", "Tax", "Rental", "Images", "Videos"];
+const FALLBACK_SUBFOLDERS = ["Contract", "Receipts", "Tax", "Rental", "Images", "Videos"];
 
-const files: FileEntry[] = [
+const FALLBACK_FILES: FileEntry[] = [
   { name: "Title_Deed.pdf",                type: "doc",         icon: FileText,        iconClass: "text-blue-600",    thumb: null, folder: "Contract", size: "1.2 MB",  date: "Jan 12, 2022" },
   { name: "Mortgage_Agreement_2022.pdf",   type: "doc",         icon: FileText,        iconClass: "text-blue-600",    thumb: null, folder: "Contract", size: "890 KB",  date: "Mar 4, 2022"  },
   { name: "Insurance_Policy_2025.pdf",     type: "doc",         icon: FileText,        iconClass: "text-blue-600",    thumb: null, folder: "Contract", size: "2.1 MB",  date: "Jan 1, 2025"  },
@@ -256,7 +260,14 @@ function Checkbox({
   );
 }
 
-export function PropertyDocumentsPage({ property }: { property: Property }) {
+interface Props {
+  property: Property;
+  userId: string;
+  documents: DbDocument[];
+  folders: DbFolder[];
+}
+
+export function PropertyDocumentsPage({ property, userId, documents: dbDocuments = [], folders: dbFolders = [] }: Props) {
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [activeFolder, setActiveFolder] = useState("All Documents");
   const [activeSubfolder, setActiveSubfolder] = useState<string | null>(null);
@@ -289,6 +300,24 @@ export function PropertyDocumentsPage({ property }: { property: Property }) {
   const [showUploadPanel, setShowUploadPanel] = useState(false);
   const [uploadTab, setUploadTab] = useState<UploadTab>("all");
   const [panelMinimized, setPanelMinimized] = useState(false);
+
+  // Derive subFolders and files from db props, falling back to hardcoded data
+  const subFolders = dbFolders.length > 0
+    ? dbFolders.map((f) => f.name)
+    : FALLBACK_SUBFOLDERS;
+
+  const files: FileEntry[] = dbDocuments.length > 0
+    ? dbDocuments.map((doc) => ({
+        name: doc.name,
+        type: doc.kind === "photo" ? "image" : "doc",
+        icon: doc.kind === "photo" ? Image : FileText,
+        iconClass: doc.kind === "photo" ? "text-emerald-600" : "text-blue-600",
+        thumb: doc.kind === "photo" ? `/data/users/${userId}/${doc.storageId}` : null,
+        folder: "All Documents",
+        size: doc.sizeBytes ? formatBytes(doc.sizeBytes) : "—",
+        date: new Date(doc.uploadedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+      }))
+    : FALLBACK_FILES;
 
   function toggleSelectFile(name: string) {
     setSelectedFiles((prev) => {
@@ -609,17 +638,12 @@ export function PropertyDocumentsPage({ property }: { property: Property }) {
               </div>
 
               {filteredFiles.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 text-center">
-                  <div className="w-12 h-12 rounded-xl bg-val-bg-tint flex items-center justify-center mb-4">
-                    <FolderOpen className="size-6 text-slate-400" />
-                  </div>
-                  <p className="text-sm font-semibold text-[--val-heading]">
-                    No files in {activeSubfolder}
-                  </p>
-                  <p className="text-xs text-slate-400 mt-1 max-w-[220px]">
-                    Upload a document to get started.
-                  </p>
-                </div>
+                <EmptyState
+                  className="py-16"
+                  icon={<FolderOpen className="size-6" />}
+                  title={activeSubfolder ? `No files in ${activeSubfolder}` : "No documents yet"}
+                  description="Upload a document to get started."
+                />
               ) : viewMode === "list" ? (
                 <ListView
                   files={filteredFiles}
@@ -1510,6 +1534,7 @@ function GridView({
                   src={f.thumb}
                   alt={f.name}
                   className="w-full h-full object-cover"
+                  loading="lazy"
                 />
               ) : (
                 <f.icon className={`w-10 h-10 ${f.iconClass}`} />

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import type { Property } from "@/lib/mock-data";
+import type { Property } from "@/lib/data/types/property";
 import { PropertyLayout } from "@/components/property/PropertyLayout";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,

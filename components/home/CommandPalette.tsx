@@ -27,7 +27,10 @@ import {
   DialogTitle,
 } from "../ui/dialog";
 import { cn } from "../ui/utils";
-import type { Property, StatusVariant } from "../../lib/mock-data";
+import type {
+  PropertyListItem,
+  StatusVariant,
+} from "@/lib/data/types/property";
 
 const statusClasses: Record<StatusVariant, string> = {
   rented:
@@ -50,7 +53,7 @@ export function CommandPalette({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  properties: Property[];
+  properties: PropertyListItem[];
   navigate: (path: string) => void;
 }) {
   const mockDocs = [

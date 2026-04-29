@@ -1,6 +1,6 @@
 import { ChevronLeft, ChevronRight, Map } from "lucide-react";
 import { TYPE_ICON, TYPE_COLOR, typeBadgeClasses, statusBadgeClasses, titleBadgeClasses, healthDotColor } from "../../lib/property-helpers";
-import type { Property } from "../../lib/mock-data";
+import type { Property } from "@/lib/data/types/property";
 
 export interface TableAnimationConfig {
   containerDuration: number;

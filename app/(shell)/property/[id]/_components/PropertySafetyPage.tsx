@@ -1,43 +1,30 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Property } from "@/lib/mock-data";
+import type { Property } from "@/lib/data/types/property";
+import type { Inspection } from "@/lib/data/types/inspection";
+import type { Certification } from "@/lib/data/types/certification";
+import type { SafetyRisk } from "@/lib/data/types/safety-risk";
+import type { EmergencyContact } from "@/lib/data/types/emergency-contact";
 import { PropertyLayout } from "@/components/property/PropertyLayout";
-import { Check, AlertTriangle, Shield, Phone } from "lucide-react";
+import { Check, AlertTriangle, Shield, Phone, ClipboardCheck, FileCheck, AlertOctagon } from "lucide-react";
+import { EmptyState } from "@/components/ui/EmptyState";
 
-const certifications = [
-  { name: "Fire Safety Certificate", status: "Valid", issued: "Apr 29, 2025", expires: "Apr 29, 2026", inspector: "Fire Dept, District 3" },
-  { name: "Electrical Safety", status: "Valid", issued: "Apr 28, 2025", expires: "Apr 29, 2026", inspector: "Fire Dept, District 3" },
-  { name: "Gas Safety", status: "Expires Soon", issued: "Apr 29, 2025", expires: "Apr 29, 2026", inspector: "Fire Dept, District 3" },
-  { name: "Structural Integrity", status: "Valid", issued: "Apr 29, 2025", expires: "Apr 29, 2026", inspector: "Fire Dept, District 3" },
-  { name: "Asbestos Survey", status: "Valid", issued: "Apr 29, 2025", expires: "Apr 29, 2026", inspector: "Fire Dept, District 3" },
-  { name: "EICR Certificate", status: "Valid", issued: "Apr 29, 2025", expires: "Apr 29, 2026", inspector: "Fire Dept, District 3" },
-];
+interface Props {
+  property: Property;
+  inspections: Inspection[];
+  certifications: Certification[];
+  risks: SafetyRisk[];
+  emergencyContacts: EmergencyContact[];
+}
 
-const inspections = [
-  { date: "Apr 29, 2025", type: "Fire Safety", inspector: "Fire Dept, District 3", status: "Passed",      statusClass: "text-emerald-700", issues: 0 },
-  { date: "Apr 29, 2025", type: "Fire Safety", inspector: "Fire Dept, District 3", status: "Satisfactory", statusClass: "text-amber-700",   issues: 0 },
-  { date: "Apr 29, 2025", type: "Fire Safety", inspector: "Fire Dept, District 3", status: "Clear",        statusClass: "text-emerald-700", issues: 0 },
-  { date: "Apr 29, 2025", type: "Fire Safety", inspector: "Fire Dept, District 3", status: "Minor Issue",  statusClass: "text-rose-700",    issues: 2 },
-  { date: "Apr 29, 2025", type: "Fire Safety", inspector: "Fire Dept, District 3", status: "Clear",        statusClass: "text-emerald-700", issues: 0 },
-];
-
-const risks = [
-  { severityLabel: "Medium", severityBadgeClass: "text-amber-700 bg-amber-50", title: "Exterior Wall Crack",         desc: "Hairline crack monitored, no structural concern. Cosmetic repair scheduled Q3 2026." },
-  { severityLabel: "Medium", severityBadgeClass: "text-amber-700 bg-amber-50", title: "Drainage Due — Flood Zone 2", desc: "Inspection due May 2026. Flood zone 2 — maintain comprehensive insurance." },
-  { severityLabel: "High",   severityBadgeClass: "text-rose-700 bg-rose-50",   title: "Oak Tree — Subsidence Risk", desc: "Near boundary. Annual arborist check recommended to prevent subsidence." },
-];
-
-const emergencyContacts = [
-  { name: "Fire Department",       phone: "+1 (555) 911-0001", sub: "District 3 Fire Station",       iconBg: "bg-rose-50",    iconText: "text-rose-700"    },
-  { name: "Emergency Electrician", phone: "+1 (555) 911-0001", sub: "SafeWire 24/7 Service",          iconBg: "bg-amber-50",   iconText: "text-amber-700"   },
-  { name: "Emergency Plumber",     phone: "+1 (555) 911-0001", sub: "QuickFix Plumbing",              iconBg: "bg-blue-50",    iconText: "text-blue-700"    },
-  { name: "Gas Emergency",         phone: "+1 (555) 911-0001", sub: "Gas Safe Emergency Line",        iconBg: "bg-amber-50",   iconText: "text-amber-700"   },
-  { name: "Property Insurance",    phone: "+1 (555) 911-0001", sub: "Guardian Property Insurance",    iconBg: "bg-emerald-50", iconText: "text-emerald-700" },
-  { name: "Structural Engineer",   phone: "+1 (555) 911-0001", sub: "BuildRight Engineers",           iconBg: "bg-slate-50",   iconText: "text-slate-600"   },
-];
-
-export function PropertySafetyPage({ property }: { property: Property }) {
+export function PropertySafetyPage({
+  property,
+  inspections = [],
+  certifications = [],
+  risks = [],
+  emergencyContacts = [],
+}: Props) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     const t = setTimeout(() => setMounted(true), 50);
@@ -170,9 +157,15 @@ export function PropertySafetyPage({ property }: { property: Property }) {
               style={fade(180)}
             >
               <h3 className="text-base font-bold text-[--val-heading] mb-4">Safety Certifications</h3>
-              {certifications.map((c, i) => (
+              {certifications.length === 0 ? (
+                <EmptyState
+                  icon={<FileCheck className="size-6" />}
+                  title="No certifications yet"
+                  description="Upload a fire, electrical, or plumbing certificate to get started."
+                />
+              ) : certifications.map((c, i) => (
                 <div
-                  key={c.name}
+                  key={c.id}
                   className={`flex items-start justify-between py-4 ${i > 0 ? "border-t border-slate-100" : ""}`}
                 >
                   <div>
@@ -211,45 +204,58 @@ export function PropertySafetyPage({ property }: { property: Property }) {
                 </button>
               </div>
               <div className="border border-slate-200 rounded-lg mx-6 mb-6 overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
-                <table className="w-full">
-                  <thead>
-                    <tr className="bg-slate-50/80 border-b border-slate-200">
-                      <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Date</th>
-                      <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Type</th>
-                      <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Inspector</th>
-                      <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Status</th>
-                      <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Issues Found</th>
-                      <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Report</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {inspections.map((insp, i) => (
-                      <tr
-                        key={i}
-                        className="border-t border-slate-100 hover:bg-blue-50/30 cursor-pointer transition-colors"
-                        style={{
-                          animationName: mounted ? "analytics-fade-up" : "none",
-                          animationDuration: "0.5s",
-                          animationTimingFunction: "cubic-bezier(0.16,1,0.3,1)",
-                          animationFillMode: "forwards",
-                          animationDelay: `${i * 25}ms`,
-                          opacity: mounted ? undefined : 0,
-                        }}
-                      >
-                        <td className="px-4 py-3.5 text-[14px] text-[--val-heading]">{insp.date}</td>
-                        <td className="px-4 py-3.5 text-[14px] text-[--val-heading]">{insp.type}</td>
-                        <td className="px-4 py-3.5 text-[14px] text-slate-500">{insp.inspector}</td>
-                        <td className="px-4 py-3.5 text-[14px]"><span className={`font-semibold ${insp.statusClass}`}>{insp.status}</span></td>
-                        <td className="px-4 py-3.5 text-[14px] text-[--val-heading]">{insp.issues}</td>
-                        <td className="px-4 py-3.5">
-                          <button className="text-[14px] font-medium text-[--val-primary-dark] hover:opacity-75 transition-opacity">
-                            View report
-                          </button>
-                        </td>
+                {inspections.length === 0 ? (
+                  <EmptyState
+                    icon={<ClipboardCheck className="size-6" />}
+                    title="No inspections yet"
+                    description="Schedule an inspection to start building inspection history."
+                  />
+                ) : (
+                  <table className="w-full">
+                    <thead>
+                      <tr className="bg-slate-50/80 border-b border-slate-200">
+                        <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Date</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Type</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Inspector</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Status</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Issues Found</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Report</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {inspections.map((insp, i) => {
+                        const statusClass = insp.status === "Passed" || insp.status === "Clear" ? "text-emerald-700"
+                          : insp.status === "Satisfactory" ? "text-amber-700"
+                          : "text-rose-700";
+                        return (
+                          <tr
+                            key={insp.id}
+                            className="border-t border-slate-100 hover:bg-blue-50/30 cursor-pointer transition-colors"
+                            style={{
+                              animationName: mounted ? "analytics-fade-up" : "none",
+                              animationDuration: "0.5s",
+                              animationTimingFunction: "cubic-bezier(0.16,1,0.3,1)",
+                              animationFillMode: "forwards",
+                              animationDelay: `${i * 25}ms`,
+                              opacity: mounted ? undefined : 0,
+                            }}
+                          >
+                            <td className="px-4 py-3.5 text-[14px] text-[--val-heading]">{insp.date}</td>
+                            <td className="px-4 py-3.5 text-[14px] text-[--val-heading]">{insp.type}</td>
+                            <td className="px-4 py-3.5 text-[14px] text-slate-500">{insp.inspector}</td>
+                            <td className="px-4 py-3.5 text-[14px]"><span className={`font-semibold ${statusClass}`}>{insp.status}</span></td>
+                            <td className="px-4 py-3.5 text-[14px] text-[--val-heading]">{insp.issues}</td>
+                            <td className="px-4 py-3.5">
+                              <button className="text-[14px] font-medium text-[--val-primary-dark] hover:opacity-75 transition-opacity">
+                                View report
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
               </div>
             </div>
 
@@ -262,20 +268,33 @@ export function PropertySafetyPage({ property }: { property: Property }) {
                 style={fade(260)}
               >
                 <h3 className="text-base font-bold text-[--val-heading] mb-2">Risk Assessment</h3>
-                {risks.map((r, i) => (
-                  <div
-                    key={r.title}
-                    className={`flex items-start gap-4 py-4 ${i > 0 ? "border-t border-slate-100" : ""}`}
-                  >
-                    <span className={`text-[11px] font-semibold uppercase tracking-[0.05em] px-2 py-0.5 rounded shrink-0 mt-0.5 ${r.severityBadgeClass}`}>
-                      {r.severityLabel}
-                    </span>
-                    <div>
-                      <p className="text-[15px] font-semibold text-[--val-heading]">{r.title}</p>
-                      <p className="text-[14px] text-slate-500 mt-0.5">{r.desc}</p>
+                {risks.length === 0 ? (
+                  <EmptyState
+                    icon={<AlertOctagon className="size-6" />}
+                    title="No risks recorded"
+                    description="Identified safety risks for this property will appear here."
+                  />
+                ) : risks.map((r, i) => {
+                  const severityBadgeClass = r.severityLabel === "High"
+                    ? "text-rose-700 bg-rose-50"
+                    : r.severityLabel === "Low"
+                    ? "text-emerald-700 bg-emerald-50"
+                    : "text-amber-700 bg-amber-50";
+                  return (
+                    <div
+                      key={r.id}
+                      className={`flex items-start gap-4 py-4 ${i > 0 ? "border-t border-slate-100" : ""}`}
+                    >
+                      <span className={`text-[11px] font-semibold uppercase tracking-[0.05em] px-2 py-0.5 rounded shrink-0 mt-0.5 ${severityBadgeClass}`}>
+                        {r.severityLabel}
+                      </span>
+                      <div>
+                        <p className="text-[15px] font-semibold text-[--val-heading]">{r.title}</p>
+                        <p className="text-[14px] text-slate-500 mt-0.5">{r.desc}</p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* Emergency Contacts — col-span-5 */}
@@ -289,24 +308,32 @@ export function PropertySafetyPage({ property }: { property: Property }) {
                     Edit Contacts
                   </button>
                 </div>
-                <div className="flex flex-col">
-                  {Array.from({ length: Math.ceil(emergencyContacts.length / 2) }, (_, row) => (
-                    <div key={row} className={`flex divide-x divide-slate-100 ${row > 0 ? "border-t border-slate-100" : ""}`}>
-                      {emergencyContacts.slice(row * 2, row * 2 + 2).map((ec, col) => (
-                        <div key={ec.name} className={`flex items-start gap-3 py-4 flex-1 ${col === 1 ? "pl-6" : ""}`}>
-                          <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${ec.iconBg}`}>
-                            <Phone className={`w-4 h-4 ${ec.iconText}`} />
+                {emergencyContacts.length === 0 ? (
+                  <EmptyState
+                    icon={<Phone className="size-6" />}
+                    title="No emergency contacts"
+                    description="Add 24/7 contacts so they're one tap away during an incident."
+                  />
+                ) : (
+                  <div className="flex flex-col">
+                    {Array.from({ length: Math.ceil(emergencyContacts.length / 2) }, (_, row) => (
+                      <div key={row} className={`flex divide-x divide-slate-100 ${row > 0 ? "border-t border-slate-100" : ""}`}>
+                        {emergencyContacts.slice(row * 2, row * 2 + 2).map((ec, col) => (
+                          <div key={ec.id} className={`flex items-start gap-3 py-4 flex-1 ${col === 1 ? "pl-6" : ""}`}>
+                            <div className="w-9 h-9 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
+                              <Phone className="w-4 h-4 text-blue-700" />
+                            </div>
+                            <div>
+                              <p className="text-[14px] font-semibold text-[--val-heading]">{ec.name}</p>
+                              <p className="text-[14px] text-[--val-primary-dark]">{ec.phone}</p>
+                              {ec.sub && <p className="text-[12px] text-slate-400">{ec.sub}</p>}
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-[14px] font-semibold text-[--val-heading]">{ec.name}</p>
-                            <p className="text-[14px] text-[--val-primary-dark]">{ec.phone}</p>
-                            <p className="text-[12px] text-slate-400">{ec.sub}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ))}
-                </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
             </div>

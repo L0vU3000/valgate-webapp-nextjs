@@ -1,9 +1,10 @@
 "use client";
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
-import { X, Settings } from "lucide-react";
+import { X, Settings, Bell } from "lucide-react";
 import { type Notification, type NotificationCategory } from "@/lib/data/notifications";
 import { formatRelativeTime } from "@/lib/format";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 const CATEGORY_STYLES: Record<
   NotificationCategory,
@@ -175,6 +176,13 @@ export const NotificationsPanel = forwardRef<NotificationsPanelHandle, Notificat
 
       {/* Notification list */}
       <div className="flex flex-col bg-slate-50/30 overflow-y-auto max-h-[540px]">
+        {notifications.length === 0 && (
+          <EmptyState
+            icon={<Bell className="size-6" />}
+            title="No notifications yet"
+            description="You're all caught up. New activity will show up here."
+          />
+        )}
         {notifications.map((notification, index) => {
           const style = CATEGORY_STYLES[notification.category];
           return (

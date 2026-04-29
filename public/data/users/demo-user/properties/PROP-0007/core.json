@@ -1,0 +1,14 @@
+{
+  "id": "PROP-0007",
+  "userId": "demo-user",
+  "name": "Pub Street Commerce Block",
+  "code": "SR00004 Building",
+  "type": "Building",
+  "status": "Rented",
+  "statusVariant": "rented",
+  "health": 88,
+  "lat": 13.361,
+  "lng": 103.8558,
+  "createdAt": 1777454124078,
+  "updatedAt": 1777454124078
+}

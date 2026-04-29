@@ -10,12 +10,12 @@
 |---|---|
 | Styling | Tailwind CSS + shadcn/ui |
 | Auth | Clerk |
-| Database | Convex |
+| Database | decide later |
 | Validation | Zod |
 | Forms | React Hook Form + Zod |
 | Email | Resend |
-| Payments | Stripe |
-| Rate Limiting | Upstash Redis |
+| Payments | decide later |
+| Rate Limiting | decide later |
 | Env validation | @t3-oss/env-nextjs |
 
 ---
