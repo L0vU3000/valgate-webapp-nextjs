@@ -1,9 +1,0 @@
-{
-  "propertyId": "PROP-0001",
-  "severity": "Emergency",
-  "title": "Burst pipe in kitchen — water shut off",
-  "status": "InProgress",
-  "createdAt": 1774915200000,
-  "id": "MAINT-0001",
-  "userId": "demo-user"
-}
