@@ -2,18 +2,18 @@
 slug: portfolio--properties-count
 data_point: "Properties → 16"
 route: /portfolio
-revision: 1
+revision: 2
 date: 2026-04-30
-verdict: "⚠️ 4 findings (1 P1, 2 P2, 1 P3)"
+verdict: "✅ 3 resolved · 1 deferred (F3 — Zod, awaiting real backend)"
 ---
 
 # Audit — Properties (count) on /portfolio
-_Last revised: 2026-04-30 · Revision 1_
+_Last revised: 2026-04-30 · Revision 2_
 
 ## TL;DR
 - ✅ Number is correct (16 displayed = 16 in seed; rented 7 + vacant 9 = 16)
-- ⚠️ 4 findings · 1 important · 2 medium · 1 nit
-- 🔧 Top fix: narrow `Property[]` to `PropertyListItem[]` before passing to the Client Component (F1)
+- ✅ 3 of 4 findings resolved (F1, F2, F4) · 1 intentionally deferred (F3)
+- 🔧 Only open item: Zod validation at FS read boundary (F3) — deferred until real backend lands
 
 ## Contents
 | # | Section | Question it answers | Result |
@@ -165,7 +165,7 @@ Match?                    ✅
 
 ---
 
-### 🔴 F1 — Full `Property[]` shipped to browser; `PropertyListItem` ignored
+### ~~🔴 F1 — Full `Property[]` shipped to browser; `PropertyListItem` ignored~~ — ✅ resolved in Revision 2
 **P1 robustness · confidence: high · `[render]`**
 
 **Where:** `app/(shell)/portfolio/queries.ts:15–33`
@@ -195,9 +195,11 @@ const listItems: PropertyListItem[] = properties.map(p => ({
 return { properties: listItems, stats, kpis };
 ```
 
+**Resolved:** commit `59709db` — `PropertyListItem` (extended with `size` + `title`) now used throughout. `PropertyTable` props updated to `PropertyListItem[]`. Dead `StatusVariant` re-export removed as part of the same change.
+
 ---
 
-### 🟡 F2 — `statusVariant` duplicates `status` with no derivation guard
+### ~~🟡 F2 — `statusVariant` duplicates `status` with no derivation guard~~ — ✅ resolved in Revision 2
 **P2 schema smell · confidence: high · `[schema]`**
 
 **Where:** `lib/data/types/property.ts:24–26` and `lib/data/derivations/portfolio.ts:29–30`
@@ -208,9 +210,11 @@ return { properties: listItems, stats, kpis };
 
 **Fix:** Track in Q5.A — derive `statusVariant` at render from `status` and delete it from the schema. Until then, add a server-side assertion in `computeStats`: `if (p.status === "Rented" && p.statusVariant !== "rented") throw new Error(...)`.
 
+**Resolved:** commit `fdd4a4f` — `statusVariant` removed from `PropertyCore`, `PropertyListItem`, and all derivations. `computeStats` now reads `p.status === "Rented"` directly. No divergence possible.
+
 ---
 
-### 🟡 F3 — No Zod at FS read boundary; corrupt record silently counted
+### 🟡 F3 — No Zod at FS read boundary; corrupt record silently counted — ⏭️ deferred
 **P2 negative-space · confidence: high · `[negative-space]`**
 
 **Where:** `lib/data/db/_fs.ts:60–74` (`readMergedRecord` / `listMergedRecords`)
@@ -221,9 +225,11 @@ return { properties: listItems, stats, kpis };
 
 **Fix:** Add a Zod schema for `PropertyCore` and call `.safeParse()` inside `listMergedRecords` before including the record. Records that fail validation should log a warning and be excluded (not counted), keeping all derived metrics self-consistent.
 
+**Deferred:** intentionally skipped — data comes from controlled seed files in the demo/local-db phase. Risk is negligible until real user-submitted data lands. Revisit when Convex backend replaces the FS layer.
+
 ---
 
-### 🔵 F4 — `monthStart` uses server TZ; "+N this month" sub-label may be off by a day
+### ~~🔵 F4 — `monthStart` uses server TZ; "+N this month" sub-label may be off by a day~~ — ✅ resolved in Revision 2
 **P3 nit · confidence: medium · `[logic]`**
 
 **Where:** `lib/data/derivations/portfolio.ts:42–43`
@@ -239,6 +245,8 @@ const monthStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1);
 ```
 When real user timezone preferences land (A6 — `userProfiles.timezone`), shift `monthStart` to the user's local midnight instead.
 
+**Resolved:** commit `fdd4a4f` — `portfolio.ts:45` now uses `Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)` exactly as recommended.
+
 ---
 
 <details>
@@ -252,19 +260,19 @@ selector: |
   context: [before: "Properties"] 16 [after: "+16 this month"]
 sources:
   - path: lib/data/types/property.ts
-    sha: 95296e18df98dccd954c45e1a6fbeae2e6bc2e2a
-  - path: lib/data/db/properties.ts
-    sha: 9249f6a12b744dbbbca0479cdcfcda747bba2615
+    sha: 92d3c84db1481b7fc8991224983410494866610b
   - path: lib/data/db/_fs.ts
     sha: 39dba5d99ffe00bc13eaadc6d83ed70522c39fd8
   - path: lib/data/derivations/portfolio.ts
-    sha: 248a572db3fcc512c162340e2a59004541b78a53
+    sha: 64178b715e32331c5f698a3feae7380d3ea62fdb
   - path: app/(shell)/portfolio/queries.ts
-    sha: 8a7e1835d807c977f8fd8bd0980368b6b5c66611
+    sha: 9d80b9048a38619add79d979baaa2c1f80cbe1ed
   - path: app/(shell)/portfolio/_components/PortfolioPage.tsx
     sha: 9ff76169195f5eeb1037859463632148ab1160bf
+  - path: components/portfolio/PropertyTable.tsx
+    sha: 0280cc5d417f95ef7b5e83615d8335a641805662
   - path: lib/data/properties.ts
-    sha: cb8e4e325e85983d3329f0e8a08c4679f88e306c
+    sha: 4f231bfe5ffcd4192bd038e4d044ea0fd2fea807
   - path: lib/data/auth-shim.ts
     sha: 962e3bff445d92309e3f5b7cd1b911519fbbabc7
 ```
@@ -336,6 +344,14 @@ corpus_note: >
 
 <details>
 <summary>📜 Revision history</summary>
+
+### Revision 2 — 2026-04-30
+- F1 resolved: `59709db` — `PortfolioPageData.properties` narrowed to `PropertyListItem[]`; `size` + `title` added to the type; `PropertyTable` props updated; dead `StatusVariant` re-export removed.
+- F2 resolved: `fdd4a4f` — `statusVariant` dropped from schema entirely; `computeStats` reads `p.status` directly.
+- F3 deferred: Zod at FS boundary skipped — controlled seed data, no real user input yet. Revisit at Convex migration.
+- F4 resolved: `fdd4a4f` — `monthStart` now uses `Date.UTC(...)` in `portfolio.ts:45`.
+- Source SHAs updated for: `property.ts`, `portfolio.ts`, `portfolio/queries.ts`, `PropertyTable.tsx`, `properties.ts`.
+- Verdict updated: ✅ 3 resolved · 1 deferred (F3).
 
 ### Revision 1 — 2026-04-30
 - Fresh write. (INDEX.md contained a prior revision 1 entry but the audit file was absent — treated as fresh.)

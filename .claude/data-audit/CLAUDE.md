@@ -45,6 +45,24 @@ Run `/audit-datapoint` and describe the number you want audited. The skill handl
 - Checks whether a prior audit exists (re-audit) or this is fresh
 - Writes a beginner-readable report with findings, golden-value check, and fix recommendations
 
+## How to record a fix
+
+When a finding from an audit report is implemented, **update the report** rather than waiting for a full re-audit:
+
+1. Bump `revision` and `date` in the front-matter.
+2. Update `verdict` to reflect the new state (e.g. `"✅ 3 resolved · 1 deferred"`).
+3. Update the TL;DR bullets.
+4. In §8 Findings, strike through the resolved finding header: `~~🔴 F1 — headline~~ — ✅ resolved in Revision N`
+5. Append a `**Resolved:**` line below the **Fix:** block — include the commit SHA and a one-line summary of what changed.
+6. For deferred findings, append a `**Deferred:**` line explaining why and when to revisit.
+7. Update source file SHAs in the **🔍 Source files & hashes** `<details>` block (`git hash-object <path>`).
+8. Append a new entry to the **📜 Revision history** `<details>` block listing which findings changed and why.
+9. Update the matching row in `INDEX.md` (verdict + revision count).
+
+Findings stay in §8 even when resolved — they are a permanent record. Never delete them.
+
+---
+
 ## How to file a new open question
 
 If an audit surfaces an ambiguity not already in `ref/05-open-questions.md`:

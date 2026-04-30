@@ -4,4 +4,4 @@
 
 | Slug | Route | Data point | Latest verdict | Revisions |
 |---|---|---|---|---|
-| [portfolio--properties-count](portfolio--properties-count.md) | /portfolio | Properties (count) | ⚠️ 4 findings (1 P1, 2 P2, 1 P3) | 1 |
+| [portfolio--properties-count](portfolio--properties-count.md) | /portfolio | Properties (count) | ✅ 3 resolved · 1 deferred (F3) | 2 |
