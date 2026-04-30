@@ -73,7 +73,7 @@ export async function getSettingsPageData(): Promise<SettingsPageData> {
     defaults: {
       dashboardView: "portfolio-overview",
       language: "en-US",
-      timezone: "America/New_York",
+      timezone: "Asia/Phnom_Penh",
     },
   };
 }
