@@ -19,6 +19,8 @@ export default async function ShellGroupLayout({
     status: p.status,
     buy: p.buy,
     health: p.health,
+    size: p.size,
+    title: p.title,
   }));
 
   return (

@@ -21,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { cn } from "@/components/ui/utils";
 import { healthClass, healthBgClass } from "@/lib/property-helpers";
-import type { Property, StatusVariant, TitleVariant, PortfolioStats } from "@/app/(shell)/queries";
+import type { Property, TitleVariant, PortfolioStats } from "@/app/(shell)/queries";
 import { CommandPalette } from "@/components/home/CommandPalette";
 import { PropertyTable } from "@/components/portfolio/PropertyTable";
 import type { TableAnimationConfig } from "@/components/portfolio/PropertyTable";
@@ -33,13 +33,6 @@ const MapView = dynamic(
   () => import("@/components/map/MapView").then((m) => m.MapView),
   { ssr: false },
 );
-
-const statusClasses: Record<StatusVariant, string> = {
-  rented:
-    "text-status-success-text bg-status-success-bg border border-status-success-border",
-  vacant:
-    "text-status-warning-text bg-status-warning-bg border border-status-warning-border",
-};
 
 const titleClasses: Record<TitleVariant, string> = {
   hard: "text-interactive-primary",

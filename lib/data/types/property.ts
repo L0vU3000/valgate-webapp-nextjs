@@ -84,4 +84,6 @@ export type PropertyListItem = Pick<
   | "status"
   | "buy"
   | "health"
+  | "size"
+  | "title"
 >;

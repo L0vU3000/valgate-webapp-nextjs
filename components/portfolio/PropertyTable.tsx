@@ -1,6 +1,6 @@
 import { ChevronLeft, ChevronRight, Map } from "lucide-react";
 import { TYPE_ICON, TYPE_COLOR, typeBadgeClasses, statusBadgeClasses, titleBadgeClasses, healthDotColor } from "../../lib/property-helpers";
-import type { Property } from "@/lib/data/types/property";
+import type { PropertyListItem } from "@/lib/data/types/property";
 
 export interface TableAnimationConfig {
   containerDuration: number;
@@ -21,10 +21,10 @@ const DEFAULT_ANIMATION_CONFIG: TableAnimationConfig = {
 };
 
 interface PropertyTableProps {
-  pageRows: Property[];
+  pageRows: PropertyListItem[];
   pageStart: number;
-  filtered: Property[];
-  properties: Property[];
+  filtered: PropertyListItem[];
+  properties: PropertyListItem[];
   mounted: boolean;
   navigate: (path: string) => void;
   totalPages: number;

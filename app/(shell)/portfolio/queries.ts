@@ -8,12 +8,12 @@ import {
   type PortfolioStats,
   type PortfolioKpis,
 } from "@/lib/data/derivations/portfolio";
-import type { Property } from "@/lib/data/properties";
+import type { PropertyListItem } from "@/lib/data/types/property";
 
-export type { Property, PortfolioStats, PortfolioKpis };
+export type { PortfolioStats, PortfolioKpis };
 
 export type PortfolioPageData = {
-  properties: Property[];
+  properties: PropertyListItem[];
   stats: PortfolioStats;
   kpis: PortfolioKpis;
 };
@@ -25,8 +25,21 @@ export async function getPortfolioPageData(): Promise<PortfolioPageData> {
     paymentsDb.list(userId),
   ]);
 
+  const listItems: PropertyListItem[] = properties.map((p) => ({
+    id: p.id,
+    name: p.name,
+    code: p.code,
+    type: p.type,
+    province: p.province,
+    status: p.status,
+    buy: p.buy,
+    health: p.health,
+    size: p.size,
+    title: p.title,
+  }));
+
   return {
-    properties,
+    properties: listItems,
     stats: computeStats(properties),
     kpis: computeKpis(properties, payments),
   };

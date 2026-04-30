@@ -6,11 +6,10 @@ import {
 } from "@/lib/data/derivations/portfolio";
 import type {
   Property,
-  StatusVariant,
   TitleVariant,
 } from "@/lib/data/properties";
 
-export type { Property, StatusVariant, TitleVariant, PortfolioStats };
+export type { Property, TitleVariant, PortfolioStats };
 
 export type HomePageData = {
   properties: Property[];
