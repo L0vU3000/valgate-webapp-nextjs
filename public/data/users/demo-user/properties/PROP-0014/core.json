@@ -5,7 +5,6 @@
   "code": "GEN00014",
   "type": "House",
   "status": "Rented",
-  "statusVariant": "rented",
   "health": 10,
   "lat": 11.47,
   "lng": 105.31,

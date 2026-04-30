@@ -45,7 +45,6 @@ function mapWizardToProperty(form: WizardForm): NewProperty {
     code: form.propertyId,
     type: derivePropertyTypeCode(form.propertyType),
     status: "Vacant",
-    statusVariant: "vacant",
     health: 50,
     lat,
     lng,

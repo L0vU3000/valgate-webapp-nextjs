@@ -7,7 +7,6 @@ export const properties: NewProperty[] = mockProperties.map((p) => ({
   code: p.code,
   type: p.type,
   status: p.status,
-  statusVariant: p.statusVariant,
   health: p.health,
   lat: p.lat,
   lng: p.lng,

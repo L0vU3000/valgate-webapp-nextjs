@@ -5,7 +5,6 @@
   "code": "SR00005 Land",
   "type": "Land",
   "status": "Rented",
-  "statusVariant": "rented",
   "health": 95,
   "lat": 13.3622,
   "lng": 103.8597,

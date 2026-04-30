@@ -4,7 +4,6 @@ import { getCurrentUserId } from "@/lib/data/auth-shim";
 
 export type {
   Property,
-  StatusVariant,
   TitleVariant,
   PropertyListItem,
 } from "@/lib/data/types/property";

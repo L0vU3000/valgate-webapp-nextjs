@@ -5,7 +5,6 @@
   "code": "GEN00016",
   "type": "Land",
   "status": "Rented",
-  "statusVariant": "rented",
   "health": 24,
   "lat": 11.553,
   "lng": 104.927,

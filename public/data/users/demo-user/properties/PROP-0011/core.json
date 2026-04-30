@@ -5,7 +5,6 @@
   "code": "PP00032 Land",
   "type": "Land",
   "status": "Rented",
-  "statusVariant": "rented",
   "health": 100,
   "lat": 11.552,
   "lng": 104.922,

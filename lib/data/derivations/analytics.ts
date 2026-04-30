@@ -73,12 +73,13 @@ export function computeKpiCards(
     .filter((p) => p.status === "Paid" && p.kind === "Rent")
     .reduce((sum, p) => sum + (p.amount ?? 0), 0);
 
+  const active = properties.filter((p) => !p.isArchived);
   const occupancyPct =
-    properties.length === 0
+    active.length === 0
       ? 0
       : Math.round(
-          (properties.filter((p) => p.statusVariant === "rented").length /
-            properties.length) *
+          (active.filter((p) => p.status === "Rented").length /
+            active.length) *
             1000,
         ) / 10;
 

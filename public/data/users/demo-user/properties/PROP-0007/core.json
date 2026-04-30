@@ -5,7 +5,6 @@
   "code": "SR00004 Building",
   "type": "Building",
   "status": "Rented",
-  "statusVariant": "rented",
   "health": 88,
   "lat": 13.361,
   "lng": 103.8558,

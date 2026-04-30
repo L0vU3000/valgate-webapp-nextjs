@@ -281,7 +281,7 @@ export function HomePage({ initialProperties, portfolioStats }: { initialPropert
               <div className="absolute top-3 left-3 [animation:pill-in_0.3s_cubic-bezier(0.16,1,0.3,1)_0.1s_both]">
                 <span className={cn(
                   "px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide uppercase",
-                  drawerProperty.statusVariant === "rented"
+                  drawerProperty.status === "Rented"
                     ? "bg-emerald-500/90 text-white"
                     : "bg-amber-400/90 text-amber-950",
                 )}>

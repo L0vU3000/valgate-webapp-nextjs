@@ -5,7 +5,6 @@
   "code": "GEN00013",
   "type": "House",
   "status": "Vacant",
-  "statusVariant": "vacant",
   "health": 19,
   "lat": 10.61,
   "lng": 104.18,

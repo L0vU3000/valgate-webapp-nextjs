@@ -17,7 +17,6 @@ export default async function ShellGroupLayout({
     type: p.type,
     province: p.province,
     status: p.status,
-    statusVariant: p.statusVariant,
     buy: p.buy,
     health: p.health,
   }));

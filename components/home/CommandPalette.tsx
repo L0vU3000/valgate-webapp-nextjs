@@ -29,13 +29,13 @@ import {
 import { cn } from "../ui/utils";
 import type {
   PropertyListItem,
-  StatusVariant,
+  PropertyStatus,
 } from "@/lib/data/types/property";
 
-const statusClasses: Record<StatusVariant, string> = {
-  rented:
+const statusClasses: Record<PropertyStatus, string> = {
+  Rented:
     "text-status-success-text bg-status-success-bg border border-status-success-border",
-  vacant:
+  Vacant:
     "text-status-warning-text bg-status-warning-bg border border-status-warning-border",
 };
 
@@ -110,7 +110,7 @@ export function CommandPalette({
                   </div>
                   <span className={cn(
                     "px-2 py-0.5 rounded text-xs font-medium shrink-0",
-                    statusClasses[p.statusVariant],
+                    statusClasses[p.status],
                   )}>
                     {p.status}
                   </span>

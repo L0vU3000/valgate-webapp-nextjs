@@ -81,12 +81,12 @@ function splitProperty(p: Property): Record<string, Record<string, unknown>> {
     code: p.code,
     type: p.type,
     status: p.status,
-    statusVariant: p.statusVariant,
     health: p.health,
     lat: p.lat,
     lng: p.lng,
     createdAt: p.createdAt,
     updatedAt: p.updatedAt,
+    ...(p.isArchived !== undefined && { isArchived: p.isArchived }),
   };
   const location: PropertyLocation = {
     addressLine: p.addressLine,

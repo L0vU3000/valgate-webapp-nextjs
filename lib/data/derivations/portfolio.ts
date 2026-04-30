@@ -19,17 +19,18 @@ export type PortfolioKpis = {
 };
 
 export function computeStats(properties: Property[]): PortfolioStats {
-  const n = properties.length;
-  const totalValue = properties.reduce((sum, p) => sum + (p.buyNumeric ?? 0), 0);
-  const sumHealth = properties.reduce((sum, p) => sum + (p.health ?? 0), 0);
+  const active = properties.filter((p) => !p.isArchived);
+  const n = active.length;
+  const totalValue = active.reduce((sum, p) => sum + (p.buyNumeric ?? 0), 0);
+  const sumHealth = active.reduce((sum, p) => sum + (p.health ?? 0), 0);
 
   return {
     totalProperties: n,
     totalValue,
-    rentedCount: properties.filter((p) => p.statusVariant === "rented").length,
-    vacantCount: properties.filter((p) => p.statusVariant === "vacant").length,
+    rentedCount: active.filter((p) => p.status === "Rented").length,
+    vacantCount: active.filter((p) => p.status === "Vacant").length,
     avgHealth: n === 0 ? 0 : Math.round(sumHealth / n),
-    attentionCount: properties.filter((p) => (p.health ?? 0) < 30).length,
+    attentionCount: active.filter((p) => (p.health ?? 0) < 30).length,
   };
 }
 
@@ -37,10 +38,11 @@ export function computeKpis(
   properties: Property[],
   payments: Payment[],
 ): PortfolioKpis {
-  const totalValue = properties.reduce((sum, p) => sum + (p.buyNumeric ?? 0), 0);
+  const active = properties.filter((p) => !p.isArchived);
+  const totalValue = active.reduce((sum, p) => sum + (p.buyNumeric ?? 0), 0);
 
   const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  const monthStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1);
   const monthlyIncome = payments
     .filter(
       (p) =>
@@ -48,12 +50,12 @@ export function computeKpis(
     )
     .reduce((sum, p) => sum + (p.amount ?? 0), 0);
 
-  const newThisMonth = properties.filter(
+  const newThisMonth = active.filter(
     (p) => (p.createdAt ?? 0) >= monthStart,
   ).length;
 
   return {
-    totalValueFormatted: properties.length === 0 ? "$0" : formatCurrency(totalValue),
+    totalValueFormatted: active.length === 0 ? "$0" : formatCurrency(totalValue),
     monthlyIncome: payments.length === 0 ? "$0" : formatCurrency(monthlyIncome),
     yoyGrowth: "—",
     newThisMonth,

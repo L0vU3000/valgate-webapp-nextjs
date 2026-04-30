@@ -5,7 +5,6 @@
   "code": "PV00002 Land",
   "type": "Land",
   "status": "Vacant",
-  "statusVariant": "vacant",
   "health": 34,
   "lat": 11.4828,
   "lng": 105.3246,

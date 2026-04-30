@@ -1,4 +1,3 @@
-export type StatusVariant = "rented" | "vacant";
 export type TitleVariant = "hard" | "soft" | "none";
 
 export type PropertyTypeCode = "Land" | "House" | "Building";
@@ -22,12 +21,12 @@ export interface PropertyCore {
   code: string;
   type: PropertyTypeCode;
   status: PropertyStatus;
-  statusVariant: StatusVariant;
   health: number;
   lat: number;
   lng: number;
   createdAt: number;
   updatedAt: number;
+  isArchived?: boolean;
 }
 
 export interface PropertyLocation {
@@ -83,7 +82,6 @@ export type PropertyListItem = Pick<
   | "type"
   | "province"
   | "status"
-  | "statusVariant"
   | "buy"
   | "health"
 >;

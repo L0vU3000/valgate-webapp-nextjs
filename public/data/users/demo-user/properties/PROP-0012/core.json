@@ -5,7 +5,6 @@
   "code": "GEN00012",
   "type": "Building",
   "status": "Vacant",
-  "statusVariant": "vacant",
   "health": 12,
   "lat": 11.49,
   "lng": 105.35,

@@ -5,7 +5,6 @@
   "code": "PP00016 PH",
   "type": "House",
   "status": "Rented",
-  "statusVariant": "rented",
   "health": 100,
   "lat": 11.5564,
   "lng": 104.9282,
