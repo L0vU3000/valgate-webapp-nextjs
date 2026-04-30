@@ -1,0 +1,13 @@
+{
+  "id": "PROP-0011",
+  "userId": "demo-user",
+  "name": "BKK1 Prime Land",
+  "code": "PP00032 Land",
+  "type": "Land",
+  "status": "Rented",
+  "health": 100,
+  "lat": 11.552,
+  "lng": 104.922,
+  "createdAt": 1777454124082,
+  "updatedAt": 1777454124082
+}

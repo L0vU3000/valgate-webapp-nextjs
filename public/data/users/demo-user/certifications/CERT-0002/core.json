@@ -1,0 +1,12 @@
+{
+  "propertyId": "PROP-0001",
+  "name": "Electrical Compliance",
+  "status": "Expiring",
+  "issued": "Sep 22, 2024",
+  "expires": "Sep 22, 2026",
+  "inspector": "Heng Virak",
+  "createdAt": 1775001600000,
+  "updatedAt": 1775001600000,
+  "id": "CERT-0002",
+  "userId": "demo-user"
+}

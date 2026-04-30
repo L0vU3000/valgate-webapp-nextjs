@@ -1,0 +1,10 @@
+{
+  "eventType": "Compliance",
+  "email": true,
+  "slack": true,
+  "sms": true,
+  "createdAt": 1775001600000,
+  "updatedAt": 1775001600000,
+  "id": "NPREF-0003",
+  "userId": "demo-user"
+}
