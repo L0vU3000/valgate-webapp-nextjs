@@ -1,4 +1,5 @@
 import "server-only";
+import { z } from "zod";
 import {
   collectionDir,
   recordDir,
@@ -19,30 +20,52 @@ import type {
 const COLLECTION = "properties";
 const ID_PREFIX = "PROP";
 
+const propertyStatusSchema = z.enum([
+  "Rented",
+  "Vacant",
+  "For Sale",
+  "Sold",
+  "Archived",
+]);
+
+const propertyTitleSchema = z.enum(["Hard title", "Soft title", "—"]);
+
+function validateProperty(p: Property): Property {
+  propertyStatusSchema.parse(p.status);
+  propertyTitleSchema.parse(p.title);
+  return p;
+}
+
 export async function list(userId: string): Promise<Property[]> {
-  return listMergedRecords<Property>(userId, COLLECTION);
+  const records = await listMergedRecords<Property>(userId, COLLECTION);
+  return records.map(validateProperty);
 }
 
 export async function get(
   userId: string,
   id: string,
 ): Promise<Property | null> {
-  return readMergedRecord<Property>(userId, COLLECTION, id);
+  const record = await readMergedRecord<Property>(userId, COLLECTION, id);
+  return record ? validateProperty(record) : null;
 }
 
-export type NewProperty = Omit<Property, "id" | "userId" | "createdAt" | "updatedAt"> &
+export type NewProperty = Omit<Property, "id" | "userId" | "code" | "createdAt" | "updatedAt"> &
   Partial<Pick<Property, "createdAt" | "updatedAt">>;
+
+const nameSchema = z.string().min(1, "Property name cannot be blank").trim();
 
 export async function create(
   userId: string,
   data: NewProperty,
 ): Promise<Property> {
+  nameSchema.parse(data.name);
   const id = await nextId(userId, COLLECTION, ID_PREFIX);
   const now = Date.now();
   const merged: Property = {
     ...(data as Property),
     id,
     userId,
+    code: id,
     createdAt: data.createdAt ?? now,
     updatedAt: data.updatedAt ?? now,
   };
@@ -92,7 +115,6 @@ function splitProperty(p: Property): Record<string, Record<string, unknown>> {
     addressLine: p.addressLine,
     addressLine2: p.addressLine2,
     city: p.city,
-    stateProv: p.stateProv,
     zip: p.zip,
     country: p.country,
     province: p.province,
@@ -108,22 +130,18 @@ function splitProperty(p: Property): Record<string, Record<string, unknown>> {
     taxAssessmentValue: p.taxAssessmentValue,
     annualInsurance: p.annualInsurance,
     ownershipStatus: p.ownershipStatus,
-    buy: p.buy,
     buyNumeric: p.buyNumeric,
   };
   const media: PropertyMedia = {
     photoStorageIds: p.photoStorageIds,
     documentStorageIds: p.documentStorageIds,
-    size: p.size,
-    yearBuilt: p.yearBuilt,
     totalArea: p.totalArea,
+    yearBuilt: p.yearBuilt,
     bedrooms: p.bedrooms,
     bathrooms: p.bathrooms,
     parkingSpaces: p.parkingSpaces,
     storageUnit: p.storageUnit,
     title: p.title,
-    titleVariant: p.titleVariant,
-    propertyType: p.propertyType,
   };
   return {
     core: stripUndefined(core as unknown as Record<string, unknown>),

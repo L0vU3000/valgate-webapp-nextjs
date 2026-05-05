@@ -133,11 +133,11 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
       method: "manual",
       propertyType: "residential",
       propertyName: "Sunny Vista Retreat",
-      propertyId: "PR20260001",
+      confirmedCode: "",
       addressLine: "2847 Oceanview Drive",
       addressLine2: "",
       city: "Malibu",
-      state: "CA",
+      province: "Phnom Penh",
       zip: "90265",
       country: "US",
       yearBuilt: "2018",
@@ -200,8 +200,8 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
     try {
       const result = await submitPropertyAction(form);
       if (result.ok) {
-        if (result.propertyId) {
-          setForm((f) => ({ ...f, propertyId: result.propertyId! }));
+        if (result.propertyCode) {
+          setForm((f) => ({ ...f, confirmedCode: result.propertyCode! }));
         }
         clearActive();
         setStep(6);

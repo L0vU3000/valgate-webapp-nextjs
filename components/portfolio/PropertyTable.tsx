@@ -1,5 +1,5 @@
-import { ChevronLeft, ChevronRight, Map } from "lucide-react";
-import { TYPE_ICON, TYPE_COLOR, typeBadgeClasses, statusBadgeClasses, titleBadgeClasses, healthDotColor } from "../../lib/property-helpers";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { TYPE_ICON, TYPE_COLOR, TYPE_LABEL, typeBadgeClasses, statusBadgeClasses, titleBadgeClasses, healthDotColor } from "../../lib/property-helpers";
 import type { PropertyListItem } from "@/lib/data/types/property";
 
 export interface TableAnimationConfig {
@@ -109,13 +109,14 @@ export function PropertyTable({
               </tr>
             ) : (
               pageRows.map((p, i) => {
-                const TypeIcon = TYPE_ICON[p.type] ?? Map;
-                const typeColor = TYPE_COLOR[p.type] ?? "bg-slate-100 text-slate-500";
+                const TypeIcon = TYPE_ICON[p.type];
+                const typeColor = TYPE_COLOR[p.type];
                 const hDot = healthDotColor(p.health);
                 return (
                   <tr
                     key={p.id}
                     className="border-t border-slate-100 hover:bg-blue-50/30 cursor-pointer group transition-colors duration-150"
+                    aria-label={`View ${p.name}`}
                     tabIndex={0}
                     role="link"
                     onClick={() => navigate(`/property/${p.id}`)}
@@ -149,8 +150,7 @@ export function PropertyTable({
                           <TypeIcon className="w-4 h-4" />
                         </div>
                         <div className="min-w-0">
-                          <p className="text-[14px] text-val-heading font-medium leading-tight truncate">{p.name}</p>
-                          <p className="text-[12px] text-slate-400 mt-0.5 truncate">{p.code}</p>
+                          <p className="text-[14px] text-val-heading font-medium leading-tight truncate" title={p.name}>{p.name}</p>
                         </div>
                       </div>
                     </td>
@@ -158,7 +158,7 @@ export function PropertyTable({
                     {/* Type badge */}
                     <td className="py-3 px-3">
                       <span className={`inline-flex px-2 py-0.5 rounded-full text-[12px] font-medium ${typeBadgeClasses(p.type)}`}>
-                        {p.type}
+                        {TYPE_LABEL[p.type]}
                       </span>
                     </td>
 
@@ -174,7 +174,7 @@ export function PropertyTable({
 
                     {/* Size */}
                     <td className="py-3 px-3 text-right text-[14px] text-slate-600">
-                      {p.size} m&sup2;
+                      {p.totalArea ? `${Number(p.totalArea).toLocaleString()} m²` : "—"}
                     </td>
 
                     {/* Buy */}
@@ -184,7 +184,7 @@ export function PropertyTable({
 
                     {/* Title */}
                     <td className="py-3 px-3 text-center">
-                      {p.title === "\u2014" ? (
+                      {p.title === "—" ? (
                         <span className="text-slate-400">&mdash;</span>
                       ) : (
                         <span className={`inline-flex px-2 py-0.5 rounded-full text-[12px] font-medium ${titleBadgeClasses(p.title)}`}>
@@ -221,12 +221,26 @@ export function PropertyTable({
 
       {/* Pagination */}
       <div className="flex items-center justify-between px-4 py-4 bg-slate-50/60 border-t border-slate-200">
-        <p className="text-[14px] text-slate-500">
-          Showing{" "}
-          <span className="font-semibold text-val-heading">{filtered.length}</span>
-          {" "}of{" "}
-          <span className="font-semibold text-val-heading">{properties.length}</span>
-          {" "}properties
+        <p className="text-[14px] text-slate-500" aria-live="polite" aria-atomic="true">
+          {totalPages > 1 ? (
+            <>
+              Showing{" "}
+              <span className="font-semibold text-val-heading">{pageStart + 1}–{pageStart + pageRows.length}</span>
+              {" "}of{" "}
+              <span className="font-semibold text-val-heading">{filtered.length}</span>
+              {filtered.length < properties.length ? (
+                <> filtered, <span className="font-semibold text-val-heading">{properties.length}</span> total</>
+              ) : " properties"}
+            </>
+          ) : (
+            <>
+              <span className="font-semibold text-val-heading">{filtered.length}</span>
+              {filtered.length < properties.length && (
+                <>{" "}of{" "}<span className="font-semibold text-val-heading">{properties.length}</span></>
+              )}
+              {" "}properties
+            </>
+          )}
         </p>
         {totalPages > 1 && (
           <div className="flex items-center gap-2">

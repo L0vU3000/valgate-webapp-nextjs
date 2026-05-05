@@ -4,18 +4,14 @@ import type { FormData as WizardForm } from "./_components/types";
 import { fullPropertySchema } from "./_components/schemas";
 import { createProperty } from "@/lib/actions/properties.actions";
 import type { NewProperty } from "@/lib/data/db/properties";
-import type {
-  PropertyTypeChoice,
-  PropertyTypeCode,
-} from "@/lib/data/types/property";
-import { formatCurrency } from "@/lib/format";
+import type { PropertyTypeChoice } from "@/lib/data/types/property";
 import { logger } from "@/lib/logger";
 
 const CAMBODIA_CENTROID: [number, number] = [12.5657, 104.991];
 
 export async function submitPropertyAction(
   form: WizardForm,
-): Promise<{ ok: boolean; propertyId?: string; error?: string }> {
+): Promise<{ ok: boolean; propertyId?: string; propertyCode?: string; error?: string }> {
   try {
     const parsed = fullPropertySchema.safeParse(form);
     if (!parsed.success) {
@@ -29,7 +25,7 @@ export async function submitPropertyAction(
     const result = await createProperty(propertyInput);
     if (!result.ok) return { ok: false, error: result.error };
 
-    return { ok: true, propertyId: result.data.id };
+    return { ok: true, propertyId: result.data.id, propertyCode: result.data.code };
   } catch (err) {
     logger.error("submitPropertyAction failed", { err: String(err) });
     return { ok: false, error: "Failed to submit property. Please try again." };
@@ -42,8 +38,7 @@ function mapWizardToProperty(form: WizardForm): NewProperty {
 
   return {
     name: form.propertyName,
-    code: form.propertyId,
-    type: derivePropertyTypeCode(form.propertyType),
+    type: form.propertyType as PropertyTypeChoice,
     status: "Vacant",
     health: 50,
     lat,
@@ -54,7 +49,7 @@ function mapWizardToProperty(form: WizardForm): NewProperty {
     city: form.city || undefined,
     zip: form.zip || undefined,
     country: form.country || undefined,
-    province: form.state,
+    province: form.province,
 
     purchasePrice: form.purchasePrice || undefined,
     purchaseDate: parseDateMs(form.purchaseDate),
@@ -66,32 +61,18 @@ function mapWizardToProperty(form: WizardForm): NewProperty {
     taxAssessmentValue: parseCurrency(form.taxAssessmentValue),
     annualInsurance: parseCurrency(form.annualInsurance),
     ownershipStatus: form.ownershipStatus || undefined,
-    buy: formatCurrency(buyNumeric),
     buyNumeric,
 
     photoStorageIds: form.photoFileName ? [form.photoFileName] : [],
     documentStorageIds: form.uploadFileName ? [form.uploadFileName] : [],
-    size: form.totalArea || "",
+    totalArea: form.totalArea || "",
     yearBuilt: form.yearBuilt || undefined,
-    totalArea: form.totalArea || undefined,
     bedrooms: form.bedrooms || undefined,
     bathrooms: form.bathrooms || undefined,
     parkingSpaces: form.parkingSpaces || undefined,
     storageUnit: form.storageUnit || undefined,
     title: "—",
-    titleVariant: "none",
-    propertyType: form.propertyType
-      ? (form.propertyType as PropertyTypeChoice)
-      : undefined,
   };
-}
-
-function derivePropertyTypeCode(choice: string): PropertyTypeCode {
-  if (choice === "residential" || choice === "multi-unit") return "House";
-  if (choice === "commercial" || choice === "retail" || choice === "industrial") {
-    return "Building";
-  }
-  return "Land";
 }
 
 function parseCurrency(value: string | undefined): number | undefined {

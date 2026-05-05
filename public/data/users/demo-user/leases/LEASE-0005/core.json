@@ -1,0 +1,12 @@
+{
+  "propertyId": "PROP-0014",
+  "tenantId": "TEN-0005",
+  "unit": "Main Residence",
+  "stage": "Signed",
+  "startDate": 1740787200000,
+  "endDate": 1803772800000,
+  "monthlyRent": 950,
+  "termMonths": 24,
+  "id": "LEASE-0005",
+  "userId": "demo-user"
+}

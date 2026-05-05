@@ -14,6 +14,7 @@ _Last revised: 2026-04-30 · Revision 2_
 - ✅ Number is correct (16 displayed = 16 in seed; rented 7 + vacant 9 = 16)
 - ✅ 3 of 4 findings resolved (F1, F2, F4) · 1 intentionally deferred (F3)
 - 🔧 Only open item: Zod validation at FS read boundary (F3) — deferred until real backend lands
+- 📄 Page audit: see [pages/portfolio/audit.md](pages/portfolio/audit.md) (and [plan.md](pages/portfolio/plan.md) for the action items)
 
 ## Contents
 | # | Section | Question it answers | Result |

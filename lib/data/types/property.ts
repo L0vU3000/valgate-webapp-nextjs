@@ -1,7 +1,11 @@
 export type TitleVariant = "hard" | "soft" | "none";
 
-export type PropertyTypeCode = "Land" | "House" | "Building";
-export type PropertyStatus = "Rented" | "Vacant";
+export type PropertyStatus =
+  | "Rented"
+  | "Vacant"
+  | "For Sale"
+  | "Sold"
+  | "Archived";
 export type PropertyTitle = "Hard title" | "Soft title" | "—";
 
 export type PropertyTypeChoice =
@@ -19,7 +23,7 @@ export interface PropertyCore {
   userId: string;
   name: string;
   code: string;
-  type: PropertyTypeCode;
+  type: PropertyTypeChoice;
   status: PropertyStatus;
   health: number;
   lat: number;
@@ -33,7 +37,6 @@ export interface PropertyLocation {
   addressLine?: string;
   addressLine2?: string;
   city?: string;
-  stateProv?: string;
   zip?: string;
   country?: string;
   province: string;
@@ -50,23 +53,19 @@ export interface PropertyFinance {
   taxAssessmentValue?: number;
   annualInsurance?: number;
   ownershipStatus?: string;
-  buy: string;
   buyNumeric: number;
 }
 
 export interface PropertyMedia {
   photoStorageIds?: string[];
   documentStorageIds?: string[];
-  size: string;
+  totalArea: string;
   yearBuilt?: string;
-  totalArea?: string;
   bedrooms?: string;
   bathrooms?: string;
   parkingSpaces?: string;
   storageUnit?: string;
   title: PropertyTitle;
-  titleVariant: TitleVariant;
-  propertyType?: PropertyTypeChoice;
 }
 
 export type Property = PropertyCore &
@@ -82,8 +81,7 @@ export type PropertyListItem = Pick<
   | "type"
   | "province"
   | "status"
-  | "buy"
   | "health"
-  | "size"
+  | "totalArea"
   | "title"
->;
+> & { buy: string };

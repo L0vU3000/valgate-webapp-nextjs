@@ -5,17 +5,18 @@ import { useRouter } from "next/navigation";
 import {
   Building2,
   DollarSign,
-  Home,
-  Map,
   TrendingUp,
-  AlertTriangle,
+  TrendingDown,
+  Minus,
   Plus,
 } from "lucide-react";
 import type { PortfolioPageData } from "../queries";
+import type { PropertyStatus } from "@/lib/data/types/property";
 import { PropertyFilters } from "@/components/portfolio/PropertyFilters";
 import { PropertyTable } from "@/components/portfolio/PropertyTable";
 import type { TableAnimationConfig } from "@/components/portfolio/PropertyTable";
 import { AppHeader } from "@/components/layout/AppHeader";
+import { CAMBODIA_PROVINCES } from "@/lib/constants/cambodia-provinces";
 
 const PAGE_SIZE = 16;
 
@@ -28,22 +29,15 @@ const PORTFOLIO_TABLE_ANIMATION: TableAnimationConfig = {
   healthBarStagger: 30,
 };
 
-const provinces = [
-  "All", "Banteay Meanchey", "Battambang", "Kampong Cham", "Kampong Chhnang",
-  "Kampong Speu", "Kampong Thom", "Kampot", "Kandal", "Kep", "Koh Kong",
-  "Kratie", "Mondulkiri", "Oddar Meanchey", "Pailin", "Phnom Penh",
-  "Preah Vihear", "Prey Veng", "Pursat", "Ratanakiri", "Siem Reap",
-  "Sihanoukville", "Stung Treng", "Svay Rieng", "Takeo", "Tbong Khmum",
-];
+const provinces = ["All", ...CAMBODIA_PROVINCES];
 
 
 export function PortfolioPage({ data }: { data: PortfolioPageData }) {
   const { properties: initialProperties, stats, kpis } = data;
-  const avgOccupancy = stats.avgHealth.toFixed(1);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("Property Type");
-  const [statusFilter, setStatusFilter] = useState("Status");
+  const [statusFilter, setStatusFilter] = useState<PropertyStatus | null>(null);
   const [provinceFilter, setProvinceFilter] = useState("All");
   const [currentPage, setCurrentPage] = useState(1);
   const [mounted, setMounted] = useState(false);
@@ -56,13 +50,16 @@ export function PortfolioPage({ data }: { data: PortfolioPageData }) {
 
   const q = searchQuery.trim().toLowerCase();
   const filtered = initialProperties.filter((p) => {
+    // Archived = "achieved" — hidden by default, visible only when explicitly selected
+    if (!statusFilter && p.status === "Archived") return false;
+
     const matchesSearch =
       !q ||
       p.name.toLowerCase().includes(q) ||
       p.code.toLowerCase().includes(q) ||
       p.province.toLowerCase().includes(q);
     const matchesType = typeFilter === "Property Type" || p.type === typeFilter;
-    const matchesStatus = statusFilter === "Status" || p.status === statusFilter;
+    const matchesStatus = !statusFilter || p.status === statusFilter;
     const matchesProvince = provinceFilter === "All" || p.province === provinceFilter;
     return matchesSearch && matchesType && matchesStatus && matchesProvince;
   });
@@ -79,7 +76,7 @@ export function PortfolioPage({ data }: { data: PortfolioPageData }) {
   function clearAllFilters() {
     setSearchQuery("");
     setTypeFilter("Property Type");
-    setStatusFilter("Status");
+    setStatusFilter(null);
     setProvinceFilter("All");
     setCurrentPage(1);
   }
@@ -122,7 +119,7 @@ export function PortfolioPage({ data }: { data: PortfolioPageData }) {
           </div>
 
           {/* KPI Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <KpiCard index={0} mounted={mounted}>
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Properties</span>
@@ -136,15 +133,29 @@ export function PortfolioPage({ data }: { data: PortfolioPageData }) {
 
             <KpiCard index={1} mounted={mounted}>
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Total Value</span>
+                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Total Purchase Price</span>
                 <div className="w-7 h-7 rounded-md bg-emerald-50 flex items-center justify-center">
                   <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
                 </div>
               </div>
               <p className="text-[24px] font-bold text-val-heading leading-none mt-4">{kpis.totalValueFormatted}</p>
               <div className="flex items-center gap-1 mt-2">
-                <TrendingUp className="w-3 h-3 text-emerald-500" />
-                <span className="text-[12px] text-emerald-600 font-semibold">{kpis.yoyGrowth} YoY</span>
+                {kpis.yoyGrowth.kind === "positive" ? (
+                  <>
+                    <TrendingUp className="w-3 h-3 text-emerald-500" />
+                    <span className="text-[12px] text-emerald-600 font-semibold">{kpis.yoyGrowth.formatted} YoY</span>
+                  </>
+                ) : kpis.yoyGrowth.kind === "negative" ? (
+                  <>
+                    <TrendingDown className="w-3 h-3 text-red-400" />
+                    <span className="text-[12px] text-red-500 font-semibold">{kpis.yoyGrowth.formatted} YoY</span>
+                  </>
+                ) : (
+                  <>
+                    <Minus className="w-3 h-3 text-slate-400" />
+                    <span className="text-[12px] text-slate-400 font-semibold">— YoY</span>
+                  </>
+                )}
               </div>
             </KpiCard>
 
@@ -155,8 +166,11 @@ export function PortfolioPage({ data }: { data: PortfolioPageData }) {
                   <DollarSign className="w-3.5 h-3.5 text-violet-600" />
                 </div>
               </div>
-              <p className="text-[24px] font-bold text-val-heading leading-none mt-4">{kpis.monthlyIncome}</p>
-              <span className="text-[12px] text-slate-400 font-semibold mt-2 block">Gross Revenue</span>
+              <p className="text-[24px] font-bold text-val-heading leading-none mt-4">{kpis.monthlyExpected}</p>
+              <span className="text-[12px] text-emerald-600 font-semibold mt-2 block">
+                {kpis.monthlyCollected} collected
+                <span className="text-slate-400 font-normal ml-1">{kpis.monthLabel}</span>
+              </span>
             </KpiCard>
 
             <KpiCard index={3} mounted={mounted}>
@@ -166,22 +180,12 @@ export function PortfolioPage({ data }: { data: PortfolioPageData }) {
                   <TrendingUp className="w-3.5 h-3.5 text-amber-600" />
                 </div>
               </div>
-              <p className="text-[24px] font-bold text-val-heading leading-none mt-4">{avgOccupancy}%</p>
+              <p className="text-[24px] font-bold text-val-heading leading-none mt-4">{stats.occupancyRate}%</p>
               <div className="mt-3">
-                <AnimatedBar value={stats.avgHealth} color="bg-amber-400" mounted={mounted} delay={600} />
+                <AnimatedBar value={stats.occupancyRate} color="bg-amber-400" mounted={mounted} delay={600} />
               </div>
             </KpiCard>
 
-            <KpiCard index={4} mounted={mounted} accent>
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Attention</span>
-                <div className="w-7 h-7 rounded-md bg-red-50 flex items-center justify-center">
-                  <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
-                </div>
-              </div>
-              <p className="text-[24px] font-bold text-val-heading leading-none mt-4">{stats.attentionCount}</p>
-              <span className="text-[12px] text-red-600 font-semibold mt-2 block">Critical tasks pending</span>
-            </KpiCard>
           </div>
 
           {/* Filters */}
@@ -256,7 +260,7 @@ function AnimatedBar({ value, color, mounted, delay }: {
       <div
         className={`h-full rounded-full ${color}`}
         style={{
-          width: mounted ? `${value}%` : "0%",
+          width: mounted ? `${Math.min(100, Math.max(0, value))}%` : "0%",
           transition: `width 800ms cubic-bezier(0.25,1,0.5,1)`,
           transitionDelay: `${delay}ms`,
         }}

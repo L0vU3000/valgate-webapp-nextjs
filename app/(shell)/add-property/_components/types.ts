@@ -14,11 +14,11 @@ export interface FormData {
   method: "" | "photo" | "upload" | "manual";
   propertyType: string;
   propertyName: string;
-  propertyId: string;
+  confirmedCode: string;
   addressLine: string;
   addressLine2: string;
   city: string;
-  state: string;
+  province: string;
   zip: string;
   country: string;
   mapCenter?: [number, number];
@@ -50,11 +50,11 @@ export const defaultForm: FormData = {
   method: "",
   propertyType: "",
   propertyName: "",
-  propertyId: "",
+  confirmedCode: "",
   addressLine: "",
   addressLine2: "",
   city: "",
-  state: "",
+  province: "",
   zip: "",
   country: "",
   yearBuilt: "",

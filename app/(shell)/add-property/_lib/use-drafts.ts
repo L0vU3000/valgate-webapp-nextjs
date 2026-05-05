@@ -1,21 +1,14 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import type { FormData, Step } from "../_components/types";
+import type { FormData, Step, DraftRecord } from "../_components/types";
 import { defaultForm } from "../_components/types";
 
 const STORAGE_KEY = "add-property-drafts";
 const ACTIVE_KEY = "add-property-active-draft";
 
-interface Draft {
-  id: string;
-  form: FormData;
-  step: Step;
-  updatedAt: number;
-}
-
 interface UseDraftsReturn {
-  drafts: Draft[];
+  drafts: DraftRecord[];
   activeId: string | null;
   mounted: boolean;
   setActive: (id: string) => void;
@@ -24,7 +17,7 @@ interface UseDraftsReturn {
   clearActive: () => void;
 }
 
-function readDrafts(): Draft[] {
+function readDrafts(): DraftRecord[] {
   try {
     return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]");
   } catch {
@@ -32,12 +25,12 @@ function readDrafts(): Draft[] {
   }
 }
 
-function writeDrafts(drafts: Draft[]) {
+function writeDrafts(drafts: DraftRecord[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(drafts));
 }
 
 export function useDrafts(): UseDraftsReturn {
-  const [drafts, setDrafts] = useState<Draft[]>([]);
+  const [drafts, setDrafts] = useState<DraftRecord[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
 
@@ -55,7 +48,7 @@ export function useDrafts(): UseDraftsReturn {
   const upsert = useCallback((id: string, form: FormData, step: Step) => {
     setDrafts((prev) => {
       const existing = prev.find((d) => d.id === id);
-      const updated: Draft = { id, form, step, updatedAt: Date.now() };
+      const updated: DraftRecord = { id, title: form.propertyName || "Untitled Property", form, step, updatedAt: Date.now() };
       const next = existing
         ? prev.map((d) => (d.id === id ? updated : d))
         : [...prev, updated];

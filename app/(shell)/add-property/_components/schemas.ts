@@ -19,7 +19,7 @@ export const step2Schema = z.object({
   addressLine: z.string().optional(),
   addressLine2: z.string().optional(),
   city: z.string().optional(),
-  state: z.string().optional(),
+  province: z.string().min(1, "Please select a province"),
   zip: z.string().optional(),
   country: z.string().optional(),
   yearBuilt: z.string().optional(),

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Info, Maximize2, Map as MapIcon } from "lucide-react";
+import { Search, Info, Maximize2, Map as MapIcon, ChevronDown } from "lucide-react";
+import { CAMBODIA_PROVINCES } from "@/lib/constants/cambodia-provinces";
 import { cn } from "@/components/ui/utils";
 import type { FormData } from "./types";
 import { PropertyLocationMap } from "./PropertyLocationMap";
@@ -29,7 +30,7 @@ export function Step2BasicInfo({
   const update = (key: keyof FormData, val: string) =>
     setForm({ ...form, [key]: val });
 
-  const combinedAddress = [form.addressLine, form.city, form.state]
+  const combinedAddress = [form.addressLine, form.city, form.province]
     .filter(Boolean)
     .join(", ");
 
@@ -60,6 +61,21 @@ export function Step2BasicInfo({
             value={form.propertyName}
             onChange={(e) => update("propertyName", e.target.value)}
             placeholder="e.g. Skyline Luxury Lofts"
+            className={INPUT}
+          />
+        </div>
+
+        {/* Total Area */}
+        <div className="shrink-0 flex flex-col gap-1.5">
+          <label className="text-[14px] text-foreground block" style={{ fontWeight: 600 }}>
+            Total Area <span className="text-muted-foreground font-normal">(m²)</span>
+          </label>
+          <input
+            type="number"
+            min="1"
+            value={form.totalArea}
+            onChange={(e) => update("totalArea", e.target.value)}
+            placeholder="e.g. 850"
             className={INPUT}
           />
         </div>
@@ -101,8 +117,19 @@ export function Step2BasicInfo({
             <div className="grid grid-cols-2 gap-2">
               <input type="text" value={form.city} onChange={(e) => update("city", e.target.value)}
                 placeholder="City" className={INPUT} />
-              <input type="text" value={form.state} onChange={(e) => update("state", e.target.value)}
-                placeholder="State" className={INPUT} />
+              <div className="relative">
+                <select
+                  value={form.province}
+                  onChange={(e) => update("province", e.target.value)}
+                  className={`${INPUT} appearance-none pr-8 ${!form.province ? "text-muted-foreground" : ""}`}
+                >
+                  <option value="" disabled>Province</option>
+                  {CAMBODIA_PROVINCES.map((p) => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <input type="text" value={form.zip} onChange={(e) => update("zip", e.target.value)}

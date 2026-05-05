@@ -7,10 +7,14 @@ This folder is the home for all data-point audits and the reference material tha
 ## Structure
 
 ```
-.context/data-audit/
+.claude/data-audit/
   CLAUDE.md          ← you are here
-  INDEX.md           ← one line per audit report, sorted by slug
-  <slug>.md          ← individual audit reports (e.g. portfolio--properties-count.md)
+  INDEX.md           ← two tables: per-datapoint audits, page-level audits
+  <slug>.md          ← per-datapoint audit reports (e.g. portfolio--properties-count.md)
+  pages/<slug>/      ← per-page folder
+    audit.md         ← analysis (Surface Inventory + Page-wide findings + source SHAs)
+    plan.md          ← action (Entity Backlog + Audit Roadmap + Fix Log)
+  pages/INDEX.md     ← master cross-page entity backlog (created in Phase 3)
   ref/               ← read-only reference corpus (entity catalog, derivations, open questions)
 ```
 
@@ -20,6 +24,7 @@ This folder is the home for all data-point audits and the reference material tha
 - One file per data point, named `<route-slug>--<metric-slug>.md`
 - Written and updated by the `/audit-datapoint` skill
 - Never edit manually — re-run the skill instead; it detects source changes and bumps the revision
+- Each section (§1–§8) opens with a plain-English blockquote (no jargon, anyone can read it), followed by technical tables and code. Plain first, detail after.
 
 ### `INDEX.md`
 - Flat table: slug · route · data point · latest verdict · revision count
@@ -45,6 +50,26 @@ Run `/audit-datapoint` and describe the number you want audited. The skill handl
 - Checks whether a prior audit exists (re-audit) or this is fresh
 - Writes a beginner-readable report with findings, golden-value check, and fix recommendations
 
+## How to audit a whole page
+
+Run `/audit-page-datapoints` against a route (e.g. `/property/PROP-0001/overview`). The skill produces one inventory report at `.claude/data-audit/pages/<route-slug>.md` that:
+
+- Classifies every visible surface element as **WIRED / HARDCODED / PARTIAL / CHROME / DECORATIVE**
+- Files page-wide findings once with a `PFn` number (e.g. "full Property to Client Component"), so per-datapoint audits cite instead of restating
+- Groups HARDCODED rows by the database concept they need (Entity Backlog), so wiring and schema work proceed together
+- Recommends `template: full` or `template: lite` per row, so subsequent `/audit-datapoint` runs use the right depth
+
+**When to use it:**
+- First time looking at a route
+- Before kicking off a batch of `/audit-datapoint` runs on the same page
+- When a page gains/loses surfaces (re-run; bumps revision)
+
+**Lite vs full template (per-datapoint):**
+- **Lite (4 sections)** — for trivial direct-reads (`{property.name}`); skips formula/consistency/missing-safeties/meaning sections that are either trivially empty or filed at the page level
+- **Full (9 sections)** — for derivations, aggregations, cross-card identities
+
+The page audit's Audit Roadmap is the source of truth for which template `/audit-datapoint` should render. Don't re-decide in the per-datapoint run — honor what the page audit recommends.
+
 ## How to record a fix
 
 When a finding from an audit report is implemented, **update the report** rather than waiting for a full re-audit:
@@ -69,3 +94,9 @@ If an audit surfaces an ambiguity not already in `ref/05-open-questions.md`:
 1. Pick the right Q-section and next free letter
 2. Append to `ref/05-open-questions.md`
 3. Cross-link from the finding in the audit report (`see Q5.X`)
+
+---
+
+## After database migration
+
+See [`deferred-database-migration.md`](deferred-database-migration.md) for guidance on re-auditing verification commands after migrating to NeonDB / Convex.

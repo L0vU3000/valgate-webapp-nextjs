@@ -388,12 +388,12 @@ export function Step6Success({ form }: { form: FormData }) {
   const [mapLoaded, setMapLoaded] = useState(false);
 
   const propertyName = form.propertyName || "Your Property";
-  const propertyId = form.propertyId || "PR00001";
+  const propertyCode = form.confirmedCode || "—";
   const rawPriceStr = form.currentMarketValue || form.purchasePrice;
   const priceFallback = formatCurrency(rawPriceStr);
   const animatedPrice = useCountUp(rawPriceStr, 800, reduced, mapLoaded);
-  const animatedId = useTypewriter(`ID: ${propertyId}`, 1000, reduced, 52, mapLoaded);
-  const location = [form.city, form.state].filter(Boolean).join(", ");
+  const animatedId = useTypewriter(`ID: ${propertyCode}`, 1000, reduced, 52, mapLoaded);
+  const location = [form.city, form.province].filter(Boolean).join(", ");
   const ownership = OWNERSHIP_BADGE[form.ownershipStatus] ?? { label: "Listed", color: "#10b981" };
   const typeLabel = PROPERTY_TYPE_LABELS[form.propertyType] ?? "Property";
   const tooltipText = [propertyName, priceFallback !== "—" ? priceFallback : null]

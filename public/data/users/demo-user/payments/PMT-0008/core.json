@@ -1,0 +1,12 @@
+{
+  "propertyId": "PROP-0011",
+  "leaseId": "LEASE-0003",
+  "tenantId": "TEN-0003",
+  "date": 1777680000000,
+  "kind": "Rent",
+  "amount": 2500,
+  "method": "ABA Bank",
+  "status": "Paid",
+  "id": "PMT-0008",
+  "userId": "demo-user"
+}

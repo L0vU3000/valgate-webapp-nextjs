@@ -2,6 +2,7 @@ import { ShellLayout } from "@/components/layout/ShellLayout";
 import * as propertiesDb from "@/lib/data/db/properties";
 import { getCurrentUserId } from "@/lib/data/auth-shim";
 import type { PropertyListItem } from "@/lib/data/types/property";
+import { formatCurrency } from "@/lib/format";
 import { AppHeaderProperties } from "@/components/layout/AppHeaderPropertiesContext";
 
 export default async function ShellGroupLayout({
@@ -17,9 +18,9 @@ export default async function ShellGroupLayout({
     type: p.type,
     province: p.province,
     status: p.status,
-    buy: p.buy,
+    buy: p.buyNumeric ? formatCurrency(p.buyNumeric) : "—",
     health: p.health,
-    size: p.size,
+    totalArea: p.totalArea,
     title: p.title,
   }));
 

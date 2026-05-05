@@ -20,8 +20,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { cn } from "@/components/ui/utils";
-import { healthClass, healthBgClass } from "@/lib/property-helpers";
-import type { Property, TitleVariant, PortfolioStats } from "@/app/(shell)/queries";
+import { healthClass, healthBgClass, titleToVariant } from "@/lib/property-helpers";
+import type { HomeProperty, TitleVariant, PortfolioStats } from "@/app/(shell)/queries";
 import { CommandPalette } from "@/components/home/CommandPalette";
 import { PropertyTable } from "@/components/portfolio/PropertyTable";
 import type { TableAnimationConfig } from "@/components/portfolio/PropertyTable";
@@ -58,7 +58,7 @@ const triggerPlaceholders = [
 ];
 
 
-export function HomePage({ initialProperties, portfolioStats }: { initialProperties: Property[]; portfolioStats: PortfolioStats }) {
+export function HomePage({ initialProperties, portfolioStats }: { initialProperties: HomeProperty[]; portfolioStats: PortfolioStats }) {
 
   const [selectedPin, setSelectedPin] = useState<string | null>(null);
   const [closingKey, setClosingKey] = useState<string | null>(null);
@@ -296,9 +296,9 @@ export function HomePage({ initialProperties, portfolioStats }: { initialPropert
             <div className="px-5 pt-5 pb-4 space-y-3.5 text-sm">
               {[
                 { label: "Buy Price", value: <span className="text-base font-display font-bold text-foreground">{drawerProperty.buy}</span> },
-                { label: "Size", value: <span className="font-medium text-foreground">{drawerProperty.size} m&sup2;</span> },
+                { label: "Size", value: <span className="font-medium text-foreground">{drawerProperty.totalArea ? `${Number(drawerProperty.totalArea).toLocaleString()} m²` : "—"}</span> },
                 { label: "Type", value: <span className="font-medium text-foreground">{drawerProperty.type}</span> },
-                { label: "Title", value: <span className={cn("font-medium", titleClasses[drawerProperty.titleVariant])}>{drawerProperty.title}</span> },
+                { label: "Title", value: <span className={cn("font-medium", titleClasses[titleToVariant(drawerProperty.title)])}>{drawerProperty.title}</span> },
               ].map((row, i) => (
                 <div
                   key={row.label}

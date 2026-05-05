@@ -6,6 +6,7 @@ import {
   MoreHorizontal, Download, Pencil,
 } from "lucide-react";
 import type { Property } from "@/lib/data/types/property";
+import { formatCurrency } from "@/lib/format";
 import { PropertyLayout } from "@/components/property/PropertyLayout";
 
 const alerts = [
@@ -161,7 +162,7 @@ export function PropertyOverviewPage({ property }: { property: Property }) {
                 </span>
               </div>
               <p className="text-white/55 text-[13px] font-medium" style={heroIn(160)}>
-                Purchased {property.buy}
+                Purchased {property.buyNumeric ? formatCurrency(property.buyNumeric) : "—"}
               </p>
               <h1
                 className="text-white font-extrabold tracking-tight leading-none"
