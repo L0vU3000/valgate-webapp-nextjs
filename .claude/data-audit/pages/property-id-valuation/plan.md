@@ -131,7 +131,7 @@ _See [audit.md](./audit.md) for the underlying analysis._
 
 | Rev | Date | Finding | What changed | Commit |
 |---|---|---|---|---|
-| — | — | — | _No fixes yet._ | — |
+| 2 | 2026-05-05 | Rows 8, 9, 12, 13, 15, 25 — PropertyValuation wiring | Removed `FALLBACK_VALUE_HISTORY` constant; replaced all 5 KPI hardcoded values with derivations from `valuations` prop (`sorted`, `latest`, `prev`, `appreciation`, `yourEstimateStr`, `chartDomain`); added empty-state chart guard; fixed Y-axis domain | valgate-local-db branch |
 
 ---
 

@@ -1,0 +1,9 @@
+{
+  "id": "EXP-0011",
+  "userId": "demo-user",
+  "propertyId": "PROP-0005",
+  "date": 1768867200000,
+  "category": "Tax",
+  "amount": 550,
+  "note": "Quarterly property tax"
+}

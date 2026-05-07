@@ -16,7 +16,7 @@ async function main() {
 
   // Order matters — entities later in the list reference earlier ones.
   await seedAll("properties", fixtures.properties, db.properties);
-  await seedAll("ownership-records", fixtures.ownership, db.ownershipRecords);
+  await seedAll("ownership-documents", fixtures.ownership, db.ownershipDocuments);
   await seedAll("ownership-history", fixtures.ownershipHistory, db.ownershipHistory);
   await seedAll("tenants", fixtures.tenants, db.tenants);
   await seedAll("leases", fixtures.leases, db.leases);

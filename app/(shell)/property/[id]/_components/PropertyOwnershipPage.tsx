@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import type { Property } from "@/lib/data/types/property";
+import type { CoOwner } from "@/lib/data/types/co-owner";
+import type { OwnershipDocument } from "@/lib/data/types/ownership-document";
 import type { OwnershipRecord } from "@/lib/data/types/ownership-record";
 import type { OwnershipHistory } from "@/lib/data/types/ownership-history";
 import { PropertyLayout } from "@/components/property/PropertyLayout";
@@ -10,6 +12,7 @@ import {
   Users, DollarSign, Clock, Scale, UserPlus, History,
 } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { formatCurrencyFull } from "@/lib/format";
 
 function fade(mounted: boolean, delay: number, reduced = false) {
   if (reduced) return { opacity: 1 };
@@ -21,23 +24,54 @@ function fade(mounted: boolean, delay: number, reduced = false) {
   };
 }
 
-const kpis = [
-  { label: "Ownership Type", value: "Tenancy in Common", sub: "Joint ownership", Icon: Scale },
-  { label: "Total Owners", value: "2", sub: "Co-owners", Icon: Users },
-  { label: "Acquisition Price", value: "$485,000", sub: "Mar 2021", Icon: DollarSign },
-  { label: "Holding Period", value: "4 yrs 3 mos", sub: "Since Mar 2021", Icon: Clock },
-];
+const OWNER_COLORS = ["var(--val-primary-dark)", "#38bdf8", "#818cf8", "#a3e635"];
+
+function formatDate(ts: number): string {
+  return new Date(ts).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
+}
+
+function buildKpis(record: OwnershipRecord | null, coOwners: { id: string }[]) {
+  const ownerCount = coOwners.length;
+  return [
+    {
+      label: "Ownership Type",
+      value: record?.holdingType ?? "—",
+      sub: "Joint ownership",
+      Icon: Scale,
+    },
+    {
+      label: "Total Owners",
+      value: ownerCount > 0 ? String(ownerCount) : "—",
+      sub: ownerCount === 1 ? "Co-owner" : "Co-owners",
+      Icon: Users,
+    },
+    // TODO: Phase 6.6.5 (Property-field promotion) — wire from property.purchasePrice
+    { label: "Acquisition Price", value: "$485,000", sub: "Mar 2021", Icon: DollarSign },
+    // TODO: Phase 6.6.5 (Property-field promotion) — wire from property.purchaseDate
+    { label: "Holding Period", value: "4 yrs 3 mos", sub: "Since Mar 2021", Icon: Clock },
+  ];
+}
+
+function ownerInitials(name: string): string {
+  return name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+}
 
 interface Props {
   property: Property;
-  ownershipRecords: OwnershipRecord[];
+  ownershipDocuments: OwnershipDocument[];
+  ownershipRecord: OwnershipRecord | null;
   ownershipHistory: OwnershipHistory[];
+  coOwners: CoOwner[];
+  monthlyRentIncome: number;
 }
 
 export function PropertyOwnershipPage({
   property,
-  ownershipRecords = [],
+  ownershipDocuments = [],
+  ownershipRecord = null,
   ownershipHistory = [],
+  coOwners = [],
+  monthlyRentIncome = 0,
 }: Props) {
   const [mounted, setMounted] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
@@ -47,6 +81,11 @@ export function PropertyOwnershipPage({
     const t = setTimeout(() => setMounted(true), 50);
     return () => clearTimeout(t);
   }, []);
+
+  const sortedOwners = [...coOwners].sort((a, b) => b.sharePercent - a.sharePercent);
+  const displayedOwners = sortedOwners.slice(0, 2);
+  const hiddenCount = sortedOwners.length - displayedOwners.length;
+  const propertyValue = property.currentMarketValue ?? 0;
 
   return (
     <PropertyLayout activeTab="ownership" property={property}>
@@ -90,7 +129,7 @@ export function PropertyOwnershipPage({
 
           {/* KPI Row */}
           <div className="grid grid-cols-4 gap-4" style={fade(mounted, 60, reducedMotion)}>
-            {kpis.map((kpi, i) => (
+            {buildKpis(ownershipRecord, coOwners).map((kpi, i) => (
               <div
                 key={kpi.label}
                 className="bg-white rounded-lg border border-slate-200 p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)] hover:shadow-md hover:-translate-y-0.5 transition-all duration-300"
@@ -128,7 +167,11 @@ export function PropertyOwnershipPage({
                     Remaining Mortgage
                   </p>
                   <p className="text-[28px] font-bold text-val-heading leading-none">$341,200</p>
-                  <p className="text-xs text-slate-400 mt-1">Fixed 30yr @ 3.875%</p>
+                  <p className="text-xs text-slate-400 mt-1">
+                    {ownershipRecord?.loanType && ownershipRecord?.loanTermYears != null && ownershipRecord?.interestRate != null
+                      ? `${ownershipRecord.loanType} ${ownershipRecord.loanTermYears}yr @ ${ownershipRecord.interestRate}%`
+                      : "—"}
+                  </p>
                 </div>
               </div>
 
@@ -152,7 +195,7 @@ export function PropertyOwnershipPage({
                 {[
                   { label: "LTV Ratio", value: "55.8%" },
                   { label: "Monthly P/I", value: "$1,612/mo" },
-                  { label: "Next Payment Due", value: "Feb 01, 2026" },
+                  { label: "Next Payment Due", value: ownershipRecord?.nextPaymentDue != null ? formatDate(ownershipRecord.nextPaymentDue) : "—" },
                 ].map(({ label, value }) => (
                   <div key={label}>
                     <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">
@@ -164,42 +207,60 @@ export function PropertyOwnershipPage({
               </div>
             </div>
 
+            {/* Ownership Split — wired from CoOwner */}
             <div className="col-span-5 bg-white rounded-xl border border-slate-200 p-6 shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)]">
               <h3 className="text-base font-bold text-val-heading mb-5">Ownership Split</h3>
               <div className="flex items-center justify-center mb-5">
                 <div className="relative w-[140px] h-[140px]">
                   <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
                     <circle cx="50" cy="50" r="40" fill="none" stroke="#e4efff" strokeWidth="12" />
-                    <circle
-                      cx="50" cy="50" r="40" fill="none"
-                      stroke="var(--val-primary-dark)" strokeWidth="12"
-                      strokeDasharray={mounted ? `${60 * 2.51} ${100 * 2.51}` : `0 ${100 * 2.51}`}
-                      style={{ transition: "stroke-dasharray 0.9s cubic-bezier(0.16,1,0.3,1) 0.3s" }}
-                    />
-                    <circle
-                      cx="50" cy="50" r="40" fill="none"
-                      stroke="#38bdf8" strokeWidth="12"
-                      strokeDasharray={mounted ? `${40 * 2.51} ${100 * 2.51}` : `0 ${100 * 2.51}`}
-                      strokeDashoffset={`${-60 * 2.51}`}
-                      style={{ transition: "stroke-dasharray 0.7s cubic-bezier(0.16,1,0.3,1) 0.6s" }}
-                    />
+                    {sortedOwners.map((owner, i) => {
+                      const prevShare = sortedOwners
+                        .slice(0, i)
+                        .reduce((s, o) => s + o.sharePercent, 0);
+                      return (
+                        <circle
+                          key={owner.id}
+                          cx="50" cy="50" r="40" fill="none"
+                          stroke={OWNER_COLORS[i % OWNER_COLORS.length]}
+                          strokeWidth="12"
+                          strokeDasharray={
+                            mounted
+                              ? `${owner.sharePercent * 2.51} ${100 * 2.51}`
+                              : `0 ${100 * 2.51}`
+                          }
+                          strokeDashoffset={`${-prevShare * 2.51}`}
+                          style={{
+                            transition: `stroke-dasharray ${0.9 - i * 0.15}s cubic-bezier(0.16,1,0.3,1) ${0.3 + i * 0.3}s`,
+                          }}
+                        />
+                      );
+                    })}
                   </svg>
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-[13px] font-bold text-val-heading">60% · 40%</span>
+                    <span className="text-[13px] font-bold text-val-heading">
+                      {sortedOwners.length === 0
+                        ? "—"
+                        : sortedOwners.map((o) => `${o.sharePercent}%`).join(" · ")}
+                    </span>
                   </div>
                 </div>
               </div>
               <div className="space-y-2.5 mb-5">
-                <div className="flex items-center gap-2.5">
-                  <span className="w-2 h-2 rounded-full bg-[--val-primary-dark] shrink-0" />
-                  <span className="text-[14px] text-val-heading">J. Smith</span>
-                  <span className="text-[14px] font-semibold text-val-heading ml-auto">60%</span>
-                </div>
-                <div className="flex items-center gap-2.5">
-                  <span className="w-2 h-2 rounded-full bg-[#38bdf8] shrink-0" />
-                  <span className="text-[14px] text-val-heading">M. Jones</span>
-                  <span className="text-[14px] font-semibold text-val-heading ml-auto">40%</span>
-                </div>
+                {sortedOwners.length === 0 ? (
+                  <p className="text-[14px] text-slate-400 text-center">No co-owners yet</p>
+                ) : (
+                  sortedOwners.map((owner, i) => (
+                    <div key={owner.id} className="flex items-center gap-2.5">
+                      <span
+                        className="w-2 h-2 rounded-full shrink-0"
+                        style={{ background: OWNER_COLORS[i % OWNER_COLORS.length] }}
+                      />
+                      <span className="text-[14px] text-val-heading">{ownerInitials(owner.name)}</span>
+                      <span className="text-[14px] font-semibold text-val-heading ml-auto">{owner.sharePercent}%</span>
+                    </div>
+                  ))
+                )}
               </div>
               <button className="w-full px-4 py-2 bg-white border border-slate-200 rounded text-sm font-semibold text-val-heading hover:bg-slate-50 active:scale-[0.98] transition-all duration-150">
                 Edit Split
@@ -207,61 +268,53 @@ export function PropertyOwnershipPage({
             </div>
           </div>
 
-          {/* Owner Cards */}
+          {/* Owner Cards — wired from CoOwner */}
           <div className="grid grid-cols-2 gap-5" style={fade(mounted, 240, reducedMotion)}>
-            <OwnerCard
-              initials="JS"
-              name="James Smith"
-              badge="Primary Owner"
-              share={60}
-              equity="$162,480"
-              email="james.smith@email.com"
-              phone="(312) 555-0147"
-              address="456 Owner Ave, Chicago IL 60601"
-              ssn="••••-••-4832"
-              entity="Individual"
-              status="On file (2024)"
-              mounted={mounted}
-            />
-            <OwnerCard
-              initials="MJ"
-              name="Maria Jones"
-              badge="Minor Owner"
-              share={40}
-              equity="$108,320"
-              email="m.jones@email.com"
-              phone="(312) 555-0192"
-              address="789 Partner St, Chicago IL 60602"
-              ssn="••••-••-7710"
-              entity="LLC — Jones Prop Holdings"
-              status="On file (2024)"
-              mounted={mounted}
-            />
+            {displayedOwners.length === 0 ? (
+              <div className="col-span-2">
+                <EmptyState
+                  icon={<Users className="size-6" />}
+                  title="No co-owners yet"
+                  description="Add owners to track equity and income splits for this property."
+                />
+              </div>
+            ) : (
+              <>
+                {displayedOwners.map((owner) => (
+                  <OwnerCard
+                    key={owner.id}
+                    initials={ownerInitials(owner.name)}
+                    name={owner.name}
+                    badge={owner.role === "Primary" ? "Primary Owner" : "Minor Owner"}
+                    share={owner.sharePercent}
+                    equity={
+                      propertyValue > 0
+                        ? formatCurrencyFull(Math.round(owner.sharePercent * propertyValue / 100))
+                        : "—"
+                    }
+                    email={owner.email ?? "—"}
+                    phone={owner.phone ?? "—"}
+                    address={owner.address ?? "—"}
+                    ssn={owner.ssnMasked ?? "—"}
+                    entity={owner.taxEntity ?? "—"}
+                    status={owner.tax1099Status ?? "—"}
+                    mounted={mounted}
+                  />
+                ))}
+                {hiddenCount > 0 && (
+                  <div className="col-span-2 text-center text-[13px] text-slate-400 py-1">
+                    +{hiddenCount} more co-owner{hiddenCount > 1 ? "s" : ""}
+                  </div>
+                )}
+              </>
+            )}
           </div>
 
           {/* Acquisition Details + Income Distribution */}
           <div className="grid grid-cols-2 gap-5" style={fade(mounted, 300, reducedMotion)}>
             <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)]">
               <h3 className="text-base font-bold text-val-heading mb-4">Acquisition Details</h3>
-              <div className="space-y-3">
-                {[
-                  ["Purchase Price", "$485,000"],
-                  ["Down Payment", "$97,000 (20%)"],
-                  ["Closing Costs", "$9,200"],
-                  ["Total Acquisition", "$106,200 cash deployed"],
-                  ["Lender", "First Midwest Bank"],
-                  ["Loan Amount", "$388,000"],
-                  ["Interest Rate", "3.875% Fixed"],
-                  ["Loan Term", "30 Years"],
-                  ["Origination Date", "Mar 15, 2021"],
-                  ["Maturity Date", "Mar 15, 2051"],
-                ].map(([label, val]) => (
-                  <div key={label} className="flex justify-between text-[14px]">
-                    <span className="text-slate-500">{label}</span>
-                    <span className="text-val-heading font-medium">{val}</span>
-                  </div>
-                ))}
-              </div>
+              <AcquisitionDetails record={ownershipRecord} property={property} />
             </div>
 
             <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)]">
@@ -270,48 +323,63 @@ export function PropertyOwnershipPage({
                 <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-2.5">
                   Distribution Method
                 </p>
-                <div className="flex items-center gap-4">
-                  <label className="flex items-center gap-2 text-[14px] text-val-heading cursor-pointer">
-                    <span className="w-4 h-4 border-2 border-[--val-primary-dark] rounded-full flex items-center justify-center shrink-0">
-                      <span className="w-2 h-2 bg-[--val-primary-dark] rounded-full" />
-                    </span>
-                    Pro-Rata by Share
-                  </label>
-                  <label className="flex items-center gap-2 text-[14px] text-slate-400 cursor-pointer">
-                    <span className="w-4 h-4 border-2 border-slate-200 rounded-full shrink-0" />
-                    Custom
-                  </label>
+                <div className="flex items-center gap-4 flex-wrap">
+                  {(["Pro-Rata by Share", "Equal Split", "Custom"] as const).map((method) => {
+                    const selected = ownershipRecord?.distributionMethod === method;
+                    return (
+                      <label key={method} className={`flex items-center gap-2 text-[14px] cursor-pointer ${selected ? "text-val-heading" : "text-slate-400"}`}>
+                        <span className={`w-4 h-4 border-2 rounded-full shrink-0 flex items-center justify-center ${selected ? "border-[--val-primary-dark]" : "border-slate-200"}`}>
+                          {selected && <span className="w-2 h-2 bg-[--val-primary-dark] rounded-full" />}
+                        </span>
+                        {method}
+                      </label>
+                    );
+                  })}
                 </div>
               </div>
               <div className="space-y-5">
+                {/* Row 28 — Rent income split: wired from CoOwner + Lease */}
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-2">
                     Rent Income Split
                   </p>
                   <div className="space-y-1.5">
-                    <div className="flex justify-between text-[14px]">
-                      <span className="text-val-heading">J. Smith 60%</span>
-                      <span className="font-semibold text-val-heading">$1,080/mo</span>
-                    </div>
-                    <div className="flex justify-between text-[14px]">
-                      <span className="text-val-heading">M. Jones 40%</span>
-                      <span className="font-semibold text-val-heading">$720/mo</span>
-                    </div>
+                    {sortedOwners.length === 0 ? (
+                      <p className="text-[14px] text-slate-400">No owners configured</p>
+                    ) : (
+                      sortedOwners.map((owner) => (
+                        <div key={owner.id} className="flex justify-between text-[14px]">
+                          <span className="text-val-heading">
+                            {ownerInitials(owner.name)} {owner.sharePercent}%
+                          </span>
+                          <span className="font-semibold text-val-heading">
+                            {monthlyRentIncome > 0
+                              ? `${formatCurrencyFull(Math.round(owner.sharePercent * monthlyRentIncome / 100))}/mo`
+                              : "—"}
+                          </span>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
+                {/* Row 29 — Expense responsibility: sharePercent → label */}
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-2">
                     Expense Responsibility
                   </p>
                   <div className="space-y-1.5">
-                    <div className="flex justify-between text-[14px]">
-                      <span className="text-val-heading">J. Smith 60%</span>
-                      <span className="text-slate-400">shared costs</span>
-                    </div>
-                    <div className="flex justify-between text-[14px]">
-                      <span className="text-val-heading">M. Jones 40%</span>
-                      <span className="text-slate-400">shared costs</span>
-                    </div>
+                    {sortedOwners.length === 0 ? (
+                      <p className="text-[14px] text-slate-400">No owners configured</p>
+                    ) : (
+                      sortedOwners.map((owner) => (
+                        <div key={owner.id} className="flex justify-between text-[14px]">
+                          <span className="text-val-heading">
+                            {ownerInitials(owner.name)} {owner.sharePercent}%
+                          </span>
+                          <span className="text-slate-400">shared costs</span>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
               </div>
@@ -348,7 +416,7 @@ export function PropertyOwnershipPage({
                   </tr>
                 </thead>
                 <tbody>
-                  {ownershipRecords.length === 0 ? (
+                  {ownershipDocuments.length === 0 ? (
                     <tr>
                       <td colSpan={5} className="px-4 py-6">
                         <EmptyState
@@ -358,7 +426,7 @@ export function PropertyOwnershipPage({
                         />
                       </td>
                     </tr>
-                  ) : ownershipRecords.map((doc, i) => (
+                  ) : ownershipDocuments.map((doc, i) => (
                     <tr
                       key={doc.id}
                       className="border-t border-slate-100 hover:bg-blue-50/30 cursor-pointer transition-colors"
@@ -488,9 +556,13 @@ function OwnerCard({
         </div>
         <div className="flex justify-between">
           <span className="text-slate-500">1099 Status</span>
-          <span className="text-emerald-600 flex items-center gap-1 font-medium">
-            <Check className="w-3 h-3" /> {status}
-          </span>
+          {status !== "—" ? (
+            <span className="text-emerald-600 flex items-center gap-1 font-medium">
+              <Check className="w-3 h-3" /> {status}
+            </span>
+          ) : (
+            <span className="text-slate-400 font-medium">{status}</span>
+          )}
         </div>
       </div>
 
@@ -502,6 +574,45 @@ function OwnerCard({
           View Documents
         </button>
       </div>
+    </div>
+  );
+}
+
+function AcquisitionDetails({
+  record,
+  property,
+}: {
+  record: OwnershipRecord | null;
+  property: Property;
+}) {
+  const _parsed = parseFloat(property.purchasePrice ?? "");
+  const purchasePriceNum = isNaN(_parsed) ? null : _parsed;
+  const totalAcquisition =
+    record?.downPayment != null && record?.closingCosts != null
+      ? record.downPayment + record.closingCosts
+      : null;
+
+  const rows: [string, string][] = [
+    ["Purchase Price", purchasePriceNum != null ? formatCurrencyFull(purchasePriceNum) : "—"],
+    ["Down Payment", record?.downPayment != null ? formatCurrencyFull(record.downPayment) : "—"],
+    ["Closing Costs", record?.closingCosts != null ? formatCurrencyFull(record.closingCosts) : "—"],
+    ["Total Acquisition", totalAcquisition != null ? `${formatCurrencyFull(totalAcquisition)} cash deployed` : "—"],
+    ["Lender", record?.lenderName ?? "—"],
+    ["Loan Amount", record?.loanAmount != null ? formatCurrencyFull(record.loanAmount) : "—"],
+    ["Interest Rate", record?.interestRate != null && record?.loanType ? `${record.interestRate}% ${record.loanType}` : "—"],
+    ["Loan Term", record?.loanTermYears != null ? `${record.loanTermYears} Years` : "—"],
+    ["Origination Date", record?.originationDate != null ? formatDate(record.originationDate) : "—"],
+    ["Maturity Date", record?.maturityDate != null ? formatDate(record.maturityDate) : "—"],
+  ];
+
+  return (
+    <div className="space-y-3">
+      {rows.map(([label, val]) => (
+        <div key={label} className="flex justify-between text-[14px]">
+          <span className="text-slate-500">{label}</span>
+          <span className="text-val-heading font-medium">{val}</span>
+        </div>
+      ))}
     </div>
   );
 }

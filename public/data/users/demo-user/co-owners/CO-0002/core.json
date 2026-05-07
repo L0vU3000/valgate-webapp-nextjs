@@ -1,0 +1,14 @@
+{
+  "id": "CO-0002",
+  "userId": "demo-user",
+  "propertyId": "PROP-0001",
+  "name": "Maria Jones",
+  "role": "Minor",
+  "sharePercent": 40,
+  "email": "m.jones@email.com",
+  "phone": "(312) 555-0192",
+  "address": "789 Partner St, Chicago IL 60602",
+  "ssnMasked": "••••-••-7710",
+  "taxEntity": "LLC",
+  "tax1099Status": "On file (2024)"
+}

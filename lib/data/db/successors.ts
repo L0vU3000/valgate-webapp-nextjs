@@ -6,7 +6,7 @@ import {
   deleteRecord,
   nextId,
 } from "./_fs";
-import type { Successor } from "../types/successor";
+import { SuccessorSchema, type Successor } from "../types/successor";
 
 const COLLECTION = "successors";
 const ID_PREFIX = "SUCC";
@@ -14,14 +14,16 @@ const ID_PREFIX = "SUCC";
 export type NewSuccessor = Omit<Successor, "id" | "userId">;
 
 export async function list(userId: string): Promise<Successor[]> {
-  return listMergedRecords<Successor>(userId, COLLECTION);
+  const rows = await listMergedRecords<unknown>(userId, COLLECTION);
+  return rows.map((r) => SuccessorSchema.parse(r));
 }
 
 export async function get(
   userId: string,
   id: string,
 ): Promise<Successor | null> {
-  return readMergedRecord<Successor>(userId, COLLECTION, id);
+  const row = await readMergedRecord<unknown>(userId, COLLECTION, id);
+  return row ? SuccessorSchema.parse(row) : null;
 }
 
 export async function create(
@@ -29,7 +31,7 @@ export async function create(
   data: NewSuccessor,
 ): Promise<Successor> {
   const id = await nextId(userId, COLLECTION, ID_PREFIX);
-  const record: Successor = { ...data, id, userId };
+  const record = SuccessorSchema.parse({ ...data, id, userId });
   await writeRecord(userId, COLLECTION, id, { core: { ...record } });
   return record;
 }
@@ -41,7 +43,7 @@ export async function update(
 ): Promise<Successor | null> {
   const current = await get(userId, id);
   if (!current) return null;
-  const updated = { ...current, ...patch, id: current.id, userId: current.userId };
+  const updated = SuccessorSchema.parse({ ...current, ...patch, id: current.id, userId: current.userId });
   await writeRecord(userId, COLLECTION, id, { core: { ...updated } });
   return updated;
 }

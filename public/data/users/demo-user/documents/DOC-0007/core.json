@@ -1,0 +1,14 @@
+{
+  "id": "DOC-0007",
+  "userId": "demo-user",
+  "propertyId": "PROP-0001",
+  "folderId": "FLDR-0005",
+  "name": "Property_Tax_Return_2026.xlsx",
+  "kind": "document",
+  "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "extension": "xlsx",
+  "sizeBytes": 120000,
+  "storageId": "_storage/PROP-0001/tax-return-2026.xlsx",
+  "category": "Tax",
+  "uploadedAt": 1772236800000
+}

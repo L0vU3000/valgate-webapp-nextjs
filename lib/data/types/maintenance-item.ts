@@ -1,12 +1,20 @@
-export type MaintenanceSeverity = "Emergency" | "Urgent" | "Standard";
-export type MaintenanceStatus = "Open" | "InProgress" | "Resolved";
+import { z } from "zod";
+import { idSchema, userIdSchema, propertyIdSchema, timestampSchema } from "./_common";
 
-export interface MaintenanceItem {
-  id: string;
-  userId: string;
-  propertyId: string;
-  severity: MaintenanceSeverity;
-  title: string;
-  status: MaintenanceStatus;
-  createdAt: number;
-}
+export const MaintenanceSeveritySchema = z.enum(["Emergency", "Urgent", "Standard"]);
+export const MaintenanceStatusSchema = z.enum(["Open", "InProgress", "Resolved"]);
+
+export type MaintenanceSeverity = z.infer<typeof MaintenanceSeveritySchema>;
+export type MaintenanceStatus = z.infer<typeof MaintenanceStatusSchema>;
+
+export const MaintenanceItemSchema = z.object({
+  id: idSchema,
+  userId: userIdSchema,
+  propertyId: propertyIdSchema,
+  severity: MaintenanceSeveritySchema,
+  title: z.string().min(1),
+  status: MaintenanceStatusSchema,
+  createdAt: timestampSchema,
+});
+
+export type MaintenanceItem = z.infer<typeof MaintenanceItemSchema>;

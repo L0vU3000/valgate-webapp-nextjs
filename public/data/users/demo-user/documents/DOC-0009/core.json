@@ -1,0 +1,14 @@
+{
+  "id": "DOC-0009",
+  "userId": "demo-user",
+  "propertyId": "PROP-0001",
+  "folderId": "FLDR-0001",
+  "name": "Will_And_Testament.pdf",
+  "kind": "document",
+  "mimeType": "application/pdf",
+  "extension": "pdf",
+  "sizeBytes": 2400000,
+  "storageId": "_storage/PROP-0001/will-and-testament.pdf",
+  "category": "Estate",
+  "uploadedAt": 1776159000000
+}

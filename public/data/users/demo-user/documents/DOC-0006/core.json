@@ -1,0 +1,14 @@
+{
+  "id": "DOC-0006",
+  "userId": "demo-user",
+  "propertyId": "PROP-0001",
+  "folderId": "FLDR-0002",
+  "name": "Insurance_Policy_2025.pdf",
+  "kind": "document",
+  "mimeType": "application/pdf",
+  "extension": "pdf",
+  "sizeBytes": 2100000,
+  "storageId": "_storage/PROP-0001/insurance-policy-2025.pdf",
+  "category": "Insurance",
+  "uploadedAt": 1748736000000
+}

@@ -6,7 +6,7 @@ import {
   deleteRecord,
   nextId,
 } from "./_fs";
-import type { Document } from "../types/document";
+import { DocumentSchema, type Document } from "../types/document";
 
 const COLLECTION = "documents";
 const ID_PREFIX = "DOC";
@@ -14,14 +14,16 @@ const ID_PREFIX = "DOC";
 export type NewDocument = Omit<Document, "id" | "userId">;
 
 export async function list(userId: string): Promise<Document[]> {
-  return listMergedRecords<Document>(userId, COLLECTION);
+  const rows = await listMergedRecords<unknown>(userId, COLLECTION);
+  return rows.map((r) => DocumentSchema.parse(r));
 }
 
 export async function get(
   userId: string,
   id: string,
 ): Promise<Document | null> {
-  return readMergedRecord<Document>(userId, COLLECTION, id);
+  const row = await readMergedRecord<unknown>(userId, COLLECTION, id);
+  return row ? DocumentSchema.parse(row) : null;
 }
 
 export async function create(
@@ -29,7 +31,7 @@ export async function create(
   data: NewDocument,
 ): Promise<Document> {
   const id = await nextId(userId, COLLECTION, ID_PREFIX);
-  const record: Document = { ...data, id, userId };
+  const record = DocumentSchema.parse({ ...data, id, userId });
   await writeRecord(userId, COLLECTION, id, { core: { ...record } });
   return record;
 }
@@ -41,7 +43,7 @@ export async function update(
 ): Promise<Document | null> {
   const current = await get(userId, id);
   if (!current) return null;
-  const updated = { ...current, ...patch, id: current.id, userId: current.userId };
+  const updated = DocumentSchema.parse({ ...current, ...patch, id: current.id, userId: current.userId });
   await writeRecord(userId, COLLECTION, id, { core: { ...updated } });
   return updated;
 }

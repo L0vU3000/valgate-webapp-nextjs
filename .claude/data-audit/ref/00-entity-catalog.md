@@ -1,68 +1,75 @@
 # 00 — Entity Catalog
 
-> Every domain entity surfaced by the frontend, with full field set (union across all UI surfaces), provenance, relationships, ownership, lifecycle, and indexes implied by access patterns. Convex-style v.* types annotate the proposed schema.
+> Every domain entity surfaced by the frontend, with full field set (union across all UI surfaces), provenance, relationships, ownership, lifecycle, and indexes implied by access patterns. Convex-style v.* types annotate the **proposed backend schema**. Current code uses **Zod** (validated at FS read boundary in `lib/data/types/`). Both are valid — Convex annotations are the backend target; Zod is what runs today. Aspirational entries (§8, §12, §15) are flagged with a 🔜 **Not built** banner.
+>
+> Refreshed 2026-05-06 to sync with current Zod schemas in `lib/data/types/`. Per-section drift survey performed; additions, renames, and type changes annotated inline.
 
 Conventions:
 - **owned-by-user**: every entity has `userId: v.string()` (Clerk user id) + `.index("by_user", ["userId"])` per `docs/mock-to-backend-pattern.md:198–207`.
 - **timestamps**: `createdAt: v.number()` / `updatedAt: v.number()` Unix ms (per pattern doc).
 - **provenance** = where the field is first introduced in the UI today.
+- **`_id` vs `id`**: catalog uses `_id` (Convex table key) as the backend-target notation. Current FS layer uses `id: string` (string with prefix like `PROP-`, `LP-`, `CO-`). The Convex migration will resolve these to `v.id("table")` types.
 
 ---
 
 ## 1. Property (`properties`, plural `properties`)
 
-The central aggregate. Fields union across `lib/mock-data.ts`, `add-property/_components/schemas.ts`, every `/property/[id]/*` route.
+The central aggregate. Fields union across `lib/data/types/property.ts`, `add-property/_components/schemas.ts`, every `/property/[id]/*` route.
+
+Sub-schemas in Zod: `PropertyCoreSchema` + `PropertyLocationSchema` + `PropertyFinanceSchema` + `PropertyMediaSchema` merged into `PropertySchema`. Catalog lists them flat since they merge into one entity.
 
 | Field | Type | Nullable | Provenance |
 |---|---|---|---|
-| `_id` | `v.id("properties")` | no | Convex-managed |
-| `userId` | `v.string()` | no | needed for ownership; **absent in mocks** |
+| `_id` | `v.id("properties")` | no | Convex-managed (`id: string` in FS layer) |
+| `userId` | `v.string()` | no | needed for ownership |
 | `name` | `v.string()` | no | mock-data.ts; Step2BasicInfo `propertyName` |
 | `code` | `v.string()` | no | mock-data.ts (e.g. "PP00016 PH") |
-| `type` | `v.union(v.literal("Land"), v.literal("House"), v.literal("Building"))` | no | mock-data.ts |
-| `propertyType` | `v.union(v.literal("residential"), v.literal("commercial"), v.literal("multi-unit"), v.literal("retail"), v.literal("land"), v.literal("industrial"), v.literal("construction"), v.literal("other"))` | yes | schemas.ts step1Schema |
-| `province` | `v.string()` | no | mock-data.ts |
-| `status` | `v.union(v.literal("Rented"), v.literal("Vacant"))` | no | mock-data.ts |
-| `statusVariant` | `v.union(v.literal("rented"), v.literal("vacant"))` | no | mock-data.ts (likely redundant w/ `status` — Q5.A) |
-| `size` | `v.string()` | no | mock-data.ts (sq m string like "850") |
-| `buy` | `v.string()` | no | mock-data.ts (formatted "$1,278,000") — derive at render |
-| `buyNumeric` | `v.number()` | no | mock-data.ts (raw price; **canonical**) |
-| `title` | `v.union(v.literal("Hard title"), v.literal("Soft title"), v.literal("—"))` | no | mock-data.ts |
-| `titleVariant` | `v.union(v.literal("hard"), v.literal("soft"), v.literal("none"))` | no | mock-data.ts (redundant w/ `title` — Q5.A) |
-| `health` | `v.number()` | no | mock-data.ts (0–100) |
+| `type` | `v.union(v.literal("residential"), v.literal("commercial"), v.literal("multi-unit"), v.literal("retail"), v.literal("land"), v.literal("industrial"), v.literal("construction"), v.literal("other"))` | no | `propertyTypeChoiceSchema`; Step1 wizard (was "Land"/"House"/"Building" in old mocks — updated Phase 6.0) |
+| `status` | `v.union(v.literal("Rented"), v.literal("Vacant"), v.literal("For Sale"), v.literal("Sold"), v.literal("Archived"), v.literal("Owner-Occupied"))` | no | `propertyStatusSchema`; mock-data.ts (expanded from 2→5 values during Phase 6.x; **"Owner-Occupied" added Phase 8.1 Q-resolution 2026-05-06** — needed for analytics occupancy formula: properties with this status count as occupied alongside properties with an active Lease) |
+| `health` | `v.number()` | no | mock-data.ts (0–100) — ⚠️ **Q5.K resolved 2026-05-06: scheduled for removal.** `Property.health` will be dropped in a follow-up cleanup phase. Replacement attention-signal will derive from open Emergency MaintenanceItems + overdue Payment. |
 | `lat` | `v.number()` | no | mock-data.ts |
 | `lng` | `v.number()` | no | mock-data.ts |
+| `isArchived` | `v.optional(v.boolean())` | yes | added Phase 6.x (PropertyCoreSchema soft-delete flag) |
+| `province` | `v.string()` | no | mock-data.ts; PropertyLocationSchema |
 | `addressLine` | `v.optional(v.string())` | yes | step2Schema |
 | `addressLine2` | `v.optional(v.string())` | yes | step2Schema |
 | `city` | `v.optional(v.string())` | yes | step2Schema |
-| `stateProv` | `v.optional(v.string())` | yes | step2Schema (renamed from `state` to avoid collision) |
 | `zip` | `v.optional(v.string())` | yes | step2Schema |
 | `country` | `v.optional(v.string())` | yes | step2Schema |
-| `yearBuilt` | `v.optional(v.string())` | yes | step2Schema (Q5.B: tighten to `v.number()`) |
-| `totalArea` | `v.optional(v.string())` | yes | step2Schema (Q5.B: tighten to `v.number()`) |
+| `purchasePrice` | `v.optional(v.string())` | yes | step3Schema (tighten to `v.number()` in backend) |
+| `purchaseDate` | `v.optional(v.number())` | yes | step3Schema (Unix ms) |
+| `currentMarketValue` | `v.optional(v.number())` | yes | step3Schema |
+| `outstandingMortgage` | `v.optional(v.number())` | yes | step3Schema |
+| `monthlyPayment` | `v.optional(v.number())` | yes | step3Schema |
+| `interestRate` | `v.optional(v.number())` | yes | step3Schema |
+| `annualPropertyTax` | `v.optional(v.number())` | yes | step3Schema |
+| `taxAssessmentValue` | `v.optional(v.number())` | yes | step3Schema |
+| `annualInsurance` | `v.optional(v.number())` | yes | step3Schema |
+| `ownershipStatus` | `v.optional(v.string())` | yes | step3Schema |
+| `buyNumeric` | `v.number()` | no | PropertyFinanceSchema (raw price; **canonical**) |
+| `photoStorageIds` | `v.optional(v.array(v.id("_storage")))` | yes | Step4PhotosDocs; optional in current Zod (Phase 6.x) — required in Convex backend target |
+| `documentStorageIds` | `v.optional(v.array(v.id("_storage")))` | yes | Step4PhotosDocs; optional in current Zod — required in Convex backend target |
+| `totalArea` | `v.string()` | no | PropertyMediaSchema (required; was optional in earlier catalog version) |
+| `yearBuilt` | `v.optional(v.string())` | yes | step2Schema (tighten to `v.number()` in backend — Q5.B) |
 | `bedrooms` | `v.optional(v.string())` | yes | step2Schema (tighten to `v.number()`) |
 | `bathrooms` | `v.optional(v.string())` | yes | step2Schema (tighten to `v.number()`) |
 | `parkingSpaces` | `v.optional(v.string())` | yes | step2Schema (tighten to `v.number()`) |
 | `storageUnit` | `v.optional(v.string())` | yes | step2Schema (Q5.B) |
-| `purchasePrice` | `v.optional(v.string())` | yes | step3Schema (tighten to `v.number()`) |
-| `purchaseDate` | `v.optional(v.number())` | yes | step3Schema (tighten to Unix ms) |
-| `currentMarketValue` | `v.optional(v.number())` | yes | step3Schema (tighten) |
-| `ownershipStatus` | `v.optional(v.string())` | yes | step3Schema |
-| `outstandingMortgage` | `v.optional(v.number())` | yes | step3Schema (tighten) |
-| `monthlyPayment` | `v.optional(v.number())` | yes | step3Schema (tighten) |
-| `interestRate` | `v.optional(v.number())` | yes | step3Schema (tighten) |
-| `annualPropertyTax` | `v.optional(v.number())` | yes | step3Schema (tighten) |
-| `taxAssessmentValue` | `v.optional(v.number())` | yes | step3Schema (tighten) |
-| `annualInsurance` | `v.optional(v.number())` | yes | step3Schema (tighten) |
-| `photoStorageIds` | `v.array(v.id("_storage"))` | no | Step4PhotosDocs (today filename strings only) — Q5.C |
-| `documentStorageIds` | `v.array(v.id("_storage"))` | no | Step4PhotosDocs — Q5.C |
+| `title` | `v.union(v.literal("Hard title"), v.literal("Soft title"), v.literal("—"))` | no | `propertyTitleSchema`; mock-data.ts |
 | `createdAt` | `v.number()` | no | implied by `kpis.newThisMonth` (queries.ts:20) |
 | `updatedAt` | `v.number()` | no | inferred |
 
-**Relationships**: 1→N to `documents`, `tenants`, `leases`, `payments`, `valuations`, `inspections`, `safetyRisks`, `ownershipHistory`, `successors`. Optional 1→N to `co-owners`.
+**Proposed (not yet in code) — Convex-only annotations:**
+- `statusVariant: v.union(v.literal("rented"), v.literal("vacant"))` — likely redundant with `status` (Q5.A); not in current Zod PropertySchema
+- `titleVariant: v.union(v.literal("hard"), v.literal("soft"), v.literal("none"))` — schema export exists (`titleVariantSchema`) but not a stored field (Q5.A)
+- `size: v.string()` — old string size field (e.g. "850"); superseded by `totalArea`; not in Zod; keep only in legacy mock context
+- `buy: v.string()` — formatted price string; exists only in `PropertyListItemSchema` (narrow projection), **not** in core `PropertySchema`; derived at query time from `buyNumeric`
+- `stateProv: v.optional(v.string())` — renamed/removed; `province` covers Cambodia context; not in current Zod
+
+**Relationships**: 1→N to `documents`, `tenants`, `leases`, `payments`, `valuations`, `inspections`, `safetyRisks`, `ownershipHistory`, `successors`, `expenses`. Optional 1→N to `co-owners`. Optional 1→1 to `ownershipRecords`, `landParcels`.
 **Ownership**: `userId === ctx.identity.subject` for all reads/writes.
-**Lifecycle**: `Draft` (in localStorage) → submit → `Active`. (No archived/sold state in UI yet — Q4.D.)
-**Indexes**: `by_user`, `by_user_and_status` (filter Vacant/Rented), `by_user_and_province` (province filter), `by_user_and_health_lt` (`attentionCount` query).
+**Lifecycle**: `Draft` (in localStorage) → submit → `Active`. (No archived/sold state enforced in UI yet — Q4.D.)
+**Indexes**: `by_user`, `by_user_and_status`, `by_user_and_province`, `by_user_and_health_lt`.
 
 ---
 
@@ -103,7 +110,7 @@ Hierarchical document folders surfaced in the documents tab tree (`locationTree[
 | `_id` | `v.id("folders")` | Convex |
 | `userId` | `v.string()` | ownership |
 | `propertyId` | `v.id("properties")` | folders are property-scoped |
-| `parentFolderId` | `v.optional(v.id("folders"))` | nested tree |
+| `parentFolderId` | `v.optional(v.id("folders"))` | nested tree (self-FK) |
 | `name` | `v.string()` | "Contract", "Receipts", "Tax", … (Step4 + DocumentsPage) |
 | `createdAt` | `v.number()` | implied |
 
@@ -154,7 +161,7 @@ Surfaces in `/rental` pipeline + PropertyRentalPage (lease summary, "12-month").
 
 **Relationships**: belongs to `Property`; references `Tenant`.
 **Lifecycle**: `Approaching → Offered → Signed → Active → Expiring → Renewed | Ended`.
-**Indexes**: `by_property`, `by_user_and_stage`, `by_user_and_endDate` (for upcoming-events sort).
+**Indexes**: `by_property`, `by_user_and_stage`, `by_user_and_endDate`.
 
 ---
 
@@ -175,7 +182,7 @@ Surfaces in PropertyRentalPage `payments[]` (HARDCODED) and `/rental` arrears bu
 | `method` | `v.string()` | rental tab |
 | `status` | `v.union(v.literal("Paid"), v.literal("Pending"), v.literal("Failed"), v.literal("Overdue"))` | rental tab; arrears buckets imply overdue ageing |
 
-**Indexes**: `by_property_and_date`, `by_user_and_status`, `by_user_and_overdueAge` (for arrears bucketing).
+**Indexes**: `by_property_and_date`, `by_user_and_status`, `by_user_and_overdueAge`.
 
 ---
 
@@ -199,7 +206,7 @@ Surfaces in `/rental` (HARDCODED counts by severity).
 
 ## 8. RentalEvent (`rentalEvents`)
 
-Surfaces in `/rental` upcomingEvents (`time`, `title`, `detail`).
+> 🔜 **Not built.** No `lib/data/types/rental-event.ts` exists today. Documented here as design intent only; will be built when Phase 6.x deferred lands (PropertyComparable / MarketSnapshot / RentalEvent — gated on Q4.Q). "Upcoming events" on the rental page is currently a derived view over `Leases`, `MaintenanceItems`, `Payments`, `Inspections` at query time, not a stored entity. See `ref/03-data-flow-and-derivations.md`.
 
 | Field | Type | Provenance |
 |---|---|---|
@@ -212,13 +219,13 @@ Surfaces in `/rental` upcomingEvents (`time`, `title`, `detail`).
 | `detail` | `v.string()` | rental queries |
 | `statusDot` | `v.optional(v.string())` | UI hint |
 
-**Note**: this table likely doesn't physically exist; "upcoming events" is a derived view over `Leases`, `MaintenanceItems`, `Payments`, `Inspections`. Decide in `04` (b). See `03` derivations.
-
 ---
 
 ## 9. Notification (`notifications`)
 
-Defined in `lib/data/notifications.ts`; reference shape in `docs/mock-to-backend-pattern.md:198–207`.
+Defined in `lib/data/types/notification.ts`; reference shape in `docs/mock-to-backend-pattern.md:198–207`.
+
+> **Q4.F resolved Phase 6.8 (2026-05-06):** HYBRID per source. Lease-expiring alerts derived at query time from `Lease.endDate`. Manual/cross-cutting alerts stored as Notification rows. Auto-creation deferred to backend phase. **Schema gap (Q5.T):** no `propertyId` field; property-scoping today via `linkTo` URL parse.
 
 | Field | Type | Provenance |
 |---|---|---|
@@ -231,7 +238,7 @@ Defined in `lib/data/notifications.ts`; reference shape in `docs/mock-to-backend
 | `read` | `v.boolean()` | notifications.ts |
 | `linkTo` | `v.optional(v.string())` | notifications.ts |
 
-**Indexes**: `by_user`, `by_user_and_read` (unread filter), `by_user_and_createdAt` (recent feed).
+**Indexes**: `by_user`, `by_user_and_read`, `by_user_and_createdAt`.
 
 ---
 
@@ -239,27 +246,31 @@ Defined in `lib/data/notifications.ts`; reference shape in `docs/mock-to-backend
 
 Surfaces in `/profile` and `/settings`. Auth identity is Clerk; `userProfiles` extends Clerk with app-specific fields.
 
-| Field | Type | Provenance |
-|---|---|---|
-| `_id` | `v.id("userProfiles")` | Convex |
-| `userId` | `v.string()` | Clerk subject; **unique** index |
-| `firstName` | `v.string()` | ProfilePage:81–83 |
-| `lastName` | `v.string()` | ProfilePage |
-| `fullName` | `v.string()` | ProfilePage:29 (could derive from first+last — Q5.F) |
-| `initials` | `v.string()` | ProfilePage:26 (derive from name — Q5.F) |
-| `jobTitle` | `v.optional(v.string())` | ProfilePage |
-| `employeeId` | `v.optional(v.string())` | ProfilePage |
-| `role` | `v.union(v.literal("Administrator"), v.literal("Manager"), v.literal("Viewer"))` | ProfilePage:32 |
-| `email` | `v.string()` | ProfilePage |
-| `phone` | `v.optional(v.string())` | ProfilePage |
-| `office` | `v.optional(v.string())` | ProfilePage |
-| `language` | `v.union(v.literal("en-US"), v.literal("km"), v.literal("zh"))` | settings queries.ts |
-| `timezone` | `v.string()` | settings queries.ts |
-| `currency` | `v.string()` | profile queries.ts |
-| `dashboardView` | `v.union(v.literal("portfolio-overview"), v.literal("analytics"), v.literal("map"))` | settings queries.ts |
-| `memberSince` | `v.number()` | ProfilePage:39 |
-| `lastLoginAt` | `v.number()` | ProfilePage:43 |
-| `mfa` | `v.object({ authenticatorEnabled: v.boolean(), smsEnabled: v.boolean() })` | SettingsPage MFA cards |
+| Field | Type | Nullable | Provenance |
+|---|---|---|---|
+| `_id` | `v.id("userProfiles")` | no | Convex (`id: string` in FS) |
+| `userId` | `v.string()` | no | Clerk subject; **unique** index |
+| `firstName` | `v.string()` | no | ProfilePage:81–83 |
+| `lastName` | `v.string()` | no | ProfilePage |
+| `jobTitle` | `v.optional(v.string())` | yes | ProfilePage |
+| `employeeId` | `v.optional(v.string())` | yes | ProfilePage |
+| `email` | `v.optional(v.string())` | yes | ProfilePage (optional in current Zod; tighten to required in backend) |
+| `phone` | `v.optional(v.string())` | yes | ProfilePage |
+| `officeLocation` | `v.optional(v.string())` | yes | ProfilePage (renamed from `office` → `officeLocation` in Zod) |
+| `language` | `v.optional(v.string())` | yes | settings queries.ts (open string in Zod; backend target: `v.union(v.literal("en-US"), v.literal("km"), v.literal("zh"))`) |
+| `timezone` | `v.optional(v.string())` | yes | settings queries.ts |
+| `currency` | `v.optional(v.string())` | yes | profile queries.ts |
+| `role` | `v.optional(v.string())` | yes | ProfilePage:32 (open string in Zod; backend target: `v.union(v.literal("Administrator"), v.literal("Manager"), v.literal("Viewer"))`) |
+| `memberSince` | `v.optional(v.number())` | yes | ProfilePage:39 |
+| `lastLogin` | `v.optional(v.number())` | yes | ProfilePage:43 (renamed from `lastLoginAt` → `lastLogin` in Zod) |
+| `createdAt` | `v.number()` | no | added Phase 6.x |
+| `updatedAt` | `v.number()` | no | added Phase 6.x |
+
+**Proposed (not yet in Zod) — Convex-only / future:**
+- `fullName: v.string()` — ProfilePage:29; could derive from first+last (Q5.F); not a stored Zod field
+- `initials: v.string()` — ProfilePage:26; derive from name (Q5.F); not a stored Zod field
+- `dashboardView: v.union(v.literal("portfolio-overview"), v.literal("analytics"), v.literal("map"))` — settings queries.ts; not in Zod
+- `mfa: v.object({ authenticatorEnabled: v.boolean(), smsEnabled: v.boolean() })` — SettingsPage MFA cards; not in Zod
 
 **Index**: `by_user` (unique).
 
@@ -267,15 +278,20 @@ Surfaces in `/profile` and `/settings`. Auth identity is Clerk; `userProfiles` e
 
 ## 11. NotificationPreference (`notificationPreferences`)
 
-Settings page matrix: 3 event types × 3 channels.
+Settings page matrix: event types × 3 channels. **Schema redesigned in Phase 6.x:** instead of one row per (eventType, channel, enabled), Zod now stores one row per eventType with three boolean columns (`email`, `slack`, `sms`).
 
 | Field | Type | Provenance |
 |---|---|---|
 | `_id` | `v.id("notificationPreferences")` | Convex |
 | `userId` | `v.string()` | ownership |
-| `eventType` | `v.union(v.literal("valuationUpdates"), v.literal("teamComments"), v.literal("marketInsights"))` | SettingsPage:21–23 |
-| `channel` | `v.union(v.literal("email"), v.literal("slack"), v.literal("sms"))` | SettingsPage |
-| `enabled` | `v.boolean()` | SettingsPage |
+| `eventType` | `v.string()` | SettingsPage event rows (open string in Zod; backend target enum: `valuationUpdates`, `teamComments`, `marketInsights`) |
+| `email` | `v.boolean()` | SettingsPage email channel toggle |
+| `slack` | `v.boolean()` | SettingsPage Slack channel toggle |
+| `sms` | `v.boolean()` | SettingsPage SMS channel toggle |
+| `createdAt` | `v.number()` | added Phase 6.x |
+| `updatedAt` | `v.number()` | added Phase 6.x |
+
+**Note**: earlier catalog version had `channel: v.union(...)` + `enabled: v.boolean()` (row-per-channel model). Current Zod uses column-per-channel model. The two are semantically equivalent; Convex backend may revert to row-per-channel for flexibility.
 
 **Index**: `by_user`, `by_user_and_eventType`.
 
@@ -283,7 +299,7 @@ Settings page matrix: 3 event types × 3 channels.
 
 ## 12. Draft (`drafts`)
 
-The add-property wizard's autosave. Today: `localStorage:valgate:add-property:drafts:v1`. Whether to keep client-only or migrate to Convex is **Q4.A**.
+> 🔜 **Not built.** No `lib/data/types/draft.ts` exists today. The add-property wizard uses `localStorage:valgate:add-property:drafts:v1` for autosave — client-only, no server entity. The proposed entity below is for **server-side draft persistence** (future phase). Whether to keep client-only or migrate is open (Q4.A).
 
 | Field | Type | Provenance |
 |---|---|---|
@@ -306,20 +322,24 @@ The add-property wizard's autosave. Today: `localStorage:valgate:add-property:dr
 | Field | Type | Provenance |
 |---|---|---|
 | `_id` | `v.id("professionals")` | Convex |
-| `userId` | `v.string()` | ownership (per-user directory? — Q4.A) |
+| `userId` | `v.string()` | ownership (per-user directory) |
 | `name` | `v.string()` | directory queries.ts |
 | `company` | `v.string()` | directory |
 | `category` | `v.string()` | one of 9 categories — directory queries.ts:107 |
 | `rating` | `v.number()` | directory |
 | `reviewCount` | `v.number()` | directory |
-| `linkedPropertyIds` | `v.array(v.id("properties"))` | directory `linkedProperties` |
+| `linkedProperties` | `v.number()` | directory (count of linked properties; **current Zod is a count `z.number().int()`**; backend target may be `v.array(v.id("properties"))` for full linking — Q4.A) |
 | `available` | `v.boolean()` | directory |
 | `initials` | `v.string()` | derive (Q5.F) |
 | `avatarBg` | `v.string()` | UI; consider client-side derive |
-| `email` | `v.optional(v.string())` | implied by Email button (Q4.A) |
-| `phone` | `v.optional(v.string())` | implied by Phone button (Q4.A) |
+| `createdAt` | `v.number()` | added Phase 6.x |
+| `updatedAt` | `v.number()` | added Phase 6.x |
 
-**Indexes**: `by_user_and_category`, `by_user_and_name` (search prefix).
+**Proposed (not yet in Zod):**
+- `email: v.optional(v.string())` — implied by Email button (Q4.A)
+- `phone: v.optional(v.string())` — implied by Phone button (Q4.A)
+
+**Indexes**: `by_user_and_category`, `by_user_and_name`.
 
 ---
 
@@ -332,12 +352,16 @@ The add-property wizard's autosave. Today: `localStorage:valgate:add-property:dr
 | `_id` | `v.id("successors")` | Convex |
 | `userId` | `v.string()` | ownership |
 | `name` | `v.string()` | estate queries.ts:122–147 |
-| `relation` | `v.string()` | estate queries (e.g. "Daughter") |
-| `role` | `v.union(v.literal("Primary"), v.literal("Contingent"))` | estate queries |
-| `sharePercent` | `v.number()` | "75%" stored as 75 |
-| `verified` | `v.boolean()` | estate queries |
 | `initials` | `v.string()` | derive |
-| `linkedPropertyIds` | `v.array(v.id("properties"))` | implied per-property assignment |
+| `relation` | `v.string()` | estate queries (e.g. "Daughter") |
+| `role` | `v.union(v.literal("primary"), v.literal("contingent"))` | estate queries (**lowercase** in Zod — was "Primary"/"Contingent" in earlier catalog; updated Phase 6.x) |
+| `share` | `v.number()` | share percent 0–100 (**renamed** from `sharePercent` → `share` in Zod; stored as numeric e.g. 75 for 75%) |
+| `verified` | `v.boolean()` | estate queries |
+| `createdAt` | `v.number()` | added Phase 6.x |
+| `updatedAt` | `v.number()` | added Phase 6.x |
+
+**Proposed (not yet in Zod):**
+- `linkedPropertyIds: v.array(v.id("properties"))` — implied per-property assignment; not in Zod
 
 **Indexes**: `by_user`, `by_user_and_role`.
 
@@ -345,7 +369,7 @@ The add-property wizard's autosave. Today: `localStorage:valgate:add-property:dr
 
 ## 15. EstateDocument (`estateDocuments`)
 
-Surfaces in `/estate-planning` documents grid (Will & Testament, etc.). May fold into `Document` table with `category="estate"` — Q4.C.
+> 🔜 **Not built.** No `lib/data/types/estate-document.ts` exists today. Documented here as design intent only. The current Successor + estate-planning surfaces don't attach documents; this entity would land if/when a dedicated estate-planning document page is built. May fold into `Document` table with `category="estate"` — Q4.C.
 
 | Field | Type | Provenance |
 |---|---|---|
@@ -362,7 +386,7 @@ Surfaces in `/estate-planning` documents grid (Will & Testament, etc.). May fold
 | `_id` | `v.id("propertyValuations")` | Convex |
 | `userId` | `v.string()` | ownership |
 | `propertyId` | `v.id("properties")` | valuation tab |
-| `month` | `v.string()` | valueHistory |
+| `month` | `v.string()` | valueHistory (format: "MMM YYYY", e.g. "Jan 2026") |
 | `price` | `v.number()` | valueHistory |
 | `recordedAt` | `v.number()` | inferred |
 
@@ -374,12 +398,42 @@ Plus child collection `comparables` (sub-table) and `investmentMetrics` (could l
 
 ## 17. Inspection (`inspections`) and 18. Certification (`certifications`)
 
-`/property/[id]/safety` surfaces. Inspections (date, type, inspector, status, issues) and Certifications (name, status, issued, expires, inspector).
+`/property/[id]/safety` surfaces.
 
-**Inspection fields**: `_id`, `userId`, `propertyId`, `date`, `type`, `inspector`, `status` (Pass/Fail/Pending), `issuesCount`, `notes?`.
-**Certification fields**: `_id`, `userId`, `propertyId`, `name`, `status` (Active/Expiring/Expired), `issuedAt`, `expiresAt`, `inspector`.
+**Inspection fields** (`lib/data/types/inspection.ts`):
 
-**Indexes**: `by_property_and_date` / `by_property_and_expiresAt` (for "18 days" countdown — though derived).
+| Field | Type | Provenance |
+|---|---|---|
+| `_id` | `v.id("inspections")` | Convex |
+| `userId` | `v.string()` | ownership |
+| `propertyId` | `v.id("properties")` | safety page |
+| `date` | `v.string()` | display date string (not Unix ms in current Zod) |
+| `type` | `v.string()` | inspection type label |
+| `inspector` | `v.string()` | inspector name |
+| `status` | `v.string()` | open string in Zod (backend target: `v.union(v.literal("Pass"), v.literal("Fail"), v.literal("Pending"))`) |
+| `issues` | `v.number()` | issue count (**renamed** from `issuesCount` → `issues` in Zod) |
+| `createdAt` | `v.number()` | added Phase 6.x |
+| `updatedAt` | `v.number()` | added Phase 6.x |
+
+**Proposed (not yet in Zod):**
+- `notes: v.optional(v.string())` — not in current Zod
+
+**Certification fields** (`lib/data/types/certification.ts`):
+
+| Field | Type | Provenance |
+|---|---|---|
+| `_id` | `v.id("certifications")` | Convex |
+| `userId` | `v.string()` | ownership |
+| `propertyId` | `v.id("properties")` | safety page |
+| `name` | `v.string()` | certification name |
+| `status` | `v.string()` | open string in Zod (backend target: `v.union(v.literal("Active"), v.literal("Expiring"), v.literal("Expired"))`) |
+| `issued` | `v.string()` | display date string (**renamed** from `issuedAt: v.number()` → `issued: v.string()` in Zod) |
+| `expires` | `v.string()` | display date string (**renamed** from `expiresAt: v.number()` → `expires: v.string()` in Zod) |
+| `inspector` | `v.string()` | inspector name |
+| `createdAt` | `v.number()` | added Phase 6.x |
+| `updatedAt` | `v.number()` | added Phase 6.x |
+
+**Indexes**: `by_property_and_date` / `by_property_and_expiresAt`.
 
 ---
 
@@ -387,7 +441,19 @@ Plus child collection `comparables` (sub-table) and `investmentMetrics` (could l
 
 `/property/[id]/safety` `risks[]`.
 
-`_id`, `userId`, `propertyId`, `severity` (High/Medium/Low), `title`, `description`, `createdAt`, `resolved` (`v.boolean()`).
+| Field | Type | Provenance |
+|---|---|---|
+| `_id` | `v.id("safetyRisks")` | Convex |
+| `userId` | `v.string()` | ownership |
+| `propertyId` | `v.id("properties")` | safety page |
+| `severityLabel` | `v.string()` | open string in Zod (**renamed** from `severity`; backend target: `v.union(v.literal("High"), v.literal("Medium"), v.literal("Low"))`) |
+| `title` | `v.string()` | risk title |
+| `desc` | `v.string()` | risk description (**renamed** from `description` → `desc` in Zod) |
+| `createdAt` | `v.number()` | required |
+| `updatedAt` | `v.number()` | added Phase 6.x |
+
+**Proposed (not yet in Zod):**
+- `resolved: v.boolean()` — not in current Zod; useful for marking risks resolved without deletion
 
 **Index**: `by_property_and_severity`.
 
@@ -397,18 +463,78 @@ Plus child collection `comparables` (sub-table) and `investmentMetrics` (could l
 
 `/property/[id]/safety` contacts list.
 
-`_id`, `userId`, `propertyId`, `name`, `phone`, `category` (e.g. "Police"/"Fire"), `note?`.
+| Field | Type | Provenance |
+|---|---|---|
+| `_id` | `v.id("emergencyContacts")` | Convex |
+| `userId` | `v.string()` | ownership |
+| `propertyId` | `v.id("properties")` | safety page |
+| `name` | `v.string()` | contact name |
+| `phone` | `v.string()` | contact phone |
+| `sub` | `v.optional(v.string())` | subtitle/category hint (**renamed** from `category` → `sub` in Zod; e.g. "Police", "Fire") |
+| `createdAt` | `v.number()` | added Phase 6.x |
+| `updatedAt` | `v.number()` | added Phase 6.x |
+
+**Proposed (not yet in Zod):**
+- `note: v.optional(v.string())` — not in current Zod
 
 **Index**: `by_property`.
 
 ---
 
-## 21. OwnershipRecord (`ownershipRecords`) and 22. OwnershipHistoryItem (`ownershipHistory`)
+## 21. OwnershipRecord (`ownershipRecords`) — ownership structure record — and 21a. OwnershipDocument (`ownershipDocuments`) — deed/document record — and 22. OwnershipHistoryItem (`ownershipHistory`)
 
-`/property/[id]/ownership`. Records (co-owners, holding type, mortgage details) and history events (acquisition, transfer, refinance).
+`/property/[id]/ownership`. Three distinct concepts on this page: the **ownership structure record** (§21, one per property, holding type + loan terms + acquisition costs + distribution method), the **deed/document record** (§21a, documents like title deeds and transfer records), and **history events** (acquisition, transfer, refinance).
 
-**OwnershipRecord fields**: `_id`, `userId`, `propertyId`, `holdingType` (e.g. "Tenancy in Common"), `currentEstimatedValue: v.number()`, `remainingMortgage: v.number()`, `equityPercent: v.number()` (derived — Q4.E), `coOwnerIds: v.array(v.id("userProfiles"))?`.
-**OwnershipHistoryItem fields**: `_id`, `userId`, `propertyId`, `at: v.number()`, `text: v.string()`, `kind` ("Acquired"/"Transferred"/"Refinanced").
+**OwnershipRecord fields** (§21 — ownership structure, `OREC-` prefix, shipped Phase 6.6):
+
+| Field | Type | Notes |
+|---|---|---|
+| `_id` | `v.id("ownershipRecords")` | |
+| `userId` | `v.string()` | |
+| `propertyId` | `v.id("properties")` | |
+| `holdingType` | `v.union(v.literal("Tenancy in Common"), v.literal("Joint Tenancy"), v.literal("Sole Ownership"), v.literal("Trust"), v.literal("LLC"), v.literal("Other"))` | required |
+| `loanType` | `v.optional(v.string())` | e.g. "Fixed", "ARM" |
+| `loanAmount` | `v.optional(v.number())` | |
+| `loanTermYears` | `v.optional(v.number())` | |
+| `interestRate` | `v.optional(v.number())` | transactional source; overlaps Property.interestRate |
+| `originationDate` | `v.optional(v.number())` | Unix ms |
+| `maturityDate` | `v.optional(v.number())` | Unix ms |
+| `nextPaymentDue` | `v.optional(v.number())` | Unix ms |
+| `lenderName` | `v.optional(v.string())` | |
+| `downPayment` | `v.optional(v.number())` | |
+| `closingCosts` | `v.optional(v.number())` | |
+| `distributionMethod` | `v.optional(v.union(v.literal("Pro-Rata by Share"), v.literal("Equal Split"), v.literal("Custom")))` | |
+| `createdAt` / `updatedAt` | `v.number()` | Unix ms |
+
+**NOT stored on §21**: `currentEstimatedValue`, `remainingMortgage`, `equityPercent` — all three derive from `Property.currentMarketValue` and `Property.outstandingMortgage` at query time. `coOwnerIds` dropped — CoOwner is its own entity (§24) with a `propertyId` FK.
+
+**OwnershipDocument fields** (§21a — deed/document records, formerly called OwnershipRecord, renamed Phase 6.6, `ODOC-` prefix):
+
+| Field | Type | Notes |
+|---|---|---|
+| `_id` | `v.id("ownershipDocuments")` | |
+| `userId` | `v.string()` | |
+| `propertyId` | `v.id("properties")` | |
+| `name` | `v.string()` | e.g. "Hard Title — Original Deed" |
+| `type` | `v.string()` | e.g. "Hard Title", "Soft Title" |
+| `date` | `v.string()` | display date string |
+| `owner` | `v.string()` | e.g. "Chan Family Trust" |
+| `createdAt` / `updatedAt` | `v.number()` | Unix ms |
+
+**OwnershipHistoryItem fields** (`lib/data/types/ownership-history.ts`):
+
+| Field | Type | Notes |
+|---|---|---|
+| `_id` | `v.id("ownershipHistory")` | |
+| `userId` | `v.string()` | |
+| `propertyId` | `v.id("properties")` | |
+| `date` | `v.string()` | display date string (**renamed** from `at: v.number()` → `date: v.string()` in Zod) |
+| `text` | `v.string()` | timeline event description |
+| `color` | `v.string()` | timeline dot color (**added in Zod**, not in earlier catalog version) |
+| `createdAt` / `updatedAt` | `v.number()` | Unix ms |
+
+**Proposed (not yet in Zod):**
+- `kind: v.union(v.literal("Acquired"), v.literal("Transferred"), v.literal("Refinanced"))` — not in current Zod; useful for filtering/icon selection
 
 **Indexes**: `by_property`, `by_property_and_at`.
 
@@ -445,9 +571,110 @@ These appeared in mocks but should **stay client-side** — never enter Convex:
 
 ## Field provenance summary (sanity check vs. mocks)
 
-- `lib/mock-data.ts` Property has 16 fields; **all** appear above in `Property` table.
+- `lib/mock-data.ts` Property has 16 fields; all appear above in `Property` table.
 - `app/(shell)/add-property/_components/schemas.ts` step1+step2+step3+step4 has 30 fields; all appear above (most in `Property`, photos/documents in `Document`).
-- `lib/data/notifications.ts` Notification has 7 fields; all appear in `Notification` above.
+- `lib/data/types/notification.ts` Notification has 7 fields; all appear in `Notification` above.
 - Inline mock fields in each route's `queries.ts` (rental, settings, profile, analytics, directory, estate-planning) are reconciled into the entities/aggregates above.
 
-No orphans. Duplicates flagged: `Property.status` vs `statusVariant` (Q5.A), `Property.title` vs `titleVariant` (Q5.A).
+No orphans. Duplicates flagged: `Property.status` vs `statusVariant` (Q5.A — `statusVariant` not in Zod), `Property.title` vs `titleVariant` (Q5.A — `titleVariant` not a stored field).
+
+---
+
+## 23. LandParcel (`land-parcels`)
+
+> **Q4.R resolved Phase 6.4 (2026-05-06):** Option 2 — separate entity, 1→1 with Property for v1, 1→N-ready by removing per-property uniqueness assumption when multi-parcel support lands.
+
+Physical plot attributes for a property. Separate entity (not embedded) per Q4.R resolution: keeps domain weight off the already-large `Property` schema and allows 1→N multi-parcel support without migration.
+
+**Relationship:** 1→1 with Property for v1 (one parcel per property); schema is 1→N-ready — remove per-propertyId uniqueness assumption when multi-parcel support lands.
+
+| Field | Type | Nullable | Provenance |
+|---|---|---|---|
+| `id` | `string` (prefix `LP`) | no | `_fs` layer |
+| `userId` | `string` | no | ownership |
+| `propertyId` | `string` | no | FK to `properties` |
+| `sizeM2` | `number` (nonnegative) | no | `/property/[id]/location` FullView KPI row 12 |
+| `widthM` | `number` (nonnegative) | yes | location rows 13, 26 |
+| `lengthM` | `number` (nonnegative) | yes | location rows 13, 26 |
+| `zoningCode` | `string` | yes | location rows 15, 25 (e.g. "A-2") |
+| `zoningClass` | `string` | yes | location rows 14, 24, 25, 30 (e.g. "Agricultural Zone") |
+| `developmentPotential` | `string[]` | yes | location rows 16, 25 (use-type bullets) |
+| `elevationM` | `number` | yes | location rows 17, 24, 30 (metres above sea level) |
+| `slopeAngleDeg` | `number` | yes | location rows 18, 26 (degrees) |
+| `terrainType` | `"Flat" \| "Rolling" \| "Hilly" \| "Mountainous" \| "Mixed"` | yes | location rows 18, 26 (closed enum) |
+
+**Design notes:**
+- `sizeM2` is the authoritative typed number for the location page. `Property.totalArea` (string) coexists as a coarse-grained field for portfolio/list views.
+- `zoningCode` / `zoningClass` are open strings — no country-specific taxonomy committed yet.
+- `terrainType` is a closed 5-value enum — terrain classification is stable and culture-independent.
+- `developmentPotential` is `string[]` matching the "use-type bullets" surface on the UI.
+
+**Indexes**: `by_user`, `by_user_and_property`.
+
+---
+
+## 24. CoOwner (`co-owners`)
+
+> **Q4.N resolved Phase 6.5 (2026-05-06):** RBAC deferred to backend phase; FS demo is single-user. **PII storage:** SSN stored already-masked at rest (`••••-••-XXXX`); full SSN never enters the system. Real encryption is Q5.S → backend phase.
+
+Co-ownership records for a property. New entity created in Phase 6.5. Stores individual owner identity, contact, share structure, and tax information. Structurally independent of `OwnershipRecord` (§21) — no FK between them.
+
+**Relationship:** N→1 with Property (many co-owners per property). For v1, PROP-0001 has 2 owners; PROP-0006 has 3. Schema supports any N.
+
+| Field | Type | Nullable | Provenance |
+|---|---|---|---|
+| `id` | `string` (prefix `CO`) | no | `_fs` layer |
+| `userId` | `string` | no | ownership |
+| `propertyId` | `string` | no | FK to `properties` |
+| `name` | `string` (min 1) | no | `/property/[id]/ownership` rows 19–25 (owner name) |
+| `role` | `"Primary" \| "Minor"` | no | rows 20, 23 (owner badge label) |
+| `sharePercent` | `number` (0–100) | no | rows 18–19 (donut + legend), 20, 23, 28–29 (split amounts) |
+| `email` | `string` | yes | rows 21, 24 (contact PII) |
+| `phone` | `string` | yes | rows 21, 24 (contact PII) |
+| `address` | `string` | yes | rows 21, 24 (contact PII) |
+| `ssnMasked` | `string` (`••••-••-XXXX`) | yes | rows 22, 25 — **PII: stored already-masked at rest; only last 4 digits are plaintext. Full SSN never stored. Real encryption deferred to backend phase (Q5.S).** |
+| `taxEntity` | `"Individual" \| "S-Corp" \| "C-Corp" \| "LLC" \| "Partnership" \| "Trust" \| "Other"` | yes | rows 22, 25 (closed 7-value enum) |
+| `tax1099Status` | `string` | yes | rows 22, 25 (free-text; formats vary) |
+
+**Derived fields (not stored):**
+- `equityValue`: `sharePercent × property.currentMarketValue / 100` — computed inline.
+- Income split: `sharePercent × monthlyRentIncome / 100` — derived from signed Lease records at query time.
+
+**PII annotation:**
+- `ssnMasked` is the **only PII field stored**. Format is `••••-••-XXXX`.
+- `email`, `phone`, `address` are contact PII — optional; rendered with "—" fallback.
+- `taxEntity` and `tax1099Status` are **not PII** — public business classifications.
+- When Clerk + Convex auth lands: add a narrowed `CoOwnerListItem` shape (excluding `ssnMasked`/`taxEntity`) for non-Admin reads. See Q4.N (resolved) and Q5.S (open).
+
+**Design notes:**
+- `sharePercent` values should sum to 100 per property. Seed data is hand-validated.
+- For 3+ owners, `PropertyOwnershipPage` caps display at 2 with a "+N more co-owners" indicator.
+
+**Indexes**: `by_user`, `by_user_and_property`.
+
+---
+
+## 25. Expense (`expenses`)
+
+Property-attached operational expenses (maintenance bills, utilities, taxes, etc.). Built in Phase 6.2 alongside Payment for the rental page Net Income derivation.
+
+| Field | Type | Nullable | Provenance |
+|---|---|---|---|
+| `_id` | `v.id("expenses")` | no | Convex (`id: string` in FS layer) |
+| `userId` | `v.string()` | no | ownership |
+| `propertyId` | `v.id("properties")` | no | Phase 6.2 wiring |
+| `date` | `v.number()` | no | when the expense was incurred (Unix ms) |
+| `category` | `v.union(v.literal("Maintenance"), v.literal("Utilities"), v.literal("Insurance"), v.literal("Tax"), v.literal("Management"), v.literal("Other"))` | no | Phase 6.2 design |
+| `amount` | `v.number()` | no | non-negative |
+| `note` | `v.optional(v.string())` | yes | free-text receipt detail |
+
+**Relationships**: 1→1 to Property via `propertyId`.
+**Ownership**: `userId === ctx.identity.subject`.
+**Indexes**: `by_user_and_property`, `by_user_and_date` (for YTD windows).
+**Notes**: Phase 6.2 wired Expense to overview row 11 (Expenses KPI) and rental rows 16–17 (Expenses subtotal + Net Income subtotal). Pairs with Payment for cross-card identity (NOI = Gross − Expenses; Net Income = Total Rent − Expenses).
+
+---
+
+## Last refreshed
+
+2026-05-06 — synced §1–§24 with current Zod schemas (`lib/data/types/*.ts`); added §25 Expense (Phase 6.2 entity); marked §8 RentalEvent, §12 Draft, §15 EstateDocument as 🔜 Not built; annotated Q4.N (CoOwner PII), Q4.R (LandParcel decision), Q4.F (Notification HYBRID), Q5.K (Property.health deprecation) resolutions in affected sections. Full per-section drift survey performed — key changes: §1 type enum updated, isArchived added, status expanded; §10 UserProfile field renames + loosened types; §11 NotificationPreference schema redesign; §13 Professional linkedPropertyIds→count; §14 Successor role lowercase + sharePercent→share; §17/18 field renames; §19/20 field renames; §22 OwnershipHistory at→date + color added.

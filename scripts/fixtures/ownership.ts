@@ -1,9 +1,9 @@
-import type { NewOwnershipRecord } from "@/lib/data/db/ownership-records";
+import type { NewOwnershipDocument } from "@/lib/data/db/ownership-documents";
 import type { NewOwnershipHistory } from "@/lib/data/db/ownership-history";
 
 const now = Date.UTC(2026, 3, 1);
 
-export const ownership: NewOwnershipRecord[] = [
+export const ownership: NewOwnershipDocument[] = [
   {
     propertyId: "PROP-0001",
     name: "Hard Title — Original Deed",

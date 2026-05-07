@@ -37,6 +37,14 @@ const statusClasses: Record<PropertyStatus, string> = {
     "text-status-success-text bg-status-success-bg border border-status-success-border",
   Vacant:
     "text-status-warning-text bg-status-warning-bg border border-status-warning-border",
+  "For Sale":
+    "text-status-info-text bg-status-info-bg border border-status-info-border",
+  Sold:
+    "text-slate-600 bg-slate-100 border border-slate-200",
+  Archived:
+    "text-slate-400 bg-slate-50 border border-slate-100",
+  "Owner-Occupied":
+    "text-status-success-text bg-status-success-bg border border-status-success-border",
 };
 
 function healthClass(health: number) {

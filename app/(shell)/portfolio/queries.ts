@@ -2,6 +2,7 @@ import "server-only";
 import { getProperties } from "@/lib/data/properties";
 import * as paymentsDb from "@/lib/data/db/payments";
 import * as leasesDb from "@/lib/data/db/leases";
+import * as propertyValuationsDb from "@/lib/data/db/property-valuations";
 import { getCurrentUserId } from "@/lib/data/auth-shim";
 import { formatCurrency } from "@/lib/format";
 import {
@@ -22,10 +23,11 @@ export type PortfolioPageData = {
 
 export async function getPortfolioPageData(): Promise<PortfolioPageData> {
   const userId = getCurrentUserId();
-  const [properties, payments, leases] = await Promise.all([
+  const [properties, payments, leases, allValuations] = await Promise.all([
     getProperties(),
     paymentsDb.list(userId),
     leasesDb.list(userId),
+    propertyValuationsDb.list(userId),
   ]);
 
   const listItems: PropertyListItem[] = properties.filter((p) => !p.isArchived).map((p) => ({
@@ -45,6 +47,6 @@ export async function getPortfolioPageData(): Promise<PortfolioPageData> {
   return {
     properties: listItems,
     stats,
-    kpis: computeKpis(properties, payments, leases, stats.totalValue),
+    kpis: computeKpis(properties, payments, leases, allValuations, stats.totalValue),
   };
 }

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { PropertyLocationPage } from "../_components/PropertyLocationPage";
 import { getPropertyByIdParam } from "@/lib/data/properties";
+import { getLocationPageData } from "./queries";
 
 export default async function Page({
   params,
@@ -8,7 +9,10 @@ export default async function Page({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const property = await getPropertyByIdParam(id);
+  const [property, locationData] = await Promise.all([
+    getPropertyByIdParam(id),
+    getLocationPageData(id),
+  ]);
   if (!property) notFound();
-  return <PropertyLocationPage property={property} />;
+  return <PropertyLocationPage property={property} {...locationData} />;
 }

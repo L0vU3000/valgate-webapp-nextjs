@@ -92,7 +92,11 @@ _See [audit.md](./audit.md) for the underlying surface inventory and page-wide f
 
 | Rev | Date | Finding | What changed | Commit |
 |---|---|---|---|---|
-| — | — | — | _No fixes yet._ | — |
+| 1 | 2026-05-06 | PF3 — FALLBACK_FILES (13 hardcoded entries, lines 74–100) | Deleted `FALLBACK_FILES` constant and fallback ternary; `files` now always derived from `dbDocuments`. EmptyState reachable when `dbDocuments.length === 0`. Phase 6.3. | pending |
+| 1 | 2026-05-06 | Rows 5, 8–14 — Document surfaces | Wired file count (row 5), file name (row 8), file type icon + color (row 9, `getFileIconStyle` helper mapping ext/kind → icon + class), folder label (row 10, FK `folderId → folderMap → name`, `"—"` when absent), file size (row 11, `formatBytes`), file date (row 12, `uploadedAt`), image thumbnails (row 13, `thumb: null` — storage phase deferred), section file count (row 14, `filteredFiles.length`). Phase 6.3. | pending |
+| 1 | 2026-05-06 | Row 22 — Upload demo file list | Intentionally left as hardcoded UI demo (`demoFiles` in `startUpload`). Real upload flow is a future phase. Marked in audit as out-of-scope. Phase 6.3. | pending |
+| 1 | 2026-05-06 | Q5.R filed | `Document.category` has no closed enum. Phase 6.3 seeds use Title-case values; wiring proceeds as untyped string. See `ref/05-open-questions.md` Q5.R. | pending |
+| 1 | 2026-05-06 | Rows 7, 19, 20, 23 — Folder surfaces | Deleted 3 hardcoded constants (`mainFolders`, `FALLBACK_SUBFOLDERS`, `locationTree`). Added `buildFolderTree()` helper; derived `folderTree` + `rootFolders` at component top. Row 7 (tile grid): `rootFolders.map(f => f.name)` with EmptyState. Row 19 + 20 (location trees): `folderTree` (virtual root wrapping real folders via `parentFolderId` self-FK). Row 23 (file detail sidebar): "All Documents" (virtual) + `rootFolders.slice(0, 3)`. 5 new seeds added (FLDR-0006–0010): 2 new root folders + 2 children + 1 for PROP-0002. PF4 implicitly closed — 3 inconsistent folder hierarchies → 1 source of truth. Phase 6.7. | pending |
 
 ---
 

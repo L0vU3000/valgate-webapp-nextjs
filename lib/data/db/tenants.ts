@@ -6,7 +6,7 @@ import {
   deleteRecord,
   nextId,
 } from "./_fs";
-import type { Tenant } from "../types/tenant";
+import { TenantSchema, type Tenant } from "../types/tenant";
 
 const COLLECTION = "tenants";
 const ID_PREFIX = "TEN";
@@ -14,14 +14,16 @@ const ID_PREFIX = "TEN";
 export type NewTenant = Omit<Tenant, "id" | "userId">;
 
 export async function list(userId: string): Promise<Tenant[]> {
-  return listMergedRecords<Tenant>(userId, COLLECTION);
+  const rows = await listMergedRecords<unknown>(userId, COLLECTION);
+  return rows.map((r) => TenantSchema.parse(r));
 }
 
 export async function get(
   userId: string,
   id: string,
 ): Promise<Tenant | null> {
-  return readMergedRecord<Tenant>(userId, COLLECTION, id);
+  const row = await readMergedRecord<unknown>(userId, COLLECTION, id);
+  return row ? TenantSchema.parse(row) : null;
 }
 
 export async function create(
@@ -29,7 +31,7 @@ export async function create(
   data: NewTenant,
 ): Promise<Tenant> {
   const id = await nextId(userId, COLLECTION, ID_PREFIX);
-  const record: Tenant = { ...data, id, userId };
+  const record = TenantSchema.parse({ ...data, id, userId });
   await writeRecord(userId, COLLECTION, id, { core: { ...record } });
   return record;
 }
@@ -41,7 +43,7 @@ export async function update(
 ): Promise<Tenant | null> {
   const current = await get(userId, id);
   if (!current) return null;
-  const updated = { ...current, ...patch, id: current.id, userId: current.userId };
+  const updated = TenantSchema.parse({ ...current, ...patch, id: current.id, userId: current.userId });
   await writeRecord(userId, COLLECTION, id, { core: { ...updated } });
   return updated;
 }

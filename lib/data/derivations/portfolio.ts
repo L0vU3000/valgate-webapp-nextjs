@@ -1,6 +1,7 @@
 import type { Property, PropertyStatus } from "@/lib/data/types/property";
 import type { Payment } from "@/lib/data/types/payment";
 import type { Lease } from "@/lib/data/types/lease";
+import type { PropertyValuation } from "@/lib/data/types/property-valuation";
 import { formatCurrency } from "@/lib/format";
 
 export type PortfolioStats = {
@@ -47,10 +48,61 @@ export function computeStats(properties: Property[]): PortfolioStats {
   };
 }
 
+function computeYoyGrowth(
+  properties: Property[],
+  valuations: PropertyValuation[],
+): YoyGrowth {
+  if (valuations.length === 0) return { kind: "unknown" };
+
+  const MS_IN_YEAR = 365 * 24 * 60 * 60 * 1000;
+  const activeIds = new Set(
+    properties
+      .filter((p) => !p.isArchived && !INACTIVE_STATUSES.includes(p.status))
+      .map((p) => p.id),
+  );
+
+  let latestTotal = 0;
+  let priorTotal = 0;
+  let hasPrior = false;
+
+  for (const propertyId of activeIds) {
+    const propVals = valuations
+      .filter((v) => v.propertyId === propertyId)
+      .sort((a, b) => a.recordedAt - b.recordedAt);
+
+    if (propVals.length === 0) continue;
+
+    const latest = propVals.at(-1)!;
+    latestTotal += latest.price;
+
+    const target = latest.recordedAt - MS_IN_YEAR;
+    const prior = propVals
+      .filter((v) => v.recordedAt < latest.recordedAt)
+      .reduce<PropertyValuation | null>((best, v) => {
+        if (!best) return v;
+        return Math.abs(v.recordedAt - target) < Math.abs(best.recordedAt - target) ? v : best;
+      }, null);
+
+    if (prior) {
+      priorTotal += prior.price;
+      hasPrior = true;
+    }
+  }
+
+  if (!hasPrior) return { kind: "unknown" };
+
+  const delta = latestTotal - priorTotal;
+  const formatted = formatCurrency(Math.abs(delta));
+  return delta >= 0
+    ? { kind: "positive", formatted: `+${formatted}` }
+    : { kind: "negative", formatted: `-${formatted}` };
+}
+
 export function computeKpis(
   properties: Property[],
   payments: Payment[],
   leases: Lease[],
+  valuations: PropertyValuation[],
   totalValue: number,
 ): PortfolioKpis {
   const active = properties.filter(
@@ -81,7 +133,7 @@ export function computeKpis(
     monthlyCollected: formatCurrency(collectedRaw),
     isUnderCollected: expectedRaw > 0 && collectedRaw < expectedRaw,
     monthLabel,
-    yoyGrowth: { kind: "unknown" },
+    yoyGrowth: computeYoyGrowth(properties, valuations),
     newThisMonth,
   };
 }

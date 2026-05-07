@@ -6,7 +6,7 @@ import {
   deleteRecord,
   nextId,
 } from "./_fs";
-import type { Inspection } from "../types/inspection";
+import { InspectionSchema, type Inspection } from "../types/inspection";
 
 const COLLECTION = "inspections";
 const ID_PREFIX = "INSP";
@@ -14,14 +14,16 @@ const ID_PREFIX = "INSP";
 export type NewInspection = Omit<Inspection, "id" | "userId">;
 
 export async function list(userId: string): Promise<Inspection[]> {
-  return listMergedRecords<Inspection>(userId, COLLECTION);
+  const rows = await listMergedRecords<unknown>(userId, COLLECTION);
+  return rows.map((r) => InspectionSchema.parse(r));
 }
 
 export async function get(
   userId: string,
   id: string,
 ): Promise<Inspection | null> {
-  return readMergedRecord<Inspection>(userId, COLLECTION, id);
+  const row = await readMergedRecord<unknown>(userId, COLLECTION, id);
+  return row ? InspectionSchema.parse(row) : null;
 }
 
 export async function create(
@@ -29,7 +31,7 @@ export async function create(
   data: NewInspection,
 ): Promise<Inspection> {
   const id = await nextId(userId, COLLECTION, ID_PREFIX);
-  const record: Inspection = { ...data, id, userId };
+  const record = InspectionSchema.parse({ ...data, id, userId });
   await writeRecord(userId, COLLECTION, id, { core: { ...record } });
   return record;
 }
@@ -41,7 +43,7 @@ export async function update(
 ): Promise<Inspection | null> {
   const current = await get(userId, id);
   if (!current) return null;
-  const updated = { ...current, ...patch, id: current.id, userId: current.userId };
+  const updated = InspectionSchema.parse({ ...current, ...patch, id: current.id, userId: current.userId });
   await writeRecord(userId, COLLECTION, id, { core: { ...updated } });
   return updated;
 }

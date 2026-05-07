@@ -1,0 +1,13 @@
+{
+  "id": "LP-0003",
+  "userId": "demo-user",
+  "propertyId": "PROP-0006",
+  "sizeM2": 3200,
+  "widthM": 55.0,
+  "lengthM": 58.2,
+  "zoningCode": "R-1",
+  "zoningClass": "Residential Zone",
+  "elevationM": 210,
+  "slopeAngleDeg": 8.5,
+  "terrainType": "Hilly"
+}

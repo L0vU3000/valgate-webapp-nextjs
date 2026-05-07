@@ -73,7 +73,7 @@ _See [audit.md](./audit.md) for the underlying analysis._
 
 | Rev | Date | Finding | What changed | Commit |
 |---|---|---|---|---|
-| — | — | — | _No fixes yet._ | — |
+| 2 | 2026-05-05 | Row 8 — YoY growth badge wiring | Added `computeYoyGrowth` function to `lib/data/derivations/portfolio.ts`; replaced `{ kind:"unknown" }` constant; `portfolio/queries.ts` now fetches `allValuations` and passes to `computeKpis`. Q3.C resolved: closest-prior heuristic adopted (note: time gate still needed — see `portfolio--yoy-growth.md` F1) | valgate-local-db branch |
 
 ---
 

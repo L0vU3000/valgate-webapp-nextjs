@@ -9,6 +9,7 @@ import {
   deleteRecord,
   nextId,
 } from "./_fs";
+import { PropertySchema } from "../types/property";
 import type {
   Property,
   PropertyCore,
@@ -20,33 +21,17 @@ import type {
 const COLLECTION = "properties";
 const ID_PREFIX = "PROP";
 
-const propertyStatusSchema = z.enum([
-  "Rented",
-  "Vacant",
-  "For Sale",
-  "Sold",
-  "Archived",
-]);
-
-const propertyTitleSchema = z.enum(["Hard title", "Soft title", "—"]);
-
-function validateProperty(p: Property): Property {
-  propertyStatusSchema.parse(p.status);
-  propertyTitleSchema.parse(p.title);
-  return p;
-}
-
 export async function list(userId: string): Promise<Property[]> {
-  const records = await listMergedRecords<Property>(userId, COLLECTION);
-  return records.map(validateProperty);
+  const records = await listMergedRecords<unknown>(userId, COLLECTION);
+  return records.map((r) => PropertySchema.parse(r));
 }
 
 export async function get(
   userId: string,
   id: string,
 ): Promise<Property | null> {
-  const record = await readMergedRecord<Property>(userId, COLLECTION, id);
-  return record ? validateProperty(record) : null;
+  const record = await readMergedRecord<unknown>(userId, COLLECTION, id);
+  return record ? PropertySchema.parse(record) : null;
 }
 
 export type NewProperty = Omit<Property, "id" | "userId" | "code" | "createdAt" | "updatedAt"> &
@@ -69,8 +54,9 @@ export async function create(
     createdAt: data.createdAt ?? now,
     updatedAt: data.updatedAt ?? now,
   };
-  await writeRecord(userId, COLLECTION, id, splitProperty(merged));
-  return merged;
+  const validated = PropertySchema.parse(merged);
+  await writeRecord(userId, COLLECTION, id, splitProperty(validated));
+  return validated;
 }
 
 export async function update(
@@ -88,8 +74,9 @@ export async function update(
     createdAt: current.createdAt,
     updatedAt: Date.now(),
   };
-  await writeRecord(userId, COLLECTION, id, splitProperty(merged));
-  return merged;
+  const validated = PropertySchema.parse(merged);
+  await writeRecord(userId, COLLECTION, id, splitProperty(validated));
+  return validated;
 }
 
 export async function remove(userId: string, id: string): Promise<void> {

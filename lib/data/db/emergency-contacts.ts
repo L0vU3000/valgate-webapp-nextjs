@@ -6,7 +6,7 @@ import {
   deleteRecord,
   nextId,
 } from "./_fs";
-import type { EmergencyContact } from "../types/emergency-contact";
+import { EmergencyContactSchema, type EmergencyContact } from "../types/emergency-contact";
 
 const COLLECTION = "emergency-contacts";
 const ID_PREFIX = "EMGC";
@@ -14,14 +14,16 @@ const ID_PREFIX = "EMGC";
 export type NewEmergencyContact = Omit<EmergencyContact, "id" | "userId">;
 
 export async function list(userId: string): Promise<EmergencyContact[]> {
-  return listMergedRecords<EmergencyContact>(userId, COLLECTION);
+  const rows = await listMergedRecords<unknown>(userId, COLLECTION);
+  return rows.map((r) => EmergencyContactSchema.parse(r));
 }
 
 export async function get(
   userId: string,
   id: string,
 ): Promise<EmergencyContact | null> {
-  return readMergedRecord<EmergencyContact>(userId, COLLECTION, id);
+  const row = await readMergedRecord<unknown>(userId, COLLECTION, id);
+  return row ? EmergencyContactSchema.parse(row) : null;
 }
 
 export async function create(
@@ -29,7 +31,7 @@ export async function create(
   data: NewEmergencyContact,
 ): Promise<EmergencyContact> {
   const id = await nextId(userId, COLLECTION, ID_PREFIX);
-  const record: EmergencyContact = { ...data, id, userId };
+  const record = EmergencyContactSchema.parse({ ...data, id, userId });
   await writeRecord(userId, COLLECTION, id, { core: { ...record } });
   return record;
 }
@@ -41,7 +43,7 @@ export async function update(
 ): Promise<EmergencyContact | null> {
   const current = await get(userId, id);
   if (!current) return null;
-  const updated = { ...current, ...patch, id: current.id, userId: current.userId };
+  const updated = EmergencyContactSchema.parse({ ...current, ...patch, id: current.id, userId: current.userId });
   await writeRecord(userId, COLLECTION, id, { core: { ...updated } });
   return updated;
 }

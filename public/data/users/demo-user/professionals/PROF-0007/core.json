@@ -1,0 +1,18 @@
+{
+  "name": "Chan Piseth",
+  "company": "Mekong Plumbing Services",
+  "category": "Plumber",
+  "rating": 4.6,
+  "reviewCount": 71,
+  "linkedProperties": 9,
+  "available": true,
+  "initials": "CP",
+  "avatarBg": "bg-teal-400",
+  "email": "piseth@mekongplumbing.kh",
+  "phone": "+855 16 543 210",
+  "verified": true,
+  "createdAt": 1775001600000,
+  "updatedAt": 1775001600000,
+  "id": "PROF-0007",
+  "userId": "demo-user"
+}

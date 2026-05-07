@@ -2,17 +2,29 @@ import "server-only";
 import * as leasesDb from "@/lib/data/db/leases";
 import * as paymentsDb from "@/lib/data/db/payments";
 import * as maintenanceDb from "@/lib/data/db/maintenance-items";
+import * as propertiesDb from "@/lib/data/db/properties";
+import * as expensesDb from "@/lib/data/db/expenses";
 import { getCurrentUserId } from "@/lib/data/auth-shim";
 import {
   computePipeline,
   computeArrears,
   computeMaintenanceSummary,
   computeUpcomingEvents,
+  computeRecoveryRate,
+  computeEvictionRisk,
+  computeVacancyCost,
+  computeTopSpendCategory,
+  computeHeatmapData,
+  computeOccupancyRate,
+  computeMonthlyGrossIncome,
+  computeCollectionRate,
   type PipelineStage,
   type PipelineCard,
   type ArrearsBucket,
   type MaintenanceSummaryItem,
   type UpcomingEvent,
+  type PropertyCluster,
+  type TopSpend,
 } from "@/lib/data/derivations/rental";
 
 export type {
@@ -20,6 +32,8 @@ export type {
   PipelineCard,
   ArrearsBucket,
   UpcomingEvent,
+  PropertyCluster,
+  TopSpend,
 };
 
 export type MaintenanceItem = MaintenanceSummaryItem;
@@ -29,20 +43,42 @@ export type RentalDashboardData = {
   arrearsBuckets: ArrearsBucket[];
   maintenanceItems: MaintenanceItem[];
   upcomingEvents: UpcomingEvent[];
+  recoveryRate: string;
+  evictionRisk: string;
+  vacancyCost: string;
+  topSpend: TopSpend | null;
+  heatmapClusters: PropertyCluster[];
+  occupancyPct: number;
+  grossIncome: string;
+  incomeTrend: string;
+  collectionRate: string;
 };
 
 export async function getRentalDashboardData(): Promise<RentalDashboardData> {
   const userId = getCurrentUserId();
-  const [leases, payments, maintenance] = await Promise.all([
+  const [leases, payments, maintenance, properties, expenses] = await Promise.all([
     leasesDb.list(userId),
     paymentsDb.list(userId),
     maintenanceDb.list(userId),
+    propertiesDb.list(userId),
+    expensesDb.list(userId),
   ]);
+
+  const { amount: grossIncome, trend: incomeTrend } = computeMonthlyGrossIncome(leases);
 
   return {
     pipelineStages: computePipeline(leases),
     arrearsBuckets: computeArrears(payments),
     maintenanceItems: computeMaintenanceSummary(maintenance),
     upcomingEvents: computeUpcomingEvents(leases, maintenance, payments),
+    recoveryRate: computeRecoveryRate(payments),
+    evictionRisk: computeEvictionRisk(payments, leases),
+    vacancyCost: computeVacancyCost(properties, leases),
+    topSpend: computeTopSpendCategory(expenses),
+    heatmapClusters: computeHeatmapData(properties, leases),
+    occupancyPct: computeOccupancyRate(properties, leases),
+    grossIncome,
+    incomeTrend,
+    collectionRate: computeCollectionRate(payments, leases),
   };
 }

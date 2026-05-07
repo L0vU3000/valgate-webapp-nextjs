@@ -1,0 +1,10 @@
+{
+  "id": "EACT-0002",
+  "userId": "demo-user",
+  "kind": "successor.updated",
+  "title": "Beneficiary ID Verified",
+  "description": "KYC verification approved for Dara Chan.",
+  "propertyId": "PROP-0001",
+  "createdAt": 1778062500000,
+  "updatedAt": 1778062500000
+}

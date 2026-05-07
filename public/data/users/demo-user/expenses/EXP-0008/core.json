@@ -1,0 +1,9 @@
+{
+  "id": "EXP-0008",
+  "userId": "demo-user",
+  "propertyId": "PROP-0002",
+  "date": 1764892800000,
+  "category": "Utilities",
+  "amount": 210,
+  "note": "Water bill"
+}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, type CSSProperties } from "react";
+import { useRouter } from "next/navigation";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell,
@@ -56,8 +57,9 @@ function useInView(threshold = 0.15) {
 
 /* -- Page -- */
 
-export function AnalyticsPage({ data }: { data: AnalyticsPageData }) {
-  const [activePeriod, setActivePeriod] = useState<string>("MTD");
+export function AnalyticsPage({ data, period }: { data: AnalyticsPageData; period: string }) {
+  const router = useRouter();
+  const [activePeriod, setActivePeriod] = useState<string>(period);
   const [grossMode, setGrossMode] = useState(true);
   const [mounted, setMounted] = useState(false);
 
@@ -67,7 +69,7 @@ export function AnalyticsPage({ data }: { data: AnalyticsPageData }) {
 
   const {
     revenueData, kpiCards, leasePipeline, capitalGrowth,
-    maintenanceSpend, savedReports, expenseBreakdown,
+    maintenanceSpend, savedReports, expenseBreakdown, expenseBreakdownTotal,
   } = data;
 
   return (
@@ -120,7 +122,7 @@ export function AnalyticsPage({ data }: { data: AnalyticsPageData }) {
                 {periods.map((p) => (
                   <button
                     key={p}
-                    onClick={() => setActivePeriod(p)}
+                    onClick={() => { setActivePeriod(p); router.push(`?period=${p}`); }}
                     className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 relative z-[1] ${
                       activePeriod === p
                         ? "text-[--val-primary-dark]"
@@ -257,30 +259,14 @@ export function AnalyticsPage({ data }: { data: AnalyticsPageData }) {
             <div className="col-span-4 flex flex-col gap-6">
               {/* Occupancy Sparkline Card */}
               <div
-                className="bg-white border border-slate-100 rounded-lg shadow-sm p-6 flex items-center justify-between transition-shadow duration-300 hover:shadow-md"
+                className="bg-white border border-slate-100 rounded-lg shadow-sm p-6 transition-shadow duration-300 hover:shadow-md"
                 style={{ animation: `analytics-fade-up 500ms ${EASE_OUT_QUART} 650ms both` }}
               >
-                <div>
-                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Occupancy Rate</p>
-                  <p className="text-3xl font-semibold text-slate-900">91.4%</p>
-                  <p className="text-xs font-semibold text-rose-500 mt-1">Trend: Downward</p>
-                </div>
-                <div className="w-32 h-16">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={[{ v: 94 }, { v: 93.5 }, { v: 93 }, { v: 92.2 }, { v: 91.8 }, { v: 91.4 }]}>
-                      <defs>
-                        <linearGradient id="occGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#f43f5e" stopOpacity={0.2} />
-                          <stop offset="100%" stopColor="#f43f5e" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <Area
-                        type="monotone" dataKey="v" stroke="#f43f5e" strokeWidth={2} fill="url(#occGrad)" dot={false}
-                        isAnimationActive={mounted} animationDuration={1000} animationEasing="ease-out" animationBegin={800}
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Occupancy Rate</p>
+                <p className="text-3xl font-semibold text-slate-900 mt-1">
+                  {kpiCards.find((k) => k.label === "Occupancy")?.value ?? "—"}
+                </p>
+                <p className="text-xs font-semibold text-slate-500 mt-1">Point-in-time</p>
               </div>
 
               {/* Lease Expiry Pipeline */}
@@ -325,21 +311,25 @@ export function AnalyticsPage({ data }: { data: AnalyticsPageData }) {
                   Saved Reports
                 </h3>
                 <div className="space-y-3">
-                  {savedReports.map((report, i) => (
-                    <div
-                      key={report}
-                      className="flex items-center justify-between group"
-                      style={staggerStyle(i, 950)}
-                    >
-                      <div className="flex items-center gap-3">
-                        <FileText size={16} className="text-slate-400 transition-colors duration-200 group-hover:text-[--val-primary-dark]" />
-                        <span className="text-sm font-medium text-slate-700">{report}</span>
+                  {savedReports.length === 0 ? (
+                    <p className="text-xs text-slate-400">No saved reports yet.</p>
+                  ) : (
+                    savedReports.map((report, i) => (
+                      <div
+                        key={report}
+                        className="flex items-center justify-between group"
+                        style={staggerStyle(i, 950)}
+                      >
+                        <div className="flex items-center gap-3">
+                          <FileText size={16} className="text-slate-400 transition-colors duration-200 group-hover:text-[--val-primary-dark]" />
+                          <span className="text-sm font-medium text-slate-700">{report}</span>
+                        </div>
+                        <button className="text-xs font-semibold text-[--val-primary-dark] opacity-0 group-hover:opacity-100 transition-opacity duration-200 active:scale-[0.95]">
+                          Load
+                        </button>
                       </div>
-                      <button className="text-xs font-semibold text-[--val-primary-dark] opacity-0 group-hover:opacity-100 transition-opacity duration-200 active:scale-[0.95]">
-                        Load
-                      </button>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </div>
             </div>
@@ -380,7 +370,11 @@ export function AnalyticsPage({ data }: { data: AnalyticsPageData }) {
                     </PieChart>
                   </ResponsiveContainer>
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-sm font-semibold text-slate-900">$48k</span>
+                    <span className="text-sm font-semibold text-slate-900">
+                      {expenseBreakdownTotal === 0 ? "$0"
+                        : expenseBreakdownTotal >= 1000 ? `$${(expenseBreakdownTotal / 1000).toFixed(1)}k`
+                        : `$${expenseBreakdownTotal}`}
+                    </span>
                     <span className="text-[8px] font-semibold text-slate-400 uppercase">Total</span>
                   </div>
                 </div>

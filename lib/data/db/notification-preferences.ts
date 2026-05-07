@@ -6,7 +6,7 @@ import {
   deleteRecord,
   nextId,
 } from "./_fs";
-import type { NotificationPreference } from "../types/notification-preference";
+import { NotificationPreferenceSchema, type NotificationPreference } from "../types/notification-preference";
 
 const COLLECTION = "notification-preferences";
 const ID_PREFIX = "NPREF";
@@ -14,14 +14,16 @@ const ID_PREFIX = "NPREF";
 export type NewNotificationPreference = Omit<NotificationPreference, "id" | "userId">;
 
 export async function list(userId: string): Promise<NotificationPreference[]> {
-  return listMergedRecords<NotificationPreference>(userId, COLLECTION);
+  const rows = await listMergedRecords<unknown>(userId, COLLECTION);
+  return rows.map((r) => NotificationPreferenceSchema.parse(r));
 }
 
 export async function get(
   userId: string,
   id: string,
 ): Promise<NotificationPreference | null> {
-  return readMergedRecord<NotificationPreference>(userId, COLLECTION, id);
+  const row = await readMergedRecord<unknown>(userId, COLLECTION, id);
+  return row ? NotificationPreferenceSchema.parse(row) : null;
 }
 
 export async function create(
@@ -29,7 +31,7 @@ export async function create(
   data: NewNotificationPreference,
 ): Promise<NotificationPreference> {
   const id = await nextId(userId, COLLECTION, ID_PREFIX);
-  const record: NotificationPreference = { ...data, id, userId };
+  const record = NotificationPreferenceSchema.parse({ ...data, id, userId });
   await writeRecord(userId, COLLECTION, id, { core: { ...record } });
   return record;
 }
@@ -41,7 +43,7 @@ export async function update(
 ): Promise<NotificationPreference | null> {
   const current = await get(userId, id);
   if (!current) return null;
-  const updated = { ...current, ...patch, id: current.id, userId: current.userId };
+  const updated = NotificationPreferenceSchema.parse({ ...current, ...patch, id: current.id, userId: current.userId });
   await writeRecord(userId, COLLECTION, id, { core: { ...updated } });
   return updated;
 }

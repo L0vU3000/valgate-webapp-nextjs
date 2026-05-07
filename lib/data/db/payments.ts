@@ -6,20 +6,22 @@ import {
   deleteRecord,
   nextId,
 } from "./_fs";
-import type { Payment } from "../types/payment";
+import { PaymentSchema, type Payment } from "../types/payment";
 
 const COLLECTION = "payments";
 const ID_PREFIX = "PMT";
 
 export async function list(userId: string): Promise<Payment[]> {
-  return listMergedRecords<Payment>(userId, COLLECTION);
+  const rows = await listMergedRecords<unknown>(userId, COLLECTION);
+  return rows.map((r) => PaymentSchema.parse(r));
 }
 
 export async function get(
   userId: string,
   id: string,
 ): Promise<Payment | null> {
-  return readMergedRecord<Payment>(userId, COLLECTION, id);
+  const row = await readMergedRecord<unknown>(userId, COLLECTION, id);
+  return row ? PaymentSchema.parse(row) : null;
 }
 
 export async function create(
@@ -27,7 +29,7 @@ export async function create(
   data: Omit<Payment, "id" | "userId">,
 ): Promise<Payment> {
   const id = await nextId(userId, COLLECTION, ID_PREFIX);
-  const record: Payment = { ...data, id, userId };
+  const record = PaymentSchema.parse({ ...data, id, userId });
   await writeRecord(userId, COLLECTION, id, { core: { ...record } });
   return record;
 }

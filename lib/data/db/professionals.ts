@@ -6,7 +6,7 @@ import {
   deleteRecord,
   nextId,
 } from "./_fs";
-import type { Professional } from "../types/professional";
+import { ProfessionalSchema, type Professional } from "../types/professional";
 
 const COLLECTION = "professionals";
 const ID_PREFIX = "PROF";
@@ -14,14 +14,16 @@ const ID_PREFIX = "PROF";
 export type NewProfessional = Omit<Professional, "id" | "userId">;
 
 export async function list(userId: string): Promise<Professional[]> {
-  return listMergedRecords<Professional>(userId, COLLECTION);
+  const rows = await listMergedRecords<unknown>(userId, COLLECTION);
+  return rows.map((r) => ProfessionalSchema.parse(r));
 }
 
 export async function get(
   userId: string,
   id: string,
 ): Promise<Professional | null> {
-  return readMergedRecord<Professional>(userId, COLLECTION, id);
+  const row = await readMergedRecord<unknown>(userId, COLLECTION, id);
+  return row ? ProfessionalSchema.parse(row) : null;
 }
 
 export async function create(
@@ -29,7 +31,7 @@ export async function create(
   data: NewProfessional,
 ): Promise<Professional> {
   const id = await nextId(userId, COLLECTION, ID_PREFIX);
-  const record: Professional = { ...data, id, userId };
+  const record = ProfessionalSchema.parse({ ...data, id, userId });
   await writeRecord(userId, COLLECTION, id, { core: { ...record } });
   return record;
 }
@@ -41,7 +43,7 @@ export async function update(
 ): Promise<Professional | null> {
   const current = await get(userId, id);
   if (!current) return null;
-  const updated = { ...current, ...patch, id: current.id, userId: current.userId };
+  const updated = ProfessionalSchema.parse({ ...current, ...patch, id: current.id, userId: current.userId });
   await writeRecord(userId, COLLECTION, id, { core: { ...updated } });
   return updated;
 }

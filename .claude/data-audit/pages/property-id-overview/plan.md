@@ -108,7 +108,10 @@ _See [audit.md](./audit.md) for the underlying analysis._
 
 | Rev | Date | Finding | What changed | Commit |
 |---|---|---|---|---|
-| — | — | — | _No fixes yet._ | — |
+| 2 | 2026-05-05 | Row 7 — Property Valuation KPI wiring | Added `app/(shell)/property/[id]/overview/queries.ts` with `getOverviewPageData`; wired `latestValuation` derivation inside `PropertyOverviewPage`; `metrics[0].value` now reads real valuation data | valgate-local-db branch |
+| 3 | 2026-05-06 | Rows 8, 13, 14, 16 — Lease+Tenant entity wiring (Phase 6.1) | Extended `getOverviewPageData` to fetch `Lease[]` + `Tenant[]`; wired `monthlyIncome` (active-lease reduce), `stageGroups`/`stageArcs`/`signedCount` (donut), `activeLeaseholders` (Lease+Tenant join), `leaseAlerts` (30-day expiry filter) inside `PropertyOverviewPage`; Q3.B (contractual rent default), Q4.F (derive alerts at render time), Q5.A (interim stage-breakdown donut) decisions documented in per-datapoint audits | valgate-local-db branch |
+| 4 | 2026-05-06 | Rows 10–12 — Payment+Expense entity wiring (Phase 6.2) | Built `Expense` type + db layer + 7 seeds; extended `getOverviewPageData` to fetch `Payment[]` + `Expense[]`; wired `ytdStart`/`paidRentYTD`/`grossIncome`/`totalExpenses`/`noi` YTD computation inside `PropertyOverviewPage`; removed `width:"72%"` NOI progress bar (no real target — Rule 1 adjacent-hardcode sweep); Q3.B deferred (YTD uses all Paid Rent, not Lease.monthlyRent); per-datapoint audits: property-id-overview--noi, --expenses, --gross-income | valgate-local-db branch |
+| 5 | 2026-05-06 | Row 16 — Alerts strip HVAC Fault hardcode removed; Notification entity wired (Phase 6.8) | Extended `getOverviewPageData` to fetch `Notification[]` + `MaintenanceItem[]`; added `notificationMatchesProperty()` helper (parses `linkTo` for `/property/<id>/` pattern); wired `notificationAlerts` in `PropertyOverviewPage` — alerts strip now UNION of derived lease-expiring (Phase 6.1, untouched) + stored Notification rows; `getAlertDisplay()` helper maps category to dot/label color; Q4.F resolved (HYBRID); Q5.T filed (Notification.propertyId schema gap) | valgate-local-db branch |
 
 ---
 

@@ -1,19 +1,24 @@
-export interface UserProfile {
-  id: string;       // === userId
-  userId: string;
-  firstName: string;
-  lastName: string;
-  jobTitle?: string;
-  employeeId?: string;
-  email?: string;
-  phone?: string;
-  officeLocation?: string;
-  language?: string;
-  timezone?: string;
-  currency?: string;
-  role?: string;
-  memberSince?: number;
-  lastLogin?: number;
-  createdAt: number;
-  updatedAt: number;
-}
+import { z } from "zod";
+import { idSchema, userIdSchema, timestampSchema } from "./_common";
+
+export const UserProfileSchema = z.object({
+  id: idSchema,
+  userId: userIdSchema,
+  firstName: z.string(),
+  lastName: z.string(),
+  jobTitle: z.string().optional(),
+  employeeId: z.string().optional(),
+  email: z.string().optional(),
+  phone: z.string().optional(),
+  officeLocation: z.string().optional(),
+  language: z.string().optional(),
+  timezone: z.string().optional(),
+  currency: z.string().optional(),
+  role: z.string().optional(),
+  memberSince: timestampSchema.optional(),
+  lastLogin: timestampSchema.optional(),
+  createdAt: timestampSchema,
+  updatedAt: timestampSchema,
+});
+
+export type UserProfile = z.infer<typeof UserProfileSchema>;

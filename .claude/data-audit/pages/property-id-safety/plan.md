@@ -1,9 +1,9 @@
 ---
 slug: property-id-safety
 route: /property/[id]/safety
-revision: 1
-date: 2026-05-05
-verdict: "⚠️ 16 WIRED · 3 PARTIAL · 9 HARDCODED · 5 PFn — KPI row ignores received prop arrays; status fields need typed unions"
+revision: 2
+date: 2026-05-07
+verdict: "⚠️ 16 WIRED · 3 PARTIAL · 9 HARDCODED · 5 PFn — Phase 8.6 planned; Q3.J + Q5.Q resolved; schema gaps A/B/C + KPI derivation wiring queued"
 ---
 
 # Page Audit — /property/[id]/safety — plan.md
@@ -113,7 +113,14 @@ _See [audit.md](./audit.md) for the underlying analysis._
 
 | Rev | Date | Finding | What changed | Commit |
 |---|---|---|---|---|
-| — | — | — | _No fixes yet._ | — |
+| — | — | — | _No code changes yet — plan only._ | — |
+
+### Phase 8.6 Planning (2026-05-07)
+
+- **Q3.J resolved** — three-state compliance model: "Compliant" (all Valid) → "At Risk" (any Expiring, no Expired) → "Non-Compliant" (any Expired). See `ref/05-open-questions.md` Q3.J resolution note.
+- **Q5.Q resolved** — no `resolved` field on SafetyRisk; KPI card renamed from "Open Issues" to "Safety Risks"; count = `risks.length`. See `ref/05-open-questions.md` Q5.Q resolution note.
+- **Phase 8.6 plan written** — covers Schema gaps A/B/C + `computeSafetyKpis` helper + 9 HARDCODED → WIRED + 3 PARTIAL → WIRED + INSP-0004 seed addition. See `.claude/data-audit/docs/plans/Plan-Phase-8.6-Safety-Wiring.md`.
+- **Blocking Q-numbers for wiring now cleared:** Q3.J + Q5.Q. Schema gaps A (no-op), B (type change + seed), C (union narrowing) remain as implementation steps.
 
 ---
 

@@ -1,0 +1,13 @@
+{
+  "id": "OREC-0003",
+  "userId": "demo-user",
+  "propertyId": "PROP-0006",
+  "holdingType": "Tenancy in Common",
+  "loanType": "Fixed",
+  "loanAmount": 210000,
+  "loanTermYears": 20,
+  "interestRate": 4.25,
+  "distributionMethod": "Equal Split",
+  "createdAt": 1775001600000,
+  "updatedAt": 1775001600000
+}

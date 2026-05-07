@@ -1,0 +1,19 @@
+{
+  "id": "OREC-0001",
+  "userId": "demo-user",
+  "propertyId": "PROP-0001",
+  "holdingType": "Tenancy in Common",
+  "loanType": "Fixed",
+  "loanAmount": 388000,
+  "loanTermYears": 30,
+  "interestRate": 3.875,
+  "originationDate": 1615766400000,
+  "maturityDate": 2562451200000,
+  "nextPaymentDue": 1769904000000,
+  "lenderName": "First Midwest Bank",
+  "downPayment": 97000,
+  "closingCosts": 9200,
+  "distributionMethod": "Pro-Rata by Share",
+  "createdAt": 1775001600000,
+  "updatedAt": 1775001600000
+}

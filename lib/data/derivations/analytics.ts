@@ -3,6 +3,7 @@ import type { Payment } from "@/lib/data/types/payment";
 import type { Lease } from "@/lib/data/types/lease";
 import type { MaintenanceItem } from "@/lib/data/types/maintenance-item";
 import type { PropertyValuation } from "@/lib/data/types/property-valuation";
+import type { Expense } from "@/lib/data/types/expense";
 
 export type RevenueDataPoint = {
   month: string;
@@ -45,21 +46,63 @@ export type ExpenseBreakdownItem = {
   color: string;
 };
 
+export type DateWindow = { from: number; to: number };
+
 const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+const EXPENSE_COLORS: Record<string, string> = {
+  Maintenance: "#2563eb",
+  Utilities:   "#fbbf24",
+  Insurance:   "#f97316",
+  Tax:         "#10b981",
+  Management:  "#8b5cf6",
+  Other:       "#6b7280",
+};
+
+export function periodToWindow(period: string): DateWindow {
+  const now = Date.now();
+  const d = new Date();
+  switch (period) {
+    case "MTD": return { from: Date.UTC(d.getFullYear(), d.getMonth(), 1), to: now };
+    case "QTD": {
+      const q = Math.floor(d.getMonth() / 3) * 3;
+      return { from: Date.UTC(d.getFullYear(), q, 1), to: now };
+    }
+    case "YTD": return { from: Date.UTC(d.getFullYear(), 0, 1), to: now };
+    case "12M":
+    case "Custom":
+    default: return { from: Date.UTC(d.getFullYear(), d.getMonth() - 11, 1), to: now };
+  }
+}
+
+function monthsInWindow(window: DateWindow): { start: number; end: number; label: string }[] {
+  const out: { start: number; end: number; label: string }[] = [];
+  const d = new Date(window.from);
+  let year = d.getUTCFullYear(), month = d.getUTCMonth();
+  while (true) {
+    const start = Date.UTC(year, month, 1);
+    const end = Date.UTC(year, month + 1, 1);
+    if (start >= window.to) break;
+    out.push({ start, end: Math.min(end, window.to), label: MONTH_LABELS[month] });
+    month++; if (month > 11) { month = 0; year++; }
+  }
+  return out;
+}
 
 export function computeRevenueSeries(
   payments: Payment[],
-  maintenance: MaintenanceItem[],
+  expenses: Expense[],
+  window: DateWindow,
 ): RevenueDataPoint[] {
-  const months = lastNMonthsWindow(9);
+  const months = monthsInWindow(window);
   return months.map(({ start, end, label }) => {
     const revenue = payments
       .filter((p) => p.status === "Paid" && p.kind === "Rent" && p.date >= start && p.date < end)
       .reduce((sum, p) => sum + (p.amount ?? 0), 0);
-    const expenses = maintenance
-      .filter((m) => m.createdAt >= start && m.createdAt < end)
-      .length * 0;
-    return { month: label, revenue, expenses };
+    const expenseTotal = expenses
+      .filter((e) => e.date >= start && e.date < end)
+      .reduce((sum, e) => sum + e.amount, 0);
+    return { month: label, revenue, expenses: expenseTotal };
   });
 }
 
@@ -68,20 +111,26 @@ export function computeKpiCards(
   payments: Payment[],
   leases: Lease[],
   maintenance: MaintenanceItem[],
+  expenses: Expense[],
+  window: DateWindow,
 ): KpiCard[] {
-  const totalRevenue = payments
-    .filter((p) => p.status === "Paid" && p.kind === "Rent")
-    .reduce((sum, p) => sum + (p.amount ?? 0), 0);
+  const windowPayments = payments.filter(
+    (p) => p.status === "Paid" && p.kind === "Rent" && p.date >= window.from && p.date < window.to,
+  );
+  const totalRevenue = windowPayments.reduce((sum, p) => sum + (p.amount ?? 0), 0);
+
+  const windowExpenses = expenses
+    .filter((e) => e.date >= window.from && e.date < window.to)
+    .reduce((sum, e) => sum + e.amount, 0);
+  const noi = totalRevenue - windowExpenses;
 
   const active = properties.filter((p) => !p.isArchived);
-  const occupancyPct =
-    active.length === 0
-      ? 0
-      : Math.round(
-          (active.filter((p) => p.status === "Rented").length /
-            active.length) *
-            1000,
-        ) / 10;
+  const occupiedCount = active.filter(
+    (p) => p.status === "Rented" || p.status === "Owner-Occupied",
+  ).length;
+  // Occupancy is point-in-time — NOT filtered by window
+  const occupancyPct = active.length === 0 ? 0 :
+    Math.round((occupiedCount / active.length) * 1000) / 10;
 
   const totalLeases = leases.length;
   const signedLeases = leases.filter((l) => l.stage === "Signed").length;
@@ -93,16 +142,16 @@ export function computeKpiCards(
   return [
     {
       label: "Total Revenue",
-      value: payments.length === 0 ? "$0" : `$${totalRevenue.toLocaleString()}`,
+      value: windowPayments.length === 0 ? "$0" : `$${totalRevenue.toLocaleString()}`,
       change: "—",
       positive: true,
       iconKey: "DollarSign",
     },
     {
       label: "NOI",
-      value: payments.length === 0 ? "$0" : `$${totalRevenue.toLocaleString()}`,
+      value: `$${noi.toLocaleString()}`,
       change: "—",
-      positive: true,
+      positive: noi >= 0,
       iconKey: "TrendingUp",
     },
     {
@@ -194,58 +243,48 @@ export function computeCapitalGrowth(
 }
 
 export function computeMaintenanceSpend(
-  maintenance: MaintenanceItem[],
+  expenses: Expense[],
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _window: DateWindow,
 ): MaintenanceSpendItem[] {
-  const months = lastNMonthsWindow(6);
+  const now = Date.now();
+  const d = new Date();
+  // Always trailing 6M — card is labeled "6M"
+  const sixM: DateWindow = { from: Date.UTC(d.getFullYear(), d.getMonth() - 5, 1), to: now };
+  const months = monthsInWindow(sixM);
+  const maintenanceExpenses = expenses.filter((e) => e.category === "Maintenance");
   return months.map(({ start, end, label }) => ({
     month: label.toUpperCase(),
-    value: maintenance.filter((m) => m.createdAt >= start && m.createdAt < end).length,
+    value: maintenanceExpenses
+      .filter((e) => e.date >= start && e.date < end)
+      .reduce((sum, e) => sum + e.amount, 0),
   }));
 }
 
 export function computeExpenseBreakdown(
-  maintenance: MaintenanceItem[],
-  properties: Property[],
-): ExpenseBreakdownItem[] {
-  const maintenanceCount = maintenance.length;
-  const taxesTotal = properties.reduce(
-    (sum, p) => sum + (p.annualPropertyTax ?? 0),
-    0,
-  );
-  const insuranceTotal = properties.reduce(
-    (sum, p) => sum + (p.annualInsurance ?? 0),
-    0,
-  );
-  const total = maintenanceCount + taxesTotal + insuranceTotal;
+  expenses: Expense[],
+  window: DateWindow,
+): { items: ExpenseBreakdownItem[]; total: number } {
+  const windowExpenses = expenses.filter((e) => e.date >= window.from && e.date < window.to);
+  const total = windowExpenses.reduce((sum, e) => sum + e.amount, 0);
 
-  if (total === 0) {
-    return [
-      { name: "Maintenance", pct: 0, color: "#2563eb" },
-      { name: "Utilities", pct: 0, color: "#fbbf24" },
-      { name: "Taxes", pct: 0, color: "#10b981" },
-    ];
+  if (total === 0) return { items: [], total: 0 };
+
+  const byCategory = new Map<string, number>();
+  for (const e of windowExpenses) {
+    byCategory.set(e.category, (byCategory.get(e.category) ?? 0) + e.amount);
   }
 
-  return [
-    { name: "Maintenance", pct: Math.round((maintenanceCount / total) * 100), color: "#2563eb" },
-    { name: "Utilities", pct: Math.round((insuranceTotal / total) * 100), color: "#fbbf24" },
-    { name: "Taxes", pct: Math.round((taxesTotal / total) * 100), color: "#10b981" },
-  ];
-}
-
-function lastNMonthsWindow(
-  n: number,
-): { start: number; end: number; label: string }[] {
-  const out: { start: number; end: number; label: string }[] = [];
-  const now = new Date();
-  for (let i = n - 1; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const next = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
-    out.push({
-      start: d.getTime(),
-      end: next.getTime(),
-      label: MONTH_LABELS[d.getMonth()],
-    });
+  const items: ExpenseBreakdownItem[] = [];
+  for (const [name, amount] of byCategory) {
+    if (amount > 0) {
+      items.push({
+        name,
+        pct: Math.round((amount / total) * 100),
+        color: EXPENSE_COLORS[name] ?? "#6b7280",
+      });
+    }
   }
-  return out;
+
+  return { items, total };
 }

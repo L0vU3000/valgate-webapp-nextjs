@@ -1,0 +1,10 @@
+{
+  "id": "CO-0006",
+  "userId": "demo-user",
+  "propertyId": "PROP-0006",
+  "name": "Lisa Park",
+  "role": "Minor",
+  "sharePercent": 30,
+  "email": "l.park@email.com",
+  "taxEntity": "LLC"
+}

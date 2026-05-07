@@ -29,7 +29,21 @@ export function RentalDashboardPage({ data }: { data: RentalDashboardData }) {
   const [activeNav, setActiveNav] = useState<string>("Units");
   const [mounted, setMounted] = useState(false);
 
-  const { pipelineStages, arrearsBuckets, maintenanceItems, upcomingEvents } = data;
+  const {
+    pipelineStages,
+    arrearsBuckets,
+    maintenanceItems,
+    upcomingEvents,
+    recoveryRate,
+    evictionRisk,
+    vacancyCost,
+    topSpend,
+    heatmapClusters,
+    occupancyPct,
+    grossIncome,
+    incomeTrend,
+    collectionRate,
+  } = data;
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => setMounted(true));
@@ -58,7 +72,7 @@ export function RentalDashboardPage({ data }: { data: RentalDashboardData }) {
                 <span className="text-xs font-semibold tracking-widest uppercase text-slate-400">Rental</span>
               </div>
               <h1 className="text-4xl font-extrabold text-val-heading tracking-tight leading-10">Rental Dashboard</h1>
-              <p className="text-slate-500 text-base mt-2">Track units, leases, and income across your rental portfolio.</p>
+              <p className="text-slate-500 text-base mt-2">Track properties, leases, and income across your rental portfolio.</p>
             </div>
             <nav className="flex items-center gap-6 pt-2">
               {navLinks.map((link) => (
@@ -81,7 +95,14 @@ export function RentalDashboardPage({ data }: { data: RentalDashboardData }) {
           {/* ================================================================ */}
           {/*  Zone 1: Hero Vitals                                             */}
           {/* ================================================================ */}
-          <KpiCards />
+          <KpiCards
+            grossIncome={grossIncome}
+            incomeTrend={incomeTrend}
+            occupancyPct={occupancyPct}
+            vacancyCost={vacancyCost}
+            collectionRate={collectionRate}
+            maintenanceItems={maintenanceItems}
+          />
 
           {/* ================================================================ */}
           {/*  Zone 2: Quick Actions                                           */}
@@ -127,7 +148,7 @@ export function RentalDashboardPage({ data }: { data: RentalDashboardData }) {
           {/* ================================================================ */}
           <section className="grid grid-cols-12 gap-6">
             <LeaseTable />
-            <HeatmapGrid />
+            <HeatmapGrid data={heatmapClusters} />
           </section>
 
           {/* ================================================================ */}
@@ -199,12 +220,14 @@ export function RentalDashboardPage({ data }: { data: RentalDashboardData }) {
               </div>
               <div className="mt-6 flex items-start justify-around border-t border-slate-100 pt-5">
                 <div className="text-center">
-                  <p className="text-[10px] font-semibold uppercase text-slate-400">Recovery Rate</p>
-                  <p className="text-xl font-semibold text-val-heading">98.2%</p>
+                  <p className="text-[10px] font-semibold uppercase text-slate-400">Billing Recovery</p>
+                  <p className="text-xl font-semibold text-val-heading">{recoveryRate}</p>
                 </div>
                 <div className="text-center">
                   <p className="text-[10px] font-semibold uppercase text-slate-400">Eviction Risk</p>
-                  <p className="text-xl font-semibold text-rose-700">4 Units</p>
+                  <p className={cn("text-xl font-semibold", evictionRisk === "None" ? "text-green-600" : "text-rose-700")}>
+                    {evictionRisk}
+                  </p>
                 </div>
               </div>
             </div>
@@ -229,18 +252,22 @@ export function RentalDashboardPage({ data }: { data: RentalDashboardData }) {
                 ))}
               </div>
               <p className="mt-6 text-[10px] font-semibold uppercase text-slate-400">Top Spend Category</p>
-              <div className="mt-2 rounded bg-slate-50 p-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-val-heading">HVAC / Systems</span>
-                  <span className="text-xs font-semibold text-blue-700">$3,240</span>
+              {topSpend ? (
+                <div className="mt-2 rounded bg-slate-50 p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-val-heading">{topSpend.category}</span>
+                    <span className="text-xs font-semibold text-blue-700">{topSpend.amount}</span>
+                  </div>
+                  <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-slate-200">
+                    <div
+                      className="rental-bar h-full rounded-full bg-blue-700"
+                      style={{ width: topSpend.pct, animationDelay: "1000ms" }}
+                    />
+                  </div>
                 </div>
-                <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-slate-200">
-                  <div
-                    className="rental-bar h-full rounded-full bg-blue-700"
-                    style={{ width: "66.6%", animationDelay: "1000ms" }}
-                  />
-                </div>
-              </div>
+              ) : (
+                <p className="mt-2 text-xs text-slate-400">No expense data</p>
+              )}
             </div>
 
             {/* Upcoming Events */}

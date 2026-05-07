@@ -97,6 +97,22 @@ These rows need code changes only — the data already exists on the Property en
 |---|---|---|---|---|
 | — | — | — | _No fixes yet._ | — |
 
+### Fix — Phase 6.4 (2026-05-06)
+
+**Rows wired:** 12, 13, 14, 15, 16, 17, 18 (FullView KPI cards), 24 (ExpandedView stats bar), 25 (ExpandedView Zoning tab), 26 (ExpandedView Measurements tab), 30 (DefaultView stats bar). Total: **11 surfaces**.
+
+**Entity created:** `LandParcel` — type at `lib/data/types/land-parcel.ts`, db layer at `lib/data/db/land-parcels.ts`, exported from `lib/data/db/index.ts`. 3 seed records seeded (LP-0001 for PROP-0001 full data, LP-0002 for PROP-0002 partial, LP-0003 for PROP-0006 partial with `terrainType: "Hilly"`).
+
+**Q4.R resolved:** Option 2 (separate `LandParcel` entity) chosen. Documented in `ref/05-open-questions.md`. Removed from PHASES.md "Active Q-number blockers" for Phase 6.4.
+
+**PF2 closed:** `app/(shell)/property/[id]/location/queries.ts` created. `location/page.tsx` now calls `getLocationPageData(id)` via `Promise.all` and spreads result into `<PropertyLocationPage>`. All 7 property tabs now have `queries.ts` files.
+
+**`kpiData` constant deleted:** Replaced with 3 explicit KPI card elements using `parcel` data. `comparables` and `compSales` constants left untouched (PropertyComparable territory).
+
+**PropertyComparable boundary respected:** `comparables` and `compSales` constants remain in `PropertyLocationPage.tsx`. Rows 19–23, 27 still show hardcoded data.
+
+**Out-of-scope items confirmed deferred:** PF4 (lat/lng map), PF5 (address fields), PF6 (DefaultView "SR00015 Land" / "Siem Reap, Cambodia"), Price/m² in stats bars (PropertyComparable).
+
 ---
 
 <details>

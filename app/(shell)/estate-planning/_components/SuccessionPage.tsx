@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   AlertTriangle,
   Lock,
@@ -16,6 +16,12 @@ import {
 } from "lucide-react";
 import { cn } from "@/components/ui/utils";
 import { AppHeader } from "@/components/layout/AppHeader";
+import { useRouter } from "next/navigation";
+import { addSuccessorAndAssign } from "../actions";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import type {
   EstatePlanningPageData,
   EstateStat,
@@ -31,11 +37,11 @@ const propertyStatusConfig: Record<
   { label: string; className: string }
 > = {
   complete: {
-    label: "100% Complete",
+    label: "Complete",
     className: "bg-[#ecfdf5] text-[#065f46]",
   },
   pending: {
-    label: "45% Pending",
+    label: "In Review",
     className: "bg-[#fffbeb] text-[#92400e]",
   },
   action: {
@@ -47,6 +53,31 @@ const propertyStatusConfig: Record<
     className: "bg-[#f0f9ff] text-[#0369a1]",
   },
 };
+
+const propertyStatusOptions: Array<{ value: PropertyStatus; label: string }> = [
+  { value: "complete", label: "Complete" },
+  { value: "pending", label: "Pending" },
+  { value: "action", label: "Action" },
+  { value: "draft", label: "Draft" },
+];
+
+const DEFAULT_BENEFICIARY_FORM = {
+  name: "",
+  relation: "",
+  role: "primary" as SuccessorRole,
+  share: "0",
+  verified: false,
+};
+
+function buildInitials(name: string): string {
+  const parts = name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (parts.length === 0) return "NA";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
 
 // -- Components --
 
@@ -176,10 +207,162 @@ function RoleBadge({ role }: { role: SuccessorRole }) {
 // -- Page --
 
 export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
+  const router = useRouter();
   const [selectedProperty, setSelectedProperty] = useState(0);
+  const [statusFilter, setStatusFilter] = useState<"all" | PropertyStatus>("all");
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
+  const [addSubmitting, setAddSubmitting] = useState(false);
+  const [selectedAssignmentIds, setSelectedAssignmentIds] = useState<string[]>([]);
+  const [beneficiaryForm, setBeneficiaryForm] = useState(DEFAULT_BENEFICIARY_FORM);
 
   const { stats, properties, successors, documents, timeline } = data;
-  const property = properties[selectedProperty];
+  const filteredProperties = useMemo(
+    () => (statusFilter === "all" ? properties : properties.filter((p) => p.status === statusFilter)),
+    [properties, statusFilter],
+  );
+  const propertyCount = filteredProperties.length;
+  const safeSelectedProperty = Math.min(selectedProperty, Math.max(propertyCount - 1, 0));
+  const property = filteredProperties[safeSelectedProperty] ?? properties[0];
+  const propertyId = property?.id;
+  const propertySuccessors = useMemo(
+    () =>
+      propertyId
+        ? successors.filter((successor) => successor.propertyIds.includes(propertyId))
+        : [],
+    [propertyId, successors],
+  );
+  const propertyDocuments = useMemo(
+    () => (propertyId ? documents.filter((doc) => doc.propertyId === propertyId) : []),
+    [documents, propertyId],
+  );
+  const propertyTimeline = useMemo(
+    () =>
+      timeline.filter(
+        (item) => item.propertyId === propertyId || item.propertyId === undefined,
+      ),
+    [propertyId, timeline],
+  );
+
+  if (!property) {
+    return (
+      <div className="h-full flex flex-col bg-val-bg-page-alt">
+        <AppHeader />
+        <div className="flex-1 overflow-y-auto p-8">
+          <div className="max-w-[1200px] mx-auto rounded-xl border border-[#e8eaed] bg-white p-6 text-sm text-[#434655]">
+            No properties are available for estate planning yet.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const statusPanelConfig: Record<
+    PropertyStatus,
+    { title: string; icon: React.ReactNode; textClass: string; barClass: string }
+  > = {
+    complete: {
+      title: "Plan Finalized",
+      icon: <CheckCircle2 className="size-5 text-[#059669]" />,
+      textClass: "text-[#059669]",
+      barClass: "bg-[#059669]",
+    },
+    pending: {
+      title: "Pending Review",
+      icon: <AlertTriangle className="size-5 text-[#b45309]" />,
+      textClass: "text-[#b45309]",
+      barClass: "bg-[#b45309]",
+    },
+    action: {
+      title: "Action Required",
+      icon: <AlertTriangle className="size-5 text-[#ba1a1a]" />,
+      textClass: "text-[#ba1a1a]",
+      barClass: "bg-[#ba1a1a]",
+    },
+    draft: {
+      title: "Draft Plan",
+      icon: <FileText className="size-5 text-[#525866]" />,
+      textClass: "text-[#525866]",
+      barClass: "bg-[#525866]",
+    },
+  };
+  const statusPanel = statusPanelConfig[property.status];
+  const progressLabel =
+    property.completionPct >= 100
+      ? "100% Finalized"
+      : `${property.completionPct.toFixed(1)}% Complete`;
+
+  const openAddDialog = () => {
+    setAddError(null);
+    setBeneficiaryForm(DEFAULT_BENEFICIARY_FORM);
+    setSelectedAssignmentIds([property.id]);
+    setAddDialogOpen(true);
+  };
+
+  const toggleAssignment = (propertyId: string) => {
+    setSelectedAssignmentIds((current) =>
+      current.includes(propertyId)
+        ? current.filter((id) => id !== propertyId)
+        : [...current, propertyId],
+    );
+  };
+
+  async function handleAddBeneficiary(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setAddError(null);
+
+    const trimmedName = beneficiaryForm.name.trim();
+    const trimmedRelation = beneficiaryForm.relation.trim();
+    const share = Number(beneficiaryForm.share);
+    if (!trimmedName) {
+      setAddError("Name is required.");
+      return;
+    }
+    if (!trimmedRelation) {
+      setAddError("Relation is required.");
+      return;
+    }
+    if (!Number.isFinite(share) || share < 0) {
+      setAddError("Share must be a valid non-negative number.");
+      return;
+    }
+    if (beneficiaryForm.role === "primary" && share > 100) {
+      setAddError("Primary beneficiary share cannot exceed 100%.");
+      return;
+    }
+    if (selectedAssignmentIds.length === 0) {
+      setAddError("Assign at least one property.");
+      return;
+    }
+
+    setAddSubmitting(true);
+    try {
+      const now = Date.now();
+      const result = await addSuccessorAndAssign(
+        {
+          name: trimmedName,
+          initials: buildInitials(trimmedName),
+          relation: trimmedRelation,
+          role: beneficiaryForm.role,
+          share,
+          verified: beneficiaryForm.verified,
+          createdAt: now,
+          updatedAt: now,
+        },
+        selectedAssignmentIds,
+      );
+      if (!result.ok) {
+        setAddError(result.error ?? "Failed to add beneficiary.");
+        return;
+      }
+      setAddDialogOpen(false);
+      router.refresh();
+    } catch {
+      setAddError("Failed to add beneficiary.");
+    } finally {
+      setAddSubmitting(false);
+    }
+  }
 
   return (
     <div className="h-full flex flex-col bg-val-bg-page-alt">
@@ -203,7 +386,10 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
             </p>
           </div>
           <div className="flex items-center gap-3 shrink-0">
-            <button className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#c3c6d7] bg-val-bg-page-alt text-sm font-medium text-val-heading hover:bg-white transition-colors">
+            <button
+              onClick={() => router.push("/analytics")}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#c3c6d7] bg-val-bg-page-alt text-sm font-medium text-val-heading hover:bg-white transition-colors"
+            >
               <BarChart2 className="size-4" />
               View Analytics
             </button>
@@ -234,16 +420,31 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
               <span className="text-xs font-semibold uppercase tracking-[0.7px] text-[#737686]">
                 Properties
               </span>
-              <button className="flex items-center gap-1 text-xs font-semibold text-[--val-primary-dark] hover:underline">
+              <label className="flex items-center gap-1 text-xs font-semibold text-[--val-primary-dark]">
                 <Filter className="size-3" />
-                Filter
-              </button>
+                <span className="sr-only">Filter properties by status</span>
+                <select
+                  value={statusFilter}
+                  onChange={(event) => {
+                    setStatusFilter(event.target.value as "all" | PropertyStatus);
+                    setSelectedProperty(0);
+                  }}
+                  className="bg-transparent text-xs font-semibold outline-none cursor-pointer"
+                >
+                  <option value="all">All</option>
+                  {propertyStatusOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
-            {properties.map((p, i) => (
+            {filteredProperties.map((p, i) => (
               <PropertyCard
                 key={p.id}
                 property={p}
-                isActive={i === selectedProperty}
+                isActive={i === safeSelectedProperty}
                 onClick={() => setSelectedProperty(i)}
               />
             ))}
@@ -260,14 +461,19 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
                     {property.name}{" "}
                     <span className="font-semibold text-[#c3c6d7]">Estate Plan</span>
                   </h2>
-                  <p className="text-sm text-[#434655] mt-1">Last updated: Oct 14, 2023</p>
+                  <p className="text-sm text-[#434655] mt-1">
+                    Last updated: {property.lastUpdatedLabel}
+                  </p>
                 </div>
                 <div className="flex items-center gap-3">
                   <button className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#c3c6d7] text-sm font-medium text-val-heading hover:bg-val-bg-page-alt transition-all duration-150 hover:scale-[1.02] active:scale-[0.97]">
                     <Download className="size-3.5" />
                     Download Summary
                   </button>
-                  <button className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#c3c6d7] text-sm font-medium text-val-heading hover:bg-val-bg-page-alt transition-all duration-150 hover:scale-[1.02] active:scale-[0.97]">
+                  <button
+                    onClick={openAddDialog}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#c3c6d7] text-sm font-medium text-val-heading hover:bg-val-bg-page-alt transition-all duration-150 hover:scale-[1.02] active:scale-[0.97]"
+                  >
                     <UserPlus className="size-3.5" />
                     Add Beneficiary
                   </button>
@@ -285,15 +491,20 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
                   <div className="flex items-end justify-between">
                     <div className="flex flex-col gap-1">
                       <p className="text-xs font-semibold uppercase tracking-[1.2px] text-[#434655]">Status</p>
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 className="size-5 text-[#059669]" />
-                        <span className="text-lg font-semibold text-[#059669]">Plan Finalized</span>
+                      <div className={cn("flex items-center gap-2", statusPanel.textClass)}>
+                        {statusPanel.icon}
+                        <span className={cn("text-lg font-semibold", statusPanel.textClass)}>
+                          {statusPanel.title}
+                        </span>
                       </div>
                     </div>
-                    <span className="text-sm font-semibold text-val-heading">100% Finalized</span>
+                    <span className="text-sm font-semibold text-val-heading">{progressLabel}</span>
                   </div>
                   <div className="bg-[#e8eaed] h-3 rounded-full w-full overflow-hidden">
-                    <div className="bg-[#059669] h-full rounded-full w-full anim-progress" style={{ animationDelay: '120ms' }} />
+                    <div
+                      className={cn("h-full rounded-full anim-progress", statusPanel.barClass)}
+                      style={{ width: `${property.completionPct}%`, animationDelay: "120ms" }}
+                    />
                   </div>
                 </div>
 
@@ -303,7 +514,7 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
                     <h3 className="text-lg font-bold font-display text-val-heading">
                       Designated Beneficiaries
                     </h3>
-                    <span className="text-xs text-[#434655]">3 total entries</span>
+                    <span className="text-xs text-[#434655]">{propertySuccessors.length} total entries</span>
                   </div>
 
                   <div className="border border-[#e8eaed] rounded-xl overflow-hidden">
@@ -320,9 +531,14 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
                     </div>
 
                     {/* Table Rows */}
-                    {successors.map((s, i) => (
+                    {propertySuccessors.length === 0 && (
+                      <div className="px-6 py-8 text-sm text-[#434655]">
+                        No beneficiaries have been assigned to this property yet.
+                      </div>
+                    )}
+                    {propertySuccessors.map((s, i) => (
                       <div
-                        key={s.initials}
+                        key={s.id}
                         className={cn(
                           "grid grid-cols-[2fr_2fr_1fr_1.2fr_auto] items-center px-6 py-4",
                           i > 0 && "border-t border-[#e8eaed]",
@@ -348,10 +564,17 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
                         <span className="text-sm font-semibold text-val-heading">{s.share}</span>
 
                         {/* Status */}
-                        <div className="flex items-center gap-1.5">
-                          <CheckCircle2 className="size-3.5 text-[#059669] shrink-0" />
-                          <span className="text-xs font-semibold text-[#059669]">Verified</span>
-                        </div>
+                        {s.verified ? (
+                          <div className="flex items-center gap-1.5">
+                            <CheckCircle2 className="size-3.5 text-[#059669] shrink-0" />
+                            <span className="text-xs font-semibold text-[#059669]">Verified</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5">
+                            <AlertTriangle className="size-3.5 text-[#ba1a1a] shrink-0" />
+                            <span className="text-xs font-semibold text-[#ba1a1a]">Unverified</span>
+                          </div>
+                        )}
 
                         {/* Actions */}
                         <button className="p-1 rounded hover:bg-val-bg-page-alt text-[#737686]">
@@ -368,9 +591,14 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
                     Estate Documents
                   </h3>
                   <div className="grid grid-cols-2 gap-4">
-                    {documents.map((doc) => (
+                    {propertyDocuments.length === 0 && (
+                      <div className="col-span-2 rounded-xl border border-[#e8eaed] bg-[#f8fafc] p-4 text-sm text-[#434655]">
+                        No estate documents are linked to this property yet.
+                      </div>
+                    )}
+                    {propertyDocuments.map((doc) => (
                       <div
-                        key={doc.name}
+                        key={doc.id}
                         className="flex items-center justify-between bg-white border border-[#e8eaed] rounded-xl p-4"
                       >
                         <div className="flex items-center gap-4">
@@ -405,8 +633,11 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
                     {/* Vertical line */}
                     <div className="absolute left-[10px] top-2 bottom-2 w-0.5 bg-[#c3c6d7]" />
 
-                    {timeline.map((item) => (
-                      <div key={item.title} className="relative pl-10">
+                    {propertyTimeline.length === 0 && (
+                      <div className="pl-10 text-sm text-[#434655]">No recent activity recorded.</div>
+                    )}
+                    {propertyTimeline.map((item) => (
+                      <div key={item.id} className="relative pl-10">
                         {/* Dot */}
                         <div
                           className={cn(
@@ -431,7 +662,7 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
               <div className="bg-val-bg-tint border-t border-[#e8eaed] px-8 py-4 flex items-center justify-between">
                 <div className="flex items-center gap-2 text-[#434655]">
                   <Shield className="size-3.5 shrink-0" />
-                  <span className="text-xs font-medium">End-to-end encrypted estate planning data.</span>
+                  <span className="text-xs font-medium">Your estate planning data is kept private in Valgate.</span>
                 </div>
                 <div className="flex items-center gap-4">
                   <button className="text-xs font-semibold uppercase tracking-wide text-[#737686] hover:text-[#434655]">
@@ -447,6 +678,134 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
         </div>
       </div>
       </div>
+      <Dialog
+        open={addDialogOpen}
+        onOpenChange={(open) => {
+          setAddDialogOpen(open);
+          if (!open) {
+            setAddError(null);
+            setAddSubmitting(false);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Add Beneficiary</DialogTitle>
+            <DialogDescription>
+              Create a beneficiary and assign one or more properties.
+            </DialogDescription>
+          </DialogHeader>
+          <form className="grid gap-4" onSubmit={handleAddBeneficiary}>
+            <div className="grid gap-2">
+              <Label htmlFor="beneficiary-name">Full Name</Label>
+              <Input
+                id="beneficiary-name"
+                value={beneficiaryForm.name}
+                onChange={(event) =>
+                  setBeneficiaryForm((current) => ({ ...current, name: event.target.value }))
+                }
+                placeholder="Sophea Chan"
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="beneficiary-relation">Relation</Label>
+              <Input
+                id="beneficiary-relation"
+                value={beneficiaryForm.relation}
+                onChange={(event) =>
+                  setBeneficiaryForm((current) => ({ ...current, relation: event.target.value }))
+                }
+                placeholder="Spouse"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="beneficiary-role">Role</Label>
+                <select
+                  id="beneficiary-role"
+                  value={beneficiaryForm.role}
+                  onChange={(event) =>
+                    setBeneficiaryForm((current) => ({
+                      ...current,
+                      role: event.target.value as SuccessorRole,
+                    }))
+                  }
+                  className="h-9 rounded-md border border-input bg-input-background px-3 text-sm"
+                >
+                  <option value="primary">Primary</option>
+                  <option value="contingent">Contingent</option>
+                </select>
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="beneficiary-share">Share (%)</Label>
+                <Input
+                  id="beneficiary-share"
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  value={beneficiaryForm.share}
+                  onChange={(event) =>
+                    setBeneficiaryForm((current) => ({ ...current, share: event.target.value }))
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              <Label>Assign Properties</Label>
+              <div className="max-h-40 overflow-y-auto rounded-md border border-input p-3 grid gap-2">
+                {properties.map((entry) => (
+                  <label key={entry.id} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={selectedAssignmentIds.includes(entry.id)}
+                      onChange={() => toggleAssignment(entry.id)}
+                    />
+                    <span>{entry.name}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={beneficiaryForm.verified}
+                onChange={(event) =>
+                  setBeneficiaryForm((current) => ({
+                    ...current,
+                    verified: event.target.checked,
+                  }))
+                }
+              />
+              Mark as verified
+            </label>
+
+            {addError && (
+              <div className="rounded-md border border-[#fecaca] bg-[#fef2f2] px-3 py-2 text-sm text-[#b91c1c]">
+                {addError}
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setAddDialogOpen(false)}
+                disabled={addSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={addSubmitting}>
+                {addSubmitting ? "Adding..." : "Add Beneficiary"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

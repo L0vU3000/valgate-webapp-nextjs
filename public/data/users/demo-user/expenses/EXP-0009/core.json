@@ -1,0 +1,9 @@
+{
+  "id": "EXP-0009",
+  "userId": "demo-user",
+  "propertyId": "PROP-0003",
+  "date": 1766016000000,
+  "category": "Management",
+  "amount": 320,
+  "note": "Property management fee"
+}

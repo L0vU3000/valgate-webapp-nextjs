@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { Property } from "@/lib/data/types/property";
+import type { LandParcel } from "@/lib/data/types/land-parcel";
 import { PropertyLayout } from "@/components/property/PropertyLayout";
 import {
   ZoomIn,
@@ -20,7 +21,13 @@ import {
 
 type ViewMode = "default" | "expanded" | "full";
 
-export function PropertyLocationPage({ property }: { property: Property }) {
+export function PropertyLocationPage({
+  property,
+  landParcels,
+}: {
+  property: Property;
+  landParcels: LandParcel[];
+}) {
   const activeTab = "location";
   const [viewMode, setViewMode] = useState<ViewMode>("full");
   const [activeInfoTab, setActiveInfoTab] = useState("Zoning");
@@ -29,6 +36,8 @@ export function PropertyLocationPage({ property }: { property: Property }) {
   const [boundaries, setBoundaries] = useState(true);
   const [labels, setLabels] = useState(true);
   const [showLegend, setShowLegend] = useState(true);
+
+  const parcel = landParcels[0] ?? null;
 
   return (
     <PropertyLayout activeTab={activeTab} property={property}>
@@ -41,6 +50,7 @@ export function PropertyLocationPage({ property }: { property: Property }) {
             showLegend={showLegend}
             setShowLegend={setShowLegend}
             property={property}
+            parcel={parcel}
           />
         ) : viewMode === "expanded" ? (
           <ExpandedView
@@ -50,6 +60,7 @@ export function PropertyLocationPage({ property }: { property: Property }) {
             setShowLegend={setShowLegend}
             activeInfoTab={activeInfoTab}
             setActiveInfoTab={setActiveInfoTab}
+            parcel={parcel}
           />
         ) : (
           <DefaultView
@@ -65,6 +76,7 @@ export function PropertyLocationPage({ property }: { property: Property }) {
             setBoundaries={setBoundaries}
             labels={labels}
             setLabels={setLabels}
+            parcel={parcel}
           />
         )}
       </div>
@@ -174,38 +186,6 @@ function LayerToggle({
   );
 }
 
-const kpiData = [
-  {
-    label: "Total Land Size",
-    value: (
-      <>
-        2,450 m<sup>2</sup>
-      </>
-    ),
-    sub: "0.245 hectares",
-    extras: [
-      { label: "Width", value: "45.2m" },
-      { label: "Length", value: "54.3m" },
-    ],
-  },
-  {
-    label: "Current Zoning",
-    value: "Agricultural Zone",
-    sub: null,
-    badge: { text: "A-2 Classification", color: "bg-emerald-50 text-emerald-700" },
-    bullets: ["Development Potential", "Residential Subdivision", "Up to 6 units"],
-  },
-  {
-    label: "Elevation Range",
-    value: "125m",
-    sub: "Above sea level",
-    extras: [
-      { label: "Slope", value: "2.5°" },
-      { label: "Terrain", value: "Flat" },
-    ],
-  },
-];
-
 const comparables = [
   { corner: "Northeast", lat: "11.5564°N", lng: "104.9282°E", bearing: "45°" },
   { corner: "Southeast", lat: "11.5512°N", lng: "104.9301°E", bearing: "135°" },
@@ -225,12 +205,14 @@ function FullView({
   showLegend,
   setShowLegend,
   property,
+  parcel,
 }: {
   viewMode: ViewMode;
   setViewMode: (v: ViewMode) => void;
   showLegend: boolean;
   setShowLegend: (v: boolean) => void;
-  property: import("@/lib/data/types/property").Property;
+  property: Property;
+  parcel: LandParcel | null;
 }) {
   return (
     <div className="flex flex-col">
@@ -278,43 +260,95 @@ function FullView({
 
         {/* KPI row */}
         <div className="grid grid-cols-3 gap-4">
-          {kpiData.map((kpi, i) => (
-            <div
-              key={kpi.label}
-              className="bg-white rounded-lg border border-slate-200 p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)] hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 animate-[fade-slide-up_0.45s_cubic-bezier(0.22,1,0.36,1)_both]"
-              style={{ animationDelay: `${100 + i * 80}ms` }}
-            >
-              <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">
-                {kpi.label}
+          {/* Row 12 — Total Land Size */}
+          <div
+            className="bg-white rounded-lg border border-slate-200 p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)] hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 animate-[fade-slide-up_0.45s_cubic-bezier(0.22,1,0.36,1)_both]"
+            style={{ animationDelay: "100ms" }}
+          >
+            <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">
+              Total Land Size
+            </span>
+            <p className="text-[24px] font-bold text-val-heading leading-none mt-2 mb-1">
+              {parcel != null ? <>{parcel.sizeM2.toLocaleString()} m<sup>2</sup></> : "—"}
+            </p>
+            {parcel != null && (
+              <p className="text-xs text-slate-400">{(parcel.sizeM2 / 10000).toFixed(3)} hectares</p>
+            )}
+            {parcel != null && (
+              <div className="flex gap-6 mt-3 pt-3 border-t border-slate-100">
+                <div>
+                  <p className="text-[11px] text-slate-400">Width</p>
+                  <p className="text-[15px] font-semibold text-val-heading">
+                    {parcel.widthM != null ? `${parcel.widthM}m` : "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-slate-400">Length</p>
+                  <p className="text-[15px] font-semibold text-val-heading">
+                    {parcel.lengthM != null ? `${parcel.lengthM}m` : "—"}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Row 14-16 — Current Zoning */}
+          <div
+            className="bg-white rounded-lg border border-slate-200 p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)] hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 animate-[fade-slide-up_0.45s_cubic-bezier(0.22,1,0.36,1)_both]"
+            style={{ animationDelay: "180ms" }}
+          >
+            <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">
+              Current Zoning
+            </span>
+            <p className="text-[24px] font-bold text-val-heading leading-none mt-2 mb-1">
+              {parcel?.zoningClass ?? "—"}
+            </p>
+            {parcel?.zoningCode != null && (
+              <span className="inline-block mt-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700">
+                {parcel.zoningCode} Classification
               </span>
-              <p className="text-[24px] font-bold text-val-heading leading-none mt-2 mb-1">{kpi.value}</p>
-              {kpi.sub && <p className="text-xs text-slate-400">{kpi.sub}</p>}
-              {"badge" in kpi && kpi.badge && (
-                <span
-                  className={`inline-block mt-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${kpi.badge.color}`}
-                >
-                  {kpi.badge.text}
-                </span>
-              )}
-              {"bullets" in kpi && kpi.bullets && (
-                <div className="mt-2 space-y-0.5">
-                  {kpi.bullets.map((b) => (
-                    <p key={b} className="text-xs text-slate-500">{b}</p>
-                  ))}
+            )}
+            {parcel?.developmentPotential != null && parcel.developmentPotential.length > 0 && (
+              <div className="mt-2 space-y-0.5">
+                <p className="text-xs text-slate-500">Development Potential</p>
+                {parcel.developmentPotential.map((b) => (
+                  <p key={b} className="text-xs text-slate-500">{b}</p>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Row 17-18 — Elevation Range */}
+          <div
+            className="bg-white rounded-lg border border-slate-200 p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)] hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 animate-[fade-slide-up_0.45s_cubic-bezier(0.22,1,0.36,1)_both]"
+            style={{ animationDelay: "260ms" }}
+          >
+            <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">
+              Elevation Range
+            </span>
+            <p className="text-[24px] font-bold text-val-heading leading-none mt-2 mb-1">
+              {parcel?.elevationM != null ? `${parcel.elevationM}m` : "—"}
+            </p>
+            {parcel?.elevationM != null && (
+              <p className="text-xs text-slate-400">Above sea level</p>
+            )}
+            {parcel != null && (
+              <div className="flex gap-6 mt-3 pt-3 border-t border-slate-100">
+                <div>
+                  <p className="text-[11px] text-slate-400">Slope</p>
+                  <p className="text-[15px] font-semibold text-val-heading">
+                    {parcel.slopeAngleDeg != null ? `${parcel.slopeAngleDeg}°` : "—"}
+                  </p>
                 </div>
-              )}
-              {"extras" in kpi && kpi.extras && (
-                <div className="flex gap-6 mt-3 pt-3 border-t border-slate-100">
-                  {kpi.extras.map((e) => (
-                    <div key={e.label}>
-                      <p className="text-[11px] text-slate-400">{e.label}</p>
-                      <p className="text-[15px] font-semibold text-val-heading">{e.value}</p>
-                    </div>
-                  ))}
+                <div>
+                  <p className="text-[11px] text-slate-400">Terrain</p>
+                  <p className="text-[15px] font-semibold text-val-heading">
+                    {parcel.terrainType ?? "—"}
+                  </p>
                 </div>
-              )}
-            </div>
-          ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Bottom section: comparables + investment */}
@@ -422,6 +456,7 @@ function ExpandedView({
   setShowLegend,
   activeInfoTab,
   setActiveInfoTab,
+  parcel,
 }: {
   viewMode: ViewMode;
   setViewMode: (v: ViewMode) => void;
@@ -429,6 +464,7 @@ function ExpandedView({
   setShowLegend: (v: boolean) => void;
   activeInfoTab: string;
   setActiveInfoTab: (v: string) => void;
+  parcel: LandParcel | null;
 }) {
   const infoTabs = ["Measurements", "Zoning", "Boundaries", "Investment"];
   return (
@@ -444,21 +480,31 @@ function ExpandedView({
 
       {/* Bottom panel */}
       <div className="bg-white border-t border-slate-200 px-6 py-4">
+        {/* Row 24 — ExpandedView stats bar */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex gap-8">
-            {[
-              { label: "Total Area", value: <>2,450 m<sup>2</sup></> },
-              { label: "Zoning", value: "Agricultural" },
-              { label: "Elevation", value: "125m" },
-              { label: "Price/m²", value: "$245" },
-            ].map((stat) => (
-              <div key={stat.label}>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">
-                  {stat.label}
-                </p>
-                <p className="text-[22px] font-bold text-val-heading leading-tight">{stat.value}</p>
-              </div>
-            ))}
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">Total Area</p>
+              <p className="text-[22px] font-bold text-val-heading leading-tight">
+                {parcel != null ? <>{parcel.sizeM2.toLocaleString()} m<sup>2</sup></> : "—"}
+              </p>
+            </div>
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">Zoning</p>
+              <p className="text-[22px] font-bold text-val-heading leading-tight">
+                {parcel?.zoningClass ?? "—"}
+              </p>
+            </div>
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">Elevation</p>
+              <p className="text-[22px] font-bold text-val-heading leading-tight">
+                {parcel?.elevationM != null ? `${parcel.elevationM}m` : "—"}
+              </p>
+            </div>
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">Price/m²</p>
+              <p className="text-[22px] font-bold text-val-heading leading-tight">$245</p>
+            </div>
           </div>
           <button
             onClick={() => setViewMode("full")}
@@ -484,6 +530,7 @@ function ExpandedView({
           ))}
         </div>
 
+        {/* Row 25 — ExpandedView Zoning tab */}
         {activeInfoTab === "Zoning" && (
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-5">
@@ -491,16 +538,21 @@ function ExpandedView({
                 <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-1">
                   Current Zoning
                 </p>
-                <p className="text-[18px] font-bold text-val-heading">Agricultural Zone</p>
+                <p className="text-[18px] font-bold text-val-heading">{parcel?.zoningClass ?? "—"}</p>
               </div>
-              <span className="bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-[12px] font-semibold">
-                A-2 Classification
-              </span>
-              <div className="text-[13px] text-slate-500 space-y-0.5">
-                <p>Development Potential</p>
-                <p>Residential Subdivision</p>
-                <p>Up to 6 units permitted</p>
-              </div>
+              {parcel?.zoningCode != null && (
+                <span className="bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-[12px] font-semibold">
+                  {parcel.zoningCode} Classification
+                </span>
+              )}
+              {parcel?.developmentPotential != null && parcel.developmentPotential.length > 0 && (
+                <div className="text-[13px] text-slate-500 space-y-0.5">
+                  <p>Development Potential</p>
+                  {parcel.developmentPotential.map((b) => (
+                    <p key={b}>{b}</p>
+                  ))}
+                </div>
+              )}
             </div>
             <button
               onClick={() => setViewMode("full")}
@@ -514,13 +566,15 @@ function ExpandedView({
             </button>
           </div>
         )}
+
+        {/* Row 26 — ExpandedView Measurements tab */}
         {activeInfoTab === "Measurements" && (
           <div className="flex gap-10">
             {[
-              { label: "Width", value: "45.2m" },
-              { label: "Length", value: "54.3m" },
-              { label: "Slope", value: "2.5°" },
-              { label: "Terrain", value: "Flat" },
+              { label: "Width", value: parcel?.widthM != null ? `${parcel.widthM}m` : "—" },
+              { label: "Length", value: parcel?.lengthM != null ? `${parcel.lengthM}m` : "—" },
+              { label: "Slope", value: parcel?.slopeAngleDeg != null ? `${parcel.slopeAngleDeg}°` : "—" },
+              { label: "Terrain", value: parcel?.terrainType ?? "—" },
             ].map((m) => (
               <div key={m.label}>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">{m.label}</p>
@@ -573,6 +627,7 @@ function DefaultView({
   setBoundaries,
   labels,
   setLabels,
+  parcel,
 }: {
   viewMode: ViewMode;
   setViewMode: (v: ViewMode) => void;
@@ -586,6 +641,7 @@ function DefaultView({
   setBoundaries: (v: boolean) => void;
   labels: boolean;
   setLabels: (v: boolean) => void;
+  parcel: LandParcel | null;
 }) {
   return (
     <div className="flex flex-col h-full">
@@ -639,20 +695,31 @@ function DefaultView({
         </div>
       </div>
 
-      {/* Stats bar */}
+      {/* Row 30 — DefaultView stats bar */}
       <div className="bg-white border-t border-slate-200 px-6 py-4 flex items-center justify-between">
         <div className="flex gap-8">
-          {[
-            { label: "Total Area", value: <>2,450 m<sup>2</sup></> },
-            { label: "Zoning", value: "Agricultural" },
-            { label: "Elevation", value: "125m" },
-            { label: "Price/m²", value: "$245" },
-          ].map((stat) => (
-            <div key={stat.label}>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">{stat.label}</p>
-              <p className="text-[22px] font-bold text-val-heading leading-tight">{stat.value}</p>
-            </div>
-          ))}
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">Total Area</p>
+            <p className="text-[22px] font-bold text-val-heading leading-tight">
+              {parcel != null ? <>{parcel.sizeM2.toLocaleString()} m<sup>2</sup></> : "—"}
+            </p>
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">Zoning</p>
+            <p className="text-[22px] font-bold text-val-heading leading-tight">
+              {parcel?.zoningClass ?? "—"}
+            </p>
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">Elevation</p>
+            <p className="text-[22px] font-bold text-val-heading leading-tight">
+              {parcel?.elevationM != null ? `${parcel.elevationM}m` : "—"}
+            </p>
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">Price/m²</p>
+            <p className="text-[22px] font-bold text-val-heading leading-tight">$245</p>
+          </div>
         </div>
         <button
           onClick={() => setViewMode("expanded")}

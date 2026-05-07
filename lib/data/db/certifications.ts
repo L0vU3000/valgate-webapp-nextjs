@@ -6,7 +6,7 @@ import {
   deleteRecord,
   nextId,
 } from "./_fs";
-import type { Certification } from "../types/certification";
+import { CertificationSchema, type Certification } from "../types/certification";
 
 const COLLECTION = "certifications";
 const ID_PREFIX = "CERT";
@@ -14,14 +14,16 @@ const ID_PREFIX = "CERT";
 export type NewCertification = Omit<Certification, "id" | "userId">;
 
 export async function list(userId: string): Promise<Certification[]> {
-  return listMergedRecords<Certification>(userId, COLLECTION);
+  const rows = await listMergedRecords<unknown>(userId, COLLECTION);
+  return rows.map((r) => CertificationSchema.parse(r));
 }
 
 export async function get(
   userId: string,
   id: string,
 ): Promise<Certification | null> {
-  return readMergedRecord<Certification>(userId, COLLECTION, id);
+  const row = await readMergedRecord<unknown>(userId, COLLECTION, id);
+  return row ? CertificationSchema.parse(row) : null;
 }
 
 export async function create(
@@ -29,7 +31,7 @@ export async function create(
   data: NewCertification,
 ): Promise<Certification> {
   const id = await nextId(userId, COLLECTION, ID_PREFIX);
-  const record: Certification = { ...data, id, userId };
+  const record = CertificationSchema.parse({ ...data, id, userId });
   await writeRecord(userId, COLLECTION, id, { core: { ...record } });
   return record;
 }
@@ -41,7 +43,7 @@ export async function update(
 ): Promise<Certification | null> {
   const current = await get(userId, id);
   if (!current) return null;
-  const updated = { ...current, ...patch, id: current.id, userId: current.userId };
+  const updated = CertificationSchema.parse({ ...current, ...patch, id: current.id, userId: current.userId });
   await writeRecord(userId, COLLECTION, id, { core: { ...updated } });
   return updated;
 }

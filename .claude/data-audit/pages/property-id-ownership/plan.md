@@ -3,7 +3,7 @@ slug: property-id-ownership
 route: /property/[id]/ownership
 revision: 1
 date: 2026-05-05
-verdict: "⚠️ 6 WIRED · 25 HARDCODED · 6 PFn — top entity to land: CoOwner"
+verdict: "⚠️ 16 WIRED · 9 HARDCODED · 6 PFn — CoOwner + OwnershipRecord §21 wired (6.5+6.6); remaining: Property field promotion (rows 8–12, 14–16) + OwnershipDocument.status (row 31)"
 ---
 
 # Plan — /property/[id]/ownership
@@ -137,7 +137,12 @@ Before any entity work, PF5 must be resolved: the existing `OwnershipRecord` Typ
 
 | Rev | Date | Finding | What changed | Commit |
 |---|---|---|---|---|
-| — | — | — | _No fixes yet._ | — |
+| 2 | 2026-05-06 | Rows 18–25, 28–29 (10 CoOwner surfaces) | CoOwner entity created (`lib/data/types/co-owner.ts`, `lib/data/db/co-owners.ts`). 6 seed records (CO-0001..CO-0006). `db/index.ts` export added. `ownership/queries.ts` extended with `coOwners` + `monthlyRentIncome`. `PropertyOwnershipPage.tsx` wired: split donut, legend, OwnerCard ×2 (+ "+N more" cap), rent income split, expense responsibility labels. | Phase 6.5 |
+| 2 | 2026-05-06 | Q4.N blocker | Q4.N reinterpreted: it is a Viewer RBAC question (not PII storage). Resolved for FS demo era (single-user; RBAC deferred to Clerk+Convex phase). PII strategy documented: SSN stored masked-at-rest only. Q5.S filed for real encryption in backend phase. PHASES.md description corrected. | Phase 6.5 |
+| 3 | 2026-05-06 | PF5 closed — Priority 0 rename complete | `OwnershipRecord` (deed type) renamed to `OwnershipDocument` across `lib/data/types/ownership-document.ts`, `lib/data/db/ownership-documents.ts`, `lib/actions/ownership-documents.actions.ts`. Seed folder `ownership-records/OWNR-*` → `ownership-documents/ODOC-*`. `db/index.ts` updated: `ownershipDocuments` now exports deed layer; `ownershipRecords` re-added pointing at new §21 entity. | Phase 6.6 |
+| 3 | 2026-05-06 | Rows 6, 7, 13, 17, 26, 27 (6 OwnershipRecord §21 surfaces) | New `OwnershipRecord` entity (§21) created: `lib/data/types/ownership-record.ts` (extended Zod schema with holdingType, loan terms, acquisition costs, distributionMethod), `lib/data/db/ownership-records.ts` (OREC prefix, `ownership-records` collection). 3 OREC seed records: OREC-0001 (PROP-0001, all fields), OREC-0002 (PROP-0002, sole-owner/no-loan), OREC-0003 (PROP-0006, multi-owner/equal-split). `ownership/queries.ts` extended with `ownershipRecord` field. `PropertyOwnershipPage.tsx` wired: rows 6 (holdingType KPI), 7 (coOwners.length KPI), 13 (mortgage terms sub-label), 17 (nextPaymentDue), 26 (acquisition details table with 10 rows), 27 (distributionMethod radio). `kpis` constant refactored to `buildKpis()` function. | Phase 6.6 |
+| 3 | 2026-05-06 | Property.purchasePrice backfill (side fix for row 26) | `public/data/users/demo-user/properties/PROP-0001/finance.json` — added `purchasePrice: "485000"`. Row 26 "Purchase Price" now reads real data. | Phase 6.6 |
+| 3 | 2026-05-06 | Catalog §21 extended | `ref/00-entity-catalog.md` §21 updated: full mortgage/acquisition/distribution field table; notes that `currentEstimatedValue`/`remainingMortgage`/`equityPercent` derive from Property; `coOwnerIds` dropped (CoOwner is §24). §21a (OwnershipDocument deed entity) added to catalog. | Phase 6.6 |
 
 ---
 

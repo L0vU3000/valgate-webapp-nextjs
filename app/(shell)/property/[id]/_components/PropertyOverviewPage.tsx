@@ -6,33 +6,32 @@ import {
   MoreHorizontal, Download, Pencil,
 } from "lucide-react";
 import type { Property } from "@/lib/data/types/property";
-import { formatCurrency } from "@/lib/format";
+import type { PropertyValuation } from "@/lib/data/types/property-valuation";
+import type { Lease, LeaseStage } from "@/lib/data/types/lease";
+import type { Tenant } from "@/lib/data/types/tenant";
+import type { Payment } from "@/lib/data/types/payment";
+import type { Expense } from "@/lib/data/types/expense";
+import type { Notification } from "@/lib/data/types/notification";
+import type { MaintenanceItem } from "@/lib/data/types/maintenance-item";
+import { formatCurrency, formatCurrencyFull } from "@/lib/format";
 import { PropertyLayout } from "@/components/property/PropertyLayout";
 
-const alerts = [
-  {
-    id: 1,
-    type: "lease" as const,
-    title: "Lease Expiring:",
-    body: "Suite 402 — Quantum Tech Ltd (30 days remaining)",
-    action: "Review",
-    actionLabel: "Review lease expiring for Quantum Tech Ltd, Suite 402",
-  },
-  {
-    id: 2,
-    type: "system" as const,
-    title: "HVAC Fault:",
-    body: "Building A — Central unit cooling efficiency below threshold.",
-    action: "Dispatch",
-    actionLabel: "Dispatch technician for HVAC fault in Building A",
-  },
-];
+const STAGE_ORDER: LeaseStage[] = ["Signed", "Approaching", "Offered", "Declined"];
+const STAGE_COLORS: Record<LeaseStage, string> = {
+  Signed: "var(--val-primary-dark)",
+  Approaching: "#f59e0b",
+  Offered: "#38bdf8",
+  Declined: "#94a3b8",
+};
+const DONUT_CIRC = 200.96;
 
-const tenants = [
-  { initials: "A", name: "Apex Global Logistics", unit: "Ste. 101", rent: "$12,400", status: "Paid", statusOk: true },
-  { initials: "Q", name: "Quantum Tech Ltd", unit: "Ste. 402", rent: "$8,900", status: "Overdue", statusOk: false },
-  { initials: "S", name: "Starlight Creatives", unit: "Ste. 205", rent: "$4,200", status: "Paid", statusOk: true },
-];
+function getAlertDisplay(type: string, category?: string): { dotClass: string; labelClass: string; label: string } {
+  if (type === "lease") return { dotClass: "bg-amber-400", labelClass: "text-amber-600", label: "Lease" };
+  if (category === "COMPLIANCE") return { dotClass: "bg-rose-500", labelClass: "text-rose-600", label: "Compliance" };
+  if (category === "PAYMENT") return { dotClass: "bg-amber-400", labelClass: "text-amber-600", label: "Payment" };
+  if (category === "LEASING") return { dotClass: "bg-blue-400", labelClass: "text-blue-600", label: "Leasing" };
+  return { dotClass: "bg-amber-400", labelClass: "text-amber-600", label: "Maintenance" };
+}
 
 const activityItems = [
   { color: "var(--val-primary-dark)", time: "2h ago", text: "Rent payment received from Apex Global Logistics — $12,400" },
@@ -49,11 +48,6 @@ const quickActions = [
   { icon: Bell, label: "Notify All" },
 ];
 
-const metrics = [
-  { label: "Property Valuation", value: "$24,850,000" },
-  { label: "Monthly Income", value: "$312,400", badge: "+12%", badgeColor: "#059669" },
-  { label: "Occupancy Rate", value: "94.8%" },
-];
 
 function useCountUp(raw: string, duration: number, active: boolean): string {
   const num = parseFloat(raw.replace(/[$,%\s]/g, "").replace(/,/g, ""));
@@ -105,9 +99,113 @@ function MetricCell({ label, value, badge, badgeColor, duration, active }: {
   );
 }
 
-export function PropertyOverviewPage({ property }: { property: Property }) {
+export function PropertyOverviewPage({
+  property,
+  valuations = [],
+  leases = [],
+  tenants = [],
+  payments = [],
+  expenses = [],
+  notifications = [],
+  maintenanceItems: _maintenanceItems = [],
+}: {
+  property: Property;
+  valuations: PropertyValuation[];
+  leases: Lease[];
+  tenants: Tenant[];
+  payments: Payment[];
+  expenses: Expense[];
+  notifications: Notification[];
+  maintenanceItems: MaintenanceItem[];
+}) {
   const [mounted, setMounted] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
+
+  const latestValuation =
+    valuations.length > 0
+      ? [...valuations].sort((a, b) => a.recordedAt - b.recordedAt).at(-1)!
+      : null;
+
+  const now = Date.now();
+  const activeLeases = leases.filter(
+    (l) => l.stage === "Signed" && l.startDate <= now && l.endDate >= now
+  );
+  const monthlyIncome = activeLeases.reduce((sum, l) => sum + l.monthlyRent, 0);
+  const tenantMap = new Map(tenants.map((t) => [t.id, t]));
+  const activeLeaseholders = activeLeases.map((l) => {
+    const t = l.tenantId ? tenantMap.get(l.tenantId) : undefined;
+    return {
+      initials: t ? t.name.charAt(0).toUpperCase() : "?",
+      name: t?.name ?? "—",
+      unit: l.unit,
+      rent: "$" + l.monthlyRent.toLocaleString("en-US"),
+      status: t?.status ?? "—",
+      statusOk: t?.status === "Paid",
+    };
+  });
+
+  const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+  const leaseAlerts = leases
+    .filter((l) => l.stage === "Signed" && l.endDate > now && l.endDate - now <= thirtyDaysMs)
+    .map((l, i) => {
+      const t = l.tenantId ? tenantMap.get(l.tenantId) : undefined;
+      const daysLeft = Math.ceil((l.endDate - now) / 86400000);
+      return {
+        id: -(i + 1),
+        type: "lease" as const,
+        title: "Lease Expiring:",
+        body: `${l.unit}${t ? ` — ${t.name}` : ""} (${daysLeft} days remaining)`,
+        action: "Review",
+        actionLabel: `Review lease expiring for ${l.unit}`,
+      };
+    });
+  const notificationAlerts = notifications.map((n) => ({
+    id: n.id,
+    type: "notification" as const,
+    category: n.category,
+    body: n.description,
+    action: "View",
+    actionLabel: `View ${n.title}`,
+  }));
+  const alerts = [
+    ...leaseAlerts,
+    ...notificationAlerts,
+  ];
+
+  const stageGroups = STAGE_ORDER.map((stage) => ({
+    stage,
+    count: leases.filter((l) => l.stage === stage).length,
+    color: STAGE_COLORS[stage],
+  })).filter((s) => s.count > 0);
+  let cumArc = 0;
+  const stageArcs = stageGroups.map((s) => {
+    const arc = leases.length > 0 ? (s.count / leases.length) * DONUT_CIRC : 0;
+    const offset = -cumArc;
+    cumArc += arc;
+    return { ...s, arc, offset };
+  });
+  const signedCount = leases.filter((l) => l.stage === "Signed").length;
+
+  const ytdStart = new Date(new Date(now).getFullYear(), 0, 1).getTime();
+  const paidRentYTD = payments.filter(
+    (p) => p.kind === "Rent" && p.status === "Paid" && p.date >= ytdStart && p.date <= now,
+  );
+  const grossIncome = paidRentYTD.reduce((sum, p) => sum + p.amount, 0);
+  const totalExpenses = expenses
+    .filter((e) => e.date >= ytdStart && e.date <= now)
+    .reduce((sum, e) => sum + e.amount, 0);
+  const noi = grossIncome - totalExpenses;
+
+  const metrics: { label: string; value: string; badge?: string; badgeColor?: string }[] = [
+    {
+      label: "Property Valuation",
+      value: latestValuation
+        ? "$" + latestValuation.price.toLocaleString("en-US")
+        : "$0",
+    },
+    { label: "Monthly Income", value: "$" + monthlyIncome.toLocaleString("en-US") },
+    { label: "Occupancy Rate", value: "94.8%" },
+  ];
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
     setReducedMotion(mq.matches);
@@ -227,22 +325,16 @@ export function PropertyOverviewPage({ property }: { property: Property }) {
                   <div className="flex flex-col gap-3">
                     <div className="flex items-end justify-between">
                       <span className="text-slate-500 text-[13px]">Net Operating Income</span>
-                      <span className="text-val-heading text-[22px] font-bold">$184.2k</span>
-                    </div>
-                    <div className="bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                      <div
-                        className="bg-[--val-primary-dark] h-full rounded-full"
-                        style={{ width: mounted ? "72%" : "0%", transition: "width 1.2s cubic-bezier(0.16,1,0.3,1) 0.3s" }}
-                      />
+                      <span className="text-val-heading text-[22px] font-bold">{formatCurrencyFull(noi)}</span>
                     </div>
                     <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100">
                       <div>
                         <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-400 mb-0.5">Expenses</p>
-                        <p className="text-rose-600 text-[14px] font-semibold">$42.5k</p>
+                        <p className="text-rose-600 text-[14px] font-semibold">{formatCurrencyFull(totalExpenses)}</p>
                       </div>
                       <div>
                         <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-400 mb-0.5">Gross Income</p>
-                        <p className="text-val-heading text-[14px] font-semibold">$226.7k</p>
+                        <p className="text-val-heading text-[14px] font-semibold">{formatCurrencyFull(grossIncome)}</p>
                       </div>
                     </div>
                   </div>
@@ -260,39 +352,33 @@ export function PropertyOverviewPage({ property }: { property: Property }) {
                     <div className="relative shrink-0 w-20 h-20">
                       <svg viewBox="0 0 80 80" className="w-full h-full -rotate-90">
                         <circle cx="40" cy="40" r="32" fill="none" stroke="#e4efff" strokeWidth="10" />
-                        <circle
-                          cx="40" cy="40" r="32" fill="none"
-                          stroke="var(--val-primary-dark)" strokeWidth="10"
-                          strokeDasharray={mounted ? "170.8 200.96" : "0 200.96"}
-                          strokeDashoffset="0"
-                          style={{ transition: "stroke-dasharray 0.9s cubic-bezier(0.16,1,0.3,1) 0.4s" }}
-                        />
-                        <circle
-                          cx="40" cy="40" r="32" fill="none"
-                          stroke="#38bdf8" strokeWidth="10"
-                          strokeDasharray={mounted ? "44.2 200.96" : "0 200.96"}
-                          strokeDashoffset="-170.8"
-                          style={{ transition: "stroke-dasharray 0.7s cubic-bezier(0.16,1,0.3,1) 0.75s" }}
-                        />
+                        {stageArcs.map((s, i) => (
+                          <circle
+                            key={s.stage}
+                            cx="40" cy="40" r="32" fill="none"
+                            stroke={s.color} strokeWidth="10"
+                            strokeDasharray={mounted ? `${s.arc} ${DONUT_CIRC}` : `0 ${DONUT_CIRC}`}
+                            strokeDashoffset={String(s.offset)}
+                            style={{ transition: `stroke-dasharray ${0.9 - i * 0.1}s cubic-bezier(0.16,1,0.3,1) ${0.4 + i * 0.2}s` }}
+                          />
+                        ))}
                       </svg>
                       <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5">
-                        <span className="text-val-heading text-[12px] font-bold leading-none">85%</span>
-                        <span className="text-slate-400 text-[9px] leading-none">comm.</span>
+                        <span className="text-val-heading text-[12px] font-bold leading-none">{signedCount}</span>
+                        <span className="text-slate-400 text-[9px] leading-none">Signed</span>
                       </div>
                     </div>
                     <div className="flex flex-col gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[--val-primary-dark] shrink-0" />
-                        <span className="text-slate-500 text-[12px]">Commercial (12)</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#38bdf8] shrink-0" />
-                        <span className="text-slate-500 text-[12px]">Retail (4)</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-slate-200 shrink-0" />
-                        <span className="text-slate-500 text-[12px]">Vacant (2)</span>
-                      </div>
+                      {stageArcs.length > 0 ? (
+                        stageArcs.map((s) => (
+                          <div key={s.stage} className="flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
+                            <span className="text-slate-500 text-[12px]">{s.stage} ({s.count})</span>
+                          </div>
+                        ))
+                      ) : (
+                        <span className="text-slate-400 text-[12px]">—</span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -314,9 +400,13 @@ export function PropertyOverviewPage({ property }: { property: Property }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {tenants.map((t, i) => (
+                    {activeLeaseholders.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="px-5 py-6 text-center text-slate-400 text-[13px]">—</td>
+                      </tr>
+                    ) : activeLeaseholders.map((t, i) => (
                       <tr
-                        key={t.name}
+                        key={t.name + t.unit}
                         className={`hover:bg-blue-50/30 transition-colors duration-150${i > 0 ? " border-t border-slate-100" : ""}`}
                         style={{
                           animationName: mounted ? "analytics-fade-up" : "none",
@@ -394,7 +484,7 @@ export function PropertyOverviewPage({ property }: { property: Property }) {
 
               {/* Action Strip */}
               {alerts.length > 0 && (
-                <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
+                <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
                   <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50/80 border-b border-slate-200">
                     <div className="flex items-center gap-2">
                       <span className="relative flex h-2 w-2">
@@ -409,28 +499,32 @@ export function PropertyOverviewPage({ property }: { property: Property }) {
                       Dismiss all
                     </button>
                   </div>
-                  {alerts.map((a, i) => (
-                    <div
-                      key={a.id}
-                      className={`flex items-center justify-between gap-3 px-4 py-3${i > 0 ? " border-t border-slate-100" : ""}`}
-                    >
-                      <div className="flex flex-col gap-0.5 min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${a.type === "lease" ? "bg-amber-400" : "bg-rose-500"}`} />
-                          <span className={`text-[11px] font-semibold uppercase tracking-[0.05em] ${a.type === "lease" ? "text-amber-600" : "text-rose-600"}`}>
-                            {a.type === "lease" ? "Lease" : "Maintenance"}
-                          </span>
-                        </div>
-                        <p className="text-[12px] text-slate-500 leading-snug pl-3">{a.body}</p>
-                      </div>
-                      <button
-                        aria-label={a.actionLabel}
-                        className="text-[--val-primary-dark] text-[12px] font-semibold hover:opacity-70 transition-opacity shrink-0"
+                  {alerts.map((a, i) => {
+                    const category = "category" in a ? (a as { category?: string }).category : undefined;
+                    const { dotClass, labelClass, label } = getAlertDisplay(a.type, category);
+                    return (
+                      <div
+                        key={a.id}
+                        className={`flex items-center justify-between gap-3 px-4 py-3${i > 0 ? " border-t border-slate-100" : ""}`}
                       >
-                        {a.action} →
-                      </button>
-                    </div>
-                  ))}
+                        <div className="flex flex-col gap-0.5 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dotClass}`} />
+                            <span className={`text-[11px] font-semibold uppercase tracking-[0.05em] ${labelClass}`}>
+                              {label}
+                            </span>
+                          </div>
+                          <p className="text-[12px] text-slate-500 leading-snug pl-3">{a.body}</p>
+                        </div>
+                        <button
+                          aria-label={a.actionLabel}
+                          className="text-[--val-primary-dark] text-[12px] font-semibold hover:opacity-70 transition-opacity shrink-0"
+                        >
+                          {a.action} →
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 

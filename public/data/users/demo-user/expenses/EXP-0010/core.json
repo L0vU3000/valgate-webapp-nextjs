@@ -1,0 +1,9 @@
+{
+  "id": "EXP-0010",
+  "userId": "demo-user",
+  "propertyId": "PROP-0004",
+  "date": 1767830400000,
+  "category": "Insurance",
+  "amount": 420,
+  "note": "Annual premium instalment"
+}

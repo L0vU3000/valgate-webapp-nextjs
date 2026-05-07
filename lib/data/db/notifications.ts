@@ -6,7 +6,7 @@ import {
   deleteRecord,
   nextId,
 } from "./_fs";
-import type { Notification } from "../types/notification";
+import { NotificationSchema, type Notification } from "../types/notification";
 
 const COLLECTION = "notifications";
 const ID_PREFIX = "NOTIF";
@@ -14,14 +14,16 @@ const ID_PREFIX = "NOTIF";
 export type NewNotification = Omit<Notification, "id" | "userId">;
 
 export async function list(userId: string): Promise<Notification[]> {
-  return listMergedRecords<Notification>(userId, COLLECTION);
+  const rows = await listMergedRecords<unknown>(userId, COLLECTION);
+  return rows.map((r) => NotificationSchema.parse(r));
 }
 
 export async function get(
   userId: string,
   id: string,
 ): Promise<Notification | null> {
-  return readMergedRecord<Notification>(userId, COLLECTION, id);
+  const row = await readMergedRecord<unknown>(userId, COLLECTION, id);
+  return row ? NotificationSchema.parse(row) : null;
 }
 
 export async function create(
@@ -29,7 +31,7 @@ export async function create(
   data: NewNotification,
 ): Promise<Notification> {
   const id = await nextId(userId, COLLECTION, ID_PREFIX);
-  const record: Notification = { ...data, id, userId };
+  const record = NotificationSchema.parse({ ...data, id, userId });
   await writeRecord(userId, COLLECTION, id, { core: { ...record } });
   return record;
 }
@@ -41,7 +43,7 @@ export async function update(
 ): Promise<Notification | null> {
   const current = await get(userId, id);
   if (!current) return null;
-  const updated = { ...current, ...patch, id: current.id, userId: current.userId };
+  const updated = NotificationSchema.parse({ ...current, ...patch, id: current.id, userId: current.userId });
   await writeRecord(userId, COLLECTION, id, { core: { ...updated } });
   return updated;
 }

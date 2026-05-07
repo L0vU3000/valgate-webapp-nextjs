@@ -1,28 +1,7 @@
 import { useState, useEffect } from "react";
-import { TrendingUp } from "lucide-react";
+import { TrendingUp, TrendingDown } from "lucide-react";
 import { cn } from "../ui/utils";
-
-/* -------------------------------------------------------------------------- */
-/*  Static Data                                                               */
-/* -------------------------------------------------------------------------- */
-
-const kpiCards = [
-  { label: "Occupancy", value: "91%", sub: null, bar: 91 },
-  { label: "Vacancy Cost", value: "$2,450", sub: "/ Month Realized Loss", subColor: "text-red-700" },
-  { label: "Collection", value: "93%", sub: "On-time payment rate", subColor: "text-green-600" },
-  {
-    label: "Maintenance",
-    value: "$4,800",
-    sub: null,
-    dots: [
-      { color: "bg-red-700" },
-      { color: "bg-orange-400" },
-      { color: "bg-slate-200" },
-    ],
-  },
-] as const;
-
-const sparklineHeights = [40, 55, 45, 70, 85, 96];
+import type { MaintenanceSummaryItem } from "@/lib/data/derivations/rental";
 
 /* -------------------------------------------------------------------------- */
 /*  Slot Machine Digit                                                        */
@@ -94,14 +73,32 @@ export function SlotNumber({ value }: { value: string }) {
 /*  KpiCards Component                                                        */
 /* -------------------------------------------------------------------------- */
 
-export function KpiCards() {
+const sparklineHeights = [40, 55, 45, 70, 85, 96];
+
+const DOT_SEVERITY_COLORS = ["bg-red-700", "bg-orange-400", "bg-slate-200"] as const;
+
+type KpiCardsProps = {
+  grossIncome: string;
+  incomeTrend: string;
+  occupancyPct: number;
+  vacancyCost: string;
+  collectionRate: string;
+  maintenanceItems: MaintenanceSummaryItem[];
+};
+
+export function KpiCards({ grossIncome, incomeTrend, occupancyPct, vacancyCost, collectionRate, maintenanceItems }: KpiCardsProps) {
+  const trendUp = incomeTrend.startsWith("+");
+  const dots = DOT_SEVERITY_COLORS.map((color, i) => ({
+    color,
+    active: (maintenanceItems[i]?.count ?? 0) > 0,
+  }));
+
   return (
     <section className="grid grid-cols-12 gap-6">
       {/* Hero Income Card */}
       <div
         className="rental-hero col-span-7 relative overflow-hidden rounded-lg bg-blue-600 p-8 shadow-xl"
       >
-        {/* Decorative blob */}
         <div className="absolute -right-16 -top-16 h-64 w-64 rounded-xl bg-blue-500 opacity-20 blur-[32px]" />
 
         <div className="relative flex flex-col justify-between h-full">
@@ -111,16 +108,23 @@ export function KpiCards() {
             </span>
             <div className="flex items-center gap-3">
               <span className="text-[60px] font-extrabold leading-none tracking-tight text-blue-50">
-                <SlotNumber value="$19,600" />
+                <SlotNumber value={grossIncome} />
               </span>
-              <span className="flex items-center text-sm font-semibold text-blue-200">
-                <TrendingUp className="mr-1 h-3.5 w-3.5" />
-                +4.2%
-              </span>
+              {incomeTrend && (
+                <span className={cn(
+                  "flex items-center text-sm font-semibold",
+                  trendUp ? "text-blue-200" : "text-red-300"
+                )}>
+                  {trendUp
+                    ? <TrendingUp className="mr-1 h-3.5 w-3.5" />
+                    : <TrendingDown className="mr-1 h-3.5 w-3.5" />
+                  }
+                  {incomeTrend}
+                </span>
+              )}
             </div>
           </div>
 
-          {/* Sparkline -- bars grow upward */}
           <div className="mt-8 flex h-24 items-end gap-1">
             {sparklineHeights.map((h, i) => (
               <div
@@ -143,47 +147,59 @@ export function KpiCards() {
 
       {/* KPI 2x2 Grid */}
       <div className="col-span-5 grid grid-cols-2 overflow-hidden rounded-lg border border-slate-200">
-        {kpiCards.map((kpi, i) => (
-          <div
-            key={kpi.label}
-            className={cn(
-              "anim-enter flex flex-col justify-center bg-white px-6 py-7",
-              i % 2 !== 0 && "border-l border-slate-200",
-              i >= 2 && "border-t border-slate-200"
-            )}
-            style={{ animationDelay: `${200 + i * 100}ms` }}
-          >
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              {kpi.label}
-            </span>
-            <span className="mt-1 text-3xl font-extrabold text-slate-900">
-              {kpi.value}
-            </span>
-            {"bar" in kpi && kpi.bar && (
-              <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
-                <div
-                  className="rental-bar h-full rounded-full bg-blue-700"
-                  style={{
-                    width: `${kpi.bar}%`,
-                    animationDelay: "600ms",
-                  }}
-                />
-              </div>
-            )}
-            {kpi.sub && (
-              <span className={cn("mt-1 text-[10px] font-medium", kpi.subColor)}>
-                {kpi.sub}
-              </span>
-            )}
-            {"dots" in kpi && kpi.dots && (
-              <div className="mt-2 flex gap-1">
-                {kpi.dots.map((d, j) => (
-                  <div key={j} className={cn("h-2 w-2 rounded-full", d.color)} />
-                ))}
-              </div>
-            )}
+
+        {/* Occupancy */}
+        <div
+          className="anim-enter flex flex-col justify-center bg-white px-6 py-7"
+          style={{ animationDelay: "200ms" }}
+        >
+          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Occupancy</span>
+          <span className="mt-1 text-3xl font-extrabold text-slate-900">{occupancyPct}%</span>
+          <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+            <div
+              className="rental-bar h-full rounded-full bg-blue-700"
+              style={{ width: `${occupancyPct}%`, animationDelay: "600ms" }}
+            />
           </div>
-        ))}
+        </div>
+
+        {/* Vacancy Loss */}
+        <div
+          className="anim-enter flex flex-col justify-center bg-white px-6 py-7 border-l border-slate-200"
+          style={{ animationDelay: "300ms" }}
+        >
+          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Vacancy Loss</span>
+          <span className="mt-1 text-3xl font-extrabold text-slate-900">{vacancyCost}</span>
+          <span className="mt-1 text-[10px] font-medium text-red-700">/ mo est.</span>
+        </div>
+
+        {/* Collection Rate — Q3.P: Paid Rent $ this month / expected Rent $ this month */}
+        <div
+          className="anim-enter flex flex-col justify-center bg-white px-6 py-7 border-t border-slate-200"
+          style={{ animationDelay: "400ms" }}
+        >
+          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Collection</span>
+          <span className="mt-1 text-3xl font-extrabold text-slate-900">{collectionRate}</span>
+          <span className="mt-1 text-[10px] font-medium text-green-600">of expected rent received</span>
+        </div>
+
+        {/* Maintenance */}
+        <div
+          className="anim-enter flex flex-col justify-center bg-white px-6 py-7 border-l border-t border-slate-200"
+          style={{ animationDelay: "500ms" }}
+        >
+          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Maintenance</span>
+          <span className="mt-1 text-3xl font-extrabold text-slate-900">$4,800</span>
+          <div className="mt-2 flex gap-1">
+            {dots.map((d, j) => (
+              <div
+                key={j}
+                className={cn("h-2 w-2 rounded-full", d.active ? d.color : "bg-slate-100")}
+              />
+            ))}
+          </div>
+        </div>
+
       </div>
     </section>
   );

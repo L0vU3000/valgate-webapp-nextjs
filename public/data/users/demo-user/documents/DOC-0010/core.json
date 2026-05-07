@@ -1,0 +1,14 @@
+{
+  "id": "DOC-0010",
+  "userId": "demo-user",
+  "propertyId": "PROP-0011",
+  "folderId": "FLDR-0010",
+  "name": "Estate_Transfer_Deed.pdf",
+  "kind": "document",
+  "mimeType": "application/pdf",
+  "extension": "pdf",
+  "sizeBytes": 1100000,
+  "storageId": "_storage/PROP-0011/estate-transfer-deed.pdf",
+  "category": "Estate",
+  "uploadedAt": 1778062500000
+}

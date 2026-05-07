@@ -2,34 +2,23 @@
 
 import { useState, useEffect } from "react";
 import type { Property } from "@/lib/data/types/property";
+import type { Lease } from "@/lib/data/types/lease";
+import type { Tenant } from "@/lib/data/types/tenant";
+import type { Payment, PaymentStatus } from "@/lib/data/types/payment";
+import type { Expense } from "@/lib/data/types/expense";
+import type { Document as DbDocument } from "@/lib/data/types/document";
+import type { MaintenanceItem, MaintenanceSeverity } from "@/lib/data/types/maintenance-item";
+import { formatCurrencyFull } from "@/lib/format";
 import { PropertyLayout } from "@/components/property/PropertyLayout";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 import {
-  Mail, Phone, FileText, ChevronLeft, ChevronRight, CheckCircle,
+  Mail, Phone, FileText, ChevronLeft, ChevronRight,
   Circle, ChevronDown, Home, Download,
 } from "lucide-react";
 
-const chartData = [
-  { month: "Jan", rent: 2100 },
-  { month: "Feb", rent: 2300 },
-  { month: "Mar", rent: 2450 },
-  { month: "Apr", rent: 2200 },
-  { month: "May", rent: 2400 },
-  { month: "Jun", rent: 2450 },
-];
-
 type PaymentVariant = "success" | "warning" | "neutral";
-
-const payments: { date: string; type: string; amount: string; method: string; status: string; variant: PaymentVariant; highlight?: boolean }[] = [
-  { date: "Jun 1, 2025", type: "Rent", amount: "$2,450", method: "ACH", status: "Paid", variant: "success" },
-  { date: "May 1, 2025", type: "Rent", amount: "$2,450", method: "ACH", status: "Paid", variant: "success" },
-  { date: "Apr 3, 2025", type: "Late Fee", amount: "$75.00", method: "Card", status: "Paid", variant: "success" },
-  { date: "Apr 1, 2025", type: "Rent", amount: "$2,450", method: "ACH", status: "Late (3 days)", variant: "warning", highlight: true },
-  { date: "Mar 1, 2025", type: "Rent", amount: "$2,450", method: "ACH", status: "Paid", variant: "success" },
-  { date: "Mar 1, 2025", type: "Security Deposit", amount: "$4,900", method: "Check", status: "Held in escrow", variant: "neutral" },
-];
 
 const statusVariants: Record<PaymentVariant, string> = {
   success: "text-emerald-700",
@@ -37,12 +26,192 @@ const statusVariants: Record<PaymentVariant, string> = {
   neutral: "text-slate-500",
 };
 
-export function PropertyRentalPage({ property }: { property: Property }) {
+function formatDate(ts: number): string {
+  return new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+function formatMonthYear(ts: number): string {
+  return new Date(ts).toLocaleDateString("en-US", { month: "short", year: "numeric" });
+}
+
+function monthsSince(ts: number): number {
+  const start = new Date(ts);
+  const now = new Date();
+  return Math.max(0, (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth()));
+}
+
+function getDocStatusInfo(doc: DbDocument): { statusLabel: string; statusClass: string; dateLabel: string } {
+  const dateStr = new Date(doc.uploadedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  if (doc.category === "Rental") {
+    return { statusLabel: "Active", statusClass: "text-emerald-700", dateLabel: `Signed ${dateStr}` };
+  }
+  const oneYearMs = 365 * 24 * 60 * 60 * 1000;
+  if (doc.category === "Insurance" && Date.now() - doc.uploadedAt > oneYearMs) {
+    const expStr = new Date(doc.uploadedAt).toLocaleDateString("en-US", { month: "short", year: "numeric" });
+    return { statusLabel: "Expiring", statusClass: "text-amber-600", dateLabel: `Exp: ${expStr}` };
+  }
+  return { statusLabel: "", statusClass: "", dateLabel: dateStr };
+}
+
+export function PropertyRentalPage({
+  property,
+  leases = [],
+  tenants = [],
+  payments = [],
+  expenses = [],
+  documents = [],
+  maintenanceItems = [],
+}: {
+  property: Property;
+  leases: Lease[];
+  tenants: Tenant[];
+  payments: Payment[];
+  expenses: Expense[];
+  documents: DbDocument[];
+  maintenanceItems: MaintenanceItem[];
+}) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     const t = setTimeout(() => setMounted(true), 50);
     return () => clearTimeout(t);
   }, []);
+
+  const now = Date.now();
+
+  function severityRank(s: MaintenanceSeverity): number {
+    return s === "Emergency" ? 3 : s === "Urgent" ? 2 : 1;
+  }
+  function severityDotClass(s: MaintenanceSeverity): string {
+    return s === "Emergency" ? "bg-rose-500" : s === "Urgent" ? "bg-amber-400" : "bg-slate-400";
+  }
+  const openItems = maintenanceItems.filter((m) => m.status === "Open");
+  const inProgressItems = maintenanceItems.filter((m) => m.status === "InProgress");
+  const activeItems = [...openItems, ...inProgressItems];
+  const displayItems = [...activeItems]
+    .sort((a, b) => severityRank(b.severity) - severityRank(a.severity) || b.createdAt - a.createdAt)
+    .slice(0, 2);
+
+  const activeLeases = leases.filter(
+    (l) => l.stage === "Signed" && l.startDate <= now && l.endDate >= now
+  );
+  const activeLease = activeLeases[0] ?? null;
+  const tenantMap = new Map(tenants.map((t) => [t.id, t]));
+  const primaryTenant = activeLease?.tenantId ? (tenantMap.get(activeLease.tenantId) ?? null) : null;
+
+  const isOccupied = activeLease !== null;
+
+  const pageSubtitle = activeLease
+    ? `$${activeLease.monthlyRent.toLocaleString("en-US")}/mo · Occupied · Lease expires ${formatDate(activeLease.endDate)}`
+    : "No active lease";
+
+  const rentValue = activeLease ? "$" + activeLease.monthlyRent.toLocaleString("en-US") : "$0";
+
+  const occupancyValue = isOccupied ? "Occupied" : "Vacant";
+  const occupancyAccent = activeLease
+    ? `${monthsSince(activeLease.startDate)} months · Since ${formatMonthYear(activeLease.startDate)}`
+    : "No active lease";
+
+  const termLabel = activeLease ? `${activeLease.termMonths}-month` : "—";
+
+  const leaseFields: [string, string][] = [
+    ["Lease Start", activeLease ? formatDate(activeLease.startDate) : "—"],
+    ["Lease End", activeLease ? formatDate(activeLease.endDate) : "—"],
+    ["Rent", activeLease ? `$${activeLease.monthlyRent.toLocaleString("en-US")}/mo` : "—"],
+    ["Deposit", "—"],
+    ["Auto-pay", "—"],
+  ];
+
+  const daysUntilExpiry = activeLease ? Math.ceil((activeLease.endDate - now) / 86400000) : null;
+  const expiryText =
+    daysUntilExpiry === null ? null
+    : daysUntilExpiry < 0 ? `Expired ${Math.abs(daysUntilExpiry)} days ago`
+    : daysUntilExpiry === 0 ? "Expires today"
+    : `Expires in ${daysUntilExpiry} days`;
+
+  const avatarInitials = primaryTenant
+    ? primaryTenant.name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase()
+    : "—";
+
+  const tenantName = primaryTenant?.name ?? "—";
+  const tenantEmail = primaryTenant?.email ?? "—";
+  const tenantPhone = primaryTenant?.phone ?? "—";
+  const movedInDate = activeLease ? formatDate(activeLease.startDate) : "—";
+  const tenantNameInSummary = primaryTenant?.name ?? "—";
+
+  // Chart window: last 6 complete calendar months
+  const nowDate = new Date(now);
+  const chartWindowStart = new Date(nowDate.getFullYear(), nowDate.getMonth() - 6, 1);
+  const chartWindowEnd = new Date(nowDate.getFullYear(), nowDate.getMonth(), 1);
+
+  const rentInWindow = payments.filter(
+    (p) =>
+      p.kind === "Rent" &&
+      p.status === "Paid" &&
+      p.date >= chartWindowStart.getTime() &&
+      p.date < chartWindowEnd.getTime(),
+  );
+
+  const chartMonths = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(chartWindowStart.getFullYear(), chartWindowStart.getMonth() + i, 1);
+    return {
+      month: d.toLocaleDateString("en-US", { month: "short" }),
+      year: d.getFullYear(),
+      monthIndex: d.getMonth(),
+      rent: 0,
+    };
+  });
+  rentInWindow.forEach((p) => {
+    const d = new Date(p.date);
+    const slot = chartMonths.find(
+      (m) => m.year === d.getFullYear() && m.monthIndex === d.getMonth(),
+    );
+    if (slot) slot.rent += p.amount;
+  });
+  const chartData = chartMonths.map(({ month, rent }) => ({ month, rent }));
+  const periodLabel = `${chartMonths[0].month} ${chartMonths[0].year} – ${chartMonths[5].month} ${chartMonths[5].year}`;
+
+  const totalRentInWindow = rentInWindow.reduce((sum, p) => sum + p.amount, 0);
+  const expensesInWindow = expenses.filter(
+    (e) => e.date >= chartWindowStart.getTime() && e.date < chartWindowEnd.getTime(),
+  );
+  const totalExpensesInWindow = expensesInWindow.reduce((sum, e) => sum + e.amount, 0);
+  const netIncomeInWindow = totalRentInWindow - totalExpensesInWindow;
+
+  // YTD for KPI cards
+  const ytdStart = new Date(nowDate.getFullYear(), 0, 1).getTime();
+  const rentReceivedYTD = payments
+    .filter((p) => p.kind === "Rent" && p.status === "Paid" && p.date >= ytdStart && p.date <= now)
+    .reduce((sum, p) => sum + p.amount, 0);
+  const expensesYTD = expenses
+    .filter((e) => e.date >= ytdStart && e.date <= now)
+    .reduce((sum, e) => sum + e.amount, 0);
+  const ytdNetIncome = rentReceivedYTD - expensesYTD;
+
+  const balanceDue = payments
+    .filter((p) => p.status === "Pending" || p.status === "Overdue")
+    .reduce((sum, p) => sum + p.amount, 0);
+  const balanceDueStr =
+    "$" + balanceDue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const balanceDueAccent = balanceDue === 0 ? "Current" : `$${balanceDue.toLocaleString("en-US")} due`;
+  const balanceDueAccentClass = balanceDue === 0 ? "text-emerald-600" : "text-amber-600";
+
+  const rentPayments = payments.filter((p) => p.kind === "Rent");
+  const onTimePct =
+    rentPayments.length > 0
+      ? Math.round((rentPayments.filter((p) => p.status === "Paid").length / rentPayments.length) * 100)
+      : 0;
+
+  const pageSize = 6;
+  const sortedPayments = [...payments].sort((a, b) => b.date - a.date);
+  const pagedPayments = sortedPayments.slice(0, pageSize);
+  const totalPaymentPages = Math.ceil(payments.length / pageSize);
+  const displayEnd = Math.min(pageSize, payments.length);
+
+  function paymentStatusVariant(status: PaymentStatus): PaymentVariant {
+    if (status === "Paid") return "success";
+    if (status === "Pending" || status === "Overdue" || status === "Failed") return "warning";
+    return "neutral";
+  }
 
   function fade(delay: number) {
     return {
@@ -67,7 +236,7 @@ export function PropertyRentalPage({ property }: { property: Property }) {
           <div className="flex items-end justify-between mb-6">
             <div>
               <h1 className="text-4xl font-extrabold tracking-tight leading-10 text-[--val-heading]">Rental</h1>
-              <p className="text-slate-500 text-base mt-2">$2,450/mo · Occupied · Lease expires Feb 28, 2026</p>
+              <p className="text-slate-500 text-base mt-2">{pageSubtitle}</p>
             </div>
             <button
               className="px-5 py-2.5 text-white text-[14px] font-semibold rounded hover:opacity-90 active:scale-[0.97] transition-all duration-150"
@@ -89,18 +258,18 @@ export function PropertyRentalPage({ property }: { property: Property }) {
               <p className="text-[13px] text-slate-500">3 Bed / 2 Bath · 1,250 sq ft · Floor 4</p>
             </div>
           </div>
-          <span className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 text-[12px] font-semibold px-2.5 py-1 rounded-full">
-            <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
-            Occupied
+          <span className={`flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1 rounded-full ${isOccupied ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${isOccupied ? "bg-emerald-500" : "bg-slate-400"}`} />
+            {occupancyValue}
           </span>
         </div>
 
         {/* KPI Row */}
         <div className="grid grid-cols-4 gap-4" style={fade(80)}>
-          <KpiCard label="Monthly Rent" value="$2,450" sub="/mo" accent="↑ $150 above market avg" accentClass="text-emerald-600" />
-          <KpiCard label="Occupancy" value="Occupied" sub="" accent="6 months · Since Mar 2024" accentClass="text-slate-400" />
-          <KpiCard label="YTD Net Income" value="$21,875" sub="" accent="↑ +8.2% vs last year" accentClass="text-emerald-600" />
-          <KpiCard label="Balance Due" value="$0.00" sub="" accent="Current" accentClass="text-emerald-600" showDot />
+          <KpiCard label="Monthly Rent" value={rentValue} sub="/mo" accent="" accentClass="text-slate-400" />
+          <KpiCard label="Occupancy" value={occupancyValue} sub="" accent={occupancyAccent} accentClass="text-slate-400" />
+          <KpiCard label="YTD Net Income" value={formatCurrencyFull(ytdNetIncome)} sub="" accent="" accentClass="text-slate-400" />
+          <KpiCard label="Balance Due" value={balanceDueStr} sub="" accent={balanceDueAccent} accentClass={balanceDueAccentClass} showDot={balanceDue === 0} />
         </div>
 
         {/* Financial Overview + Lease Summary */}
@@ -110,7 +279,7 @@ export function PropertyRentalPage({ property }: { property: Property }) {
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-base font-bold text-val-heading">Financial Overview</h3>
               <button className="flex items-center gap-1.5 border border-slate-200 rounded px-3 py-1.5 text-[12px] font-medium text-slate-500 hover:bg-slate-50 transition-colors duration-150">
-                Jan – Jun 2025 <ChevronDown className="w-3 h-3" />
+                {periodLabel} <ChevronDown className="w-3 h-3" />
               </button>
             </div>
             <ResponsiveContainer width="100%" height={200}>
@@ -128,16 +297,16 @@ export function PropertyRentalPage({ property }: { property: Property }) {
             <div className="flex gap-8 mt-4 pt-4 border-t border-slate-100">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">Total Rent</p>
-                <p className="text-[18px] font-bold text-val-heading mt-0.5">$14,700</p>
+                <p className="text-[18px] font-bold text-val-heading mt-0.5">{formatCurrencyFull(totalRentInWindow)}</p>
               </div>
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">Expenses</p>
-                <p className="text-[18px] font-bold text-rose-600 mt-0.5">$3,250</p>
+                <p className="text-[18px] font-bold text-rose-600 mt-0.5">{formatCurrencyFull(totalExpensesInWindow)}</p>
               </div>
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">Net Income</p>
                 <p className="text-[18px] font-bold text-emerald-600 mt-0.5">
-                  $11,450 <span className="text-[13px] font-medium">↑ vs prior period</span>
+                  {formatCurrencyFull(netIncomeInWindow)}
                 </p>
               </div>
             </div>
@@ -146,33 +315,25 @@ export function PropertyRentalPage({ property }: { property: Property }) {
           <div className="col-span-4 bg-white border border-slate-200 rounded-lg p-6 shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)] flex flex-col">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-base font-bold text-val-heading">Lease Summary</h3>
-              <span className="bg-blue-50 text-blue-700 text-[10px] font-semibold tracking-[1px] uppercase px-2 py-0.5 rounded">12-month</span>
+              <span className="bg-blue-50 text-blue-700 text-[10px] font-semibold tracking-[1px] uppercase px-2 py-0.5 rounded">{termLabel}</span>
             </div>
-            <p className="text-[15px] font-semibold text-val-heading mb-4">Jane Smith</p>
+            <p className="text-[15px] font-semibold text-val-heading mb-4">{tenantNameInSummary}</p>
             <div className="flex flex-col gap-2 text-[13px] flex-1">
-              {[
-                ["Lease Start", "Mar 1, 2024"],
-                ["Lease End", "Feb 28, 2026"],
-                ["Rent", "$2,450/mo"],
-                ["Deposit", "$4,900"],
-                ["Auto-pay", "Active"],
-              ].map(([l, v]) => (
-                <div key={l} className="flex justify-between">
+              {leaseFields.map(([l, v]) => (
+                <div key={String(l)} className="flex justify-between">
                   <span className="text-slate-500">{l}</span>
-                  <span className="font-medium text-val-heading">
-                    {v === "Active"
-                      ? <span className="text-emerald-600 flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Active</span>
-                      : v}
-                  </span>
+                  <span className="font-medium text-val-heading">{v}</span>
                 </div>
               ))}
             </div>
-            <div className="mt-4 p-2.5 bg-amber-50 rounded-lg border border-amber-100">
-              <p className="text-amber-700 text-[13px] font-medium flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 bg-amber-400 rounded-full shrink-0" />
-                Expires in 47 days
-              </p>
-            </div>
+            {expiryText && (
+              <div className="mt-4 p-2.5 bg-amber-50 rounded-lg border border-amber-100">
+                <p className="text-amber-700 text-[13px] font-medium flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 bg-amber-400 rounded-full shrink-0" />
+                  {expiryText}
+                </p>
+              </div>
+            )}
             <button
               className="w-full text-white rounded py-2.5 text-[14px] font-semibold mt-3 hover:opacity-90 active:scale-[0.97] transition-all duration-150"
               style={{
@@ -193,21 +354,21 @@ export function PropertyRentalPage({ property }: { property: Property }) {
           <div className="col-span-5 bg-white border border-slate-200 rounded-lg p-6 shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)]">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-base font-bold text-val-heading">Tenant Profile</h3>
-              <div className="w-8 h-8 bg-[--val-primary-dark] rounded-full flex items-center justify-center text-white text-[11px] font-bold">JS</div>
+              <div className="w-8 h-8 bg-[--val-primary-dark] rounded-full flex items-center justify-center text-white text-[11px] font-bold">{avatarInitials}</div>
             </div>
-            <p className="text-[15px] font-semibold text-val-heading">Jane Smith</p>
+            <p className="text-[15px] font-semibold text-val-heading">{tenantName}</p>
             <div className="flex flex-col gap-1.5 text-[13px] text-slate-500 mt-2">
-              <div className="flex items-center gap-2"><Mail className="w-3.5 h-3.5 shrink-0" /> jane@email.com</div>
-              <div className="flex items-center gap-2"><Phone className="w-3.5 h-3.5 shrink-0" /> (312) 555-0192</div>
+              <div className="flex items-center gap-2"><Mail className="w-3.5 h-3.5 shrink-0" /> {tenantEmail}</div>
+              <div className="flex items-center gap-2"><Phone className="w-3.5 h-3.5 shrink-0" /> {tenantPhone}</div>
             </div>
             <div className="border-t border-slate-100 mt-4 pt-3 flex flex-col gap-1.5 text-[13px]">
               <div className="flex justify-between">
                 <span className="text-slate-500">Moved in</span>
-                <span className="font-medium text-val-heading">Mar 1, 2024</span>
+                <span className="font-medium text-val-heading">{movedInDate}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">On-time payments</span>
-                <span className="font-medium text-val-heading">98%</span>
+                <span className="font-medium text-val-heading">{onTimePct}%</span>
               </div>
             </div>
             <div className="flex gap-2 mt-4">
@@ -220,25 +381,27 @@ export function PropertyRentalPage({ property }: { property: Property }) {
 
           {/* Maintenance */}
           <div className="col-span-4 bg-white border border-slate-200 rounded-lg p-6 shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)]">
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-2 mb-4 flex-wrap">
               <h3 className="text-base font-bold text-val-heading">Maintenance</h3>
-              <span className="bg-amber-50 text-amber-700 text-[10px] font-semibold tracking-[1px] uppercase px-2 py-0.5 rounded-full">2 Open</span>
+              {openItems.length > 0 && (
+                <span className="bg-rose-50 text-rose-700 text-[10px] font-semibold tracking-[1px] uppercase px-2 py-0.5 rounded-full">{openItems.length} Open</span>
+              )}
+              {inProgressItems.length > 0 && (
+                <span className="bg-amber-50 text-amber-700 text-[10px] font-semibold tracking-[1px] uppercase px-2 py-0.5 rounded-full">{inProgressItems.length} In Progress</span>
+              )}
             </div>
             <div className="flex flex-col gap-3">
-              <div className="flex items-start gap-2.5">
-                <div className="w-2 h-2 bg-rose-500 rounded-full mt-1.5 shrink-0" />
-                <div>
-                  <p className="text-[13px] font-medium text-val-heading">Leaky faucet — Kitchen</p>
-                  <p className="text-[12px] text-slate-500">High priority · Assigned: Bob V.</p>
+              {displayItems.length === 0 ? (
+                <p className="text-[13px] text-slate-400">—</p>
+              ) : displayItems.map((item) => (
+                <div key={item.id} className="flex items-start gap-2.5">
+                  <div className={`w-2 h-2 ${severityDotClass(item.severity)} rounded-full mt-1.5 shrink-0`} />
+                  <div>
+                    <p className="text-[13px] font-medium text-val-heading">{item.title}</p>
+                    <p className="text-[12px] text-slate-500">{item.severity} priority · {item.status === "InProgress" ? "In Progress" : item.status}</p>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-start gap-2.5">
-                <div className="w-2 h-2 bg-amber-400 rounded-full mt-1.5 shrink-0" />
-                <div>
-                  <p className="text-[13px] font-medium text-val-heading">HVAC Filter Replacement</p>
-                  <p className="text-[12px] text-slate-500">Medium priority · Scheduled: Jun 15</p>
-                </div>
-              </div>
+              ))}
             </div>
             <div className="flex gap-2 mt-4 border-t border-slate-100 pt-3">
               <button className="border border-slate-200 rounded px-3 py-1.5 text-[13px] font-medium text-val-heading hover:bg-slate-50 transition-colors duration-150">
@@ -252,24 +415,31 @@ export function PropertyRentalPage({ property }: { property: Property }) {
           <div className="col-span-3 bg-white border border-slate-200 rounded-lg p-6 shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)]">
             <h3 className="text-base font-bold text-val-heading mb-4">Documents</h3>
             <div className="flex flex-col gap-3">
-              {[
-                { name: "Lease Agreement", statusLabel: "Active", statusClass: "text-emerald-700", date: "Signed Mar 1, 2024" },
-                { name: "Move-in Checklist", statusLabel: "", statusClass: "", date: "Mar 1, 2024" },
-                { name: "Insurance Certificate", statusLabel: "Expiring", statusClass: "text-amber-600", date: "Exp: Dec 2025" },
-              ].map((doc) => (
-                <div key={doc.name} className="flex items-start gap-2.5">
-                  <div className="w-7 h-7 bg-slate-50 rounded flex items-center justify-center shrink-0 mt-0.5">
-                    <FileText className="w-3.5 h-3.5 text-slate-500" />
-                  </div>
-                  <div>
-                    <p className="text-[13px] font-medium text-val-heading">{doc.name}</p>
-                    <p className="text-[12px]">
-                      {doc.statusLabel && <span className={doc.statusClass}>{doc.statusLabel} · </span>}
-                      <span className="text-slate-500">{doc.date}</span>
-                    </p>
-                  </div>
-                </div>
-              ))}
+              {documents.length === 0 ? (
+                <p className="text-[13px] text-slate-400">—</p>
+              ) : (
+                documents
+                  .slice()
+                  .sort((a, b) => b.uploadedAt - a.uploadedAt)
+                  .slice(0, 3)
+                  .map((doc) => {
+                    const { statusLabel, statusClass, dateLabel } = getDocStatusInfo(doc);
+                    return (
+                      <div key={doc.id} className="flex items-start gap-2.5">
+                        <div className="w-7 h-7 bg-slate-50 rounded flex items-center justify-center shrink-0 mt-0.5">
+                          <FileText className="w-3.5 h-3.5 text-slate-500" />
+                        </div>
+                        <div>
+                          <p className="text-[13px] font-medium text-val-heading">{doc.name}</p>
+                          <p className="text-[12px]">
+                            {statusLabel && <span className={statusClass}>{statusLabel} · </span>}
+                            <span className="text-slate-500">{dateLabel}</span>
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })
+              )}
             </div>
             <div className="flex gap-2 mt-4 border-t border-slate-100 pt-3">
               <button className="border border-slate-200 rounded px-3 py-1.5 text-[13px] font-medium text-val-heading hover:bg-slate-50 transition-colors duration-150">
@@ -312,32 +482,41 @@ export function PropertyRentalPage({ property }: { property: Property }) {
               </tr>
             </thead>
             <tbody>
-              {payments.map((p, i) => (
-                <tr
-                  key={i}
-                  className={`border-t border-slate-100 hover:bg-blue-50/30 transition-colors ${p.highlight ? "bg-amber-50/40" : ""}`}
-                >
-                  <td className="px-5 py-3.5 text-[14px] text-val-heading">{p.date}</td>
-                  <td className="px-5 py-3.5 text-[14px] text-val-heading">{p.type}</td>
-                  <td className="px-5 py-3.5 text-[14px] font-medium text-val-heading">{p.amount}</td>
-                  <td className="px-5 py-3.5 text-[14px] text-slate-500">{p.method}</td>
-                  <td className="px-5 py-3.5">
-                    <span className={`flex items-center gap-1.5 text-[13px] font-medium ${statusVariants[p.variant]}`}>
-                      <Circle className="w-1.5 h-1.5 fill-current" />
-                      {p.status}
-                    </span>
-                  </td>
+              {pagedPayments.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-5 py-6 text-center text-slate-400 text-[13px]">—</td>
                 </tr>
-              ))}
+              ) : pagedPayments.map((p) => {
+                const variant = paymentStatusVariant(p.status);
+                return (
+                  <tr
+                    key={p.id}
+                    className={`border-t border-slate-100 hover:bg-blue-50/30 transition-colors ${p.status === "Overdue" ? "bg-amber-50/40" : ""}`}
+                  >
+                    <td className="px-5 py-3.5 text-[14px] text-val-heading">{formatDate(p.date)}</td>
+                    <td className="px-5 py-3.5 text-[14px] text-val-heading">{p.kind}</td>
+                    <td className="px-5 py-3.5 text-[14px] font-medium text-val-heading">{formatCurrencyFull(p.amount)}</td>
+                    <td className="px-5 py-3.5 text-[14px] text-slate-500">{p.method}</td>
+                    <td className="px-5 py-3.5">
+                      <span className={`flex items-center gap-1.5 text-[13px] font-medium ${statusVariants[variant]}`}>
+                        <Circle className="w-1.5 h-1.5 fill-current" />
+                        {p.status}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
           <div className="bg-slate-50/60 border-t border-slate-200 px-5 py-3 flex items-center justify-between">
-            <span className="text-[13px] text-slate-500">Showing 1–6 of 24 payments</span>
+            <span className="text-[13px] text-slate-500">
+              Showing 1–{displayEnd} of {payments.length} payment{payments.length !== 1 ? "s" : ""}
+            </span>
             <div className="flex items-center gap-1.5">
               <button className="size-8 bg-val-bg-tint rounded flex items-center justify-center hover:bg-blue-100 transition-colors">
                 <ChevronLeft className="w-3.5 h-3.5 text-slate-500" />
               </button>
-              <span className="text-[13px] text-slate-500 px-2">Page 1 of 4</span>
+              <span className="text-[13px] text-slate-500 px-2">Page 1 of {Math.max(1, totalPaymentPages)}</span>
               <button
                 className="size-8 rounded flex items-center justify-center hover:opacity-90 transition-colors"
                 style={{ background: "var(--val-primary-dark)" }}

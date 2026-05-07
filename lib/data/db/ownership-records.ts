@@ -6,22 +6,24 @@ import {
   deleteRecord,
   nextId,
 } from "./_fs";
-import type { OwnershipRecord } from "../types/ownership-record";
+import { OwnershipRecordSchema, type OwnershipRecord } from "../types/ownership-record";
 
 const COLLECTION = "ownership-records";
-const ID_PREFIX = "OWNR";
+const ID_PREFIX = "OREC";
 
 export type NewOwnershipRecord = Omit<OwnershipRecord, "id" | "userId">;
 
 export async function list(userId: string): Promise<OwnershipRecord[]> {
-  return listMergedRecords<OwnershipRecord>(userId, COLLECTION);
+  const rows = await listMergedRecords<unknown>(userId, COLLECTION);
+  return rows.map((r) => OwnershipRecordSchema.parse(r));
 }
 
 export async function get(
   userId: string,
   id: string,
 ): Promise<OwnershipRecord | null> {
-  return readMergedRecord<OwnershipRecord>(userId, COLLECTION, id);
+  const row = await readMergedRecord<unknown>(userId, COLLECTION, id);
+  return row ? OwnershipRecordSchema.parse(row) : null;
 }
 
 export async function create(
@@ -29,7 +31,7 @@ export async function create(
   data: NewOwnershipRecord,
 ): Promise<OwnershipRecord> {
   const id = await nextId(userId, COLLECTION, ID_PREFIX);
-  const record: OwnershipRecord = { ...data, id, userId };
+  const record = OwnershipRecordSchema.parse({ ...data, id, userId });
   await writeRecord(userId, COLLECTION, id, { core: { ...record } });
   return record;
 }
@@ -41,7 +43,7 @@ export async function update(
 ): Promise<OwnershipRecord | null> {
   const current = await get(userId, id);
   if (!current) return null;
-  const updated = { ...current, ...patch, id: current.id, userId: current.userId };
+  const updated = OwnershipRecordSchema.parse({ ...current, ...patch, id: current.id, userId: current.userId });
   await writeRecord(userId, COLLECTION, id, { core: { ...updated } });
   return updated;
 }

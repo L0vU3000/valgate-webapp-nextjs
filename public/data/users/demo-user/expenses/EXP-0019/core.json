@@ -1,0 +1,9 @@
+{
+  "id": "EXP-0019",
+  "userId": "demo-user",
+  "propertyId": "PROP-0014",
+  "date": 1776470400000,
+  "category": "Maintenance",
+  "amount": 850,
+  "note": "Roof repair"
+}

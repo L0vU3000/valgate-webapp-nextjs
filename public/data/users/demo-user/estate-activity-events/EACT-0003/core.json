@@ -1,0 +1,10 @@
+{
+  "id": "EACT-0003",
+  "userId": "demo-user",
+  "kind": "document.added",
+  "title": "Document Uploaded",
+  "description": "New Estate Transfer Deed signed and archived.",
+  "propertyId": "PROP-0011",
+  "createdAt": 1776159000000,
+  "updatedAt": 1776159000000
+}
