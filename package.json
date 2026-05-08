@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "seed": "node --conditions=react-server --import tsx scripts/seed.ts",
-    "seed:reset": "node --conditions=react-server --import tsx scripts/seed.ts --reset"
+    "seed:reset": "node --conditions=react-server --import tsx scripts/seed.ts --reset",
+    "regen-ai-ref": "node --import tsx scripts/regenerate-ai-data-ref.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.53",

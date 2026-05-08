@@ -1,16 +1,22 @@
 import { ShellLayout } from "@/components/layout/ShellLayout";
 import * as propertiesDb from "@/lib/data/db/properties";
+import * as notificationsDb from "@/lib/data/db/notifications";
 import { getCurrentUserId } from "@/lib/data/auth-shim";
 import type { PropertyListItem } from "@/lib/data/types/property";
 import { formatCurrency } from "@/lib/format";
 import { AppHeaderProperties } from "@/components/layout/AppHeaderPropertiesContext";
+import { NotificationsProvider } from "@/components/layout/NotificationsContext";
 
 export default async function ShellGroupLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const properties = await propertiesDb.list(getCurrentUserId());
+  const userId = getCurrentUserId();
+  const [properties, notifications] = await Promise.all([
+    propertiesDb.list(userId),
+    notificationsDb.list(userId),
+  ]);
   const slim: PropertyListItem[] = properties.map((p) => ({
     id: p.id,
     name: p.name,
@@ -26,7 +32,9 @@ export default async function ShellGroupLayout({
 
   return (
     <ShellLayout>
-      <AppHeaderProperties properties={slim}>{children}</AppHeaderProperties>
+      <NotificationsProvider notifications={notifications}>
+        <AppHeaderProperties properties={slim}>{children}</AppHeaderProperties>
+      </NotificationsProvider>
     </ShellLayout>
   );
 }

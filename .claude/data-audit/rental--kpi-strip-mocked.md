@@ -2,18 +2,18 @@
 slug: rental--kpi-strip-mocked
 data_point: "KPI strip — Hero gross income + trend + sparkline + 4 KPI cards (11 surfaces, rows 14–24)"
 route: /rental
-revision: 1
+revision: 2
 date: 2026-05-07
-verdict: "✅ 7/11 wired · 2 CHROME labels · F1 sparkline HARDCODED (Q4.J) · F2 maintenance total HARDCODED (no cost field)"
+verdict: "✅ 8/11 wired · 2 CHROME labels · F1 sparkline HARDCODED (Q4.J) · F2 maintenance total ✅ resolved (Phase 6.8b)"
 ---
 
 # Audit — KPI strip (Hero + 4 cards) on /rental
-_Last revised: 2026-05-07 · Revision 1. Bundled lite report — 11 surfaces, rows 14–24 of the page inventory._
+_Last revised: 2026-05-07 · Revision 2. Bundled lite report — 11 surfaces, rows 14–24 of the page inventory._
 
 ## TL;DR
-- ✅ 7 of 11 surfaces wired: gross income, trend, occupancy ×2, vacancy loss, collection rate, maintenance dots all live from DB
-- ⚠️ 2 surfaces still hardcoded: sparkline heights (Q4.J — no daily snapshots yet) and maintenance total "$4,800" (MaintenanceItem has no cost field)
-- 🔧 Top fix: add `cost` field to `MaintenanceItem` schema to unlock maintenance total (F2); sparkline blocked on a separate infrastructure decision (F1)
+- ✅ 8 of 11 surfaces wired: gross income, trend, occupancy ×2, vacancy loss, collection rate, maintenance dots, maintenance total all live from DB
+- ⚠️ 1 surface still hardcoded: sparkline heights (Q4.J — no daily snapshots yet)
+- ✅ F2 resolved in Revision 2: `cost` field added to `MaintenanceItem`; seeds backfilled; `computeMaintenanceTotal` wired through queries → KpiCards
 
 _Reads from `Lease` (§4), `Payment` (§6), `Property` (§1), `MaintenanceItem` (§9), `Expense` (§25) via `computeMonthlyGrossIncome`, `computeOccupancyRate`, `computeVacancyCost`, `computeCollectionRate`, `computeMaintenanceSummary`. Page audit: see [pages/rental-dashboard/audit.md](pages/rental-dashboard/audit.md)._
 
@@ -28,7 +28,7 @@ _Reads from `Lease` (§4), `Payment` (§6), `Property` (§1), `MaintenanceItem` 
 | 20 | Vacancy Loss — "/ mo est." sub | static label (CHROME) | — |
 | 21 | Collection — value | `computeCollectionRate(payments, leases)` → `collectionRate` prop | ✅ WIRED |
 | 22 | Collection — "of expected rent received" sub | static label (CHROME) | — |
-| 23 | Maintenance — "$4,800" total | string literal in `KpiCards.tsx` — **F2** | ⚠️ HARDCODED |
+| 23 | Maintenance — "$4,800" total | `computeMaintenanceTotal(maintenance)` → `maintenanceTotal` prop | ✅ WIRED |
 | 24 | Maintenance — 3 severity dots | `maintenanceItems[i].count > 0` from `computeMaintenanceSummary` | ✅ WIRED |
 
 **Golden values (demo-user seed, 2026-05-07):**
@@ -57,16 +57,18 @@ _Reads from `Lease` (§4), `Payment` (§6), `Property` (§1), `MaintenanceItem` 
 
 ---
 
-### 🟡 F2 — Maintenance total "$4,800" has no data source
+### ~~🟡 F2 — Maintenance total "$4,800" has no data source~~ — ✅ resolved in Revision 2
 **P2 schema smell · confidence: high · `[schema]`**
 
 **Where:** `components/rental/KpiCards.tsx` — `"$4,800"` string literal in the Maintenance KPI card.
 
-**Problem:** `MaintenanceItem` has no `cost` field (`lib/data/types/maintenance-item.ts:10–18` — schema confirmed). The total maintenance spend cannot be derived from any existing entity.
+**Problem:** `MaintenanceItem` had no `cost` field (`lib/data/types/maintenance-item.ts:10–18` — schema confirmed). The total maintenance spend could not be derived from any existing entity.
 
-**Why it matters:** PF2 is "KpiCards entirely mocked" — this is the one surface that could not be wired in Phase 8.2 because the schema doesn't support it.
+**Why it matters:** PF2 is "KpiCards entirely mocked" — this was the one surface that could not be wired in Phase 8.2 because the schema didn't support it.
 
 **Fix:** Add `cost?: number` (optional, nonnegative) to `MaintenanceItemSchema`. Update seed JSON. Add `computeMaintenanceTotal(items)` in `lib/data/derivations/rental.ts`. Wire via `queries.ts → KpiCards.tsx`.
+
+**Resolved (Phase 6.8b):** `cost: z.number().nonnegative().optional()` added to `MaintenanceItemSchema`. Seeds backfilled: MAINT-0001 $2,500 + MAINT-0002 $1,800 + MAINT-0003 $500 = $4,800. `computeMaintenanceTotal()` added to `lib/data/derivations/rental.ts`. `maintenanceTotal: string` added to `RentalDashboardData`; wired through `getRentalDashboardData()` → `RentalDashboardPage` → `KpiCards` prop. String literal `"$4,800"` replaced with `{maintenanceTotal}`.
 
 <details>
 <summary>🔍 Source files & hashes (for re-audit detection)</summary>

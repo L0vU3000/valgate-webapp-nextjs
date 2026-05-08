@@ -6,6 +6,7 @@ import { Search, Bell } from "lucide-react";
 import { CommandPalette } from "@/components/home/CommandPalette";
 import { NotificationsPanel, type NotificationsPanelHandle } from "@/components/layout/NotificationsPanel";
 import { useNotifications } from "@/lib/hooks/use-notifications";
+import { useInitialNotifications } from "@/components/layout/NotificationsContext";
 import type { PropertyListItem } from "@/lib/data/types/property";
 import { useAppHeaderProperties } from "./AppHeaderPropertiesContext";
 
@@ -20,7 +21,8 @@ export function AppHeader({
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const bellRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<NotificationsPanelHandle>(null);
-  const { notifications, markAllRead } = useNotifications();
+  const initialNotifications = useInitialNotifications();
+  const { notifications, markAllRead, markAsRead } = useNotifications(initialNotifications);
   const router = useRouter();
 
   useEffect(() => {
@@ -74,13 +76,20 @@ export function AppHeader({
               className="p-2 rounded hover:bg-slate-100 transition-colors duration-150 relative"
             >
               <Bell className="w-5 h-5 text-slate-500" />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
+              {notifications.some((n) => !n.read) && (
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
+              )}
             </button>
             {notificationsOpen && (
               <NotificationsPanel
                 ref={panelRef}
                 notifications={notifications}
                 onMarkAllRead={markAllRead}
+                onNotificationClick={(n) => {
+                  markAsRead(n.id);
+                  if (n.linkTo) router.push(n.linkTo);
+                  panelRef.current?.close();
+                }}
                 onClose={() => setNotificationsOpen(false)}
                 triggerRef={bellRef}
               />

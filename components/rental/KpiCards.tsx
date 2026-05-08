@@ -84,9 +84,10 @@ type KpiCardsProps = {
   vacancyCost: string;
   collectionRate: string;
   maintenanceItems: MaintenanceSummaryItem[];
+  maintenanceTotal: string;
 };
 
-export function KpiCards({ grossIncome, incomeTrend, occupancyPct, vacancyCost, collectionRate, maintenanceItems }: KpiCardsProps) {
+export function KpiCards({ grossIncome, incomeTrend, occupancyPct, vacancyCost, collectionRate, maintenanceItems, maintenanceTotal }: KpiCardsProps) {
   const trendUp = incomeTrend.startsWith("+");
   const dots = DOT_SEVERITY_COLORS.map((color, i) => ({
     color,
@@ -189,7 +190,7 @@ export function KpiCards({ grossIncome, incomeTrend, occupancyPct, vacancyCost, 
           style={{ animationDelay: "500ms" }}
         >
           <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Maintenance</span>
-          <span className="mt-1 text-3xl font-extrabold text-slate-900">$4,800</span>
+          <span className="mt-1 text-3xl font-extrabold text-slate-900">{maintenanceTotal}</span>
           <div className="mt-2 flex gap-1">
             {dots.map((d, j) => (
               <div

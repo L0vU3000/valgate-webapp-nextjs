@@ -1,6 +1,7 @@
 "use client";
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { X, Settings, Bell } from "lucide-react";
 import { type Notification, type NotificationCategory } from "@/lib/data/notifications";
 import { formatRelativeTime } from "@/lib/format";
@@ -90,6 +91,7 @@ export interface NotificationsPanelHandle {
 interface NotificationsPanelProps {
   notifications: Notification[];
   onMarkAllRead: () => void;
+  onNotificationClick: (notification: Notification) => void;
   onClose: () => void;
   triggerRef?: React.RefObject<HTMLElement | null>;
 }
@@ -97,10 +99,11 @@ interface NotificationsPanelProps {
 const CLOSE_DURATION = 140;
 
 export const NotificationsPanel = forwardRef<NotificationsPanelHandle, NotificationsPanelProps>(
-  function NotificationsPanel({ notifications, onMarkAllRead, onClose, triggerRef }, ref) {
+  function NotificationsPanel({ notifications, onMarkAllRead, onNotificationClick, onClose, triggerRef }, ref) {
   const panelRef = useRef<HTMLDivElement>(null);
   const [isClosing, setIsClosing] = useState(false);
   const unreadCount = notifications.filter((n) => !n.read).length;
+  const router = useRouter();
 
   function handleClose() {
     setIsClosing(true);
@@ -188,6 +191,7 @@ export const NotificationsPanel = forwardRef<NotificationsPanelHandle, Notificat
           return (
             <div
               key={notification.id}
+              onClick={() => onNotificationClick(notification)}
               className={`flex gap-4 px-6 border-b border-slate-100 transition-colors duration-300 cursor-pointer motion-reduce:animate-none animate-[fade-slide-up_0.22s_cubic-bezier(0.25,1,0.5,1)_both] ${
                 notification.read
                   ? "bg-slate-50/60 py-3 hover:bg-slate-100/60"
@@ -247,7 +251,10 @@ export const NotificationsPanel = forwardRef<NotificationsPanelHandle, Notificat
 
       {/* Footer */}
       <div className="flex items-center justify-center px-6 py-4 border-t border-slate-100 bg-white">
-        <button className="flex items-center gap-2 text-[0.875rem] font-semibold text-[#004ac6] hover:underline transition-[gap] duration-200 hover:gap-3 group">
+        <button
+          onClick={() => { router.push("/settings"); handleClose(); }}
+          className="flex items-center gap-2 text-[0.875rem] font-semibold text-[#004ac6] hover:underline transition-[gap] duration-200 hover:gap-3 group"
+        >
           <span>Manage notifications</span>
           <Settings className="w-3 h-3 transition-transform duration-300 group-hover:rotate-45" />
         </button>

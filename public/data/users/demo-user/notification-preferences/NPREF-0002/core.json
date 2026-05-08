@@ -1,7 +1,7 @@
 {
-  "eventType": "Payment",
+  "eventType": "teamComments",
   "email": true,
-  "slack": false,
+  "slack": true,
   "sms": true,
   "createdAt": 1775001600000,
   "updatedAt": 1775001600000,

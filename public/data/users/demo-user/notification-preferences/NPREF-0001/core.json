@@ -1,5 +1,5 @@
 {
-  "eventType": "Maintenance",
+  "eventType": "valuationUpdates",
   "email": true,
   "slack": true,
   "sms": false,

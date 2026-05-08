@@ -101,6 +101,7 @@
 | [directory--pagination](directory--pagination.md) | /directory | Pagination — Showing X, of N, prev/next, page buttons (7 surfaces) | ✅ PF3 resolved — ITEMS_PER_PAGE=12; real count; dynamic buttons; 1 P3 nit (buttons hidden at current scale) | 1 |
 | [directory--card-actions-stubs](directory--card-actions-stubs.md) | /directory | Card actions — COPY INFO × 9 + VIEW PROFILE × 9 (18 surfaces) | ✅ PF4 resolved — VIEW PROFILE → Link; COPY INFO was already wired | 1 |
 | [directory--sort-and-empty-state](directory--sort-and-empty-state.md) | /directory | Sort dropdown + empty state + verified-tier architecture (PF2 + PF5) | ✅ PF2 + PF5 resolved — sort wired; HARDCODED_PROFESSIONALS removed; Valgate-verified tier introduced | 1 |
+| [directory-id--professional-profile-direct-reads](directory-id--professional-profile-direct-reads.md) | /directory/[id] | Professional profile — direct reads (initials, verified, available, name, company, category, rating, reviews, email, phone, linkedProperties) | ✅ All WIRED · PF6 deferred (linkedProperties scalar) | 1 |
 | [estate-planning--successor-table-direct-reads](estate-planning--successor-table-direct-reads.md) | /estate-planning | Successor table direct-reads — name, initials, relation, role badge, share % (rows 13–18) | ✅ All 5 fields WIRED · PF5 resolved (per-property scoping) · 0 findings | 1 |
 | [estate-planning--successor-verification-status](estate-planning--successor-verification-status.md) | /estate-planning | Successor verification status badge (row 19) — Verified / Unverified | ✅ WIRED · PF2 resolved — conditional branch; SUCC-0003 renders Unverified · 0 findings | 1 |
 | [estate-planning--stats-kpis](estate-planning--stats-kpis.md) | /estate-planning | Stats KPI cards — Plan Completion, Pending Reviews, Assigned Beneficiaries, Estate Documents (rows 4–7) | ✅ All 4 WIRED · Q3.R resolved (4-check rubric) · 1 P3 nit (plural "beneficiaries") | 1 |
@@ -109,6 +110,7 @@
 | [estate-planning--estate-documents](estate-planning--estate-documents.md) | /estate-planning | Estate Documents cards — name, meta, download (row 21) | ✅ WIRED · Q4.C resolved (category="estate") · empty-state present · 0 findings | 1 |
 | [estate-planning--recent-activity](estate-planning--recent-activity.md) | /estate-planning | Recent Activity timeline — title, time, description (row 22) | ✅ WIRED · Q4.P resolved (EstateActivityEvent) · relative timestamps · 0 findings | 1 |
 | [estate-planning--action-stubs](estate-planning--action-stubs.md) | /estate-planning | Action stubs — Generate Portfolio Report, Download Summary, Review All, MoreHorizontal, footer (rows 3, 11, 20, 23, 24) | ✅ View Analytics + Add Beneficiary WIRED · 5 stubs remain CHROME · Q4.W v1 scope resolved · 0 findings | 1 |
+| [profile--profile-direct-reads](profile--profile-direct-reads.md) | /profile | Profile fields bundle (14 surfaces) | ✅ All 14 surfaces WIRED | 1 |
 
 ## Page-level audits
 
@@ -126,3 +128,5 @@
 | [rental-dashboard](pages/rental-dashboard/audit.md) | /rental | ~25 | ~67 | 6 | ⚠️ Phase 8.2-audit complete — ~67 hardcoded; KpiCards + LeaseTable + HeatmapGrid (33 tiles) all mocked; Unit entity decision (Q4.T) is the key blocker | 1 |
 | [directory](pages/directory/audit.md) | /directory | 99+ | 0 | 6 | ✅ Phase 8.4-Wiring complete — PF1–PF5 resolved; 6 post-wiring audit reports written; PF6 deferred | 2 |
 | [estate-planning](pages/estate-planning/audit.md) | /estate-planning | 17 | 0 | 6 | ✅ Phase 8.5-Post-Wiring complete — 17 WIRED · 5 CHROME · 2 PARTIAL; PF1–PF5 resolved; PF6 deferred; 8 audit reports written | 2 |
+| [profile](pages/profile/audit.md) | /profile | 14 | 0 | 2 | ✅ Phase 8.6-Wiring complete — 14 WIRED · 0 HARDCODED; PF1–PF2 resolved | 1 |
+| [directory-id](pages/directory-id/audit.md) | /directory/[id] | ~11 | 0 | 0 | ✅ Phase 8.4b — all surfaces WIRED (direct reads from Professional entity) | 1 |

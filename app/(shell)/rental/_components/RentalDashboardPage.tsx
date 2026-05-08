@@ -33,6 +33,7 @@ export function RentalDashboardPage({ data }: { data: RentalDashboardData }) {
     pipelineStages,
     arrearsBuckets,
     maintenanceItems,
+    maintenanceTotal,
     upcomingEvents,
     recoveryRate,
     evictionRisk,
@@ -102,6 +103,7 @@ export function RentalDashboardPage({ data }: { data: RentalDashboardData }) {
             vacancyCost={vacancyCost}
             collectionRate={collectionRate}
             maintenanceItems={maintenanceItems}
+            maintenanceTotal={maintenanceTotal}
           />
 
           {/* ================================================================ */}

@@ -3,9 +3,9 @@ slug: property-id-overview--alerts-strip-notifications
 route: /property/[id]/overview
 data_point: "Action strip — stored Notification alerts (row 16, Notification entity merge)"
 template: full
-verdict: "✅ Correct · 2 findings (1 P1, 1 P3) · NOTIF-0001 renders for PROP-0001; linkTo URL parse verified"
-revision: 1
-date: 2026-05-06
+verdict: "✅ Correct · 2 findings (1 P1, 1 P3) · Q5.T resolved — propertyId field added; dual-path filter in place"
+revision: 2
+date: 2026-05-07
 ---
 
 > **Plain opener:** The action strip on the right sidebar of the overview page shows alerts that need attention. Before Phase 6.8, one item was hardcoded ("HVAC Fault"). After Phase 6.8, that slot is replaced by real Notification rows read from the database, filtered to the current property by parsing the `linkTo` URL field. The lease-expiring alerts (Phase 6.1) remain untouched alongside.
@@ -33,7 +33,9 @@ For PROP-0001: NOTIF-0001 (category: "MAINTENANCE", title: "Burst pipe at PP0001
 **Notification filter (server-side, `overview/queries.ts`):**
 
 ```typescript
+// Phase 8.8: propertyId field preferred; linkTo parse is a backwards-compat fallback
 function notificationMatchesProperty(notification: Notification, propertyId: string): boolean {
+  if (notification.propertyId) return notification.propertyId === propertyId;
   if (!notification.linkTo) return false;
   const match = notification.linkTo.match(/^\/property\/([^/]+)\//);
   return match ? match[1] === propertyId : false;
@@ -129,7 +131,7 @@ The Q4.F HYBRID decision is correctly implemented: no notification rows are auto
 
 > **Q4.F resolved Phase 6.8 (2026-05-06):** HYBRID per source. Lease-expiring → derived at render time via `Lease.endDate` arithmetic (Phase 6.1). Manual/stored alerts → `Notification` rows filtered by `linkTo` URL parse (Phase 6.8). Auto-creation of Notification rows (cron, mutation hooks) deferred to Convex/Neon backend phase. See `ref/05-open-questions.md` Q4.F for full resolution note.
 
-> **Q5.T filed Phase 6.8:** `Notification.propertyId` missing — `linkTo` parse is the workaround for property-scoping. Schema gap noted; see `ref/05-open-questions.md` Q5.T.
+> ~~**Q5.T filed Phase 6.8:** `Notification.propertyId` missing — `linkTo` parse is the workaround.~~ → **Q5.T resolved Phase 8.8 (2026-05-07):** `propertyId: z.string().optional()` added to `NotificationSchema`. Seeds NOTIF-0001..0004 carry `propertyId`. `notificationMatchesProperty()` now checks `propertyId` first; falls back to `linkTo` regex for backwards compatibility. Notifications without a property scope (NOTIF-0005) are correctly excluded from property-level pages.
 
 ---
 
@@ -142,11 +144,11 @@ The Q4.F HYBRID decision is correctly implemented: no notification rows are auto
 
 ---
 
-### 🟡 F2 — `read` status not filtered — all notifications surface regardless of read state
+### 🟡 F2 — `read` status not filtered in alert strip — all notifications surface regardless of read state
 **Severity:** P3 (UX gap, not a data correctness issue)
-**Observation:** The Notification entity has a `read: boolean` field. The current implementation shows all matching notifications regardless of read status. A dismissed or already-read notification continues to appear in the strip on next load.
-**Fix:** For the FS demo era, this is acceptable (no "mark as read" write path exists). When the backend phase ships the Notification write path, add a `read: false` filter or a dismiss-to-mark-as-read action.
-**Deferred:** Backend phase (server action + Convex mutation).
+**Observation:** The Notification entity has a `read: boolean` field. The overview alert strip shows all matching notifications regardless of read status. A dismissed or already-read notification continues to appear in the strip on next load.
+**Fix:** Phase 8.8 wired `markAsRead` + `markAllRead` in the bell panel (AppHeader → NotificationsPanel). The bell badge now correctly disappears when all are read. However, the overview alert strip still has no `read: false` filter — it continues to show all property-scoped notifications. Adding a `read: false` filter to the overview strip is the remaining follow-up.
+**Deferred:** Add `read: false` filter to `getOverviewPageData` notification filter in a follow-up micro-phase.
 
 ---
 
@@ -170,6 +172,12 @@ The Q4.F HYBRID decision is correctly implemented: no notification rows are auto
 
 <details>
 <summary>Revision log</summary>
+
+### Revision 2 — 2026-05-07
+- Phase 8.8 wiring complete. Q5.T resolved: `propertyId` added to `NotificationSchema`; seeds NOTIF-0001..0004 updated; `notificationMatchesProperty()` dual-path filter in place.
+- §2 source trace updated to show `propertyId`-first logic.
+- §7 Q5.T note updated from "filed" to "resolved".
+- F2 scope clarified: bell panel `markAsRead` is wired (Phase 8.8); overview strip `read` filter remains deferred.
 
 ### Revision 1 — 2026-05-06
 - Phase 6.8 wiring complete. Row 16 alerts strip HVAC Fault hardcode removed; Notification entity merged.

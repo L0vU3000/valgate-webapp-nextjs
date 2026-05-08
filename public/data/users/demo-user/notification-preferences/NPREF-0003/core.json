@@ -1,8 +1,8 @@
 {
-  "eventType": "Compliance",
+  "eventType": "marketInsights",
   "email": true,
-  "slack": true,
-  "sms": true,
+  "slack": false,
+  "sms": false,
   "createdAt": 1775001600000,
   "updatedAt": 1775001600000,
   "id": "NPREF-0003",

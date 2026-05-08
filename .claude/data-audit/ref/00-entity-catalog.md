@@ -225,12 +225,13 @@ Surfaces in `/rental` (HARDCODED counts by severity).
 
 Defined in `lib/data/types/notification.ts`; reference shape in `docs/mock-to-backend-pattern.md:198–207`.
 
-> **Q4.F resolved Phase 6.8 (2026-05-06):** HYBRID per source. Lease-expiring alerts derived at query time from `Lease.endDate`. Manual/cross-cutting alerts stored as Notification rows. Auto-creation deferred to backend phase. **Schema gap (Q5.T):** no `propertyId` field; property-scoping today via `linkTo` URL parse.
+> **Q4.F resolved Phase 6.8 (2026-05-06):** HYBRID per source. Lease-expiring alerts derived at query time from `Lease.endDate`. Manual/cross-cutting alerts stored as Notification rows. Auto-creation deferred to backend phase. **~~Schema gap (Q5.T)~~: ~~no `propertyId` field~~** → **Q5.T resolved Phase 8.8 (2026-05-07):** `propertyId: z.string().optional()` added; `notificationMatchesProperty()` prefers it, falls back to `linkTo` parse.
 
 | Field | Type | Provenance |
 |---|---|---|
 | `_id` | `v.id("notifications")` | Convex |
 | `userId` | `v.string()` | ownership |
+| `propertyId` | `v.optional(v.string())` | Phase 8.8 — property-scoping; optional (portfolio-level notifications have none) |
 | `category` | `v.union(v.literal("MAINTENANCE"), v.literal("LEASING"), v.literal("COMPLIANCE"), v.literal("PAYMENT"), v.literal("APPLICATIONS"))` | notifications.ts |
 | `title` | `v.string()` | notifications.ts |
 | `description` | `v.string()` | notifications.ts |

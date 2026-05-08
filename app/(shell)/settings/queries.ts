@@ -1,6 +1,7 @@
 import "server-only";
 import * as db from "@/lib/data/db";
 import { getCurrentUserId } from "@/lib/data/auth-shim";
+import { type UserProfile } from "@/lib/data/types/user-profile";
 
 export type NotificationRow = {
   key: string;
@@ -13,6 +14,7 @@ export type NotifChannels = { email: boolean; slack: boolean; sms: boolean };
 export type SelectOption = { value: string; label: string };
 
 export type SettingsPageData = {
+  profile: Pick<UserProfile, "firstName" | "lastName" | "email" | "jobTitle" | "role" | "phone"> | null;
   notificationRows: NotificationRow[];
   defaultNotifications: Record<string, NotifChannels>;
   dashboardViewOptions: SelectOption[];
@@ -40,6 +42,7 @@ const HARD_DEFAULTS: Record<string, NotifChannels> = {
 export async function getSettingsPageData(): Promise<SettingsPageData> {
   const userId = getCurrentUserId();
   const storedPrefs = await db.notificationPreferences.list(userId);
+  const profile = await db.userProfiles.get(userId, userId);
 
   const defaultNotifications: Record<string, NotifChannels> = { ...HARD_DEFAULTS };
   for (const pref of storedPrefs) {
@@ -51,6 +54,7 @@ export async function getSettingsPageData(): Promise<SettingsPageData> {
   }
 
   return {
+    profile,
     notificationRows: NOTIFICATION_ROWS,
     defaultNotifications,
     dashboardViewOptions: [
@@ -71,9 +75,9 @@ export async function getSettingsPageData(): Promise<SettingsPageData> {
       { value: "Asia/Singapore", label: "(GMT+08:00) Singapore" },
     ],
     defaults: {
-      dashboardView: "portfolio-overview",
-      language: "en-US",
-      timezone: "Asia/Phnom_Penh",
+      dashboardView: profile?.dashboardView ?? "portfolio-overview",
+      language: profile?.language ?? "en-US",
+      timezone: profile?.timezone ?? "Asia/Phnom_Penh",
     },
   };
 }

@@ -15,6 +15,7 @@ export const UserProfileSchema = z.object({
   timezone: z.string().optional(),
   currency: z.string().optional(),
   role: z.string().optional(),
+  dashboardView: z.string().optional(),
   memberSince: timestampSchema.optional(),
   lastLogin: timestampSchema.optional(),
   createdAt: timestampSchema,

@@ -19,9 +19,8 @@ export type OverviewPageData = {
   maintenanceItems: MaintenanceItem[];
 };
 
-// Notifications have no propertyId — parse linkTo to infer property scope.
-// Matches /property/<id>/ prefix; notifications without linkTo or with non-property links are skipped.
 function notificationMatchesProperty(notification: Notification, propertyId: string): boolean {
+  if (notification.propertyId) return notification.propertyId === propertyId;
   if (!notification.linkTo) return false;
   const match = notification.linkTo.match(/^\/property\/([^/]+)\//);
   return match ? match[1] === propertyId : false;

@@ -15,6 +15,7 @@ export const MaintenanceItemSchema = z.object({
   title: z.string().min(1),
   status: MaintenanceStatusSchema,
   createdAt: timestampSchema,
+  cost: z.number().nonnegative().optional(),
 });
 
 export type MaintenanceItem = z.infer<typeof MaintenanceItemSchema>;

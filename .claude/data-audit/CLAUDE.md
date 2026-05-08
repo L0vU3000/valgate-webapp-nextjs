@@ -15,7 +15,10 @@ This folder is the home for all data-point audits and the reference material tha
     audit.md         ← analysis (Surface Inventory + Page-wide findings + source SHAs)
     plan.md          ← action (Entity Backlog + Audit Roadmap + Fix Log)
   pages/INDEX.md     ← master cross-page entity backlog (created in Phase 3)
-  ref/               ← read-only reference corpus (entity catalog, derivations, open questions)
+  ref/               ← reference corpus for humans (entity catalog, wiring status, migration plan, open questions)
+    INDEX.md         ← reading-order guide for ref/
+  ai-data-ref/       ← distilled, table-only views of ref/ for AI agents (cheaper to read)
+    CLAUDE.md        ← AI-agent guide for ai-data-ref/
 ```
 
 ## What lives where
@@ -30,16 +33,48 @@ This folder is the home for all data-point audits and the reference material tha
 - Flat table: slug · route · data point · latest verdict · revision count
 - Updated automatically on every audit run
 
-### `ref/` — Reference corpus (read-only)
-These files were written during the initial codebase audit. They are the foundation the skill cross-links to. Do not overwrite them; append only.
+### `ref/` — Reference corpus
 
-| File | Contents |
+The `ref/` folder has three tiers. Read in this order; stop when you have the answer.
+
+**Tier 1 — Canonical (current truth, maintained):**
+
+| File | Contents | When to read |
+|---|---|---|
+| `ref/09-page-wiring-status.md` | Per-page wiring state for all 15 routes — what's WIRED, HARDCODED, deferred | Before working on a page — tells you what's already done |
+| `ref/07-entity-fields.md` | All 25 entities — full field tables, enums, relationships, anomalies | Before designing UI or touching schemas |
+| `ref/08-backend-migration-readiness.md` | Convex migration plan — Q-blockers, Zod→Convex schema mapping, derivation registry, phase sequencing | Before any backend / Convex work |
+| `ref/05-open-questions.md` | Q1–Q9 ambiguities, with resolution notes inline | Whenever you hit `Q3.X` / `Q5.Y` cross-references; append new questions here |
+
+**Tier 2 — Narrative companions (older, partially current):**
+
+| File | Status |
 |---|---|
-| `ref/00-entity-catalog.md` | Every domain entity, all fields, provenance, proposed Convex schema |
-| `ref/03-data-flow-and-derivations.md` | Every derived/aggregate value and its assigned home (server / materialized / client) |
-| `ref/05-open-questions.md` | Open ambiguities Q1–Q9 — append new ones here, never in audit reports |
+| `ref/00-entity-catalog.md` | Refreshed 2026-05-06; useful for provenance + drift narrative; superseded by `07` for current Zod state |
+| `ref/03-data-flow-and-derivations.md` | §A flows mostly historical now (most are wired); §B derivation homes still useful conceptually |
 
-Other files in `ref/` (`01`, `02`, `04`, `06`) are supplementary — read them for context but they are not actively maintained.
+**Tier 3 — Historical / frozen (do not maintain):**
+
+| File | Why kept |
+|---|---|
+| `ref/01-read-map.md` | Pre-Phase-6 read inventory — historical context only |
+| `ref/02-write-map.md` | Pre-Phase-6 write inventory — historical context only |
+| `ref/04-convex-plan.md` | Old Convex schema sketch — superseded by `08` |
+| `ref/06-simulated-backend-plan.md` | Plan that became reality (the FS layer) — historical context only |
+| `ref/visualizer-input.md` | One-shot brief for an HTML visualizer — not a reference |
+
+> **Rule:** `07`, `08`, `09`, `05` are the maintained set. When facts change, update those four. The Tier 2/3 files are frozen artifacts.
+
+### `ai-data-ref/` — AI-optimised view
+
+Distilled, table-only versions of Tier 1 files for AI agents that need to load reference data into context cheaply.
+
+- `ai-data-ref/CLAUDE.md` — agent guide; read before any other file in this folder
+- `ai-data-ref/entities.md` — distilled `ref/07-entity-fields.md`
+- `ai-data-ref/pages.md` — distilled `ref/09-page-wiring-status.md`
+- `ai-data-ref/migration.md` — distilled `ref/08-backend-migration-readiness.md`
+
+**Source-of-truth precedence:** `ref/` (Tier 1) wins on conflict. `ai-data-ref/` is regenerated from `ref/` when the canonical files change. See `ai-data-ref/CLAUDE.md` for the update protocol.
 
 ---
 

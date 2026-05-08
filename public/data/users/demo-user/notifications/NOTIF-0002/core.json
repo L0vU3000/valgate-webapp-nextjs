@@ -4,6 +4,7 @@
   "description": "Lim Vichea is 5 days late on the April rent.",
   "createdAt": 1775019600000,
   "read": false,
+  "propertyId": "PROP-0006",
   "linkTo": "/property/PROP-0006/rental",
   "id": "NOTIF-0002",
   "userId": "demo-user"

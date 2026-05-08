@@ -1,10 +1,13 @@
 "use server";
 
+import { z } from "zod";
 import { revalidateTag } from "next/cache";
 import * as db from "@/lib/data/db/notifications";
 import { getCurrentUserId } from "@/lib/data/auth-shim";
 import type { Notification } from "@/lib/data/types/notification";
 import type { ActionResult } from "./properties.actions";
+
+const MarkReadSchema = z.object({ id: z.string().min(1) });
 
 export async function createNotification(
   data: db.NewNotification,
@@ -36,8 +39,10 @@ export async function deleteNotification(
 }
 
 export async function markRead(id: string): Promise<ActionResult<void>> {
+  const result = MarkReadSchema.safeParse({ id });
+  if (!result.success) return { ok: false, error: "Invalid input" };
   const userId = getCurrentUserId();
-  await db.update(userId, id, { read: true } as Partial<Notification>);
+  await db.update(userId, result.data.id, { read: true } as Partial<Notification>);
   revalidateTag("notifications");
   return { ok: true, data: undefined };
 }

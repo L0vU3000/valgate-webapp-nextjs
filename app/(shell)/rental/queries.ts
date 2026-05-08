@@ -9,6 +9,7 @@ import {
   computePipeline,
   computeArrears,
   computeMaintenanceSummary,
+  computeMaintenanceTotal,
   computeUpcomingEvents,
   computeRecoveryRate,
   computeEvictionRisk,
@@ -42,6 +43,7 @@ export type RentalDashboardData = {
   pipelineStages: PipelineStage[];
   arrearsBuckets: ArrearsBucket[];
   maintenanceItems: MaintenanceItem[];
+  maintenanceTotal: string;
   upcomingEvents: UpcomingEvent[];
   recoveryRate: string;
   evictionRisk: string;
@@ -70,6 +72,7 @@ export async function getRentalDashboardData(): Promise<RentalDashboardData> {
     pipelineStages: computePipeline(leases),
     arrearsBuckets: computeArrears(payments),
     maintenanceItems: computeMaintenanceSummary(maintenance),
+    maintenanceTotal: computeMaintenanceTotal(maintenance),
     upcomingEvents: computeUpcomingEvents(leases, maintenance, payments),
     recoveryRate: computeRecoveryRate(payments),
     evictionRisk: computeEvictionRisk(payments, leases),

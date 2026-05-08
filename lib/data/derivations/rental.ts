@@ -129,6 +129,11 @@ export function computeArrears(payments: Payment[]): ArrearsBucket[] {
   }));
 }
 
+export function computeMaintenanceTotal(items: MaintenanceItem[]): string {
+  const total = items.reduce((sum, item) => sum + (item.cost ?? 0), 0);
+  return `$${total.toLocaleString()}`;
+}
+
 export function computeMaintenanceSummary(
   items: MaintenanceItem[],
 ): MaintenanceSummaryItem[] {

@@ -4,6 +4,8 @@
   "description": "PP00016 PH certificate expires in 30 days.",
   "createdAt": 1774774800000,
   "read": true,
+  "propertyId": "PROP-0001",
+  "linkTo": "/property/PROP-0001/safety",
   "id": "NOTIF-0004",
   "userId": "demo-user"
 }
