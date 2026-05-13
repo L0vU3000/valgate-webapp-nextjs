@@ -8,23 +8,35 @@ This folder is the home for all data-point audits and the reference material tha
 
 ```
 .claude/data-audit/
-  CLAUDE.md          ← you are here
-  INDEX.md           ← two tables: per-datapoint audits, page-level audits
-  <slug>.md          ← per-datapoint audit reports (e.g. portfolio--properties-count.md)
-  pages/<slug>/      ← per-page folder
-    audit.md         ← analysis (Surface Inventory + Page-wide findings + source SHAs)
-    plan.md          ← action (Entity Backlog + Audit Roadmap + Fix Log)
-  pages/INDEX.md     ← master cross-page entity backlog (created in Phase 3)
-  ref/               ← reference corpus for humans (entity catalog, wiring status, migration plan, open questions)
-    INDEX.md         ← reading-order guide for ref/
-  ai-data-ref/       ← distilled, table-only views of ref/ for AI agents (cheaper to read)
-    CLAUDE.md        ← AI-agent guide for ai-data-ref/
+  CLAUDE.md              ← you are here
+  INDEX.md               ← two tables: per-datapoint audits, page-level audits
+  WIRING-PLAYBOOK.md     ← QA checklist for wiring sprints
+  pages/
+    INDEX.md             ← master cross-page entity backlog
+    SUMMARY.md           ← synthesis + build order
+    <slug>/              ← per-page folder (e.g. portfolio/, property-id-overview/)
+      audit.md           ← Surface Inventory + Page-wide findings + source SHAs
+      plan.md            ← Entity Backlog + Audit Roadmap + Fix Log
+      datapoints/        ← per-datapoint audit reports for this route
+        <metric>.md      ← e.g. attention-count.md, buy-price.md
+  phases/
+    PHASES.md            ← master phase tracker (all phases 1–8.x status)
+    plans/               ← archived phase plan files (Plan-Phase-*.md)
+  ref/                   ← reference corpus (entity catalog, wiring status, migration plan, open questions)
+    INDEX.md             ← reading-order guide for ref/
+  schema/
+    schema.sql           ← SQL schema snapshot
+    erd.md               ← ERD narrative
+    exports/             ← ER diagram exports (DBML, Excalidraw, Canvas)
+  ai-data-ref/           ← distilled, table-only views of ref/ for AI agents (cheaper to read)
+    CLAUDE.md            ← AI-agent guide for ai-data-ref/
+  docs/                  ← workflow documentation for audit skills
 ```
 
 ## What lives where
 
-### Audit reports (`*.md` in this folder)
-- One file per data point, named `<route-slug>--<metric-slug>.md`
+### Audit reports (`pages/<slug>/datapoints/*.md`)
+- One file per data point, named `<metric-slug>.md` inside its route's `datapoints/` folder
 - Written and updated by the `/audit-datapoint` skill
 - Never edit manually — re-run the skill instead; it detects source changes and bumps the revision
 - Each section (§1–§8) opens with a plain-English blockquote (no jargon, anyone can read it), followed by technical tables and code. Plain first, detail after.
@@ -41,9 +53,10 @@ The `ref/` folder has three tiers. Read in this order; stop when you have the an
 
 | File | Contents | When to read |
 |---|---|---|
-| `ref/09-page-wiring-status.md` | Per-page wiring state for all 15 routes — what's WIRED, HARDCODED, deferred | Before working on a page — tells you what's already done |
+| `ref/09-page-wiring-status.md` | Per-page wiring state for all 16 routes — what's WIRED, HARDCODED, deferred | Before working on a page — tells you what's already done |
 | `ref/07-entity-fields.md` | All 25 entities — full field tables, enums, relationships, anomalies | Before designing UI or touching schemas |
 | `ref/08-backend-migration-readiness.md` | Convex migration plan — Q-blockers, Zod→Convex schema mapping, derivation registry, phase sequencing | Before any backend / Convex work |
+| `ref/10-input-data-map.md` | Cross-app create/edit UI inventory — one row per entity (`built` / `stub` / `seed-only` / `derived` / `not-built`) + Gaps section listing where missing input UI should live | Before planning UI wiring for non-`Property` entities; companion to `/add-property` audit (Phase 9) |
 | `ref/05-open-questions.md` | Q1–Q9 ambiguities, with resolution notes inline | Whenever you hit `Q3.X` / `Q5.Y` cross-references; append new questions here |
 
 **Tier 2 — Narrative companions (older, partially current):**
@@ -63,7 +76,7 @@ The `ref/` folder has three tiers. Read in this order; stop when you have the an
 | `ref/06-simulated-backend-plan.md` | Plan that became reality (the FS layer) — historical context only |
 | `ref/visualizer-input.md` | One-shot brief for an HTML visualizer — not a reference |
 
-> **Rule:** `07`, `08`, `09`, `05` are the maintained set. When facts change, update those four. The Tier 2/3 files are frozen artifacts.
+> **Rule:** `07`, `08`, `09`, `10`, `05` are the maintained set. When facts change, update those five. The Tier 2/3 files are frozen artifacts.
 
 ### `ai-data-ref/` — AI-optimised view
 
@@ -134,4 +147,4 @@ If an audit surfaces an ambiguity not already in `ref/05-open-questions.md`:
 
 ## After database migration
 
-See [`deferred-database-migration.md`](deferred-database-migration.md) for guidance on re-auditing verification commands after migrating to NeonDB / Convex.
+See [`ref/deferred-database-migration.md`](ref/deferred-database-migration.md) for guidance on re-auditing verification commands after migrating to NeonDB / Convex.

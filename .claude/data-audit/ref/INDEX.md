@@ -13,6 +13,7 @@ Read first. These four files are kept in sync with the running code.
 | 1 | [`09-page-wiring-status.md`](./09-page-wiring-status.md) | You're about to touch a page and need to know what's already wired vs hardcoded |
 | 2 | [`07-entity-fields.md`](./07-entity-fields.md) | You're designing UI or touching a schema and need the full field table for an entity |
 | 3 | [`08-backend-migration-readiness.md`](./08-backend-migration-readiness.md) | You're planning Convex / backend work — Q-blockers, schema mapping, phase sequence |
+| 4 | [`10-input-data-map.md`](./10-input-data-map.md) | You're planning UI wiring for non-`Property` entities — one-row-per-entity create/edit UI inventory + gaps section with target-route assignments |
 | ✚ | [`05-open-questions.md`](./05-open-questions.md) | Anytime an audit cites `Q3.X` or `Q5.Y` — read for context + resolution status |
 
 ## Tier 2 — Narrative companions (older, partially current)

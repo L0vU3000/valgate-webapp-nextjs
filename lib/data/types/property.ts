@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { idSchema, userIdSchema, timestampSchema } from "./_common";
+import type { ProgressDetails } from "./progress";
 
 export const propertyStatusSchema = z.enum([
   "Rented",
@@ -36,7 +37,7 @@ export const PropertyCoreSchema = z.object({
   code: z.string().min(1),
   type: propertyTypeChoiceSchema,
   status: propertyStatusSchema,
-  health: z.number().int().min(0).max(100),
+  health: z.number().int().min(0).max(100).optional(),
   lat: z.number().min(-90).max(90),
   lng: z.number().min(-180).max(180),
   createdAt: timestampSchema,
@@ -97,11 +98,17 @@ export const PropertyListItemSchema = PropertySchema.pick({
   type: true,
   province: true,
   status: true,
-  health: true,
   totalArea: true,
   title: true,
 }).extend({
   buy: z.string(),
+  buyNumeric: z.number(),
+  isArchived: z.boolean().optional(),
+  progress: z.number().int().min(0).max(100),
 });
 
-export type PropertyListItem = z.infer<typeof PropertyListItemSchema>;
+export type PropertyListItem = z.infer<typeof PropertyListItemSchema> & {
+  progressDetails?: ProgressDetails;
+};
+
+export type { ProgressDetails };

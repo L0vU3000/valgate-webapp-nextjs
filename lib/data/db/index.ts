@@ -24,3 +24,4 @@ export * as professionals from "./professionals";
 export * as notificationPreferences from "./notification-preferences";
 export * as landParcels from "./land-parcels";
 export * as coOwners from "./co-owners";
+export * as dbdiagramState from "./dbdiagram-state";

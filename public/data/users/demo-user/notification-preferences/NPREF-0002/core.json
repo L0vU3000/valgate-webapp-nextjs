@@ -1,10 +1,10 @@
 {
-  "eventType": "teamComments",
+  "id": "NPREF-0002",
+  "userId": "demo-user",
+  "eventType": "Payment",
   "email": true,
-  "slack": true,
+  "slack": false,
   "sms": true,
   "createdAt": 1775001600000,
-  "updatedAt": 1775001600000,
-  "id": "NPREF-0002",
-  "userId": "demo-user"
+  "updatedAt": 1775001600000
 }

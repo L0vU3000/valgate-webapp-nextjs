@@ -1,10 +1,10 @@
 {
+  "id": "RISK-0003",
+  "userId": "demo-user",
   "propertyId": "PROP-0001",
   "severityLabel": "Low",
   "title": "Loose handrail",
   "desc": "Front porch handrail wobbles — schedule cosmetic repair within the quarter.",
   "createdAt": 1775001600000,
-  "updatedAt": 1775001600000,
-  "id": "RISK-0003",
-  "userId": "demo-user"
+  "updatedAt": 1775001600000
 }

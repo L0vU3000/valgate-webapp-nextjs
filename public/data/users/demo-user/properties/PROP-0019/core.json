@@ -1,0 +1,14 @@
+{
+  "id": "PROP-0019",
+  "userId": "demo-user",
+  "name": "Battambang Shophouse",
+  "code": "PROP-0019",
+  "type": "retail",
+  "status": "Vacant",
+  "health": 0,
+  "lat": 13.0957,
+  "lng": 103.2022,
+  "createdAt": 1778482038721,
+  "updatedAt": 1778482038721,
+  "isArchived": true
+}

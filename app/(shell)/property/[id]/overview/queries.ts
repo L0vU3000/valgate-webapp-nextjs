@@ -8,6 +8,8 @@ import type { Payment } from "@/lib/data/types/payment";
 import type { Expense } from "@/lib/data/types/expense";
 import type { Notification } from "@/lib/data/types/notification";
 import type { MaintenanceItem } from "@/lib/data/types/maintenance-item";
+import type { CoOwner } from "@/lib/data/types/co-owner";
+import type { OwnershipRecord } from "@/lib/data/types/ownership-record";
 
 export type OverviewPageData = {
   valuations: PropertyValuation[];
@@ -17,6 +19,8 @@ export type OverviewPageData = {
   expenses: Expense[];
   notifications: Notification[];
   maintenanceItems: MaintenanceItem[];
+  ownershipRecords: OwnershipRecord[];
+  coOwners: CoOwner[];
 };
 
 function notificationMatchesProperty(notification: Notification, propertyId: string): boolean {
@@ -36,6 +40,8 @@ export async function getOverviewPageData(propertyId: string): Promise<OverviewP
     allExpenses,
     allNotifications,
     allMaintenanceItems,
+    allOwnershipRecords,
+    allCoOwners,
   ] = await Promise.all([
     db.propertyValuations.list(userId),
     db.leases.list(userId),
@@ -44,6 +50,8 @@ export async function getOverviewPageData(propertyId: string): Promise<OverviewP
     db.expenses.list(userId),
     db.notifications.list(userId),
     db.maintenanceItems.list(userId),
+    db.ownershipRecords.list(userId),
+    db.coOwners.list(userId),
   ]);
   return {
     valuations: allValuations.filter((v) => v.propertyId === propertyId),
@@ -53,5 +61,7 @@ export async function getOverviewPageData(propertyId: string): Promise<OverviewP
     expenses: allExpenses.filter((e) => e.propertyId === propertyId),
     notifications: allNotifications.filter((n) => notificationMatchesProperty(n, propertyId)),
     maintenanceItems: allMaintenanceItems.filter((m) => m.propertyId === propertyId),
+    ownershipRecords: allOwnershipRecords.filter((r) => r.propertyId === propertyId),
+    coOwners: allCoOwners.filter((c) => c.propertyId === propertyId),
   };
 }

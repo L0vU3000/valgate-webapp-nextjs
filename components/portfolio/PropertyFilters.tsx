@@ -17,7 +17,6 @@ const STATUS_OPTIONS: FilterOption[] = [
   { value: "Vacant",   label: "Vacant",   dot: "bg-amber-500"   },
   { value: "For Sale", label: "For Sale", dot: "bg-blue-500"    },
   { value: "Sold",     label: "Sold",     dot: "bg-slate-400"   },
-  { value: "Archived", label: "Archived", dot: "bg-slate-300"   },
 ];
 
 const TYPE_DOT: Record<string, string> = {

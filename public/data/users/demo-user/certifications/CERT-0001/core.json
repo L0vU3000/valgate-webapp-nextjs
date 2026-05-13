@@ -1,4 +1,6 @@
 {
+  "id": "CERT-0001",
+  "userId": "demo-user",
   "propertyId": "PROP-0001",
   "name": "Fire Safety Certificate",
   "status": "Valid",
@@ -6,7 +8,5 @@
   "expires": "Mar 14, 2027",
   "inspector": "Noun Sreymom",
   "createdAt": 1775001600000,
-  "updatedAt": 1775001600000,
-  "id": "CERT-0001",
-  "userId": "demo-user"
+  "updatedAt": 1775001600000
 }

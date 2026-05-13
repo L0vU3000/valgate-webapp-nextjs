@@ -10,10 +10,13 @@ export const stepLabels = [
   "Success",
 ];
 
+export type WizardStatus = "" | "Rented" | "Vacant" | "Owner-Occupied";
+
 export interface FormData {
   method: "" | "photo" | "upload" | "manual";
   propertyType: string;
   propertyName: string;
+  status: WizardStatus;
   confirmedCode: string;
   addressLine: string;
   addressLine2: string;
@@ -50,6 +53,7 @@ export const defaultForm: FormData = {
   method: "",
   propertyType: "",
   propertyName: "",
+  status: "",
   confirmedCode: "",
   addressLine: "",
   addressLine2: "",

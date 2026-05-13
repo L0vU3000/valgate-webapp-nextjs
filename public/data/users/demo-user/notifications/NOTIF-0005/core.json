@@ -1,9 +1,9 @@
 {
+  "id": "NOTIF-0005",
+  "userId": "demo-user",
   "category": "APPLICATIONS",
   "title": "New tenant application",
   "description": "Application received for Toul Kork Urban Parcel.",
   "createdAt": 1774515600000,
-  "read": false,
-  "id": "NOTIF-0005",
-  "userId": "demo-user"
+  "read": false
 }

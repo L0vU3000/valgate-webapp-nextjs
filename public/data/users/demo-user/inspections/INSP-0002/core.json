@@ -1,4 +1,6 @@
 {
+  "id": "INSP-0002",
+  "userId": "demo-user",
   "propertyId": "PROP-0001",
   "date": "Sep 22, 2025",
   "type": "Electrical",
@@ -6,7 +8,5 @@
   "status": "Satisfactory",
   "issues": 2,
   "createdAt": 1775001600000,
-  "updatedAt": 1775001600000,
-  "id": "INSP-0002",
-  "userId": "demo-user"
+  "updatedAt": 1775001600000
 }

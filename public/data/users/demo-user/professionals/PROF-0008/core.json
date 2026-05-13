@@ -1,4 +1,6 @@
 {
+  "id": "PROF-0008",
+  "userId": "demo-user",
   "name": "Pheng Sokha",
   "company": "Phnom Penh Legal Partners",
   "category": "Lawyer",
@@ -12,7 +14,5 @@
   "phone": "+855 23 321 987",
   "verified": true,
   "createdAt": 1775001600000,
-  "updatedAt": 1775001600000,
-  "id": "PROF-0008",
-  "userId": "demo-user"
+  "updatedAt": 1775001600000
 }

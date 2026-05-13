@@ -1,13 +1,13 @@
 {
+  "id": "LEASE-0002",
+  "userId": "demo-user",
   "propertyId": "PROP-0006",
   "tenantId": "TEN-0002",
   "unit": "Unit 2B",
-  "stage": "Signed",
+  "stage": "Approaching",
   "startDate": 1746489600000,
-  "endDate": 1798675200000,
+  "endDate": 1778025600000,
   "monthlyRent": 1200,
-  "termMonths": 18,
-  "renewalStatus": "Pending decision",
-  "id": "LEASE-0002",
-  "userId": "demo-user"
+  "termMonths": 12,
+  "renewalStatus": "Pending decision"
 }

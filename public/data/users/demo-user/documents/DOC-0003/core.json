@@ -1,4 +1,6 @@
 {
+  "id": "DOC-0003",
+  "userId": "demo-user",
   "propertyId": "PROP-0006",
   "folderId": "FLDR-0003",
   "name": "Lease_Agreement_2026.pdf",
@@ -8,7 +10,5 @@
   "sizeBytes": 890000,
   "storageId": "_storage/PROP-0006/lease-2026.pdf",
   "category": "Rental",
-  "uploadedAt": 1772409600000,
-  "id": "DOC-0003",
-  "userId": "demo-user"
+  "uploadedAt": 1772409600000
 }

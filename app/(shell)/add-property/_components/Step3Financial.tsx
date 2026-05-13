@@ -1,7 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import type { FormData } from "./types";
+import { Users, Home, KeyRound } from "lucide-react";
+import { cn } from "@/components/ui/utils";
+import type { FormData, WizardStatus } from "./types";
+
+const STATUS_OPTIONS: { value: Exclude<WizardStatus, "">; label: string; sub: string; Icon: typeof Users }[] = [
+  { value: "Rented", label: "Rented", sub: "Tenant in place", Icon: KeyRound },
+  { value: "Owner-Occupied", label: "Owner-occupied", sub: "You live here", Icon: Home },
+  { value: "Vacant", label: "Vacant", sub: "Empty / available", Icon: Users },
+];
 
 function usePrefersReducedMotion() {
   const [reduced, setReduced] = useState(false);
@@ -48,6 +56,10 @@ export function Step3Financial({
     goNext?.();
   }
 
+  function handleStatusSelect(value: Exclude<WizardStatus, "">) {
+    setForm({ ...form, status: value });
+  }
+
   const ease = "cubic-bezier(0.25, 1, 0.5, 1)";
 
   function enterStyle(delayMs: number): React.CSSProperties {
@@ -64,17 +76,60 @@ export function Step3Financial({
       {/* Heading */}
       <div className="flex flex-col gap-[11px] items-center w-full" style={enterStyle(0)}>
         <h2 className="text-[28px] font-bold text-[#1a1c1c] text-center leading-10">
-          What is this property worth?
+          Status and value
         </h2>
         <p className="text-[16px] text-[#5b5f62] text-center leading-[1.43]">
-          Your best estimate is fine — purchase price or market value, whichever you know.
+          Where things stand today and your best estimate of value.
         </p>
       </div>
 
-      {/* Card */}
+      {/* Status selector */}
+      <div className="flex flex-col gap-3 w-full" style={enterStyle(60)}>
+        <span className="text-[14px] text-foreground" style={{ fontWeight: 600 }}>
+          Current status
+        </span>
+        <div className="grid grid-cols-3 gap-2">
+          {STATUS_OPTIONS.map((opt) => {
+            const selected = form.status === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => handleStatusSelect(opt.value)}
+                className={cn(
+                  "flex flex-col items-start gap-1.5 rounded-xl border px-4 py-3 text-left transition-all duration-200",
+                  "hover:scale-[1.02] active:scale-[0.98]",
+                  selected
+                    ? "border-primary bg-primary/5"
+                    : "border-border bg-background hover:border-slate-400",
+                )}
+                aria-pressed={selected}
+              >
+                <opt.Icon
+                  className={cn(
+                    "w-4 h-4 transition-colors duration-200",
+                    selected ? "text-primary" : "text-muted-foreground",
+                  )}
+                />
+                <span
+                  className={cn(
+                    "text-[14px] font-semibold leading-5",
+                    selected ? "text-primary" : "text-foreground",
+                  )}
+                >
+                  {opt.label}
+                </span>
+                <span className="text-[12px] text-muted-foreground leading-4">{opt.sub}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Value card */}
       <div
         className="flex flex-col gap-4 items-start p-6 rounded-2xl border border-border w-full"
-        style={enterStyle(90)}
+        style={enterStyle(120)}
       >
         {/* Dollar input */}
         <div className="relative w-full group">

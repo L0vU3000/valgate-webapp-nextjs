@@ -7,7 +7,7 @@ import type { NewProperty } from "@/lib/data/db/properties";
 import type { PropertyTypeChoice } from "@/lib/data/types/property";
 import { logger } from "@/lib/logger";
 
-const CAMBODIA_CENTROID: [number, number] = [12.5657, 104.991];
+const CAMBODIA_CENTROID: [number, number] = [104.991, 12.5657];
 
 export async function submitPropertyAction(
   form: WizardForm,
@@ -18,7 +18,11 @@ export async function submitPropertyAction(
       logger.warn("submitPropertyAction validation failed", {
         issues: parsed.error.issues,
       });
-      return { ok: false, error: "Please review the form and try again." };
+      const first = parsed.error.issues[0];
+      return {
+        ok: false,
+        error: first?.message ?? "Please review the form and try again.",
+      };
     }
 
     const propertyInput = mapWizardToProperty(form);
@@ -33,14 +37,16 @@ export async function submitPropertyAction(
 }
 
 function mapWizardToProperty(form: WizardForm): NewProperty {
-  const buyNumeric = parseCurrency(form.purchasePrice) ?? 0;
-  const [lat, lng] = form.mapCenter ?? CAMBODIA_CENTROID;
+  const buyNumeric =
+    parseCurrency(form.purchasePrice) ??
+    parseCurrency(form.currentMarketValue) ??
+    0;
+  const [lng, lat] = form.mapCenter ?? CAMBODIA_CENTROID;
 
   return {
     name: form.propertyName,
     type: form.propertyType as PropertyTypeChoice,
-    status: "Vacant",
-    health: 50,
+    status: form.status || "Vacant",
     lat,
     lng,
 

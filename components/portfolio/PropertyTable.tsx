@@ -1,14 +1,53 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { TYPE_ICON, TYPE_COLOR, TYPE_LABEL, typeBadgeClasses, statusBadgeClasses, titleBadgeClasses, healthDotColor } from "../../lib/property-helpers";
+"use client";
+
+import { useState } from "react";
+import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, ChevronsUpDown, Info } from "lucide-react";
+import { TYPE_ICON, TYPE_COLOR, TYPE_LABEL, typeBadgeClasses, statusBadgeClasses, titleBadgeClasses, progressDotColor } from "../../lib/property-helpers";
 import type { PropertyListItem } from "@/lib/data/types/property";
+import { restorePropertyAction } from "@/app/(shell)/property/actions";
+import { toast } from "sonner";
+import { ProgressModal } from "./ProgressModal";
+import { ProgressExplainerModal } from "./ProgressExplainerModal";
+import { useDismissable } from "@/lib/hooks/use-dismissable";
+
+export type SortKey = "name" | "province" | "status" | "size" | "buy" | "progress"
+
+function SortableHeader({
+  label, sortK, current, dir, onSort, align = "left",
+}: {
+  label: string
+  sortK: SortKey
+  current: SortKey | null
+  dir: "asc" | "desc"
+  onSort: (k: SortKey) => void
+  align?: "left" | "right"
+}) {
+  const active = current === sortK
+  const Icon = !active ? ChevronsUpDown : dir === "asc" ? ChevronUp : ChevronDown
+  return (
+    <button
+      onClick={() => onSort(sortK)}
+      className={`group flex items-center gap-1 text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em] hover:text-val-heading transition-colors duration-150 select-none ${align === "right" ? "ml-auto" : ""}`}
+    >
+      {label}
+      <Icon
+        className={`w-3.5 h-3.5 flex-shrink-0 transition-all duration-150 ${
+          active
+            ? "text-[--val-primary-dark] opacity-100"
+            : "text-slate-400 opacity-40 group-hover:opacity-100 group-hover:text-slate-600"
+        }`}
+      />
+    </button>
+  )
+}
 
 export interface TableAnimationConfig {
   containerDuration: number;
   containerDelay: number;
   rowDuration: number;
   rowStagger: number;
-  healthBarDelay: number;
-  healthBarStagger: number;
+  progressBarDelay: number;
+  progressBarStagger: number;
 }
 
 const DEFAULT_ANIMATION_CONFIG: TableAnimationConfig = {
@@ -16,8 +55,8 @@ const DEFAULT_ANIMATION_CONFIG: TableAnimationConfig = {
   containerDelay: 0,
   rowDuration: 400,
   rowStagger: 25,
-  healthBarDelay: 100,
-  healthBarStagger: 30,
+  progressBarDelay: 100,
+  progressBarStagger: 30,
 };
 
 interface PropertyTableProps {
@@ -32,6 +71,11 @@ interface PropertyTableProps {
   goToPage: (page: number) => void;
   onClearFilters: () => void;
   animationConfig?: TableAnimationConfig;
+  showArchived?: boolean;
+  showProgressExplainer?: boolean;
+  sortKey: SortKey | null;
+  sortDir: "asc" | "desc";
+  onSort: (key: SortKey) => void;
 }
 
 export function PropertyTable({
@@ -46,9 +90,23 @@ export function PropertyTable({
   goToPage,
   onClearFilters,
   animationConfig,
+  showArchived = false,
+  showProgressExplainer = true,
+  sortKey,
+  sortDir,
+  onSort,
 }: PropertyTableProps) {
   const cfg = animationConfig ?? DEFAULT_ANIMATION_CONFIG;
+  const [progressProperty, setProgressProperty] = useState<PropertyListItem | null>(null);
+  const [explainerForcedOpen, setExplainerForcedOpen] = useState(false);
+  const { visible: showExplainerOnce, dismiss: dismissExplainerOnce } = useDismissable("vg_progress_explainer_seen", { delay: 800 });
+  const showExplainer = showProgressExplainer && (showExplainerOnce || explainerForcedOpen);
+  const handleCloseExplainer = () => { dismissExplainerOnce(); setExplainerForcedOpen(false); };
+
   return (
+    <>
+    <ProgressModal property={progressProperty} onClose={() => setProgressProperty(null)} />
+    <ProgressExplainerModal open={showExplainer} onClose={handleCloseExplainer} />
     <div
       className="bg-white rounded-lg border border-slate-200 shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden"
       style={{
@@ -68,29 +126,40 @@ export function PropertyTable({
               <th className="text-left py-4 px-3 text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em] w-[48px]">
                 #
               </th>
-              <th className="text-left py-4 px-3 text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">
-                Property
+              <th className="text-left py-4 px-3 text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]" aria-sort={sortKey === "name" ? (sortDir === "asc" ? "ascending" : "descending") : "none"}>
+                <SortableHeader label="Name" sortK="name" current={sortKey} dir={sortDir} onSort={onSort} />
               </th>
               <th className="text-left py-4 px-3 text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">
                 Type
               </th>
-              <th className="text-left py-4 px-3 text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">
-                Province
+              <th className="text-left py-4 px-3 text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]" aria-sort={sortKey === "province" ? (sortDir === "asc" ? "ascending" : "descending") : "none"}>
+                <SortableHeader label="Province" sortK="province" current={sortKey} dir={sortDir} onSort={onSort} />
               </th>
-              <th className="text-left py-4 px-3 text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">
-                Status
+              <th className="text-left py-4 px-3 text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]" aria-sort={sortKey === "status" ? (sortDir === "asc" ? "ascending" : "descending") : "none"}>
+                <SortableHeader label="Status" sortK="status" current={sortKey} dir={sortDir} onSort={onSort} />
               </th>
-              <th className="text-right py-4 px-3 text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">
-                Size
+              <th className="text-right py-4 px-3 text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]" aria-sort={sortKey === "size" ? (sortDir === "asc" ? "ascending" : "descending") : "none"}>
+                <SortableHeader label="Size" sortK="size" current={sortKey} dir={sortDir} onSort={onSort} align="right" />
               </th>
-              <th className="text-right py-4 px-3 text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">
-                Buy
+              <th className="text-right py-4 px-3 text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]" aria-sort={sortKey === "buy" ? (sortDir === "asc" ? "ascending" : "descending") : "none"}>
+                <SortableHeader label="Buy" sortK="buy" current={sortKey} dir={sortDir} onSort={onSort} align="right" />
               </th>
               <th className="text-center py-4 px-3 text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">
                 Title
               </th>
-              <th className="text-right py-4 px-3 text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">
-                Health
+              <th className="text-center py-4 px-3 text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]" aria-sort={!showArchived && sortKey === "progress" ? (sortDir === "asc" ? "ascending" : "descending") : "none"}>
+                {showArchived ? "Action" : (
+                  <div className="flex items-center gap-1 justify-center">
+                    <SortableHeader label="Progress" sortK="progress" current={sortKey} dir={sortDir} onSort={onSort} />
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setExplainerForcedOpen(true); }}
+                      className="w-4 h-4 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors duration-150 ml-0.5"
+                      aria-label="What is Progress?"
+                    >
+                      <Info className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
               </th>
             </tr>
           </thead>
@@ -98,31 +167,41 @@ export function PropertyTable({
             {pageRows.length === 0 ? (
               <tr>
                 <td colSpan={10} className="py-20 text-center">
-                  <p className="text-[14px] text-slate-400">No properties match your filters.</p>
-                  <button
-                    onClick={onClearFilters}
-                    className="mt-3 text-[14px] text-blue-600 font-medium hover:underline"
-                  >
-                    Clear all filters
-                  </button>
+                  <p className="text-[14px] text-slate-400">
+                    {showArchived ? "No archived properties." : "No properties match your filters."}
+                  </p>
+                  {!showArchived && (
+                    <button
+                      onClick={onClearFilters}
+                      className="mt-3 text-[14px] text-blue-600 font-medium hover:underline"
+                    >
+                      Clear all filters
+                    </button>
+                  )}
                 </td>
               </tr>
             ) : (
               pageRows.map((p, i) => {
                 const TypeIcon = TYPE_ICON[p.type];
                 const typeColor = TYPE_COLOR[p.type];
-                const hDot = healthDotColor(p.health);
+                const hDot = progressDotColor(p.progress);
+                const progressTextColor = p.progress >= 80 ? "text-emerald-600" : p.progress >= 50 ? "text-amber-500" : "text-red-400";
+                const rowIsArchived = showArchived || !!p.isArchived;
                 return (
                   <tr
                     key={p.id}
-                    className="border-t border-slate-100 hover:bg-blue-50/30 cursor-pointer group transition-colors duration-150"
-                    aria-label={`View ${p.name}`}
-                    tabIndex={0}
-                    role="link"
-                    onClick={() => navigate(`/property/${p.id}`)}
-                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate(`/property/${p.id}`); } }}
+                    className={`border-t border-slate-100 transition-colors duration-150 ${
+                      rowIsArchived
+                        ? "opacity-60"
+                        : "hover:bg-blue-50/30 cursor-pointer group"
+                    }`}
+                    aria-label={rowIsArchived ? p.name : `View ${p.name}`}
+                    tabIndex={rowIsArchived ? undefined : 0}
+                    role={rowIsArchived ? undefined : "link"}
+                    onClick={rowIsArchived ? undefined : () => navigate(`/property/${p.id}`)}
+                    onKeyDown={rowIsArchived ? undefined : (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate(`/property/${p.id}`); } }}
                     style={{
-                      opacity: mounted ? 1 : 0,
+                      opacity: mounted ? (rowIsArchived ? 0.6 : 1) : 0,
                       transform: mounted ? "translateY(0)" : "translateY(-6px)",
                       transition: `opacity ${cfg.rowDuration}ms cubic-bezier(0.25,1,0.5,1), transform ${cfg.rowDuration}ms cubic-bezier(0.25,1,0.5,1)`,
                       transitionDelay: `${cfg.containerDelay + i * cfg.rowStagger}ms`,
@@ -146,7 +225,7 @@ export function PropertyTable({
                     {/* Property — thumbnail + name + code */}
                     <td className="py-3 px-3">
                       <div className="flex items-center gap-3">
-                        <div className={`w-9 h-9 rounded-md flex items-center justify-center shrink-0 ${typeColor} transition-transform duration-200 group-hover:scale-105`}>
+                        <div className={`w-9 h-9 rounded-md flex items-center justify-center shrink-0 ${typeColor} ${rowIsArchived ? "" : "transition-transform duration-200 group-hover:scale-105"}`}>
                           <TypeIcon className="w-4 h-4" />
                         </div>
                         <div className="min-w-0">
@@ -193,23 +272,42 @@ export function PropertyTable({
                       )}
                     </td>
 
-                    {/* Health */}
-                    <td className="py-3 px-3 text-right">
-                      <div aria-label={`Health ${p.health}%`} className="inline-flex flex-col items-end gap-1">
-                        <div className="flex items-center gap-1.5">
-                          <span className={`w-[7px] h-[7px] rounded-full ${hDot}`} />
-                          <span className="text-[12px] font-medium text-slate-700">{p.health}%</span>
-                        </div>
-                        <div className="w-[52px] h-[3px] bg-slate-200 rounded-sm overflow-hidden">
-                          <div
-                            className={`h-full rounded-sm ${hDot} transition-[width] duration-700 ease-out`}
-                            style={{
-                              width: mounted ? `${p.health}%` : "0%",
-                              transitionDelay: `${cfg.containerDelay + cfg.healthBarDelay + i * cfg.healthBarStagger}ms`,
-                            }}
-                          />
-                        </div>
-                      </div>
+                    {/* Progress / Action */}
+                    <td className="py-3 px-3 text-center">
+                      {rowIsArchived ? (
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            const result = await restorePropertyAction(p.id);
+                            if (result.ok) toast.success("Property restored");
+                          }}
+                          className="px-3 py-1.5 text-[12px] font-semibold text-slate-600 border border-slate-200 rounded hover:bg-slate-50 transition-colors duration-150"
+                        >
+                          Restore
+                        </button>
+                      ) : (
+                        <button
+                          aria-label={`Progress ${p.progress}% — click to see details`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (p.progressDetails) setProgressProperty(p);
+                          }}
+                          className="inline-flex flex-col items-center gap-1.5 rounded-md px-3 py-2 border border-slate-200 hover:border-blue-300 hover:bg-blue-50/50 active:bg-blue-100/40 transition-all duration-150 group mx-auto min-w-[68px]"
+                        >
+                          <span className={`text-[13px] font-bold tabular-nums leading-none transition-colors duration-150 group-hover:text-blue-700 ${progressTextColor}`}>
+                            {p.progress}%
+                          </span>
+                          <div className="w-full h-[4px] bg-slate-100 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full ${hDot} transition-[width] duration-700 ease-out`}
+                              style={{
+                                width: mounted ? `${p.progress}%` : "0%",
+                                transitionDelay: `${cfg.containerDelay + cfg.progressBarDelay + i * cfg.progressBarStagger}ms`,
+                              }}
+                            />
+                          </div>
+                        </button>
+                      )}
                     </td>
                   </tr>
                 );
@@ -265,5 +363,6 @@ export function PropertyTable({
         )}
       </div>
     </div>
+    </>
   );
 }

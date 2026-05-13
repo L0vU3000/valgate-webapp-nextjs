@@ -20,7 +20,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { cn } from "@/components/ui/utils";
-import { healthClass, healthBgClass, titleToVariant } from "@/lib/property-helpers";
+import { progressClass, progressBgClass, titleToVariant } from "@/lib/property-helpers";
 import type { HomeProperty, TitleVariant, PortfolioStats } from "@/app/(shell)/queries";
 import { CommandPalette } from "@/components/home/CommandPalette";
 import { PropertyTable } from "@/components/portfolio/PropertyTable";
@@ -45,8 +45,8 @@ const HOME_TABLE_ANIMATION: TableAnimationConfig = {
   containerDelay: 0,
   rowDuration: 300,
   rowStagger: 15,
-  healthBarDelay: 80,
-  healthBarStagger: 20,
+  progressBarDelay: 80,
+  progressBarStagger: 20,
 };
 
 const triggerPlaceholders = [
@@ -313,16 +313,16 @@ export function HomePage({ initialProperties, portfolioStats }: { initialPropert
                 className="flex items-center justify-between [animation:card-row-in_0.35s_cubic-bezier(0.16,1,0.3,1)_both]"
                 style={{ animationDelay: "450ms" }}
               >
-                <span className="text-secondary">Health</span>
+                <span className="text-secondary">Progress</span>
                 <div className="flex items-center gap-2">
                   <div className="w-16 h-1.5 rounded-full bg-surface-sunken overflow-hidden">
                     <div
-                      className={cn("h-full rounded-full origin-left [animation:health-bar-fill_0.6s_cubic-bezier(0.16,1,0.3,1)_0.5s_both]", healthBgClass(drawerProperty.health))}
-                      style={{ width: `${drawerProperty.health}%` }}
+                      className={cn("h-full rounded-full origin-left [animation:health-bar-fill_0.6s_cubic-bezier(0.16,1,0.3,1)_0.5s_both]", progressBgClass(drawerProperty.progress))}
+                      style={{ width: `${drawerProperty.progress}%` }}
                     />
                   </div>
-                  <span className={cn("font-medium tabular-nums", healthClass(drawerProperty.health))}>
-                    {drawerProperty.health}%
+                  <span className={cn("font-medium tabular-nums", progressClass(drawerProperty.progress))}>
+                    {drawerProperty.progress}%
                   </span>
                 </div>
               </div>
@@ -390,6 +390,10 @@ export function HomePage({ initialProperties, portfolioStats }: { initialPropert
                 goToPage={() => {}}
                 onClearFilters={() => {}}
                 animationConfig={HOME_TABLE_ANIMATION}
+                showProgressExplainer={false}
+                sortKey={null}
+                sortDir="asc"
+                onSort={() => {}}
               />
             </div>
           </div>

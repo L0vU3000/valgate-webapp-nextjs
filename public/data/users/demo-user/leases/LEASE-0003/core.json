@@ -1,12 +1,12 @@
 {
+  "id": "LEASE-0003",
+  "userId": "demo-user",
   "propertyId": "PROP-0011",
   "tenantId": "TEN-0003",
   "unit": "Penthouse",
-  "stage": "Signed",
+  "stage": "Offered",
   "startDate": 1777593600000,
   "endDate": 1809129600000,
   "monthlyRent": 2500,
-  "termMonths": 12,
-  "id": "LEASE-0003",
-  "userId": "demo-user"
+  "termMonths": 12
 }

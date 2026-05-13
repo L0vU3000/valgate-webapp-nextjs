@@ -547,14 +547,13 @@ Table ownership_documents {
   type        text [not null]
   date        text [not null, note: 'A1: should be bigint']
   owner       text [not null]
+  status      text [note: 'enum: Current | Superseded | Archived']
   created_at  bigint [not null]
   updated_at  bigint [not null]
 
   Indexes {
     property_id [name: 'idx_ownership_documents_property_id']
   }
-
-  Note: 'A10 missing: status field — UI hardcodes "Current"'
 }
 
 // ---------------------------------------------------------------------

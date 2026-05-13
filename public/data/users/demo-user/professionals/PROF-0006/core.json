@@ -1,4 +1,6 @@
 {
+  "id": "PROF-0006",
+  "userId": "demo-user",
   "name": "Ly Bopha",
   "company": "ClearBooks Cambodia",
   "category": "Accountant",
@@ -12,7 +14,5 @@
   "phone": "+855 23 654 321",
   "verified": true,
   "createdAt": 1775001600000,
-  "updatedAt": 1775001600000,
-  "id": "PROF-0006",
-  "userId": "demo-user"
+  "updatedAt": 1775001600000
 }

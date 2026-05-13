@@ -1,11 +1,10 @@
 {
+  "id": "NOTIF-0001",
+  "userId": "demo-user",
   "category": "MAINTENANCE",
   "title": "Burst pipe at PP00016",
   "description": "Emergency plumber dispatched. Water mains shut off.",
   "createdAt": 1775032200000,
-  "read": false,
-  "propertyId": "PROP-0001",
-  "linkTo": "/property/PROP-0001/safety",
-  "id": "NOTIF-0001",
-  "userId": "demo-user"
+  "read": true,
+  "linkTo": "/property/PROP-0001/safety"
 }

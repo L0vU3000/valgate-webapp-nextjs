@@ -1,8 +1,8 @@
 {
+  "id": "VAL-0002",
+  "userId": "demo-user",
   "propertyId": "PROP-0001",
   "month": "Feb 2026",
   "price": 1295000,
-  "recordedAt": 1772236800000,
-  "id": "VAL-0002",
-  "userId": "demo-user"
+  "recordedAt": 1772236800000
 }

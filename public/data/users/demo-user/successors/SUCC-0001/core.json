@@ -1,4 +1,6 @@
 {
+  "id": "SUCC-0001",
+  "userId": "demo-user",
   "name": "Sophea Chan",
   "initials": "SC",
   "relation": "Spouse",
@@ -6,7 +8,5 @@
   "share": 75,
   "verified": true,
   "createdAt": 1743465600000,
-  "updatedAt": 1775001600000,
-  "id": "SUCC-0001",
-  "userId": "demo-user"
+  "updatedAt": 1775001600000
 }

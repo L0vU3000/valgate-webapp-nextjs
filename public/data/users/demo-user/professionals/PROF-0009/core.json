@@ -1,4 +1,6 @@
 {
+  "id": "PROF-0009",
+  "userId": "demo-user",
   "name": "Kem Dara",
   "company": "Angkor Notary Services",
   "category": "Notary",
@@ -12,7 +14,5 @@
   "phone": "+855 63 456 123",
   "verified": true,
   "createdAt": 1775001600000,
-  "updatedAt": 1775001600000,
-  "id": "PROF-0009",
-  "userId": "demo-user"
+  "updatedAt": 1775001600000
 }

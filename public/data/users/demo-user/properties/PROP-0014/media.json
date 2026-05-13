@@ -1,4 +1,7 @@
 {
+  "totalArea": "4,119",
   "title": "Hard title",
-  "totalArea": "4119"
+  "bedrooms": "5",
+  "bathrooms": "5",
+  "parkingSpaces": "3"
 }

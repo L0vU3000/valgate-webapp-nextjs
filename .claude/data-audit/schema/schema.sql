@@ -376,9 +376,9 @@ CREATE TABLE ownership_documents (
   type         TEXT NOT NULL,
   date         TEXT NOT NULL,                                               -- A1: should be BIGINT
   owner        TEXT NOT NULL,
+  status       TEXT CHECK (status IN ('Current', 'Superseded', 'Archived')),
   created_at   BIGINT NOT NULL,
   updated_at   BIGINT NOT NULL
-  -- A10 missing: status TEXT — UI hardcodes "Current"
 );
 CREATE INDEX idx_ownership_documents_property_id ON ownership_documents(property_id);
 

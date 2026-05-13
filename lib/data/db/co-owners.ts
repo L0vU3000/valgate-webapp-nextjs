@@ -16,6 +16,10 @@ export async function list(userId: string): Promise<CoOwner[]> {
   return rows.map((r) => CoOwnerSchema.parse(r));
 }
 
+export async function listByProperty(userId: string, propertyId: string): Promise<CoOwner[]> {
+  return (await list(userId)).filter((r) => r.propertyId === propertyId);
+}
+
 export async function get(userId: string, id: string): Promise<CoOwner | null> {
   const row = await readMergedRecord<unknown>(userId, COLLECTION, id);
   return row ? CoOwnerSchema.parse(row) : null;

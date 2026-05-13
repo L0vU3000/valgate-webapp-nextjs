@@ -133,6 +133,7 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
       method: "manual",
       propertyType: "residential",
       propertyName: "Sunny Vista Retreat",
+      status: "Rented",
       confirmedCode: "",
       addressLine: "2847 Oceanview Drive",
       addressLine2: "",

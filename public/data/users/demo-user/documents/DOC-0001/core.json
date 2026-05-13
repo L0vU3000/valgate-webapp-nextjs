@@ -1,4 +1,6 @@
 {
+  "id": "DOC-0001",
+  "userId": "demo-user",
   "propertyId": "PROP-0001",
   "folderId": "FLDR-0001",
   "name": "Title_Deed.pdf",
@@ -8,7 +10,5 @@
   "sizeBytes": 1240000,
   "storageId": "_storage/PROP-0001/title-deed.pdf",
   "category": "Title",
-  "uploadedAt": 1743897600000,
-  "id": "DOC-0001",
-  "userId": "demo-user"
+  "uploadedAt": 1743897600000
 }

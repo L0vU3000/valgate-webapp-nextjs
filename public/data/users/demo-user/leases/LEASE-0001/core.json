@@ -1,4 +1,6 @@
 {
+  "id": "LEASE-0001",
+  "userId": "demo-user",
   "propertyId": "PROP-0001",
   "tenantId": "TEN-0001",
   "unit": "Unit 1A",
@@ -7,7 +9,5 @@
   "endDate": 1790985600000,
   "monthlyRent": 850,
   "termMonths": 12,
-  "renewalStatus": "Auto-renew",
-  "id": "LEASE-0001",
-  "userId": "demo-user"
+  "renewalStatus": "Auto-renew"
 }

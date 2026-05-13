@@ -19,7 +19,7 @@ sources: code (queries.ts + components) cross-checked against pages/<slug>/plan.
 
 ## TL;DR
 
-- **15 routes audited** — 11 ✅ fully wired · 3 🟡 partial · 1 ⏸️ deferred (Safety, per user)
+- **16 routes audited** — 11 ✅ fully wired · 3 🟡 partial · 1 ⏸️ deferred (Safety, per user) · 1 🔴 input-form with bugs (`/add-property`, Phase 9)
 - **Pre-wiring HARDCODED count:** ~108 surfaces. **Post-wiring HARDCODED:** ~28 surfaces (74% wired).
 - **Remaining HARDCODED clusters** are concentrated in 3 places:
   - `/rental` heatmap LeaseTable yield ranking (PF4 — gated on PropertyComparable)
@@ -36,7 +36,7 @@ sources: code (queries.ts + components) cross-checked against pages/<slug>/plan.
 | 1 | `/portfolio` | 16 | 0 | 0 | ✅ Fully wired | 6.0 + YoY Rev 2 |
 | 2 | `/property/[id]/overview` | 16 | 0 | 0 | ✅ Fully wired | 6.1 + 6.2 + 6.8 + 8.8 |
 | 3 | `/property/[id]/safety` | 16 | 9 | 3 | ⏸️ **DEFERRED** (per user) | — |
-| 4 | `/property/[id]/ownership` | 31 | 1 | 0 | ✅ Fully wired (1 OwnershipDocument.status field gap) | 6.5 + 6.6 |
+| 4 | `/property/[id]/ownership` | 37 | 0 | 0 | ✅ Fully wired | 6.5 + 6.6 + 8.7 |
 | 5 | `/property/[id]/valuation` | 10 | 12 | 0 | 🟡 Partial (MarketSnapshot + PropertyComparable cards still mocked) | 6.0 valuation Rev 2 |
 | 6 | `/property/[id]/rental` | 32 | 0 | 0 | ✅ Fully wired | 6.1 + 6.2 + 6.3 + 6.7 + 6.8 |
 | 7 | `/property/[id]/location` | 15 | 7 | 0 | 🟡 Partial (PropertyComparable section + map placeholder) | 6.4 |
@@ -48,6 +48,9 @@ sources: code (queries.ts + components) cross-checked against pages/<slug>/plan.
 | 13 | `/estate-planning` | 18 | 0 | 2 | ✅ Fully wired (2 PARTIAL: action stubs) | 8.5 |
 | 14 | `/profile` | 14 | 0 | 0 | ✅ Fully wired | 8.6 |
 | 15 | `/settings` | 16 | 3 | 0 | ✅ Fully wired (NOTIFICATION_ROWS labels are CHROME config) | 8.7 |
+| 16 | `/add-property` | 14¹ | 13² | 4 | 🟢 **Input form** (taxonomy adapted: ¹COLLECTED, ²DEFERRED-BY-DESIGN) — Phase 9 Rev 3: 6 of 11 PFn resolved (P0 bugs, schema, status, drafts); 5 open (architectural + cross-route work) | 9 |
+
+¹/² **Note on row 16**: `/add-property` is the only input-capture route audited so far. The "WIRED" column shows COLLECTED fields (user inputs that reach a destination); the "HARDCODED" column lumps 14 DEFERRED-BY-DESIGN fields (transformed in `actions.ts` but never collected in UI) with 2 BROKEN surfaces (Step 4 file inputs without `onChange`). See `pages/add-property/audit.md` for the full taxonomy.
 
 **Legend:** ✅ Fully wired (zero or only-CHROME HARDCODED) · 🟡 Partial (live HARDCODED that block UI work) · ⏸️ Deferred (work explicitly paused).
 
@@ -83,9 +86,9 @@ sources: code (queries.ts + components) cross-checked against pages/<slug>/plan.
 ### 4. `/property/[id]/ownership` — ✅ Fully wired
 
 **Entities consumed:** OwnershipDocument, OwnershipHistory, CoOwner, OwnershipRecord, Lease (for monthly rent income derivation)
-**What's wired:** all KPI cards (holding type, total owners, acquisition price, holding period), Equity panel (current value, appreciation, mortgage, equity bar, LTV, monthly P/I, mortgage terms, next payment due), CoOwner split donut + legend + 2 owner cards, acquisition details (10 fields), distribution method, rent split + expense responsibility, history timeline.
-**Remaining HARDCODED:** Row 31 — `OwnershipDocument.status` field absent on entity (always shows "Current" emerald badge).
-**Notes:** Phase 6.6 added the catalog §21 OwnershipRecord entity (loan + acquisition fields) and renamed the deed-record entity to `OwnershipDocument` (PF5 closure).
+**What's wired:** all KPI cards (holding type, total owners, acquisition price, holding period), Equity panel (current value, appreciation, mortgage, equity bar, LTV, monthly P/I, mortgage terms, next payment due), CoOwner split donut + legend + 2 owner cards, acquisition details (10 fields), distribution method, rent split + expense responsibility, history timeline, document status badge.
+**Remaining HARDCODED:** none.
+**Notes:** Phase 8.7 completed: `OwnershipDocument.status` field added (`Current|Superseded|Archived`), Property financial promotions wired via `buildPropertyFinancials()` (acquisitionPrice, holdingPeriod, currentMarketValue, appreciationPct, outstandingMortgage, equityAmount, equityPct, ltv, monthlyPayment), `listByProperty` added to 4 DB modules (PF3). Phase 6.6 added OwnershipRecord §21 + renamed deed entity to `OwnershipDocument` (PF5).
 
 ### 5. `/property/[id]/valuation` — 🟡 Partial
 
@@ -183,10 +186,11 @@ These are config arrays, not data; treating as fully wired.
 ## Pages NOT yet audited
 
 - `/` (home) — map + dashboard composite
-- `/add-property` (6-step wizard) — autosave/Draft entity decision pending (Q4.A)
 - `/login`, `/register`, `/auth/*` — auth flows (Clerk)
 
 These would each need a separate `/audit-page-datapoints` run. They do not change the entity build order.
+
+`/add-property` was audited in Phase 9 (2026-05-13) using an adapted input-form taxonomy — see `pages/add-property/audit.md` and `ref/10-input-data-map.md`.
 
 ---
 

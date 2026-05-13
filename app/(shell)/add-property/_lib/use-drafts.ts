@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useCallback } from "react";
 import type { FormData, Step, DraftRecord } from "../_components/types";
-import { defaultForm } from "../_components/types";
 
-const STORAGE_KEY = "add-property-drafts";
-const ACTIVE_KEY = "add-property-active-draft";
+const STORAGE_KEY = "valgate:add-property:drafts:v1";
+const ACTIVE_KEY = "valgate:add-property:active-draft:v1";
+const LEGACY_DRAFTS_KEY = "add-property-drafts";
+const LEGACY_ACTIVE_KEY = "add-property-active-draft";
 
 interface UseDraftsReturn {
   drafts: DraftRecord[];
@@ -17,16 +18,61 @@ interface UseDraftsReturn {
   clearActive: () => void;
 }
 
-function readDrafts(): DraftRecord[] {
+function stripFileBlobs(form: FormData): FormData {
+  // File blobs do not survive JSON.stringify (become {}); strip them explicitly
+  // so the persisted shape matches FormData's serializable subset.
+  const { photoFile: _pf, uploadFile: _uf, ...rest } = form;
+  void _pf;
+  void _uf;
+  return rest as FormData;
+}
+
+function serializeDraft(r: DraftRecord): DraftRecord {
+  return { ...r, form: stripFileBlobs(r.form) };
+}
+
+function readAndMigrateDrafts(): DraftRecord[] {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]");
+    const current = localStorage.getItem(STORAGE_KEY);
+    if (current) return JSON.parse(current);
+
+    // One-time migration from legacy key
+    const legacy = localStorage.getItem(LEGACY_DRAFTS_KEY);
+    if (legacy) {
+      const parsed: DraftRecord[] = JSON.parse(legacy);
+      const cleaned = parsed.map(serializeDraft);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(cleaned));
+      localStorage.removeItem(LEGACY_DRAFTS_KEY);
+      return cleaned;
+    }
+    return [];
   } catch {
     return [];
   }
 }
 
+function readAndMigrateActive(): string | null {
+  try {
+    const current = localStorage.getItem(ACTIVE_KEY);
+    if (current) return current;
+    const legacy = localStorage.getItem(LEGACY_ACTIVE_KEY);
+    if (legacy) {
+      localStorage.setItem(ACTIVE_KEY, legacy);
+      localStorage.removeItem(LEGACY_ACTIVE_KEY);
+      return legacy;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 function writeDrafts(drafts: DraftRecord[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(drafts));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(drafts));
+  } catch {
+    // quota exceeded or private mode — silently ignore
+  }
 }
 
 export function useDrafts(): UseDraftsReturn {
@@ -35,20 +81,30 @@ export function useDrafts(): UseDraftsReturn {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setDrafts(readDrafts());
-    setActiveId(localStorage.getItem(ACTIVE_KEY));
+    setDrafts(readAndMigrateDrafts());
+    setActiveId(readAndMigrateActive());
     setMounted(true);
   }, []);
 
   const setActive = useCallback((id: string) => {
     setActiveId(id);
-    localStorage.setItem(ACTIVE_KEY, id);
+    try {
+      localStorage.setItem(ACTIVE_KEY, id);
+    } catch {
+      // ignore
+    }
   }, []);
 
   const upsert = useCallback((id: string, form: FormData, step: Step) => {
     setDrafts((prev) => {
       const existing = prev.find((d) => d.id === id);
-      const updated: DraftRecord = { id, title: form.propertyName || "Untitled Property", form, step, updatedAt: Date.now() };
+      const updated: DraftRecord = {
+        id,
+        title: form.propertyName || "Untitled Property",
+        form: stripFileBlobs(form),
+        step,
+        updatedAt: Date.now(),
+      };
       const next = existing
         ? prev.map((d) => (d.id === id ? updated : d))
         : [...prev, updated];
@@ -65,7 +121,11 @@ export function useDrafts(): UseDraftsReturn {
     });
     setActiveId((prev) => {
       if (prev === id) {
-        localStorage.removeItem(ACTIVE_KEY);
+        try {
+          localStorage.removeItem(ACTIVE_KEY);
+        } catch {
+          // ignore
+        }
         return null;
       }
       return prev;
@@ -74,7 +134,11 @@ export function useDrafts(): UseDraftsReturn {
 
   const clearActive = useCallback(() => {
     setActiveId(null);
-    localStorage.removeItem(ACTIVE_KEY);
+    try {
+      localStorage.removeItem(ACTIVE_KEY);
+    } catch {
+      // ignore
+    }
   }, []);
 
   return { drafts, activeId, mounted, setActive, upsert, remove, clearActive };

@@ -1,7 +1,7 @@
 {
+  "id": "FLDR-0003",
+  "userId": "demo-user",
   "propertyId": "PROP-0006",
   "name": "Rental",
-  "createdAt": 1764633600000,
-  "id": "FLDR-0003",
-  "userId": "demo-user"
+  "createdAt": 1764633600000
 }

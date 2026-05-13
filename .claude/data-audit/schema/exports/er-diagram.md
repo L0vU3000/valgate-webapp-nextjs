@@ -260,6 +260,7 @@ erDiagram
         text type
         text date "A1 should be bigint"
         text owner
+        text status "Current|Superseded|Archived"
     }
 
     ownership_history {

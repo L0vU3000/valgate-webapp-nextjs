@@ -55,6 +55,18 @@ Client Component ← Server Component re-fetches fresh data
 
 ---
 
+## UI Design Standard
+
+All UI work in this project must be fully wired — no mocks, no stubs, no placeholder values.
+
+- **Real entities**: every component binds to actual typed data from the local-db / Convex layer
+- **Real fields**: no hardcoded strings or dummy numbers in place of real schema fields
+- **Real calculations**: all stats, scores, and derived values use live computation logic (e.g. progress pillars, KPIs)
+- **Seed data**: the local-db (`public/data/users/demo-user/`) is the source of truth for dev/demo; expand seed data when a new feature needs meaningful display values
+- **No UI-only state**: if a number or label appears in the UI, it must trace back to a schema field or a derivation function — never invented inline
+
+---
+
 ## Anti-Patterns
 
 | ❌ Anti-Pattern | ✅ Fix |

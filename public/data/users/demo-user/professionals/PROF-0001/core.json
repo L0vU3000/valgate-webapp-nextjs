@@ -1,4 +1,6 @@
 {
+  "id": "PROF-0001",
+  "userId": "demo-user",
   "name": "Sok Dara",
   "company": "Phnom Penh Notary Office",
   "category": "Notary",
@@ -12,7 +14,5 @@
   "phone": "+855 23 456 789",
   "verified": false,
   "createdAt": 1775001600000,
-  "updatedAt": 1775001600000,
-  "id": "PROF-0001",
-  "userId": "demo-user"
+  "updatedAt": 1775001600000
 }

@@ -91,7 +91,6 @@ function splitProperty(p: Property): Record<string, Record<string, unknown>> {
     code: p.code,
     type: p.type,
     status: p.status,
-    health: p.health,
     lat: p.lat,
     lng: p.lng,
     createdAt: p.createdAt,

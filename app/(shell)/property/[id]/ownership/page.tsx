@@ -9,10 +9,8 @@ export default async function Page({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [property, ownershipData] = await Promise.all([
-    getPropertyByIdParam(id),
-    getOwnershipPageData(id),
-  ]);
+  const property = await getPropertyByIdParam(id);
   if (!property) notFound();
+  const ownershipData = await getOwnershipPageData(id, property);
   return <PropertyOwnershipPage property={property} {...ownershipData} />;
 }

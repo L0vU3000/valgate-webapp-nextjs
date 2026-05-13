@@ -18,6 +18,10 @@ export async function list(userId: string): Promise<OwnershipHistory[]> {
   return rows.map((r) => OwnershipHistorySchema.parse(r));
 }
 
+export async function listByProperty(userId: string, propertyId: string): Promise<OwnershipHistory[]> {
+  return (await list(userId)).filter((r) => r.propertyId === propertyId);
+}
+
 export async function get(
   userId: string,
   id: string,

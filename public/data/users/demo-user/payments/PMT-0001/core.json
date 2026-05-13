@@ -1,4 +1,6 @@
 {
+  "id": "PMT-0001",
+  "userId": "demo-user",
   "propertyId": "PROP-0001",
   "leaseId": "LEASE-0001",
   "tenantId": "TEN-0001",
@@ -6,7 +8,5 @@
   "kind": "Rent",
   "amount": 850,
   "method": "ABA Bank",
-  "status": "Paid",
-  "id": "PMT-0001",
-  "userId": "demo-user"
+  "status": "Paid"
 }

@@ -1,4 +1,6 @@
 {
+  "id": "DOC-0002",
+  "userId": "demo-user",
   "propertyId": "PROP-0001",
   "folderId": "FLDR-0002",
   "name": "Property_Photo_Exterior.jpg",
@@ -8,7 +10,5 @@
   "sizeBytes": 3812000,
   "storageId": "_storage/PROP-0001/exterior.jpg",
   "category": "Photos",
-  "uploadedAt": 1769817600000,
-  "id": "DOC-0002",
-  "userId": "demo-user"
+  "uploadedAt": 1769817600000
 }

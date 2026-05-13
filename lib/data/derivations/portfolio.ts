@@ -1,4 +1,4 @@
-import type { Property, PropertyStatus } from "@/lib/data/types/property";
+import type { Property, PropertyListItem, PropertyStatus } from "@/lib/data/types/property";
 import type { Payment } from "@/lib/data/types/payment";
 import type { Lease } from "@/lib/data/types/lease";
 import type { PropertyValuation } from "@/lib/data/types/property-valuation";
@@ -10,7 +10,7 @@ export type PortfolioStats = {
   rentedCount: number;
   vacantCount: number;
   occupancyRate: number;
-  avgHealth: number;
+  avgProgress: number;
 };
 
 export type YoyGrowth =
@@ -30,8 +30,8 @@ export type PortfolioKpis = {
 
 const INACTIVE_STATUSES: PropertyStatus[] = ["Sold", "Archived"];
 
-export function computeStats(properties: Property[]): PortfolioStats {
-  const active = properties.filter(
+export function computeStats(items: PropertyListItem[]): PortfolioStats {
+  const active = items.filter(
     (p) => !p.isArchived && !INACTIVE_STATUSES.includes(p.status),
   );
   const n = active.length;
@@ -44,7 +44,7 @@ export function computeStats(properties: Property[]): PortfolioStats {
     rentedCount,
     vacantCount: active.filter((p) => p.status === "Vacant").length,
     occupancyRate: n === 0 ? 0 : Math.round((rentedCount / n) * 100),
-    avgHealth: n === 0 ? 0 : Math.round(active.reduce((sum, p) => sum + p.health, 0) / n),
+    avgProgress: n === 0 ? 0 : Math.round(active.reduce((sum, p) => sum + p.progress, 0) / n),
   };
 }
 

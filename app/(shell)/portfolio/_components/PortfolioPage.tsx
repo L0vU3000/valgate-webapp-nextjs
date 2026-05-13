@@ -12,9 +12,13 @@ import {
 } from "lucide-react";
 import type { PortfolioPageData } from "../queries";
 import type { PropertyStatus } from "@/lib/data/types/property";
-import { PropertyFilters } from "@/components/portfolio/PropertyFilters";
+import dynamic from "next/dynamic";
 import { PropertyTable } from "@/components/portfolio/PropertyTable";
-import type { TableAnimationConfig } from "@/components/portfolio/PropertyTable";
+const PropertyFilters = dynamic(
+  () => import("@/components/portfolio/PropertyFilters").then((m) => ({ default: m.PropertyFilters })),
+  { ssr: false }
+);
+import type { TableAnimationConfig, SortKey } from "@/components/portfolio/PropertyTable";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { CAMBODIA_PROVINCES } from "@/lib/constants/cambodia-provinces";
 
@@ -25,21 +29,24 @@ const PORTFOLIO_TABLE_ANIMATION: TableAnimationConfig = {
   containerDelay: 280,
   rowDuration: 400,
   rowStagger: 25,
-  healthBarDelay: 100,
-  healthBarStagger: 30,
+  progressBarDelay: 100,
+  progressBarStagger: 30,
 };
 
 const provinces = ["All", ...CAMBODIA_PROVINCES];
 
 
 export function PortfolioPage({ data }: { data: PortfolioPageData }) {
-  const { properties: initialProperties, stats, kpis } = data;
+  const { properties: activeProperties, archivedProperties, stats, kpis, archivedCount, soldCount, showArchived } = data;
 
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("Property Type");
   const [statusFilter, setStatusFilter] = useState<PropertyStatus | null>(null);
   const [provinceFilter, setProvinceFilter] = useState("All");
   const [currentPage, setCurrentPage] = useState(1);
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [archivedFilter, setArchivedFilter] = useState(showArchived);
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
 
@@ -48,29 +55,58 @@ export function PortfolioPage({ data }: { data: PortfolioPageData }) {
     return () => cancelAnimationFrame(frame);
   }, []);
 
-  const q = searchQuery.trim().toLowerCase();
-  const filtered = initialProperties.filter((p) => {
-    // Archived = "achieved" — hidden by default, visible only when explicitly selected
-    if (!statusFilter && p.status === "Archived") return false;
+  const source = archivedFilter ? archivedProperties : activeProperties;
 
+  const q = searchQuery.trim().toLowerCase();
+  const filtered = source.filter((p) => {
     const matchesSearch =
       !q ||
       p.name.toLowerCase().includes(q) ||
       p.code.toLowerCase().includes(q) ||
       p.province.toLowerCase().includes(q);
     const matchesType = typeFilter === "Property Type" || p.type === typeFilter;
-    const matchesStatus = !statusFilter || p.status === statusFilter;
+    const matchesStatus = archivedFilter || !statusFilter || p.status === statusFilter;
     const matchesProvince = provinceFilter === "All" || p.province === provinceFilter;
     return matchesSearch && matchesType && matchesStatus && matchesProvince;
   });
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const sorted = sortKey
+    ? [...filtered].sort((a, b) => {
+        let av: string | number, bv: string | number
+        switch (sortKey) {
+          case "name":     av = a.name.toLowerCase();    bv = b.name.toLowerCase();    break
+          case "province": av = a.province.toLowerCase(); bv = b.province.toLowerCase(); break
+          case "status":   av = a.status;                bv = b.status;                break
+          case "size":     av = a.totalArea ? Number(a.totalArea) : -1; bv = b.totalArea ? Number(b.totalArea) : -1; break
+          case "buy":      av = a.buyNumeric;            bv = b.buyNumeric;            break
+          case "progress": av = a.progress;              bv = b.progress;              break
+        }
+        if (av < bv) return sortDir === "asc" ? -1 : 1
+        if (av > bv) return sortDir === "asc" ? 1 : -1
+        return 0
+      })
+    : filtered
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
   const safePage = Math.min(currentPage, totalPages);
   const pageStart = (safePage - 1) * PAGE_SIZE;
-  const pageRows = filtered.slice(pageStart, pageStart + PAGE_SIZE);
+  const pageRows = sorted.slice(pageStart, pageStart + PAGE_SIZE);
 
   function goToPage(p: number) {
     setCurrentPage(Math.max(1, Math.min(p, totalPages)));
+  }
+
+  function handleSort(key: SortKey) {
+    if (sortKey !== key) {
+      setSortKey(key)
+      setSortDir("asc")
+    } else if (sortDir === "asc") {
+      setSortDir("desc")
+    } else {
+      setSortKey(null)
+      setSortDir("asc")
+    }
+    setCurrentPage(1)
   }
 
   function clearAllFilters() {
@@ -78,6 +114,7 @@ export function PortfolioPage({ data }: { data: PortfolioPageData }) {
     setTypeFilter("Property Type");
     setStatusFilter(null);
     setProvinceFilter("All");
+    setArchivedFilter(false);
     setCurrentPage(1);
   }
 
@@ -185,7 +222,6 @@ export function PortfolioPage({ data }: { data: PortfolioPageData }) {
                 <AnimatedBar value={stats.occupancyRate} color="bg-amber-400" mounted={mounted} delay={600} />
               </div>
             </KpiCard>
-
           </div>
 
           {/* Filters */}
@@ -207,8 +243,8 @@ export function PortfolioPage({ data }: { data: PortfolioPageData }) {
           <PropertyTable
             pageRows={pageRows}
             pageStart={pageStart}
-            filtered={filtered}
-            properties={initialProperties}
+            filtered={sorted}
+            properties={source}
             mounted={mounted}
             navigate={(path) => router.push(path)}
             totalPages={totalPages}
@@ -216,7 +252,50 @@ export function PortfolioPage({ data }: { data: PortfolioPageData }) {
             goToPage={goToPage}
             onClearFilters={clearAllFilters}
             animationConfig={PORTFOLIO_TABLE_ANIMATION}
+            showArchived={false}
+            sortKey={sortKey}
+            sortDir={sortDir}
+            onSort={handleSort}
           />
+
+          {/* Footer — sold / archived counts */}
+          {(soldCount > 0 || archivedCount > 0) && (
+            <div className="flex items-center justify-center gap-3 pt-3 pb-1">
+              <p className="text-[12px] text-slate-400">
+                {soldCount > 0 && archivedCount > 0 && (
+                  <>{soldCount} sold · {archivedCount} archived</>
+                )}
+                {soldCount > 0 && archivedCount === 0 && (
+                  <>{soldCount} sold</>
+                )}
+                {archivedCount > 0 && soldCount === 0 && (
+                  <>{archivedCount} archived</>
+                )}
+              </p>
+              <div className="flex items-center gap-1.5">
+                {soldCount > 0 && (
+                  <button
+                    onClick={() => { setStatusFilter("Sold"); setArchivedFilter(false); setCurrentPage(1); }}
+                    className="text-[11px] font-semibold text-slate-500 border border-slate-200 rounded-full px-2.5 py-0.5 hover:border-slate-300 hover:text-slate-600 transition-colors duration-150"
+                  >
+                    Show sold
+                  </button>
+                )}
+                {archivedCount > 0 && (
+                  <button
+                    onClick={() => { setArchivedFilter(!archivedFilter); setStatusFilter(null); setCurrentPage(1); }}
+                    className={`text-[11px] font-semibold border rounded-full px-2.5 py-0.5 transition-colors duration-150 ${
+                      archivedFilter
+                        ? "text-amber-700 border-amber-300 bg-amber-50 hover:border-amber-400"
+                        : "text-slate-500 border-slate-200 hover:border-slate-300 hover:text-slate-600"
+                    }`}
+                  >
+                    {archivedFilter ? "Hide archived" : "Show archived"}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

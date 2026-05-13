@@ -6,6 +6,7 @@ import type { CoOwner } from "@/lib/data/types/co-owner";
 import type { OwnershipDocument } from "@/lib/data/types/ownership-document";
 import type { OwnershipRecord } from "@/lib/data/types/ownership-record";
 import type { OwnershipHistory } from "@/lib/data/types/ownership-history";
+import type { PropertyFinancials } from "@/app/(shell)/property/[id]/ownership/queries";
 import { PropertyLayout } from "@/components/property/PropertyLayout";
 import {
   Check, Mail, Phone, MapPin, FileText, Upload,
@@ -30,7 +31,11 @@ function formatDate(ts: number): string {
   return new Date(ts).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
 }
 
-function buildKpis(record: OwnershipRecord | null, coOwners: { id: string }[]) {
+function buildKpis(
+  record: OwnershipRecord | null,
+  coOwners: { id: string }[],
+  financials: PropertyFinancials,
+) {
   const ownerCount = coOwners.length;
   return [
     {
@@ -45,10 +50,8 @@ function buildKpis(record: OwnershipRecord | null, coOwners: { id: string }[]) {
       sub: ownerCount === 1 ? "Co-owner" : "Co-owners",
       Icon: Users,
     },
-    // TODO: Phase 6.6.5 (Property-field promotion) — wire from property.purchasePrice
-    { label: "Acquisition Price", value: "$485,000", sub: "Mar 2021", Icon: DollarSign },
-    // TODO: Phase 6.6.5 (Property-field promotion) — wire from property.purchaseDate
-    { label: "Holding Period", value: "4 yrs 3 mos", sub: "Since Mar 2021", Icon: Clock },
+    { label: "Acquisition Price", value: financials.acquisitionPrice, sub: "Purchase price", Icon: DollarSign },
+    { label: "Holding Period", value: financials.holdingPeriod, sub: "Since acquisition", Icon: Clock },
   ];
 }
 
@@ -63,6 +66,7 @@ interface Props {
   ownershipHistory: OwnershipHistory[];
   coOwners: CoOwner[];
   monthlyRentIncome: number;
+  propertyFinancials: PropertyFinancials;
 }
 
 export function PropertyOwnershipPage({
@@ -72,6 +76,7 @@ export function PropertyOwnershipPage({
   ownershipHistory = [],
   coOwners = [],
   monthlyRentIncome = 0,
+  propertyFinancials,
 }: Props) {
   const [mounted, setMounted] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
@@ -129,7 +134,7 @@ export function PropertyOwnershipPage({
 
           {/* KPI Row */}
           <div className="grid grid-cols-4 gap-4" style={fade(mounted, 60, reducedMotion)}>
-            {buildKpis(ownershipRecord, coOwners).map((kpi, i) => (
+            {buildKpis(ownershipRecord, coOwners, propertyFinancials).map((kpi, i) => (
               <div
                 key={kpi.label}
                 className="bg-white rounded-lg border border-slate-200 p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)] hover:shadow-md hover:-translate-y-0.5 transition-all duration-300"
@@ -159,14 +164,16 @@ export function PropertyOwnershipPage({
                   <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-1">
                     Current Estimated Value
                   </p>
-                  <p className="text-[28px] font-bold text-val-heading leading-none">$612,000</p>
-                  <p className="text-xs text-emerald-600 mt-1">▲ +26.2% since purchase</p>
+                  <p className="text-[28px] font-bold text-val-heading leading-none">{propertyFinancials.currentMarketValue}</p>
+                  {propertyFinancials.appreciationPct !== "—" && (
+                    <p className="text-xs text-emerald-600 mt-1">▲ {propertyFinancials.appreciationPct} since purchase</p>
+                  )}
                 </div>
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-1">
                     Remaining Mortgage
                   </p>
-                  <p className="text-[28px] font-bold text-val-heading leading-none">$341,200</p>
+                  <p className="text-[28px] font-bold text-val-heading leading-none">{propertyFinancials.outstandingMortgage}</p>
                   <p className="text-xs text-slate-400 mt-1">
                     {ownershipRecord?.loanType && ownershipRecord?.loanTermYears != null && ownershipRecord?.interestRate != null
                       ? `${ownershipRecord.loanType} ${ownershipRecord.loanTermYears}yr @ ${ownershipRecord.interestRate}%`
@@ -178,13 +185,16 @@ export function PropertyOwnershipPage({
               <div className="mb-5">
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">Equity</span>
-                  <span className="text-[13px] font-bold text-val-heading">$270,800 (44.2%)</span>
+                  <span className="text-[13px] font-bold text-val-heading">
+                    {propertyFinancials.equityAmount}
+                    {propertyFinancials.equityPct != null && ` (${propertyFinancials.equityPct.toFixed(1)}%)`}
+                  </span>
                 </div>
                 <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full bg-[--val-primary-dark]"
                     style={{
-                      width: mounted ? "44%" : "0%",
+                      width: mounted ? `${propertyFinancials.equityPct ?? 0}%` : "0%",
                       transition: "width 800ms cubic-bezier(0.25,1,0.5,1) 200ms",
                     }}
                   />
@@ -193,8 +203,8 @@ export function PropertyOwnershipPage({
 
               <div className="grid grid-cols-3 gap-4 pt-4 border-t border-slate-100">
                 {[
-                  { label: "LTV Ratio", value: "55.8%" },
-                  { label: "Monthly P/I", value: "$1,612/mo" },
+                  { label: "LTV Ratio", value: propertyFinancials.ltv },
+                  { label: "Monthly P/I", value: propertyFinancials.monthlyPayment !== "—" ? `${propertyFinancials.monthlyPayment}/mo` : "—" },
                   { label: "Next Payment Due", value: ownershipRecord?.nextPaymentDue != null ? formatDate(ownershipRecord.nextPaymentDue) : "—" },
                 ].map(({ label, value }) => (
                   <div key={label}>
@@ -443,7 +453,7 @@ export function PropertyOwnershipPage({
                       <td className="px-4 py-3.5 text-[14px] text-slate-500">{doc.owner}</td>
                       <td className="px-4 py-3.5">
                         <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-semibold tracking-[1px] uppercase px-2.5 py-0.5 rounded-full">
-                          Current
+                          {doc.status ?? "Current"}
                         </span>
                       </td>
                     </tr>

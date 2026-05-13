@@ -12,7 +12,7 @@ import { formatCurrency } from "@/lib/format";
 
 export type { Property, TitleVariant, PortfolioStats };
 
-export type HomeProperty = Property & { buy: string };
+export type HomeProperty = Property & { buy: string; progress: number };
 
 export type HomePageData = {
   properties: HomeProperty[];
@@ -21,11 +21,13 @@ export type HomePageData = {
 
 export async function getHomePageData(): Promise<HomePageData> {
   const properties = await getProperties();
+  const items: HomeProperty[] = properties.map((p) => ({
+    ...p,
+    buy: p.buyNumeric ? formatCurrency(p.buyNumeric) : "—",
+    progress: p.health ?? 0,
+  }));
   return {
-    properties: properties.map((p) => ({
-      ...p,
-      buy: p.buyNumeric ? formatCurrency(p.buyNumeric) : "—",
-    })),
-    portfolioStats: computeStats(properties),
+    properties: items,
+    portfolioStats: computeStats(items),
   };
 }

@@ -1,9 +1,9 @@
 ---
 slug: property-id-ownership
 route: /property/[id]/ownership
-revision: 1
-date: 2026-05-05
-verdict: "⚠️ 16 WIRED · 9 HARDCODED · 6 PFn — CoOwner + OwnershipRecord §21 wired (6.5+6.6); remaining: Property field promotion (rows 8–12, 14–16) + OwnershipDocument.status (row 31)"
+revision: 4
+date: 2026-05-11
+verdict: "✅ 37 WIRED · 0 HARDCODED — fully wired; Phase 8.7 complete"
 ---
 
 # Plan — /property/[id]/ownership
@@ -143,6 +143,7 @@ Before any entity work, PF5 must be resolved: the existing `OwnershipRecord` Typ
 | 3 | 2026-05-06 | Rows 6, 7, 13, 17, 26, 27 (6 OwnershipRecord §21 surfaces) | New `OwnershipRecord` entity (§21) created: `lib/data/types/ownership-record.ts` (extended Zod schema with holdingType, loan terms, acquisition costs, distributionMethod), `lib/data/db/ownership-records.ts` (OREC prefix, `ownership-records` collection). 3 OREC seed records: OREC-0001 (PROP-0001, all fields), OREC-0002 (PROP-0002, sole-owner/no-loan), OREC-0003 (PROP-0006, multi-owner/equal-split). `ownership/queries.ts` extended with `ownershipRecord` field. `PropertyOwnershipPage.tsx` wired: rows 6 (holdingType KPI), 7 (coOwners.length KPI), 13 (mortgage terms sub-label), 17 (nextPaymentDue), 26 (acquisition details table with 10 rows), 27 (distributionMethod radio). `kpis` constant refactored to `buildKpis()` function. | Phase 6.6 |
 | 3 | 2026-05-06 | Property.purchasePrice backfill (side fix for row 26) | `public/data/users/demo-user/properties/PROP-0001/finance.json` — added `purchasePrice: "485000"`. Row 26 "Purchase Price" now reads real data. | Phase 6.6 |
 | 3 | 2026-05-06 | Catalog §21 extended | `ref/00-entity-catalog.md` §21 updated: full mortgage/acquisition/distribution field table; notes that `currentEstimatedValue`/`remainingMortgage`/`equityPercent` derive from Property; `coOwnerIds` dropped (CoOwner is §24). §21a (OwnershipDocument deed entity) added to catalog. | Phase 6.6 |
+| 4 | 2026-05-11 | Rows 8–16 (Property field promotions) + Row 31 (OwnershipDocument.status) resolved | `OwnershipDocument.status` field added to schema (enum: Current/Superseded/Archived). 3 ODOC seed records updated with `status: "Current"`. `buildPropertyFinancials()` helper added to `ownership/queries.ts` — computes acquisitionPrice (from purchasePrice), holdingPeriod (from purchaseDate), currentMarketValue, appreciationPct, outstandingMortgage, equityAmount, equityPct, ltv, monthlyPayment. `getOwnershipPageData` now accepts Property param and returns `propertyFinancials`. `PropertyOwnershipPage` wired: rows 8–16 replaced from hardcoded literals; row 31 wired to `doc.status ?? "Current"`. `listByProperty()` added to 4 DB modules (PF3 fix). PROP-0001/finance.json backfilled: purchaseDate, currentMarketValue, outstandingMortgage, monthlyPayment. | Phase 8.7 |
 
 ---
 

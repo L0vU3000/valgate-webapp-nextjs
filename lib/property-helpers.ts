@@ -62,7 +62,8 @@ export function statusBadgeClasses(status: PropertyStatus): string {
     case "Vacant":           return "bg-amber-50 text-amber-700 border border-amber-200";
     case "For Sale": return "bg-blue-50 text-blue-700 border border-blue-200";
     case "Sold":     return "bg-slate-50 text-slate-500 border border-slate-200";
-    case "Archived": return "bg-slate-100 text-slate-400 border border-slate-200";
+    case "Archived":        return "bg-slate-100 text-slate-400 border border-slate-200";
+    case "Owner-Occupied":  return "bg-violet-50 text-violet-600 border border-violet-200";
   }
 }
 
@@ -82,20 +83,20 @@ export function titleToVariant(title: PropertyTitle): TitleVariant {
   }
 }
 
-export function healthDotColor(health: number) {
-  if (health >= 80) return "bg-emerald-500";
-  if (health >= 50) return "bg-amber-500";
+export function progressDotColor(progress: number) {
+  if (progress >= 80) return "bg-emerald-500";
+  if (progress >= 50) return "bg-amber-500";
   return "bg-red-400";
 }
 
-export function healthClass(health: number) {
-  if (health >= 75) return "text-status-success-text";
-  if (health >= 40) return "text-status-warning-text";
+export function progressClass(progress: number) {
+  if (progress >= 75) return "text-status-success-text";
+  if (progress >= 40) return "text-status-warning-text";
   return "text-status-danger-text";
 }
 
-export function healthBgClass(health: number) {
-  if (health >= 75) return "bg-status-success";
-  if (health >= 40) return "bg-status-warning";
+export function progressBgClass(progress: number) {
+  if (progress >= 75) return "bg-status-success";
+  if (progress >= 40) return "bg-status-warning";
   return "bg-status-danger";
 }

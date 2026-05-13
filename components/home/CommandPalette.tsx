@@ -47,9 +47,9 @@ const statusClasses: Record<PropertyStatus, string> = {
     "text-status-success-text bg-status-success-bg border border-status-success-border",
 };
 
-function healthClass(health: number) {
-  if (health >= 75) return "text-status-success-text";
-  if (health >= 40) return "text-status-warning-text";
+function progressClass(progress: number) {
+  if (progress >= 75) return "text-status-success-text";
+  if (progress >= 40) return "text-status-warning-text";
   return "text-status-danger-text";
 }
 
@@ -110,7 +110,7 @@ export function CommandPalette({
                     <p className="text-sm font-semibold text-foreground truncate">{p.name}</p>
                     <div className="flex items-center justify-between gap-2 mt-0.5">
                       <p className="text-xs text-secondary flex items-center gap-1.5 truncate">
-                        <span className={cn("w-1.5 h-1.5 rounded-full bg-current shrink-0", healthClass(p.health))} />
+                        <span className={cn("w-1.5 h-1.5 rounded-full bg-current shrink-0", progressClass(p.progress))} />
                         {p.type} · {p.province}
                       </p>
                       <span className="text-xs font-mono font-medium text-foreground/60 shrink-0">{p.buy}</span>
