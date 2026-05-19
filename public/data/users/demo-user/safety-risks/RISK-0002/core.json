@@ -1,10 +1,9 @@
 {
   "id": "RISK-0002",
-  "userId": "demo-user",
   "propertyId": "PROP-0011",
-  "severityLabel": "Medium",
+  "severity": "Medium",
   "title": "Smoke alarm overdue",
-  "desc": "Two smoke alarms on second floor have not been tested in 14 months.",
+  "description": "Two smoke alarms on second floor have not been tested in 14 months.",
   "createdAt": 1775001600000,
   "updatedAt": 1775001600000
 }

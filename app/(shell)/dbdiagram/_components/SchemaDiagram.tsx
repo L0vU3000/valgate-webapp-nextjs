@@ -22,7 +22,8 @@ import {
 } from "../_lib/groups";
 import type { LayoutPositions } from "../_lib/dagre-layout";
 import type { FkEdge, IntrospectedEntity } from "../_lib/introspect";
-import { computeTrace, type Trace, type TraceStep } from "../_lib/trace";
+import type { WiringStatus } from "../_lib/wiring-status";
+import { computeTrace, computeEntityTrace, type Trace, type TraceStep } from "../_lib/trace";
 import type {
   DbdiagramNote,
   DbdiagramState,
@@ -38,6 +39,8 @@ type Props = {
   edges: FkEdge[];
   initialState: DbdiagramState;
   layout: LayoutPositions;
+  recordCounts: Record<string, number>;
+  wiringStatus: Record<string, WiringStatus>;
 };
 
 type NodeMeta = Record<string, { x: number; y: number; color?: string }>;
@@ -49,7 +52,8 @@ const nodeTypes: NodeTypes = {
 };
 
 const SAVE_DEBOUNCE_MS = 350;
-const HIGHLIGHT_COLOR = "#0ea5e9";
+const HIGHLIGHT_FK = "#0ea5e9";
+const HIGHLIGHT_PK = "#f59e0b";
 const EDGE_DEFAULT_COLOR = "#94a3b8";
 
 function positionFor(
@@ -65,6 +69,9 @@ function entityNodeFor(
   layout: LayoutPositions,
   onColorPick: (name: string) => void,
   onFieldClick: (entityName: string, fieldName: string) => void,
+  onEntityClick: (entityName: string) => void,
+  recordCounts: Record<string, number>,
+  wiringStatus: Record<string, WiringStatus>,
 ): Node {
   const position = meta
     ? { x: meta.x, y: meta.y }
@@ -81,6 +88,10 @@ function entityNodeFor(
       activeFieldName: null,
       onColorPick,
       onFieldClick,
+      onEntityClick,
+      isSelected: false,
+      recordCount: recordCounts[entity.name] ?? 0,
+      wiringStatus: wiringStatus[entity.name] ?? "missing",
     },
     draggable: true,
   };
@@ -157,7 +168,15 @@ function buildEdges(
     }
     const isHighlighted = trace ? trace.edgeIds.has(e.id) : false;
     const isDimmed = trace !== null && !isHighlighted;
-    const stroke = isHighlighted ? HIGHLIGHT_COLOR : EDGE_DEFAULT_COLOR;
+    let highlightColor: string;
+    if (trace?.kind === "incoming") {
+      highlightColor = HIGHLIGHT_PK;
+    } else if (trace?.kind === "entity") {
+      highlightColor = e.target === trace.entity ? HIGHLIGHT_PK : HIGHLIGHT_FK;
+    } else {
+      highlightColor = HIGHLIGHT_FK;
+    }
+    const stroke = isHighlighted ? highlightColor : EDGE_DEFAULT_COLOR;
     return {
       id: e.id,
       source: `entity-${e.target}`,
@@ -210,22 +229,31 @@ function applyTraceToNodes(nodes: Node[], trace: Trace | null): Node[] {
     const name = n.id.replace(/^entity-/, "");
     const dimmed = trace !== null && !trace.entityIds.has(n.id);
     const activeFieldName =
-      trace && trace.entity === name ? trace.field : null;
+      trace && trace.entity === name && trace.kind !== "entity"
+        ? trace.field
+        : null;
+    const isSelected =
+      trace?.kind === "entity" && trace.entity === name;
     const cur = n.data as {
       dimmed?: boolean;
       activeFieldName?: string | null;
+      isSelected?: boolean;
     };
-    if (cur.dimmed === dimmed && cur.activeFieldName === activeFieldName) {
+    if (
+      cur.dimmed === dimmed &&
+      cur.activeFieldName === activeFieldName &&
+      cur.isSelected === isSelected
+    ) {
       return n;
     }
     return {
       ...n,
-      data: { ...n.data, dimmed, activeFieldName },
+      data: { ...n.data, dimmed, activeFieldName, isSelected },
     };
   });
 }
 
-function Inner({ entities, edges, initialState, layout }: Props) {
+function Inner({ entities, edges, initialState, layout, recordCounts, wiringStatus }: Props) {
   const flow = useReactFlow();
   const [colorPickFor, setColorPickFor] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -257,6 +285,7 @@ function Inner({ entities, edges, initialState, layout }: Props) {
   const handleFieldClickRef = useRef<
     (entityName: string, fieldName: string) => void
   >(() => {});
+  const handleEntityClickRef = useRef<(entityName: string) => void>(() => {});
   const handleNoteChangeRef = useRef<(id: string, text: string) => void>(
     () => {},
   );
@@ -265,6 +294,10 @@ function Inner({ entities, edges, initialState, layout }: Props) {
   const stableFieldClick = useCallback(
     (entityName: string, fieldName: string) =>
       handleFieldClickRef.current(entityName, fieldName),
+    [],
+  );
+  const stableEntityClick = useCallback(
+    (entityName: string) => handleEntityClickRef.current(entityName),
     [],
   );
 
@@ -276,6 +309,9 @@ function Inner({ entities, edges, initialState, layout }: Props) {
         layout,
         handleColorPickRequest,
         stableFieldClick,
+        stableEntityClick,
+        recordCounts,
+        wiringStatus,
       ),
     );
     const noteNodes = initialState.notes.map((note) =>
@@ -321,6 +357,19 @@ function Inner({ entities, edges, initialState, layout }: Props) {
       setTrace(next);
     },
     [edges, entities, setNodes],
+  );
+
+  handleEntityClickRef.current = useCallback(
+    (entityName: string) => {
+      const prev = traceRef.current;
+      const isToggleOff = prev?.kind === "entity" && prev.entity === entityName;
+      const next = isToggleOff ? null : computeEntityTrace(entityName, edges);
+      const positions = entityPositionsFromNodes(nodesRef.current);
+      setNodes((current) => applyTraceToNodes(current, next));
+      setFlowEdges(buildEdges(edges, positions, next));
+      setTrace(next);
+    },
+    [edges, setNodes],
   );
 
   const handleNarrowTrace = useCallback(
@@ -480,6 +529,9 @@ function Inner({ entities, edges, initialState, layout }: Props) {
           layout,
           handleColorPickRequest,
           stableFieldClick,
+          stableEntityClick,
+          recordCounts,
+          wiringStatus,
         ),
       );
       const positions = entityPositionsFromNodes(entityNodes);

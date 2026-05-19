@@ -11,7 +11,7 @@ import { DocumentSchema, type Document } from "../types/document";
 const COLLECTION = "documents";
 const ID_PREFIX = "DOC";
 
-export type NewDocument = Omit<Document, "id" | "userId">;
+export type NewDocument = Omit<Document, "id">;
 
 export async function list(userId: string): Promise<Document[]> {
   const rows = await listMergedRecords<unknown>(userId, COLLECTION);
@@ -31,7 +31,7 @@ export async function create(
   data: NewDocument,
 ): Promise<Document> {
   const id = await nextId(userId, COLLECTION, ID_PREFIX);
-  const record = DocumentSchema.parse({ ...data, id, userId });
+  const record = DocumentSchema.parse({ ...data, id });
   await writeRecord(userId, COLLECTION, id, { core: { ...record } });
   return record;
 }
@@ -43,7 +43,7 @@ export async function update(
 ): Promise<Document | null> {
   const current = await get(userId, id);
   if (!current) return null;
-  const updated = DocumentSchema.parse({ ...current, ...patch, id: current.id, userId: current.userId });
+  const updated = DocumentSchema.parse({ ...current, ...patch, id: current.id });
   await writeRecord(userId, COLLECTION, id, { core: { ...updated } });
   return updated;
 }

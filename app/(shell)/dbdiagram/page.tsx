@@ -27,6 +27,8 @@ export default async function DbDiagramPage() {
           edges={data.edges}
           initialState={data.state}
           layout={data.layout}
+          recordCounts={data.recordCounts}
+          wiringStatus={data.wiringStatus}
         />
       </div>
     </div>

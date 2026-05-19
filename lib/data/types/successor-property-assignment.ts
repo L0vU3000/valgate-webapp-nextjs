@@ -1,9 +1,8 @@
 import { z } from "zod";
-import { idSchema, propertyIdSchema, timestampSchema, userIdSchema } from "./_common";
+import { idSchema, propertyIdSchema, timestampSchema } from "./_common";
 
 export const SuccessorPropertyAssignmentSchema = z.object({
   id: idSchema,
-  userId: userIdSchema,
   successorId: idSchema,
   propertyId: propertyIdSchema,
   createdAt: timestampSchema,

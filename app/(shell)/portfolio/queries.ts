@@ -124,7 +124,7 @@ export async function getPortfolioPageData(
     properties: activeListItems,
     archivedProperties: archivedListItems,
     stats,
-    kpis: computeKpis(properties, payments, leases, allValuations, stats.totalValue),
+    kpis: computeKpis(properties, payments, leases, stats.totalValue),
     archivedCount,
     soldCount,
     showArchived,

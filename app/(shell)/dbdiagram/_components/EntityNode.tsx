@@ -3,6 +3,7 @@ import { Fragment, memo, useCallback, useMemo } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
 import type { IntrospectedEntity, IntrospectedField } from "../_lib/introspect";
 import { rowYFor } from "../_lib/groups";
+import type { WiringStatus } from "../_lib/wiring-status";
 
 export type EntityNodeData = {
   entity: IntrospectedEntity;
@@ -11,6 +12,10 @@ export type EntityNodeData = {
   activeFieldName: string | null;
   onColorPick: (entityName: string) => void;
   onFieldClick: (entityName: string, fieldName: string) => void;
+  onEntityClick: (entityName: string) => void;
+  recordCount: number;
+  wiringStatus: WiringStatus;
+  isSelected: boolean;
 };
 
 type RowClick = (entityName: string, fieldName: string) => void;
@@ -117,6 +122,23 @@ const MemoFieldRow = memo(FieldRow, (prev, next) => {
   );
 });
 
+const STATUS_DOT: Record<WiringStatus, { cls: string; label: string }> = {
+  wired: { cls: "bg-emerald-400", label: "Fully wired" },
+  partial: { cls: "bg-amber-400", label: "Partially wired" },
+  missing: { cls: "bg-red-400", label: "Not yet built" },
+  stub: { cls: "bg-neutral-300", label: "External (Clerk)" },
+};
+
+function WiringDot({ status }: { status: WiringStatus }) {
+  const { cls, label } = STATUS_DOT[status];
+  return (
+    <span
+      title={label}
+      className={`block h-2 w-2 shrink-0 rounded-full ${cls}`}
+    />
+  );
+}
+
 const HANDLE_FK = "!w-2 !h-2 !min-w-0 !min-h-0 !bg-sky-500 !border-0";
 const HANDLE_PK = "!w-2 !h-2 !min-w-0 !min-h-0 !bg-amber-500 !border-0";
 
@@ -183,6 +205,10 @@ function EntityNodeImpl({ data }: NodeProps) {
     activeFieldName,
     onColorPick,
     onFieldClick,
+    onEntityClick,
+    recordCount,
+    wiringStatus,
+    isSelected,
   } = data as unknown as EntityNodeData;
   const isHub = entity.name === "properties";
   const isStub = entity.isStub;
@@ -192,7 +218,7 @@ function EntityNodeImpl({ data }: NodeProps) {
         isHub
           ? "border-neutral-900 ring-2 ring-amber-400"
           : "border-neutral-300"
-      }`}
+      } ${isSelected ? "ring-2 ring-offset-1 ring-indigo-500 shadow-[0_0_0_6px_rgba(99,102,241,0.12)]" : ""}`}
       style={{ opacity: dimmed ? 0.35 : 1 }}
       onContextMenu={(e) => {
         e.preventDefault();
@@ -206,8 +232,9 @@ function EntityNodeImpl({ data }: NodeProps) {
       ))}
 
       <div
-        className="flex h-[54px] items-center justify-between rounded-t-lg border-b border-neutral-200 px-3"
+        className="flex h-[54px] cursor-pointer items-center justify-between rounded-t-lg border-b border-neutral-200 px-3"
         style={{ backgroundColor: color }}
+        onClick={() => onEntityClick(entity.name)}
       >
         <div className="min-w-0">
           <div className="flex items-center gap-1.5">
@@ -220,6 +247,12 @@ function EntityNodeImpl({ data }: NodeProps) {
             {entity.fieldCount} field{entity.fieldCount === 1 ? "" : "s"}
             {isStub && " · stub"}
           </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5 pl-2">
+          <span className="font-mono text-[10px] text-neutral-500/80">
+            {recordCount > 0 ? recordCount : "—"}
+          </span>
+          <WiringDot status={wiringStatus} />
         </div>
       </div>
       <div className="divide-y divide-neutral-100">
@@ -252,6 +285,10 @@ export const EntityNode = memo(EntityNodeImpl, (prev, next) => {
     a.activeFieldName === b.activeFieldName &&
     a.onColorPick === b.onColorPick &&
     a.onFieldClick === b.onFieldClick &&
+    a.onEntityClick === b.onEntityClick &&
+    a.isSelected === b.isSelected &&
+    a.recordCount === b.recordCount &&
+    a.wiringStatus === b.wiringStatus &&
     prev.id === next.id &&
     prev.dragging === next.dragging &&
     prev.selected === next.selected

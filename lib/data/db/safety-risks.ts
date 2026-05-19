@@ -11,7 +11,7 @@ import { SafetyRiskSchema, type SafetyRisk } from "../types/safety-risk";
 const COLLECTION = "safety-risks";
 const ID_PREFIX = "RISK";
 
-export type NewSafetyRisk = Omit<SafetyRisk, "id" | "userId">;
+export type NewSafetyRisk = Omit<SafetyRisk, "id">;
 
 export async function list(userId: string): Promise<SafetyRisk[]> {
   const rows = await listMergedRecords<unknown>(userId, COLLECTION);
@@ -31,7 +31,7 @@ export async function create(
   data: NewSafetyRisk,
 ): Promise<SafetyRisk> {
   const id = await nextId(userId, COLLECTION, ID_PREFIX);
-  const record = SafetyRiskSchema.parse({ ...data, id, userId });
+  const record = SafetyRiskSchema.parse({ ...data, id });
   await writeRecord(userId, COLLECTION, id, { core: { ...record } });
   return record;
 }

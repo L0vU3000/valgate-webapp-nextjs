@@ -6,7 +6,7 @@ export const ProfessionalSchema = z.object({
   userId: userIdSchema,
   name: z.string().min(1),
   company: z.string().min(1),
-  category: z.string().min(1),
+  category: z.enum(["Notary", "Lawyer", "Accountant", "Agent", "Electrician", "Plumber", "Inspector", "Maintenance"]),
   rating: z.number().min(0).max(5),
   reviewCount: z.number().int().nonnegative(),
   linkedProperties: z.number().int().nonnegative(),
@@ -21,3 +21,4 @@ export const ProfessionalSchema = z.object({
 });
 
 export type Professional = z.infer<typeof ProfessionalSchema>;
+export type ProfessionalCategory = Professional["category"];

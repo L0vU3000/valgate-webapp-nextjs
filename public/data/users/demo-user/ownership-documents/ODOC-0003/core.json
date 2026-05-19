@@ -1,10 +1,9 @@
 {
   "id": "ODOC-0003",
-  "userId": "demo-user",
   "propertyId": "PROP-0011",
   "name": "Soft Title — BKK1 Land",
   "type": "Soft Title",
-  "date": "Jan 18, 2024",
+  "documentDate": 1705510800000,
   "owner": "Chan Family Trust",
   "status": "Current",
   "createdAt": 1775001600000,

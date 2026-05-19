@@ -1,9 +1,8 @@
 import { z } from "zod";
-import { idSchema, userIdSchema, propertyIdSchema, timestampSchema } from "./_common";
+import { idSchema, propertyIdSchema, timestampSchema } from "./_common";
 
 export const ExpenseSchema = z.object({
   id: idSchema,
-  userId: userIdSchema,
   propertyId: propertyIdSchema,
   date: timestampSchema,
   category: z.enum(["Maintenance", "Utilities", "Insurance", "Tax", "Management", "Other"]),

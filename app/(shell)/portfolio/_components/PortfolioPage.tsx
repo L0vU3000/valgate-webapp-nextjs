@@ -6,8 +6,6 @@ import {
   Building2,
   DollarSign,
   TrendingUp,
-  TrendingDown,
-  Minus,
   Plus,
 } from "lucide-react";
 import type { PortfolioPageData } from "../queries";
@@ -176,24 +174,7 @@ export function PortfolioPage({ data }: { data: PortfolioPageData }) {
                 </div>
               </div>
               <p className="text-[24px] font-bold text-val-heading leading-none mt-4">{kpis.totalValueFormatted}</p>
-              <div className="flex items-center gap-1 mt-2">
-                {kpis.yoyGrowth.kind === "positive" ? (
-                  <>
-                    <TrendingUp className="w-3 h-3 text-emerald-500" />
-                    <span className="text-[12px] text-emerald-600 font-semibold">{kpis.yoyGrowth.formatted} YoY</span>
-                  </>
-                ) : kpis.yoyGrowth.kind === "negative" ? (
-                  <>
-                    <TrendingDown className="w-3 h-3 text-red-400" />
-                    <span className="text-[12px] text-red-500 font-semibold">{kpis.yoyGrowth.formatted} YoY</span>
-                  </>
-                ) : (
-                  <>
-                    <Minus className="w-3 h-3 text-slate-400" />
-                    <span className="text-[12px] text-slate-400 font-semibold">— YoY</span>
-                  </>
-                )}
-              </div>
+              <span className="text-[12px] text-slate-400 font-medium mt-2 block">Purchase price</span>
             </KpiCard>
 
             <KpiCard index={2} mounted={mounted}>

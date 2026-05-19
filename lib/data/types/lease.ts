@@ -1,9 +1,8 @@
 import { z } from "zod";
-import { idSchema, userIdSchema, propertyIdSchema, timestampSchema } from "./_common";
+import { idSchema, propertyIdSchema, timestampSchema } from "./_common";
 
 export const LeaseSchema = z.object({
   id: idSchema,
-  userId: userIdSchema,
   propertyId: propertyIdSchema,
   tenantId: idSchema.optional(),
   unit: z.string().min(1),

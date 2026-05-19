@@ -1,0 +1,18 @@
+{
+  "id": "OREC-0001",
+  "propertyId": "PROP-0001",
+  "holdingType": "Trust",
+  "loanType": "Fixed",
+  "loanAmount": 828000,
+  "loanTermYears": 20,
+  "interestRate": 6.5,
+  "originationDate": 1646352000000,
+  "maturityDate": 2277504000000,
+  "nextPaymentDue": 1748736000000,
+  "lenderName": "ACLEDA Bank",
+  "downPayment": 450000,
+  "closingCosts": 15000,
+  "distributionMethod": "Pro-Rata by Share",
+  "createdAt": 1775001600000,
+  "updatedAt": 1775001600000
+}

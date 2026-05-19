@@ -22,6 +22,7 @@ import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { cn } from "@/components/ui/utils";
 import { progressClass, progressBgClass, titleToVariant } from "@/lib/property-helpers";
 import type { HomeProperty, TitleVariant, PortfolioStats } from "@/app/(shell)/queries";
+import type { Document } from "@/lib/data/types/document";
 import { CommandPalette } from "@/components/home/CommandPalette";
 import { PropertyTable } from "@/components/portfolio/PropertyTable";
 import type { TableAnimationConfig } from "@/components/portfolio/PropertyTable";
@@ -58,7 +59,7 @@ const triggerPlaceholders = [
 ];
 
 
-export function HomePage({ initialProperties, portfolioStats }: { initialProperties: HomeProperty[]; portfolioStats: PortfolioStats }) {
+export function HomePage({ initialProperties, portfolioStats, documents }: { initialProperties: HomeProperty[]; portfolioStats: PortfolioStats; documents: Document[] }) {
 
   const [selectedPin, setSelectedPin] = useState<string | null>(null);
   const [closingKey, setClosingKey] = useState<string | null>(null);
@@ -232,6 +233,7 @@ export function HomePage({ initialProperties, portfolioStats }: { initialPropert
           open={commandOpen}
           onOpenChange={setCommandOpen}
           properties={initialProperties}
+          documents={documents}
           navigate={(path) => runCommand(() => router.push(path))}
         />
 

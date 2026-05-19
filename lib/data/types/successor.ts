@@ -6,7 +6,7 @@ export const SuccessorSchema = z.object({
   userId: userIdSchema,
   name: z.string().min(1),
   initials: z.string().min(1),
-  relation: z.string().min(1),
+  relation: z.enum(["Spouse", "Child", "Sibling", "Parent", "Other"]),
   role: z.enum(["primary", "contingent"]),
   share: z.number().nonnegative(),
   verified: z.boolean(),
@@ -15,3 +15,4 @@ export const SuccessorSchema = z.object({
 });
 
 export type Successor = z.infer<typeof SuccessorSchema>;
+export type SuccessorRelation = Successor["relation"];

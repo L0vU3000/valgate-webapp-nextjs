@@ -1,0 +1,12 @@
+{
+  "id": "ODOC-0005",
+  "propertyId": "PROP-0001",
+  "name": "Property Insurance Certificate",
+  "type": "Insurance",
+  "documentDate": 1720976400000,
+  "expiryDate": 1752512400000,
+  "owner": "Chan Family Trust",
+  "status": "Expiring Soon",
+  "createdAt": 1721001600000,
+  "updatedAt": 1721001600000
+}

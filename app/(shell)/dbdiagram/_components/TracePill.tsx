@@ -16,10 +16,23 @@ export function TracePill({ trace, onClear, onStepClick }: Props) {
     setExpanded(false);
   }, [trace]);
 
-  const isExpandable = trace.kind === "incoming" && trace.steps.length > 1;
+  const isExpandable =
+    (trace.kind === "incoming" && trace.steps.length > 1) ||
+    (trace.kind === "entity" && trace.steps.length > 0);
+
+  const pkCount =
+    trace.kind === "entity"
+      ? trace.steps.filter((s) => s.target === trace.entity).length
+      : 0;
+  const fkCount =
+    trace.kind === "entity"
+      ? trace.steps.filter((s) => s.source === trace.entity).length
+      : 0;
 
   let label: string;
-  if (trace.kind === "incoming") {
+  if (trace.kind === "entity") {
+    label = trace.entity;
+  } else if (trace.kind === "incoming") {
     const count = trace.steps.length;
     label =
       count === 0
@@ -36,19 +49,44 @@ export function TracePill({ trace, onClear, onStepClick }: Props) {
     label = `${trace.entity}.${trace.field}`;
   }
 
+  const pillBorder =
+    trace.kind === "incoming"
+      ? "border-amber-300"
+      : trace.kind === "entity"
+        ? "border-indigo-300"
+        : "border-sky-300";
+  const badgeCls =
+    trace.kind === "incoming"
+      ? "bg-amber-100 text-amber-700"
+      : trace.kind === "entity"
+        ? "bg-indigo-100 text-indigo-700"
+        : "bg-sky-100 text-sky-700";
+
   return (
     <div className="pointer-events-auto absolute left-1/2 top-4 z-20 flex w-max max-w-[min(720px,calc(100%-32px))] -translate-x-1/2 flex-col items-stretch">
       {/* Pill row */}
       <div
         role="status"
         aria-live="polite"
-        className="flex items-center gap-2 rounded-full border border-sky-300 bg-white/95 px-3 py-1.5 shadow-lg backdrop-blur"
+        className={`flex items-center gap-2 rounded-full border bg-white/95 px-3 py-1.5 shadow-lg backdrop-blur ${pillBorder}`}
       >
-        <span className="flex h-5 items-center rounded-full bg-sky-100 px-2 text-[10px] font-semibold uppercase tracking-wider text-sky-700">
+        <span className={`flex h-5 items-center rounded-full px-2 text-[10px] font-semibold uppercase tracking-wider ${badgeCls}`}>
           trace
         </span>
-        <span className="truncate font-mono text-[11px] text-neutral-800">
+        <span className="flex min-w-0 items-center gap-1.5 truncate font-mono text-[11px] text-neutral-800">
           {label}
+          {trace.kind === "entity" && (
+            <>
+              <span className="flex items-center gap-0.5 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                {pkCount} pk
+              </span>
+              <span className="flex items-center gap-0.5 rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700">
+                <span className="h-1.5 w-1.5 rounded-full bg-sky-500" />
+                {fkCount} fk
+              </span>
+            </>
+          )}
         </span>
         {isExpandable && (
           <button
@@ -56,7 +94,7 @@ export function TracePill({ trace, onClear, onStepClick }: Props) {
             onClick={() => setExpanded((v) => !v)}
             aria-label={expanded ? "Collapse paths" : "Show all paths"}
             className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-neutral-100 hover:text-neutral-900 ${
-              expanded ? "bg-sky-100 text-sky-700" : "text-neutral-400"
+              expanded ? `${badgeCls}` : "text-neutral-400"
             }`}
           >
             <svg
@@ -89,28 +127,46 @@ export function TracePill({ trace, onClear, onStepClick }: Props) {
 
       {/* Expanded step list */}
       {expanded && (
-        <div className="mt-1.5 overflow-hidden rounded-xl border border-sky-200 bg-white/95 shadow-lg backdrop-blur">
+        <div className="mt-1.5 overflow-hidden rounded-xl border border-neutral-200 bg-white/95 shadow-lg backdrop-blur">
           <div className="max-h-60 overflow-y-auto py-1">
-            {trace.steps.map((step) => (
-              <button
-                key={step.edgeId}
-                type="button"
-                onClick={() => {
-                  onStepClick?.(step);
-                  setExpanded(false);
-                }}
-                className="flex w-full items-center gap-0.5 px-3 py-1.5 text-left transition-colors hover:bg-sky-50"
-              >
-                <span className="mr-1.5 text-[10px] text-neutral-300">→</span>
-                <span className="font-mono text-[11px] font-medium text-neutral-700">
-                  {step.source}
+            {trace.steps.map((step) => {
+              const isPk =
+                trace.kind === "entity" && step.target === trace.entity;
+              const rowColor = isPk ? "hover:bg-amber-50" : "hover:bg-sky-50";
+              const badge = trace.kind === "entity" ? (
+                <span
+                  className={`shrink-0 rounded px-1 py-px text-[9px] font-bold uppercase tracking-wide ${
+                    isPk
+                      ? "bg-amber-100 text-amber-700"
+                      : "bg-sky-100 text-sky-700"
+                  }`}
+                >
+                  {isPk ? "pk" : "fk"}
                 </span>
-                <span className="font-mono text-[11px] text-neutral-400">.</span>
-                <span className="font-mono text-[11px] text-sky-600">
-                  {step.sourceField}
-                </span>
-              </button>
-            ))}
+              ) : null;
+              return (
+                <button
+                  key={step.edgeId}
+                  type="button"
+                  onClick={() => {
+                    onStepClick?.(step);
+                    setExpanded(false);
+                  }}
+                  className={`flex w-full items-center gap-1.5 px-3 py-1.5 text-left transition-colors ${rowColor}`}
+                >
+                  {badge}
+                  <span className="font-mono text-[11px] font-medium text-neutral-700">
+                    {isPk ? step.source : step.target}
+                  </span>
+                  <span className="font-mono text-[11px] text-neutral-400">.</span>
+                  <span
+                    className={`font-mono text-[11px] ${isPk ? "text-amber-600" : "text-sky-600"}`}
+                  >
+                    {isPk ? step.sourceField : step.sourceField}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
       )}

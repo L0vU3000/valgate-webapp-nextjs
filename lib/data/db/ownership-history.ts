@@ -11,7 +11,7 @@ import { OwnershipHistorySchema, type OwnershipHistory } from "../types/ownershi
 const COLLECTION = "ownership-history";
 const ID_PREFIX = "OWNH";
 
-export type NewOwnershipHistory = Omit<OwnershipHistory, "id" | "userId">;
+export type NewOwnershipHistory = Omit<OwnershipHistory, "id">;
 
 export async function list(userId: string): Promise<OwnershipHistory[]> {
   const rows = await listMergedRecords<unknown>(userId, COLLECTION);
@@ -35,7 +35,7 @@ export async function create(
   data: NewOwnershipHistory,
 ): Promise<OwnershipHistory> {
   const id = await nextId(userId, COLLECTION, ID_PREFIX);
-  const record = OwnershipHistorySchema.parse({ ...data, id, userId });
+  const record = OwnershipHistorySchema.parse({ ...data, id });
   await writeRecord(userId, COLLECTION, id, { core: { ...record } });
   return record;
 }

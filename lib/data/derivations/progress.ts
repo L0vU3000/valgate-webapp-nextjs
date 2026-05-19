@@ -45,7 +45,6 @@ function scorePillar(checks: ProgressCheck[]): number {
  *   Rental               20%
  *   Ownership            15%
  *   Valuation History    10%
- *   Safety               10%
  *   Estate Planning       5%
  *   Documents             5%
  */
@@ -54,15 +53,12 @@ export function computeProgressDetails(p: Property, ctx: ProgressContext): Progr
 
   const leases             = ctx.leases.filter((l) => l.propertyId === pid);
   const tenants            = ctx.tenants.filter((t) => t.propertyId === pid);
-  const payments           = ctx.payments.filter((pay) => pay.propertyId === pid);
+  const leaseIds           = new Set(leases.map((l) => l.id));
+  const payments           = ctx.payments.filter((pay) => pay.leaseId != null && leaseIds.has(pay.leaseId));
   const ownershipRecords   = ctx.ownershipRecords.filter((o) => o.propertyId === pid);
   const coOwners           = ctx.coOwners.filter((c) => c.propertyId === pid);
   const ownershipDocuments = ctx.ownershipDocuments.filter((d) => d.propertyId === pid);
   const valuations         = ctx.valuations.filter((v) => v.propertyId === pid);
-  const safetyRisks        = ctx.safetyRisks.filter((r) => r.propertyId === pid);
-  const inspections        = ctx.inspections.filter((i) => i.propertyId === pid);
-  const certifications     = ctx.certifications.filter((c) => c.propertyId === pid);
-  const emergencyContacts  = ctx.emergencyContacts.filter((e) => e.propertyId === pid);
   const successorAssign    = ctx.successorAssignments.filter((s) => s.propertyId === pid);
   const documents          = ctx.documents.filter((d) => d.propertyId === pid);
 
@@ -123,16 +119,6 @@ export function computeProgressDetails(p: Property, ctx: ProgressContext): Progr
       checks: [
         { label: "Valuation on file", done: valuations.length > 0 },
         { label: "6+ months of history", done: valuations.length >= 6 },
-      ],
-    },
-    {
-      key: "safety",
-      name: "Safety",
-      weight: 10,
-      href: `/property/${pid}/safety`,
-      checks: [
-        { label: "Risk assessment or inspection on file", done: safetyRisks.length > 0 || inspections.length > 0 || certifications.length > 0 },
-        { label: "Emergency contact added", done: emergencyContacts.length > 0 },
       ],
     },
     {

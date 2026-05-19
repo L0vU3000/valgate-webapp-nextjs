@@ -11,7 +11,7 @@ import { TenantSchema, type Tenant } from "../types/tenant";
 const COLLECTION = "tenants";
 const ID_PREFIX = "TEN";
 
-export type NewTenant = Omit<Tenant, "id" | "userId">;
+export type NewTenant = Omit<Tenant, "id">;
 
 export async function list(userId: string): Promise<Tenant[]> {
   const rows = await listMergedRecords<unknown>(userId, COLLECTION);
@@ -31,7 +31,7 @@ export async function create(
   data: NewTenant,
 ): Promise<Tenant> {
   const id = await nextId(userId, COLLECTION, ID_PREFIX);
-  const record = TenantSchema.parse({ ...data, id, userId });
+  const record = TenantSchema.parse({ ...data, id });
   await writeRecord(userId, COLLECTION, id, { core: { ...record } });
   return record;
 }
@@ -43,7 +43,7 @@ export async function update(
 ): Promise<Tenant | null> {
   const current = await get(userId, id);
   if (!current) return null;
-  const updated = TenantSchema.parse({ ...current, ...patch, id: current.id, userId: current.userId });
+  const updated = TenantSchema.parse({ ...current, ...patch, id: current.id });
   await writeRecord(userId, COLLECTION, id, { core: { ...updated } });
   return updated;
 }

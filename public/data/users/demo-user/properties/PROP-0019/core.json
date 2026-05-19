@@ -5,7 +5,6 @@
   "code": "PROP-0019",
   "type": "retail",
   "status": "Vacant",
-  "health": 0,
   "lat": 13.0957,
   "lng": 103.2022,
   "createdAt": 1778482038721,

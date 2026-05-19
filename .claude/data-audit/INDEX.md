@@ -134,3 +134,4 @@
 | [profile](pages/profile/audit.md) | /profile | 14 | 0 | 2 | ✅ Phase 8.6-Wiring complete — 14 WIRED · 0 HARDCODED; PF1–PF2 resolved | 1 |
 | [directory-id](pages/directory-id/audit.md) | /directory/[id] | ~11 | 0 | 0 | ✅ Phase 8.4b — all surfaces WIRED (direct reads from Professional entity) | 1 |
 | [add-property](pages/add-property/audit.md) | /add-property | 14¹ | 13² | 11 | 🟢 Phase 9 Rev 3 — 6 PFn resolved (PF1 lat/lng, PF2 Step 4 inputs, PF3 buyNumeric, PF4 dead drafts, PF5 schema, PF9 status field); 5 open (PF6/PF7/PF8/PF10/PF11); input-form taxonomy (¹COLLECTED, ²DEFERRED-BY-DESIGN) | 3 |
+| [home](pages/home/audit.md) | / | ~38 | 3 | 7 | ⚠️ Phase 10 — ~38 WIRED · 5 PARTIAL (p.health drift) · 3 HARDCODED; PF1 deferred-upfront (hero image/Q5.Y), PF3 (HomeListItem), PF5 (health drift/Q3.S), PF7 (mock docs) actionable in 10.1 | 1 |

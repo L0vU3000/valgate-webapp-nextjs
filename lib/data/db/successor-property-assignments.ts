@@ -14,7 +14,7 @@ import {
 const COLLECTION = "successor-property-assignments";
 const ID_PREFIX = "SPA";
 
-export type NewSuccessorPropertyAssignment = Omit<SuccessorPropertyAssignment, "id" | "userId">;
+export type NewSuccessorPropertyAssignment = Omit<SuccessorPropertyAssignment, "id">;
 
 export async function list(userId: string): Promise<SuccessorPropertyAssignment[]> {
   const rows = await listMergedRecords<unknown>(userId, COLLECTION);
@@ -34,7 +34,7 @@ export async function create(
   data: NewSuccessorPropertyAssignment,
 ): Promise<SuccessorPropertyAssignment> {
   const id = await nextId(userId, COLLECTION, ID_PREFIX);
-  const record = SuccessorPropertyAssignmentSchema.parse({ ...data, id, userId });
+  const record = SuccessorPropertyAssignmentSchema.parse({ ...data, id });
   await writeRecord(userId, COLLECTION, id, { core: { ...record } });
   return record;
 }

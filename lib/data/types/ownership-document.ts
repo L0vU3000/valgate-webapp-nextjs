@@ -1,15 +1,15 @@
 import { z } from "zod";
-import { idSchema, userIdSchema, propertyIdSchema, timestampSchema } from "./_common";
+import { idSchema, propertyIdSchema, timestampSchema } from "./_common";
 
 export const OwnershipDocumentSchema = z.object({
   id: idSchema,
-  userId: userIdSchema,
   propertyId: propertyIdSchema,
   name: z.string().min(1),
   type: z.string().min(1),
-  date: z.string().min(1),
+  documentDate: timestampSchema,
+  expiryDate: timestampSchema.optional(),
   owner: z.string().min(1),
-  status: z.enum(["Current", "Superseded", "Archived"]).optional(),
+  status: z.enum(["Current", "Expiring Soon", "Pending Signature", "Superseded", "Archived"]).optional(),
   createdAt: timestampSchema,
   updatedAt: timestampSchema,
 });

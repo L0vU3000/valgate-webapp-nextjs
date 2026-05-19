@@ -1,8 +1,7 @@
 {
   "id": "OWNH-0001",
-  "userId": "demo-user",
   "propertyId": "PROP-0001",
-  "date": "Mar 04, 2022",
+  "eventDate": 1646326800000,
   "text": "Acquired from Sok Holdings — hard title registered.",
   "color": "#22c55e",
   "createdAt": 1775001600000,

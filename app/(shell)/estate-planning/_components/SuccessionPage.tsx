@@ -29,6 +29,7 @@ import type {
   PropertyStatus,
   SuccessorRole,
 } from "../queries";
+import type { SuccessorRelation } from "@/lib/data/types/successor";
 
 // -- Config --
 
@@ -342,7 +343,7 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
         {
           name: trimmedName,
           initials: buildInitials(trimmedName),
-          relation: trimmedRelation,
+          relation: trimmedRelation as SuccessorRelation,
           role: beneficiaryForm.role,
           share,
           verified: beneficiaryForm.verified,

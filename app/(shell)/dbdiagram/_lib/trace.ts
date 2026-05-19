@@ -13,7 +13,7 @@ export type Trace = {
   edgeIds: Set<string>;
   entityIds: Set<string>;
   steps: TraceStep[];
-  kind: "forward" | "incoming" | "field-only";
+  kind: "forward" | "incoming" | "field-only" | "entity";
 };
 
 export function computeTrace(
@@ -132,5 +132,37 @@ export function computeTrace(
     entityIds,
     steps,
     kind: "field-only",
+  };
+}
+
+export function computeEntityTrace(
+  entityName: string,
+  fkEdges: FkEdge[],
+): Trace {
+  const edgeIds = new Set<string>();
+  const entityIds = new Set<string>([`entity-${entityName}`]);
+  const steps: TraceStep[] = [];
+
+  for (const e of fkEdges) {
+    if (e.source === entityName || e.target === entityName) {
+      edgeIds.add(e.id);
+      entityIds.add(`entity-${e.source}`);
+      entityIds.add(`entity-${e.target}`);
+      steps.push({
+        source: e.source,
+        sourceField: e.field,
+        target: e.target,
+        edgeId: e.id,
+      });
+    }
+  }
+
+  return {
+    entity: entityName,
+    field: "",
+    edgeIds,
+    entityIds,
+    steps,
+    kind: "entity",
   };
 }

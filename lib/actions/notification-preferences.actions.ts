@@ -3,7 +3,7 @@
 import { revalidateTag } from "next/cache";
 import * as db from "@/lib/data/db/notification-preferences";
 import { getCurrentUserId } from "@/lib/data/auth-shim";
-import type { NotificationPreference } from "@/lib/data/types/notification-preference";
+import type { NotificationPreference, NotificationEventType } from "@/lib/data/types/notification-preference";
 import type { ActionResult } from "./properties.actions";
 
 export async function createNotificationPreference(
@@ -50,7 +50,7 @@ export async function togglePreference(
     return { ok: true, data: updated! };
   } else {
     const created = await db.create(userId, {
-      eventType,
+      eventType: eventType as NotificationEventType,
       email: channel === "email" ? true : false,
       slack: channel === "slack" ? true : false,
       sms: channel === "sms" ? true : false,

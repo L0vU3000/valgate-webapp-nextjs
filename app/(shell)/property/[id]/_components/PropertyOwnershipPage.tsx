@@ -13,7 +13,7 @@ import {
   Users, DollarSign, Clock, Scale, UserPlus, History,
 } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { formatCurrencyFull } from "@/lib/format";
+import { formatCurrencyFull, formatDate } from "@/lib/format";
 
 function fade(mounted: boolean, delay: number, reduced = false) {
   if (reduced) return { opacity: 1 };
@@ -26,10 +26,6 @@ function fade(mounted: boolean, delay: number, reduced = false) {
 }
 
 const OWNER_COLORS = ["var(--val-primary-dark)", "#38bdf8", "#818cf8", "#a3e635"];
-
-function formatDate(ts: number): string {
-  return new Date(ts).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
-}
 
 function buildKpis(
   record: OwnershipRecord | null,
@@ -449,7 +445,7 @@ export function PropertyOwnershipPage({
                         </div>
                       </td>
                       <td className="px-4 py-3.5 text-[14px] text-slate-500">{doc.type}</td>
-                      <td className="px-4 py-3.5 text-[14px] text-slate-500">{doc.date}</td>
+                      <td className="px-4 py-3.5 text-[14px] text-slate-500">{formatDate(doc.documentDate)}</td>
                       <td className="px-4 py-3.5 text-[14px] text-slate-500">{doc.owner}</td>
                       <td className="px-4 py-3.5">
                         <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-semibold tracking-[1px] uppercase px-2.5 py-0.5 rounded-full">
@@ -480,7 +476,7 @@ export function PropertyOwnershipPage({
                 <div className="absolute left-[107px] top-2 bottom-2 w-px bg-slate-100" aria-hidden="true" />
                 {ownershipHistory.map((item, i) => (
                   <div key={item.id ?? i} className="flex items-start gap-4">
-                    <span className="text-[13px] text-slate-400 w-[100px] shrink-0 pt-0.5">{item.date}</span>
+                    <span className="text-[13px] text-slate-400 w-[100px] shrink-0 pt-0.5">{formatDate(item.eventDate)}</span>
                     <span
                       className="w-1.5 h-1.5 rounded-full mt-[5px] shrink-0 relative z-10"
                       style={{ backgroundColor: item.color }}

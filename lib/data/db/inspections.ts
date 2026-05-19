@@ -11,7 +11,7 @@ import { InspectionSchema, type Inspection } from "../types/inspection";
 const COLLECTION = "inspections";
 const ID_PREFIX = "INSP";
 
-export type NewInspection = Omit<Inspection, "id" | "userId">;
+export type NewInspection = Omit<Inspection, "id">;
 
 export async function list(userId: string): Promise<Inspection[]> {
   const rows = await listMergedRecords<unknown>(userId, COLLECTION);
@@ -31,7 +31,7 @@ export async function create(
   data: NewInspection,
 ): Promise<Inspection> {
   const id = await nextId(userId, COLLECTION, ID_PREFIX);
-  const record = InspectionSchema.parse({ ...data, id, userId });
+  const record = InspectionSchema.parse({ ...data, id });
   await writeRecord(userId, COLLECTION, id, { core: { ...record } });
   return record;
 }
@@ -43,7 +43,7 @@ export async function update(
 ): Promise<Inspection | null> {
   const current = await get(userId, id);
   if (!current) return null;
-  const updated = InspectionSchema.parse({ ...current, ...patch, id: current.id, userId: current.userId });
+  const updated = InspectionSchema.parse({ ...current, ...patch, id: current.id });
   await writeRecord(userId, COLLECTION, id, { core: { ...updated } });
   return updated;
 }

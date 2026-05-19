@@ -26,10 +26,10 @@ export async function get(
 
 export async function create(
   userId: string,
-  data: Omit<Payment, "id" | "userId">,
+  data: Omit<Payment, "id">,
 ): Promise<Payment> {
   const id = await nextId(userId, COLLECTION, ID_PREFIX);
-  const record = PaymentSchema.parse({ ...data, id, userId });
+  const record = PaymentSchema.parse({ ...data, id });
   await writeRecord(userId, COLLECTION, id, { core: { ...record } });
   return record;
 }

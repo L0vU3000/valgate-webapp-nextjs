@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { idSchema, userIdSchema, propertyIdSchema, timestampSchema } from "./_common";
+import { idSchema, propertyIdSchema, timestampSchema } from "./_common";
 
 export const MaintenanceSeveritySchema = z.enum(["Emergency", "Urgent", "Standard"]);
 export const MaintenanceStatusSchema = z.enum(["Open", "InProgress", "Resolved"]);
@@ -9,7 +9,6 @@ export type MaintenanceStatus = z.infer<typeof MaintenanceStatusSchema>;
 
 export const MaintenanceItemSchema = z.object({
   id: idSchema,
-  userId: userIdSchema,
   propertyId: propertyIdSchema,
   severity: MaintenanceSeveritySchema,
   title: z.string().min(1),

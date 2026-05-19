@@ -11,7 +11,7 @@ import { LeaseSchema, type Lease } from "../types/lease";
 const COLLECTION = "leases";
 const ID_PREFIX = "LEASE";
 
-export type NewLease = Omit<Lease, "id" | "userId">;
+export type NewLease = Omit<Lease, "id">;
 
 export async function list(userId: string): Promise<Lease[]> {
   const rows = await listMergedRecords<unknown>(userId, COLLECTION);
@@ -28,7 +28,7 @@ export async function create(
   data: NewLease,
 ): Promise<Lease> {
   const id = await nextId(userId, COLLECTION, ID_PREFIX);
-  const record = LeaseSchema.parse({ ...data, id, userId });
+  const record = LeaseSchema.parse({ ...data, id });
   await writeRecord(userId, COLLECTION, id, { core: { ...record } });
   return record;
 }
@@ -40,7 +40,7 @@ export async function update(
 ): Promise<Lease | null> {
   const current = await get(userId, id);
   if (!current) return null;
-  const updated = LeaseSchema.parse({ ...current, ...patch, id: current.id, userId: current.userId });
+  const updated = LeaseSchema.parse({ ...current, ...patch, id: current.id });
   await writeRecord(userId, COLLECTION, id, { core: { ...updated } });
   return updated;
 }

@@ -27,10 +27,10 @@ export async function get(userId: string, id: string): Promise<CoOwner | null> {
 
 export async function create(
   userId: string,
-  data: Omit<CoOwner, "id" | "userId">,
+  data: Omit<CoOwner, "id">,
 ): Promise<CoOwner> {
   const id = await nextId(userId, COLLECTION, ID_PREFIX);
-  const record = CoOwnerSchema.parse({ ...data, id, userId });
+  const record = CoOwnerSchema.parse({ ...data, id });
   await writeRecord(userId, COLLECTION, id, { core: { ...record } });
   return record;
 }

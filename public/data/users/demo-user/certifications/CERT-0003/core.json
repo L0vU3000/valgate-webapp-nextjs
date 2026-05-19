@@ -1,11 +1,10 @@
 {
   "id": "CERT-0003",
-  "userId": "demo-user",
   "propertyId": "PROP-0006",
   "name": "Plumbing Certificate",
   "status": "Expired",
-  "issued": "Feb 02, 2024",
-  "expires": "Feb 02, 2026",
+  "issuedAt": 1706806800000,
+  "expiresAt": 1769965200000,
   "inspector": "Chea Sophal",
   "createdAt": 1775001600000,
   "updatedAt": 1775001600000

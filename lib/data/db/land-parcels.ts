@@ -26,10 +26,10 @@ export async function get(
 
 export async function create(
   userId: string,
-  data: Omit<LandParcel, "id" | "userId">,
+  data: Omit<LandParcel, "id">,
 ): Promise<LandParcel> {
   const id = await nextId(userId, COLLECTION, ID_PREFIX);
-  const record = LandParcelSchema.parse({ ...data, id, userId });
+  const record = LandParcelSchema.parse({ ...data, id });
   await writeRecord(userId, COLLECTION, id, { core: { ...record } });
   return record;
 }

@@ -26,10 +26,10 @@ export async function get(
 
 export async function create(
   userId: string,
-  data: Omit<Expense, "id" | "userId">,
+  data: Omit<Expense, "id">,
 ): Promise<Expense> {
   const id = await nextId(userId, COLLECTION, ID_PREFIX);
-  const record = ExpenseSchema.parse({ ...data, id, userId });
+  const record = ExpenseSchema.parse({ ...data, id });
   await writeRecord(userId, COLLECTION, id, { core: { ...record } });
   return record;
 }

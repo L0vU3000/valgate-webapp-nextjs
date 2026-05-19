@@ -19,14 +19,11 @@ import type { RentalDashboardData } from "../queries";
 /*  Static UI Config                                                          */
 /* -------------------------------------------------------------------------- */
 
-const navLinks = ["Portfolio", "Units", "Leases", "Financials"] as const;
-
 /* -------------------------------------------------------------------------- */
 /*  Page Component                                                            */
 /* -------------------------------------------------------------------------- */
 
 export function RentalDashboardPage({ data }: { data: RentalDashboardData }) {
-  const [activeNav, setActiveNav] = useState<string>("Units");
   const [mounted, setMounted] = useState(false);
 
   const {
@@ -60,37 +57,19 @@ export function RentalDashboardPage({ data }: { data: RentalDashboardData }) {
 
           {/* Page Header */}
           <div
-            className="flex items-start justify-between transition-all duration-500"
+            className="flex flex-col transition-all duration-500"
             style={{
               opacity: mounted ? 1 : 0,
               transform: mounted ? "translateY(0)" : "translateY(-8px)",
             }}
           >
-            <div>
-              <div className="flex items-center gap-1.5 mb-3">
-                <span className="text-xs font-semibold tracking-widest uppercase text-[--val-primary-dark]">Valgate</span>
-                <span className="text-xs text-slate-300">/</span>
-                <span className="text-xs font-semibold tracking-widest uppercase text-slate-400">Rental</span>
-              </div>
-              <h1 className="text-4xl font-extrabold text-val-heading tracking-tight leading-10">Rental Dashboard</h1>
-              <p className="text-slate-500 text-base mt-2">Track properties, leases, and income across your rental portfolio.</p>
+            <div className="flex items-center gap-1.5 mb-3">
+              <span className="text-xs font-semibold tracking-widest uppercase text-[--val-primary-dark]">Valgate</span>
+              <span className="text-xs text-slate-300">/</span>
+              <span className="text-xs font-semibold tracking-widest uppercase text-slate-400">Rental</span>
             </div>
-            <nav className="flex items-center gap-6 pt-2">
-              {navLinks.map((link) => (
-                <button
-                  key={link}
-                  onClick={() => setActiveNav(link)}
-                  className={cn(
-                    "text-sm transition-all duration-200",
-                    activeNav === link
-                      ? "border-b-2 border-[--val-primary-dark] pb-1 font-medium text-[--val-primary-dark]"
-                      : "text-slate-500 hover:text-val-heading"
-                  )}
-                >
-                  {link}
-                </button>
-              ))}
-            </nav>
+            <h1 className="text-4xl font-extrabold text-val-heading tracking-tight leading-10">Rental Dashboard</h1>
+            <p className="text-slate-500 text-base mt-2">Track properties, leases, and income across your rental portfolio.</p>
           </div>
 
           {/* ================================================================ */}

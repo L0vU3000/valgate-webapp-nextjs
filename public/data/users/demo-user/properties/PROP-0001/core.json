@@ -5,7 +5,6 @@
   "code": "PROP-0001",
   "type": "residential",
   "status": "Rented",
-  "health": 100,
   "lat": 11.5564,
   "lng": 104.9282,
   "createdAt": 1778482038658,

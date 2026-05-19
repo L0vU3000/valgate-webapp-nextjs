@@ -53,11 +53,14 @@ export async function getOverviewPageData(propertyId: string): Promise<OverviewP
     db.ownershipRecords.list(userId),
     db.coOwners.list(userId),
   ]);
+  const propLeaseIds = new Set(
+    allLeases.filter((l) => l.propertyId === propertyId).map((l) => l.id),
+  );
   return {
     valuations: allValuations.filter((v) => v.propertyId === propertyId),
     leases: allLeases.filter((l) => l.propertyId === propertyId),
     tenants: allTenants.filter((t) => t.propertyId === propertyId),
-    payments: allPayments.filter((p) => p.propertyId === propertyId),
+    payments: allPayments.filter((p) => p.leaseId != null && propLeaseIds.has(p.leaseId)),
     expenses: allExpenses.filter((e) => e.propertyId === propertyId),
     notifications: allNotifications.filter((n) => notificationMatchesProperty(n, propertyId)),
     maintenanceItems: allMaintenanceItems.filter((m) => m.propertyId === propertyId),

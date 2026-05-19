@@ -1,12 +1,11 @@
 import { z } from "zod";
-import { idSchema, userIdSchema, propertyIdSchema } from "./_common";
+import { idSchema, propertyIdSchema } from "./_common";
 
 export const TerrainTypeSchema = z.enum(["Flat", "Rolling", "Hilly", "Mountainous", "Mixed"]);
 export type TerrainType = z.infer<typeof TerrainTypeSchema>;
 
 export const LandParcelSchema = z.object({
   id: idSchema,
-  userId: userIdSchema,
   propertyId: propertyIdSchema,
   sizeM2: z.number().nonnegative(),
   widthM: z.number().nonnegative().optional(),

@@ -23,9 +23,10 @@ interface PropertyLayoutProps {
   activeTab: string;
   children: React.ReactNode;
   property: Property;
+  progress?: number;
 }
 
-export function PropertyLayout({ activeTab, children, property }: PropertyLayoutProps) {
+export function PropertyLayout({ activeTab, children, property, progress }: PropertyLayoutProps) {
   const router = useRouter();
   const { id } = useParams();
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -64,7 +65,7 @@ export function PropertyLayout({ activeTab, children, property }: PropertyLayout
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
             </span>
-            {property.health ?? 0}% progress
+            {progress !== undefined ? `${progress}%` : "—"} progress
             <span className="text-[#059669]">&#9432;</span>
           </span>
           <button className="p-2 rounded hover:bg-slate-100 transition-colors duration-150 relative">
@@ -123,6 +124,17 @@ export function PropertyLayout({ activeTab, children, property }: PropertyLayout
               activeTab === tab.key ? "" : "group-hover:scale-110"
             }`} />
             {tab.label}
+            {tab.key === "safety" && (
+              <span
+                className="text-[10px] font-medium tracking-wide px-1.5 py-0.5 rounded leading-none"
+                style={{
+                  background: "oklch(94% 0.01 250)",
+                  color: "oklch(54% 0.04 250)",
+                }}
+              >
+                soon
+              </span>
+            )}
           </button>
         ))}
         {/* Sliding active indicator */}

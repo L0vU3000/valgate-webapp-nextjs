@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { idSchema, userIdSchema, propertyIdSchema, timestampSchema } from "./_common";
+import { idSchema, propertyIdSchema, timestampSchema } from "./_common";
 
 export const HoldingTypeSchema = z.enum([
   "Tenancy in Common",
@@ -20,7 +20,6 @@ export type DistributionMethod = z.infer<typeof DistributionMethodSchema>;
 
 export const OwnershipRecordSchema = z.object({
   id: idSchema,
-  userId: userIdSchema,
   propertyId: propertyIdSchema,
   holdingType: HoldingTypeSchema,
   // Loan / mortgage transaction

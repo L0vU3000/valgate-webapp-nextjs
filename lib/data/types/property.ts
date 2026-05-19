@@ -37,7 +37,6 @@ export const PropertyCoreSchema = z.object({
   code: z.string().min(1),
   type: propertyTypeChoiceSchema,
   status: propertyStatusSchema,
-  health: z.number().int().min(0).max(100).optional(),
   lat: z.number().min(-90).max(90),
   lng: z.number().min(-180).max(180),
   createdAt: timestampSchema,

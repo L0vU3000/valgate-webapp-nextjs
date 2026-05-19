@@ -1,8 +1,7 @@
 {
   "id": "INSP-0002",
-  "userId": "demo-user",
   "propertyId": "PROP-0001",
-  "date": "Sep 22, 2025",
+  "inspectedAt": 1758474000000,
   "type": "Electrical",
   "inspector": "Heng Virak",
   "status": "Satisfactory",

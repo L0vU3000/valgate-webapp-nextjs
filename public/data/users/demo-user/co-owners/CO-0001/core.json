@@ -1,0 +1,13 @@
+{
+  "id": "CO-0001",
+  "propertyId": "PROP-0001",
+  "name": "Chan Sophea",
+  "role": "Primary",
+  "sharePercent": 70,
+  "email": "sophea.chan@gmail.com",
+  "phone": "+855 12 345 678",
+  "address": "No. 12, Street 282, Boeung Keng Kang I, Phnom Penh",
+  "ssnMasked": "••••-••-4521",
+  "taxEntity": "Trust",
+  "tax1099Status": "Reported"
+}

@@ -4,7 +4,7 @@ import { idSchema, userIdSchema, timestampSchema } from "./_common";
 export const NotificationPreferenceSchema = z.object({
   id: idSchema,
   userId: userIdSchema,
-  eventType: z.string().min(1),
+  eventType: z.enum(["Payment", "Leasing", "Maintenance", "Compliance"]),
   email: z.boolean(),
   slack: z.boolean(),
   sms: z.boolean(),
@@ -13,3 +13,4 @@ export const NotificationPreferenceSchema = z.object({
 });
 
 export type NotificationPreference = z.infer<typeof NotificationPreferenceSchema>;
+export type NotificationEventType = NotificationPreference["eventType"];

@@ -11,7 +11,7 @@ import { OwnershipDocumentSchema, type OwnershipDocument } from "../types/owners
 const COLLECTION = "ownership-documents";
 const ID_PREFIX = "ODOC";
 
-export type NewOwnershipDocument = Omit<OwnershipDocument, "id" | "userId">;
+export type NewOwnershipDocument = Omit<OwnershipDocument, "id">;
 
 export async function list(userId: string): Promise<OwnershipDocument[]> {
   const rows = await listMergedRecords<unknown>(userId, COLLECTION);
@@ -35,7 +35,7 @@ export async function create(
   data: NewOwnershipDocument,
 ): Promise<OwnershipDocument> {
   const id = await nextId(userId, COLLECTION, ID_PREFIX);
-  const record = OwnershipDocumentSchema.parse({ ...data, id, userId });
+  const record = OwnershipDocumentSchema.parse({ ...data, id });
   await writeRecord(userId, COLLECTION, id, { core: { ...record } });
   return record;
 }
@@ -47,7 +47,7 @@ export async function update(
 ): Promise<OwnershipDocument | null> {
   const current = await get(userId, id);
   if (!current) return null;
-  const updated = OwnershipDocumentSchema.parse({ ...current, ...patch, id: current.id, userId: current.userId });
+  const updated = OwnershipDocumentSchema.parse({ ...current, ...patch, id: current.id });
   await writeRecord(userId, COLLECTION, id, { core: { ...updated } });
   return updated;
 }

@@ -11,7 +11,7 @@ import { EmergencyContactSchema, type EmergencyContact } from "../types/emergenc
 const COLLECTION = "emergency-contacts";
 const ID_PREFIX = "EMGC";
 
-export type NewEmergencyContact = Omit<EmergencyContact, "id" | "userId">;
+export type NewEmergencyContact = Omit<EmergencyContact, "id">;
 
 export async function list(userId: string): Promise<EmergencyContact[]> {
   const rows = await listMergedRecords<unknown>(userId, COLLECTION);
@@ -31,7 +31,7 @@ export async function create(
   data: NewEmergencyContact,
 ): Promise<EmergencyContact> {
   const id = await nextId(userId, COLLECTION, ID_PREFIX);
-  const record = EmergencyContactSchema.parse({ ...data, id, userId });
+  const record = EmergencyContactSchema.parse({ ...data, id });
   await writeRecord(userId, COLLECTION, id, { core: { ...record } });
   return record;
 }
@@ -43,7 +43,7 @@ export async function update(
 ): Promise<EmergencyContact | null> {
   const current = await get(userId, id);
   if (!current) return null;
-  const updated = EmergencyContactSchema.parse({ ...current, ...patch, id: current.id, userId: current.userId });
+  const updated = EmergencyContactSchema.parse({ ...current, ...patch, id: current.id });
   await writeRecord(userId, COLLECTION, id, { core: { ...updated } });
   return updated;
 }

@@ -38,10 +38,13 @@ export async function getRentalPageData(propertyId: string): Promise<RentalPageD
     db.folders.list(userId),
     db.maintenanceItems.list(userId),
   ]);
+  const propLeaseIds = new Set(
+    allLeases.filter((l) => l.propertyId === propertyId).map((l) => l.id),
+  );
   return {
     leases: allLeases.filter((l) => l.propertyId === propertyId),
     tenants: allTenants.filter((t) => t.propertyId === propertyId),
-    payments: allPayments.filter((p) => p.propertyId === propertyId),
+    payments: allPayments.filter((p) => p.leaseId != null && propLeaseIds.has(p.leaseId)),
     expenses: allExpenses.filter((e) => e.propertyId === propertyId),
     documents: allDocuments.filter((d) => d.propertyId === propertyId),
     folders: allFolders.filter((f) => f.propertyId === propertyId),

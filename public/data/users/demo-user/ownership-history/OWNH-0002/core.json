@@ -1,8 +1,7 @@
 {
   "id": "OWNH-0002",
-  "userId": "demo-user",
   "propertyId": "PROP-0001",
-  "date": "Aug 19, 2024",
+  "eventDate": 1724000400000,
   "text": "Title transferred to Chan Family Trust.",
   "color": "#2563eb",
   "createdAt": 1775001600000,

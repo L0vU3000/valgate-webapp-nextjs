@@ -26,7 +26,7 @@ export default async function ShellGroupLayout({
     status: p.status,
     buy: p.buyNumeric ? formatCurrency(p.buyNumeric) : "—",
     buyNumeric: p.buyNumeric ?? 0,
-    progress: p.health ?? 0,
+    progress: 0,
     totalArea: p.totalArea,
     title: p.title,
   }));

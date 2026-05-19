@@ -31,6 +31,7 @@ import type {
   PropertyListItem,
   PropertyStatus,
 } from "@/lib/data/types/property";
+import type { Document } from "@/lib/data/types/document";
 
 const statusClasses: Record<PropertyStatus, string> = {
   Rented:
@@ -53,23 +54,27 @@ function progressClass(progress: number) {
   return "text-status-danger-text";
 }
 
+function isPdf(doc: Document) {
+  return doc.extension === "pdf" || doc.mimeType?.includes("pdf");
+}
+
+function formatUploadDate(ts: number) {
+  return new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
 export function CommandPalette({
   open,
   onOpenChange,
   properties,
+  documents = [],
   navigate,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   properties: PropertyListItem[];
+  documents?: Document[];
   navigate: (path: string) => void;
 }) {
-  const mockDocs = [
-    { id: "doc-1", name: "Land near river - Lease Agreement.pdf", type: "pdf" as const, modified: "2 days ago" },
-    { id: "doc-2", name: "Siem Reap Land Plot - Title Deed.pdf", type: "pdf" as const, modified: "1 week ago" },
-    { id: "doc-3", name: "Maintenance Log - Commercial Building", type: "doc" as const, modified: "3 days ago" },
-    { id: "doc-4", name: "Portfolio Valuation Report Q1 2026", type: "doc" as const, modified: "5 days ago" },
-  ];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -130,7 +135,7 @@ export function CommandPalette({
 
             {/* Documents */}
             <CommandGroup heading="Documents">
-              {mockDocs.map((doc, i) => (
+              {documents.slice(0, 5).map((doc, i) => (
                 <CommandItem
                   key={doc.id}
                   value={doc.name}
@@ -140,19 +145,21 @@ export function CommandPalette({
                 >
                   <div className={cn(
                     "size-8 rounded-lg flex items-center justify-center shrink-0",
-                    doc.type === "pdf" ? "bg-status-danger-bg" : "bg-status-info-bg",
+                    isPdf(doc) ? "bg-status-danger-bg" : "bg-status-info-bg",
                   )}>
                     <FileText className={cn(
                       "size-4",
-                      doc.type === "pdf" ? "text-status-danger-text" : "text-status-info-text",
+                      isPdf(doc) ? "text-status-danger-text" : "text-status-info-text",
                     )} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-foreground truncate">{doc.name}</p>
                     <p className="text-xs text-secondary flex items-center gap-1.5">
-                      <span className="uppercase font-medium tracking-wide text-[10px] text-text-disabled">{doc.type}</span>
+                      <span className="uppercase font-medium tracking-wide text-[10px] text-text-disabled">
+                        {doc.category ?? doc.extension?.toUpperCase() ?? "FILE"}
+                      </span>
                       <span className="text-text-disabled">·</span>
-                      Updated {doc.modified}
+                      {formatUploadDate(doc.uploadedAt)}
                     </p>
                   </div>
                 </CommandItem>

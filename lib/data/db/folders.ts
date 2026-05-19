@@ -11,7 +11,7 @@ import { FolderSchema, type Folder } from "../types/folder";
 const COLLECTION = "folders";
 const ID_PREFIX = "FLDR";
 
-export type NewFolder = Omit<Folder, "id" | "userId">;
+export type NewFolder = Omit<Folder, "id">;
 
 export async function list(userId: string): Promise<Folder[]> {
   const rows = await listMergedRecords<unknown>(userId, COLLECTION);
@@ -31,7 +31,7 @@ export async function create(
   data: NewFolder,
 ): Promise<Folder> {
   const id = await nextId(userId, COLLECTION, ID_PREFIX);
-  const record = FolderSchema.parse({ ...data, id, userId });
+  const record = FolderSchema.parse({ ...data, id });
   await writeRecord(userId, COLLECTION, id, { core: { ...record } });
   return record;
 }
@@ -43,7 +43,7 @@ export async function update(
 ): Promise<Folder | null> {
   const current = await get(userId, id);
   if (!current) return null;
-  const updated = FolderSchema.parse({ ...current, ...patch, id: current.id, userId: current.userId });
+  const updated = FolderSchema.parse({ ...current, ...patch, id: current.id });
   await writeRecord(userId, COLLECTION, id, { core: { ...updated } });
   return updated;
 }

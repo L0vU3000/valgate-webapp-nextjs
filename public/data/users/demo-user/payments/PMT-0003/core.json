@@ -1,9 +1,6 @@
 {
   "id": "PMT-0003",
-  "userId": "demo-user",
-  "propertyId": "PROP-0006",
   "leaseId": "LEASE-0002",
-  "tenantId": "TEN-0002",
   "date": 1771977600000,
   "kind": "Rent",
   "amount": 1200,

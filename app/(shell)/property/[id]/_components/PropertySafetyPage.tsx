@@ -9,6 +9,7 @@ import type { EmergencyContact } from "@/lib/data/types/emergency-contact";
 import { PropertyLayout } from "@/components/property/PropertyLayout";
 import { Check, AlertTriangle, Shield, Phone, ClipboardCheck, FileCheck, AlertOctagon } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { formatDate } from "@/lib/format";
 
 interface Props {
   property: Property;
@@ -175,11 +176,11 @@ export function PropertySafetyPage({
                   <div className="flex items-center gap-6 text-right shrink-0">
                     <div>
                       <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">Issued</span>
-                      <p className="text-[13px] font-medium text-[--val-heading]">{c.issued}</p>
+                      <p className="text-[13px] font-medium text-[--val-heading]">{formatDate(c.issuedAt)}</p>
                     </div>
                     <div>
                       <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">Expires</span>
-                      <p className="text-[13px] font-medium text-[--val-heading]">{c.expires}</p>
+                      <p className="text-[13px] font-medium text-[--val-heading]">{formatDate(c.expiresAt)}</p>
                     </div>
                     <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-0.5 ${
                       c.status === "Valid" ? "text-emerald-700 bg-emerald-50" : "text-amber-700 bg-amber-50"
@@ -224,7 +225,7 @@ export function PropertySafetyPage({
                     </thead>
                     <tbody>
                       {inspections.map((insp, i) => {
-                        const statusClass = insp.status === "Passed" || insp.status === "Clear" ? "text-emerald-700"
+                        const statusClass = insp.status === "Passed" ? "text-emerald-700"
                           : insp.status === "Satisfactory" ? "text-amber-700"
                           : "text-rose-700";
                         return (
@@ -240,7 +241,7 @@ export function PropertySafetyPage({
                               opacity: mounted ? undefined : 0,
                             }}
                           >
-                            <td className="px-4 py-3.5 text-[14px] text-[--val-heading]">{insp.date}</td>
+                            <td className="px-4 py-3.5 text-[14px] text-[--val-heading]">{formatDate(insp.inspectedAt)}</td>
                             <td className="px-4 py-3.5 text-[14px] text-[--val-heading]">{insp.type}</td>
                             <td className="px-4 py-3.5 text-[14px] text-slate-500">{insp.inspector}</td>
                             <td className="px-4 py-3.5 text-[14px]"><span className={`font-semibold ${statusClass}`}>{insp.status}</span></td>
@@ -275,9 +276,9 @@ export function PropertySafetyPage({
                     description="Identified safety risks for this property will appear here."
                   />
                 ) : risks.map((r, i) => {
-                  const severityBadgeClass = r.severityLabel === "High"
+                  const severityBadgeClass = r.severity === "Critical" || r.severity === "High"
                     ? "text-rose-700 bg-rose-50"
-                    : r.severityLabel === "Low"
+                    : r.severity === "Low"
                     ? "text-emerald-700 bg-emerald-50"
                     : "text-amber-700 bg-amber-50";
                   return (
@@ -286,11 +287,11 @@ export function PropertySafetyPage({
                       className={`flex items-start gap-4 py-4 ${i > 0 ? "border-t border-slate-100" : ""}`}
                     >
                       <span className={`text-[11px] font-semibold uppercase tracking-[0.05em] px-2 py-0.5 rounded shrink-0 mt-0.5 ${severityBadgeClass}`}>
-                        {r.severityLabel}
+                        {r.severity}
                       </span>
                       <div>
                         <p className="text-[15px] font-semibold text-[--val-heading]">{r.title}</p>
-                        <p className="text-[14px] text-slate-500 mt-0.5">{r.desc}</p>
+                        <p className="text-[14px] text-slate-500 mt-0.5">{r.description}</p>
                       </div>
                     </div>
                   );

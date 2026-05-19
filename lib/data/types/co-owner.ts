@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { idSchema, userIdSchema, propertyIdSchema } from "./_common";
+import { idSchema, propertyIdSchema } from "./_common";
 
 export const CoOwnerRoleSchema = z.enum(["Primary", "Minor"]);
 export type CoOwnerRole = z.infer<typeof CoOwnerRoleSchema>;
@@ -11,7 +11,6 @@ export type TaxEntity = z.infer<typeof TaxEntitySchema>;
 
 export const CoOwnerSchema = z.object({
   id: idSchema,
-  userId: userIdSchema,
   propertyId: propertyIdSchema,
   name: z.string().min(1),
   role: CoOwnerRoleSchema,

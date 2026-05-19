@@ -101,11 +101,13 @@ function buildActivityFeed(
   now: number,
 ): FeedEvent[] {
   const tmap = new Map(tenants.map(t => [t.id, t]));
+  const lmap = new Map(leases.map(l => [l.id, l]));
   const events: FeedEvent[] = [];
 
   for (const p of payments) {
     if (p.kind !== "Rent" || p.status !== "Paid") continue;
-    const t = p.tenantId ? tmap.get(p.tenantId) : undefined;
+    const tenantId = p.leaseId ? lmap.get(p.leaseId)?.tenantId : undefined;
+    const t = tenantId ? tmap.get(tenantId) : undefined;
     events.push({
       time: p.date,
       color: "#059669",

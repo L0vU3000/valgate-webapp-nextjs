@@ -11,7 +11,7 @@ import { OwnershipRecordSchema, type OwnershipRecord } from "../types/ownership-
 const COLLECTION = "ownership-records";
 const ID_PREFIX = "OREC";
 
-export type NewOwnershipRecord = Omit<OwnershipRecord, "id" | "userId">;
+export type NewOwnershipRecord = Omit<OwnershipRecord, "id">;
 
 export async function list(userId: string): Promise<OwnershipRecord[]> {
   const rows = await listMergedRecords<unknown>(userId, COLLECTION);
@@ -35,7 +35,7 @@ export async function create(
   data: NewOwnershipRecord,
 ): Promise<OwnershipRecord> {
   const id = await nextId(userId, COLLECTION, ID_PREFIX);
-  const record = OwnershipRecordSchema.parse({ ...data, id, userId });
+  const record = OwnershipRecordSchema.parse({ ...data, id });
   await writeRecord(userId, COLLECTION, id, { core: { ...record } });
   return record;
 }
@@ -47,7 +47,7 @@ export async function update(
 ): Promise<OwnershipRecord | null> {
   const current = await get(userId, id);
   if (!current) return null;
-  const updated = OwnershipRecordSchema.parse({ ...current, ...patch, id: current.id, userId: current.userId });
+  const updated = OwnershipRecordSchema.parse({ ...current, ...patch, id: current.id });
   await writeRecord(userId, COLLECTION, id, { core: { ...updated } });
   return updated;
 }

@@ -24,6 +24,17 @@ export function formatBytes(n: number): string {
 }
 
 /**
+ * Locale date format: "Mar 14, 2026"
+ */
+export function formatDate(ts: number): string {
+  return new Date(ts).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+/**
  * Relative time from a Unix ms timestamp: "2m ago", "3h ago", "Yesterday", "Feb 14"
  */
 export function formatRelativeTime(createdAt: number): string {

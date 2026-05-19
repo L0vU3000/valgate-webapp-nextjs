@@ -1,6 +1,7 @@
 "use server";
 import * as db from "@/lib/data/db";
 import { getCurrentUserId } from "@/lib/data/auth-shim";
+import type { NotificationEventType } from "@/lib/data/types/notification-preference";
 
 const VALID_NOTIF_KEYS = ["valuationUpdates", "teamComments", "marketInsights"] as const;
 
@@ -18,7 +19,7 @@ export async function saveNotificationPreference(
   if (existing) {
     await db.notificationPreferences.update(userId, existing.id, { ...channels, updatedAt: now });
   } else {
-    await db.notificationPreferences.create(userId, { eventType, ...channels, createdAt: now, updatedAt: now });
+    await db.notificationPreferences.create(userId, { eventType: eventType as NotificationEventType, ...channels, createdAt: now, updatedAt: now });
   }
   return { ok: true };
 }

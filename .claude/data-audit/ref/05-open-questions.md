@@ -19,7 +19,11 @@
 
 **Q1.D** — `/rental` upcoming-events list: bounded window or unbounded? Suggest "next 30 days" as default.
 
+> **Resolved 2026-05-14 (Phase 10 Q-gate): 30-DAY WINDOW.** `computeUpcomingEvents` filters to events within the next 30 days. Already implemented. Confirm the constant in `lib/data/derivations/rental.ts` matches this window.
+
 **Q1.E** — `/analytics` revenue chart shows 9 months. Is the time window fixed or user-selectable beyond the MTD/QTD/YTD toggle?
+
+> **Resolved 2026-05-14 (Phase 10 Q-gate): FIXED 9-MONTH WINDOW FOR V1.** The revenue chart shows the trailing 9 months. The MTD/QTD/YTD/12M/Custom toggle controls a separate `activePeriod` for KPI cards only (already wired per Q1.F). The main chart window stays fixed at 9 months for v1. Revisit if users request longer/shorter windows.
 
 **Q1.F** — `/analytics` period filter (MTD/QTD/YTD/12M/Custom): should clicking these buttons actually filter the underlying chart data, or should they remain inert chrome until a future v2 wiring phase? Currently the `activePeriod` state value is never passed to `getAnalyticsPageData()` or any derivation function — the chart always shows the full entity history. Decision determines whether the fix is "wire it" (Server Action with period param) or "grey out with 'coming soon'" (cosmetic only). **Blocks PF1 fix decision** (see `pages/analytics/audit.md` PF1). Related: Q1.E (time window question). (Filed: Phase 8.1 Analytics audit, 2026-05-06.)
 
@@ -34,6 +38,8 @@
 > **Resolved 2026-05-07 (Phase 8.4-Wiring): BUILD ROUTE — option (a).** Created `app/(shell)/directory/[id]/` route with 3 files: `queries.ts` (`getProfessionalProfileData` reads from `db.professionals.get`), `page.tsx` (Server Component, `await params`, `notFound()` guard), `_components/ProfessionalProfilePage.tsx` (full profile page: header band gradient, avatar with verified badge + available dot, Email/Call buttons, StarRating component, 3-col stats grid, contact section with mailto/tel). VIEW PROFILE button on directory card changed from `<button>` with no `onClick` to `<Link href={/directory/${pro.id}}>`. Professional `id` changed from sequential `number` to DB string (`"PROF-0001"`) to enable navigation. **PF4 closed.**
 
 **Q1.G** — `/rental` nav tabs purpose: should the four tabs ("Portfolio / Units / Leases / Financials") filter the rendered content (each tab shows a different subset of the dashboard sections), OR should the cross-portfolio dashboard remain a single view and the tabs be removed entirely? Currently `activeNav` state is maintained but never consumed — all sections always render. **Blocks PF1 fix decision** (see `pages/rental-dashboard/audit.md` PF1). (Filed: Phase 8.2-audit, 2026-05-07.)
+
+> **Resolved 2026-05-14 (Phase 10 Q-gate): REMOVE TABS.** The four nav tabs ("Portfolio / Units / Leases / Financials") are removed from `/rental`. The dashboard remains a single unified scroll. `activeNav` state and the tab bar component are deleted. Tracks as a Phase 10.1 cleanup item.
 
 **Q1.H** — `/rental` global nav placement: is the `/rental` route reachable from the app shell navigation? If the route is not linked anywhere in the shell nav, decide whether to expose it (add a nav link) or deprecate the route entirely. Governs whether Phase 8.2 wiring is worth prioritizing. (Filed: Phase 8.2-audit, 2026-05-07.)
 
@@ -69,15 +75,23 @@ The four `TODO(backend):` markers in `app/(shell)/portfolio/queries.ts:17–20`:
 
 **Q3.A** — `totalValueFormatted: "$42.8M"`. Is "total value" the sum of `buyNumeric` (purchase price) or `currentMarketValue`? They differ — purchase is historical, market is current.
 
+> **Resolved 2026-05-14 (Phase 10 Q-gate): PURCHASE PRICE.** Total portfolio value = sum of `buyNumeric` across active properties. `currentMarketValue` is not used for this aggregate — insufficient data to rely on market values in v1. The existing `computeStats.totalValue` already uses `buyNumeric`. No change needed.
+
 **Q3.B** — `monthlyIncome: "$312,450"`. ~~Define: "sum of `monthlyRentCents` across all leases where `stage = 'Active'` and the current month is between `startDate` and `endDate`"? Or "sum of `payments.amountCents` where `kind='Rent'` and `status='Paid'` and `date in current month`"?~~
 
 > **Resolved 2026-05-06: HYBRID — value is "expected" + adjacent status badge derived from "received".** Primary value: sum of `Lease.monthlyRent` where `stage='Signed'` and the current month is within the lease window (this is the "agreed upon" amount). Adjacent badge derived from Payment data: `"Collected"` (all expected received this month), `"Partial"` (some received but not all), `"Due"` (none received yet, current month not yet ended), `"Overdue"` (none received and current month past due-date). Show value + badge side-by-side. Affects overview row 8 Monthly Income KPI and portfolio Monthly Income KPI. Small follow-up phase: ~30 min wire-only change (Lease + Payment data already fetched). Files as a Phase 6.x.5 micro-phase or rolled into post-sprint cleanup.
 
 **Q3.C** — `yoyGrowth: "4.2%"`. Define: "(this-month total `currentMarketValue` − same month last year) / last-year value × 100"? What if some properties didn't exist last year — exclude or include at purchase price?
 
+> **Resolved 2026-05-14 (Phase 10 Q-gate): REMOVE YoY BADGE.** Year-over-year growth is too difficult to calculate correctly with the current data (limited valuation history, properties added mid-year). Remove the YoY badge from the portfolio page entirely. `computeYoyGrowth` can remain in the derivation file for future use but the badge should not render. Tracks as a Phase 10.1 cleanup task.
+
 **Q3.D** — `newThisMonth: 2`. Trivial: `count(properties WHERE _creationTime >= startOfMonth(now))`. Confirm.
 
+> **Resolved 2026-05-14 (Phase 10 Q-gate): CONFIRMED trivial.** `newThisMonth = active.filter(p => (p.createdAt ?? 0) >= startOfMonth(now)).length`. Already implemented in `computeKpis`. No change needed.
+
 **Q3.E** — `/rental` arrears bucketing: 0–30 / 31–60 / 61–90. Aged from due date or invoice date? What field carries that?
+
+> **Resolved 2026-05-14 (Phase 10 Q-gate): DUE DATE.** Arrears age is counted from `Payment.date` (the due date on the payment record), not from invoice creation. Matches the existing `computeArrears` implementation.
 
 **Q3.F** — Estate-planning caption "Verified across 32 properties in Cambodia" — is that count of `properties` where `country = "Cambodia"` AND `successors` are linked? Or `successors.linkedPropertyIds` flattened and country-filtered?
 
@@ -89,11 +103,15 @@ The four `TODO(backend):` markers in `app/(shell)/portfolio/queries.ts:17–20`:
 
 **Q3.I** — Define "Attention Count": should it derive from `health < 30` (current) or from real operational signals — pending maintenance tasks, overdue rent, expiring leases, or expired certificates? The current sub-label "Critical tasks pending" implies a task system that does not exist. Until this is resolved, the label should describe the actual formula (`health < 30`), not implied task semantics. (See audit: `portfolio--attention-count` F1, F2.)
 
+> **Resolved 2026-05-14 (Phase 10 Q-gate): OVERDUE RENT OR EMERGENCY MAINTENANCE.** A property needs attention if it has at least one `Payment` with `status="Overdue"` and `kind="Rent"`, OR at least one `MaintenanceItem` with `priority="Emergency"` (or severity equivalent). Both entities already exist. The Attention Count card was removed in Phase 6; re-implement it with this formula when re-added.
+
 **Q3.J** — Define the "Compliance" KPI on `/property/[id]/safety`. The KPI card currently hardcodes "Compliant" and "All obligations met". What makes a property compliant vs. partially compliant vs. non-compliant? Options: (a) `all certifications have status === "Valid"` → binary Compliant/Non-compliant; (b) `count(valid) / count(all) >= threshold` → partial states like "Mostly Compliant" (75%+) and "At Risk" (<50%); (c) any expired certification (past `expiresAt`) immediately flags Non-compliant regardless of other certs. Pick a canonical definition before wiring — it determines whether the KPI card shows text, a percentage, or a color-coded status. (See audit: `pages/property-id-safety/audit.md` PF4.)
 
 > **Resolved 2026-05-07 (Phase 8.6): THREE-STATE PRIORITY CASCADE (hybrid of a + c).** Expired wins → `"Non-Compliant"` (rose). Expiring wins if no Expired → `"At Risk"` (amber). All Valid → `"Compliant"` (emerald). No certs → `"—"` (slate). Sub-label: "All obligations met" / "N cert(s) expiring soon" / "N cert(s) expired" / "No certifications recorded". Percentage in donut = `valid / total × 100`. KPI card icon tint updates to match state. **Unblocks PF4 rows 10–11.**
 
 **Q3.H** — Define the "Occupancy" KPI: should it be `Math.round(rentedCount / totalProperties * 100)` (standard occupancy rate) or `Math.round(average(health))` (portfolio health score)? Today the card uses the latter but is labelled with the former — they produce 44% vs 52% on current seed data. Pick one canonical formula and rename the card or field accordingly. (See audit: `portfolio--occupancy` F1.)
+
+> **Resolved 2026-05-14 (Phase 10 Q-gate): RENTED/TOTAL.** `computeStats.occupancyRate` already uses `Math.round(rentedCount / n * 100)` — the correct formula. The health-average version was never shipped. No code change needed.
 
 **Q3.K** — Define the NOI formula for the FS demo context: NOI = Revenue − Operating Expenses. What counts as "operating expenses"? Candidates: (a) sum of `MaintenanceItem.cost` across all properties (maintenance spend); (b) pro-rated `Property.annualPropertyTax + annualInsurance` per month × 12; (c) a combination of both. The answer is likely the same as Q3.L's expense aggregation source (they are the same cost pool, just applied as a total vs a time-series). **Blocks PF3 fix** (NOI KPI duplication, `analytics.ts:101–107`) and **PF2 fix** (expense series formula). See `pages/analytics/audit.md` PF3. (Filed: Phase 8.1, 2026-05-06.)
 
@@ -116,6 +134,10 @@ The four `TODO(backend):` markers in `app/(shell)/portfolio/queries.ts:17–20`:
 **Q3.P** — Collection Rate formula for `/rental` KpiCards (one of 5 derivations). May overlap with resolved Q3.B (Monthly Income hybrid). Candidates: (a) `count(Rent payments where status="Paid" in current month) / count(expected Rent payments in current month)` — on-time count rate; (b) `sum(Paid Rent amounts in current month) / sum(expected Rent amounts in current month)` — dollar collection rate; (c) same as Q3.B's "Collected" badge threshold but surfaced as a scalar. If (c), this Q is resolved by referencing Q3.B and computing the badge's `"Collected"` state as a percentage. **Blocks PF2 Collection Rate KPI fix** (see `pages/rental-dashboard/audit.md` PF2). (Filed: Phase 8.2-audit, 2026-05-07.)
 
 > **Resolved 2026-05-07 (Phase 8.2 Q-resolution): CANDIDATE (b) — dollar-based.** Formula: `sum(Payment.amount where kind="Rent" and status="Paid" and date in current calendar month) / sum(Lease.monthlyRent where stage="Signed" and active this month)`. Returns "—" if no active leases (division guard). Shows "N%" capped at 100. Sub-label updated from "On-time payment rate" to "of expected rent received". Implemented in `computeCollectionRate(payments, leases)`. **Unblocks PF2 Collection Rate fix.**
+
+**Q3.S** — **`Property.health` vs weighted Progress derivation for `avgProgress` and all `p.progress` reads on `/`.** (Filed: Phase 10 audit, 2026-05-14.) `app/(shell)/queries.ts:27` sets `progress: p.health ?? 0`. Per memory `project_property_progress_stat`, "Progress" is a weighted-pillar completeness score (Location 15% · Financials 20% · Rental 20% · Ownership 15% · Valuation 10% · Safety 10% · Estate 5% · Docs 5%) derived from commit `a468a9a`. Per Q5.K resolution (2026-05-06): `Property.health` was to be removed entirely. If the field was removed, `p.health ?? 0` evaluates to 0 for every property — all progress bars on the home page show 0% (P1 silent bug). If the field is still present, it returns a stale raw integer rather than the weighted score (P2 drift).
+
+> **Resolved 2026-05-14 (Phase 10 Q-gate): USE `computeProgress`.** `PropertyCoreSchema.health` is still in the schema (`optional`). Portfolio `queries.ts` already correctly uses `computeProgressDetails(p, ctx).score`. Home `queries.ts:27` still reads `p.health ?? 0` — this is the drift. **Fix in Phase 10.1:** import `computeProgress` + full `ProgressContext` into `app/(shell)/queries.ts` (matching portfolio pattern); replace `progress: p.health ?? 0` with `progress: computeProgress(p, ctx)`. The `health` field stays optional in the schema for now (removing it is a separate cleanup task).
 
 **Q3.R** — **Estate KPI formula definitions for `/estate-planning` stat cards.** All 4 KPI cards are hardcoded literals with no backing formula. Questions: (a) **Plan Completion (84.5%)** — is this computed per property or across the portfolio? Candidates: `count(estate-plan fields populated) / total fields × 100`; `count(successors assigned) / expected successors`; a weighted checklist across will, beneficiaries, documents, and legal review. (b) **Pending Reviews (12)** — reviews of what? Candidates: count of successors without `verified=true`; count of estate documents with status not "signed"; count of properties without an estate plan record. (c) **Named Beneficiaries (48)** — count of `Successor` records or count of unique `Successor × Property` assignments? Does it include contingent beneficiaries? (d) **Protected Documents (156)** — count of `Document` records with `category="estate"`? Or all documents across all properties? Each of the 4 answers gates a different part of the estate KPI wiring. **Blocks** `estate-planning--stats-kpis` per-datapoint audit. (Filed: Phase 8.5-audit, 2026-05-07.)
 
@@ -144,7 +166,11 @@ The four `TODO(backend):` markers in `app/(shell)/portfolio/queries.ts:17–20`:
 - *Migrate to Convex*: cross-device drafts; need `api.drafts.upsert`/`delete` and `saveDraftAction`/`deleteDraftAction` (already stubbed in `actions.ts:16–17`).
 - Recommendation: ship Convex variant. localStorage is a 30-min hack that costs sync support.
 
+> **Resolved 2026-05-14 (Phase 10 Q-gate): KEEP LOCALSTORAGE FOR NOW.** Do not migrate drafts until real Convex backend is integrated. The stubs in `actions.ts:16-17` remain as stubs. **Backend migration note:** when Convex lands, complete `saveDraftAction`/`deleteDraftAction` to sync drafts cross-device. Document this in `ref/08-backend-migration-readiness.md`.
+
 **Q4.B — Tenant entity vs tenants embedded in Lease**? Current UI suggests Tenant exists separately (`/property/[id]/overview` lists tenants) but Lease is the unit-of-rent record. Are Tenants the canonical "person" record, or just labels on Lease?
+
+> **Resolved 2026-05-14 (Phase 10 Q-gate): FIRST-CLASS ENTITY.** Tenant is a standalone person record, not just a label on a Lease. A tenant can have a history across multiple leases and properties over time. The existing `Tenant` entity with its own `id`, `name`, `email`, `phone` fields is correct.
 
 **Q4.C — EstateDocument vs Document**? Estate documents (Will & Testament, etc.) likely belong in `documents` with `category="estate"`, sharing storage and folder logic. Confirm vs separate table.
 
@@ -152,13 +178,19 @@ The four `TODO(backend):` markers in `app/(shell)/portfolio/queries.ts:17–20`:
 
 **Q4.D — Property soft-delete vs sold-state**? UI doesn't show archived/sold; future-proof now or wait?
 
+> **Resolved 2026-05-14 (Phase 10 Q-gate): DEFER.** No soft-delete infrastructure needed in v1. Properties remain visible with `isArchived: true` or `status="Sold"`. Revisit when edit/delete UI is built.
+
 **Q4.E — Equity, ROI, cap rate: stored or derived per render**? Stored avoids recompute but requires recalculation on every market value/mortgage change. Derived per render is simpler. Recommendation: derive (one multiply on read is cheap).
+
+> **Resolved 2026-05-14 (Phase 10 Q-gate): DERIVE ON THE FLY.** Equity, ROI, cap rate are calculated at render time from existing fields (`currentMarketValue`, `buyNumeric`, `outstandingMortgage`). No separate stored field needed.
 
 **Q4.F — Auto-create Notification rows on events?** E.g., document uploaded, lease expiring soon, certificate expiring. Cron-driven (Convex scheduled function) or event-driven (mutation side-effects)? Both?
 
 > **Resolved 2026-05-06 in Phase 6.8: HYBRID per source.** Lease-expiring alerts derived at query time (Phase 6.1 pattern — no Notification rows stored for these). Manual/cross-cutting alerts read from stored Notification rows (Phase 6.8 — NOTIF-0001 etc., filtered via `linkTo` URL parse). Auto-creation of Notification rows from events (cron-driven or event-driven mutation hooks) deferred to backend phase when Convex/Neon infrastructure exists. The alerts strip on `/property/[id]/overview` is now a UNION of two sources: (1) derived lease-expiring alerts and (2) stored Notification rows.
 
 **Q4.G — Map pin click on `/`**: today highlights only. Should it route to `/property/[id]/overview`?
+
+> **Resolved 2026-05-14 (Phase 10 Q-gate): KEEP AS-IS.** Pin click opens the drawer. "View Property" button in the drawer navigates to `/property/[id]`. Two-step navigation is intentional. No change needed.
 
 **Q4.H — Expenses table**? Analytics shows "Expenses" line (NOI, maintenance spend) but no entity captures expenses today. Add `expenses` table with `category`, `amountCents`, `propertyId`, `date`? Maintenance has its own table — combine or keep separate?
 
@@ -168,21 +200,31 @@ The four `TODO(backend):` markers in `app/(shell)/portfolio/queries.ts:17–20`:
 
 **Q4.J — Daily snapshots for sparklines/historical charts**? `propertyValuations` already snapshots monthly. Add a Convex cron job for daily occupancy/income snapshots, or compute on the fly from primary data?
 
+> **Resolved 2026-05-14 (Phase 10 Q-gate): BACKEND PHASE ONLY.** Daily snapshots require Convex scheduled functions. Defer until backend migration. Sparklines remain removed (per Q4.S resolution) until this lands.
+
 **Q4.K — RentalEvent: a real table or pure derivation?** UI surfaces "upcoming events" mixing lease, maintenance, payment, inspection. Three options:
 1. Pure derivation (server query unions across the four sources).
 2. Real `rentalEvents` table populated by triggers (denormalized).
 3. Hybrid: derive for "auto-generated", store user-authored events (e.g. manual reminders).
 Recommendation: option 1 unless users need to author events.
 
+> **Resolved 2026-05-14 (Phase 10 Q-gate): PURE DERIVATION.** Upcoming events are computed on the fly by joining Lease, MaintenanceItem, and Payment data at query time. No `rentalEvents` table. The existing `computeUpcomingEvents` function in `lib/data/derivations/rental.ts` is the correct pattern.
+
 **Q4.L — PDF/document parsing**? `PropertyDocumentsPage` shows extracted metadata (transfer tax, agent fee). Implies PDF parsing on upload. AI extraction (Convex action calling Anthropic), regex extraction, or user-entered metadata?
 
+> **Resolved 2026-05-14 (Phase 10 Q-gate): DEFER.** PDF metadata extraction requires AI infrastructure (Convex action + Anthropic API) or user-entered metadata. Defer to backend phase. The extracted fields shown in the documents page remain decorative until then.
+
 **Q4.M — Multi-user / sharing**? UI suggests CoOwners on `OwnershipRecord.coOwnerProfileIds` and Successor links. But there's no invite flow, no role assignment UI. v1 scope: single-user only? Future: per-property collaborator invites?
+
+> **Resolved 2026-05-14 (Phase 10 Q-gate): SINGLE-USER V1, SCHEMA READY FOR MULTI-USER.** v1 ships as single-user — `getCurrentUserId()` shim is intentional. Every entity already carries `userId`. When Clerk + Convex lands, add RBAC checks server-side without schema migration. **Backend migration note:** add per-property collaborator invite table and role checks at that time.
 
 **Q4.N — Ownership tab visibility?** ~~Should Viewers see ownership/equity? Sensitive financial info; default to hide unless explicitly granted.~~
 
 > **Resolved 2026-05-06 in Phase 6.5 (CoOwner wiring):** For the FS demo era (single-user, `getCurrentUserId()` shim returns `"demo-user"`), no role enforcement is implemented — all CoOwner data flows to the demo user. When Clerk + Convex auth lands, add a server-action precheck before `getOwnershipPageData()` returns CoOwner data, or expose a narrowed `CoOwnerListItem` shape (excluding `ssnMasked`/`taxEntity`) for non-Admin reads. The schema is forward-compatible. **PHASES.md description was "PII handling for SSN/tax data" — that was a miscategorisation; Q4.N is actually about Viewer RBAC, not storage strategy. PII storage strategy is documented separately in Q5.S.**
 
 **Q4.O — File storage choice**? Convex storage (`v.id("_storage")`) is the simplest; S3 / Cloudinary / Supabase storage are alternatives. Tradeoffs: cost, CDN, image transforms (Cloudinary wins on transforms).
+
+> **Resolved 2026-05-14 (Phase 10 Q-gate): DEFER.** Storage provider choice is Q5.C. Resolve Q5.C first; Q4.O follows automatically.
 
 **Q4.P — Audit log**? Property edits, document deletes, ownership changes — log to a separate `auditLog` table? Required for an estate-planning use-case where chain-of-custody matters.
 
@@ -222,6 +264,8 @@ Note: `Property.totalArea` (string, coarse-grained) coexists with `LandParcel.si
 
 **Q4.X** — **Clerk Sync vs DB Storage for Extended Profile Fields:** The `/profile` page edits extended fields like `jobTitle`, `employeeId`, `officeLocation`, `language`, `timezone`, and `currency`. When Convex + Clerk integration lands, where should these live? (a) **Clerk `publicMetadata`** — synced down to Convex. Centralizes identity but balloons the token size. (b) **Convex `users` table** — strictly separate from Clerk auth. Auth info in Clerk, business/profile info in Convex. **Recommendation: option (b)**. Clerk should only own email, phone, and standard name. All enterprise extended fields belong strictly in Convex. (Filed: Phase 8.6-Wiring, 2026-05-07.)
 
+> **Resolved 2026-05-14 (Phase 10 Q-gate): CONVEX `users` TABLE.** Extended profile fields (`jobTitle`, `employeeId`, `officeLocation`, `language`, `timezone`, `currency`) live in Convex, not Clerk `publicMetadata`. Clerk owns only email, phone, and name.
+
 **Q4.T** — **Multi-unit Property: build a `Unit` entity (Property → Unit FK with `Lease.unitId`) OR reshape demo data so each Property is treated as a single unit?** The `/rental` HeatmapGrid has 33 hardcoded unit tiles across 5 properties (8+6+5+4+10 units per property), implying multi-unit buildings. The current schema has no `Unit` entity — `Lease.unit` is a string label only. Two paths: (a) **Build `Unit` entity** — `Unit { propertyId, name, status, createdAt }` with `Lease.unitId` FK; heatmap maps `unitsDb.list(userId)` joined with tenants and leases. Schema impact: new entity + FK + Zod + seed. Estimated scope: Phase 6.9, ~1 day. Unlocks 33 surfaces. (b) **Single-unit per Property** — each Property has one implied unit; heatmap derives from `properties × leases × tenants`; no new entity. Much simpler, but the current 5-property heatmap data shows multi-unit buildings which are architecturally incompatible with this path. **Most consequential unresolved entity-design question of Phase 8.** Its resolution determines whether Phase 6.9 builds `Unit` (option a) or `PropertyComparable` (option b, already slated). **Blocks PF3 fix entirely** (see `pages/rental-dashboard/audit.md` PF3; `HeatmapGrid.tsx:30–89`). (Filed: Phase 8.2-audit, 2026-05-07.)
 
 > **Resolved 2026-05-07 (Phase 8.2 Q-resolution): NO Unit entity — heatmap = properties grouped by suburb.** The heatmap represents all Portfolio properties, one tile per property, grouped by `Property.city || Property.province` (suburb). No `Unit` entity built. Each tile's status derives from the most recent Signed `Lease` covering today: no lease or `Property.status="Vacant"` → vacant; lease ending ≤ 30 days → expiring; otherwise → occupied. Tile tooltip shows property name, active lease's unit label, monthly rent, and lease end date. Heatmap header renamed "Portfolio Occupancy". HeatmapGrid now accepts `data: PropertyCluster[]` prop (no internal constants). `computeHeatmapData(properties, leases)` added to `lib/data/derivations/rental.ts`. **Resolves PF3 + PF6 (summary line updates automatically).**
@@ -236,6 +280,8 @@ Note: `Property.totalArea` (string, coarse-grained) coexists with `LandParcel.si
 
 **Q5.A — Redundant fields in mock-data.ts**: `Property.status` ("Rented"|"Vacant") vs `statusVariant` ("rented"|"vacant"); `Property.title` ("Hard title"|"Soft title"|"—") vs `titleVariant` ("hard"|"soft"|"none"). The variants are CSS-aware enums. Drop them server-side and derive on the client?
 
+> **Resolved 2026-05-14 (Phase 10 Q-gate): DELETE VARIANT FIELDS.** `statusVariant` and `titleVariant` are removed from all seed JSON files and any remaining schema references. CSS class lookups derive from the canonical `status` / `title` fields via a lookup helper (e.g. `status.toLowerCase()`). `titleVariantSchema` export in `lib/data/types/property.ts` is removed.
+
 **Q5.B — Add-property schema is too permissive**: every field is `z.string().optional()` (schemas.ts), including:
 - `yearBuilt`, `totalArea`, `bedrooms`, `bathrooms`, `parkingSpaces` → should be `z.coerce.number().int().nonnegative()`
 - All financial fields (`purchasePrice`, `currentMarketValue`, `outstandingMortgage`, etc.) → should be `z.coerce.number().nonnegative()` or a money type stored in cents
@@ -245,21 +291,37 @@ Decide: tighten schemas.ts now (before form rewrite) or tighten at the Convex bo
 
 **Q5.C — Photos/documents in step4**: today stored as `string[]` of filenames; actual `File` blobs filtered out before localStorage (`drafts-storage.tsx:7–8`). On Convex, switch to `v.id("_storage")` for storage references. Confirm upload happens during the wizard (per file) or batched at submit?
 
+> **Resolved 2026-05-14 (Phase 10 Q-gate): BATCH UPLOAD AT SUBMIT.** Photos and documents upload in a single batch when the user submits the final wizard step. No per-file uploads during wizard navigation. File blobs are held in component state until submit, then uploaded. **Backend migration note:** implement in the Convex action using `v.id("_storage")` references.
+
 **Q5.D — Mock-data fields not currently rendered in any UI**: `Property.statusVariant`, `Property.buyNumeric`, `Property.titleVariant` are present in `mock-data.ts` but only `buyNumeric` is consumed (in `getPortfolioPageData`'s sum). The `*Variant` fields drive CSS classes via `lib/property-helpers.ts` — keep server-side or compute client-side from the canonical fields? See Q5.A.
+
+> **Resolved 2026-05-14 (Phase 10 Q-gate): FOLLOWS Q5.A.** When variant fields are removed (Q5.A), `statusVariant` and `titleVariant` are gone. `buyNumeric` is kept — it's consumed in `computeStats` and `toListItem`. The `*Variant` fields in `lib/property-helpers.ts` are replaced with inline derivations from canonical fields.
 
 **Q5.E — Soft-delete vs hard-delete for documents**? "Deleted" state: hide from list, retain blob? Or remove blob too? Affects compliance/audit.
 
+> **Resolved 2026-05-14 (Phase 10 Q-gate): HARD DELETE FOR NOW.** Deleted documents are permanently removed (no soft-delete, no blob retention). **Backend migration note:** when Convex + storage lands, evaluate adding `deletedAt` timestamp and retaining blobs in a "trash" state for 30 days before permanent removal (compliance consideration for estate-planning use case).
+
 **Q5.F — `fullName` and `initials` derived vs stored**? `UserProfile.fullName` could derive from `firstName + " " + lastName`. `UserProfile.initials` could derive from those. Storing them costs nothing but goes stale on rename. Recommend: derive on read.
+
+> **Resolved 2026-05-14 (Phase 10 Q-gate): DERIVE.** `fullName = firstName + " " + lastName` and `initials = first chars of each` are computed at query time. No stored fields for these. If `UserProfile` currently stores them, remove on Convex migration.
 
 **Q5.G — Email verification: Clerk built-in vs Resend**? Clerk handles registration verification natively. Resend is in the stack — used for what? Notifications dispatch only?
 
+> **Resolved 2026-05-14 (Phase 10 Q-gate): DEFER TO CLERK INTEGRATION.** Clerk handles email verification natively. Resend is reserved for outbound notification dispatch (lease expiry alerts, etc.) — not for auth verification. Scope confirmed; no schema work needed now.
+
 **Q5.H — Currency/locale**: `UserProfile.currency` exists; UI displays USD throughout. Multi-currency support is implied but not yet active. v1: USD only? Or convert on display via FX rates?
 
+> **Resolved 2026-05-14 (Phase 10 Q-gate): USD ONLY FOR V1.** All currency display stays in USD. `UserProfile.currency` field exists but is not acted on in v1. Multi-currency conversion deferred to a post-launch product decision.
+
 **Q5.I — `RegisterPage.tsx:259` hardcodes "0:45" countdown** — when wired to Clerk, what's the real resend cooldown?
+
+> **Resolved 2026-05-14 (Phase 10 Q-gate): DEFER TO CLERK.** Clerk determines the actual resend cooldown. The hardcoded "0:45" in `RegisterPage.tsx:259` is replaced with Clerk's SDK value when auth is wired.
 
 **Q5.S — Real PII encryption strategy for backend phase.** The FS-demo CoOwner entity stores SSN already-masked (`••••-••-XXXX`) — only the last 4 digits are plaintext; the full SSN never enters the system. This is forward-compatible with the backend phase but is not a security mechanism. When Convex/Neon migration lands, decide: (a) add `ssnEncrypted: bytes` (KMS-managed key, decrypt only in privileged server functions) alongside `ssnMasked` for display; (b) keep masked-only permanently if no operation requires the full SSN (e.g. 1099 generation would require it). **Blocks:** Convex migration phase. Does not block Phase 6.5 or any other FS-era phase.
 
 **Q5.R — `Document.category` has no closed enum: what are the valid values?** The Zod schema has `category: z.string().optional()` with no enum constraint. The documents page renders category-labelled subsections (Title, Photos, Rental, Insurance, Tax, Sales seen in mock data). With an open string, typos ("title" vs "Title", "rental" vs "Rental") produce ghost categories in the UI and break status-derivation logic in the rental Documents card. Decision: (a) close to `z.enum(["Title", "Sales", "Tax", "Rental", "Photos", "Insurance"])` — guarantees cohesion and compile-time safety on seed data; (b) TypeScript union only (no Zod change) — documents intent without blocking unknown future categories; or (c) leave free-form with a consistent-casing convention and a lint note. Phase 6.3 seeds use Title-case values; wiring proceeds as untyped string today.
+
+> **Resolved 2026-05-14 (Phase 10 Q-gate): CLOSE TO ENUM — option (a).** `Document.category` is changed to `z.enum(["Title", "Sales", "Tax", "Rental", "Photos", "Insurance", "Estate"])`. 7 values (adding "Estate" to the original 6 — already used by estate-planning wiring). All seed documents are verified to use Title-case values. **Tracks as a Phase 10.1 task.**
 
 **Q5.Q — `SafetyRisk.resolved` field: catalog specifies it, type omits it.** `ref/00 §19` lists `resolved: v.boolean()` but `lib/data/types/safety-risk.ts` has no such field. Consequence: the "Open Issues" KPI on `/property/[id]/safety` cannot distinguish open vs. closed risks — it would collapse to `risks.length` (all risks are open by definition). Two sub-questions: (a) Is there a "close a risk" action in the planned UX? If not, risks are implicitly always open and `resolved` is not needed — change the KPI label to "Recorded Risks" and remove `resolved` from the catalog. (b) If risks can be resolved, add `resolved: boolean` to the type, add a write path (UI + DB mutation), and update seed data. Until decided, the hardcoded "2" on the KPI card is a silent correctness bug. (See audit: `pages/property-id-safety/audit.md` PF4; `pages/property-id-safety/plan.md` §3 Schema gap A.)
 
@@ -267,17 +329,27 @@ Decide: tighten schemas.ts now (before form rewrite) or tighten at the Convex bo
 
 **Q5.J — Schema validation at the FS DB boundary**: `listMergedRecords<T>` (`lib/data/db/_fs.ts:60–75`) casts merged JSON directly to the entity type without runtime validation. A corrupted `core.json` (e.g. missing `statusVariant`) would still be counted by `properties.length` but silently dropped by status-filtered counts, breaking cross-card identities without a visible error. Validate with Zod at the boundary, or wait until the Convex migration where `v.*` schemas enforce shape automatically? (See audit: `portfolio--properties-count`.)
 
+> **Resolved 2026-05-14 (Phase 10 Q-gate): WAIT FOR CONVEX.** No Zod validation added at the FS boundary. Convex's `v.*` validators enforce shape automatically. Acceptable risk in the demo era.
+
 **Q5.K — What does `Property.health` (0–100) actually measure?** ~~The field is in `PropertyCore` as a bare `number` with no definition of what 0 means, what 100 means, or how the value is authored.~~
 
 > **Resolved 2026-05-06: REMOVE the field — not currently useful.** `Property.health` is dropped from `PropertyCoreSchema` entirely. The `attentionCount` KPI (currently `health < 30`) needs a replacement signal — propose deriving from real entities: count of properties with open Emergency MaintenanceItems + count of properties with overdue rent (Payment.status = "Overdue"). The per-row health bar on the portfolio table is removed (or replaced with a derived signal in the same vein). Cleanup task scope: (a) remove `health` from `PropertyCoreSchema`, (b) remove from all PROP-NNNN/core.json seed files, (c) remove the `attentionCount` KPI on `/portfolio` OR rewire it to a derived attention-signal, (d) remove the per-row health bar from the portfolio table OR replace with a derived signal, (e) remove any audit reports that referenced Property.health (mark resolved-with-removal in fix logs). Files as a small cleanup phase: ~1.5 hours (mostly grep + delete + minor portfolio rewiring).
 
 **Q5.M — Dual type classification with no reconciliation**: `PropertyCore.type: PropertyTypeCode` (3 values: Land/House/Building) and `PropertyMedia.propertyType?: PropertyTypeChoice` (8 values) coexist on the same Property record and represent the same concept at different granularities. The table badge renders `type` only; `propertyType` is stored but never displayed. There is no documented mapping invariant between them, no enforcement that they stay in sync, and no UI path to see the finer-grained value after property creation. Decision needed: (a) display `propertyType` in the table when present (requires updating badge/icon/color helpers for all 8 values), (b) consolidate to a single field and drop the coarser `type`, or (c) keep both but document `type` as a display-bucketing field derived from `propertyType` and enforce the mapping exhaustively. (See audit: `portfolio--property-type` F2.)
 
+> **Resolved 2026-05-14 (Phase 10 Q-gate): ALREADY RESOLVED.** `PropertyCoreSchema.type` already uses `propertyTypeChoiceSchema` (8 values: residential/commercial/multi-unit/retail/land/industrial/construction/other). There is no separate coarse 3-value `PropertyTypeCode` or `propertyType` field in the current schema. The migration from 3-value to 8-value already landed (commit `a468a9a`). Badge/icon helpers in `lib/property-helpers.ts` should be verified against the 8 values.
+
 **Q5.L — `Property.code` has no format definition, no generation strategy, and no uniqueness guarantee**: Is `code` (a) a user-defined reference number from a land certificate or official document, (b) a system-generated shorthand (e.g. province prefix + sequential count like "PP-2026-0017"), or (c) a legacy field from a prior data model with no current meaning? The add-property wizard never collects it (`form.propertyId` defaults to `""`, no input rendered in any step), so every new property gets `code: ""` — silently leaving the table's sub-label blank and breaking code-based search. Additionally, `form.propertyId` is aliased post-submit to the DB `id` (e.g. "PROP-0017") for the Step6Success display, conflating two distinct identifiers. Decision needed before shipping: (a) drop the field, (b) auto-generate server-side in `db/properties.ts:create()`, or (c) collect from user with a defined format and add to `step2Schema`. Also decide whether `code` must be unique per user. (See audit: `portfolio--property-id` F1, F3, F4.)
+
+> **Resolved 2026-05-14 (Phase 10 Q-gate): AUTO-GENERATE SERVER-SIDE.** `code` is system-generated in `db/properties.ts:create()` as a province-prefix + sequential count (e.g. "PP-2026-0017"). It is unique per user. The add-property wizard does not collect it. `form.propertyId` alias in Step6Success is replaced with `property.id`. **Tracks as a Phase 10.1 task.**
 
 **Q5.O — `PropertyMedia.size` vs `PropertyMedia.totalArea`: same concept or distinct?** In `actions.ts:70–72`, both fields are written from the same form source: `size: form.totalArea || ""` and `totalArea: form.totalArea || undefined`. In all 16 seed records `totalArea` is absent while `size` is always present. No code reads `totalArea` for any display purpose. If they are the same thing (total built area in m²), drop `totalArea`. If distinct (e.g., `size` = built area, `totalArea` = lot area), rename both fields to be explicit, add separate form inputs, and update the "Size" column label. (see audit: `portfolio--size` F3)
 
+> **Resolved 2026-05-14 (Phase 10 Q-gate): `totalArea` IS the canonical field.** `PropertyMediaSchema.totalArea: z.string()` is the schema field. Any seed `core.json` files that use a `size` key instead of `totalArea` need to be corrected — `totalArea` is the source of truth. Drop any `size` key from seed data files. No schema change needed.
+
 **Q5.N — `FormData.state` / `PropertyLocation.stateProv` / `PropertyLocation.province` naming tangle**: Three identifiers represent the same concept (the administrative province/state where a property sits) with no documented distinction: (a) `FormData.state` — the wizard's free-text field (placeholder "State") that writes to `province` on submit; (b) `PropertyLocation.stateProv?: string` — an optional field written to `location.json` by `splitProperty()` but never read in any UI; (c) `PropertyLocation.province: string` — the required field displayed in the table and used for filtering. These three should be unified: rename `FormData.state` → `FormData.province`, drop `stateProv`, change the Step 2 input from a free-text `<input>` to a `<select>` populated from the canonical 25-province list (which should live in a shared `lib/constants/cambodia-provinces.ts` instead of being duplicated in `PortfolioPage.tsx`). (See audit: `portfolio--province` F1, F3.)
+
+> **Resolved 2026-05-14 (Phase 10 Q-gate): UNIFY TO `province`, DROP `stateProv`, ADD DROPDOWN.** (1) Rename `FormData.state` → `FormData.province` in the wizard. (2) Remove `PropertyLocation.stateProv` from the schema and `splitProperty()`. (3) Change Step 2 province input from free-text `<input>` to `<select>` populated from a `lib/constants/cambodia-provinces.ts` constant (25 provinces). Move the province list out of `PortfolioPage.tsx` into the shared constant. **Tracks as a Phase 10.1 task.**
 
 **Q5.P — `purchasePrice` / `buyNumeric`: can `purchasePrice` be dropped from storage?** `buy` was removed from storage in `portfolio--buy-price` Rev 2 — now derived at query time. Two representations remain: `purchasePrice?: string` (raw wizard input, e.g. `"1278000"`) and `buyNumeric: number` (canonical integer, e.g. `1278000`). Decision: drop `purchasePrice` from `PropertyFinance` and `splitProperty` when the edit-property form is built — pre-fill the price input from `buyNumeric` directly (no need to preserve the raw string). **Resolve when:** edit-property UI is implemented (see `.context/todo-ui.md` §Edit Property §4). (See audit: `portfolio--buy-price` F2.)
 
@@ -300,6 +372,8 @@ Decide: tighten schemas.ts now (before form rewrite) or tighten at the Convex bo
 **Q5.X** — **Where to store `dashboardView` preference on `/settings`:** new field on `UserProfile` or a new `UserPreference {key, value}` entity? (Filed: Phase 8.7-audit, 2026-05-07.)
 
 > **Resolved 2026-05-07 (Phase 8.7 Wiring): Add to UserProfile.** Added `dashboardView: z.string().optional()` to `UserProfileSchema`. Reuses existing `upsert()` logic without needing a new generic preference entity.
+
+**Q5.Y** — **Drawer hero image storage: add `Property.imageUrl: string` field, or resolve `photoStorageIds[0]` via storage SDK?** (Filed: Phase 10 audit, 2026-05-14.) The home page drawer shows a single hardcoded Unsplash photo for all properties (`HomePage.tsx:260`). `Property.photoStorageIds[]` is intended in the schema but not yet populated or read. Two candidates: (a) add `Property.imageUrl?: string` — simple CDN URL stored at upload time; drawer reads it directly; (b) use `photoStorageIds[0]` and derive a signed/public URL server-side at query time — cleaner separation but requires storage provider SDK. **Provisional resolution: defer entirely to Q5.C** (storage provider decision). No schema change in Phase 10 or Phase 10.1. The hardcoded Unsplash URL remains until Q5.C resolves. **Blocks** PF1 fix (see `pages/home/audit.md` PF1). Related: Q5.C (storage provider choice).
 
 ---
 
@@ -368,7 +442,7 @@ If the implementer can only resolve five things before starting, do these:
 
 ## Open-questions count
 
-- **Total**: ~82 distinct questions across 9 sections (+5 from Phase 8.1 Analytics audit; +8 from Phase 8.2-audit Rental Dashboard; +5 from Phase 8.4-audit Directory; +4 from Phase 8.5-audit Estate Planning).
+- **Total**: ~84 distinct questions — ~22 open (backend/Convex gated) · ~62 resolved (including Phase 10 Q-gate batch, 2026-05-14).
 - **Per non-trivial route**: ≥ 1 (Q8 table covers all 18 non-auth routes).
 - **Top three blockers** (Q9): drafts location, multi-user scope, KPI definitions.
 - **New additions (Phase 8.1, 2026-05-06):** Q1.F (period filter scope), Q3.K (NOI formula), Q3.L (expense series source), Q4.S (occupancy time-series), Q5.U (Utilities label fix).
@@ -377,3 +451,5 @@ If the implementer can only resolve five things before starting, do these:
 - **New additions (Phase 8.5-audit, 2026-05-07):** Q3.R (estate KPI formula definitions — Plan Completion, Pending Reviews, Named Beneficiaries, Protected Documents), Q4.V (Successor-to-Property assignment model — FK direction + scope), Q4.W (estate actions v1 scope — which of 8 CHROME stubs to wire), Q5.W (security/encryption copy softening — "End-to-end encrypted" claim has no backing implementation).
 - **New additions (Phase 8.7-audit, 2026-05-07):** Q1.K (notification auto-save vs batch), Q1.L (add Profile section vs defer), Q5.X (dashboardView storage entity).
 - **New additions (Phase 8.6-Wiring, 2026-05-07):** Q4.X (Clerk publicMetadata vs Convex storage for extended profile fields).
+- **New additions (Phase 10 Home audit, 2026-05-14):** Q3.S (`Property.health` vs weighted Progress derivation — confirms or denies silent 0% bug across home page progress bars), Q5.Y (`Property.imageUrl` vs `photoStorageIds[0]` for drawer hero — deferred to Q5.C storage decision).
+- **Resolved in Phase 10 Q-gate (2026-05-14):** Q3.A, Q3.C, Q3.D, Q3.E, Q3.H, Q3.I, Q3.S (wiring fix in 10.1), Q4.A (localStorage), Q4.B, Q4.D, Q4.E, Q4.G, Q4.J, Q4.K, Q4.L, Q4.M (defer), Q4.O, Q4.X, Q5.A, Q5.C, Q5.D, Q5.E, Q5.F, Q5.G, Q5.H, Q5.I, Q5.J, Q5.L, Q5.M (already done), Q5.N, Q5.O, Q5.R, Q1.D, Q1.E, Q1.G.

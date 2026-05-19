@@ -19,7 +19,7 @@ sources: code (queries.ts + components) cross-checked against pages/<slug>/plan.
 
 ## TL;DR
 
-- **16 routes audited** — 11 ✅ fully wired · 3 🟡 partial · 1 ⏸️ deferred (Safety, per user) · 1 🔴 input-form with bugs (`/add-property`, Phase 9)
+- **17 routes audited** — 11 ✅ fully wired · 3 🟡 partial · 1 ⏸️ deferred (Safety, per user) · 1 🔴 input-form with bugs (`/add-property`, Phase 9) · 1 🔍 audit-only (home, Phase 10)
 - **Pre-wiring HARDCODED count:** ~108 surfaces. **Post-wiring HARDCODED:** ~28 surfaces (74% wired).
 - **Remaining HARDCODED clusters** are concentrated in 3 places:
   - `/rental` heatmap LeaseTable yield ranking (PF4 — gated on PropertyComparable)
@@ -49,6 +49,7 @@ sources: code (queries.ts + components) cross-checked against pages/<slug>/plan.
 | 14 | `/profile` | 14 | 0 | 0 | ✅ Fully wired | 8.6 |
 | 15 | `/settings` | 16 | 3 | 0 | ✅ Fully wired (NOTIFICATION_ROWS labels are CHROME config) | 8.7 |
 | 16 | `/add-property` | 14¹ | 13² | 4 | 🟢 **Input form** (taxonomy adapted: ¹COLLECTED, ²DEFERRED-BY-DESIGN) — Phase 9 Rev 3: 6 of 11 PFn resolved (P0 bugs, schema, status, drafts); 5 open (architectural + cross-route work) | 9 |
+| 17 | `/` (home) | ~38 | 3 | 5 PARTIAL | 🔍 **Audit complete (Phase 10)** — ~38 WIRED · 5 PARTIAL (all `p.health` drift) · 3 HARDCODED (hero image deferred-upfront, mock docs, trigger placeholders); 7 PFn filed; wiring in Phase 10.1 after Q3.S + Q5.Y Q-gate | 10 |
 
 ¹/² **Note on row 16**: `/add-property` is the only input-capture route audited so far. The "WIRED" column shows COLLECTED fields (user inputs that reach a destination); the "HARDCODED" column lumps 14 DEFERRED-BY-DESIGN fields (transformed in `actions.ts` but never collected in UI) with 2 BROKEN surfaces (Step 4 file inputs without `onChange`). See `pages/add-property/audit.md` for the full taxonomy.
 
@@ -181,14 +182,34 @@ sources: code (queries.ts + components) cross-checked against pages/<slug>/plan.
 
 These are config arrays, not data; treating as fully wired.
 
+### 16. `/add-property` — 🔴 Input form (Phase 9, see audit.md)
+
+**Entities produced:** Property (with 4 sub-schemas: Core, Finance, Location, Media)
+**Status:** Phase 9 audit complete. 6 PFn resolved (P0 lat/lng bug, Step 4 file inputs, buyNumeric, dead-drafts prune, schema types, status field). 5 open (PF6 province select, PF7 code generation, PF8 photos, PF10 Convex migration, PF11 completeness).
+**Notes:** see `pages/add-property/audit.md` and `ref/10-input-data-map.md` for full taxonomy.
+
+### 17. `/` (home) — 🔍 Audit complete · Phase 10 (wiring in Phase 10.1)
+
+**Entities consumed:** Property (via `getProperties()` — full object, no narrowing — PF3)
+**Derivations:** `computeStats(items)` → `PortfolioStats` (totalProperties, totalValue, rentedCount, vacantCount, avgProgress — **avgProgress reads `p.health` not weighted Progress, PF5**)
+**What's wired (Phase 10 audit):** map pins (lat/lng, name tooltip, cluster counts), pin selection highlight, portfolio legend (4 of 5 stats cleanly wired), drawer fields (code, name, province, status, buy, size, type, title), CommandPalette property rows (5 fields × up to 5 properties), `PropertyTable` (cited from portfolio audit).
+**Remaining gaps (to wire in Phase 10.1):**
+- PF1 — hero image hardcoded (Unsplash URL) · deferred to Q5.C + Q5.Y
+- PF3 — no `HomeListItem` narrowing; `MapView` receives full `Property` object
+- PF5 — `p.progress = p.health ?? 0` drift; `avgProgress` + drawer progress + CP progress dot all read legacy field
+- PF7 — CommandPalette `mockDocs` array (4 fake docs, never queries `Document` entity)
+**Q-gate:** Q3.S (health field state) must resolve before PF5 fix; Q5.Y deferred until Q5.C.
+**Notes:** Second composite/input route audited (after `/add-property`). Map view is dynamically loaded (no SSR). `PropertyTable` reused from `/portfolio` — per-datapoint reports cite that route's audits.
+
 ---
 
 ## Pages NOT yet audited
 
-- `/` (home) — map + dashboard composite
 - `/login`, `/register`, `/auth/*` — auth flows (Clerk)
 
 These would each need a separate `/audit-page-datapoints` run. They do not change the entity build order.
+
+`/` (home) was audited in Phase 10 (2026-05-14) — see `pages/home/audit.md` and `pages/home/plan.md`. Wiring is Phase 10.1.
 
 `/add-property` was audited in Phase 9 (2026-05-13) using an adapted input-form taxonomy — see `pages/add-property/audit.md` and `ref/10-input-data-map.md`.
 
