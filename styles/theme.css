@@ -184,6 +184,21 @@
   to   { backdrop-filter: blur(20px); opacity: 1; }
 }
 
+.ai-overlay-frost {
+  animation: backdrop-frost 0.35s ease-out both;
+  background:
+    radial-gradient(ellipse at 50% 30%, rgba(37, 99, 235, 0.03), rgba(0, 0, 0, 0.08) 70%);
+  backdrop-filter: blur(20px) saturate(1.2);
+  -webkit-backdrop-filter: blur(20px) saturate(1.2);
+}
+
+.dark .ai-overlay-frost {
+  background:
+    radial-gradient(ellipse at 50% 30%, rgba(59, 130, 246, 0.06), rgba(0, 0, 0, 0.35) 70%);
+  backdrop-filter: blur(20px) saturate(1.2);
+  -webkit-backdrop-filter: blur(20px) saturate(1.2);
+}
+
 /* ─── Estate Planning Page · Animations ─── */
 
 @keyframes progress-fill {
@@ -327,6 +342,16 @@
     inset 0 1px 0 rgba(255,255,255,0.08),
     inset 1px 0 0 rgba(255,255,255,0.04),
     inset 0 0 80px rgba(59,130,246,0.04);
+}
+
+.ai-glass-shell--fullscreen {
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+}
+
+.dark .ai-glass-shell--fullscreen {
+  box-shadow: none;
 }
 
 /* Sidebar glass layer */
