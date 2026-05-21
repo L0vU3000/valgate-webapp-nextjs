@@ -13,5 +13,6 @@
   "verifies": {
     "entityType": "estate-plan",
     "entityId": "PROP-0001"
-  }
+  },
+  "description": "Last will and testament on record"
 }

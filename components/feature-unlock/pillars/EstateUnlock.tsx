@@ -4,6 +4,7 @@ import { useFieldArray } from "react-hook-form";
 import { z } from "zod";
 import { Plus, Trash2 } from "lucide-react";
 import { FeatureUnlockWizard } from "../FeatureUnlockWizard";
+import type { PropertyOption } from "../FeatureUnlockWizard";
 import type { WizardConfig } from "../types";
 import type { UseFormReturn } from "react-hook-form";
 import {
@@ -344,6 +345,7 @@ export const estateWizardConfig: WizardConfig<typeof EstateWizardSchema> = {
 
 interface EstateUnlockMountProps {
   propertyId: string;
+  properties?: PropertyOption[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
   startAt?: "data" | "verification";
@@ -352,6 +354,7 @@ interface EstateUnlockMountProps {
 
 export function EstateUnlockMount({
   propertyId,
+  properties,
   open,
   onOpenChange,
   startAt,
@@ -361,6 +364,7 @@ export function EstateUnlockMount({
     <FeatureUnlockWizard
       config={estateWizardConfig}
       propertyId={propertyId}
+      properties={properties}
       open={open}
       onOpenChange={onOpenChange}
       startAt={startAt}

@@ -60,6 +60,7 @@ export type EstateProperty = {
 export type EstatePlanningPageData = {
   stats: EstateStat[];
   properties: EstateProperty[];
+  allProperties: EstateProperty[];
   successors: Successor[];
   documents: EstateDocument[];
   timeline: TimelineItem[];
@@ -242,11 +243,10 @@ export async function getEstatePlanningPageData(): Promise<EstatePlanningPageDat
     .slice(0, Math.max(0, 4 - selectedMetrics.length));
   const displayedMetrics = [...selectedMetrics, ...fallbackMetrics];
 
-  const estateProperties: EstateProperty[] = displayedMetrics.map((entry, index) => {
+  function buildEstateProperty(entry: (typeof propertyMetrics)[number], index: number): EstateProperty {
     const hasAssignments = entry.assignedSuccessorIds.length > 0;
     const estateVerified = entry.property.estateVerified === true;
     const status = estateVerified ? "complete" : deriveStatus(entry.completionPct);
-
     return {
       id: entry.property.id,
       name: entry.property.name,
@@ -259,7 +259,11 @@ export async function getEstatePlanningPageData(): Promise<EstatePlanningPageDat
       estateVerified,
       hasAssignments,
     };
-  });
+  }
+
+  const estateProperties: EstateProperty[] = displayedMetrics.map(buildEstateProperty);
+
+  const allEstateProperties: EstateProperty[] = propertyMetrics.map(buildEstateProperty);
 
   const estateSuccessors: Successor[] = successorsRaw.map((successor) => ({
     id: successor.id,
@@ -353,6 +357,7 @@ export async function getEstatePlanningPageData(): Promise<EstatePlanningPageDat
       },
     ],
     properties: estateProperties,
+    allProperties: allEstateProperties,
     successors: estateSuccessors,
     documents: estateDocuments,
     timeline,

@@ -1,0 +1,7 @@
+{
+  "id": "AIM-0044",
+  "sessionId": "AI-0006",
+  "role": "assistant",
+  "content": "Hi Chan — I don’t have any property valuation data in the info I can see, so I can’t tell which of your properties is the most expensive right now.\n\nTo find that in the app:\n- Go to **[View Portfolio](/portfolio)** and sort the list by **Market / Current value** (click the column header).\n- Or use **[Analytics](/analytics)** and open the “Top assets by value” (or similar) panel to see assets ranked by value.\n- Click a property to open its page for valuation history and documents.\n\nIf you want, tell me a property ID (e.g. PROP-0001 or PROP-0006) and I can look for available documents or tell you where to find its title/lease files. Which would you like to do?",
+  "createdAt": 1779348114017
+}

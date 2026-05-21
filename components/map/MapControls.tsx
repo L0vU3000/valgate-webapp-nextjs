@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { RefreshCw, ZoomIn, ZoomOut } from "lucide-react";
+import { Layers, RefreshCw, ZoomIn, ZoomOut } from "lucide-react";
 import { MapIconButton } from "@/components/home/QuickStats";
 import { cn } from "@/components/ui/utils";
 import mapboxgl from "mapbox-gl";
@@ -14,6 +14,8 @@ interface MapControlsProps {
   drawerOpen?: boolean;
   resetCenter?: [number, number];
   resetZoom?: number;
+  isSatellite?: boolean;
+  onToggleSatellite?: () => void;
 }
 
 export function MapControls({
@@ -21,6 +23,8 @@ export function MapControls({
   drawerOpen = false,
   resetCenter = CAMBODIA_CENTER,
   resetZoom = CAMBODIA_ZOOM,
+  isSatellite = false,
+  onToggleSatellite,
 }: MapControlsProps) {
   return (
     <div
@@ -43,6 +47,12 @@ export function MapControls({
         }
       >
         <RefreshCw className="size-4" />
+      </MapIconButton>
+      <MapIconButton
+        onClick={onToggleSatellite}
+        className={cn(isSatellite && "bg-interactive-primary text-white hover:bg-interactive-primary/90")}
+      >
+        <Layers className="size-4" />
       </MapIconButton>
     </div>
   );

@@ -10,5 +10,6 @@
   "verifies": {
     "entityType": "financials",
     "entityId": "PROP-0001"
-  }
+  },
+  "description": "Financial support document"
 }

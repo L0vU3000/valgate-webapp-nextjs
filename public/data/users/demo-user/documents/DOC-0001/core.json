@@ -6,12 +6,13 @@
   "kind": "document",
   "mimeType": "application/pdf",
   "extension": "pdf",
-  "sizeBytes": 1240000,
+  "sizeBytes": 986,
   "storageId": "_storage/PROP-0001/title-deed.pdf",
   "category": "Title",
   "uploadedAt": 1743897600000,
   "verifies": {
     "entityType": "ownership-record",
     "entityId": "OREC-0001"
-  }
+  },
+  "description": "Title deed confirming ownership of the property"
 }

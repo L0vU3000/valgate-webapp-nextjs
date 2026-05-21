@@ -10,5 +10,6 @@
   "verifies": {
     "entityType": "location-identity",
     "entityId": "PROP-0001"
-  }
+  },
+  "description": "Location identity verification document"
 }

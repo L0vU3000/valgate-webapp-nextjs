@@ -13,6 +13,7 @@ export const DocumentSchema = z.object({
   storageId: z.string().min(1),
   thumbStorageId: z.string().optional(),
   category: z.enum(["Title", "Rental", "Photos", "Legal", "Financial", "Estate", "Other"]).optional(),
+  description: z.string().optional(),
   uploadedBy: z.string().optional(),
   uploadedAt: timestampSchema,
   verifies: z.object({

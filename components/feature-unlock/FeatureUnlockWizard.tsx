@@ -8,18 +8,38 @@ import {
   DialogContent,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { X } from "lucide-react";
+import { X, CheckCircle2, Search } from "lucide-react";
+import { cn } from "@/components/ui/utils";
 import { WizardProgress } from "./WizardProgress";
 import type { WizardProgressStep } from "./WizardProgress";
 import { VerificationStep } from "./VerificationStep";
 import type { WizardConfig } from "./types";
 import type { ZodTypeAny } from "zod";
 
+type PropertyOptionStatus = "complete" | "pending" | "action" | "draft";
+
+export interface PropertyOption {
+  id: string;
+  name: string;
+  address: string;
+  initials: string;
+  color: string;
+  status: PropertyOptionStatus;
+}
+
+const PROPERTY_STATUS_CONFIG: Record<PropertyOptionStatus, { label: string; className: string }> = {
+  complete: { label: "Complete", className: "bg-[#ecfdf5] text-[#065f46]" },
+  pending: { label: "In Review", className: "bg-[#fffbeb] text-[#92400e]" },
+  action: { label: "Action Required", className: "bg-[#fff1f2] text-[#881337]" },
+  draft: { label: "Drafted", className: "bg-[#f0f9ff] text-[#0369a1]" },
+};
+
 interface FeatureUnlockWizardProps<TSchema extends ZodTypeAny> {
   config: WizardConfig<TSchema>;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   propertyId: string;
+  properties?: PropertyOption[];
   startAt?: "data" | "verification";
   onSuccess?: () => void;
 }
@@ -29,18 +49,22 @@ export function FeatureUnlockWizard<TSchema extends ZodTypeAny>({
   open,
   onOpenChange,
   propertyId,
+  properties,
   startAt = "data",
   onSuccess,
 }: FeatureUnlockWizardProps<TSchema>) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   type FormValues = any;
 
-  const [phase, setPhase] = useState<"loading" | "load-error" | "data" | "verification" | "done">("loading");
+  const [phase, setPhase] = useState<"select-property" | "loading" | "load-error" | "data" | "verification" | "done">("loading");
   const [stepIndex, setStepIndex] = useState(0);
   const [entityId, setEntityId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [didChange, setDidChange] = useState(false);
+  const [activePropertyId, setActivePropertyId] = useState(propertyId);
+  const [selectedPropertyId, setSelectedPropertyId] = useState(propertyId);
+  const [propertySearch, setPropertySearch] = useState("");
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const form = useForm<FormValues>({
@@ -49,14 +73,15 @@ export function FeatureUnlockWizard<TSchema extends ZodTypeAny>({
     defaultValues: {} as FormValues,
   });
 
-  const loadData = useCallback(() => {
+  const loadData = useCallback((forPropertyId?: string) => {
+    const pid = forPropertyId ?? activePropertyId;
     setPhase("loading");
     setError(null);
     setDidChange(false);
     setStepIndex(0);
 
     config
-      .loadInitial({ propertyId })
+      .loadInitial({ propertyId: pid })
       .then((initial) => {
         form.reset(initial.values as FormValues);
         setEntityId(initial.entityId);
@@ -70,11 +95,18 @@ export function FeatureUnlockWizard<TSchema extends ZodTypeAny>({
       .catch(() => {
         setPhase("load-error");
       });
-  }, [config, form, propertyId, startAt]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [config, form, activePropertyId, startAt]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!open) return;
-    loadData();
+    if (properties && properties.length > 0) {
+      setSelectedPropertyId(propertyId);
+      setActivePropertyId(propertyId);
+      setPropertySearch("");
+      setPhase("select-property");
+    } else {
+      loadData();
+    }
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const currentValues = form.watch();
@@ -129,7 +161,7 @@ export function FeatureUnlockWizard<TSchema extends ZodTypeAny>({
       }
       const result = await config.onSubmitData({
         values: parsed.data,
-        propertyId,
+        propertyId: activePropertyId,
         entityId,
       });
       if (!result.ok) {
@@ -196,11 +228,23 @@ export function FeatureUnlockWizard<TSchema extends ZodTypeAny>({
     return "pending";
   }
 
-  const progressSteps: WizardProgressStep[] = allSteps.map((step, i) => ({
-    key: step.key,
-    title: step.title,
-    status: getDataStepStatus(i),
-  }));
+  const progressSteps: WizardProgressStep[] = [];
+
+  if (properties && properties.length > 0) {
+    progressSteps.push({
+      key: "__select-property",
+      title: "Select property",
+      status: phase === "select-property" ? "active" : "completed",
+    });
+  }
+
+  progressSteps.push(
+    ...allSteps.map((step, i) => ({
+      key: step.key,
+      title: step.title,
+      status: getDataStepStatus(i),
+    })),
+  );
 
   if (config.verification) {
     progressSteps.push({
@@ -258,6 +302,102 @@ export function FeatureUnlockWizard<TSchema extends ZodTypeAny>({
           {/* ── Right body ── */}
           <div className="flex-1 flex flex-col overflow-hidden min-w-0 bg-white">
 
+            {/* Select property */}
+            {phase === "select-property" && properties && (() => {
+              const q = propertySearch.toLowerCase();
+              const filtered = q
+                ? properties.filter(
+                    (p) =>
+                      p.name.toLowerCase().includes(q) ||
+                      p.address.toLowerCase().includes(q),
+                  )
+                : properties;
+              return (
+                <>
+                  <div className="px-10 pt-8 pb-5 border-b border-slate-100 shrink-0">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--val-primary-dark)] mb-2">
+                      01 / {String(progressSteps.length).padStart(2, "0")}
+                    </p>
+                    <h3 className="text-[22px] font-bold text-val-heading leading-tight">Select a property</h3>
+                    <p className="text-[14px] text-slate-500 mt-1 leading-relaxed">
+                      Choose which property you want to work with.
+                    </p>
+
+                    {/* Search */}
+                    <div className="relative mt-4">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-slate-400 pointer-events-none" />
+                      <input
+                        type="text"
+                        value={propertySearch}
+                        onChange={(e) => setPropertySearch(e.target.value)}
+                        placeholder="Search by name or address…"
+                        className="w-full h-9 pl-9 pr-3 rounded-lg border border-slate-200 bg-white text-[13px] text-val-heading placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#2563eb]/30 focus:border-[#2563eb] transition-colors"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto">
+                    {filtered.length === 0 && (
+                      <p className="text-[13px] text-slate-400 text-center py-10">
+                        No properties match &ldquo;{propertySearch}&rdquo;
+                      </p>
+                    )}
+                    {filtered.map((p, i) => {
+                      const isSelected = selectedPropertyId === p.id;
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => setSelectedPropertyId(p.id)}
+                          className={cn(
+                            "w-full text-left flex items-center gap-4 px-10 py-4 transition-colors duration-100",
+                            i > 0 && "border-t border-slate-100",
+                            isSelected ? "bg-[#eff6ff]" : "hover:bg-slate-50",
+                          )}
+                        >
+                          <div
+                            className="size-9 rounded-lg shrink-0 flex items-center justify-center text-[11px] font-bold text-[--val-primary-dark]"
+                            style={{ backgroundColor: p.color }}
+                          >
+                            {p.initials}
+                          </div>
+                          <div className="flex flex-col min-w-0 flex-1">
+                            <p className={cn(
+                              "text-[13px] font-semibold leading-snug",
+                              isSelected ? "text-[#2563eb]" : "text-val-heading",
+                            )}>
+                              {p.name}
+                            </p>
+                            <p className="text-[12px] text-slate-400 truncate mt-0.5">{p.address}</p>
+                          </div>
+                          {isSelected && (
+                            <CheckCircle2 className="size-4 text-[#2563eb] shrink-0" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="px-10 py-5 border-t border-slate-100 flex items-center justify-between shrink-0">
+                    <span className="text-[12px] text-slate-400">
+                      {properties.length} {properties.length === 1 ? "property" : "properties"} in your portfolio
+                    </span>
+                    <button
+                      disabled={!selectedPropertyId}
+                      onClick={() => {
+                        setActivePropertyId(selectedPropertyId);
+                        loadData(selectedPropertyId);
+                      }}
+                      className="px-6 py-2.5 text-[14px] font-semibold text-white rounded-lg disabled:opacity-40 disabled:pointer-events-none transition-all duration-150 hover:opacity-90 active:scale-[0.97]"
+                      style={gradientStyle}
+                    >
+                      Continue →
+                    </button>
+                  </div>
+                </>
+              );
+            })()}
+
             {/* Loading */}
             {phase === "loading" && (
               <div className="flex-1 flex items-center justify-center">
@@ -280,7 +420,7 @@ export function FeatureUnlockWizard<TSchema extends ZodTypeAny>({
                   </p>
                 </div>
                 <button
-                  onClick={loadData}
+                  onClick={() => loadData()}
                   className="px-5 py-2.5 text-[14px] font-semibold text-white rounded-lg transition-all duration-150 hover:opacity-90 active:scale-[0.97]"
                   style={{ background: "linear-gradient(168deg, var(--val-primary-dark) 0%, #2563eb 100%)" }}
                 >
@@ -334,7 +474,7 @@ export function FeatureUnlockWizard<TSchema extends ZodTypeAny>({
                       </button>
                     </div>
                   )}
-                  {currentStep.render({ form: form as any, values: currentValues, propertyId })}
+                  {currentStep.render({ form: form as any, values: currentValues, propertyId: activePropertyId })}
                 </div>
 
                 {/* Footer */}
@@ -370,7 +510,7 @@ export function FeatureUnlockWizard<TSchema extends ZodTypeAny>({
             {/* Verification step */}
             {phase === "verification" && config.verification && entityId && (
               <VerificationStep
-                propertyId={propertyId}
+                propertyId={activePropertyId}
                 entityId={entityId}
                 config={config.verification}
                 onBack={handleBack}

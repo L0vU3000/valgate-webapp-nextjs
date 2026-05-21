@@ -15,6 +15,7 @@ import {
   ShieldOff,
   TrendingUp,
   Filter,
+  Plus,
 } from "lucide-react";
 import { UnlockButton } from "@/components/feature-unlock/UnlockButton";
 import { EstateUnlockMount } from "@/components/feature-unlock/pillars/EstateUnlock";
@@ -225,6 +226,7 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
   const [selectedProperty, setSelectedProperty] = useState(0);
   const [statusFilter, setStatusFilter] = useState<"all" | PropertyStatus>("all");
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [addDialogStep, setAddDialogStep] = useState<1 | 2>(1);
   const [addError, setAddError] = useState<string | null>(null);
   const [addSubmitting, setAddSubmitting] = useState(false);
   const [selectedAssignmentIds, setSelectedAssignmentIds] = useState<string[]>([]);
@@ -233,8 +235,16 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
   const [wizardStartAt, setWizardStartAt] = useState<"data" | "verification">("data");
   const [revokeOpen, setRevokeOpen] = useState(false);
   const [revoking, setRevoking] = useState(false);
+  const [newPlanOpen, setNewPlanOpen] = useState(false);
+  const [newPlanStep, setNewPlanStep] = useState<1 | 2>(1);
+  const [newPlanForm, setNewPlanForm] = useState({
+    type: "will",
+    propertyId: "",
+    effectiveDate: "",
+    notes: "",
+  });
 
-  const { stats, properties, successors, documents, timeline } = data;
+  const { stats, properties, allProperties, successors, documents, timeline } = data;
   const filteredProperties = useMemo(
     () => (statusFilter === "all" ? properties : properties.filter((p) => p.status === statusFilter)),
     [properties, statusFilter],
@@ -323,6 +333,7 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
 
   const openAddDialog = () => {
     setAddError(null);
+    setAddDialogStep(1);
     setBeneficiaryForm(DEFAULT_BENEFICIARY_FORM);
     setSelectedAssignmentIds([property.id]);
     setAddDialogOpen(true);
@@ -422,9 +433,16 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
               <BarChart2 className="size-4" />
               View Analytics
             </button>
-            <button className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#2563eb] text-sm font-medium text-white hover:bg-[#1d4ed8] shadow-sm transition-colors">
-              <TrendingUp className="size-4" />
-              Generate Portfolio Report
+            <button
+              onClick={() => {
+                setNewPlanStep(1);
+                setNewPlanForm({ type: "will", propertyId: "", effectiveDate: "", notes: "" });
+                setNewPlanOpen(true);
+              }}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#2563eb] text-sm font-medium text-white hover:bg-[#1d4ed8] shadow-sm transition-colors"
+            >
+              <Plus className="size-4" />
+              Add New
             </button>
           </div>
         </div>
@@ -739,6 +757,192 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
         </div>
       </div>
       </div>
+      {/* -- New Estate Plan Modal (2-step wizard) -- */}
+      <Dialog
+        open={newPlanOpen}
+        onOpenChange={(open) => {
+          setNewPlanOpen(open);
+          if (!open) setNewPlanStep(1);
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          {/* Step indicator */}
+          <div className="flex items-center gap-3 mb-1">
+            <div className="flex items-center gap-2">
+              <div
+                className={cn(
+                  "size-6 rounded-full flex items-center justify-center text-xs font-bold",
+                  newPlanStep === 1
+                    ? "bg-[#2563eb] text-white"
+                    : "bg-[#dcfce7] text-[#166534]",
+                )}
+              >
+                {newPlanStep === 1 ? "1" : <CheckCircle2 className="size-3.5" />}
+              </div>
+              <span className={cn("text-xs font-semibold", newPlanStep === 1 ? "text-val-heading" : "text-[#737686]")}>
+                Select Property
+              </span>
+            </div>
+            <div className="h-px flex-1 bg-[#e8eaed]" />
+            <div className="flex items-center gap-2">
+              <div
+                className={cn(
+                  "size-6 rounded-full flex items-center justify-center text-xs font-bold",
+                  newPlanStep === 2 ? "bg-[#2563eb] text-white" : "bg-[#e8eaed] text-[#737686]",
+                )}
+              >
+                2
+              </div>
+              <span className={cn("text-xs font-semibold", newPlanStep === 2 ? "text-val-heading" : "text-[#737686]")}>
+                Plan Details
+              </span>
+            </div>
+          </div>
+
+          {newPlanStep === 1 && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Select a Property</DialogTitle>
+                <DialogDescription>
+                  Choose which property this estate plan will be created for.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="grid gap-3 py-2 max-h-72 overflow-y-auto pr-1">
+                {properties.map((p) => {
+                  const statusCfg = propertyStatusConfig[p.status];
+                  const isSelected = newPlanForm.propertyId === p.id;
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setNewPlanForm((current) => ({ ...current, propertyId: p.id }))}
+                      className={cn(
+                        "w-full text-left flex items-center gap-4 rounded-xl border p-4 transition-all duration-150",
+                        isSelected
+                          ? "border-[#2563eb] bg-[#eff6ff] shadow-sm"
+                          : "border-[#e8eaed] bg-white hover:border-[#c3c6d7] hover:bg-val-bg-page-alt",
+                      )}
+                    >
+                      <div
+                        className="size-12 rounded-lg shrink-0 flex items-center justify-center text-xs font-bold text-[--val-primary-dark]"
+                        style={{ backgroundColor: p.color }}
+                      >
+                        {p.initials}
+                      </div>
+                      <div className="flex flex-col min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-val-heading truncate">{p.name}</p>
+                        <p className="text-xs text-[#434655] truncate">{p.address}</p>
+                      </div>
+                      <span
+                        className={cn(
+                          "text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full shrink-0",
+                          statusCfg.className,
+                        )}
+                      >
+                        {statusCfg.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setNewPlanOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  disabled={!newPlanForm.propertyId}
+                  onClick={() => setNewPlanStep(2)}
+                >
+                  Continue
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+
+          {newPlanStep === 2 && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Plan Details</DialogTitle>
+                <DialogDescription>
+                  Define the type and details of the new estate plan.
+                </DialogDescription>
+              </DialogHeader>
+
+              <form
+                className="grid gap-4 py-1"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  setNewPlanOpen(false);
+                  setNewPlanStep(1);
+                  toast.success("Estate plan created successfully.");
+                }}
+              >
+                <div className="grid gap-2">
+                  <Label htmlFor="new-plan-type">Plan Type</Label>
+                  <select
+                    id="new-plan-type"
+                    value={newPlanForm.type}
+                    onChange={(event) =>
+                      setNewPlanForm((current) => ({ ...current, type: event.target.value }))
+                    }
+                    className="h-9 rounded-md border border-input bg-input-background px-3 text-sm"
+                  >
+                    <option value="will">Last Will &amp; Testament</option>
+                    <option value="living-trust">Living Trust</option>
+                    <option value="poa">Power of Attorney</option>
+                    <option value="healthcare-directive">Healthcare Directive</option>
+                    <option value="beneficiary-designation">Beneficiary Designation</option>
+                  </select>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="new-plan-date">Effective Date</Label>
+                  <Input
+                    id="new-plan-date"
+                    type="date"
+                    value={newPlanForm.effectiveDate}
+                    onChange={(event) =>
+                      setNewPlanForm((current) => ({ ...current, effectiveDate: event.target.value }))
+                    }
+                  />
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="new-plan-notes">
+                    Notes{" "}
+                    <span className="text-[#737686] font-normal">(optional)</span>
+                  </Label>
+                  <textarea
+                    id="new-plan-notes"
+                    rows={3}
+                    value={newPlanForm.notes}
+                    onChange={(event) =>
+                      setNewPlanForm((current) => ({ ...current, notes: event.target.value }))
+                    }
+                    placeholder="Any special instructions or context for this plan…"
+                    className="rounded-md border border-input bg-input-background px-3 py-2 text-sm resize-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  />
+                </div>
+
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setNewPlanStep(1)}
+                  >
+                    Back
+                  </Button>
+                  <Button type="submit">Create Plan</Button>
+                </DialogFooter>
+              </form>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <Dialog
         open={addDialogOpen}
         onOpenChange={(open) => {
@@ -746,131 +950,218 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
           if (!open) {
             setAddError(null);
             setAddSubmitting(false);
+            setAddDialogStep(1);
           }
         }}
       >
         <DialogContent className="sm:max-w-xl">
-          <DialogHeader>
-            <DialogTitle>Add Beneficiary</DialogTitle>
-            <DialogDescription>
-              Create a beneficiary and assign one or more properties.
-            </DialogDescription>
-          </DialogHeader>
-          <form className="grid gap-4" onSubmit={handleAddBeneficiary}>
-            <div className="grid gap-2">
-              <Label htmlFor="beneficiary-name">Full Name</Label>
-              <Input
-                id="beneficiary-name"
-                value={beneficiaryForm.name}
-                onChange={(event) =>
-                  setBeneficiaryForm((current) => ({ ...current, name: event.target.value }))
-                }
-                placeholder="Sophea Chan"
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="beneficiary-relation">Relation</Label>
-              <Input
-                id="beneficiary-relation"
-                value={beneficiaryForm.relation}
-                onChange={(event) =>
-                  setBeneficiaryForm((current) => ({ ...current, relation: event.target.value }))
-                }
-                placeholder="Spouse"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="beneficiary-role">Role</Label>
-                <select
-                  id="beneficiary-role"
-                  value={beneficiaryForm.role}
-                  onChange={(event) =>
-                    setBeneficiaryForm((current) => ({
-                      ...current,
-                      role: event.target.value as SuccessorRole,
-                    }))
-                  }
-                  className="h-9 rounded-md border border-input bg-input-background px-3 text-sm"
-                >
-                  <option value="primary">Primary</option>
-                  <option value="contingent">Contingent</option>
-                </select>
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="beneficiary-share">Share (%)</Label>
-                <Input
-                  id="beneficiary-share"
-                  type="number"
-                  min={0}
-                  step={0.01}
-                  value={beneficiaryForm.share}
-                  onChange={(event) =>
-                    setBeneficiaryForm((current) => ({ ...current, share: event.target.value }))
-                  }
-                />
-              </div>
-            </div>
-
-            <div className="grid gap-2">
-              <Label>Assign Properties</Label>
-              <div className="max-h-40 overflow-y-auto rounded-md border border-input p-3 grid gap-2">
-                {properties.map((entry) => (
-                  <label key={entry.id} className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={selectedAssignmentIds.includes(entry.id)}
-                      onChange={() => toggleAssignment(entry.id)}
-                    />
-                    <span>{entry.name}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={beneficiaryForm.verified}
-                onChange={(event) =>
-                  setBeneficiaryForm((current) => ({
-                    ...current,
-                    verified: event.target.checked,
-                  }))
-                }
-              />
-              Mark as verified
-            </label>
-
-            {addError && (
-              <div className="rounded-md border border-[#fecaca] bg-[#fef2f2] px-3 py-2 text-sm text-[#b91c1c]">
-                {addError}
-              </div>
-            )}
-
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setAddDialogOpen(false)}
-                disabled={addSubmitting}
+          {/* Step indicator */}
+          <div className="flex items-center gap-3 mb-1">
+            <div className="flex items-center gap-2">
+              <div
+                className={cn(
+                  "size-6 rounded-full flex items-center justify-center text-xs font-bold",
+                  addDialogStep === 1
+                    ? "bg-[#2563eb] text-white"
+                    : "bg-[#dcfce7] text-[#166534]",
+                )}
               >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={addSubmitting}>
-                {addSubmitting ? "Adding..." : "Add Beneficiary"}
-              </Button>
-            </DialogFooter>
-          </form>
+                {addDialogStep === 1 ? "1" : <CheckCircle2 className="size-3.5" />}
+              </div>
+              <span className={cn("text-xs font-semibold", addDialogStep === 1 ? "text-val-heading" : "text-[#737686]")}>
+                Select Property
+              </span>
+            </div>
+            <div className="h-px flex-1 bg-[#e8eaed]" />
+            <div className="flex items-center gap-2">
+              <div
+                className={cn(
+                  "size-6 rounded-full flex items-center justify-center text-xs font-bold",
+                  addDialogStep === 2 ? "bg-[#2563eb] text-white" : "bg-[#e8eaed] text-[#737686]",
+                )}
+              >
+                2
+              </div>
+              <span className={cn("text-xs font-semibold", addDialogStep === 2 ? "text-val-heading" : "text-[#737686]")}>
+                Beneficiary Details
+              </span>
+            </div>
+          </div>
+
+          {addDialogStep === 1 && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Select a Property</DialogTitle>
+                <DialogDescription>
+                  Choose which property to assign this beneficiary to.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="grid gap-3 py-2 max-h-72 overflow-y-auto pr-1">
+                {properties.map((p) => {
+                  const statusCfg = propertyStatusConfig[p.status];
+                  const isSelected = selectedAssignmentIds.includes(p.id);
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setSelectedAssignmentIds([p.id])}
+                      className={cn(
+                        "w-full text-left flex items-center gap-4 rounded-xl border p-4 transition-all duration-150",
+                        isSelected
+                          ? "border-[#2563eb] bg-[#eff6ff] shadow-sm"
+                          : "border-[#e8eaed] bg-white hover:border-[#c3c6d7] hover:bg-val-bg-page-alt",
+                      )}
+                    >
+                      <div
+                        className="size-12 rounded-lg shrink-0 flex items-center justify-center text-xs font-bold text-[--val-primary-dark]"
+                        style={{ backgroundColor: p.color }}
+                      >
+                        {p.initials}
+                      </div>
+                      <div className="flex flex-col min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-val-heading truncate">{p.name}</p>
+                        <p className="text-xs text-[#434655] truncate">{p.address}</p>
+                      </div>
+                      <span
+                        className={cn(
+                          "text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full shrink-0",
+                          statusCfg.className,
+                        )}
+                      >
+                        {statusCfg.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setAddDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  disabled={selectedAssignmentIds.length === 0}
+                  onClick={() => setAddDialogStep(2)}
+                >
+                  Continue
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+
+          {addDialogStep === 2 && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Add Beneficiary</DialogTitle>
+                <DialogDescription>
+                  Enter the details for the new beneficiary.
+                </DialogDescription>
+              </DialogHeader>
+
+              <form className="grid gap-4" onSubmit={handleAddBeneficiary}>
+                <div className="grid gap-2">
+                  <Label htmlFor="beneficiary-name">Full Name</Label>
+                  <Input
+                    id="beneficiary-name"
+                    value={beneficiaryForm.name}
+                    onChange={(event) =>
+                      setBeneficiaryForm((current) => ({ ...current, name: event.target.value }))
+                    }
+                    placeholder="Sophea Chan"
+                  />
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="beneficiary-relation">Relation</Label>
+                  <Input
+                    id="beneficiary-relation"
+                    value={beneficiaryForm.relation}
+                    onChange={(event) =>
+                      setBeneficiaryForm((current) => ({ ...current, relation: event.target.value }))
+                    }
+                    placeholder="Spouse"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="beneficiary-role">Role</Label>
+                    <select
+                      id="beneficiary-role"
+                      value={beneficiaryForm.role}
+                      onChange={(event) =>
+                        setBeneficiaryForm((current) => ({
+                          ...current,
+                          role: event.target.value as SuccessorRole,
+                        }))
+                      }
+                      className="h-9 rounded-md border border-input bg-input-background px-3 text-sm"
+                    >
+                      <option value="primary">Primary</option>
+                      <option value="contingent">Contingent</option>
+                    </select>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="beneficiary-share">Share (%)</Label>
+                    <Input
+                      id="beneficiary-share"
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      value={beneficiaryForm.share}
+                      onChange={(event) =>
+                        setBeneficiaryForm((current) => ({ ...current, share: event.target.value }))
+                      }
+                    />
+                  </div>
+                </div>
+
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={beneficiaryForm.verified}
+                    onChange={(event) =>
+                      setBeneficiaryForm((current) => ({
+                        ...current,
+                        verified: event.target.checked,
+                      }))
+                    }
+                  />
+                  Mark as verified
+                </label>
+
+                {addError && (
+                  <div className="rounded-md border border-[#fecaca] bg-[#fef2f2] px-3 py-2 text-sm text-[#b91c1c]">
+                    {addError}
+                  </div>
+                )}
+
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setAddDialogStep(1)}
+                    disabled={addSubmitting}
+                  >
+                    Back
+                  </Button>
+                  <Button type="submit" disabled={addSubmitting}>
+                    {addSubmitting ? "Adding..." : "Add Beneficiary"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </>
+          )}
         </DialogContent>
       </Dialog>
 
       {propertyId && (
         <EstateUnlockMount
           propertyId={propertyId}
+          properties={allProperties}
           open={wizardOpen}
           onOpenChange={setWizardOpen}
           startAt={wizardStartAt}

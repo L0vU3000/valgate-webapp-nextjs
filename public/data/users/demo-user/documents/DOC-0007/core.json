@@ -12,5 +12,6 @@
   "verifies": {
     "entityType": "rental",
     "entityId": "PROP-0001"
-  }
+  },
+  "description": "Signed rental agreement for 2025 tenancy"
 }

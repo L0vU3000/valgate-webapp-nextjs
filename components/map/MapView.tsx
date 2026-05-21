@@ -17,6 +17,7 @@ interface MapViewProps {
   onSelectProperty: (id: string | null) => void;
   onMapLoaded?: () => void;
   onMapReady?: (map: mapboxgl.Map) => void;
+  isSatellite?: boolean;
   className?: string;
 }
 
@@ -26,6 +27,7 @@ export function MapView({
   onSelectProperty,
   onMapLoaded,
   onMapReady,
+  isSatellite = false,
   className,
 }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -37,6 +39,10 @@ export function MapView({
     Map<string, { marker: mapboxgl.Marker; timeout: ReturnType<typeof setTimeout> }>
   >(new Map());
   const { isDark } = useShellContext();
+  const isDarkRef = useRef(isDark);
+  isDarkRef.current = isDark;
+  const isSatelliteRef = useRef(isSatellite);
+  isSatelliteRef.current = isSatellite;
 
   // Initialize map
   useEffect(() => {
@@ -57,11 +63,16 @@ export function MapView({
 
     const map = new mapboxgl.Map({
       container: containerRef.current,
-      style: isDark
-        ? "mapbox://styles/mapbox/dark-v11"
-        : "mapbox://styles/mapbox/light-v11",
+      style: isSatellite
+        ? "mapbox://styles/mapbox/satellite-streets-v12"
+        : isDark
+          ? "mapbox://styles/mapbox/dark-v11"
+          : "mapbox://styles/mapbox/light-v11",
       center: CAMBODIA_CENTER,
       zoom: CAMBODIA_ZOOM,
+      pitch: 45,
+      bearing: -17.6,
+      antialias: true,
     });
 
     mapRef.current = map;
@@ -69,6 +80,7 @@ export function MapView({
 
     map.on("load", () => {
       if (destroyed) return;
+      add3DBuildings(map);
       onMapLoaded?.();
       onMapReady?.(map);
       updateClusters(map);
@@ -81,6 +93,7 @@ export function MapView({
 
     map.on("style.load", () => {
       if (destroyed) return;
+      add3DBuildings(map);
       exitingMarkersRef.current.forEach(e => { clearTimeout(e.timeout); e.marker.remove(); });
       exitingMarkersRef.current.clear();
       activeMarkersRef.current.clear();
@@ -100,15 +113,17 @@ export function MapView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Switch style when theme changes
+  // Switch style when theme or satellite mode changes
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    const style = isDark
-      ? "mapbox://styles/mapbox/dark-v11"
-      : "mapbox://styles/mapbox/light-v11";
+    const style = isSatellite
+      ? "mapbox://styles/mapbox/satellite-streets-v12"
+      : isDark
+        ? "mapbox://styles/mapbox/dark-v11"
+        : "mapbox://styles/mapbox/light-v11";
     map.setStyle(style);
-  }, [isDark]);
+  }, [isDark, isSatellite]);
 
   // Update marker highlight when selectedId changes
   useEffect(() => {
@@ -423,6 +438,35 @@ export function MapView({
         pinMarkersRef.current.set(property.id, m);
       }
     }
+  }
+
+  function add3DBuildings(map: mapboxgl.Map) {
+    if (isSatelliteRef.current) return;
+    // Skip if layer already exists (e.g. called twice on style reload)
+    if (map.getLayer("3d-buildings")) return;
+
+    map.addLayer({
+      id: "3d-buildings",
+      source: "composite",
+      "source-layer": "building",
+      type: "fill-extrusion",
+      minzoom: 15,
+      paint: {
+        "fill-extrusion-color": isDarkRef.current ? "#1e2235" : "#c8cdd6",
+        // Animate buildings rising from the ground as the user zooms past zoom 15
+        "fill-extrusion-height": [
+          "interpolate", ["linear"], ["zoom"],
+          15, 0,
+          15.05, ["get", "height"],
+        ],
+        "fill-extrusion-base": [
+          "interpolate", ["linear"], ["zoom"],
+          15, 0,
+          15.05, ["get", "min_height"],
+        ],
+        "fill-extrusion-opacity": isDarkRef.current ? 0.7 : 0.5,
+      },
+    });
   }
 
   return (

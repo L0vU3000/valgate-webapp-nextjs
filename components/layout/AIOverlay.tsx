@@ -40,6 +40,7 @@ export function AIOverlay({ open, onClose, pathname }: AIOverlayProps) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>("chat");
   const [bootstrapped, setBootstrapped] = useState(false);
+  const [latestAssistantMsgId, setLatestAssistantMsgId] = useState<string | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const activeSessionIdRef = useRef<string | null>(null);
   const pathnameRef = useRef(pathname);
@@ -201,6 +202,16 @@ export function AIOverlay({ open, onClose, pathname }: AIOverlayProps) {
       return;
     }
 
+    if (result.data.updatedSessionTitle) {
+      setSessions((prev) =>
+        prev.map((s) =>
+          s.id === sessionId ? { ...s, title: result.data.updatedSessionTitle! } : s,
+        ),
+      );
+    }
+
+    const lastAssistant = [...result.data.messages].reverse().find((m) => m.role === "assistant");
+    setLatestAssistantMsgId(lastAssistant?.id ?? null);
     setMessages(result.data.messages);
   }
 
@@ -219,6 +230,9 @@ export function AIOverlay({ open, onClose, pathname }: AIOverlayProps) {
     subtitle: null,
     badge: null,
   };
+
+  const activeSessionTitle =
+    sessions.find((s) => s.id === activeSessionId)?.title ?? null;
 
   return (
     <div
@@ -307,6 +321,8 @@ export function AIOverlay({ open, onClose, pathname }: AIOverlayProps) {
             >
               <AIChatPane
                 header={header}
+                sessionTitle={activeSessionTitle}
+                latestAssistantMsgId={latestAssistantMsgId}
                 messages={messages}
                 userInitials={context?.userInitials ?? "U"}
                 documents={context?.documents ?? []}
@@ -331,6 +347,7 @@ export function AIOverlay({ open, onClose, pathname }: AIOverlayProps) {
                   documents={context.documents}
                   portfolioBars={context.portfolioBars}
                   yieldHref={context.yieldHref}
+                  portfolio={context.portfolio}
                 />
               </div>
             )}

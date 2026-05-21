@@ -70,6 +70,7 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
   const [placeholderIdx, setPlaceholderIdx] = useState(0);
   const [placeholderVisible, setPlaceholderVisible] = useState(true);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [isSatellite, setIsSatellite] = useState(false);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const router = useRouter();
 
@@ -170,6 +171,7 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
           onSelectProperty={handlePinClick}
           onMapLoaded={() => setMapLoaded(true)}
           onMapReady={(map) => { mapRef.current = map; }}
+          isSatellite={isSatellite}
           className="absolute inset-0"
         />
 
@@ -241,7 +243,12 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
         <PortfolioLegend stats={portfolioStats} mapLoaded={mapLoaded} drawerOpen={!!drawerProperty} />
 
         {/* Map controls */}
-        <MapControls mapRef={mapRef} drawerOpen={!!selectedProperty} />
+        <MapControls
+          mapRef={mapRef}
+          drawerOpen={!!selectedProperty}
+          isSatellite={isSatellite}
+          onToggleSatellite={() => setIsSatellite((s) => !s)}
+        />
 
         {/* Property info panel — full-height floating sidebar */}
         {drawerProperty && (

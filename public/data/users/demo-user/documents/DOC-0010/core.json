@@ -9,5 +9,6 @@
   "sizeBytes": 654000,
   "storageId": "_storage/PROP-0001/dummy-document.pdf",
   "category": "Estate",
-  "uploadedAt": 1777000000000
+  "uploadedAt": 1777000000000,
+  "description": "Trust deed draft for estate structuring"
 }

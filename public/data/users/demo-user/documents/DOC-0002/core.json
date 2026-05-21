@@ -9,5 +9,6 @@
   "sizeBytes": 3812000,
   "storageId": "_storage/PROP-0001/exterior.jpg",
   "category": "Photos",
-  "uploadedAt": 1769817600000
+  "uploadedAt": 1769817600000,
+  "description": "Exterior photo of the property"
 }

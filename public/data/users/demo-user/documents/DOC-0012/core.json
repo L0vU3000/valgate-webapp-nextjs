@@ -10,5 +10,6 @@
   "verifies": {
     "entityType": "ownership-record",
     "entityId": "OREC-0001"
-  }
+  },
+  "description": "Supporting ownership record on file"
 }

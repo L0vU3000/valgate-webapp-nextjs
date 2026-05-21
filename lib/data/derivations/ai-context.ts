@@ -1,9 +1,17 @@
 import "server-only";
 import * as documentsDb from "@/lib/data/db/documents";
 import * as userProfilesDb from "@/lib/data/db/user-profiles";
-import { getPropertyByIdParam } from "@/lib/data/properties";
+import * as leasesDb from "@/lib/data/db/leases";
+import * as tenantsDb from "@/lib/data/db/tenants";
+import * as paymentsDb from "@/lib/data/db/payments";
+import * as propertyValuationsDb from "@/lib/data/db/property-valuations";
+import * as ownershipRecordsDb from "@/lib/data/db/ownership-records";
+import * as maintenanceItemsDb from "@/lib/data/db/maintenance-items";
+import * as propertiesDb from "@/lib/data/db/properties";
 import { getPortfolioSnapshot } from "@/lib/data/derivations/portfolio-snapshot";
+import { getPropertyByIdParam } from "@/lib/data/properties";
 import { getCurrentUserId } from "@/lib/data/auth-shim";
+import { formatCurrency } from "@/lib/format";
 import type { Document, DocumentCategory } from "@/lib/data/types/document";
 import type { PortfolioStats, PortfolioKpis } from "@/lib/data/derivations/portfolio";
 
@@ -18,6 +26,7 @@ export type AiWorkspaceDocument = {
   name: string;
   propertyId: string;
   category: DocumentCategory | "Other";
+  description: string | null;
   mimeType: string | null;
   sizeBytes: number | null;
   href: string;
@@ -41,6 +50,8 @@ export type AiOverlayContext = {
     stats: PortfolioStats;
     kpis: PortfolioKpis;
     propertyCount: number;
+    monthlyExpectedRaw: number;
+    monthlyCollectedRaw: number;
   } | null;
   property: {
     id: string;
@@ -73,6 +84,16 @@ function formatAddress(parts: {
   return line || null;
 }
 
+function fmt(n: number | undefined | null): string {
+  if (n == null || n === 0) return "—";
+  return formatCurrency(n);
+}
+
+function fmtDate(ts: number | undefined | null): string {
+  if (!ts) return "—";
+  return new Date(ts).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+}
+
 function toWorkspaceDocument(doc: Document): AiWorkspaceDocument {
   const userId = getCurrentUserId();
   return {
@@ -80,6 +101,7 @@ function toWorkspaceDocument(doc: Document): AiWorkspaceDocument {
     name: doc.name,
     propertyId: doc.propertyId,
     category: doc.category ?? "Other",
+    description: doc.description ?? null,
     mimeType: doc.mimeType ?? null,
     sizeBytes: doc.sizeBytes ?? null,
     href: `/data/users/${userId}/${doc.storageId}`,
@@ -130,63 +152,35 @@ export function buildWelcomeMessage(context: AiOverlayContext): string {
   ].join("\n");
 }
 
-function buildPromptContext(context: AiOverlayContext): string {
-  const sections: string[] = [
-    `Current route: ${context.pathname}`,
-    `User: ${context.userName} (${context.userInitials})`,
-  ];
-
-  if (context.portfolio) {
-    const { stats, kpis } = context.portfolio;
-    sections.push(
-      "Portfolio:",
-      `- activeProperties: ${stats.totalProperties}`,
-      `- totalValue: ${stats.totalValue}`,
-      `- occupancyRate: ${stats.occupancyRate}%`,
-      `- rentedCount: ${stats.rentedCount}`,
-      `- vacantCount: ${stats.vacantCount}`,
-      `- monthlyExpected: ${kpis.monthlyExpected}`,
-      `- monthlyCollected: ${kpis.monthlyCollected}`,
-      `- monthLabel: ${kpis.monthLabel}`,
-    );
-  }
-
-  if (context.property) {
-    const p = context.property;
-    sections.push(
-      "Property:",
-      `- id: ${p.id}`,
-      `- name: ${p.name}`,
-      `- type: ${p.type}`,
-      `- status: ${p.status}`,
-      `- address: ${p.address ?? "unknown"}`,
-      `- rentalUrl: /property/${p.id}/rental`,
-      `- documentsUrl: /property/${p.id}/documents`,
-    );
-  }
-
-  if (context.documents.length > 0) {
-    sections.push(
-      "Documents:",
-      ...context.documents.slice(0, 20).map(
-        (d) =>
-          `- ${d.id}: ${d.name} (${d.category}) property=${d.propertyId} url=${d.href}`,
-      ),
-    );
-  }
-
-  return sections.join("\n");
-}
-
 export async function buildAiOverlayContext(
   pathname: string,
 ): Promise<AiOverlayContext> {
   const userId = getCurrentUserId();
   const propertyId = parsePropertyIdFromPath(pathname);
 
-  const [profile, allDocuments] = await Promise.all([
+  // Fetch everything in parallel — the AI needs the full picture regardless of current page
+  const [
+    profile,
+    allProperties,
+    allDocuments,
+    allLeases,
+    allTenants,
+    allPayments,
+    allValuations,
+    allOwnershipRecords,
+    allMaintenance,
+    pageData,
+  ] = await Promise.all([
     userProfilesDb.get(userId, userId),
+    propertiesDb.list(userId),
     documentsDb.list(userId),
+    leasesDb.list(userId),
+    tenantsDb.list(userId),
+    paymentsDb.list(userId),
+    propertyValuationsDb.list(userId),
+    ownershipRecordsDb.list(userId),
+    maintenanceItemsDb.list(userId),
+    getPortfolioSnapshot(),
   ]);
 
   const firstName = profile?.firstName ?? "User";
@@ -195,6 +189,21 @@ export async function buildAiOverlayContext(
   const userInitials =
     `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase() || "U";
 
+  // ── Compute raw monthly rent amounts for yield calculations ──────────────
+  const nowMs = Date.now();
+  const monthStart = Date.UTC(
+    new Date(nowMs).getUTCFullYear(),
+    new Date(nowMs).getUTCMonth(),
+    1,
+  );
+  const monthlyExpectedRaw = allLeases
+    .filter((l) => l.stage === "Signed" && l.endDate >= monthStart)
+    .reduce((sum, l) => sum + l.monthlyRent, 0);
+  const monthlyCollectedRaw = allPayments
+    .filter((p) => p.kind === "Rent" && p.status === "Paid" && p.date >= monthStart)
+    .reduce((sum, p) => sum + (p.amount ?? 0), 0);
+
+  // ── UI context (drives header, sidebar bars, yield link) ─────────────────
   let portfolio: AiOverlayContext["portfolio"] = null;
   let property: AiOverlayContext["property"] = null;
   let portfolioBars: AiPortfolioBar[] = [];
@@ -206,11 +215,12 @@ export async function buildAiOverlayContext(
   };
 
   if (pathname.startsWith("/portfolio") || pathname === "/") {
-    const pageData = await getPortfolioSnapshot();
     portfolio = {
       stats: pageData.stats,
       kpis: pageData.kpis,
       propertyCount: pageData.properties.length,
+      monthlyExpectedRaw,
+      monthlyCollectedRaw,
     };
     portfolioBars = pageData.properties
       .filter((p) => p.buyNumeric > 0)
@@ -270,6 +280,137 @@ export async function buildAiOverlayContext(
     .slice(0, 50)
     .map(toWorkspaceDocument);
 
+  // ── Build comprehensive prompt context ───────────────────────────────────
+  const activeProperties = allProperties.filter((p) => !p.isArchived);
+
+  const lines: string[] = [
+    `User: ${userName}`,
+    `Current page: ${pathname}`,
+    "",
+    "=== PORTFOLIO SUMMARY ===",
+    `- Total active properties: ${pageData.stats.totalProperties}`,
+    `- Total portfolio value: ${pageData.kpis.totalValueFormatted}`,
+    `- Occupancy: ${pageData.stats.occupancyRate}% (${pageData.stats.rentedCount} rented, ${pageData.stats.vacantCount} vacant)`,
+    `- Monthly expected rent: ${pageData.kpis.monthlyExpected}`,
+    `- Monthly collected: ${pageData.kpis.monthlyCollected} (${pageData.kpis.monthLabel})`,
+    "",
+    "=== PROPERTIES ===",
+  ];
+
+  for (const p of activeProperties) {
+    const address = formatAddress({
+      addressLine: p.addressLine,
+      city: p.city,
+      province: p.province,
+    });
+    lines.push(
+      `${p.id}: "${p.name}"`,
+      `  type: ${p.type} | status: ${p.status} | use: ${p.propertyUse ?? "—"}`,
+      `  address: ${address ?? "—"}`,
+      `  purchasePrice: ${fmt(p.buyNumeric)} | purchaseDate: ${fmtDate(p.purchaseDate)}`,
+      `  currentMarketValue: ${fmt(p.currentMarketValue)}`,
+      `  outstandingMortgage: ${fmt(p.outstandingMortgage)} | monthlyPayment: ${fmt(p.monthlyPayment)}`,
+      `  interestRate: ${p.interestRate != null ? `${p.interestRate}%` : "—"}`,
+      `  annualTax: ${fmt(p.annualPropertyTax)} | annualInsurance: ${fmt(p.annualInsurance)}`,
+      `  bedrooms: ${p.bedrooms ?? "—"} | bathrooms: ${p.bathrooms ?? "—"} | area: ${p.totalArea ? `${p.totalArea} sqm` : "—"} | yearBuilt: ${p.yearBuilt ?? "—"}`,
+      `  url: /property/${p.id}`,
+    );
+  }
+
+  // ── Leases ────────────────────────────────────────────────────────────────
+  const activeLeases = allLeases.filter((l) => l.stage === "Signed");
+  if (activeLeases.length > 0) {
+    lines.push("", "=== ACTIVE LEASES ===");
+    for (const l of activeLeases) {
+      const tenant = allTenants.find((t) => t.id === l.tenantId);
+      lines.push(
+        `${l.id}: ${l.propertyId} | tenant: ${tenant?.name ?? l.tenantId ?? "—"} | unit: ${l.unit ?? "—"}`,
+        `  monthlyRent: ${fmt(l.monthlyRent)} | term: ${l.termMonths} months`,
+        `  period: ${fmtDate(l.startDate)} – ${fmtDate(l.endDate)}`,
+        `  renewal: ${l.renewalStatus ?? "—"}`,
+      );
+    }
+  }
+
+  // ── Tenants ───────────────────────────────────────────────────────────────
+  if (allTenants.length > 0) {
+    lines.push("", "=== TENANTS ===");
+    for (const t of allTenants) {
+      lines.push(
+        `${t.id}: "${t.name}" | property: ${t.propertyId} | unit: ${t.unit ?? "—"}`,
+        `  monthlyRent: ${fmt(t.rent)} | paymentStatus: ${t.status}`,
+        `  contact: ${t.email ?? "—"} | ${t.phone ?? "—"}`,
+      );
+    }
+  }
+
+  // ── Most recent valuation per property ───────────────────────────────────
+  if (allValuations.length > 0) {
+    const latestByProp = new Map<string, (typeof allValuations)[0]>();
+    for (const v of allValuations) {
+      const existing = latestByProp.get(v.propertyId);
+      if (!existing || v.recordedAt > existing.recordedAt) {
+        latestByProp.set(v.propertyId, v);
+      }
+    }
+    lines.push("", "=== LATEST VALUATIONS ===");
+    for (const [propId, v] of latestByProp.entries()) {
+      lines.push(`${propId}: ${fmt(v.price)} (${v.month})`);
+    }
+  }
+
+  // ── Recent payments (last 90 days) ───────────────────────────────────────
+  const ninetyDaysAgo = Date.now() - 90 * 24 * 60 * 60 * 1000;
+  const recentPayments = allPayments
+    .filter((p) => p.date >= ninetyDaysAgo)
+    .sort((a, b) => b.date - a.date)
+    .slice(0, 30);
+
+  if (recentPayments.length > 0) {
+    lines.push("", "=== RECENT PAYMENTS (last 90 days) ===");
+    for (const p of recentPayments) {
+      const lease = allLeases.find((l) => l.id === p.leaseId);
+      lines.push(
+        `${p.id}: ${lease?.propertyId ?? p.leaseId ?? "—"} | ${p.kind} | ${fmt(p.amount)} | ${p.status} | ${fmtDate(p.date)} | method: ${p.method}`,
+      );
+    }
+  }
+
+  // ── Ownership records ────────────────────────────────────────────────────
+  if (allOwnershipRecords.length > 0) {
+    lines.push("", "=== OWNERSHIP RECORDS ===");
+    for (const o of allOwnershipRecords) {
+      lines.push(
+        `${o.id}: ${o.propertyId} | holdingType: ${o.holdingType}`,
+        `  lender: ${o.lenderName ?? "—"} | loanAmount: ${fmt(o.loanAmount)} | rate: ${o.interestRate != null ? `${o.interestRate}%` : "—"} | loanType: ${o.loanType ?? "—"}`,
+        `  maturity: ${fmtDate(o.maturityDate)} | nextPaymentDue: ${fmtDate(o.nextPaymentDue)}`,
+      );
+    }
+  }
+
+  // ── Open maintenance items ────────────────────────────────────────────────
+  const openMaintenance = allMaintenance.filter((m) => m.status !== "Resolved");
+  if (openMaintenance.length > 0) {
+    lines.push("", "=== OPEN MAINTENANCE ITEMS ===");
+    for (const m of openMaintenance) {
+      lines.push(
+        `${m.id}: ${m.propertyId} | "${m.title}" | severity: ${m.severity} | status: ${m.status}`,
+      );
+    }
+  }
+
+  // ── Documents ────────────────────────────────────────────────────────────
+  const docLines = allDocuments
+    .filter((d) => d.kind === "document")
+    .slice(0, 30)
+    .map((d) => `${d.id}: "${d.name}" (${d.category ?? "Other"}) | property: ${d.propertyId}`);
+
+  if (docLines.length > 0) {
+    lines.push("", "=== DOCUMENTS ===", ...docLines);
+  }
+
+  const promptContext = lines.join("\n");
+
   const context: AiOverlayContext = {
     pathname,
     propertyId,
@@ -281,10 +422,9 @@ export async function buildAiOverlayContext(
     documents,
     portfolioBars,
     yieldHref,
-    promptContext: "",
+    promptContext,
   };
 
-  context.promptContext = buildPromptContext(context);
   return context;
 }
 
