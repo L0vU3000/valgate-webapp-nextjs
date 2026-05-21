@@ -4,10 +4,10 @@ import type { NewNotificationPreference } from "@/lib/data/db/notification-prefe
 const now = Date.UTC(2026, 3, 1);
 
 export const userProfile: Partial<UserProfile> = {
-  firstName: "Chan",
-  lastName: "Sophea",
+  firstName: "David",
+  lastName: "Lee",
   jobTitle: "Property Owner",
-  email: "sophea.chan@gmail.com",
+  email: "david.lee@gmail.com",
   phone: "+855 12 345 678",
   language: "English",
   timezone: "Asia/Phnom_Penh",
