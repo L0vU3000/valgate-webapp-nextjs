@@ -1,0 +1,11 @@
+{
+  "id": "CERT-0003",
+  "propertyId": "PROP-0010",
+  "name": "Fire Safety Certificate",
+  "status": "Valid",
+  "issuedAt": 1758326400000,
+  "expiresAt": 1789862400000,
+  "inspectorId": "PROF-0005",
+  "createdAt": 1775001600000,
+  "updatedAt": 1775001600000
+}

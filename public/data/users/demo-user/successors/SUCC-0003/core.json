@@ -1,0 +1,12 @@
+{
+  "id": "SUCC-0003",
+  "userId": "demo-user",
+  "name": "Chloe Lee",
+  "initials": "CL",
+  "relation": "Child",
+  "role": "contingent",
+  "share": 12.5,
+  "verified": false,
+  "createdAt": 1757721600000,
+  "updatedAt": 1775001600000
+}

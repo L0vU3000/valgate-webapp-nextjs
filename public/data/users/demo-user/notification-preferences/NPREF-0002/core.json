@@ -1,0 +1,10 @@
+{
+  "id": "NPREF-0002",
+  "userId": "demo-user",
+  "eventType": "Payment",
+  "email": true,
+  "slack": false,
+  "sms": true,
+  "createdAt": 1775001600000,
+  "updatedAt": 1775001600000
+}
