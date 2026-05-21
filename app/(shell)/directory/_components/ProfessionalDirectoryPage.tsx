@@ -13,13 +13,13 @@ import {
   ChevronDown,
   Star,
   Plus,
-  Upload,
   UsersRound,
   BadgeCheck,
 } from "lucide-react";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { cn } from "@/components/ui/utils";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { AddProfessionalWizard } from "@/components/directory/AddProfessionalWizard";
 import type { Category, Professional, DirectoryPageData } from "../queries";
 
 const ITEMS_PER_PAGE = 12;
@@ -44,11 +44,10 @@ function StarRating({ rating, count }: { rating: number; count: number }) {
       {[1, 2, 3, 4, 5].map((i) => (
         <Star
           key={i}
+          fill="currentColor"
           className={cn(
             "size-3",
-            i <= Math.floor(rating)
-              ? "fill-amber-400 text-amber-400"
-              : "fill-slate-200 text-slate-200",
+            i <= Math.floor(rating) ? "text-amber-400" : "text-slate-200",
           )}
         />
       ))}
@@ -200,6 +199,7 @@ export function ProfessionalDirectoryPage({ data }: { data: DirectoryPageData })
   const [view, setView] = useState<"grid" | "list">("grid");
   const [sortBy, setSortBy] = useState<SortOption>("Rating");
   const [currentPage, setCurrentPage] = useState(1);
+  const [addWizardOpen, setAddWizardOpen] = useState(false);
 
   const { professionals, categories } = data;
 
@@ -256,11 +256,9 @@ export function ProfessionalDirectoryPage({ data }: { data: DirectoryPageData })
               </p>
             </div>
             <div className="flex items-center gap-3 shrink-0">
-              <button className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 rounded text-sm font-semibold text-val-heading transition-all duration-150 hover:bg-slate-50 active:scale-[0.98]">
-                <Upload className="size-3.5" />
-                EXPORT
-              </button>
-              <button
+<button
+                type="button"
+                onClick={() => setAddWizardOpen(true)}
                 className="flex items-center gap-2 px-5 py-2.5 rounded text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:opacity-90 active:scale-[0.98]"
                 style={{ background: "linear-gradient(168deg, var(--val-primary-dark) 0%, #2563eb 100%)" }}
               >
@@ -338,7 +336,7 @@ export function ProfessionalDirectoryPage({ data }: { data: DirectoryPageData })
                 className={cn(
                   "px-5 py-1.5 rounded-full text-xs font-semibold transition-all duration-150",
                   activeCategory === cat
-                    ? "bg-[--val-primary-dark] text-white scale-[1.03]"
+                    ? "bg-[--val-primary-dark] text-white shadow-md ring-2 ring-[--val-primary-dark]/20 scale-[1.03]"
                     : "bg-val-bg-tint text-slate-500 hover:bg-blue-100 hover:text-slate-700",
                 )}
               >
@@ -417,6 +415,11 @@ export function ProfessionalDirectoryPage({ data }: { data: DirectoryPageData })
           </div>
         </div>
       </div>
+
+      <AddProfessionalWizard
+        open={addWizardOpen}
+        onOpenChange={setAddWizardOpen}
+      />
     </div>
   );
 }

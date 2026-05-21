@@ -3,7 +3,7 @@
   "propertyId": "PROP-0006",
   "inspectedAt": 1769965200000,
   "type": "Plumbing",
-  "inspector": "Chea Sophal",
+  "inspectorId": "PROF-0002",
   "status": "Failed",
   "issues": 5,
   "createdAt": 1775001600000,

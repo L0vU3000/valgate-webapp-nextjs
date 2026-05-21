@@ -5,58 +5,24 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { ArrowLeft, MoreVertical, Archive } from "lucide-react";
 import type { Property } from "@/lib/data/types/property";
-import { step2Schema, step3Schema } from "@/app/(shell)/add-property/_components/schemas";
 import { editPropertyAction, archivePropertyAction, restorePropertyAction } from "@/app/(shell)/property/actions";
 import { TYPE_LABEL } from "@/lib/property-helpers";
 import { CAMBODIA_PROVINCES } from "@/lib/constants/cambodia-provinces";
+import {
+  EDITABLE_STATUSES,
+  OWNERSHIP_STATUSES,
+  PROPERTY_TYPES,
+  editPropertySchema,
+  type EditPropertyFormData,
+} from "@/lib/property-form";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 
-const editPropertySchema = step2Schema
-  .merge(step3Schema)
-  .extend({
-    propertyType: z
-      .enum([
-        "residential",
-        "commercial",
-        "multi-unit",
-        "retail",
-        "land",
-        "industrial",
-        "construction",
-        "other",
-        "",
-      ])
-      .optional(),
-    status: z.enum(["Rented", "Vacant", "For Sale", "Sold"]).optional(),
-  });
 
-type EditFormData = z.infer<typeof editPropertySchema>;
-
-const PROPERTY_TYPES = [
-  "residential",
-  "commercial",
-  "multi-unit",
-  "retail",
-  "land",
-  "industrial",
-  "construction",
-  "other",
-] as const;
-
-const STATUSES = ["Rented", "Vacant", "For Sale", "Sold"] as const;
-
-const OWNERSHIP_STATUSES = [
-  "Owned outright",
-  "Mortgaged",
-  "Leasehold",
-  "Co-owned",
-  "Other",
-];
+type EditFormData = EditPropertyFormData;
 
 const INPUT =
   "w-full border border-border rounded-lg px-3 py-2 text-[14px] text-foreground bg-[#f7f8fe] placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:shadow-[0_0_0_3px_color-mix(in_oklch,var(--primary)_8%,transparent)] transition-[border-color,box-shadow] duration-200";
@@ -252,7 +218,7 @@ export function EditPropertyForm({ property, defaults }: Props) {
             <div>
               <label className={LABEL}>Status</label>
               <select {...register("status")} className={INPUT}>
-                {STATUSES.map((s) => (
+                {EDITABLE_STATUSES.map((s) => (
                   <option key={s} value={s}>
                     {s}
                   </option>

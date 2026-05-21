@@ -17,7 +17,7 @@ export async function addSuccessorAndAssign(
 
   const [existingAssignments, allSuccessors] = uniquePropertyIds.length
     ? await Promise.all([
-        db.successorPropertyAssignments.list(userId),
+        db.estateAssignments.list(userId),
         db.successors.list(userId),
       ])
     : [[], []];
@@ -52,7 +52,7 @@ export async function addSuccessorAndAssign(
 
   const now = Date.now();
   for (const propertyId of uniquePropertyIds) {
-    await db.successorPropertyAssignments.create(userId, {
+    await db.estateAssignments.create(userId, {
       successorId: createdSuccessor.id,
       propertyId,
       createdAt: now,

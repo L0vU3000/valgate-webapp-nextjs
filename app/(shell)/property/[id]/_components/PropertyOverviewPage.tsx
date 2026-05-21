@@ -8,9 +8,13 @@ import {
   DollarSign, AlertTriangle, Clock,
   Building2, Maximize2, Calendar, MapPin,
   BedDouble, Bath, Car, FileCheck,
-  TrendingUp, TrendingDown, LayoutGrid,
+  TrendingUp, TrendingDown,
+  Info, ArrowUpRight,
   type LucideIcon,
 } from "lucide-react";
+import { ProgressExplainerModal } from "@/components/portfolio/ProgressExplainerModal";
+import { ProgressModal } from "@/components/portfolio/ProgressModal";
+import type { PropertyListItem } from "@/lib/data/types/property";
 import {
   BarChart, Bar, ResponsiveContainer, Tooltip, XAxis,
 } from "recharts";
@@ -25,9 +29,11 @@ import type { MaintenanceItem } from "@/lib/data/types/maintenance-item";
 import type { ProgressDetails } from "@/lib/data/types/progress";
 import type { CoOwner } from "@/lib/data/types/co-owner";
 import type { OwnershipRecord } from "@/lib/data/types/ownership-record";
+import type { UserProfile } from "@/lib/data/types/user-profile";
 import { formatCurrency, formatCurrencyFull, formatRelativeTime } from "@/lib/format";
 import { TYPE_LABEL, TYPE_ICON } from "@/lib/property-helpers";
 import { PropertyLayout } from "@/components/property/PropertyLayout";
+import { usePropertyShell } from "@/components/property/PropertyShellContext";
 
 /* ─── Constants ──────────────────────────────────────────────────────────── */
 
@@ -150,7 +156,7 @@ function getAlertStyle(type: string, category?: string): {
 
 function pillarBarClass(score: number): string {
   if (score === 100) return "bg-emerald-400";
-  if (score > 0)     return "bg-[--val-primary-dark]";
+  if (score > 0)     return "bg-blue-500";
   return "bg-slate-100";
 }
 
@@ -239,6 +245,7 @@ export function PropertyOverviewPage({
   maintenanceItems = [],
   ownershipRecords = [],
   coOwners = [],
+  userProfile,
   progressDetails,
 }: {
   property: Property;
@@ -251,11 +258,15 @@ export function PropertyOverviewPage({
   maintenanceItems: MaintenanceItem[];
   ownershipRecords: OwnershipRecord[];
   coOwners: CoOwner[];
+  userProfile?: UserProfile | null;
   progressDetails?: ProgressDetails;
 }) {
   const [mounted, setMounted] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
   const [mapStyle, setMapStyle] = useState<"light" | "satellite">("light");
+  const [progressExplainerOpen, setProgressExplainerOpen] = useState(false);
+  const [progressModalProperty, setProgressModalProperty] = useState<PropertyListItem | null>(null);
+  const shell = usePropertyShell();
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -389,7 +400,26 @@ export function PropertyOverviewPage({
   }
 
   return (
-    <PropertyLayout activeTab="overview" property={property}>
+    <PropertyLayout
+      activeTab="overview"
+      property={property}
+      progress={progressDetails?.score}
+      onProgressClick={progressDetails ? () => setProgressModalProperty({
+        id: property.id,
+        name: property.name,
+        code: property.code,
+        type: property.type,
+        province: property.province,
+        status: property.status,
+        totalArea: property.totalArea ?? "",
+        title: property.title ?? "",
+        buy: property.buyNumeric ? formatCurrency(property.buyNumeric) : "—",
+        buyNumeric: property.buyNumeric,
+        isArchived: property.isArchived,
+        progress: progressDetails.score,
+        progressDetails,
+      }) : undefined}
+    >
       <div className="bg-val-bg-page-alt min-h-full pb-10">
 
         {/* ── Hero — photo mosaic ── */}
@@ -418,12 +448,7 @@ export function PropertyOverviewPage({
               <div className="overflow-hidden relative">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src="/property-hero.jpg" alt="" className="w-full h-full object-cover object-bottom" />
-                <div className="absolute inset-0 flex items-end justify-end p-2">
-                  <button className="bg-black/55 backdrop-blur-sm text-white text-[11px] font-semibold px-2.5 py-1.5 rounded flex items-center gap-1.5 hover:bg-black/75 transition-colors">
-                    <LayoutGrid className="w-3 h-3" />
-                    See all photos
-                  </button>
-                </div>
+
               </div>
             </div>
           </div>
@@ -457,13 +482,15 @@ export function PropertyOverviewPage({
               </h1>
             </div>
             <div className="flex items-center gap-2.5" style={heroIn(340)}>
-              <Link
-                href={`/property/${property.id}/edit`}
+              <button
+                type="button"
+                onClick={() => shell?.openPropertyWizard()}
                 className="bg-white/10 backdrop-blur-sm border border-white/20 text-white text-[13px] font-semibold px-4 py-2 rounded flex items-center gap-2 hover:bg-white/20 active:scale-[0.97] transition-[background-color,transform] duration-150"
+                aria-label="Edit property profile"
               >
                 <Pencil className="w-3.5 h-3.5" />
-                Edit Profile
-              </Link>
+                Edit profile
+              </button>
               <button
                 className="text-white text-[13px] font-semibold px-4 py-2 rounded flex items-center gap-2 shadow-[0_4px_6px_-1px_rgba(0,74,198,0.3)] hover:opacity-90 active:scale-[0.97] transition-[opacity,transform] duration-150"
                 style={{ background: "linear-gradient(168deg, var(--val-primary-dark) 0%, #2563eb 100%)" }}
@@ -610,17 +637,25 @@ export function PropertyOverviewPage({
                       </div>
 
                       <div className="flex flex-col gap-2 pt-1 border-t border-slate-100">
-                        {/* User (primary owner) */}
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <div className="w-6 h-6 rounded-full bg-[--val-bg-tint] flex items-center justify-center text-[--val-primary-dark] text-[10px] font-bold shrink-0">
-                              Y
+                        {/* Primary user row — only shown when they hold a share */}
+                        {userShare > 0 && (() => {
+                          const displayName = userProfile
+                            ? `${userProfile.firstName} ${userProfile.lastName}`
+                            : "You";
+                          const initial = displayName.charAt(0).toUpperCase();
+                          return (
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <div className="w-6 h-6 rounded-full bg-[--val-bg-tint] flex items-center justify-center text-[--val-primary-dark] text-[10px] font-bold shrink-0">
+                                  {initial}
+                                </div>
+                                <span className="text-[13px] text-val-heading font-medium truncate">{displayName}</span>
+                                <span className="text-[11px] text-slate-400 shrink-0">Primary</span>
+                              </div>
+                              <span className="text-[13px] font-semibold text-val-heading tabular-nums shrink-0">{userShare}%</span>
                             </div>
-                            <span className="text-[13px] text-val-heading font-medium truncate">You</span>
-                            <span className="text-[11px] text-slate-400 shrink-0">Primary</span>
-                          </div>
-                          <span className="text-[13px] font-semibold text-val-heading tabular-nums shrink-0">{userShare}%</span>
-                        </div>
+                          );
+                        })()}
 
                         {/* Co-owners */}
                         {coOwners.map((co) => (
@@ -767,7 +802,16 @@ export function PropertyOverviewPage({
               {progressDetails && (
                 <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)] flex flex-col gap-3">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-val-heading text-[15px] font-semibold">Property Progress</h3>
+                    <div className="flex items-center gap-1.5">
+                      <h3 className="text-val-heading text-[15px] font-semibold">Property Progress</h3>
+                      <button
+                        onClick={() => setProgressExplainerOpen(true)}
+                        className="text-slate-400 hover:text-slate-600 transition-colors rounded p-0.5 hover:bg-slate-100"
+                        aria-label="How progress is calculated"
+                      >
+                        <Info className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                     <span className={`text-[22px] font-bold tabular-nums leading-none ${progressDetails.score >= 70 ? "text-emerald-600" : progressDetails.score >= 40 ? "text-amber-500" : "text-rose-500"}`}>
                       {progressDetails.score}<span className="text-[13px] font-medium text-slate-400">%</span>
                     </span>
@@ -805,6 +849,30 @@ export function PropertyOverviewPage({
                         </span>
                       </Link>
                     ))}
+                  </div>
+                  <div className="pt-1 border-t border-slate-100">
+                    <button
+                      onClick={() => setProgressModalProperty({
+                        id: property.id,
+                        name: property.name,
+                        code: property.code,
+                        type: property.type,
+                        province: property.province,
+                        status: property.status,
+                        totalArea: property.totalArea ?? "",
+                        title: property.title ?? "",
+                        buy: property.buyNumeric ? formatCurrency(property.buyNumeric) : "—",
+                        buyNumeric: property.buyNumeric,
+                        isArchived: property.isArchived,
+                        progress: progressDetails.score,
+                        progressDetails,
+                      })}
+                      className="w-full flex items-center justify-center gap-1.5 text-[12px] font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200/60 py-1.5 rounded-md transition-colors"
+                      aria-label="View progress details"
+                    >
+                      View details
+                      <ArrowUpRight className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
               )}
@@ -975,6 +1043,16 @@ export function PropertyOverviewPage({
 
         </div>
       </div>
+
+      <ProgressModal
+        property={progressModalProperty}
+        onClose={() => setProgressModalProperty(null)}
+        onExplainerClick={() => setProgressExplainerOpen(true)}
+      />
+      <ProgressExplainerModal
+        open={progressExplainerOpen}
+        onClose={() => setProgressExplainerOpen(false)}
+      />
     </PropertyLayout>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, X } from "lucide-react";
+import { Check, X, Info } from "lucide-react";
 import { cn } from "@/components/ui/utils";
 import type { PropertyListItem } from "@/lib/data/types/property";
 import type { ProgressPillar } from "@/lib/data/types/progress";
@@ -10,6 +10,7 @@ import type { ProgressPillar } from "@/lib/data/types/progress";
 interface ProgressModalProps {
   property: PropertyListItem | null;
   onClose: () => void;
+  onExplainerClick?: () => void;
 }
 
 const EXIT_MS = 160;
@@ -120,7 +121,7 @@ function PillarRow({ pillar, index, animate }: { pillar: ProgressPillar; index: 
   );
 }
 
-export function ProgressModal({ property, onClose }: ProgressModalProps) {
+export function ProgressModal({ property, onClose, onExplainerClick }: ProgressModalProps) {
   const [animate, setAnimate] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -204,9 +205,9 @@ export function ProgressModal({ property, onClose }: ProgressModalProps) {
                   {current.name}
                 </h2>
               </div>
-              <div className="flex items-start gap-3 shrink-0">
+              <div className="flex items-start gap-1.5 shrink-0">
                 {/* Score + tier */}
-                <div className="text-right">
+                <div className="text-right mr-1.5">
                   <div className="flex items-baseline gap-0.5 justify-end">
                     <span className={cn("text-[30px] font-bold tabular-nums leading-none",
                       score >= 70 ? "text-emerald-600" : score >= 40 ? "text-amber-500" : "text-red-400"
@@ -275,9 +276,21 @@ export function ProgressModal({ property, onClose }: ProgressModalProps) {
 
           {/* Footer CTA */}
           <div className="px-6 py-4 border-t border-slate-100 shrink-0 flex items-center justify-between gap-3">
-            <p className="text-[12px] text-slate-400 leading-snug">
-              Add missing data on the property page to raise your score.
-            </p>
+            <div className="flex flex-col gap-1.5 min-w-0">
+              <p className="text-[12px] text-slate-400 leading-snug">
+                Add missing data on the property page to raise your score.
+              </p>
+              {onExplainerClick && (
+                <button
+                  onClick={onExplainerClick}
+                  className="flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-700 transition-colors w-fit"
+                  aria-label="How progress is calculated"
+                >
+                  <Info className="w-3 h-3 shrink-0" />
+                  How is this calculated?
+                </button>
+              )}
+            </div>
             <button
               onClick={() => { router.push(`/property/${current.id}`); onClose(); }}
               className="shrink-0 px-3.5 py-1.5 rounded-md text-[13px] font-semibold text-white bg-blue-600 hover:bg-blue-700 active:scale-95 transition-all duration-150 whitespace-nowrap"

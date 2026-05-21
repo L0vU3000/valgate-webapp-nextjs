@@ -79,7 +79,7 @@ export const GROUPS: GroupDef[] = [
       "ownership-documents",
       "ownership-history",
       "successors",
-      "successor-property-assignments",
+      "estate-assignments",
       "estate-activity-events",
     ],
     borderColor: "#7c3aed",

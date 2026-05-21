@@ -16,22 +16,22 @@ export default async function Page({
   ]);
   if (!property) notFound();
 
-  const progressCtx = {
+  const progressCtx: ProgressContext = {
     leases: overviewData.leases,
     tenants: overviewData.tenants,
     payments: overviewData.payments,
     valuations: overviewData.valuations,
     ownershipRecords: overviewData.ownershipRecords,
     coOwners: overviewData.coOwners,
-    ownershipDocuments: [],
-    safetyRisks: [],
-    inspections: [],
-    certifications: [],
-    emergencyContacts: [],
-    successorAssignments: [],
-    documents: [],
-  } as unknown as ProgressContext;
+    ownershipDocuments: overviewData.ownershipDocuments,
+    safetyRisks: overviewData.safetyRisks,
+    inspections: overviewData.inspections,
+    certifications: overviewData.certifications,
+    emergencyContacts: overviewData.emergencyContacts,
+    successorAssignments: overviewData.estateAssignments,
+    documents: overviewData.documents,
+  };
   const progressDetails = computeProgressDetails(property, progressCtx);
 
-  return <PropertyOverviewPage property={property} {...overviewData} progressDetails={progressDetails} />;
+  return <PropertyOverviewPage property={property} {...overviewData} userProfile={overviewData.userProfile} progressDetails={progressDetails} />;
 }

@@ -11,9 +11,22 @@ import {
   UserPlus,
   BarChart2,
   Shield,
+  ShieldCheck,
+  ShieldOff,
   TrendingUp,
   Filter,
 } from "lucide-react";
+import { UnlockButton } from "@/components/feature-unlock/UnlockButton";
+import { EstateUnlockMount } from "@/components/feature-unlock/pillars/EstateUnlock";
+import type { UnlockState } from "@/components/feature-unlock/types";
+import { revokeEstateVerification } from "@/lib/actions/properties.actions";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
 import { cn } from "@/components/ui/utils";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { useRouter } from "next/navigation";
@@ -216,6 +229,10 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
   const [addSubmitting, setAddSubmitting] = useState(false);
   const [selectedAssignmentIds, setSelectedAssignmentIds] = useState<string[]>([]);
   const [beneficiaryForm, setBeneficiaryForm] = useState(DEFAULT_BENEFICIARY_FORM);
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [wizardStartAt, setWizardStartAt] = useState<"data" | "verification">("data");
+  const [revokeOpen, setRevokeOpen] = useState(false);
+  const [revoking, setRevoking] = useState(false);
 
   const { stats, properties, successors, documents, timeline } = data;
   const filteredProperties = useMemo(
@@ -292,6 +309,17 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
     property.completionPct >= 100
       ? "100% Finalized"
       : `${property.completionPct.toFixed(1)}% Complete`;
+
+  const unlockState: UnlockState = property.estateVerified
+    ? { kind: "edit", entityId: property.id }
+    : property.hasAssignments
+      ? { kind: "verify", entityId: property.id }
+      : { kind: "unlock" };
+
+  function openWizard() {
+    setWizardStartAt(unlockState.kind === "verify" ? "verification" : "data");
+    setWizardOpen(true);
+  }
 
   const openAddDialog = () => {
     setAddError(null);
@@ -457,16 +485,51 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
 
               {/* Panel Header */}
               <div key={`ph-${selectedProperty}`} className="border-b border-[#e8eaed] px-8 py-6 flex flex-col gap-4 anim-enter">
-                <div>
-                  <h2 className="text-2xl font-bold font-display text-val-heading">
-                    {property.name}{" "}
-                    <span className="font-semibold text-[#c3c6d7]">Estate Plan</span>
-                  </h2>
-                  <p className="text-sm text-[#434655] mt-1">
-                    Last updated: {property.lastUpdatedLabel}
-                  </p>
+                <div className="flex items-start justify-between gap-4 w-full">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                      <h2 className="text-2xl font-bold font-display text-val-heading">
+                        {property.name}{" "}
+                        <span className="font-semibold text-[#c3c6d7]">Estate Plan</span>
+                      </h2>
+                      {property.estateVerified && (
+                        <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 text-[10px] font-semibold tracking-[0.05em] uppercase px-2 py-0.5 rounded-full">
+                          <ShieldCheck className="w-3 h-3 shrink-0" />
+                          Valgate Verified
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-[#434655]">
+                      Last updated: {property.lastUpdatedLabel}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <UnlockButton state={unlockState} onClick={openWizard} editLabel="Edit data" />
+                    {property.estateVerified && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            type="button"
+                            className="p-2 rounded-lg border border-[#e8eaed] text-[#737686] hover:bg-val-bg-page-alt transition-colors"
+                            aria-label="Estate plan options"
+                          >
+                            <MoreHorizontal className="size-4" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-52">
+                          <DropdownMenuItem
+                            className="text-rose-600 focus:text-rose-600 focus:bg-rose-50 cursor-pointer"
+                            onSelect={() => setRevokeOpen(true)}
+                          >
+                            <ShieldOff className="w-4 h-4 mr-2 shrink-0" />
+                            Revoke verification
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                   <button className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#c3c6d7] text-sm font-medium text-val-heading hover:bg-val-bg-page-alt transition-all duration-150 hover:scale-[1.02] active:scale-[0.97]">
                     <Download className="size-3.5" />
                     Download Summary
@@ -477,9 +540,6 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
                   >
                     <UserPlus className="size-3.5" />
                     Add Beneficiary
-                  </button>
-                  <button className="px-4 py-2 rounded-lg bg-[--val-primary-dark] text-sm font-medium text-white hover:bg-[#003a9e] shadow-sm transition-all duration-150 hover:scale-[1.02] active:scale-[0.97] hover:shadow-md">
-                    Review All
                   </button>
                 </div>
               </div>
@@ -805,6 +865,60 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {propertyId && (
+        <EstateUnlockMount
+          propertyId={propertyId}
+          open={wizardOpen}
+          onOpenChange={setWizardOpen}
+          startAt={wizardStartAt}
+          onSuccess={() => router.refresh()}
+        />
+      )}
+
+      <Dialog open={revokeOpen} onOpenChange={setRevokeOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <div className="w-10 h-10 rounded-full bg-rose-50 flex items-center justify-center mb-1">
+              <ShieldOff className="w-5 h-5 text-rose-500" />
+            </div>
+            <DialogTitle>Revoke estate verification?</DialogTitle>
+            <DialogDescription>
+              This removes the Valgate Verified badge for this property&apos;s estate plan.
+              Beneficiaries and uploaded documents stay on file; only verification is cleared.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => setRevokeOpen(false)}
+              className="px-4 py-2 text-sm font-semibold text-val-heading border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors duration-150"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={revoking}
+              onClick={async () => {
+                if (!propertyId) return;
+                setRevoking(true);
+                const result = await revokeEstateVerification(propertyId);
+                setRevoking(false);
+                setRevokeOpen(false);
+                if (result.ok) {
+                  toast.success("Estate verification revoked");
+                  router.refresh();
+                } else {
+                  toast.error(result.error);
+                }
+              }}
+              className="px-4 py-2 text-sm font-semibold text-white rounded-lg bg-rose-500 hover:bg-rose-600 disabled:opacity-50 transition-colors duration-150"
+            >
+              {revoking ? "Revoking…" : "Revoke"}
+            </button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

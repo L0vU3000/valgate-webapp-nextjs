@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import type { Property } from "@/lib/data/types/property";
 import type { Lease } from "@/lib/data/types/lease";
 import type { Tenant } from "@/lib/data/types/tenant";
@@ -10,12 +11,24 @@ import type { Document as DbDocument } from "@/lib/data/types/document";
 import type { MaintenanceItem, MaintenanceSeverity } from "@/lib/data/types/maintenance-item";
 import { formatCurrencyFull } from "@/lib/format";
 import { PropertyLayout } from "@/components/property/PropertyLayout";
+import { UnlockButton } from "@/components/feature-unlock/UnlockButton";
+import { RentalUnlockMount } from "@/components/feature-unlock/pillars/RentalUnlock";
+import type { UnlockState } from "@/components/feature-unlock/types";
+import { updateProperty, revokeRentalVerification } from "@/lib/actions/properties.actions";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from "@/components/ui/dialog";
+import { toast } from "sonner";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 import {
   Mail, Phone, FileText, ChevronLeft, ChevronRight,
   Circle, ChevronDown, AlertTriangle, Download,
+  Home, ShieldCheck, BadgeCheck, MoreHorizontal, ShieldOff,
 } from "lucide-react";
 
 type PaymentVariant = "success" | "warning" | "danger" | "neutral";
@@ -51,6 +64,7 @@ function getDocStatusInfo(doc: DbDocument): { statusLabel: string; statusClass: 
 
 export function PropertyRentalPage({
   property,
+  progress,
   leases = [],
   tenants = [],
   payments = [],
@@ -59,6 +73,7 @@ export function PropertyRentalPage({
   maintenanceItems = [],
 }: {
   property: Property;
+  progress: number;
   leases: Lease[];
   tenants: Tenant[];
   payments: Payment[];
@@ -66,11 +81,113 @@ export function PropertyRentalPage({
   documents: DbDocument[];
   maintenanceItems: MaintenanceItem[];
 }) {
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [wizardStartAt, setWizardStartAt] = useState<"data" | "verification">("data");
+  const [revokeOpen, setRevokeOpen] = useState(false);
+  const [revoking, setRevoking] = useState(false);
+  const [markingInvestment, setMarkingInvestment] = useState(false);
+  const [investmentConfirmOpen, setInvestmentConfirmOpen] = useState(false);
+
   useEffect(() => {
     const t = setTimeout(() => setMounted(true), 50);
     return () => clearTimeout(t);
   }, []);
+
+  const isInvestment = (property.propertyUse ?? "investment") === "investment";
+  const propertyUseLabel = property.propertyUse === "holiday" ? "holiday residence" : "personal residence";
+
+  // Compute unlock state for investment properties
+  const activeLeaseForUnlock = leases.find(
+    (l) => l.stage === "Signed" && l.propertyId === property.id,
+  ) ?? null;
+  const primaryTenantForUnlock = tenants.find(
+    (t) => t.propertyId === property.id,
+  ) ?? null;
+  const unlockState: UnlockState = property.rentalVerified
+    ? { kind: "edit", entityId: property.id }
+    : activeLeaseForUnlock || primaryTenantForUnlock
+      ? { kind: "verify", entityId: property.id }
+      : { kind: "unlock" };
+
+  function openWizard() {
+    setWizardStartAt(unlockState.kind === "verify" ? "verification" : "data");
+    setWizardOpen(true);
+  }
+
+  // Non-investment early return
+  if (!isInvestment) {
+    return (
+      <>
+        <PropertyLayout activeTab="rental" property={property} progress={progress}>
+          <div className="min-h-full bg-val-bg-page-alt flex items-center justify-center px-8 py-20">
+            <div className="max-w-sm w-full bg-white border border-slate-200 rounded-xl p-10 flex flex-col items-center text-center gap-6">
+              <div className="w-14 h-14 rounded-xl bg-[#eef3ff] flex items-center justify-center">
+                <Home className="w-7 h-7 text-[var(--val-primary-dark)]" />
+              </div>
+              <div className="space-y-2.5">
+                <h2 className="text-[18px] font-bold text-val-heading tracking-tight leading-snug">
+                  Rental isn&apos;t enabled for this property
+                </h2>
+                <p className="text-[13px] text-slate-500 leading-relaxed">
+                  This property is classified as a{" "}
+                  <span className="font-semibold text-slate-700">{propertyUseLabel}</span>.
+                  Switch it to investment to unlock lease tracking, tenant management, and payment history.
+                </p>
+              </div>
+              <button
+                onClick={() => setInvestmentConfirmOpen(true)}
+                className="w-full px-6 py-2.5 text-white text-[13.5px] font-semibold rounded-lg hover:opacity-90 active:scale-[0.97] transition-all duration-150"
+                style={{ background: "linear-gradient(168deg, var(--val-primary-dark) 0%, #2563eb 100%)" }}
+              >
+                Mark as investment property
+              </button>
+            </div>
+          </div>
+        </PropertyLayout>
+
+        <Dialog open={investmentConfirmOpen} onOpenChange={setInvestmentConfirmOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <div className="w-10 h-10 rounded-full bg-[#eef3ff] flex items-center justify-center mb-1">
+                <Home className="w-5 h-5 text-[var(--val-primary-dark)]" />
+              </div>
+              <DialogTitle>Mark as investment property?</DialogTitle>
+              <DialogDescription>
+                This will enable rental features — lease tracking, tenant management, and payment history — for this property.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <button
+                onClick={() => setInvestmentConfirmOpen(false)}
+                className="px-4 py-2 text-sm font-semibold text-val-heading border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors duration-150"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={markingInvestment}
+                onClick={async () => {
+                  setMarkingInvestment(true);
+                  const result = await updateProperty(property.id, { propertyUse: "investment" });
+                  setMarkingInvestment(false);
+                  setInvestmentConfirmOpen(false);
+                  if (result.ok) {
+                    toast.success("Property marked as investment");
+                  } else {
+                    toast.error(result.error);
+                  }
+                }}
+                className="px-4 py-2 text-sm font-semibold text-white rounded-lg bg-[var(--val-primary-dark)] hover:opacity-90 disabled:opacity-50 transition-[opacity] duration-150"
+              >
+                {markingInvestment ? "Updating…" : "Mark as investment"}
+              </button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </>
+    );
+  }
 
   const now = Date.now();
 
@@ -249,7 +366,8 @@ export function PropertyRentalPage({
   }
 
   return (
-    <PropertyLayout activeTab="rental" property={property}>
+    <>
+    <PropertyLayout activeTab="rental" property={property} progress={progress}>
       <div className="bg-val-bg-page-alt min-h-full pb-12">
         <div className="max-w-[1200px] mx-auto px-8 flex flex-col gap-5">
 
@@ -262,8 +380,43 @@ export function PropertyRentalPage({
               <span className="text-xs text-slate-300">/</span>
               <span className="text-xs font-semibold tracking-widest uppercase text-slate-400">Rental</span>
             </div>
-            <h1 className="text-4xl font-extrabold tracking-tight leading-10 text-[--val-heading]">Rental</h1>
-            <p className="text-slate-500 text-base mt-2">{pageSubtitle}</p>
+            <div className="flex items-end justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-3">
+                  <h1 className="text-4xl font-extrabold tracking-tight leading-10 text-[--val-heading]">Rental</h1>
+                  {property.rentalVerified ? (
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[12px] font-semibold">
+                        <BadgeCheck className="w-3.5 h-3.5" />
+                        Valgate Verified
+                      </span>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors">
+                            <MoreHorizontal className="w-4 h-4" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="w-52">
+                          <DropdownMenuItem
+                            className="text-rose-600 focus:text-rose-600 focus:bg-rose-50 cursor-pointer"
+                            onSelect={() => setRevokeOpen(true)}
+                          >
+                            <ShieldOff className="w-4 h-4 mr-2 shrink-0" />
+                            Revoke verification
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  ) : (
+                    <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-500 text-[12px] font-semibold mb-1">
+                      Not verified
+                    </span>
+                  )}
+                </div>
+                <p className="text-slate-500 text-base mt-2">{pageSubtitle}</p>
+              </div>
+              <UnlockButton state={unlockState} onClick={openWizard} editLabel="Edit rental" />
+            </div>
           </div>
 
           {/* ── Unit context line ── */}
@@ -345,98 +498,51 @@ export function PropertyRentalPage({
           {/* ── Financial Overview (8) + Lease Summary (4) ── */}
           <div className="grid grid-cols-12 gap-5" style={fade(120)}>
 
-            {/* Financial chart */}
-            <div className="col-span-8 bg-white border border-slate-200 rounded-lg p-6">
-              <div className="flex items-start justify-between mb-5">
-                <div>
-                  <h3 className="text-base font-bold text-val-heading">Financial Overview</h3>
-                  <p className="text-[12px] text-slate-400 mt-0.5">{periodLabel}</p>
-                </div>
-                <div className="flex items-center gap-4 text-[12px] text-slate-500 mt-0.5">
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-3 h-1.5 rounded-sm bg-[#2563EB] inline-block" />
-                    Rent
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-3 h-1.5 rounded-sm bg-rose-400 inline-block" />
-                    Expenses
-                  </span>
-                </div>
-              </div>
-
-              <ResponsiveContainer width="100%" height={180}>
-                <BarChart data={chartData} barCategoryGap="32%" barGap={3}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E8EAED" vertical={false} />
-                  <XAxis
-                    dataKey="month"
-                    tick={{ fontSize: 11, fill: "#94a3b8" }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    tick={{ fontSize: 11, fill: "#94a3b8" }}
-                    axisLine={false}
-                    tickLine={false}
-                    width={44}
-                  />
-                  <Tooltip
-                    formatter={(v: number, name: string) => [
-                      `$${v.toLocaleString()}`,
-                      name === "rent" ? "Rent" : "Expenses",
-                    ]}
-                    contentStyle={{
-                      fontSize: 12,
-                      border: "1px solid #e2e8f0",
-                      borderRadius: 6,
-                      boxShadow: "0 4px 6px -1px rgba(0,0,0,0.08)",
-                    }}
-                  />
-                  <Bar dataKey="rent" fill="#2563EB" radius={[3, 3, 0, 0]} name="rent" />
-                  <Bar dataKey="expenses" fill="#f87171" radius={[3, 3, 0, 0]} name="expenses" />
-                </BarChart>
-              </ResponsiveContainer>
-
-              <div className="flex gap-8 mt-4 pt-4 border-t border-slate-100">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-400">
-                    Total Rent
-                  </p>
-                  <p className="text-[18px] font-bold text-val-heading mt-0.5">
-                    {formatCurrencyFull(totalRentInWindow)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-400">
-                    Expenses
-                  </p>
-                  <p className="text-[18px] font-bold text-rose-500 mt-0.5">
-                    {formatCurrencyFull(totalExpensesInWindow)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-400">
-                    Net Income
-                  </p>
-                  <p
-                    className={`text-[18px] font-bold mt-0.5 ${
-                      netIncomeInWindow >= 0 ? "text-emerald-600" : "text-rose-600"
-                    }`}
-                  >
-                    {formatCurrencyFull(netIncomeInWindow)}
-                  </p>
-                </div>
-              </div>
-            </div>
+            <FinancialOverviewCard
+              periodLabel={periodLabel}
+              chartData={chartData}
+              totalRent={totalRentInWindow}
+              totalExpenses={totalExpensesInWindow}
+              netIncome={netIncomeInWindow}
+            />
 
             {/* Lease Summary */}
             <div className="col-span-4 bg-white border border-slate-200 rounded-lg p-6 flex flex-col">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-base font-bold text-val-heading">Lease</h3>
-                {termLabel && (
-                  <span className="bg-blue-50 text-blue-700 text-[10px] font-semibold tracking-[1px] uppercase px-2 py-0.5 rounded">
-                    {termLabel}
-                  </span>
-                )}
+              <div className="flex items-start justify-between mb-4 gap-2">
+                <div className="flex flex-col gap-1.5 min-w-0">
+                  <h3 className="text-base font-bold text-val-heading leading-none">Lease</h3>
+                  {property.rentalVerified && (
+                    <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 text-[10px] font-semibold tracking-[0.05em] uppercase px-2 py-0.5 rounded-full w-fit">
+                      <ShieldCheck className="w-3 h-3 shrink-0" />
+                      Valgate Verified
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {termLabel && (
+                    <span className="bg-blue-50 text-blue-700 text-[10px] font-semibold tracking-[1px] uppercase px-2 py-0.5 rounded">
+                      {termLabel}
+                    </span>
+                  )}
+                  {property.rentalVerified && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button className="p-1.5 rounded-md hover:bg-slate-100 transition-colors duration-150 text-slate-400 hover:text-slate-600">
+                          <MoreHorizontal className="w-4 h-4" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-52">
+                        <DropdownMenuItem
+                          className="text-rose-600 focus:text-rose-600 focus:bg-rose-50 cursor-pointer"
+                          onSelect={() => setRevokeOpen(true)}
+                        >
+                          <ShieldOff className="w-4 h-4 mr-2 shrink-0" />
+                          Revoke verification
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </div>
               </div>
 
               {activeLease ? (
@@ -806,10 +912,270 @@ export function PropertyRentalPage({
         </div>
       </div>
     </PropertyLayout>
+
+    {/* Rental wizard */}
+    <RentalUnlockMount
+      open={wizardOpen}
+      onOpenChange={setWizardOpen}
+      propertyId={property.id}
+      startAt={wizardStartAt}
+      onSuccess={() => router.refresh()}
+    />
+
+    {/* Revoke verification dialog */}
+    <Dialog open={revokeOpen} onOpenChange={setRevokeOpen}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <div className="w-10 h-10 rounded-full bg-rose-50 flex items-center justify-center mb-1">
+            <ShieldOff className="w-5 h-5 text-rose-500" />
+          </div>
+          <DialogTitle>Revoke rental verification?</DialogTitle>
+          <DialogDescription>
+            This will remove the Valgate Verified badge from this property&apos;s rental data. The linked document will remain in your files but will no longer count as rental evidence.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <button
+            onClick={() => setRevokeOpen(false)}
+            className="px-4 py-2 text-sm font-semibold text-val-heading border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors duration-150"
+          >
+            Cancel
+          </button>
+          <button
+            disabled={revoking}
+            onClick={async () => {
+              setRevoking(true);
+              const result = await revokeRentalVerification(property.id);
+              setRevoking(false);
+              setRevokeOpen(false);
+              if (result.ok) {
+                toast.success("Rental verification revoked");
+                router.refresh();
+              } else {
+                toast.error(result.error);
+              }
+            }}
+            className="px-4 py-2 text-sm font-semibold text-white rounded-lg bg-rose-500 hover:bg-rose-600 disabled:opacity-50 transition-colors duration-150"
+          >
+            {revoking ? "Revoking…" : "Revoke"}
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
+
+type ChartMonth = { month: string; rent: number; expenses: number };
+
+function formatChartAxis(value: number): string {
+  if (value >= 1_000) return `$${Math.round(value / 1_000)}k`;
+  return `$${value}`;
+}
+
+function FinancialChartTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: Array<{ name?: string; value?: number; color?: string }>;
+  label?: string;
+}) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 shadow-[0_4px_12px_rgba(18,28,40,0.08)]">
+      <p className="text-[11px] font-semibold text-slate-500 mb-2">{label}</p>
+      <div className="flex flex-col gap-1.5">
+        {payload.map((entry) => {
+          const isRent = entry.name === "rent";
+          const amount = typeof entry.value === "number" ? entry.value : 0;
+          return (
+            <div key={String(entry.name)} className="flex items-center justify-between gap-6">
+              <span className="flex items-center gap-1.5 text-[12px] text-slate-600">
+                <span
+                  className="w-2 h-2 rounded-full shrink-0"
+                  style={{ backgroundColor: isRent ? "var(--val-primary-dark)" : "#fda4af" }}
+                />
+                {isRent ? "Rent" : "Expenses"}
+              </span>
+              <span className="text-[12px] font-semibold tabular-nums text-val-heading">
+                {formatCurrencyFull(amount)}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function FinancialOverviewCard({
+  periodLabel,
+  chartData,
+  totalRent,
+  totalExpenses,
+  netIncome,
+}: {
+  periodLabel: string;
+  chartData: ChartMonth[];
+  totalRent: number;
+  totalExpenses: number;
+  netIncome: number;
+}) {
+  const netPositive = netIncome >= 0;
+  const hasChartData = chartData.some((d) => d.rent > 0 || d.expenses > 0);
+
+  return (
+    <div className="col-span-8 bg-white border border-slate-200 rounded-xl overflow-hidden shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)]">
+      <div className="px-6 pt-6 pb-5 flex items-start justify-between gap-8">
+        <div className="min-w-0">
+          <h3 className="text-[15px] font-semibold text-val-heading tracking-tight">
+            Financial Overview
+          </h3>
+          <p className="text-[13px] text-slate-500 mt-1">{periodLabel}</p>
+          <div className="flex items-center gap-4 mt-4">
+            <span className="inline-flex items-center gap-1.5 text-[12px] text-slate-500">
+              <span className="w-2.5 h-2.5 rounded-sm bg-[var(--val-primary-dark)] opacity-90" />
+              Rent
+            </span>
+            <span className="inline-flex items-center gap-1.5 text-[12px] text-slate-500">
+              <span className="w-2.5 h-2.5 rounded-sm bg-[#fda4af]" />
+              Expenses
+            </span>
+          </div>
+        </div>
+        <div className="text-right shrink-0">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-400">
+            6-mo net
+          </p>
+          <p
+            className={`text-[28px] font-bold leading-none tracking-tight tabular-nums mt-1 ${
+              netPositive ? "text-val-heading" : "text-rose-600"
+            }`}
+          >
+            {formatCurrencyFull(netIncome)}
+          </p>
+          <p
+            className={`text-[12px] font-medium mt-1.5 tabular-nums ${
+              netPositive ? "text-emerald-600" : "text-rose-600"
+            }`}
+          >
+            {netPositive ? "Positive" : "Negative"} cash flow
+          </p>
+        </div>
+      </div>
+
+      <div className="px-2 pb-1">
+        {hasChartData ? (
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart
+              data={chartData}
+              barCategoryGap="28%"
+              barGap={4}
+              margin={{ top: 8, right: 12, bottom: 0, left: 0 }}
+            >
+              <CartesianGrid
+                strokeDasharray="4 4"
+                stroke="#eef1f5"
+                vertical={false}
+              />
+              <XAxis
+                dataKey="month"
+                tick={{ fontSize: 11, fill: "#94a3b8", fontWeight: 500 }}
+                axisLine={false}
+                tickLine={false}
+                dy={6}
+              />
+              <YAxis
+                tick={{ fontSize: 11, fill: "#94a3b8" }}
+                axisLine={false}
+                tickLine={false}
+                width={48}
+                tickFormatter={formatChartAxis}
+              />
+              <Tooltip
+                cursor={{ fill: "rgba(0,74,198,0.04)" }}
+                content={<FinancialChartTooltip />}
+              />
+              <Bar
+                dataKey="rent"
+                fill="var(--val-primary-dark)"
+                radius={[4, 4, 0, 0]}
+                name="rent"
+                opacity={0.92}
+                maxBarSize={28}
+              />
+              <Bar
+                dataKey="expenses"
+                fill="#fda4af"
+                radius={[4, 4, 0, 0]}
+                name="expenses"
+                maxBarSize={28}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="mx-4 mb-2 flex h-[200px] items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50/60">
+            <p className="text-[13px] text-slate-500">
+              No rent or expense activity in this period yet.
+            </p>
+          </div>
+        )}
+      </div>
+
+      <div className="mx-6 mb-6 grid grid-cols-3 gap-3">
+        <FinancialStatCell
+          label="Total rent"
+          value={formatCurrencyFull(totalRent)}
+          valueClass="text-val-heading"
+        />
+        <FinancialStatCell
+          label="Expenses"
+          value={formatCurrencyFull(totalExpenses)}
+          valueClass="text-rose-600"
+        />
+        <FinancialStatCell
+          label="Net income"
+          value={formatCurrencyFull(netIncome)}
+          valueClass={netPositive ? "text-emerald-600" : "text-rose-600"}
+          highlight
+        />
+      </div>
+    </div>
+  );
+}
+
+function FinancialStatCell({
+  label,
+  value,
+  valueClass,
+  highlight = false,
+}: {
+  label: string;
+  value: string;
+  valueClass: string;
+  highlight?: boolean;
+}) {
+  return (
+    <div
+      className={`rounded-lg px-4 py-3.5 ${
+        highlight
+          ? "bg-[#f4f7fc] border border-[#e2e9f5]"
+          : "bg-slate-50/80 border border-slate-100"
+      }`}
+    >
+      <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-400">
+        {label}
+      </p>
+      <p className={`text-[17px] font-bold tabular-nums mt-1 leading-none ${valueClass}`}>
+        {value}
+      </p>
+    </div>
+  );
+}
 
 function KpiStat({
   label,

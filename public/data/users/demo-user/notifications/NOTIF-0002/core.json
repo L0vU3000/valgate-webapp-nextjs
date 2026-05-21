@@ -5,6 +5,6 @@
   "title": "Rent overdue — Unit 2B",
   "description": "Lim Vichea is 5 days late on the April rent.",
   "createdAt": 1775019600000,
-  "read": false,
+  "read": true,
   "linkTo": "/property/PROP-0006/rental"
 }

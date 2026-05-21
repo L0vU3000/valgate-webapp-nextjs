@@ -11,7 +11,7 @@ export const CertificationSchema = z.object({
   status: CertificationStatusEnum,
   issuedAt: timestampSchema,
   expiresAt: timestampSchema,
-  inspector: z.string().min(1),
+  inspectorId: idSchema,
   createdAt: timestampSchema,
   updatedAt: timestampSchema,
 });

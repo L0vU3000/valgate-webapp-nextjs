@@ -38,3 +38,15 @@ export async function create(
 export async function remove(userId: string, id: string): Promise<void> {
   await deleteRecord(userId, COLLECTION, id);
 }
+
+export async function update(
+  userId: string,
+  id: string,
+  patch: Partial<CoOwner>,
+): Promise<CoOwner | null> {
+  const current = await get(userId, id);
+  if (!current) return null;
+  const updated = CoOwnerSchema.parse({ ...current, ...patch, id: current.id });
+  await writeRecord(userId, COLLECTION, id, { core: { ...updated } });
+  return updated;
+}

@@ -288,7 +288,11 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
                   draftsLoading={!mounted}
                   onResumeDraft={handleResumeDraft}
                   onDeleteDraft={remove}
-                  onLoadDemo={handleLoadDemo}
+                  onLoadDemo={
+                    process.env.NODE_ENV === "development"
+                      ? handleLoadDemo
+                      : undefined
+                  }
                 />
               )}
               {step === 1 && <Step1PropertyType form={form} setForm={setForm} goNext={goNext} />}

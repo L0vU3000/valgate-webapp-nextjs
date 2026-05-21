@@ -29,12 +29,12 @@ export const ENTITY_WIRING: Record<string, WiringStatus> = {
   payments: "wired",
   expenses: "missing",
 
-  // Compliance & Safety (/safety page deferred)
+  // Compliance & Safety
   inspections: "wired",
-  certifications: "partial",
+  certifications: "wired",
   "maintenance-items": "wired",
-  "safety-risks": "partial",
-  "emergency-contacts": "partial",
+  "safety-risks": "wired",
+  "emergency-contacts": "wired",
 
   // Estate & Ownership
   "co-owners": "wired",
@@ -42,6 +42,6 @@ export const ENTITY_WIRING: Record<string, WiringStatus> = {
   "ownership-documents": "wired",
   "ownership-history": "wired",
   successors: "wired",
-  "successor-property-assignments": "missing",
+  "estate-assignments": "wired",
   "estate-activity-events": "missing",
 };

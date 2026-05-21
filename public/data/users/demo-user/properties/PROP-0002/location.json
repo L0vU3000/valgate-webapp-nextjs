@@ -1,3 +1,7 @@
 {
-  "province": "Siem Reap"
+  "addressLine": "456 Angkor Avenue",
+  "city": "Siem Reap",
+  "province": "Siem Reap",
+  "zip": "17000",
+  "country": "Cambodia"
 }

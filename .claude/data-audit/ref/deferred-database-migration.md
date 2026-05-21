@@ -45,6 +45,25 @@ This file tracks two related items deferred until the NeonDB / Convex migration 
 
 ---
 
+## PropertyLayout-Progress — Progress badge on property sub-pages
+
+**From:** Phase 11 plan (Task A), deferred 2026-05-19
+
+**What it is:** `components/property/PropertyLayout.tsx:68` shows `— % progress` on every property sub-page (Overview, Rental, Ownership, Safety, Valuation, Location). The `progress?: number` prop slot exists but no caller passes it. Computing it correctly requires a full `ProgressContext` (13 entity arrays fetched in parallel), the same pattern used in `app/(shell)/portfolio/queries.ts`.
+
+**Why deferred:** On the FS layer this means 13 × N JSON file reads on every property page load — across 7 sub-pages per property. Doing it now would establish a pattern that has to be torn out when Convex lands, since Convex replaces all 13 parallel fetches with a single query + server-side joins.
+
+**Fix when migration lands:**
+1. Create a Convex query `getProgressContext(propertyId)` that joins all 13 related entity tables for a single property.
+2. Each property page calls that query (one round-trip instead of 13).
+3. Pass `progress={computeProgressDetails(property, ctx).score}` from each `page.tsx` to the page component.
+4. Each page component forwards `progress` to `<PropertyLayout progress={progress}>`.
+5. The `PropertyLayout` badge then shows the live score instead of `—`.
+
+**Note:** The overview page (`overview/page.tsx`) already stubs 7 of the 13 ProgressContext arrays as `[]`, so even the overview shows a deflated score. The Convex fix corrects that too.
+
+---
+
 ## After database migration — re-auditing verification commands
 
 Each audit report in this folder includes a `📋 Manual verification commands` block — small scripts that read JSON files in `public/data/users/demo-user/` to double-check a number by hand.

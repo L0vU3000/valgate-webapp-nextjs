@@ -51,6 +51,29 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+const ENTITY_TYPE_CHIP: Record<string, { label: string; cls: string }> = {
+  "ownership-record": {
+    label: "Verifies Ownership",
+    cls: "bg-emerald-50 text-emerald-700",
+  },
+  "financials": {
+    label: "Verifies Financials",
+    cls: "bg-emerald-50 text-emerald-700",
+  },
+  "location-identity": {
+    label: "Verifies Location",
+    cls: "bg-emerald-50 text-emerald-700",
+  },
+  "rental": {
+    label: "Verifies Rental",
+    cls: "bg-emerald-50 text-emerald-700",
+  },
+  "estate-plan": {
+    label: "Verifies Estate",
+    cls: "bg-emerald-50 text-emerald-700",
+  },
+};
+
 type FileEntry = {
   name: string;
   type: string;
@@ -60,6 +83,7 @@ type FileEntry = {
   folder: string;
   size: string;
   date: string;
+  verifiesEntityType?: string;
 };
 
 function getFileIconStyle(doc: DbDocument): { type: string; icon: React.ElementType; iconClass: string } {
@@ -282,6 +306,7 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
       folder: doc.folderId ? (folderMap.get(doc.folderId) ?? "—") : "—",
       size: doc.sizeBytes ? formatBytes(doc.sizeBytes) : "—",
       date: new Date(doc.uploadedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+      verifiesEntityType: doc.verifies?.entityType,
     };
   });
 
@@ -1444,6 +1469,11 @@ function ListView({
                   <div className="flex items-center gap-3">
                     <f.icon className={`w-5 h-5 shrink-0 ${f.iconClass}`} />
                     <span className="text-[14px] font-medium text-[--val-heading]">{f.name}</span>
+                    {f.verifiesEntityType && ENTITY_TYPE_CHIP[f.verifiesEntityType] && (
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${ENTITY_TYPE_CHIP[f.verifiesEntityType].cls}`}>
+                        {ENTITY_TYPE_CHIP[f.verifiesEntityType].label}
+                      </span>
+                    )}
                   </div>
                 </td>
                 <td className="px-4 py-3.5">

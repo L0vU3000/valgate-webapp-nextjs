@@ -82,6 +82,7 @@ export function PropertyOwnershipPage2({
   const sortedOwners = [...coOwners].sort((a, b) => b.sharePercent - a.sharePercent);
   const propertyValue = property.currentMarketValue ?? 0;
   const topOwner = sortedOwners[0];
+  const orecMap = new Map(ownershipRecord ? [[ownershipRecord.id, ownershipRecord]] : []);
 
   // Summary bar values
   const topOwnerEquity = topOwner && propertyValue > 0
@@ -504,9 +505,9 @@ export function PropertyOwnershipPage2({
                                   className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0"
                                   style={{ background: "var(--val-primary-dark)" }}
                                 >
-                                  {ownerInitials(doc.owner)}
+                                  {ownerInitials(orecMap.get(doc.ownershipRecordId)?.holdingType ?? "—")}
                                 </span>
-                                <span className="text-[14px] text-slate-500">{doc.owner}</span>
+                                <span className="text-[14px] text-slate-500">{orecMap.get(doc.ownershipRecordId)?.holdingType ?? "—"}</span>
                               </div>
                             </td>
                             <td className="px-4 py-3.5">

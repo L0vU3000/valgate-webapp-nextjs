@@ -1,0 +1,11 @@
+{
+  "id": "OREC-0002",
+  "propertyId": "PROP-0006",
+  "holdingType": "Trust",
+  "distributionMethod": "Pro-Rata by Share",
+  "verified": true,
+  "verifiedAt": 1775001600000,
+  "evidenceDocIds": ["DOC-0004"],
+  "createdAt": 1775001600000,
+  "updatedAt": 1775001600000
+}

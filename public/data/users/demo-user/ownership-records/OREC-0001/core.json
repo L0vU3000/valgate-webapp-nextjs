@@ -1,7 +1,7 @@
 {
   "id": "OREC-0001",
   "propertyId": "PROP-0001",
-  "holdingType": "Trust",
+  "holdingType": "Sole Ownership",
   "loanType": "Fixed",
   "loanAmount": 828000,
   "loanTermYears": 20,
@@ -13,6 +13,11 @@
   "downPayment": 450000,
   "closingCosts": 15000,
   "distributionMethod": "Pro-Rata by Share",
-  "createdAt": 1775001600000,
-  "updatedAt": 1775001600000
+  "verified": true,
+  "verifiedAt": 1779262255954,
+  "evidenceDocIds": [
+    "DOC-0013"
+  ],
+  "createdAt": 1779262252381,
+  "updatedAt": 1779262252381
 }

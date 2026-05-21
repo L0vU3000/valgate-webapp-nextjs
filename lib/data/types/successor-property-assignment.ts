@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { idSchema, propertyIdSchema, timestampSchema } from "./_common";
 
-export const SuccessorPropertyAssignmentSchema = z.object({
+export const EstateAssignmentSchema = z.object({
   id: idSchema,
   successorId: idSchema,
   propertyId: propertyIdSchema,
@@ -9,4 +9,4 @@ export const SuccessorPropertyAssignmentSchema = z.object({
   updatedAt: timestampSchema,
 });
 
-export type SuccessorPropertyAssignment = z.infer<typeof SuccessorPropertyAssignmentSchema>;
+export type EstateAssignment = z.infer<typeof EstateAssignmentSchema>;

@@ -51,7 +51,7 @@ export const ENTITY_PALETTE: Record<string, string> = {
   "ownership-documents":            ESTATE,
   "ownership-history":              ESTATE,
   successors:                       ESTATE,
-  "successor-property-assignments": ESTATE,
+  "estate-assignments": ESTATE,
   "estate-activity-events":         ESTATE,
 };
 

@@ -6,6 +6,9 @@ if (!mapboxToken) {
   );
 }
 
+const sitePassword = process.env.SITE_PASSWORD;
+
 export const env = {
   NEXT_PUBLIC_MAPBOX_TOKEN: mapboxToken,
+  SITE_PASSWORD: sitePassword,
 } as const;

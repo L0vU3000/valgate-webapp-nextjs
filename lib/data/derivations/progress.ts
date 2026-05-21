@@ -10,7 +10,7 @@ import type { SafetyRisk } from "@/lib/data/types/safety-risk";
 import type { Inspection } from "@/lib/data/types/inspection";
 import type { Certification } from "@/lib/data/types/certification";
 import type { EmergencyContact } from "@/lib/data/types/emergency-contact";
-import type { SuccessorPropertyAssignment } from "@/lib/data/types/successor-property-assignment";
+import type { EstateAssignment } from "@/lib/data/types/successor-property-assignment";
 import type { Document } from "@/lib/data/types/document";
 import type { ProgressCheck, ProgressPillar, ProgressDetails } from "@/lib/data/types/progress";
 
@@ -26,7 +26,7 @@ export type ProgressContext = {
   inspections: Inspection[];
   certifications: Certification[];
   emergencyContacts: EmergencyContact[];
-  successorAssignments: SuccessorPropertyAssignment[];
+  successorAssignments: EstateAssignment[];
   documents: Document[];
 };
 
@@ -41,10 +41,10 @@ function scorePillar(checks: ProgressCheck[]): number {
  *
  * Pillars and weights:
  *   Location & Identity  15%
- *   Financials           20%
+ *   Financials           30%   (includes Valuation History)
  *   Rental               20%
  *   Ownership            15%
- *   Valuation History    10%
+ *   Safety               10%
  *   Estate Planning       5%
  *   Documents             5%
  */
@@ -62,6 +62,11 @@ export function computeProgressDetails(p: Property, ctx: ProgressContext): Progr
   const successorAssign    = ctx.successorAssignments.filter((s) => s.propertyId === pid);
   const documents          = ctx.documents.filter((d) => d.propertyId === pid);
 
+  const safetyRisks      = ctx.safetyRisks.filter((r) => r.propertyId === pid);
+  const inspections      = ctx.inspections.filter((i) => i.propertyId === pid);
+  const certifications   = ctx.certifications.filter((c) => c.propertyId === pid);
+  const emergencyContacts = ctx.emergencyContacts.filter((e) => e.propertyId === pid);
+
   const rawPillars: Omit<ProgressPillar, "score" | "contribution">[] = [
     {
       key: "location",
@@ -78,8 +83,8 @@ export function computeProgressDetails(p: Property, ctx: ProgressContext): Progr
     {
       key: "financials",
       name: "Financials",
-      weight: 20,
-      href: `/property/${pid}/ownership`,
+      weight: 30,
+      href: `/property/${pid}/financials`,
       checks: [
         { label: "Purchase price set", done: p.buyNumeric > 0 },
         { label: "Purchase date set", done: !!p.purchaseDate },
@@ -87,6 +92,8 @@ export function computeProgressDetails(p: Property, ctx: ProgressContext): Progr
         { label: "Mortgage / debt recorded", done: p.outstandingMortgage !== undefined },
         { label: "Annual property tax", done: !!p.annualPropertyTax && p.annualPropertyTax > 0 },
         { label: "Annual insurance", done: !!p.annualInsurance && p.annualInsurance > 0 },
+        { label: "Valuation on file", done: valuations.length > 0 },
+        { label: "6+ months of history", done: valuations.length >= 6 },
       ],
     },
     {
@@ -94,11 +101,15 @@ export function computeProgressDetails(p: Property, ctx: ProgressContext): Progr
       name: "Rental",
       weight: 20,
       href: `/property/${pid}/rental`,
-      checks: [
-        { label: "Active lease exists", done: leases.some((l) => l.stage === "Signed") },
-        { label: "Tenant on file", done: tenants.length > 0 },
-        { label: "Payment record exists", done: payments.length > 0 },
-      ],
+      checks: (p.propertyUse ?? "investment") === "investment"
+        ? [
+            { label: "Active lease exists", done: leases.some((l) => l.stage === "Signed") },
+            { label: "Tenant on file", done: tenants.length > 0 },
+            { label: "Payment record exists", done: payments.length > 0 },
+          ]
+        : [
+            { label: "Not applicable (non-investment property)", done: true },
+          ],
     },
     {
       key: "ownership",
@@ -112,13 +123,15 @@ export function computeProgressDetails(p: Property, ctx: ProgressContext): Progr
       ],
     },
     {
-      key: "valuation",
-      name: "Valuation History",
+      key: "safety",
+      name: "Safety",
       weight: 10,
-      href: `/property/${pid}/valuation`,
+      href: `/property/${pid}/safety`,
       checks: [
-        { label: "Valuation on file", done: valuations.length > 0 },
-        { label: "6+ months of history", done: valuations.length >= 6 },
+        { label: "Inspection on file", done: inspections.length > 0 },
+        { label: "No expired certifications", done: certifications.length > 0 && certifications.every((c) => c.status !== "Expired") },
+        { label: "Emergency contact added", done: emergencyContacts.length > 0 },
+        { label: "No high/critical open risks", done: !safetyRisks.some((r) => r.severity === "Critical" || r.severity === "High") },
       ],
     },
     {
@@ -128,7 +141,7 @@ export function computeProgressDetails(p: Property, ctx: ProgressContext): Progr
       href: `/estate-planning`,
       checks: [
         { label: "Beneficiary assigned", done: successorAssign.length > 0 },
-        { label: "Estate document uploaded", done: documents.some((d) => d.category?.toLowerCase().includes("estate")) },
+        { label: "Estate plan verified", done: p.estateVerified === true },
       ],
     },
     {

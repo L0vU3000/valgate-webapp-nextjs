@@ -36,6 +36,10 @@ export const OwnershipRecordSchema = z.object({
   closingCosts: z.number().nonnegative().optional(),
   // Distribution
   distributionMethod: DistributionMethodSchema.optional(),
+  // Verification
+  verified: z.boolean().optional(),
+  verifiedAt: timestampSchema.optional(),
+  evidenceDocIds: z.array(idSchema).optional(),
   createdAt: timestampSchema,
   updatedAt: timestampSchema,
 });

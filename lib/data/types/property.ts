@@ -30,6 +30,9 @@ export type PropertyTypeChoice = z.infer<typeof propertyTypeChoiceSchema>;
 export const titleVariantSchema = z.enum(["hard", "soft", "none"]);
 export type TitleVariant = z.infer<typeof titleVariantSchema>;
 
+export const propertyUseSchema = z.enum(["investment", "personal", "holiday"]);
+export type PropertyUse = z.infer<typeof propertyUseSchema>;
+
 export const PropertyCoreSchema = z.object({
   id: idSchema,
   userId: userIdSchema,
@@ -42,6 +45,13 @@ export const PropertyCoreSchema = z.object({
   createdAt: timestampSchema,
   updatedAt: timestampSchema,
   isArchived: z.boolean().optional(),
+  propertyUse: propertyUseSchema.optional(),
+  rentalVerified: z.boolean().optional(),
+  rentalVerifiedAt: timestampSchema.optional(),
+  rentalEvidenceDocIds: z.array(idSchema).optional(),
+  estateVerified: z.boolean().optional(),
+  estateVerifiedAt: timestampSchema.optional(),
+  estateEvidenceDocIds: z.array(idSchema).optional(),
 });
 export type PropertyCore = z.infer<typeof PropertyCoreSchema>;
 
@@ -52,6 +62,9 @@ export const PropertyLocationSchema = z.object({
   zip: z.string().optional(),
   country: z.string().optional(),
   province: z.string().min(1),
+  locationVerified: z.boolean().optional(),
+  locationVerifiedAt: timestampSchema.optional(),
+  locationEvidenceDocIds: z.array(idSchema).optional(),
 });
 export type PropertyLocation = z.infer<typeof PropertyLocationSchema>;
 
@@ -67,6 +80,9 @@ export const PropertyFinanceSchema = z.object({
   annualInsurance: z.number().nonnegative().optional(),
   ownershipStatus: z.string().optional(),
   buyNumeric: z.number().nonnegative(),
+  financialsVerified: z.boolean().optional(),
+  financialsVerifiedAt: timestampSchema.optional(),
+  financialsEvidenceDocIds: z.array(idSchema).optional(),
 });
 export type PropertyFinance = z.infer<typeof PropertyFinanceSchema>;
 

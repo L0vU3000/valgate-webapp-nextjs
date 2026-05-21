@@ -1,0 +1,14 @@
+{
+  "id": "DOC-0008",
+  "propertyId": "PROP-0001",
+  "name": "dummy-document.pdf",
+  "kind": "document",
+  "mimeType": "application/pdf",
+  "sizeBytes": 281,
+  "storageId": "_storage/PROP-0001/dummy-document.pdf",
+  "uploadedAt": 1779259090872,
+  "verifies": {
+    "entityType": "financials",
+    "entityId": "PROP-0001"
+  }
+}

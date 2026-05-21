@@ -1,0 +1,12 @@
+{
+  "id": "LEASE-0004",
+  "propertyId": "PROP-0002",
+  "tenantId": "TEN-0004",
+  "unit": "Unit A",
+  "stage": "Signed",
+  "startDate": 1762041600000,
+  "endDate": 1793577600000,
+  "monthlyRent": 600,
+  "termMonths": 12,
+  "renewalStatus": "Pending decision"
+}

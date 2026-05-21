@@ -10,6 +10,8 @@ export const SuccessorSchema = z.object({
   role: z.enum(["primary", "contingent"]),
   share: z.number().nonnegative(),
   verified: z.boolean(),
+  email: z.union([z.string().email(), z.literal("")]).optional(),
+  phone: z.string().optional(),
   createdAt: timestampSchema,
   updatedAt: timestampSchema,
 });

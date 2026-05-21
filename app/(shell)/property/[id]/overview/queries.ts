@@ -10,8 +10,17 @@ import type { Notification } from "@/lib/data/types/notification";
 import type { MaintenanceItem } from "@/lib/data/types/maintenance-item";
 import type { CoOwner } from "@/lib/data/types/co-owner";
 import type { OwnershipRecord } from "@/lib/data/types/ownership-record";
+import type { OwnershipDocument } from "@/lib/data/types/ownership-document";
+import type { SafetyRisk } from "@/lib/data/types/safety-risk";
+import type { Inspection } from "@/lib/data/types/inspection";
+import type { Certification } from "@/lib/data/types/certification";
+import type { EmergencyContact } from "@/lib/data/types/emergency-contact";
+import type { EstateAssignment } from "@/lib/data/types/successor-property-assignment";
+import type { Document } from "@/lib/data/types/document";
+import type { UserProfile } from "@/lib/data/types/user-profile";
 
 export type OverviewPageData = {
+  userProfile: UserProfile | null;
   valuations: PropertyValuation[];
   leases: Lease[];
   tenants: Tenant[];
@@ -21,6 +30,13 @@ export type OverviewPageData = {
   maintenanceItems: MaintenanceItem[];
   ownershipRecords: OwnershipRecord[];
   coOwners: CoOwner[];
+  ownershipDocuments: OwnershipDocument[];
+  safetyRisks: SafetyRisk[];
+  inspections: Inspection[];
+  certifications: Certification[];
+  emergencyContacts: EmergencyContact[];
+  estateAssignments: EstateAssignment[];
+  documents: Document[];
 };
 
 function notificationMatchesProperty(notification: Notification, propertyId: string): boolean {
@@ -42,6 +58,14 @@ export async function getOverviewPageData(propertyId: string): Promise<OverviewP
     allMaintenanceItems,
     allOwnershipRecords,
     allCoOwners,
+    allOwnershipDocuments,
+    allSafetyRisks,
+    allInspections,
+    allCertifications,
+    allEmergencyContacts,
+    allEstateAssignments,
+    allDocuments,
+    userProfile,
   ] = await Promise.all([
     db.propertyValuations.list(userId),
     db.leases.list(userId),
@@ -52,6 +76,14 @@ export async function getOverviewPageData(propertyId: string): Promise<OverviewP
     db.maintenanceItems.list(userId),
     db.ownershipRecords.list(userId),
     db.coOwners.list(userId),
+    db.ownershipDocuments.list(userId),
+    db.safetyRisks.list(userId),
+    db.inspections.list(userId),
+    db.certifications.list(userId),
+    db.emergencyContacts.list(userId),
+    db.estateAssignments.list(userId),
+    db.documents.list(userId),
+    db.userProfiles.get(userId, userId),
   ]);
   const propLeaseIds = new Set(
     allLeases.filter((l) => l.propertyId === propertyId).map((l) => l.id),
@@ -66,5 +98,13 @@ export async function getOverviewPageData(propertyId: string): Promise<OverviewP
     maintenanceItems: allMaintenanceItems.filter((m) => m.propertyId === propertyId),
     ownershipRecords: allOwnershipRecords.filter((r) => r.propertyId === propertyId),
     coOwners: allCoOwners.filter((c) => c.propertyId === propertyId),
+    ownershipDocuments: allOwnershipDocuments.filter((d) => d.propertyId === propertyId),
+    safetyRisks: allSafetyRisks.filter((r) => r.propertyId === propertyId),
+    inspections: allInspections.filter((i) => i.propertyId === propertyId),
+    certifications: allCertifications.filter((c) => c.propertyId === propertyId),
+    emergencyContacts: allEmergencyContacts.filter((e) => e.propertyId === propertyId),
+    estateAssignments: allEstateAssignments.filter((a) => a.propertyId === propertyId),
+    documents: allDocuments.filter((d) => d.propertyId === propertyId),
+    userProfile: userProfile ?? null,
   };
 }

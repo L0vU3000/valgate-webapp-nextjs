@@ -5,7 +5,7 @@
   "type": "Loan Agreement",
   "documentDate": 1646326800000,
   "expiryDate": 2277478800000,
-  "owner": "Chan Sophea",
+  "ownershipRecordId": "OREC-0001",
   "status": "Current",
   "createdAt": 1646352000000,
   "updatedAt": 1646352000000

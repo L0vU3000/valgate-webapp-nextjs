@@ -9,7 +9,7 @@ export const InspectionSchema = z.object({
   propertyId: propertyIdSchema,
   inspectedAt: timestampSchema,
   type: InspectionTypeEnum,
-  inspector: z.string().min(1),
+  inspectorId: idSchema,
   status: InspectionStatusEnum,
   issues: z.number().int().nonnegative(),
   createdAt: timestampSchema,

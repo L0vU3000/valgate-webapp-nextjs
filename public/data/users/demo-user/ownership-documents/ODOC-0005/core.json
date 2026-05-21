@@ -5,7 +5,7 @@
   "type": "Insurance",
   "documentDate": 1720976400000,
   "expiryDate": 1752512400000,
-  "owner": "Chan Family Trust",
+  "ownershipRecordId": "OREC-0001",
   "status": "Expiring Soon",
   "createdAt": 1721001600000,
   "updatedAt": 1721001600000

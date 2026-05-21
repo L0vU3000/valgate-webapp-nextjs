@@ -53,6 +53,8 @@ export type EstateProperty = {
   color: string;
   completionPct: number;
   lastUpdatedLabel: string;
+  estateVerified: boolean;
+  hasAssignments: boolean;
 };
 
 export type EstatePlanningPageData = {
@@ -145,7 +147,7 @@ export async function getEstatePlanningPageData(): Promise<EstatePlanningPageDat
       db.properties.list(userId),
       db.successors.list(userId),
       db.documents.list(userId),
-      db.successorPropertyAssignments.list(userId),
+      db.estateAssignments.list(userId),
       db.estateActivityEvents.list(userId),
     ]);
 
@@ -153,23 +155,10 @@ export async function getEstatePlanningPageData(): Promise<EstatePlanningPageDat
     .filter((property) => !property.isArchived && property.status !== "Sold" && property.status !== "Archived")
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  const fallbackPropertyId = properties[0]?.id;
-  const effectiveAssignments =
-    assignmentsRaw.length > 0 || !fallbackPropertyId
-      ? assignmentsRaw
-      : successorsRaw.map((successor, index) => ({
-          id: `fallback-${successor.id}-${index}`,
-          userId,
-          successorId: successor.id,
-          propertyId: fallbackPropertyId,
-          createdAt: successor.createdAt,
-          updatedAt: successor.updatedAt,
-        }));
-
   const successorById = new Map(successorsRaw.map((successor) => [successor.id, successor]));
   const assignmentsByProperty = new Map<string, string[]>();
   const assignmentsBySuccessor = new Map<string, string[]>();
-  for (const assignment of effectiveAssignments) {
+  for (const assignment of assignmentsRaw) {
     const propertyIds = assignmentsBySuccessor.get(assignment.successorId) ?? [];
     propertyIds.push(assignment.propertyId);
     assignmentsBySuccessor.set(assignment.successorId, propertyIds);
@@ -179,9 +168,12 @@ export async function getEstatePlanningPageData(): Promise<EstatePlanningPageDat
     assignmentsByProperty.set(assignment.propertyId, successorIds);
   }
 
-  const estateDocsRaw = documentsRaw.filter(
-    (doc) => doc.kind === "document" && (doc.category ?? "").toLowerCase() === "estate",
-  );
+  const estateDocsRaw = documentsRaw.filter((doc) => {
+    if (doc.kind !== "document") return false;
+    const categoryMatch = (doc.category ?? "").toLowerCase() === "estate";
+    const verifiesMatch = doc.verifies?.entityType === "estate-plan";
+    return categoryMatch || verifiesMatch;
+  });
   const estateDocsByProperty = new Map<string, typeof estateDocsRaw>();
   for (const doc of estateDocsRaw) {
     const docs = estateDocsByProperty.get(doc.propertyId) ?? [];
@@ -209,11 +201,14 @@ export async function getEstatePlanningPageData(): Promise<EstatePlanningPageDat
     const hasPrimaryShareBalance =
       hasAssignedSuccessor && Math.abs(primaryShareTotal - 100) < 0.001;
     const hasEstateDoc = (estateDocsByProperty.get(property.id) ?? []).length > 0;
-    const hasActivity = (activityByProperty.get(property.id) ?? []).length > 0;
+    const estateVerified = property.estateVerified === true;
 
-    const checks = [hasAssignedSuccessor, hasPrimaryShareBalance, hasEstateDoc, hasActivity];
+    const checks = [hasAssignedSuccessor, hasPrimaryShareBalance, hasEstateDoc, estateVerified];
     const passed = checks.filter(Boolean).length;
-    const completionPct = Math.round((passed / checks.length) * 1000) / 10;
+    let completionPct = Math.round((passed / checks.length) * 1000) / 10;
+    if (estateVerified) {
+      completionPct = 100;
+    }
 
     const propertyEvents = activityByProperty.get(property.id) ?? [];
     const lastUpdatedAt = propertyEvents.length
@@ -233,7 +228,7 @@ export async function getEstatePlanningPageData(): Promise<EstatePlanningPageDat
 
   const topPropertyIds = new Set(
     [
-      ...effectiveAssignments.map((assignment) => assignment.propertyId),
+      ...assignmentsRaw.map((assignment) => assignment.propertyId),
       ...estateDocsRaw.map((doc) => doc.propertyId),
       ...activityRaw.map((event) => event.propertyId).filter(Boolean),
     ].filter(Boolean),
@@ -247,16 +242,24 @@ export async function getEstatePlanningPageData(): Promise<EstatePlanningPageDat
     .slice(0, Math.max(0, 4 - selectedMetrics.length));
   const displayedMetrics = [...selectedMetrics, ...fallbackMetrics];
 
-  const estateProperties: EstateProperty[] = displayedMetrics.map((entry, index) => ({
-    id: entry.property.id,
-    name: entry.property.name,
-    address: buildAddress(entry.property),
-    status: deriveStatus(entry.completionPct),
-    initials: initials(entry.property.name),
-    color: COLOR_SWATCHES[index % COLOR_SWATCHES.length],
-    completionPct: entry.completionPct,
-    lastUpdatedLabel: formatDate(entry.lastUpdatedAt),
-  }));
+  const estateProperties: EstateProperty[] = displayedMetrics.map((entry, index) => {
+    const hasAssignments = entry.assignedSuccessorIds.length > 0;
+    const estateVerified = entry.property.estateVerified === true;
+    const status = estateVerified ? "complete" : deriveStatus(entry.completionPct);
+
+    return {
+      id: entry.property.id,
+      name: entry.property.name,
+      address: buildAddress(entry.property),
+      status,
+      initials: initials(entry.property.name),
+      color: COLOR_SWATCHES[index % COLOR_SWATCHES.length],
+      completionPct: entry.completionPct,
+      lastUpdatedLabel: formatDate(entry.lastUpdatedAt),
+      estateVerified,
+      hasAssignments,
+    };
+  });
 
   const estateSuccessors: Successor[] = successorsRaw.map((successor) => ({
     id: successor.id,

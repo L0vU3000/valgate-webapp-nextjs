@@ -22,7 +22,7 @@ import { PropertySchema } from "@/lib/data/types/property";
 import { PropertyValuationSchema } from "@/lib/data/types/property-valuation";
 import { SafetyRiskSchema } from "@/lib/data/types/safety-risk";
 import { SuccessorSchema } from "@/lib/data/types/successor";
-import { SuccessorPropertyAssignmentSchema } from "@/lib/data/types/successor-property-assignment";
+import { EstateAssignmentSchema } from "@/lib/data/types/successor-property-assignment";
 import { TenantSchema } from "@/lib/data/types/tenant";
 import { UserProfileSchema } from "@/lib/data/types/user-profile";
 
@@ -51,8 +51,8 @@ export const SCHEMA_REGISTRY: Record<string, EntitySchema> = {
   "property-valuations": PropertyValuationSchema as unknown as EntitySchema,
   "safety-risks": SafetyRiskSchema as unknown as EntitySchema,
   successors: SuccessorSchema as unknown as EntitySchema,
-  "successor-property-assignments":
-    SuccessorPropertyAssignmentSchema as unknown as EntitySchema,
+  "estate-assignments":
+    EstateAssignmentSchema as unknown as EntitySchema,
   tenants: TenantSchema as unknown as EntitySchema,
   "user-profiles": UserProfileSchema as unknown as EntitySchema,
 };

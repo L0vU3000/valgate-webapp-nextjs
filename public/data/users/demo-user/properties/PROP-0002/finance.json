@@ -1,3 +1,8 @@
 {
-  "buyNumeric": 456000
+  "buyNumeric": 456000,
+  "purchasePrice": "456000",
+  "purchaseDate": 1672531200000,
+  "currentMarketValue": 510000,
+  "outstandingMortgage": 320000,
+  "monthlyPayment": 1950
 }

@@ -2,12 +2,16 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ChevronLeft, Share2, MapPin, MoreVertical, LayoutGrid, Eye, Shield, DollarSign, Key, TrendingUp, Globe, Archive, Pencil, Bell } from "lucide-react";
+import { ChevronLeft, MoreVertical, LayoutGrid, Eye, Shield, DollarSign, Key, Coins, Globe, Archive, Pencil, Bell } from "lucide-react";
 import type { Property } from "@/lib/data/types/property";
+import { usePropertyShell } from "@/components/property/PropertyShellContext";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { archivePropertyAction, restorePropertyAction } from "@/app/(shell)/property/actions";
 import { toast } from "sonner";
+import { NotificationsPanel, type NotificationsPanelHandle } from "@/components/layout/NotificationsPanel";
+import { useNotifications } from "@/lib/hooks/use-notifications";
+import { useInitialNotifications } from "@/components/layout/NotificationsContext";
 
 const tabs = [
   { key: "overview", label: "Overview", icon: LayoutGrid },
@@ -15,7 +19,7 @@ const tabs = [
   { key: "safety", label: "Safety", icon: Shield },
   { key: "ownership", label: "Ownership", icon: Key },
   { key: "rental", label: "Rental", icon: DollarSign },
-  { key: "valuation", label: "Valuation", icon: TrendingUp },
+  { key: "financials", label: "Financials", icon: Coins },
   { key: "location", label: "Location", icon: Globe },
 ];
 
@@ -24,15 +28,26 @@ interface PropertyLayoutProps {
   children: React.ReactNode;
   property: Property;
   progress?: number;
+  onProgressClick?: () => void;
+  headerSlot?: React.ReactNode;
 }
 
-export function PropertyLayout({ activeTab, children, property, progress }: PropertyLayoutProps) {
+export function PropertyLayout({ activeTab, children, property, progress, onProgressClick, headerSlot }: PropertyLayoutProps) {
   const router = useRouter();
   const { id } = useParams();
+  const shell = usePropertyShell();
+  const displayProgress = progress ?? shell?.progress;
+  const handleProgressClick = onProgressClick ?? shell?.openProgressModal;
+  const openPropertyWizard = shell?.openPropertyWizard;
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [indicator, setIndicator] = useState({ left: 0, width: 0, ready: false });
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [archiving, setArchiving] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const bellRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<NotificationsPanelHandle>(null);
+  const initialNotifications = useInitialNotifications();
+  const { notifications, markAllRead, markAsRead } = useNotifications(initialNotifications);
 
   useEffect(() => {
     const activeIndex = tabs.findIndex((t) => t.key === activeTab);
@@ -60,50 +75,77 @@ export function PropertyLayout({ activeTab, children, property, progress }: Prop
           </span>
         </div>
         <div className="flex items-center gap-3">
-          <span className="bg-[#ECFDF5] text-[#059669] px-3 py-1 rounded-full text-[12px] flex items-center gap-1.5">
+          <button
+            onClick={handleProgressClick}
+            disabled={!handleProgressClick}
+            className="bg-[#ECFDF5] text-[#059669] px-3 py-1 rounded-full text-[12px] flex items-center gap-1.5 hover:bg-emerald-100 active:scale-[0.97] transition-[background-color,transform] duration-150 disabled:pointer-events-none"
+            aria-label={`${displayProgress ?? "—"}% progress — view details`}
+          >
             <span className="relative flex h-2 w-2 shrink-0">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
             </span>
-            {progress !== undefined ? `${progress}%` : "—"} progress
-            <span className="text-[#059669]">&#9432;</span>
-          </span>
-          <button className="p-2 rounded hover:bg-slate-100 transition-colors duration-150 relative">
-            <Bell className="w-5 h-5 text-slate-500" />
+            {displayProgress !== undefined ? `${displayProgress}%` : "—"} progress
           </button>
-          <button className="border border-border rounded-lg px-4 py-2 text-[14px] text-foreground flex items-center gap-2 hover:bg-accent/50 hover:scale-[1.01] active:scale-[0.97] transition-[background-color,transform] duration-150">
-            <Share2 className="w-4 h-4" />
-            Share
-          </button>
-          <button className="bg-primary text-primary-foreground rounded-lg px-4 py-2 text-[14px] flex items-center gap-2 hover:bg-primary/90 hover:scale-[1.01] active:scale-[0.97] transition-[background-color,transform,box-shadow] duration-150 hover:shadow-md">
-            <MapPin className="w-4 h-4" />
-            Get directions
-          </button>
-
+          {headerSlot}
+          <div className="relative">
+            <button
+              ref={bellRef}
+              aria-label="Notifications"
+              aria-expanded={notificationsOpen}
+              onClick={() => {
+                if (notificationsOpen) {
+                  panelRef.current?.close();
+                } else {
+                  setNotificationsOpen(true);
+                }
+              }}
+              className="p-2 rounded hover:bg-slate-100 transition-colors duration-150 relative"
+            >
+              <Bell className="w-5 h-5 text-slate-500" />
+              {notifications.some((n) => !n.read) && (
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
+              )}
+            </button>
+            {notificationsOpen && (
+              <NotificationsPanel
+                ref={panelRef}
+                notifications={notifications}
+                onMarkAllRead={markAllRead}
+                onNotificationClick={(n) => {
+                  markAsRead(n.id);
+                  if (n.linkTo) router.push(n.linkTo);
+                  panelRef.current?.close();
+                }}
+                onClose={() => setNotificationsOpen(false)}
+                triggerRef={bellRef}
+              />
+            )}
+          </div>
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="text-muted-foreground hover:text-foreground transition-colors duration-150 p-1 rounded">
-                <MoreVertical className="w-5 h-5" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem
-                className="cursor-pointer"
-                onSelect={() => router.push(`/property/${propertyId}/edit`)}
-              >
-                <Pencil className="w-4 h-4 mr-2" />
-                Edit property
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="text-amber-600 focus:text-amber-600 focus:bg-amber-50 cursor-pointer"
-                onSelect={() => setArchiveOpen(true)}
-              >
-                <Archive className="w-4 h-4 mr-2" />
-                Archive property
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="text-muted-foreground hover:text-foreground transition-colors duration-150 p-1 rounded">
+                  <MoreVertical className="w-5 h-5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem
+                  className="cursor-pointer"
+                  onSelect={() => openPropertyWizard?.()}
+                >
+                  <Pencil className="w-4 h-4 mr-2" />
+                  Edit property
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-amber-600 focus:text-amber-600 focus:bg-amber-50 cursor-pointer"
+                  onSelect={() => setArchiveOpen(true)}
+                >
+                  <Archive className="w-4 h-4 mr-2" />
+                  Archive property
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
         </div>
       </div>
 
@@ -155,8 +197,9 @@ export function PropertyLayout({ activeTab, children, property, progress }: Prop
         {children}
       </div>
 
-      {/* Archive confirmation dialog */}
-      <Dialog open={archiveOpen} onOpenChange={setArchiveOpen}>
+      {/* Archive confirmation dialog — mount only when open to avoid Radix id drift on hydrate */}
+      {archiveOpen && (
+      <Dialog open onOpenChange={setArchiveOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center mb-1">
@@ -199,6 +242,7 @@ export function PropertyLayout({ activeTab, children, property, progress }: Prop
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      )}
     </div>
   );
 }

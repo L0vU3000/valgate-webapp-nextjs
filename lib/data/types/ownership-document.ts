@@ -8,7 +8,7 @@ export const OwnershipDocumentSchema = z.object({
   type: z.string().min(1),
   documentDate: timestampSchema,
   expiryDate: timestampSchema.optional(),
-  owner: z.string().min(1),
+  ownershipRecordId: idSchema,
   status: z.enum(["Current", "Expiring Soon", "Pending Signature", "Superseded", "Archived"]).optional(),
   createdAt: timestampSchema,
   updatedAt: timestampSchema,

@@ -34,7 +34,7 @@ interface SidebarProps {
   onOpenAI: () => void;
 }
 
-export function Sidebar({ isDark, onToggleDark, onOpenAI }: SidebarProps) {
+export function Sidebar({ isDark, onOpenAI }: SidebarProps) {
   const [expanded, setExpanded] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
@@ -116,15 +116,26 @@ export function Sidebar({ isDark, onToggleDark, onOpenAI }: SidebarProps) {
         {/* AI Overlay button */}
         <div className="mt-auto pt-3">
           <button
+            type="button"
             onClick={onOpenAI}
             className={cn(
-              "ai-overlay-btn flex items-center gap-2.5 h-[52px] text-sm w-full",
-              expanded ? "rounded-[50px] px-4" : "rounded-[50px] justify-center",
+              "group flex w-full items-center gap-2.5 rounded-xl border border-border-default bg-surface-base text-sm font-medium text-foreground transition-[background-color,border-color,box-shadow] duration-200",
+              "hover:border-interactive-primary/35 hover:bg-surface-tint",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-interactive-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-base",
+              "active:scale-[0.98]",
+              expanded ? "h-11 px-3" : "mx-auto size-11 justify-center",
             )}
-            title={!expanded ? "AI Overlay" : undefined}
+            title={!expanded ? "Architect Core" : undefined}
           >
-            <Sparkles className="ai-icon size-5 shrink-0" />
-            {expanded && <span className="font-semibold tracking-wide">AI Overlay</span>}
+            <span
+              className={cn(
+                "flex shrink-0 items-center justify-center rounded-lg bg-interactive-primary/[0.08] text-interactive-primary transition-colors duration-200 group-hover:bg-interactive-primary/[0.12]",
+                expanded ? "size-7" : "size-8",
+              )}
+            >
+              <Sparkles className="size-3.5" strokeWidth={2} />
+            </span>
+            {expanded && <span className="truncate">Architect Core</span>}
           </button>
         </div>
       </nav>
@@ -132,12 +143,18 @@ export function Sidebar({ isDark, onToggleDark, onOpenAI }: SidebarProps) {
       {/* Dark mode + user avatar */}
       <div className="border-t border-border-default px-2 py-3 flex flex-col gap-2">
         <button
-          onClick={onToggleDark}
+          type="button"
+          disabled
+          aria-disabled="true"
           className={cn(
-            "flex items-center gap-3 h-11 px-3 rounded-xl text-sm text-secondary hover:bg-surface-tint hover:text-foreground transition-colors",
+            "flex h-11 cursor-not-allowed items-center gap-3 rounded-xl px-3 text-sm text-secondary/45",
             !expanded && "justify-center px-0",
           )}
-          title={!expanded ? (isDark ? "Light mode" : "Dark mode") : undefined}
+          title={
+            !expanded
+              ? "Theme switching coming soon"
+              : "Theme switching coming soon"
+          }
         >
           {isDark ? (
             <Sun className="size-5 shrink-0" />

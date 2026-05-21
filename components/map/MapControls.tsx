@@ -11,10 +11,17 @@ const CAMBODIA_ZOOM = 7;
 
 interface MapControlsProps {
   mapRef: React.RefObject<mapboxgl.Map | null>;
-  drawerOpen: boolean;
+  drawerOpen?: boolean;
+  resetCenter?: [number, number];
+  resetZoom?: number;
 }
 
-export function MapControls({ mapRef, drawerOpen }: MapControlsProps) {
+export function MapControls({
+  mapRef,
+  drawerOpen = false,
+  resetCenter = CAMBODIA_CENTER,
+  resetZoom = CAMBODIA_ZOOM,
+}: MapControlsProps) {
   return (
     <div
       className={cn(
@@ -32,7 +39,7 @@ export function MapControls({ mapRef, drawerOpen }: MapControlsProps) {
       <MapIconButton
         spin
         onClick={() =>
-          mapRef.current?.flyTo({ center: CAMBODIA_CENTER, zoom: CAMBODIA_ZOOM })
+          mapRef.current?.flyTo({ center: resetCenter, zoom: resetZoom })
         }
       >
         <RefreshCw className="size-4" />

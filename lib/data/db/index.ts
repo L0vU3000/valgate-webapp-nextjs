@@ -18,7 +18,7 @@ export * as ownershipDocuments from "./ownership-documents";
 export * as ownershipRecords from "./ownership-records";
 export * as ownershipHistory from "./ownership-history";
 export * as successors from "./successors";
-export * as successorPropertyAssignments from "./successor-property-assignments";
+export * as estateAssignments from "./successor-property-assignments";
 export * as estateActivityEvents from "./estate-activity-events";
 export * as professionals from "./professionals";
 export * as notificationPreferences from "./notification-preferences";

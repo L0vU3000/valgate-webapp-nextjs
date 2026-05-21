@@ -16,6 +16,7 @@ import type {
   PropertyLocation,
   PropertyFinance,
   PropertyMedia,
+  PropertyUse,
 } from "../types/property";
 
 const COLLECTION = "properties";
@@ -96,6 +97,13 @@ function splitProperty(p: Property): Record<string, Record<string, unknown>> {
     createdAt: p.createdAt,
     updatedAt: p.updatedAt,
     ...(p.isArchived !== undefined && { isArchived: p.isArchived }),
+    ...(p.propertyUse !== undefined && { propertyUse: p.propertyUse as PropertyUse }),
+    ...(p.rentalVerified !== undefined && { rentalVerified: p.rentalVerified }),
+    ...(p.rentalVerifiedAt !== undefined && { rentalVerifiedAt: p.rentalVerifiedAt }),
+    ...(p.rentalEvidenceDocIds !== undefined && { rentalEvidenceDocIds: p.rentalEvidenceDocIds }),
+    ...(p.estateVerified !== undefined && { estateVerified: p.estateVerified }),
+    ...(p.estateVerifiedAt !== undefined && { estateVerifiedAt: p.estateVerifiedAt }),
+    ...(p.estateEvidenceDocIds !== undefined && { estateEvidenceDocIds: p.estateEvidenceDocIds }),
   };
   const location: PropertyLocation = {
     addressLine: p.addressLine,
@@ -104,6 +112,9 @@ function splitProperty(p: Property): Record<string, Record<string, unknown>> {
     zip: p.zip,
     country: p.country,
     province: p.province,
+    locationVerified: p.locationVerified,
+    locationVerifiedAt: p.locationVerifiedAt,
+    locationEvidenceDocIds: p.locationEvidenceDocIds,
   };
   const finance: PropertyFinance = {
     purchasePrice: p.purchasePrice,
@@ -117,6 +128,9 @@ function splitProperty(p: Property): Record<string, Record<string, unknown>> {
     annualInsurance: p.annualInsurance,
     ownershipStatus: p.ownershipStatus,
     buyNumeric: p.buyNumeric,
+    financialsVerified: p.financialsVerified,
+    financialsVerifiedAt: p.financialsVerifiedAt,
+    financialsEvidenceDocIds: p.financialsEvidenceDocIds,
   };
   const media: PropertyMedia = {
     photoStorageIds: p.photoStorageIds,
