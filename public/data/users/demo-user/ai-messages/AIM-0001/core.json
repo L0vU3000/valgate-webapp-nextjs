@@ -1,0 +1,7 @@
+{
+  "id": "AIM-0001",
+  "sessionId": "AI-0001",
+  "role": "assistant",
+  "content": "Welcome back. Ask about your portfolio — property count, occupancy, monthly rent collection, or documents. I only use data from your account.",
+  "createdAt": 1779264000000
+}

@@ -1,0 +1,7 @@
+{
+  "id": "AIM-0047",
+  "sessionId": "AI-0007",
+  "role": "assistant",
+  "content": "Hi Chan — I can help with that.\n\nI don't have any property valuations in the data you've given me, so I can't tell which property is the most expensive. The context I can see is only documents (for example, title deeds for PROP-0001 and PROP-0006), not market values.\n\nWhat you can do:\n- Open your portfolio to see property values and sort by value: [View Portfolio](/portfolio)  \n- Or check a specific property page (for example: [/property/PROP-0001](/property/PROP-0001)) and look at its valuation/market data.\n\nIf you want, tell me a property ID to check (if you have its value), or I can guide you through finding/sorting valuations in the app. Which would you prefer?",
+  "createdAt": 1779348166694
+}

@@ -1,0 +1,9 @@
+{
+  "id": "AI-0003",
+  "title": "Land near river",
+  "contextRoute": "/property/PROP-0001/financials",
+  "contextPropertyId": "PROP-0001",
+  "status": "active",
+  "createdAt": 1779334835094,
+  "updatedAt": 1779346518729
+}
