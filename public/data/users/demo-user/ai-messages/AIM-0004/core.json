@@ -1,0 +1,7 @@
+{
+  "id": "AIM-0004",
+  "sessionId": "AI-0002",
+  "role": "assistant",
+  "content": "Welcome back, Chan. Here's your portfolio at a glance:\n\n- **16** active properties\n- **50%** occupancy (8 rented, 7 vacant)\n- **$10.79M** total portfolio value\n- **$0** collected vs **$1K** expected rent this month (May (UTC))\n\nAsk about occupancy, rent collection, a specific property, or your documents.",
+  "createdAt": 1779271899934
+}

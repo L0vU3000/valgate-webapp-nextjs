@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef, Fragment, useCallback } from "react";
-import type { Property } from "@/lib/mock-data";
+import type { Property } from "@/lib/data/types/property";
+import type { Document as DbDocument } from "@/lib/data/types/document";
+import type { Folder as DbFolder } from "@/lib/data/types/folder";
 import { PropertyLayout } from "@/components/property/PropertyLayout";
 import {
   FolderOpen,
@@ -28,6 +30,8 @@ import {
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { DocumentDetailView } from "@/components/property/DocumentDetailView";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { formatBytes } from "@/lib/format";
 
 type ViewMode = "list" | "grid";
 type UploadStatus = "uploading" | "done" | "failed" | "queued";
@@ -47,6 +51,29 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+const ENTITY_TYPE_CHIP: Record<string, { label: string; cls: string }> = {
+  "ownership-record": {
+    label: "Verifies Ownership",
+    cls: "bg-emerald-50 text-emerald-700",
+  },
+  "financials": {
+    label: "Verifies Financials",
+    cls: "bg-emerald-50 text-emerald-700",
+  },
+  "location-identity": {
+    label: "Verifies Location",
+    cls: "bg-emerald-50 text-emerald-700",
+  },
+  "rental": {
+    label: "Verifies Rental",
+    cls: "bg-emerald-50 text-emerald-700",
+  },
+  "estate-plan": {
+    label: "Verifies Estate",
+    cls: "bg-emerald-50 text-emerald-700",
+  },
+};
+
 type FileEntry = {
   name: string;
   type: string;
@@ -56,44 +83,20 @@ type FileEntry = {
   folder: string;
   size: string;
   date: string;
+  verifiesEntityType?: string;
 };
 
-const mainFolders = [
-  { name: "All Documents", icon: FolderOpen },
-  { name: "Title",         icon: FileText   },
-  { name: "Sales",         icon: FileText   },
-  { name: "Tax Receipt",   icon: FileText   },
-];
+function getFileIconStyle(doc: DbDocument): { type: string; icon: React.ElementType; iconClass: string } {
+  const ext = doc.extension?.toLowerCase();
+  if (doc.kind === "photo" || ext === "jpg" || ext === "jpeg" || ext === "png" || ext === "gif" || ext === "webp" || ext === "svg") {
+    return { type: "image", icon: Image, iconClass: "text-emerald-600" };
+  }
+  if (ext === "xlsx" || ext === "xls" || ext === "csv") {
+    return { type: "spreadsheet", icon: FileSpreadsheet, iconClass: "text-rose-600" };
+  }
+  return { type: "doc", icon: FileText, iconClass: "text-blue-600" };
+}
 
-const subFolders = ["Contract", "Receipts", "Tax", "Rental", "Images", "Videos"];
-
-const files: FileEntry[] = [
-  { name: "Title_Deed.pdf",                type: "doc",         icon: FileText,        iconClass: "text-blue-600",    thumb: null, folder: "Contract", size: "1.2 MB",  date: "Jan 12, 2022" },
-  { name: "Mortgage_Agreement_2022.pdf",   type: "doc",         icon: FileText,        iconClass: "text-blue-600",    thumb: null, folder: "Contract", size: "890 KB",  date: "Mar 4, 2022"  },
-  { name: "Insurance_Policy_2025.pdf",     type: "doc",         icon: FileText,        iconClass: "text-blue-600",    thumb: null, folder: "Contract", size: "2.1 MB",  date: "Jan 1, 2025"  },
-  { name: "Inspection_Report_Jan2026.pdf", type: "doc",         icon: FileText,        iconClass: "text-blue-600",    thumb: null, folder: "Contract", size: "4.5 MB",  date: "Jan 15, 2026" },
-  { name: "Lease_Template_v3.docx",        type: "doc",         icon: FileText,        iconClass: "text-blue-600",    thumb: null, folder: "Rental",   size: "340 KB",  date: "Jun 20, 2024" },
-  { name: "Tenant_Agreement_2024.pdf",     type: "doc",         icon: FileText,        iconClass: "text-blue-600",    thumb: null, folder: "Rental",   size: "780 KB",  date: "Jul 1, 2024"  },
-  { name: "Rental_Invoice_Mar2026.xlsx",   type: "spreadsheet", icon: FileSpreadsheet, iconClass: "text-rose-600",    thumb: null, folder: "Rental",   size: "56 KB",   date: "Mar 1, 2026"  },
-  { name: "Property_Tax_Return_2026.xlsx", type: "spreadsheet", icon: FileSpreadsheet, iconClass: "text-rose-600",    thumb: null, folder: "Tax",      size: "120 KB",  date: "Feb 28, 2026" },
-  { name: "Tax_Assessment_2025.pdf",       type: "doc",         icon: FileText,        iconClass: "text-blue-600",    thumb: null, folder: "Tax",      size: "640 KB",  date: "Nov 15, 2025" },
-  { name: "Transfer_Receipt_2022.pdf",     type: "doc",         icon: FileText,        iconClass: "text-blue-600",    thumb: null, folder: "Receipts", size: "220 KB",  date: "Mar 4, 2022"  },
-  {
-    name: "Property_Photos_Exterior.jpg", type: "image", icon: Image, iconClass: "text-emerald-600",
-    thumb: "https://images.unsplash.com/photo-1607005583234-531da6958271?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
-    folder: "Images", size: "3.8 MB", date: "May 10, 2022",
-  },
-  {
-    name: "Property_Photos_Interior.jpg", type: "image", icon: Image, iconClass: "text-emerald-600",
-    thumb: "https://images.unsplash.com/photo-1638285240257-0d37f116d7d8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
-    folder: "Images", size: "4.2 MB", date: "May 10, 2022",
-  },
-  {
-    name: "Site_Survey_Aerial.jpg", type: "image", icon: Image, iconClass: "text-emerald-600",
-    thumb: "https://images.unsplash.com/photo-1655241238128-018bd3a70821?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080",
-    folder: "Images", size: "6.1 MB", date: "Apr 22, 2022",
-  },
-];
 
 type TreeNode = {
   id: string;
@@ -101,36 +104,6 @@ type TreeNode = {
   children?: TreeNode[];
 };
 
-const locationTree: TreeNode[] = [
-  {
-    id: "root",
-    label: "Documents",
-    children: [
-      {
-        id: "compliance",
-        label: "Compliance",
-        children: [
-          { id: "compliance-2024", label: "2024" },
-          { id: "compliance-2025", label: "2025" },
-        ],
-      },
-      {
-        id: "legal",
-        label: "Legal",
-        children: [
-          { id: "legal-contracts", label: "Contracts" },
-          { id: "legal-permits", label: "Permits" },
-        ],
-      },
-      { id: "contract", label: "Contract" },
-      { id: "receipts", label: "Receipts" },
-      { id: "tax", label: "Tax" },
-      { id: "rental", label: "Rental" },
-      { id: "images", label: "Images" },
-      { id: "videos", label: "Videos" },
-    ],
-  },
-];
 
 function findPath(nodes: TreeNode[], targetId: string, acc: TreeNode[] = []): TreeNode[] | null {
   for (const node of nodes) {
@@ -142,6 +115,25 @@ function findPath(nodes: TreeNode[], targetId: string, acc: TreeNode[] = []): Tr
     }
   }
   return null;
+}
+
+function buildFolderTree(folders: DbFolder[]): TreeNode[] {
+  const byParent = new Map<string | undefined, DbFolder[]>();
+  for (const f of folders) {
+    const key = f.parentFolderId;
+    if (!byParent.has(key)) byParent.set(key, []);
+    byParent.get(key)!.push(f);
+  }
+  function makeNodes(parentId?: string): TreeNode[] {
+    return (byParent.get(parentId) ?? [])
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((f) => {
+        const children = makeNodes(f.id);
+        return { id: f.id, label: f.name, ...(children.length ? { children } : {}) };
+      });
+  }
+  const rootNodes = makeNodes(undefined);
+  return [{ id: "root", label: "Documents", children: rootNodes.length ? rootNodes : undefined }];
 }
 
 function FolderTreeItem({
@@ -256,7 +248,19 @@ function Checkbox({
   );
 }
 
-export function PropertyDocumentsPage({ property }: { property: Property }) {
+interface Props {
+  property: Property;
+  userId: string;
+  documents: DbDocument[];
+  folders: DbFolder[];
+}
+
+export function PropertyDocumentsPage({ property, userId, documents: dbDocuments = [], folders: dbFolders = [] }: Props) {
+  const folderTree = buildFolderTree(dbFolders);
+  const rootFolders = dbFolders
+    .filter((f) => !f.parentFolderId)
+    .sort((a, b) => a.name.localeCompare(b.name));
+
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [activeFolder, setActiveFolder] = useState("All Documents");
   const [activeSubfolder, setActiveSubfolder] = useState<string | null>(null);
@@ -265,8 +269,8 @@ export function PropertyDocumentsPage({ property }: { property: Property }) {
   const [showAddFolder, setShowAddFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [locationOpen, setLocationOpen] = useState(false);
-  const [selectedLocation, setSelectedLocation] = useState<TreeNode>(locationTree[0]);
-  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(["root", "compliance"]));
+  const [selectedLocation, setSelectedLocation] = useState<TreeNode>(folderTree[0]);
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(["root"]));
   const locationRef = useRef<HTMLDivElement>(null);
 
   // Multi-select state
@@ -274,8 +278,8 @@ export function PropertyDocumentsPage({ property }: { property: Property }) {
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
   const [showMoveModal, setShowMoveModal] = useState(false);
   const [moveLocationOpen, setMoveLocationOpen] = useState(false);
-  const [moveSelectedLocation, setMoveSelectedLocation] = useState<TreeNode>(locationTree[0]);
-  const [moveExpandedNodes, setMoveExpandedNodes] = useState<Set<string>>(new Set(["root", "compliance"]));
+  const [moveSelectedLocation, setMoveSelectedLocation] = useState<TreeNode>(folderTree[0]);
+  const [moveExpandedNodes, setMoveExpandedNodes] = useState<Set<string>>(new Set(["root"]));
   const moveLocationRef = useRef<HTMLDivElement>(null);
 
   // Upload modal state
@@ -289,6 +293,22 @@ export function PropertyDocumentsPage({ property }: { property: Property }) {
   const [showUploadPanel, setShowUploadPanel] = useState(false);
   const [uploadTab, setUploadTab] = useState<UploadTab>("all");
   const [panelMinimized, setPanelMinimized] = useState(false);
+
+  const folderMap = new Map(dbFolders.map((f) => [f.id, f.name]));
+  const files: FileEntry[] = dbDocuments.map((doc) => {
+    const { type, icon, iconClass } = getFileIconStyle(doc);
+    return {
+      name: doc.name,
+      type,
+      icon,
+      iconClass,
+      thumb: null,
+      folder: doc.folderId ? (folderMap.get(doc.folderId) ?? "—") : "—",
+      size: doc.sizeBytes ? formatBytes(doc.sizeBytes) : "—",
+      date: new Date(doc.uploadedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+      verifiesEntityType: doc.verifies?.entityType,
+    };
+  });
 
   function toggleSelectFile(name: string) {
     setSelectedFiles((prev) => {
@@ -433,14 +453,15 @@ export function PropertyDocumentsPage({ property }: { property: Property }) {
               </button>
 
               {/* Tree children with vertical connecting line */}
+              {rootFolders.length > 0 && (
               <div className="flex pl-[10px]">
                 <div className="w-px bg-slate-200 mx-[9px] self-stretch" />
                 <div className="flex flex-col gap-0.5 flex-1">
-                  {mainFolders.slice(1).map((f) => {
+                  {rootFolders.slice(0, 3).map((f) => {
                     const isActive = activeFolder === f.name;
                     return (
                       <button
-                        key={f.name}
+                        key={f.id}
                         onClick={() => { setActiveFolder(f.name); setActiveSubfolder(null); }}
                         className={`flex items-center gap-2.5 w-full px-2 py-1.5 rounded-lg text-[13px] transition-all duration-200 ${
                           isActive
@@ -449,7 +470,7 @@ export function PropertyDocumentsPage({ property }: { property: Property }) {
                         }`}
                         style={isActive ? { background: "rgba(0,74,198,0.07)" } : {}}
                       >
-                        <f.icon
+                        <FolderOpen
                           className={`w-4 h-4 shrink-0 ${isActive ? "text-[--val-primary-dark]" : "text-slate-400"}`}
                         />
                         {f.name}
@@ -458,6 +479,7 @@ export function PropertyDocumentsPage({ property }: { property: Property }) {
                   })}
                 </div>
               </div>
+              )}
             </nav>
           </aside>
 
@@ -501,20 +523,28 @@ export function PropertyDocumentsPage({ property }: { property: Property }) {
               <div className="flex items-center justify-between mb-4">
                 <p className="text-base font-bold text-[--val-heading]">Folders</p>
                 <button
-                  onClick={() => { setNewFolderName(""); setSelectedLocation(locationTree[0]); setLocationOpen(false); setShowAddFolder(true); }}
+                  onClick={() => { setNewFolderName(""); setSelectedLocation(folderTree[0]); setLocationOpen(false); setShowAddFolder(true); }}
                   className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 rounded text-[14px] font-semibold text-[--val-heading] hover:bg-slate-50 active:scale-[0.97] transition-all duration-150"
                 >
                   <FolderPlus className="w-4 h-4 text-[--val-primary-dark]" />
                   Add Folder
                 </button>
               </div>
+              {rootFolders.length === 0 ? (
+                <EmptyState
+                  className="py-10"
+                  icon={<FolderOpen className="size-5" />}
+                  title="No folders yet"
+                  description="Create a folder to organize your documents."
+                />
+              ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                {subFolders.map((sf, i) => {
-                  const isActive = activeSubfolder === sf;
+                {rootFolders.map((f, i) => {
+                  const isActive = activeSubfolder === f.name;
                   return (
                     <button
-                      key={sf}
-                      onClick={() => setActiveSubfolder(isActive ? null : sf)}
+                      key={f.id}
+                      onClick={() => setActiveSubfolder(isActive ? null : f.name)}
                       aria-pressed={isActive}
                       className={`flex items-center gap-2.5 px-4 py-3.5 rounded-xl border text-left transition-all duration-200 hover:-translate-y-0.5 ${
                         isActive
@@ -529,12 +559,13 @@ export function PropertyDocumentsPage({ property }: { property: Property }) {
                       <span
                         className={`text-[13px] font-medium transition-colors duration-200 ${isActive ? "text-[--val-primary-dark]" : "text-[--val-heading]"}`}
                       >
-                        {sf}
+                        {f.name}
                       </span>
                     </button>
                   );
                 })}
               </div>
+              )}
             </div>
 
           {/* Files section */}
@@ -609,17 +640,12 @@ export function PropertyDocumentsPage({ property }: { property: Property }) {
               </div>
 
               {filteredFiles.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 text-center">
-                  <div className="w-12 h-12 rounded-xl bg-val-bg-tint flex items-center justify-center mb-4">
-                    <FolderOpen className="size-6 text-slate-400" />
-                  </div>
-                  <p className="text-sm font-semibold text-[--val-heading]">
-                    No files in {activeSubfolder}
-                  </p>
-                  <p className="text-xs text-slate-400 mt-1 max-w-[220px]">
-                    Upload a document to get started.
-                  </p>
-                </div>
+                <EmptyState
+                  className="py-16"
+                  icon={<FolderOpen className="size-6" />}
+                  title={activeSubfolder ? `No files in ${activeSubfolder}` : "No documents yet"}
+                  description="Upload a document to get started."
+                />
               ) : viewMode === "list" ? (
                 <ListView
                   files={filteredFiles}
@@ -662,7 +688,7 @@ export function PropertyDocumentsPage({ property }: { property: Property }) {
               </button>
               <div className="w-px h-4 bg-white/15 mx-0.5" />
               <button
-                onClick={() => { setMoveSelectedLocation(locationTree[0]); setMoveLocationOpen(false); setShowMoveModal(true); }}
+                onClick={() => { setMoveSelectedLocation(folderTree[0]); setMoveLocationOpen(false); setShowMoveModal(true); }}
                 className="flex items-center gap-2 text-[13px] font-semibold text-white px-3 py-1.5 rounded-xl hover:bg-white/15 transition-colors duration-150 whitespace-nowrap"
               >
                 <FolderInput className="w-3.5 h-3.5 text-blue-200" />
@@ -750,7 +776,7 @@ export function PropertyDocumentsPage({ property }: { property: Property }) {
                     <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
                       <FolderOpen className="w-3.5 h-3.5 shrink-0 text-slate-400" />
                       {(() => {
-                        const full = findPath(locationTree, selectedLocation.id) ?? [selectedLocation];
+                        const full = findPath(folderTree, selectedLocation.id) ?? [selectedLocation];
                         const overflow = full.length > 3;
                         const visible = overflow ? full.slice(-2) : full;
                         return (
@@ -791,7 +817,7 @@ export function PropertyDocumentsPage({ property }: { property: Property }) {
                       }}
                     >
                       <div className="max-h-[240px] overflow-y-auto py-2">
-                        {locationTree.map((node) => (
+                        {folderTree.map((node) => (
                           <FolderTreeItem
                             key={node.id}
                             node={node}
@@ -913,7 +939,7 @@ export function PropertyDocumentsPage({ property }: { property: Property }) {
                     <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
                       <FolderOpen className="w-3.5 h-3.5 shrink-0 text-slate-400" />
                       {(() => {
-                        const full = findPath(locationTree, moveSelectedLocation.id) ?? [moveSelectedLocation];
+                        const full = findPath(folderTree, moveSelectedLocation.id) ?? [moveSelectedLocation];
                         const overflow = full.length > 3;
                         const visible = overflow ? full.slice(-2) : full;
                         return (
@@ -954,7 +980,7 @@ export function PropertyDocumentsPage({ property }: { property: Property }) {
                       }}
                     >
                       <div className="max-h-[240px] overflow-y-auto py-2">
-                        {locationTree.map((node) => (
+                        {folderTree.map((node) => (
                           <FolderTreeItem
                             key={node.id}
                             node={node}
@@ -1443,6 +1469,11 @@ function ListView({
                   <div className="flex items-center gap-3">
                     <f.icon className={`w-5 h-5 shrink-0 ${f.iconClass}`} />
                     <span className="text-[14px] font-medium text-[--val-heading]">{f.name}</span>
+                    {f.verifiesEntityType && ENTITY_TYPE_CHIP[f.verifiesEntityType] && (
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${ENTITY_TYPE_CHIP[f.verifiesEntityType].cls}`}>
+                        {ENTITY_TYPE_CHIP[f.verifiesEntityType].label}
+                      </span>
+                    )}
                   </div>
                 </td>
                 <td className="px-4 py-3.5">
@@ -1510,6 +1541,7 @@ function GridView({
                   src={f.thumb}
                   alt={f.name}
                   className="w-full h-full object-cover"
+                  loading="lazy"
                 />
               ) : (
                 <f.icon className={`w-10 h-10 ${f.iconClass}`} />

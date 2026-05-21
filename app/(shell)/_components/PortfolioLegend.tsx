@@ -2,7 +2,7 @@
 
 import { cn } from "@/components/ui/utils";
 import { formatCurrency } from "@/lib/format";
-import { healthClass, healthBgClass } from "@/lib/property-helpers";
+import { progressClass, progressBgClass } from "@/lib/property-helpers";
 import type { PortfolioStats } from "@/app/(shell)/portfolio/queries";
 
 export function PortfolioLegend({
@@ -69,22 +69,22 @@ export function PortfolioLegend({
 
           <div className="w-px h-4 bg-border-subtle shrink-0" />
 
-          {/* Avg health */}
+          {/* Avg progress */}
           <div className="flex items-center gap-1.5">
             <span
               className={cn(
                 "w-1.5 h-1.5 rounded-full shrink-0",
-                healthBgClass(stats.avgHealth),
+                progressBgClass(stats.avgProgress),
               )}
             />
-            <span className="text-xs text-secondary">Avg Health</span>
+            <span className="text-xs text-secondary">Avg Progress</span>
             <span
               className={cn(
                 "text-sm font-medium",
-                healthClass(stats.avgHealth),
+                progressClass(stats.avgProgress),
               )}
             >
-              {stats.avgHealth}%
+              {stats.avgProgress}%
             </span>
           </div>
         </div>

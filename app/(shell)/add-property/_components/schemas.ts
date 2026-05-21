@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+const numericString = z
+  .string()
+  .regex(/^\d+(\.\d+)?$/, "Must be a number");
+
 export const step1Schema = z.object({
   propertyType: z.enum([
     "residential",
@@ -10,20 +14,21 @@ export const step1Schema = z.object({
     "industrial",
     "construction",
     "other",
-    "",
-  ]).optional(),
+  ], { message: "Please select a property type" }),
 });
 
 export const step2Schema = z.object({
-  propertyName: z.string().optional(),
-  addressLine: z.string().optional(),
+  propertyName: z.string().min(1, "Please enter a property name"),
+  addressLine: z.string().min(1, "Please enter an address"),
   addressLine2: z.string().optional(),
   city: z.string().optional(),
-  state: z.string().optional(),
+  province: z.string().min(1, "Please select a province"),
   zip: z.string().optional(),
   country: z.string().optional(),
   yearBuilt: z.string().optional(),
-  totalArea: z.string().optional(),
+  totalArea: numericString.refine((s) => s.length > 0, {
+    message: "Please enter a total area",
+  }),
   bedrooms: z.string().optional(),
   bathrooms: z.string().optional(),
   parkingSpaces: z.string().optional(),
@@ -31,9 +36,15 @@ export const step2Schema = z.object({
 });
 
 export const step3Schema = z.object({
+  status: z.enum(["Rented", "Vacant", "Owner-Occupied"], {
+    message: "Please choose a current status",
+  }),
+  currentMarketValue: z
+    .string()
+    .min(1, "Please enter an estimated market value")
+    .regex(/^\d+$/, "Market value must be a whole-dollar amount"),
   purchasePrice: z.string().optional(),
   purchaseDate: z.string().optional(),
-  currentMarketValue: z.string().optional(),
   ownershipStatus: z.string().optional(),
   outstandingMortgage: z.string().optional(),
   monthlyPayment: z.string().optional(),

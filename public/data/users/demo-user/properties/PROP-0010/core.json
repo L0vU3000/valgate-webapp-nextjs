@@ -1,0 +1,12 @@
+{
+  "id": "PROP-0010",
+  "userId": "demo-user",
+  "name": "Toul Kork Urban Parcel",
+  "code": "PROP-0010",
+  "type": "land",
+  "status": "Vacant",
+  "lat": 11.575,
+  "lng": 104.921,
+  "createdAt": 1778482038699,
+  "updatedAt": 1778482038699
+}

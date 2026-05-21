@@ -1,0 +1,12 @@
+{
+  "id": "PROP-0007",
+  "userId": "demo-user",
+  "name": "Pub Street Commerce Block",
+  "code": "PROP-0007",
+  "type": "commercial",
+  "status": "Rented",
+  "lat": 13.361,
+  "lng": 103.8558,
+  "createdAt": 1778482038688,
+  "updatedAt": 1778482038688
+}

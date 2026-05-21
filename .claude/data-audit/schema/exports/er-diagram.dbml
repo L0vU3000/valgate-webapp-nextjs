@@ -1,0 +1,783 @@
+// =====================================================================
+// Valgate — DBML for dbdiagram.io
+// Generated 2026-05-08 from lib/data/types/*.ts (current Zod state)
+// Source of truth: ../ref/07-entity-fields.md
+//
+// Paste into https://dbdiagram.io/d to render.
+// =====================================================================
+
+Project Valgate {
+  database_type: 'PostgreSQL'
+  Note: '''
+    Property-management SaaS — 25 entities + users stub (26 tables).
+    Anomalies tagged A1-A12 inline; full list in ref/07 §5.
+  '''
+}
+
+// ---------------------------------------------------------------------
+// ENUMs (19)
+// ---------------------------------------------------------------------
+Enum co_owner_role {
+  Primary
+  Minor
+}
+
+Enum distribution_method {
+  "Pro-Rata by Share"
+  "Equal Split"
+  Custom
+}
+
+Enum document_kind {
+  photo
+  document
+}
+
+Enum estate_activity_kind {
+  "successor.created"
+  "successor.updated"
+  "successor.deleted"
+  "successor.assigned"
+  "document.added"
+  "document.removed"
+  "estate.reviewed"
+}
+
+Enum expense_category {
+  Maintenance
+  Utilities
+  Insurance
+  Tax
+  Management
+  Other
+}
+
+Enum holding_type {
+  "Tenancy in Common"
+  "Joint Tenancy"
+  "Sole Ownership"
+  Trust
+  LLC
+  Other
+}
+
+Enum lease_stage {
+  Approaching
+  Offered
+  Signed
+  Declined
+}
+
+Enum maintenance_severity {
+  Emergency
+  Urgent
+  Standard
+}
+
+Enum maintenance_status {
+  Open
+  InProgress
+  Resolved
+}
+
+Enum notification_category {
+  MAINTENANCE
+  LEASING
+  COMPLIANCE
+  PAYMENT
+  APPLICATIONS
+}
+
+Enum payment_kind {
+  Rent
+  Fee
+  Deposit
+  Refund
+}
+
+Enum payment_status {
+  Paid
+  Pending
+  Failed
+  Overdue
+}
+
+Enum property_status {
+  Rented
+  Vacant
+  "For Sale"
+  Sold
+  Archived
+  "Owner-Occupied"
+}
+
+Enum property_title {
+  "Hard title"
+  "Soft title"
+  "—"
+}
+
+Enum property_type_choice {
+  residential
+  commercial
+  "multi-unit"
+  retail
+  land
+  industrial
+  construction
+  other
+}
+
+Enum successor_role {
+  primary
+  contingent
+}
+
+Enum tax_entity {
+  Individual
+  "S-Corp"
+  "C-Corp"
+  LLC
+  Partnership
+  Trust
+  Other
+}
+
+Enum tenant_status {
+  Paid
+  Overdue
+  Pending
+}
+
+Enum terrain_type {
+  Flat
+  Rolling
+  Hilly
+  Mountainous
+  Mixed
+}
+
+// ---------------------------------------------------------------------
+// users (stub)
+// ---------------------------------------------------------------------
+Table users {
+  id text [pk, note: 'Clerk subject (e.g. "demo-user")']
+}
+
+// ---------------------------------------------------------------------
+// properties — central aggregate (38 fields)
+// ---------------------------------------------------------------------
+Table properties {
+  id                    text [pk]
+  user_id               text [not null, ref: > users.id]
+  name                  text [not null]
+  code                  text [not null]
+  type                  property_type_choice [not null]
+  status                property_status [not null]
+  health                int  [not null, note: '0-100; Q5.K resolved: drop']
+  lat                   double [not null]
+  lng                   double [not null]
+  is_archived           boolean
+  // location
+  address_line          text
+  address_line2         text
+  city                  text
+  zip                   text
+  country               text
+  province              text [not null]
+  // finance
+  purchase_price        text [note: 'A2: should be numeric; Q5.P']
+  purchase_date         bigint [note: 'ms epoch']
+  current_market_value  numeric
+  outstanding_mortgage  numeric
+  monthly_payment       numeric
+  interest_rate         numeric
+  annual_property_tax   numeric
+  tax_assessment_value  numeric
+  annual_insurance      numeric
+  ownership_status      text
+  buy_numeric           numeric [not null, note: 'canonical purchase $']
+  // media / specs
+  photo_storage_ids     "text[]"
+  document_storage_ids  "text[]"
+  total_area            text [not null, note: 'A2: should be numeric']
+  year_built            text [note: 'A2: should be int']
+  bedrooms              text [note: 'A2: should be int']
+  bathrooms             text [note: 'A2: should be int']
+  parking_spaces        text [note: 'A2']
+  storage_unit          text
+  title                 property_title [not null]
+  created_at            bigint [not null]
+  updated_at            bigint [not null]
+
+  Indexes {
+    user_id              [name: 'idx_properties_user_id']
+    (user_id, status)    [name: 'idx_properties_user_id_status']
+  }
+
+  Note: 'Central aggregate. 38 fields.  Hub of all property-scoped entities.'
+}
+
+// ---------------------------------------------------------------------
+// tenants
+// ---------------------------------------------------------------------
+Table tenants {
+  id          text [pk]
+  user_id     text [not null, ref: > users.id]
+  property_id text [not null, ref: > properties.id]
+  name        text [not null]
+  unit        text [not null]
+  rent        numeric [not null]
+  status      tenant_status [not null]
+  email       text [note: 'A9: not validated as email']
+  phone       text
+
+  Indexes {
+    user_id     [name: 'idx_tenants_user_id']
+    property_id [name: 'idx_tenants_property_id']
+  }
+}
+
+// ---------------------------------------------------------------------
+// leases
+// ---------------------------------------------------------------------
+Table leases {
+  id              text [pk]
+  user_id         text [not null, ref: > users.id]
+  property_id     text [not null, ref: > properties.id]
+  tenant_id       text [ref: > tenants.id]
+  unit            text [not null]
+  stage           lease_stage [not null]
+  start_date      bigint [not null]
+  end_date        bigint [not null]
+  monthly_rent    numeric [not null]
+  term_months     int [not null]
+  renewal_status  text
+
+  Indexes {
+    user_id            [name: 'idx_leases_user_id']
+    property_id        [name: 'idx_leases_property_id']
+    (user_id, stage)   [name: 'idx_leases_user_id_stage']
+  }
+
+  Note: 'A11 missing: deposit (numeric) and auto_pay (boolean) — UI shows "—" placeholders.'
+}
+
+// ---------------------------------------------------------------------
+// payments
+// ---------------------------------------------------------------------
+Table payments {
+  id          text [pk]
+  user_id     text [not null, ref: > users.id]
+  property_id text [not null, ref: > properties.id]
+  lease_id    text [ref: > leases.id]
+  tenant_id   text [ref: > tenants.id]
+  date        bigint [not null, note: 'Q3.E: due-date vs invoice-date open']
+  kind        payment_kind [not null]
+  amount      numeric [not null]
+  method      text [not null]
+  status      payment_status [not null]
+
+  Indexes {
+    user_id              [name: 'idx_payments_user_id']
+    property_id          [name: 'idx_payments_property_id']
+    lease_id             [name: 'idx_payments_lease_id']
+    (user_id, status)    [name: 'idx_payments_user_id_status']
+  }
+}
+
+// ---------------------------------------------------------------------
+// expenses
+// ---------------------------------------------------------------------
+Table expenses {
+  id          text [pk]
+  user_id     text [not null, ref: > users.id]
+  property_id text [not null, ref: > properties.id]
+  date        bigint [not null]
+  category    expense_category [not null]
+  amount      numeric [not null]
+  note        text
+
+  Indexes {
+    user_id                [name: 'idx_expenses_user_id']
+    property_id            [name: 'idx_expenses_property_id']
+    (user_id, category)    [name: 'idx_expenses_user_id_category']
+  }
+}
+
+// ---------------------------------------------------------------------
+// folders (self-FK via parent_folder_id)
+// ---------------------------------------------------------------------
+Table folders {
+  id                text [pk]
+  user_id           text [not null, ref: > users.id]
+  property_id       text [not null, ref: > properties.id]
+  parent_folder_id  text [ref: > folders.id, note: 'self-FK; recursive folder tree']
+  name              text [not null]
+  created_at        bigint [not null]
+
+  Indexes {
+    user_id          [name: 'idx_folders_user_id']
+    property_id      [name: 'idx_folders_property_id']
+    parent_folder_id [name: 'idx_folders_parent_folder_id']
+  }
+}
+
+// ---------------------------------------------------------------------
+// documents
+// ---------------------------------------------------------------------
+Table documents {
+  id                text [pk]
+  user_id           text [not null, ref: > users.id]
+  property_id       text [not null, ref: > properties.id]
+  folder_id         text [ref: > folders.id]
+  name              text [not null]
+  kind              document_kind [not null]
+  mime_type         text
+  extension         text
+  size_bytes        bigint
+  storage_id        text [not null, note: 'Q5.C: → v.id("_storage") on Convex']
+  thumb_storage_id  text
+  category          text [note: 'A3 / Q5.R: should be closed enum']
+  uploaded_by       text
+  uploaded_at       bigint [not null]
+
+  Indexes {
+    user_id              [name: 'idx_documents_user_id']
+    property_id          [name: 'idx_documents_property_id']
+    folder_id            [name: 'idx_documents_folder_id']
+    (user_id, category)  [name: 'idx_documents_user_id_category']
+  }
+}
+
+// ---------------------------------------------------------------------
+// inspections
+// ---------------------------------------------------------------------
+Table inspections {
+  id          text [pk]
+  user_id     text [not null, ref: > users.id]
+  property_id text [not null, ref: > properties.id]
+  date        text [not null, note: 'A1: should be bigint timestamp']
+  type        text [not null]
+  inspector   text [not null]
+  status      text [not null, note: 'A3: should be enum (Passed/Failed/Pending)']
+  issues      int  [not null]
+  created_at  bigint [not null]
+  updated_at  bigint [not null]
+
+  Indexes {
+    property_id [name: 'idx_inspections_property_id']
+  }
+}
+
+// ---------------------------------------------------------------------
+// certifications
+// ---------------------------------------------------------------------
+Table certifications {
+  id          text [pk]
+  user_id     text [not null, ref: > users.id]
+  property_id text [not null, ref: > properties.id]
+  name        text [not null]
+  status      text [not null, note: 'A3: should be enum (Valid/Expiring/Expired)']
+  issued      text [not null, note: 'A1: should be bigint']
+  expires     text [not null, note: 'A1: should be bigint']
+  inspector   text [not null]
+  created_at  bigint [not null]
+  updated_at  bigint [not null]
+
+  Indexes {
+    property_id [name: 'idx_certifications_property_id']
+  }
+}
+
+// ---------------------------------------------------------------------
+// safety_risks
+// ---------------------------------------------------------------------
+Table safety_risks {
+  id              text [pk]
+  user_id         text [not null, ref: > users.id]
+  property_id     text [not null, ref: > properties.id]
+  severity_label  text [not null, note: 'A3: should be enum (High/Medium/Low)']
+  title           text [not null]
+  desc            text [not null]
+  created_at      bigint [not null]
+  updated_at      bigint [not null]
+
+  Indexes {
+    property_id [name: 'idx_safety_risks_property_id']
+  }
+
+  Note: 'A12 (resolved as intentional): no `resolved` field; KPI = risks.length'
+}
+
+// ---------------------------------------------------------------------
+// emergency_contacts
+// ---------------------------------------------------------------------
+Table emergency_contacts {
+  id          text [pk]
+  user_id     text [not null, ref: > users.id]
+  property_id text [not null, ref: > properties.id]
+  name        text [not null]
+  phone       text [not null]
+  sub         text
+  created_at  bigint [not null]
+  updated_at  bigint [not null]
+
+  Indexes {
+    property_id [name: 'idx_emergency_contacts_property_id']
+  }
+}
+
+// ---------------------------------------------------------------------
+// maintenance_items
+// ---------------------------------------------------------------------
+Table maintenance_items {
+  id          text [pk]
+  user_id     text [not null, ref: > users.id]
+  property_id text [not null, ref: > properties.id]
+  severity    maintenance_severity [not null]
+  title       text [not null]
+  status      maintenance_status [not null]
+  created_at  bigint [not null]
+  cost        numeric [note: 'added Phase 6.8b']
+
+  Indexes {
+    user_id              [name: 'idx_maintenance_items_user_id']
+    property_id          [name: 'idx_maintenance_items_property_id']
+    (user_id, status)    [name: 'idx_maintenance_items_user_id_status']
+  }
+}
+
+// ---------------------------------------------------------------------
+// property_valuations
+// ---------------------------------------------------------------------
+Table property_valuations {
+  id          text [pk]
+  user_id     text [not null, ref: > users.id]
+  property_id text [not null, ref: > properties.id]
+  month       text [not null, note: '"MMM YYYY" e.g. "Jan 2026"']
+  price       numeric [not null]
+  recorded_at bigint  [not null]
+
+  Indexes {
+    property_id                  [name: 'idx_property_valuations_property_id']
+    (property_id, recorded_at)   [name: 'idx_property_valuations_property_id_recorded_at']
+  }
+}
+
+// ---------------------------------------------------------------------
+// land_parcels
+// ---------------------------------------------------------------------
+Table land_parcels {
+  id                    text [pk]
+  user_id               text [not null, ref: > users.id]
+  property_id           text [not null, ref: > properties.id]
+  size_m2               numeric [not null]
+  width_m               numeric
+  length_m              numeric
+  zoning_code           text
+  zoning_class          text
+  development_potential "text[]"
+  elevation_m           numeric
+  slope_angle_deg       numeric
+  terrain_type          terrain_type
+
+  Indexes {
+    property_id [name: 'idx_land_parcels_property_id']
+  }
+}
+
+// ---------------------------------------------------------------------
+// co_owners
+// ---------------------------------------------------------------------
+Table co_owners {
+  id              text [pk]
+  user_id         text [not null, ref: > users.id]
+  property_id     text [not null, ref: > properties.id]
+  name            text [not null]
+  role            co_owner_role [not null]
+  share_percent   numeric [not null, note: '0-100; Q3.G validates sum']
+  email           text
+  phone           text
+  address         text
+  ssn_masked      text [note: 'PII Q5.S — KMS encrypt later']
+  tax_entity      tax_entity
+  tax_1099_status text
+
+  Indexes {
+    property_id [name: 'idx_co_owners_property_id']
+  }
+}
+
+// ---------------------------------------------------------------------
+// ownership_records (loan + acquisition + holding type)
+// ---------------------------------------------------------------------
+Table ownership_records {
+  id                  text [pk]
+  user_id             text [not null, ref: > users.id]
+  property_id         text [not null, ref: > properties.id]
+  holding_type        holding_type [not null]
+  loan_type           text
+  loan_amount         numeric
+  loan_term_years     int
+  interest_rate       numeric
+  origination_date    bigint
+  maturity_date       bigint
+  next_payment_due    bigint
+  lender_name         text
+  down_payment        numeric
+  closing_costs       numeric
+  distribution_method distribution_method
+  created_at          bigint [not null]
+  updated_at          bigint [not null]
+
+  Indexes {
+    property_id [name: 'idx_ownership_records_property_id']
+  }
+}
+
+// ---------------------------------------------------------------------
+// ownership_documents (deeds / title docs)
+// ---------------------------------------------------------------------
+Table ownership_documents {
+  id          text [pk]
+  user_id     text [not null, ref: > users.id]
+  property_id text [not null, ref: > properties.id]
+  name        text [not null]
+  type        text [not null]
+  date        text [not null, note: 'A1: should be bigint']
+  owner       text [not null]
+  status      text [note: 'enum: Current | Superseded | Archived']
+  created_at  bigint [not null]
+  updated_at  bigint [not null]
+
+  Indexes {
+    property_id [name: 'idx_ownership_documents_property_id']
+  }
+}
+
+// ---------------------------------------------------------------------
+// ownership_history (timeline)
+// ---------------------------------------------------------------------
+Table ownership_history {
+  id          text [pk]
+  user_id     text [not null, ref: > users.id]
+  property_id text [not null, ref: > properties.id]
+  date        text [not null, note: 'A1: should be bigint']
+  text        text [not null]
+  color       text [not null, note: 'A7: presentational on entity']
+  created_at  bigint [not null]
+  updated_at  bigint [not null]
+
+  Indexes {
+    property_id [name: 'idx_ownership_history_property_id']
+  }
+}
+
+// ---------------------------------------------------------------------
+// successors (no property_id; assigned via join table)
+// ---------------------------------------------------------------------
+Table successors {
+  id          text [pk]
+  user_id     text [not null, ref: > users.id]
+  name        text [not null]
+  initials    text [not null]
+  relation    text [not null]
+  role        successor_role [not null, note: 'A5: lowercase (vs CoOwnerRole capitalized)']
+  share       numeric [not null]
+  verified    boolean [not null]
+  created_at  bigint [not null]
+  updated_at  bigint [not null]
+
+  Indexes {
+    user_id [name: 'idx_successors_user_id']
+  }
+}
+
+// ---------------------------------------------------------------------
+// successor_property_assignments (join table — Q4.V resolution)
+// ---------------------------------------------------------------------
+Table successor_property_assignments {
+  id            text [pk]
+  user_id       text [not null, ref: > users.id]
+  successor_id  text [not null, ref: > successors.id]
+  property_id   text [not null, ref: > properties.id]
+  created_at    bigint [not null]
+  updated_at    bigint [not null]
+
+  Indexes {
+    user_id      [name: 'idx_spa_user_id']
+    successor_id [name: 'idx_spa_successor_id']
+    property_id  [name: 'idx_spa_property_id']
+  }
+}
+
+// ---------------------------------------------------------------------
+// estate_activity_events
+// ---------------------------------------------------------------------
+Table estate_activity_events {
+  id          text [pk]
+  user_id     text [not null, ref: > users.id]
+  kind        estate_activity_kind [not null]
+  title       text [not null]
+  description text [not null]
+  property_id text [ref: > properties.id]
+  created_at  bigint [not null]
+  updated_at  bigint [not null]
+
+  Indexes {
+    user_id                  [name: 'idx_eae_user_id']
+    property_id              [name: 'idx_eae_property_id']
+    (user_id, created_at)    [name: 'idx_eae_user_id_created_at']
+  }
+}
+
+// ---------------------------------------------------------------------
+// professionals (directory; no property_id)
+// ---------------------------------------------------------------------
+Table professionals {
+  id                text [pk]
+  user_id           text [not null, ref: > users.id]
+  name              text [not null]
+  company           text [not null]
+  category          text [not null, note: 'A3: should be 8-value enum']
+  rating            numeric [not null, note: '0-5']
+  review_count      int [not null]
+  linked_properties int [not null, note: 'PF6: scalar (could become FK array)']
+  available         boolean [not null]
+  initials          text [not null]
+  avatar_bg         text [not null, note: 'A7: presentational']
+  email             text [note: 'only entity with .email() validator in Zod']
+  phone             text
+  verified          boolean [not null, default: false]
+  created_at        bigint [not null]
+  updated_at        bigint [not null]
+
+  Indexes {
+    user_id                 [name: 'idx_professionals_user_id']
+    (user_id, category)     [name: 'idx_professionals_user_id_category']
+    (user_id, verified)     [name: 'idx_professionals_user_id_verified']
+  }
+}
+
+// ---------------------------------------------------------------------
+// user_profiles (1:1 with users; id == user_id for demo)
+// ---------------------------------------------------------------------
+Table user_profiles {
+  id              text [pk]
+  user_id         text [not null, ref: > users.id]
+  first_name      text [not null, note: 'A9: no min(1)']
+  last_name       text [not null]
+  job_title       text
+  employee_id     text
+  email           text [note: 'A9: not validated as email']
+  phone           text
+  office_location text
+  language        text
+  timezone        text
+  currency        text
+  role            text [note: 'A3 / Q4.X: open string']
+  dashboard_view  text [note: 'Q5.X']
+  member_since    bigint
+  last_login      bigint
+  created_at      bigint [not null]
+  updated_at      bigint [not null]
+
+  Indexes {
+    user_id [name: 'idx_user_profiles_user_id']
+  }
+}
+
+// ---------------------------------------------------------------------
+// notifications
+// ---------------------------------------------------------------------
+Table notifications {
+  id          text [pk]
+  user_id     text [not null, ref: > users.id]
+  property_id text [ref: > properties.id, note: 'A6: was generic z.string() — Q5.T closed']
+  category    notification_category [not null, note: 'UPPERCASE (A5 inconsistency)']
+  title       text [not null]
+  description text [not null]
+  created_at  bigint [not null]
+  read        boolean [not null]
+  link_to     text
+
+  Indexes {
+    user_id              [name: 'idx_notifications_user_id']
+    property_id          [name: 'idx_notifications_property_id']
+    (user_id, read)      [name: 'idx_notifications_user_id_read']
+  }
+}
+
+// ---------------------------------------------------------------------
+// notification_preferences
+// ---------------------------------------------------------------------
+Table notification_preferences {
+  id          text [pk]
+  user_id     text [not null, ref: > users.id]
+  event_type  text [not null]
+  email       boolean [not null]
+  slack       boolean [not null]
+  sms         boolean [not null]
+  created_at  bigint [not null]
+  updated_at  bigint [not null]
+
+  Indexes {
+    user_id                    [name: 'idx_npref_user_id']
+    (user_id, event_type)      [name: 'idx_npref_user_id_event_type']
+  }
+}
+
+// =====================================================================
+// Visual clusters (TableGroup) — colored groupings in dbdiagram.io
+// =====================================================================
+
+TableGroup identity [color: #9333ea] {
+  users
+  user_profiles
+  professionals
+}
+
+TableGroup core_property [color: #06b6d4] {
+  properties
+  land_parcels
+  property_valuations
+}
+
+TableGroup tenancy_finance [color: #eab308] {
+  tenants
+  leases
+  payments
+  expenses
+}
+
+TableGroup documents_files [color: #f97316] {
+  documents
+  folders
+}
+
+TableGroup safety [color: #ef4444] {
+  inspections
+  certifications
+  safety_risks
+  emergency_contacts
+  maintenance_items
+}
+
+TableGroup ownership [color: #22c55e] {
+  co_owners
+  ownership_records
+  ownership_documents
+  ownership_history
+}
+
+TableGroup estate [color: #16a34a] {
+  successors
+  successor_property_assignments
+  estate_activity_events
+}
+
+TableGroup notifications_settings [color: #fb923c] {
+  notifications
+  notification_preferences
+}

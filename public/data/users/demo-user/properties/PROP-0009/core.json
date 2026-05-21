@@ -1,0 +1,12 @@
+{
+  "id": "PROP-0009",
+  "userId": "demo-user",
+  "name": "Mekong Riverside Plot",
+  "code": "PROP-0009",
+  "type": "land",
+  "status": "Vacant",
+  "lat": 11.52,
+  "lng": 105.45,
+  "createdAt": 1778482038692,
+  "updatedAt": 1778482038692
+}

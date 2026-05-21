@@ -1,0 +1,13 @@
+{
+  "id": "PROP-0002",
+  "userId": "demo-user",
+  "name": "Siem Reap Land Plot",
+  "code": "PROP-0002",
+  "type": "land",
+  "status": "Rented",
+  "lat": 13.3633,
+  "lng": 103.86,
+  "createdAt": 1778482038661,
+  "updatedAt": 1778482038661,
+  "propertyUse": "investment"
+}

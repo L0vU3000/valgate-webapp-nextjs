@@ -5,8 +5,8 @@ import type { DataModel } from "../_generated/dataModel";
 
 export const propertyTriggers = new Triggers<DataModel>();
 
-// Recalculate property.health (0..100) based on related data completeness
-export async function recalculatePropertyHealth(
+// Recalculate property.progress (0..100) based on related data completeness
+export async function recalculatePropertyProgress(
   ctx: any,
   propertyId: Id<"property"> | undefined | null,
 ): Promise<void> {
@@ -87,12 +87,12 @@ export async function recalculatePropertyHealth(
   const hasMembership = memberships.length > 0;
   const ownersScore = hasMembership ? WEIGHTS.owners : 0;
 
-  let health = locationScore + documentsScore + ownersScore;
-  if (health < 0) health = 0;
-  if (health > 100) health = 100;
+  let progress = locationScore + documentsScore + ownersScore;
+  if (progress < 0) progress = 0;
+  if (progress > 100) progress = 100;
 
-  if (property.health !== health) {
-    await ctx.db.patch(propertyId, { health });
+  if (property.progress !== progress) {
+    await ctx.db.patch(propertyId, { progress });
   }
 }
 
@@ -110,7 +110,7 @@ for (const table of [
   propertyTriggers.register(table as any, async (ctx: any, change: any) => {
     const propertyId: Id<"property"> | undefined = (change.newDoc?.propertyId || change.oldDoc?.propertyId) as any;
     if (!propertyId) return;
-    await recalculatePropertyHealth(ctx, propertyId);
+    await recalculatePropertyProgress(ctx, propertyId);
   });
 }
 

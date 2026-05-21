@@ -1,0 +1,17 @@
+{
+  "id": "DOC-0001",
+  "propertyId": "PROP-0001",
+  "folderId": "FLDR-0001",
+  "name": "Title_Deed.pdf",
+  "kind": "document",
+  "mimeType": "application/pdf",
+  "extension": "pdf",
+  "sizeBytes": 1240000,
+  "storageId": "_storage/PROP-0001/title-deed.pdf",
+  "category": "Title",
+  "uploadedAt": 1743897600000,
+  "verifies": {
+    "entityType": "ownership-record",
+    "entityId": "OREC-0001"
+  }
+}

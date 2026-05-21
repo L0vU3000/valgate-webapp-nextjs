@@ -1,0 +1,12 @@
+{
+  "id": "PROP-0016",
+  "userId": "demo-user",
+  "name": "Chamkar Mon Lot",
+  "code": "PROP-0016",
+  "type": "land",
+  "status": "Rented",
+  "lat": 11.553,
+  "lng": 104.927,
+  "createdAt": 1778482038712,
+  "updatedAt": 1778482038712
+}

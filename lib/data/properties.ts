@@ -1,14 +1,20 @@
-import { properties, type Property } from "@/lib/mock-data";
+import "server-only";
+import * as propertiesDb from "@/lib/data/db/properties";
+import { getCurrentUserId } from "@/lib/data/auth-shim";
 
-export type { Property, StatusVariant, TitleVariant } from "@/lib/mock-data";
+export type {
+  Property,
+  TitleVariant,
+  PropertyListItem,
+} from "@/lib/data/types/property";
+import type { Property } from "@/lib/data/types/property";
 
 export async function getProperties(): Promise<Property[]> {
-  return structuredClone(properties);
+  return propertiesDb.list(getCurrentUserId());
 }
 
-export async function getPropertyByIdParam(id: string): Promise<Property | null> {
-  const n = Number(id);
-  if (!Number.isFinite(n)) return null;
-  const found = properties.find((p) => p.id === n);
-  return found ? structuredClone(found) : null;
+export async function getPropertyByIdParam(
+  id: string,
+): Promise<Property | null> {
+  return propertiesDb.get(getCurrentUserId(), id);
 }

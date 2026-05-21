@@ -6,7 +6,11 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "seed": "node --conditions=react-server --import tsx scripts/seed.ts",
+    "seed:reset": "node --conditions=react-server --import tsx scripts/seed.ts --reset",
+    "regen-ai-ref": "node --import tsx scripts/regenerate-ai-data-ref.ts",
+    "backfill:property-coords": "node --import tsx scripts/backfill-property-coords.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.53",
@@ -16,6 +20,7 @@
     "@aws-sdk/s3-request-presigner": "^3.1033.0",
     "@clerk/nextjs": "^7.2.3",
     "@convex-dev/agent": "^0.6.1",
+    "@dagrejs/dagre": "^3.0.0",
     "@emotion/react": "11.14.0",
     "@emotion/styled": "11.14.1",
     "@hookform/resolvers": "^5.2.2",
@@ -47,6 +52,7 @@
     "@radix-ui/react-toggle": "1.1.2",
     "@radix-ui/react-toggle-group": "1.1.2",
     "@radix-ui/react-tooltip": "1.1.8",
+    "@xyflow/react": "^12.10.2",
     "ai": "^6.0.168",
     "canvas-confetti": "1.9.4",
     "class-variance-authority": "0.7.1",
@@ -92,6 +98,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.5.15",
     "tailwindcss": "^4",
+    "tsx": "^4.21.0",
     "typescript": "^5"
   }
 }

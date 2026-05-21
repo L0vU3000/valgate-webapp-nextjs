@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 import { Toaster } from "sonner";
 import { cn } from "../ui/utils";
 import { Sidebar } from "./Sidebar";
@@ -10,6 +11,7 @@ import { ShellContext } from "./shell-context";
 export function ShellLayout({ children }: { children: React.ReactNode }) {
   const [isDark, setIsDark] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
+  const pathname = usePathname();
 
   return (
     <ShellContext.Provider value={{ isDark }}>
@@ -27,7 +29,7 @@ export function ShellLayout({ children }: { children: React.ReactNode }) {
         <main className="flex flex-col flex-1 overflow-hidden bg-surface-page h-full">
           {children}
         </main>
-        <AIOverlay open={aiOpen} onClose={() => setAiOpen(false)} />
+        <AIOverlay open={aiOpen} onClose={() => setAiOpen(false)} pathname={pathname} />
         <Toaster position="bottom-right" richColors />
       </div>
     </ShellContext.Provider>

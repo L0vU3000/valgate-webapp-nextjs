@@ -1,3 +1,8 @@
+import "server-only";
+import * as db from "@/lib/data/db";
+import { getCurrentUserId } from "@/lib/data/auth-shim";
+import { type UserProfile } from "@/lib/data/types/user-profile";
+
 export type NotificationRow = {
   key: string;
   label: string;
@@ -9,6 +14,7 @@ export type NotifChannels = { email: boolean; slack: boolean; sms: boolean };
 export type SelectOption = { value: string; label: string };
 
 export type SettingsPageData = {
+  profile: Pick<UserProfile, "firstName" | "lastName" | "email" | "jobTitle" | "role" | "phone"> | null;
   notificationRows: NotificationRow[];
   defaultNotifications: Record<string, NotifChannels>;
   dashboardViewOptions: SelectOption[];
@@ -21,18 +27,36 @@ export type SettingsPageData = {
   };
 };
 
+const NOTIFICATION_ROWS: NotificationRow[] = [
+  { key: "valuationUpdates", label: "Property Valuation Updates", description: "When an asset value changes significantly" },
+  { key: "teamComments", label: "Team Comments", description: "When a team member mentions you" },
+  { key: "marketInsights", label: "Market Insights", description: "Weekly summary of market trends" },
+];
+
+const HARD_DEFAULTS: Record<string, NotifChannels> = {
+  valuationUpdates: { email: true, slack: true, sms: false },
+  teamComments: { email: true, slack: true, sms: true },
+  marketInsights: { email: true, slack: false, sms: false },
+};
+
 export async function getSettingsPageData(): Promise<SettingsPageData> {
+  const userId = getCurrentUserId();
+  const storedPrefs = await db.notificationPreferences.list(userId);
+  const profile = await db.userProfiles.get(userId, userId);
+
+  const defaultNotifications: Record<string, NotifChannels> = { ...HARD_DEFAULTS };
+  for (const pref of storedPrefs) {
+    defaultNotifications[pref.eventType] = {
+      email: pref.email,
+      slack: pref.slack,
+      sms: pref.sms,
+    };
+  }
+
   return {
-    notificationRows: [
-      { key: "valuationUpdates", label: "Property Valuation Updates", description: "When an asset value changes significantly" },
-      { key: "teamComments", label: "Team Comments", description: "When a team member mentions you" },
-      { key: "marketInsights", label: "Market Insights", description: "Weekly summary of market trends" },
-    ],
-    defaultNotifications: {
-      valuationUpdates: { email: true, slack: true, sms: false },
-      teamComments: { email: true, slack: true, sms: true },
-      marketInsights: { email: true, slack: false, sms: false },
-    },
+    profile,
+    notificationRows: NOTIFICATION_ROWS,
+    defaultNotifications,
     dashboardViewOptions: [
       { value: "portfolio-overview", label: "Portfolio Overview" },
       { value: "analytics", label: "Analytics" },
@@ -51,9 +75,9 @@ export async function getSettingsPageData(): Promise<SettingsPageData> {
       { value: "Asia/Singapore", label: "(GMT+08:00) Singapore" },
     ],
     defaults: {
-      dashboardView: "portfolio-overview",
-      language: "en-US",
-      timezone: "America/New_York",
+      dashboardView: profile?.dashboardView ?? "portfolio-overview",
+      language: profile?.language ?? "en-US",
+      timezone: profile?.timezone ?? "Asia/Phnom_Penh",
     },
   };
 }

@@ -1,0 +1,9 @@
+{
+  "id": "PMT-0004",
+  "leaseId": "LEASE-0002",
+  "date": 1774569600000,
+  "kind": "Rent",
+  "amount": 1200,
+  "method": "Wing",
+  "status": "Overdue"
+}

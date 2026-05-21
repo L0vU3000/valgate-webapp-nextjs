@@ -9,23 +9,10 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import type { Property } from "@/lib/mock-data";
+import type { Property } from "@/lib/data/types/property";
+import type { PropertyValuation } from "@/lib/data/types/property-valuation";
 import { PropertyLayout } from "@/components/property/PropertyLayout";
 
-const valueHistory = [
-  { month: "Jan", price: 380000 },
-  { month: "Feb", price: 400000 },
-  { month: "Mar", price: 420000 },
-  { month: "Apr", price: 410000 },
-  { month: "May", price: 440000 },
-  { month: "Jun", price: 460000 },
-  { month: "Jul", price: 485000 },
-  { month: "Aug", price: 470000 },
-  { month: "Sep", price: 465000 },
-  { month: "Oct", price: 475000 },
-  { month: "Nov", price: 480000 },
-  { month: "Dec", price: 485000 },
-];
 
 const comparables = [
   { address: "1847 Oak Street", dist: "0.3 mi", sold: "Feb 2026", type: "House", builtYear: "'18", beds: "3", baths: "2", sqft: "1,850", price: "$492,000", psqft: "$266" },
@@ -120,9 +107,71 @@ function KpiCard({
   );
 }
 
-export function PropertyValuationPage({ property }: { property: Property }) {
+interface Props {
+  property: Property;
+  valuations: PropertyValuation[];
+}
+
+export function PropertyValuationPage({ property, valuations = [] }: Props) {
   const [mounted, setMounted] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
+
+  const sorted = [...valuations].sort((a, b) => a.recordedAt - b.recordedAt);
+  const latest = sorted.at(-1) ?? null;
+  const prev = sorted.at(-2) ?? null;
+  const valueHistory = sorted.map((v) => ({ month: v.month, price: v.price }));
+
+  const currentValueStr = latest ? "$" + latest.price.toLocaleString("en-US") : "$0";
+
+  const qoqDelta = latest && prev ? latest.price - prev.price : null;
+  const qoqStr =
+    qoqDelta !== null
+      ? qoqDelta >= 0
+        ? `▲ +$${qoqDelta.toLocaleString("en-US")} since last quarter`
+        : `▼ −$${Math.abs(qoqDelta).toLocaleString("en-US")} since last quarter`
+      : "No prior record";
+  const qoqColor =
+    qoqDelta !== null ? (qoqDelta >= 0 ? "#059669" : "#dc2626") : "#64748b";
+
+  const appreciation =
+    latest && property.buyNumeric ? latest.price - property.buyNumeric : null;
+  const appreciationStr =
+    appreciation !== null ? "$" + Math.abs(appreciation).toLocaleString("en-US") : "$0";
+
+  const appreciationPct =
+    appreciation !== null && property.buyNumeric > 0
+      ? (appreciation / property.buyNumeric) * 100
+      : null;
+  const purchaseDateLabel = property.purchaseDate
+    ? new Date(property.purchaseDate).toLocaleDateString("en-US", {
+        month: "short",
+        year: "numeric",
+        timeZone: "UTC",
+      })
+    : null;
+  const appreciationLabel =
+    appreciationPct !== null
+      ? appreciationPct >= 0
+        ? `${appreciationPct.toFixed(1)}% gain`
+        : `${Math.abs(appreciationPct).toFixed(1)}% loss`
+      : null;
+  const appreciationSubStr =
+    appreciationLabel !== null
+      ? `${appreciationLabel}${purchaseDateLabel ? ` since purchase (${purchaseDateLabel})` : ""}`
+      : "—";
+  const appreciationSubColor =
+    appreciation !== null ? (appreciation >= 0 ? "#059669" : "#dc2626") : "#64748b";
+
+  const yourEstimateStr = latest ? "$" + latest.price.toLocaleString("en-US") : "—";
+
+  const chartPrices = valueHistory.map((v) => v.price);
+  const chartPriceMin = chartPrices.length > 0 ? Math.min(...chartPrices) : 0;
+  const chartPriceMax = chartPrices.length > 0 ? Math.max(...chartPrices) : 1_000_000;
+  const chartPad = Math.max((chartPriceMax - chartPriceMin) * 0.2, chartPriceMin * 0.03);
+  const chartDomain: [number, number] = [
+    Math.floor((chartPriceMin - chartPad) / 10_000) * 10_000,
+    Math.ceil((chartPriceMax + chartPad) / 10_000) * 10_000,
+  ];
 
   useEffect(() => {
     setReducedMotion(window.matchMedia("(prefers-reduced-motion: reduce)").matches);
@@ -170,9 +219,9 @@ export function PropertyValuationPage({ property }: { property: Property }) {
           <div className="grid grid-cols-3 gap-4">
             <KpiCard
               label="Current Market Value"
-              value="$485,000"
-              sub="▲ +$18,500 since last quarter"
-              subColor="#059669"
+              value={currentValueStr}
+              sub={qoqStr}
+              subColor={qoqColor}
               cta="Update Estimates"
               ctaLabel="Update value estimates"
               duration={1400}
@@ -196,9 +245,9 @@ export function PropertyValuationPage({ property }: { property: Property }) {
             />
             <KpiCard
               label="Total Appreciation"
-              value="$112,500"
-              sub="30.2% gain since purchase (Dec 2019)"
-              subColor="#059669"
+              value={appreciationStr}
+              sub={appreciationSubStr}
+              subColor={appreciationSubColor}
               cta="View Full History"
               ctaLabel="View full appreciation history"
               duration={1100}
@@ -222,50 +271,60 @@ export function PropertyValuationPage({ property }: { property: Property }) {
                 </button>
               </div>
               <p className="text-[12px] text-slate-400 mb-5">12-month valuation trend</p>
-              <ResponsiveContainer width="100%" height={220}>
-                <AreaChart data={valueHistory} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="valGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#2563EB" stopOpacity={0.10} />
-                      <stop offset="95%" stopColor="#2563EB" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                  <XAxis
-                    dataKey="month"
-                    tick={{ fontSize: 11, fill: "#94a3b8" }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    tick={{ fontSize: 11, fill: "#94a3b8" }}
-                    tickFormatter={(v) => `$${v / 1000}k`}
-                    axisLine={false}
-                    tickLine={false}
-                    domain={[340000, 520000]}
-                  />
-                  <Tooltip
-                    formatter={(v: number) => [`$${v.toLocaleString()}`, "Value"]}
-                    contentStyle={{
-                      background: "#fff",
-                      border: "1px solid #e2e8f0",
-                      borderRadius: 8,
-                      fontSize: 12,
-                      boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-                    }}
-                    cursor={{ stroke: "#e2e8f0", strokeWidth: 1 }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="price"
-                    stroke="#2563EB"
-                    strokeWidth={2}
-                    fill="url(#valGradient)"
-                    dot={false}
-                    activeDot={{ r: 4, fill: "#2563EB", strokeWidth: 2, stroke: "#fff" }}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+              {valueHistory.length === 0 ? (
+                <div className="h-[220px] flex items-center justify-center text-slate-400 text-sm">
+                  No valuation history yet
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={220}>
+                  <AreaChart data={valueHistory} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="valGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#2563EB" stopOpacity={0.10} />
+                        <stop offset="95%" stopColor="#2563EB" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                    <XAxis
+                      dataKey="month"
+                      tick={{ fontSize: 11, fill: "#94a3b8" }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 11, fill: "#94a3b8" }}
+                      tickFormatter={(v: number) =>
+                        v >= 1_000_000
+                          ? `$${(v / 1_000_000).toFixed(1)}M`
+                          : `$${Math.round(v / 1000)}k`
+                      }
+                      axisLine={false}
+                      tickLine={false}
+                      domain={chartDomain}
+                    />
+                    <Tooltip
+                      formatter={(v: number) => [`$${v.toLocaleString()}`, "Value"]}
+                      contentStyle={{
+                        background: "#fff",
+                        border: "1px solid #e2e8f0",
+                        borderRadius: 8,
+                        fontSize: 12,
+                        boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+                      }}
+                      cursor={{ stroke: "#e2e8f0", strokeWidth: 1 }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="price"
+                      stroke="#2563EB"
+                      strokeWidth={2}
+                      fill="url(#valGradient)"
+                      dot={false}
+                      activeDot={{ r: 4, fill: "#2563EB", strokeWidth: 2, stroke: "#fff" }}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
             </div>
 
             {/* Market Insight */}
@@ -392,7 +451,7 @@ export function PropertyValuationPage({ property }: { property: Property }) {
                 <p className="text-[12px] text-slate-500">
                   Average comp price: <span className="text-val-heading font-semibold">$492,000</span>
                   <span className="mx-2 text-slate-300">·</span>
-                  Your estimate: <span className="text-val-heading font-semibold">$485,000</span>
+                  Your estimate: <span className="text-val-heading font-semibold">{yourEstimateStr}</span>
                   <span className="mx-2 text-slate-300">·</span>
                   <span className="text-amber-600 font-semibold">1.4% below comps</span>
                 </p>

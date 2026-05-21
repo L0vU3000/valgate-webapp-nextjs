@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { Check, Smartphone, Download } from "lucide-react";
 import { AppHeader } from "@/components/layout/AppHeader";
 import type { SettingsPageData, NotifChannels } from "../queries";
+import { saveNotificationPreference, saveUserPreferences } from "../actions";
 
 /* Staggered section entrance — reusable inline style helper */
 function sectionStyle(i: number): React.CSSProperties {
@@ -17,6 +18,7 @@ export function SettingsPage({ data }: { data: SettingsPageData }) {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [, startTransition] = useTransition();
 
   const [notifications, setNotifications] = useState<Record<string, NotifChannels>>(
     data.defaultNotifications,
@@ -28,10 +30,11 @@ export function SettingsPage({ data }: { data: SettingsPageData }) {
   const [timezone, setTimezone] = useState(data.defaults.timezone);
 
   const toggleNotif = (key: string, channel: keyof NotifChannels) => {
-    setNotifications((prev) => ({
-      ...prev,
-      [key]: { ...prev[key], [channel]: !prev[key][channel] },
-    }));
+    setNotifications((prev) => {
+      const updatedChannels = { ...prev[key], [channel]: !prev[key][channel] };
+      startTransition(() => void saveNotificationPreference(key, updatedChannels));
+      return { ...prev, [key]: updatedChannels };
+    });
     setFlashRow(key);
     setTimeout(() => setFlashRow(null), 350);
   };
@@ -57,10 +60,50 @@ export function SettingsPage({ data }: { data: SettingsPageData }) {
           </p>
         </div>
 
+        {/* Profile Section */}
+        {data.profile && (
+          <section
+            className="grid grid-cols-3 gap-8 pb-8 border-b border-[#e8eaed]"
+            style={sectionStyle(1)}
+          >
+            <div className="flex flex-col gap-2">
+              <h2 className="font-display font-bold text-[20px] leading-[28px] text-foreground">Profile</h2>
+              <p className="font-sans text-[14px] leading-[20px] text-tertiary">
+                Your personal information and identity on the platform.
+              </p>
+            </div>
+            <div className="col-span-2 bg-white border border-[#d1d5db] rounded-[12px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] p-[25px] flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="size-[64px] rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-display font-bold text-[24px]">
+                  {data.profile.firstName[0]}{data.profile.lastName[0]}
+                </div>
+                <div className="flex flex-col">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-display font-bold text-[18px] text-val-heading">
+                      {data.profile.firstName} {data.profile.lastName}
+                    </h3>
+                    {data.profile.role && (
+                      <span className="bg-slate-100 text-slate-600 text-[11px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                        {data.profile.role}
+                      </span>
+                    )}
+                  </div>
+                  <p className="font-sans text-[14px] text-tertiary">
+                    {data.profile.jobTitle} • {data.profile.email}
+                  </p>
+                </div>
+              </div>
+              <button disabled className="border border-[#d1d5db] rounded-[8px] px-[17px] py-[9px] font-sans font-medium text-[14px] leading-[20px] text-val-heading bg-[#f5f6f7] cursor-not-allowed opacity-50">
+                Edit Profile
+              </button>
+            </div>
+          </section>
+        )}
+
         {/* Security Section */}
         <section
           className="grid grid-cols-3 gap-8 pb-8 border-b border-[#e8eaed]"
-          style={sectionStyle(1)}
+          style={sectionStyle(2)}
         >
           <div className="flex flex-col gap-2">
             <h2 className="font-display font-bold text-[20px] leading-[28px] text-foreground">Security</h2>
@@ -128,7 +171,7 @@ export function SettingsPage({ data }: { data: SettingsPageData }) {
         {/* Notifications Section */}
         <section
           className="grid grid-cols-3 gap-8 pb-8 border-b border-[#e8eaed]"
-          style={sectionStyle(2)}
+          style={sectionStyle(3)}
         >
           <div className="flex flex-col gap-2">
             <h2 className="font-display font-bold text-[20px] leading-[28px] text-foreground">Notifications</h2>
@@ -173,7 +216,7 @@ export function SettingsPage({ data }: { data: SettingsPageData }) {
         {/* Preferences Section */}
         <section
           className="grid grid-cols-3 gap-8 pb-8 border-b border-[#e8eaed]"
-          style={sectionStyle(3)}
+          style={sectionStyle(4)}
         >
           <div className="flex flex-col gap-2">
             <h2 className="font-display font-bold text-[20px] leading-[28px] text-foreground">Preferences</h2>
@@ -186,20 +229,29 @@ export function SettingsPage({ data }: { data: SettingsPageData }) {
               <SelectField
                 label="Default Dashboard View"
                 value={dashboardView}
-                onChange={setDashboardView}
+                onChange={(v) => {
+                  setDashboardView(v);
+                  startTransition(() => void saveUserPreferences({ dashboardView: v }));
+                }}
                 options={data.dashboardViewOptions}
               />
               <SelectField
                 label="Preferred Language"
                 value={language}
-                onChange={setLanguage}
+                onChange={(v) => {
+                  setLanguage(v);
+                  startTransition(() => void saveUserPreferences({ language: v }));
+                }}
                 options={data.languageOptions}
               />
               <div className="col-span-2">
                 <SelectField
                   label="Timezone"
                   value={timezone}
-                  onChange={setTimezone}
+                  onChange={(v) => {
+                    setTimezone(v);
+                    startTransition(() => void saveUserPreferences({ timezone: v }));
+                  }}
                   options={data.timezoneOptions}
                 />
               </div>
@@ -210,7 +262,7 @@ export function SettingsPage({ data }: { data: SettingsPageData }) {
         {/* Data & Privacy Section */}
         <section
           className="grid grid-cols-3 gap-8 pb-8 border-b border-[#e8eaed]"
-          style={sectionStyle(4)}
+          style={sectionStyle(5)}
         >
           <div className="flex flex-col gap-2">
             <h2 className="font-display font-bold text-[20px] leading-[28px] text-foreground">Data &amp; Privacy</h2>
@@ -237,7 +289,7 @@ export function SettingsPage({ data }: { data: SettingsPageData }) {
         {/* Danger Zone Section */}
         <section
           className="grid grid-cols-3 gap-8 pb-12"
-          style={sectionStyle(5)}
+          style={sectionStyle(6)}
         >
           <div className="flex flex-col gap-2">
             <h2 className="font-display font-bold text-[20px] leading-[28px] text-[#e11d48]">Danger Zone</h2>

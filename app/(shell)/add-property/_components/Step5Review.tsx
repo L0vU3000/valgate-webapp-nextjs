@@ -152,7 +152,7 @@ export function Step5Review({
     : "—";
 
   const addressLines = [form.addressLine, form.addressLine2].filter(Boolean);
-  const cityLine = [form.city, form.state, form.zip].filter(Boolean).join(", ");
+  const cityLine = [form.city, form.province, form.zip].filter(Boolean).join(", ");
 
   const extraPhotos = Math.max(0, form.photos.length - 4);
 

@@ -27,6 +27,20 @@ export function Step4PhotosDocs({ form, setForm }: { form: FormData; setForm: (f
     setForm({ ...form, documents: form.documents.filter((_, j) => j !== i) });
   }
 
+  function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    if (files.length === 0) return;
+    setForm({ ...form, photos: [...form.photos, ...files.map((f) => f.name)] });
+    e.target.value = "";
+  }
+
+  function handleDocChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    if (files.length === 0) return;
+    setForm({ ...form, documents: [...form.documents, ...files.map((f) => f.name)] });
+    e.target.value = "";
+  }
+
   return (
     <div className="flex-1 min-h-0 flex flex-col w-full max-w-[760px] mx-auto pb-8">
       {/* Header */}
@@ -69,7 +83,7 @@ export function Step4PhotosDocs({ form, setForm }: { form: FormData; setForm: (f
               <Plus className="w-3.5 h-3.5" />
               Add more
             </motion.button>
-            <input ref={photoInputRef} type="file" accept="image/*" multiple className="hidden" />
+            <input ref={photoInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoChange} />
           </div>
 
           {form.photos.length > 0 ? (
@@ -152,7 +166,7 @@ export function Step4PhotosDocs({ form, setForm }: { form: FormData; setForm: (f
               <Upload className="w-4 h-4" />
               Upload
             </motion.button>
-            <input ref={docInputRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx" multiple className="hidden" />
+            <input ref={docInputRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx" multiple className="hidden" onChange={handleDocChange} />
           </div>
 
           {form.documents.length > 0 ? (

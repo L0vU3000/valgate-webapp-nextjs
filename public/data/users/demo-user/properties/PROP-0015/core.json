@@ -1,0 +1,12 @@
+{
+  "id": "PROP-0015",
+  "userId": "demo-user",
+  "name": "Toul Tom Poung Parcel",
+  "code": "PROP-0015",
+  "type": "land",
+  "status": "Rented",
+  "lat": 11.548,
+  "lng": 104.919,
+  "createdAt": 1778482038710,
+  "updatedAt": 1778482038710
+}

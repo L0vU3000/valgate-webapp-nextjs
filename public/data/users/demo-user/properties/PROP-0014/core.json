@@ -1,0 +1,12 @@
+{
+  "id": "PROP-0014",
+  "userId": "demo-user",
+  "name": "Prey Veng Family Residence",
+  "code": "PROP-0014",
+  "type": "residential",
+  "status": "Rented",
+  "lat": 11.47,
+  "lng": 105.31,
+  "createdAt": 1778482038707,
+  "updatedAt": 1778482038707
+}

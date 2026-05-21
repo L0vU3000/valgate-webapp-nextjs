@@ -1,0 +1,10 @@
+{
+  "id": "TEN-0004",
+  "propertyId": "PROP-0002",
+  "name": "Chantha Vorn",
+  "unit": "Unit A",
+  "rent": 600,
+  "status": "Paid",
+  "email": "chantha.vorn@example.com",
+  "phone": "+855 77 123 456"
+}

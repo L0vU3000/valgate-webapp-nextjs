@@ -5,17 +5,20 @@ import { useRouter } from "next/navigation";
 import {
   Building2,
   DollarSign,
-  Home,
-  Map,
   TrendingUp,
-  AlertTriangle,
   Plus,
 } from "lucide-react";
 import type { PortfolioPageData } from "../queries";
-import { PropertyFilters } from "@/components/portfolio/PropertyFilters";
+import type { PropertyStatus } from "@/lib/data/types/property";
+import dynamic from "next/dynamic";
 import { PropertyTable } from "@/components/portfolio/PropertyTable";
-import type { TableAnimationConfig } from "@/components/portfolio/PropertyTable";
+const PropertyFilters = dynamic(
+  () => import("@/components/portfolio/PropertyFilters").then((m) => ({ default: m.PropertyFilters })),
+  { ssr: false }
+);
+import type { TableAnimationConfig, SortKey } from "@/components/portfolio/PropertyTable";
 import { AppHeader } from "@/components/layout/AppHeader";
+import { CAMBODIA_PROVINCES } from "@/lib/constants/cambodia-provinces";
 
 const PAGE_SIZE = 16;
 
@@ -24,28 +27,24 @@ const PORTFOLIO_TABLE_ANIMATION: TableAnimationConfig = {
   containerDelay: 280,
   rowDuration: 400,
   rowStagger: 25,
-  healthBarDelay: 100,
-  healthBarStagger: 30,
+  progressBarDelay: 100,
+  progressBarStagger: 30,
 };
 
-const provinces = [
-  "All", "Banteay Meanchey", "Battambang", "Kampong Cham", "Kampong Chhnang",
-  "Kampong Speu", "Kampong Thom", "Kampot", "Kandal", "Kep", "Koh Kong",
-  "Kratie", "Mondulkiri", "Oddar Meanchey", "Pailin", "Phnom Penh",
-  "Preah Vihear", "Prey Veng", "Pursat", "Ratanakiri", "Siem Reap",
-  "Sihanoukville", "Stung Treng", "Svay Rieng", "Takeo", "Tbong Khmum",
-];
+const provinces = ["All", ...CAMBODIA_PROVINCES];
 
 
 export function PortfolioPage({ data }: { data: PortfolioPageData }) {
-  const { properties: initialProperties, stats, kpis } = data;
-  const avgOccupancy = stats.avgHealth.toFixed(1);
+  const { properties: activeProperties, archivedProperties, stats, kpis, archivedCount, soldCount, showArchived } = data;
 
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("Property Type");
-  const [statusFilter, setStatusFilter] = useState("Status");
+  const [statusFilter, setStatusFilter] = useState<PropertyStatus | null>(null);
   const [provinceFilter, setProvinceFilter] = useState("All");
   const [currentPage, setCurrentPage] = useState(1);
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [archivedFilter, setArchivedFilter] = useState(showArchived);
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
 
@@ -54,33 +53,66 @@ export function PortfolioPage({ data }: { data: PortfolioPageData }) {
     return () => cancelAnimationFrame(frame);
   }, []);
 
+  const source = archivedFilter ? archivedProperties : activeProperties;
+
   const q = searchQuery.trim().toLowerCase();
-  const filtered = initialProperties.filter((p) => {
+  const filtered = source.filter((p) => {
     const matchesSearch =
       !q ||
       p.name.toLowerCase().includes(q) ||
       p.code.toLowerCase().includes(q) ||
       p.province.toLowerCase().includes(q);
     const matchesType = typeFilter === "Property Type" || p.type === typeFilter;
-    const matchesStatus = statusFilter === "Status" || p.status === statusFilter;
+    const matchesStatus = archivedFilter || !statusFilter || p.status === statusFilter;
     const matchesProvince = provinceFilter === "All" || p.province === provinceFilter;
     return matchesSearch && matchesType && matchesStatus && matchesProvince;
   });
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const sorted = sortKey
+    ? [...filtered].sort((a, b) => {
+        let av: string | number, bv: string | number
+        switch (sortKey) {
+          case "name":     av = a.name.toLowerCase();    bv = b.name.toLowerCase();    break
+          case "province": av = a.province.toLowerCase(); bv = b.province.toLowerCase(); break
+          case "status":   av = a.status;                bv = b.status;                break
+          case "size":     av = a.totalArea ? Number(a.totalArea) : -1; bv = b.totalArea ? Number(b.totalArea) : -1; break
+          case "buy":      av = a.buyNumeric;            bv = b.buyNumeric;            break
+          case "progress": av = a.progress;              bv = b.progress;              break
+        }
+        if (av < bv) return sortDir === "asc" ? -1 : 1
+        if (av > bv) return sortDir === "asc" ? 1 : -1
+        return 0
+      })
+    : filtered
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
   const safePage = Math.min(currentPage, totalPages);
   const pageStart = (safePage - 1) * PAGE_SIZE;
-  const pageRows = filtered.slice(pageStart, pageStart + PAGE_SIZE);
+  const pageRows = sorted.slice(pageStart, pageStart + PAGE_SIZE);
 
   function goToPage(p: number) {
     setCurrentPage(Math.max(1, Math.min(p, totalPages)));
   }
 
+  function handleSort(key: SortKey) {
+    if (sortKey !== key) {
+      setSortKey(key)
+      setSortDir("asc")
+    } else if (sortDir === "asc") {
+      setSortDir("desc")
+    } else {
+      setSortKey(null)
+      setSortDir("asc")
+    }
+    setCurrentPage(1)
+  }
+
   function clearAllFilters() {
     setSearchQuery("");
     setTypeFilter("Property Type");
-    setStatusFilter("Status");
+    setStatusFilter(null);
     setProvinceFilter("All");
+    setArchivedFilter(false);
     setCurrentPage(1);
   }
 
@@ -122,7 +154,7 @@ export function PortfolioPage({ data }: { data: PortfolioPageData }) {
           </div>
 
           {/* KPI Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <KpiCard index={0} mounted={mounted}>
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Properties</span>
@@ -136,16 +168,13 @@ export function PortfolioPage({ data }: { data: PortfolioPageData }) {
 
             <KpiCard index={1} mounted={mounted}>
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Total Value</span>
+                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Total Purchase Price</span>
                 <div className="w-7 h-7 rounded-md bg-emerald-50 flex items-center justify-center">
                   <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
                 </div>
               </div>
               <p className="text-[24px] font-bold text-val-heading leading-none mt-4">{kpis.totalValueFormatted}</p>
-              <div className="flex items-center gap-1 mt-2">
-                <TrendingUp className="w-3 h-3 text-emerald-500" />
-                <span className="text-[12px] text-emerald-600 font-semibold">{kpis.yoyGrowth} YoY</span>
-              </div>
+              <span className="text-[12px] text-slate-400 font-medium mt-2 block">Purchase price</span>
             </KpiCard>
 
             <KpiCard index={2} mounted={mounted}>
@@ -155,8 +184,11 @@ export function PortfolioPage({ data }: { data: PortfolioPageData }) {
                   <DollarSign className="w-3.5 h-3.5 text-violet-600" />
                 </div>
               </div>
-              <p className="text-[24px] font-bold text-val-heading leading-none mt-4">{kpis.monthlyIncome}</p>
-              <span className="text-[12px] text-slate-400 font-semibold mt-2 block">Gross Revenue</span>
+              <p className="text-[24px] font-bold text-val-heading leading-none mt-4">{kpis.monthlyExpected}</p>
+              <span className="text-[12px] text-emerald-600 font-semibold mt-2 block">
+                {kpis.monthlyCollected} collected
+                <span className="text-slate-400 font-normal ml-1">{kpis.monthLabel}</span>
+              </span>
             </KpiCard>
 
             <KpiCard index={3} mounted={mounted}>
@@ -166,21 +198,10 @@ export function PortfolioPage({ data }: { data: PortfolioPageData }) {
                   <TrendingUp className="w-3.5 h-3.5 text-amber-600" />
                 </div>
               </div>
-              <p className="text-[24px] font-bold text-val-heading leading-none mt-4">{avgOccupancy}%</p>
+              <p className="text-[24px] font-bold text-val-heading leading-none mt-4">{stats.occupancyRate}%</p>
               <div className="mt-3">
-                <AnimatedBar value={stats.avgHealth} color="bg-amber-400" mounted={mounted} delay={600} />
+                <AnimatedBar value={stats.occupancyRate} color="bg-amber-400" mounted={mounted} delay={600} />
               </div>
-            </KpiCard>
-
-            <KpiCard index={4} mounted={mounted} accent>
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Attention</span>
-                <div className="w-7 h-7 rounded-md bg-red-50 flex items-center justify-center">
-                  <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
-                </div>
-              </div>
-              <p className="text-[24px] font-bold text-val-heading leading-none mt-4">{stats.attentionCount}</p>
-              <span className="text-[12px] text-red-600 font-semibold mt-2 block">Critical tasks pending</span>
             </KpiCard>
           </div>
 
@@ -203,8 +224,8 @@ export function PortfolioPage({ data }: { data: PortfolioPageData }) {
           <PropertyTable
             pageRows={pageRows}
             pageStart={pageStart}
-            filtered={filtered}
-            properties={initialProperties}
+            filtered={sorted}
+            properties={source}
             mounted={mounted}
             navigate={(path) => router.push(path)}
             totalPages={totalPages}
@@ -212,7 +233,50 @@ export function PortfolioPage({ data }: { data: PortfolioPageData }) {
             goToPage={goToPage}
             onClearFilters={clearAllFilters}
             animationConfig={PORTFOLIO_TABLE_ANIMATION}
+            showArchived={false}
+            sortKey={sortKey}
+            sortDir={sortDir}
+            onSort={handleSort}
           />
+
+          {/* Footer — sold / archived counts */}
+          {(soldCount > 0 || archivedCount > 0) && (
+            <div className="flex items-center justify-center gap-3 pt-3 pb-1">
+              <p className="text-[12px] text-slate-400">
+                {soldCount > 0 && archivedCount > 0 && (
+                  <>{soldCount} sold · {archivedCount} archived</>
+                )}
+                {soldCount > 0 && archivedCount === 0 && (
+                  <>{soldCount} sold</>
+                )}
+                {archivedCount > 0 && soldCount === 0 && (
+                  <>{archivedCount} archived</>
+                )}
+              </p>
+              <div className="flex items-center gap-1.5">
+                {soldCount > 0 && (
+                  <button
+                    onClick={() => { setStatusFilter("Sold"); setArchivedFilter(false); setCurrentPage(1); }}
+                    className="text-[11px] font-semibold text-slate-500 border border-slate-200 rounded-full px-2.5 py-0.5 hover:border-slate-300 hover:text-slate-600 transition-colors duration-150"
+                  >
+                    Show sold
+                  </button>
+                )}
+                {archivedCount > 0 && (
+                  <button
+                    onClick={() => { setArchivedFilter(!archivedFilter); setStatusFilter(null); setCurrentPage(1); }}
+                    className={`text-[11px] font-semibold border rounded-full px-2.5 py-0.5 transition-colors duration-150 ${
+                      archivedFilter
+                        ? "text-amber-700 border-amber-300 bg-amber-50 hover:border-amber-400"
+                        : "text-slate-500 border-slate-200 hover:border-slate-300 hover:text-slate-600"
+                    }`}
+                  >
+                    {archivedFilter ? "Hide archived" : "Show archived"}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -256,7 +320,7 @@ function AnimatedBar({ value, color, mounted, delay }: {
       <div
         className={`h-full rounded-full ${color}`}
         style={{
-          width: mounted ? `${value}%` : "0%",
+          width: mounted ? `${Math.min(100, Math.max(0, value))}%` : "0%",
           transition: `width 800ms cubic-bezier(0.25,1,0.5,1)`,
           transitionDelay: `${delay}ms`,
         }}

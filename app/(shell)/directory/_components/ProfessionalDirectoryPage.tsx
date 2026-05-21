@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import Link from "next/link";
 import {
   Search,
   Mail,
@@ -12,11 +13,18 @@ import {
   ChevronDown,
   Star,
   Plus,
-  Upload,
+  UsersRound,
+  BadgeCheck,
 } from "lucide-react";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { cn } from "@/components/ui/utils";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { AddProfessionalWizard } from "@/components/directory/AddProfessionalWizard";
 import type { Category, Professional, DirectoryPageData } from "../queries";
+
+const ITEMS_PER_PAGE = 12;
+
+type SortOption = "Rating" | "Name" | "Properties";
 
 const CATEGORY_BADGE: Record<Exclude<Category, "All">, string> = {
   Agent:       "bg-blue-50 text-blue-700",
@@ -36,11 +44,10 @@ function StarRating({ rating, count }: { rating: number; count: number }) {
       {[1, 2, 3, 4, 5].map((i) => (
         <Star
           key={i}
+          fill="currentColor"
           className={cn(
             "size-3",
-            i <= Math.floor(rating)
-              ? "fill-amber-400 text-amber-400"
-              : "fill-slate-200 text-slate-200",
+            i <= Math.floor(rating) ? "text-amber-400" : "text-slate-200",
           )}
         />
       ))}
@@ -84,6 +91,14 @@ function ProfessionalCard({ pro, index }: { pro: Professional; index: number }) 
           {pro.available && (
             <div className="absolute bottom-0 right-0 size-5 rounded-full bg-green-500 border-2 border-white" />
           )}
+          {pro.verified && (
+            <div
+              className="absolute -top-1 -right-1 size-5 rounded-full bg-blue-500 border-2 border-white flex items-center justify-center"
+              title="Valgate Verified"
+            >
+              <BadgeCheck className="size-3 text-white" />
+            </div>
+          )}
         </div>
         <span
           className={cn(
@@ -108,16 +123,28 @@ function ProfessionalCard({ pro, index }: { pro: Professional; index: number }) 
       <div className="bg-val-bg-tint rounded-lg p-3 flex items-center justify-between mb-4">
         <div className="flex gap-3">
           <button
-            className="size-8 bg-white rounded-full flex items-center justify-center
-                       transition-all duration-150 hover:bg-slate-50 hover:scale-110 active:scale-95"
-            title="Email"
+            onClick={pro.email ? () => window.open(`mailto:${pro.email}`, "_self") : undefined}
+            disabled={!pro.email}
+            className={cn(
+              "size-8 bg-white rounded-full flex items-center justify-center transition-all duration-150",
+              pro.email
+                ? "hover:bg-slate-50 hover:scale-110 active:scale-95"
+                : "opacity-40 cursor-not-allowed",
+            )}
+            title={pro.email ?? "No email on record"}
           >
             <Mail className="size-3.5 text-slate-500" />
           </button>
           <button
-            className="size-8 bg-white rounded-full flex items-center justify-center
-                       transition-all duration-150 hover:bg-slate-50 hover:scale-110 active:scale-95"
-            title="Phone"
+            onClick={pro.phone ? () => window.open(`tel:${pro.phone}`, "_self") : undefined}
+            disabled={!pro.phone}
+            className={cn(
+              "size-8 bg-white rounded-full flex items-center justify-center transition-all duration-150",
+              pro.phone
+                ? "hover:bg-slate-50 hover:scale-110 active:scale-95"
+                : "opacity-40 cursor-not-allowed",
+            )}
+            title={pro.phone ?? "No phone on record"}
           >
             <Phone className="size-3.5 text-slate-500" />
           </button>
@@ -154,10 +181,13 @@ function ProfessionalCard({ pro, index }: { pro: Professional; index: number }) 
           Linked Properties:{" "}
           <span className="font-semibold text-val-heading">{pro.linkedProperties}</span>
         </span>
-        <button className="flex items-center gap-0.5 text-[--val-primary-dark] text-xs font-semibold transition-all duration-150 hover:opacity-75 hover:gap-1 active:scale-95">
+        <Link
+          href={`/directory/${pro.id}`}
+          className="flex items-center gap-0.5 text-[--val-primary-dark] text-xs font-semibold transition-all duration-150 hover:opacity-75 hover:gap-1 active:scale-95"
+        >
           VIEW PROFILE
           <ChevronRight className="size-3" />
-        </button>
+        </Link>
       </div>
     </div>
   );
@@ -167,19 +197,35 @@ export function ProfessionalDirectoryPage({ data }: { data: DirectoryPageData })
   const [activeCategory, setActiveCategory] = useState<Category>("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [view, setView] = useState<"grid" | "list">("grid");
+  const [sortBy, setSortBy] = useState<SortOption>("Rating");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [addWizardOpen, setAddWizardOpen] = useState(false);
 
   const { professionals, categories } = data;
 
-  const filtered = professionals.filter((p) => {
-    const matchesCat = activeCategory === "All" || p.category === activeCategory;
-    const q = searchQuery.toLowerCase();
-    const matchesSearch =
-      q === "" ||
-      p.name.toLowerCase().includes(q) ||
-      p.company.toLowerCase().includes(q) ||
-      p.category.toLowerCase().includes(q);
-    return matchesCat && matchesSearch;
-  });
+  const filtered = professionals
+    .filter((p) => {
+      const matchesCat = activeCategory === "All" || p.category === activeCategory;
+      const q = searchQuery.toLowerCase();
+      const matchesSearch =
+        q === "" ||
+        p.name.toLowerCase().includes(q) ||
+        p.company.toLowerCase().includes(q) ||
+        p.category.toLowerCase().includes(q);
+      return matchesCat && matchesSearch;
+    })
+    .sort((a, b) => {
+      if (sortBy === "Name") return a.name.localeCompare(b.name);
+      if (sortBy === "Properties") return b.linkedProperties - a.linkedProperties;
+      return b.rating - a.rating;
+    });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
+  const paginated = filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeCategory, searchQuery, sortBy]);
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -210,11 +256,9 @@ export function ProfessionalDirectoryPage({ data }: { data: DirectoryPageData })
               </p>
             </div>
             <div className="flex items-center gap-3 shrink-0">
-              <button className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 rounded text-sm font-semibold text-val-heading transition-all duration-150 hover:bg-slate-50 active:scale-[0.98]">
-                <Upload className="size-3.5" />
-                EXPORT
-              </button>
-              <button
+<button
+                type="button"
+                onClick={() => setAddWizardOpen(true)}
                 className="flex items-center gap-2 px-5 py-2.5 rounded text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:opacity-90 active:scale-[0.98]"
                 style={{ background: "linear-gradient(168deg, var(--val-primary-dark) 0%, #2563eb 100%)" }}
               >
@@ -268,10 +312,14 @@ export function ProfessionalDirectoryPage({ data }: { data: DirectoryPageData })
 
             {/* Sort */}
             <div className="relative w-48 shrink-0">
-              <select className="w-full appearance-none bg-val-bg-tint px-4 py-3 pr-8 text-sm font-semibold text-val-heading rounded outline-none cursor-pointer transition-shadow duration-200 focus:ring-2 focus:ring-blue-200">
-                <option>Sort by: Rating</option>
-                <option>Sort by: Name</option>
-                <option>Sort by: Properties</option>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as SortOption)}
+                className="w-full appearance-none bg-val-bg-tint px-4 py-3 pr-8 text-sm font-semibold text-val-heading rounded outline-none cursor-pointer transition-shadow duration-200 focus:ring-2 focus:ring-blue-200"
+              >
+                <option value="Rating">Sort by: Rating</option>
+                <option value="Name">Sort by: Name</option>
+                <option value="Properties">Sort by: Properties</option>
               </select>
               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
             </div>
@@ -288,7 +336,7 @@ export function ProfessionalDirectoryPage({ data }: { data: DirectoryPageData })
                 className={cn(
                   "px-5 py-1.5 rounded-full text-xs font-semibold transition-all duration-150",
                   activeCategory === cat
-                    ? "bg-[--val-primary-dark] text-white scale-[1.03]"
+                    ? "bg-[--val-primary-dark] text-white shadow-md ring-2 ring-[--val-primary-dark]/20 scale-[1.03]"
                     : "bg-val-bg-tint text-slate-500 hover:bg-blue-100 hover:text-slate-700",
                 )}
               >
@@ -299,7 +347,7 @@ export function ProfessionalDirectoryPage({ data }: { data: DirectoryPageData })
 
           {/* Cards Grid */}
           <div
-            key={`${activeCategory}-${searchQuery}`}
+            key={`${activeCategory}-${searchQuery}-${sortBy}`}
             className={cn(
               "mb-8",
               view === "grid"
@@ -307,12 +355,16 @@ export function ProfessionalDirectoryPage({ data }: { data: DirectoryPageData })
                 : "flex flex-col gap-4",
             )}
           >
-            {filtered.map((pro, i) => (
+            {paginated.map((pro, i) => (
               <ProfessionalCard key={pro.id} pro={pro} index={i} />
             ))}
             {filtered.length === 0 && (
-              <div className="col-span-3 text-center py-16 text-slate-400 text-sm animate-[fade-slide-up_0.3s_cubic-bezier(0.22,1,0.36,1)_both]">
-                No professionals found matching your search.
+              <div className="col-span-3 animate-[fade-slide-up_0.3s_cubic-bezier(0.22,1,0.36,1)_both]">
+                <EmptyState
+                  icon={<UsersRound className="size-6" />}
+                  title="No professionals found"
+                  description="Try a different search or category filter."
+                />
               </div>
             )}
           </div>
@@ -325,33 +377,49 @@ export function ProfessionalDirectoryPage({ data }: { data: DirectoryPageData })
               Showing{" "}
               <span className="font-semibold text-val-heading">{filtered.length}</span>{" "}
               of{" "}
-              <span className="font-semibold text-val-heading">142</span>{" "}
+              <span className="font-semibold text-val-heading">{professionals.length}</span>{" "}
               professionals
             </p>
-            <div className="flex gap-2">
-              <button className="size-10 bg-val-bg-tint rounded flex items-center justify-center text-slate-500 transition-all duration-150 hover:bg-blue-100 active:scale-95">
-                <ChevronLeft className="size-4" />
-              </button>
-              {[1, 2, 3].map((n) => (
+            {totalPages > 1 && (
+              <div className="flex gap-2">
                 <button
-                  key={n}
-                  className={cn(
-                    "size-10 rounded text-sm font-semibold transition-all duration-150",
-                    n === 1
-                      ? "bg-[--val-primary-dark] text-white"
-                      : "bg-val-bg-tint text-slate-500 hover:bg-blue-100 active:scale-95",
-                  )}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="size-10 bg-val-bg-tint rounded flex items-center justify-center text-slate-500 transition-all duration-150 hover:bg-blue-100 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  {n}
+                  <ChevronLeft className="size-4" />
                 </button>
-              ))}
-              <button className="size-10 bg-val-bg-tint rounded flex items-center justify-center text-slate-500 transition-all duration-150 hover:bg-blue-100 active:scale-95">
-                <ChevronRight className="size-4" />
-              </button>
-            </div>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => setCurrentPage(n)}
+                    className={cn(
+                      "size-10 rounded text-sm font-semibold transition-all duration-150",
+                      n === currentPage
+                        ? "bg-[--val-primary-dark] text-white"
+                        : "bg-val-bg-tint text-slate-500 hover:bg-blue-100 active:scale-95",
+                    )}
+                  >
+                    {n}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="size-10 bg-val-bg-tint rounded flex items-center justify-center text-slate-500 transition-all duration-150 hover:bg-blue-100 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <ChevronRight className="size-4" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      <AddProfessionalWizard
+        open={addWizardOpen}
+        onOpenChange={setAddWizardOpen}
+      />
     </div>
   );
 }

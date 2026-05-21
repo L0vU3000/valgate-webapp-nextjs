@@ -1,45 +1,41 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import Link from "next/link";
 import {
   FileText, Wrench, Receipt, Bell,
   MoreHorizontal, Download, Pencil,
+  DollarSign, AlertTriangle, Clock,
+  Building2, Maximize2, Calendar, MapPin,
+  BedDouble, Bath, Car, FileCheck,
+  TrendingUp, TrendingDown,
+  Info, ArrowUpRight,
+  type LucideIcon,
 } from "lucide-react";
-import type { Property } from "@/lib/mock-data";
+import { ProgressExplainerModal } from "@/components/portfolio/ProgressExplainerModal";
+import { ProgressModal } from "@/components/portfolio/ProgressModal";
+import type { PropertyListItem } from "@/lib/data/types/property";
+import {
+  BarChart, Bar, ResponsiveContainer, Tooltip, XAxis,
+} from "recharts";
+import type { Property } from "@/lib/data/types/property";
+import type { PropertyValuation } from "@/lib/data/types/property-valuation";
+import type { Lease } from "@/lib/data/types/lease";
+import type { Tenant } from "@/lib/data/types/tenant";
+import type { Payment } from "@/lib/data/types/payment";
+import type { Expense } from "@/lib/data/types/expense";
+import type { Notification } from "@/lib/data/types/notification";
+import type { MaintenanceItem } from "@/lib/data/types/maintenance-item";
+import type { ProgressDetails } from "@/lib/data/types/progress";
+import type { CoOwner } from "@/lib/data/types/co-owner";
+import type { OwnershipRecord } from "@/lib/data/types/ownership-record";
+import type { UserProfile } from "@/lib/data/types/user-profile";
+import { formatCurrency, formatCurrencyFull, formatRelativeTime } from "@/lib/format";
+import { TYPE_LABEL, TYPE_ICON } from "@/lib/property-helpers";
 import { PropertyLayout } from "@/components/property/PropertyLayout";
+import { usePropertyShell } from "@/components/property/PropertyShellContext";
 
-const alerts = [
-  {
-    id: 1,
-    type: "lease" as const,
-    title: "Lease Expiring:",
-    body: "Suite 402 — Quantum Tech Ltd (30 days remaining)",
-    action: "Review",
-    actionLabel: "Review lease expiring for Quantum Tech Ltd, Suite 402",
-  },
-  {
-    id: 2,
-    type: "system" as const,
-    title: "HVAC Fault:",
-    body: "Building A — Central unit cooling efficiency below threshold.",
-    action: "Dispatch",
-    actionLabel: "Dispatch technician for HVAC fault in Building A",
-  },
-];
-
-const tenants = [
-  { initials: "A", name: "Apex Global Logistics", unit: "Ste. 101", rent: "$12,400", status: "Paid", statusOk: true },
-  { initials: "Q", name: "Quantum Tech Ltd", unit: "Ste. 402", rent: "$8,900", status: "Overdue", statusOk: false },
-  { initials: "S", name: "Starlight Creatives", unit: "Ste. 205", rent: "$4,200", status: "Paid", statusOk: true },
-];
-
-const activityItems = [
-  { color: "var(--val-primary-dark)", time: "2h ago", text: "Rent payment received from Apex Global Logistics — $12,400" },
-  { color: "#059669", time: "5h ago", text: "Lease renewal signed: Starlight Creatives, 24 months" },
-  { color: "#F59E0B", time: "1d ago", text: "Work order submitted: HVAC filter replacement, Building A" },
-  { color: "#881337", time: "1d ago", text: "Quantum Tech Ltd lease expires in 30 days" },
-  { color: "#515D66", time: "2d ago", text: "Monthly income report generated for March 2026" },
-];
+/* ─── Constants ──────────────────────────────────────────────────────────── */
 
 const quickActions = [
   { icon: FileText, label: "New Lease" },
@@ -48,11 +44,143 @@ const quickActions = [
   { icon: Bell, label: "Notify All" },
 ];
 
-const metrics = [
-  { label: "Property Valuation", value: "$24,850,000" },
-  { label: "Monthly Income", value: "$312,400", badge: "+12%", badgeColor: "#059669" },
-  { label: "Occupancy Rate", value: "94.8%" },
-];
+
+/* ─── Helper types ────────────────────────────────────────────────────────── */
+
+type ChartPoint = { label: string; income: number; expense: number };
+type FeedEvent  = { time: number; color: string; Icon: LucideIcon; text: string };
+
+/* ─── Pure helper functions ───────────────────────────────────────────────── */
+
+function buildChartData(payments: Payment[], expenses: Expense[], now: number): ChartPoint[] {
+  return Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(now);
+    d.setDate(1);
+    d.setHours(0, 0, 0, 0);
+    d.setMonth(d.getMonth() - (5 - i));
+    const monthStart = d.getTime();
+    const next = new Date(d);
+    next.setMonth(next.getMonth() + 1);
+    const monthEnd = next.getTime();
+    const label = d.toLocaleString("en-US", { month: "short" });
+    const income = payments
+      .filter(p => p.kind === "Rent" && p.status === "Paid" && p.date >= monthStart && p.date < monthEnd)
+      .reduce((s, p) => s + p.amount, 0);
+    const expense = expenses
+      .filter(e => e.date >= monthStart && e.date < monthEnd)
+      .reduce((s, e) => s + e.amount, 0);
+    return { label, income, expense };
+  });
+}
+
+function getIncomeDelta(payments: Payment[], now: number): number | null {
+  const d = new Date(now);
+  d.setDate(1);
+  d.setHours(0, 0, 0, 0);
+  const thisStart = d.getTime();
+  const prev = new Date(d);
+  prev.setMonth(prev.getMonth() - 1);
+  const prevStart = prev.getTime();
+  const thisInc = payments
+    .filter(p => p.kind === "Rent" && p.status === "Paid" && p.date >= thisStart && p.date <= now)
+    .reduce((s, p) => s + p.amount, 0);
+  const prevInc = payments
+    .filter(p => p.kind === "Rent" && p.status === "Paid" && p.date >= prevStart && p.date < thisStart)
+    .reduce((s, p) => s + p.amount, 0);
+  return prevInc === 0 ? null : ((thisInc - prevInc) / prevInc) * 100;
+}
+
+function getValuationDelta(valuations: PropertyValuation[]): number | null {
+  if (valuations.length < 2) return null;
+  const sorted = [...valuations].sort((a, b) => a.recordedAt - b.recordedAt);
+  const prev   = sorted[sorted.length - 2];
+  const latest = sorted[sorted.length - 1];
+  return prev.price === 0 ? null : ((latest.price - prev.price) / prev.price) * 100;
+}
+
+function buildActivityFeed(
+  payments: Payment[],
+  leases: Lease[],
+  tenants: Tenant[],
+  maintenanceItems: MaintenanceItem[],
+  notifications: Notification[],
+  now: number,
+): FeedEvent[] {
+  const tmap = new Map(tenants.map(t => [t.id, t]));
+  const lmap = new Map(leases.map(l => [l.id, l]));
+  const events: FeedEvent[] = [];
+
+  for (const p of payments) {
+    if (p.kind !== "Rent" || p.status !== "Paid") continue;
+    const tenantId = p.leaseId ? lmap.get(p.leaseId)?.tenantId : undefined;
+    const t = tenantId ? tmap.get(tenantId) : undefined;
+    events.push({
+      time: p.date,
+      color: "#059669",
+      Icon: DollarSign,
+      text: `Rent received${t ? ` from ${t.name}` : ""} — ${formatCurrencyFull(p.amount)}`,
+    });
+  }
+
+  for (const l of leases) {
+    if (l.stage !== "Signed" || l.startDate > now) continue;
+    const t = l.tenantId ? tmap.get(l.tenantId) : undefined;
+    events.push({
+      time: l.startDate,
+      color: "var(--val-primary-dark)",
+      Icon: FileText,
+      text: `Lease signed${t ? `: ${t.name}` : ""}${l.unit ? `, ${l.unit}` : ""}`,
+    });
+  }
+
+  for (const m of maintenanceItems) {
+    events.push({ time: m.createdAt, color: "#f59e0b", Icon: Wrench, text: `Work order: ${m.title}` });
+  }
+
+  for (const n of notifications) {
+    events.push({ time: n.createdAt, color: "#94a3b8", Icon: Bell, text: n.description });
+  }
+
+  return events.sort((a, b) => b.time - a.time).slice(0, 8);
+}
+
+function getAlertStyle(type: string, category?: string): {
+  borderClass: string; iconBg: string; iconFg: string; label: string; Icon: LucideIcon;
+} {
+  if (type === "lease")             return { borderClass: "border-l-amber-400",  iconBg: "bg-amber-50",  iconFg: "text-amber-500",  label: "Lease",       Icon: Clock         };
+  if (category === "COMPLIANCE")    return { borderClass: "border-l-rose-500",   iconBg: "bg-rose-50",   iconFg: "text-rose-500",   label: "Compliance",  Icon: AlertTriangle  };
+  if (category === "PAYMENT")       return { borderClass: "border-l-blue-400",   iconBg: "bg-blue-50",   iconFg: "text-blue-500",   label: "Payment",     Icon: DollarSign     };
+  if (category === "LEASING")       return { borderClass: "border-l-blue-400",   iconBg: "bg-blue-50",   iconFg: "text-blue-500",   label: "Leasing",     Icon: FileText       };
+  return                                   { borderClass: "border-l-amber-400",  iconBg: "bg-amber-50",  iconFg: "text-amber-500",  label: "Maintenance", Icon: Wrench         };
+}
+
+function pillarBarClass(score: number): string {
+  if (score === 100) return "bg-emerald-400";
+  if (score > 0)     return "bg-blue-500";
+  return "bg-slate-100";
+}
+
+/* ─── Sub-components ──────────────────────────────────────────────────────── */
+
+function AttributeChip({ icon: Icon, label }: { icon: LucideIcon; label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1 text-[11px] text-slate-400">
+      <Icon className="w-3 h-3 shrink-0" />
+      {label}
+    </span>
+  );
+}
+
+function DeltaBadge({ delta }: { delta: number }) {
+  const pos  = delta >= 0;
+  const Icon = pos ? TrendingUp : TrendingDown;
+  return (
+    <span className={`flex items-center gap-0.5 text-[12px] font-semibold ${pos ? "text-emerald-600" : "text-rose-500"}`}>
+      <Icon className="w-3 h-3" />
+      {pos ? "+" : ""}{delta.toFixed(1)}%
+    </span>
+  );
+}
 
 function useCountUp(raw: string, duration: number, active: boolean): string {
   const num = parseFloat(raw.replace(/[$,%\s]/g, "").replace(/,/g, ""));
@@ -86,36 +214,180 @@ function fade(mounted: boolean, delay: number, reduced = false) {
   };
 }
 
-function MetricCell({ label, value, badge, badgeColor, duration, active }: {
-  label: string; value: string; badge?: string; badgeColor?: string; duration: number; active: boolean;
+function MetricCell({ label, value, badge, badgeColor, duration, active, delta }: {
+  label: string; value: string; badge?: string; badgeColor?: string;
+  duration: number; active: boolean; delta?: number | null;
 }) {
   const display = useCountUp(value, duration, active);
   const isIncome = label === "Monthly Income";
   return (
     <div className={`flex-1 px-6 py-4${isIncome ? " bg-[--val-bg-tint]" : ""}`}>
       <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-400 mb-1">{label}</p>
-      <div className="flex items-baseline gap-2">
+      <div className="flex items-baseline gap-2 flex-wrap">
         <p className="text-val-heading text-[26px] font-bold leading-none">{display}</p>
-        {badge && (
-          <span className="text-[15px] font-semibold" style={{ color: badgeColor }}>{badge}</span>
-        )}
+        {badge && <span className="text-[15px] font-semibold" style={{ color: badgeColor }}>{badge}</span>}
+        {delta != null && <DeltaBadge delta={delta} />}
       </div>
     </div>
   );
 }
 
-export function PropertyOverviewPage({ property }: { property: Property }) {
+/* ─── Main component ──────────────────────────────────────────────────────── */
+
+export function PropertyOverviewPage({
+  property,
+  valuations = [],
+  leases = [],
+  tenants = [],
+  payments = [],
+  expenses = [],
+  notifications = [],
+  maintenanceItems = [],
+  ownershipRecords = [],
+  coOwners = [],
+  userProfile,
+  progressDetails,
+}: {
+  property: Property;
+  valuations: PropertyValuation[];
+  leases: Lease[];
+  tenants: Tenant[];
+  payments: Payment[];
+  expenses: Expense[];
+  notifications: Notification[];
+  maintenanceItems: MaintenanceItem[];
+  ownershipRecords: OwnershipRecord[];
+  coOwners: CoOwner[];
+  userProfile?: UserProfile | null;
+  progressDetails?: ProgressDetails;
+}) {
   const [mounted, setMounted] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
+  const [mapStyle, setMapStyle] = useState<"light" | "satellite">("light");
+  const [progressExplainerOpen, setProgressExplainerOpen] = useState(false);
+  const [progressModalProperty, setProgressModalProperty] = useState<PropertyListItem | null>(null);
+  const shell = usePropertyShell();
+
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
     setReducedMotion(mq.matches);
-    // Tiny rAF delay so first paint is rendered before we trigger transitions
     requestAnimationFrame(() => requestAnimationFrame(() => setMounted(true)));
   }, []);
 
-  const countUpActive = mounted && !reducedMotion;
+  const now = Date.now();
 
+  /* ── Valuation ── */
+  const latestValuation =
+    valuations.length > 0
+      ? [...valuations].sort((a, b) => a.recordedAt - b.recordedAt).at(-1)!
+      : null;
+
+  /* ── Leases & tenants ── */
+  const activeLeases = leases.filter(
+    (l) => l.stage === "Signed" && l.startDate <= now && l.endDate >= now,
+  );
+  const monthlyIncome = activeLeases.reduce((sum, l) => sum + l.monthlyRent, 0);
+  const tenantMap = new Map(tenants.map((t) => [t.id, t]));
+  const activeLeaseholders = activeLeases.map((l) => {
+    const t = l.tenantId ? tenantMap.get(l.tenantId) : undefined;
+    return {
+      initials: t ? t.name.charAt(0).toUpperCase() : "?",
+      name: t?.name ?? "—",
+      unit: l.unit,
+      rent: "$" + l.monthlyRent.toLocaleString("en-US"),
+      status: t?.status ?? "—",
+      statusOk: t?.status === "Paid",
+    };
+  });
+
+  /* ── Gross Yield ── */
+  const grossYield =
+    latestValuation && latestValuation.price > 0 && monthlyIncome > 0
+      ? (monthlyIncome * 12 / latestValuation.price) * 100
+      : 0;
+
+  /* ── Alerts ── */
+  const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+  const leaseAlerts = leases
+    .filter((l) => l.stage === "Signed" && l.endDate > now && l.endDate - now <= thirtyDaysMs)
+    .map((l, i) => {
+      const t = l.tenantId ? tenantMap.get(l.tenantId) : undefined;
+      const daysLeft = Math.ceil((l.endDate - now) / 86400000);
+      return {
+        id: -(i + 1),
+        type: "lease" as const,
+        body: `${l.unit}${t ? ` — ${t.name}` : ""} (${daysLeft} days remaining)`,
+        action: "Review",
+        actionLabel: `Review lease expiring for ${l.unit}`,
+      };
+    });
+  const notificationAlerts = notifications.map((n) => ({
+    id: n.id,
+    type: "notification" as const,
+    category: n.category,
+    body: n.description,
+    action: "View",
+    actionLabel: `View ${n.title}`,
+  }));
+  const alerts = [...leaseAlerts, ...notificationAlerts];
+
+  /* ── Ownership ── */
+  const ownershipRecord = ownershipRecords[0] ?? null;
+  const coOwnerShareTotal = coOwners.reduce((s, c) => s + c.sharePercent, 0);
+  const userShare = Math.max(0, 100 - coOwnerShareTotal);
+
+  /* ── YTD financials ── */
+  const ytdStart = new Date(new Date(now).getFullYear(), 0, 1).getTime();
+  const paidRentYTD = payments.filter(
+    (p) => p.kind === "Rent" && p.status === "Paid" && p.date >= ytdStart && p.date <= now,
+  );
+  const grossIncome   = paidRentYTD.reduce((sum, p) => sum + p.amount, 0);
+  const totalExpenses = expenses
+    .filter((e) => e.date >= ytdStart && e.date <= now)
+    .reduce((sum, e) => sum + e.amount, 0);
+  const noi = grossIncome - totalExpenses;
+
+  /* ── Trend deltas ── */
+  const incomeDelta    = getIncomeDelta(payments, now);
+  const valuationDelta = getValuationDelta(valuations);
+
+  /* ── 6-month chart ── */
+  const chartData = buildChartData(payments, expenses, now);
+
+  /* ── Activity feed ── */
+  const activityFeed = buildActivityFeed(payments, leases, tenants, maintenanceItems, notifications, now);
+
+  /* ── Static map ── */
+  const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+  const hasMap = (property.lat !== 0 || property.lng !== 0) && Boolean(mapboxToken);
+  const mapStyleId = mapStyle === "light" ? "light-v11" : "satellite-streets-v12";
+  const mapUrl = hasMap
+    ? `https://api.mapbox.com/styles/v1/mapbox/${mapStyleId}/static/pin-l+2563eb(${property.lng},${property.lat})/${property.lng},${property.lat},14,0/900x360@2x?access_token=${mapboxToken}`
+    : null;
+
+  /* ── KPI metrics ── */
+  const metrics = [
+    {
+      label: "Property Valuation",
+      value: latestValuation ? "$" + latestValuation.price.toLocaleString("en-US") : "$0",
+      delta: valuationDelta,
+      duration: 1400,
+    },
+    {
+      label: "Monthly Income",
+      value: "$" + monthlyIncome.toLocaleString("en-US"),
+      delta: incomeDelta,
+      duration: 1100,
+    },
+    {
+      label: "Gross Yield",
+      value: grossYield.toFixed(1) + "%",
+      delta: null,
+      duration: 900,
+    },
+  ];
+
+  const countUpActive = mounted && !reducedMotion;
   const ease = "cubic-bezier(0.22,1,0.36,1)";
 
   function heroIn(delay: number): React.CSSProperties {
@@ -128,21 +400,60 @@ export function PropertyOverviewPage({ property }: { property: Property }) {
   }
 
   return (
-    <PropertyLayout activeTab="overview" property={property}>
+    <PropertyLayout
+      activeTab="overview"
+      property={property}
+      progress={progressDetails?.score}
+      onProgressClick={progressDetails ? () => setProgressModalProperty({
+        id: property.id,
+        name: property.name,
+        code: property.code,
+        type: property.type,
+        province: property.province,
+        status: property.status,
+        totalArea: property.totalArea ?? "",
+        title: property.title ?? "",
+        buy: property.buyNumeric ? formatCurrency(property.buyNumeric) : "—",
+        buyNumeric: property.buyNumeric,
+        isArchived: property.isArchived,
+        progress: progressDetails.score,
+        progressDetails,
+      }) : undefined}
+    >
       <div className="bg-val-bg-page-alt min-h-full pb-10">
 
-        {/* Hero */}
-        <div className="relative h-[380px] overflow-hidden flex items-end">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/property-hero.jpg"
-            alt=""
-            className="absolute inset-0 w-full h-full object-cover object-center"
-            style={{
-              transform: reducedMotion ? undefined : mounted ? "scale(1)" : "scale(1.06)",
-              transition: reducedMotion ? undefined : `transform 900ms cubic-bezier(0.25,1,0.5,1)`,
-            }}
-          />
+        {/* ── Hero — photo mosaic ── */}
+        <div className="relative h-[360px] overflow-hidden flex items-end">
+          {/* Mosaic grid */}
+          <div className="absolute inset-0 flex gap-px bg-slate-900">
+            {/* Large left tile */}
+            <div className="relative flex-[3] overflow-hidden">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/property-hero.jpg"
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover object-center"
+                style={{
+                  transform: reducedMotion ? undefined : mounted ? "scale(1)" : "scale(1.06)",
+                  transition: reducedMotion ? undefined : "transform 900ms cubic-bezier(0.25,1,0.5,1)",
+                }}
+              />
+            </div>
+            {/* 2×2 right tiles */}
+            <div className="flex-[2] grid grid-rows-2 gap-px">
+              <div className="overflow-hidden">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/property-hero.jpg" alt="" className="w-full h-full object-cover object-top" />
+              </div>
+              <div className="overflow-hidden relative">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/property-hero.jpg" alt="" className="w-full h-full object-cover object-bottom" />
+
+              </div>
+            </div>
+          </div>
+
+          {/* Gradient */}
           <div
             className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-transparent"
             style={{
@@ -150,18 +461,18 @@ export function PropertyOverviewPage({ property }: { property: Property }) {
               transition: reducedMotion ? undefined : "opacity 600ms ease",
             }}
           />
-          <div className="relative z-10 w-full flex items-end justify-between px-8 pb-8">
+
+          {/* Hero text & actions */}
+          <div className="relative z-20 w-full flex items-end justify-between px-8 pb-8">
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-2.5" style={heroIn(80)}>
                 <span className="bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-semibold tracking-[0.05em] uppercase px-2.5 py-0.5 rounded-full">
                   {property.status}
                 </span>
-                <span className="text-white/70 text-[13px]">
-                  {property.province}
-                </span>
+                <span className="text-white/70 text-[13px]">{property.province}</span>
               </div>
               <p className="text-white/55 text-[13px] font-medium" style={heroIn(160)}>
-                Purchased {property.buy}
+                Purchased {property.buyNumeric ? formatCurrency(property.buyNumeric) : "—"}
               </p>
               <h1
                 className="text-white font-extrabold tracking-tight leading-none"
@@ -171,9 +482,14 @@ export function PropertyOverviewPage({ property }: { property: Property }) {
               </h1>
             </div>
             <div className="flex items-center gap-2.5" style={heroIn(340)}>
-              <button className="bg-white/10 backdrop-blur-sm border border-white/20 text-white text-[13px] font-semibold px-4 py-2 rounded flex items-center gap-2 hover:bg-white/20 active:scale-[0.97] transition-[background-color,transform] duration-150">
+              <button
+                type="button"
+                onClick={() => shell?.openPropertyWizard()}
+                className="bg-white/10 backdrop-blur-sm border border-white/20 text-white text-[13px] font-semibold px-4 py-2 rounded flex items-center gap-2 hover:bg-white/20 active:scale-[0.97] transition-[background-color,transform] duration-150"
+                aria-label="Edit property profile"
+              >
                 <Pencil className="w-3.5 h-3.5" />
-                Edit Profile
+                Edit profile
               </button>
               <button
                 className="text-white text-[13px] font-semibold px-4 py-2 rounded flex items-center gap-2 shadow-[0_4px_6px_-1px_rgba(0,74,198,0.3)] hover:opacity-90 active:scale-[0.97] transition-[opacity,transform] duration-150"
@@ -186,9 +502,44 @@ export function PropertyOverviewPage({ property }: { property: Property }) {
           </div>
         </div>
 
-        <div className="max-w-[1200px] mx-auto px-8 pt-6 flex flex-col gap-5">
+        {/* ── Below-hero content ── */}
+        <div className="max-w-[1200px] mx-auto px-8 pt-0 flex flex-col gap-4">
 
-          {/* Key Metrics */}
+          {/* Attribute strip + section anchor nav */}
+          <div className="pt-5">
+            <div className="flex items-center gap-4 pb-1 flex-wrap">
+              {/* Core identity */}
+              <AttributeChip icon={TYPE_ICON[property.type] ?? Building2} label={TYPE_LABEL[property.type] ?? property.type} />
+              <AttributeChip icon={MapPin} label={property.province} />
+              {property.totalArea?.trim() && <AttributeChip icon={Maximize2} label={property.totalArea} />}
+              {property.yearBuilt?.trim() && <AttributeChip icon={Calendar} label={`Built ${property.yearBuilt}`} />}
+              {property.title && property.title !== "—" && (
+                <AttributeChip icon={FileCheck} label={property.title} />
+              )}
+
+              {/* Divider before amenity stats */}
+              {(
+                ((property.type === "residential" || property.type === "multi-unit") &&
+                  (property.bedrooms?.trim() || property.bathrooms?.trim())) ||
+                (property.type !== "land" && property.parkingSpaces?.trim())
+              ) && (
+                <span className="w-px h-3.5 bg-slate-200 self-center" />
+              )}
+
+              {/* Amenity stats */}
+              {(property.type === "residential" || property.type === "multi-unit") && property.bedrooms?.trim() && (
+                <AttributeChip icon={BedDouble} label={`${property.bedrooms} bed`} />
+              )}
+              {(property.type === "residential" || property.type === "multi-unit") && property.bathrooms?.trim() && (
+                <AttributeChip icon={Bath} label={`${property.bathrooms} bath`} />
+              )}
+              {property.type !== "land" && property.parkingSpaces?.trim() && (
+                <AttributeChip icon={Car} label={`${property.parkingSpaces} parking`} />
+              )}
+            </div>
+          </div>
+
+          {/* KPI metrics bar */}
           <div
             className="bg-white border border-slate-200 rounded-lg flex divide-x divide-slate-200 overflow-hidden"
             style={fade(mounted, 120, reducedMotion)}
@@ -198,107 +549,152 @@ export function PropertyOverviewPage({ property }: { property: Property }) {
                 key={m.label}
                 label={m.label}
                 value={m.value}
-                badge={m.badge}
-                badgeColor={m.badgeColor}
-                duration={m.label === "Property Valuation" ? 1400 : m.label === "Monthly Income" ? 1100 : 900}
+                duration={m.duration}
                 active={countUpActive}
+                delta={m.delta}
               />
             ))}
           </div>
 
-          {/* Main Grid */}
+          {/* Main grid */}
           <div className="grid grid-cols-12 gap-5">
 
-            {/* Left Column */}
+            {/* ── Left column ── */}
             <div className="col-span-8 flex flex-col gap-4" style={fade(mounted, 280, reducedMotion)}>
 
-              {/* Summary Row */}
+              {/* Summary row */}
               <div className="grid grid-cols-2 gap-4">
 
-                {/* Financials */}
-                <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)] flex flex-col gap-4">
+                {/* Financials card with mini chart */}
+                <div id="overview-financials" className="bg-white border border-slate-200 rounded-lg p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)] flex flex-col gap-3 scroll-mt-20">
                   <div className="flex items-center justify-between">
                     <h3 className="text-val-heading text-[15px] font-semibold">Financials</h3>
                     <button className="text-slate-400 hover:text-slate-600 transition-colors" aria-label="Financials options">
                       <MoreHorizontal className="w-4 h-4" />
                     </button>
                   </div>
-                  <div className="flex flex-col gap-3">
-                    <div className="flex items-end justify-between">
-                      <span className="text-slate-500 text-[13px]">Net Operating Income</span>
-                      <span className="text-val-heading text-[22px] font-bold">$184.2k</span>
+                  <div className="flex items-end justify-between">
+                    <span className="text-slate-500 text-[13px]">Net Operating Income</span>
+                    <span className="text-val-heading text-[22px] font-bold">{formatCurrencyFull(noi)}</span>
+                  </div>
+                  {/* 6-month income vs expense chart */}
+                  <div className="-mx-1">
+                    <ResponsiveContainer width="100%" height={72}>
+                      <BarChart data={chartData} barSize={7} barGap={1} margin={{ top: 2, right: 4, bottom: 0, left: 4 }}>
+                        <XAxis
+                          dataKey="label"
+                          tick={{ fontSize: 9, fill: "#94a3b8" }}
+                          axisLine={false}
+                          tickLine={false}
+                        />
+                        <Tooltip
+                          cursor={{ fill: "rgba(0,0,0,0.04)" }}
+                          contentStyle={{
+                            fontSize: 11,
+                            borderRadius: 6,
+                            border: "1px solid #e2e8f0",
+                            boxShadow: "0 4px 6px -1px rgba(0,0,0,0.08)",
+                          }}
+                          formatter={(value: number, name: string) => [
+                            formatCurrencyFull(value),
+                            name === "income" ? "Income" : "Expenses",
+                          ]}
+                        />
+                        <Bar dataKey="income"  fill="var(--val-primary-dark)" radius={[2, 2, 0, 0]} opacity={0.85} />
+                        <Bar dataKey="expense" fill="#fda4af"                 radius={[2, 2, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 pt-1 border-t border-slate-100">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-400 mb-0.5">YTD Expenses</p>
+                      <p className="text-rose-600 text-[14px] font-semibold">{formatCurrencyFull(totalExpenses)}</p>
                     </div>
-                    <div className="bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                      <div
-                        className="bg-[--val-primary-dark] h-full rounded-full"
-                        style={{ width: mounted ? "72%" : "0%", transition: "width 1.2s cubic-bezier(0.16,1,0.3,1) 0.3s" }}
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100">
-                      <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-400 mb-0.5">Expenses</p>
-                        <p className="text-rose-600 text-[14px] font-semibold">$42.5k</p>
-                      </div>
-                      <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-400 mb-0.5">Gross Income</p>
-                        <p className="text-val-heading text-[14px] font-semibold">$226.7k</p>
-                      </div>
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-400 mb-0.5">YTD Income</p>
+                      <p className="text-val-heading text-[14px] font-semibold">{formatCurrencyFull(grossIncome)}</p>
                     </div>
                   </div>
                 </div>
 
-                {/* Tenant Mix */}
-                <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)] flex flex-col gap-4">
+                {/* Ownership Summary */}
+                <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)] flex flex-col gap-3">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-val-heading text-[15px] font-semibold">Tenant Mix</h3>
-                    <button className="text-slate-400 hover:text-slate-600 transition-colors" aria-label="Tenant mix options">
-                      <MoreHorizontal className="w-4 h-4" />
-                    </button>
+                    <h3 className="text-val-heading text-[15px] font-semibold">Ownership</h3>
+                    <Link
+                      href={`/property/${property.id}/ownership`}
+                      className="text-[--val-primary-dark] text-[12px] font-semibold hover:opacity-75 transition-opacity"
+                    >
+                      Details →
+                    </Link>
                   </div>
-                  <div className="flex items-center gap-5">
-                    <div className="relative shrink-0 w-20 h-20">
-                      <svg viewBox="0 0 80 80" className="w-full h-full -rotate-90">
-                        <circle cx="40" cy="40" r="32" fill="none" stroke="#e4efff" strokeWidth="10" />
-                        <circle
-                          cx="40" cy="40" r="32" fill="none"
-                          stroke="var(--val-primary-dark)" strokeWidth="10"
-                          strokeDasharray={mounted ? "170.8 200.96" : "0 200.96"}
-                          strokeDashoffset="0"
-                          style={{ transition: "stroke-dasharray 0.9s cubic-bezier(0.16,1,0.3,1) 0.4s" }}
-                        />
-                        <circle
-                          cx="40" cy="40" r="32" fill="none"
-                          stroke="#38bdf8" strokeWidth="10"
-                          strokeDasharray={mounted ? "44.2 200.96" : "0 200.96"}
-                          strokeDashoffset="-170.8"
-                          style={{ transition: "stroke-dasharray 0.7s cubic-bezier(0.16,1,0.3,1) 0.75s" }}
-                        />
-                      </svg>
-                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5">
-                        <span className="text-val-heading text-[12px] font-bold leading-none">85%</span>
-                        <span className="text-slate-400 text-[9px] leading-none">comm.</span>
+
+                  {ownershipRecord ? (
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-400">Structure</span>
+                        <span className="text-[12px] font-medium text-val-heading">{ownershipRecord.holdingType}</span>
                       </div>
+
+                      <div className="flex flex-col gap-2 pt-1 border-t border-slate-100">
+                        {/* Primary user row — only shown when they hold a share */}
+                        {userShare > 0 && (() => {
+                          const displayName = userProfile
+                            ? `${userProfile.firstName} ${userProfile.lastName}`
+                            : "You";
+                          const initial = displayName.charAt(0).toUpperCase();
+                          return (
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <div className="w-6 h-6 rounded-full bg-[--val-bg-tint] flex items-center justify-center text-[--val-primary-dark] text-[10px] font-bold shrink-0">
+                                  {initial}
+                                </div>
+                                <span className="text-[13px] text-val-heading font-medium truncate">{displayName}</span>
+                                <span className="text-[11px] text-slate-400 shrink-0">Primary</span>
+                              </div>
+                              <span className="text-[13px] font-semibold text-val-heading tabular-nums shrink-0">{userShare}%</span>
+                            </div>
+                          );
+                        })()}
+
+                        {/* Co-owners */}
+                        {coOwners.map((co) => (
+                          <div key={co.id} className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 text-[10px] font-bold shrink-0">
+                                {co.name.charAt(0).toUpperCase()}
+                              </div>
+                              <span className="text-[13px] text-val-heading font-medium truncate">{co.name}</span>
+                              <span className="text-[11px] text-slate-400 shrink-0">{co.role}</span>
+                            </div>
+                            <span className="text-[13px] font-semibold text-val-heading tabular-nums shrink-0">{co.sharePercent}%</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {ownershipRecord.distributionMethod && (
+                        <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                          <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-400">Distribution</span>
+                          <span className="text-[11px] font-medium text-slate-500">{ownershipRecord.distributionMethod}</span>
+                        </div>
+                      )}
                     </div>
-                    <div className="flex flex-col gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[--val-primary-dark] shrink-0" />
-                        <span className="text-slate-500 text-[12px]">Commercial (12)</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#38bdf8] shrink-0" />
-                        <span className="text-slate-500 text-[12px]">Retail (4)</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-slate-200 shrink-0" />
-                        <span className="text-slate-500 text-[12px]">Vacant (2)</span>
-                      </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-2 py-5 text-center">
+                      <p className="text-[12px] text-slate-400 leading-snug">No ownership record yet.</p>
+                      <Link
+                        href={`/property/${property.id}/ownership`}
+                        className="text-[12px] font-semibold text-[--val-primary-dark] hover:opacity-75 transition-opacity"
+                      >
+                        Add ownership details →
+                      </Link>
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
 
-              {/* Primary Leaseholders */}
-              <div className="bg-white border border-slate-200 rounded-lg shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden">
+              {/* Active Leaseholders */}
+              <div id="overview-tenants" className="bg-white border border-slate-200 rounded-lg shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden scroll-mt-20">
                 <div className="flex items-center justify-between px-5 py-3 bg-slate-50/80 border-b border-slate-200">
                   <h3 className="text-val-heading text-[15px] font-semibold">Active Leaseholders</h3>
                   <button className="text-[--val-primary-dark] text-[12px] font-semibold hover:opacity-75 transition-opacity" aria-label="View all leaseholders">View All</button>
@@ -313,9 +709,13 @@ export function PropertyOverviewPage({ property }: { property: Property }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {tenants.map((t, i) => (
+                    {activeLeaseholders.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="px-5 py-6 text-center text-slate-400 text-[13px]">—</td>
+                      </tr>
+                    ) : activeLeaseholders.map((t, i) => (
                       <tr
-                        key={t.name}
+                        key={t.name + t.unit}
                         className={`hover:bg-blue-50/30 transition-colors duration-150${i > 0 ? " border-t border-slate-100" : ""}`}
                         style={{
                           animationName: mounted ? "analytics-fade-up" : "none",
@@ -354,46 +754,132 @@ export function PropertyOverviewPage({ property }: { property: Property }) {
               </div>
 
               {/* Activity Feed */}
-              <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)] flex flex-col gap-4">
+              <div id="overview-activity" className="bg-white border border-slate-200 rounded-lg p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)] flex flex-col gap-4 scroll-mt-20">
                 <div className="flex items-center justify-between">
                   <h3 className="text-val-heading text-[15px] font-semibold">Activity Feed</h3>
                   <button className="text-[--val-primary-dark] text-[12px] font-semibold hover:opacity-75 transition-opacity" aria-label="View all activity">View All</button>
                 </div>
-                <div className="flex flex-col gap-3 relative">
-                  <div className="absolute left-[2px] top-2 bottom-2 w-px bg-slate-100" aria-hidden="true" />
-                  {activityItems.map((item, i) => (
-                    <div
-                      key={item.text}
-                      className="flex gap-3 items-start"
-                      style={{
-                        animationName: mounted ? "analytics-fade-up" : "none",
-                        animationDuration: "0.4s",
-                        animationTimingFunction: "cubic-bezier(0.16,1,0.3,1)",
-                        animationFillMode: "forwards",
-                        animationDelay: `${350 + i * 70}ms`,
-                        opacity: 0,
-                      }}
-                    >
-                      <span
-                        className="w-1.5 h-1.5 rounded-full mt-[5px] shrink-0 relative z-10"
-                        style={{ backgroundColor: item.color }}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-val-heading text-[13px] leading-snug">{item.text}</p>
-                        <p className="text-slate-400 text-[11px] mt-0.5">{item.time}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                {activityFeed.length === 0 ? (
+                  <p className="text-slate-400 text-[13px] text-center py-4">No recent activity</p>
+                ) : (
+                  <div className="flex flex-col gap-3 relative">
+                    <div className="absolute left-[6px] top-2 bottom-2 w-px bg-slate-100" aria-hidden="true" />
+                    {activityFeed.map((item, i) => {
+                      const Icon = item.Icon;
+                      return (
+                        <div
+                          key={`${item.time}-${i}`}
+                          className="flex gap-3 items-start"
+                          style={{
+                            animationName: mounted ? "analytics-fade-up" : "none",
+                            animationDuration: "0.4s",
+                            animationTimingFunction: "cubic-bezier(0.16,1,0.3,1)",
+                            animationFillMode: "forwards",
+                            animationDelay: `${350 + i * 70}ms`,
+                            opacity: 0,
+                          }}
+                        >
+                          <Icon
+                            className="w-3.5 h-3.5 shrink-0 mt-[3px] relative z-10"
+                            style={{ color: item.color }}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-val-heading text-[13px] leading-snug">{item.text}</p>
+                            <p className="text-slate-400 text-[11px] mt-0.5">{formatRelativeTime(item.time)}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Right Sidebar */}
+            {/* ── Right sidebar ── */}
             <div className="col-span-4 flex flex-col gap-4" style={fade(mounted, 340, reducedMotion)}>
 
-              {/* Action Strip */}
+              {/* Property Progress card */}
+              {progressDetails && (
+                <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)] flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <h3 className="text-val-heading text-[15px] font-semibold">Property Progress</h3>
+                      <button
+                        onClick={() => setProgressExplainerOpen(true)}
+                        className="text-slate-400 hover:text-slate-600 transition-colors rounded p-0.5 hover:bg-slate-100"
+                        aria-label="How progress is calculated"
+                      >
+                        <Info className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <span className={`text-[22px] font-bold tabular-nums leading-none ${progressDetails.score >= 70 ? "text-emerald-600" : progressDetails.score >= 40 ? "text-amber-500" : "text-rose-500"}`}>
+                      {progressDetails.score}<span className="text-[13px] font-medium text-slate-400">%</span>
+                    </span>
+                  </div>
+                  <div className="h-[4px] bg-slate-100 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${progressDetails.score >= 70 ? "bg-emerald-400" : "bg-[--val-primary-dark]"}`}
+                      style={{
+                        width: mounted ? `${progressDetails.score}%` : "0%",
+                        transition: "width 700ms cubic-bezier(0.16,1,0.3,1) 200ms",
+                      }}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-0 -mx-2">
+                    {progressDetails.pillars.map((pillar, i) => (
+                      <Link
+                        key={pillar.key}
+                        href={pillar.href}
+                        className="group flex items-center gap-2 py-1.5 px-2 hover:bg-slate-50 rounded transition-colors"
+                      >
+                        <span className="text-[11px] text-slate-500 group-hover:text-val-heading transition-colors truncate min-w-0 flex-1">
+                          {pillar.name}
+                        </span>
+                        <div className="w-12 h-[3px] bg-slate-100 rounded-full overflow-hidden shrink-0">
+                          <div
+                            className={`h-full rounded-full ${pillarBarClass(pillar.score)}`}
+                            style={{
+                              width: mounted ? `${pillar.score}%` : "0%",
+                              transition: `width 550ms cubic-bezier(0.16,1,0.3,1) ${200 + i * 30}ms`,
+                            }}
+                          />
+                        </div>
+                        <span className={`text-[11px] font-semibold tabular-nums shrink-0 w-7 text-right ${pillar.score === 100 ? "text-emerald-500" : pillar.score > 0 ? "text-blue-600" : "text-slate-300"}`}>
+                          {pillar.score}%
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                  <div className="pt-1 border-t border-slate-100">
+                    <button
+                      onClick={() => setProgressModalProperty({
+                        id: property.id,
+                        name: property.name,
+                        code: property.code,
+                        type: property.type,
+                        province: property.province,
+                        status: property.status,
+                        totalArea: property.totalArea ?? "",
+                        title: property.title ?? "",
+                        buy: property.buyNumeric ? formatCurrency(property.buyNumeric) : "—",
+                        buyNumeric: property.buyNumeric,
+                        isArchived: property.isArchived,
+                        progress: progressDetails.score,
+                        progressDetails,
+                      })}
+                      className="w-full flex items-center justify-center gap-1.5 text-[12px] font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200/60 py-1.5 rounded-md transition-colors"
+                      aria-label="View progress details"
+                    >
+                      View details
+                      <ArrowUpRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Alerts panel */}
               {alerts.length > 0 && (
-                <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
+                <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
                   <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50/80 border-b border-slate-200">
                     <div className="flex items-center gap-2">
                       <span className="relative flex h-2 w-2">
@@ -408,28 +894,30 @@ export function PropertyOverviewPage({ property }: { property: Property }) {
                       Dismiss all
                     </button>
                   </div>
-                  {alerts.map((a, i) => (
-                    <div
-                      key={a.id}
-                      className={`flex items-center justify-between gap-3 px-4 py-3${i > 0 ? " border-t border-slate-100" : ""}`}
-                    >
-                      <div className="flex flex-col gap-0.5 min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${a.type === "lease" ? "bg-amber-400" : "bg-rose-500"}`} />
-                          <span className={`text-[11px] font-semibold uppercase tracking-[0.05em] ${a.type === "lease" ? "text-amber-600" : "text-rose-600"}`}>
-                            {a.type === "lease" ? "Lease" : "Maintenance"}
-                          </span>
-                        </div>
-                        <p className="text-[12px] text-slate-500 leading-snug pl-3">{a.body}</p>
-                      </div>
-                      <button
-                        aria-label={a.actionLabel}
-                        className="text-[--val-primary-dark] text-[12px] font-semibold hover:opacity-70 transition-opacity shrink-0"
+                  {alerts.map((a, i) => {
+                    const category = "category" in a ? (a as { category?: string }).category : undefined;
+                    const { borderClass, iconBg, iconFg, label, Icon: AlertIcon } = getAlertStyle(a.type, category);
+                    return (
+                      <div
+                        key={a.id}
+                        className={`flex items-start gap-3 px-4 py-3.5 border-l-[3px] ${borderClass}${i > 0 ? " border-t border-slate-100" : ""}`}
                       >
-                        {a.action} →
-                      </button>
-                    </div>
-                  ))}
+                        <span className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 mt-0.5 ${iconBg}`}>
+                          <AlertIcon className={`w-3.5 h-3.5 ${iconFg}`} />
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-[10px] font-semibold uppercase tracking-[0.05em] mb-0.5 ${iconFg}`}>{label}</p>
+                          <p className="text-[12px] text-slate-600 leading-snug">{a.body}</p>
+                        </div>
+                        <button
+                          aria-label={a.actionLabel}
+                          className="shrink-0 text-[12px] font-semibold text-white bg-[--val-primary-dark] px-2.5 py-1 rounded hover:opacity-85 transition-opacity whitespace-nowrap mt-0.5"
+                        >
+                          {a.action}
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 
@@ -448,10 +936,123 @@ export function PropertyOverviewPage({ property }: { property: Property }) {
                   ))}
                 </div>
               </div>
+
+
             </div>
           </div>
+
+          {/* ── Location section ── */}
+          {(mapUrl || property.province) && (
+            <div
+              id="overview-location"
+              className="border border-slate-200 rounded-xl overflow-hidden scroll-mt-20 flex"
+              style={{ minHeight: 280, ...fade(mounted, 400, reducedMotion) }}
+            >
+              {/* Info panel */}
+              <div className="w-[300px] shrink-0 bg-white flex flex-col justify-between p-6 gap-6">
+                <div className="flex flex-col gap-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-400 mb-3">
+                    Location
+                  </p>
+                  <p className="text-[18px] font-bold text-val-heading leading-tight">
+                    {property.city || property.province}
+                  </p>
+                  {property.addressLine && (
+                    <p className="text-[13px] text-slate-500">{property.addressLine}</p>
+                  )}
+                  {property.addressLine2 && (
+                    <p className="text-[13px] text-slate-400">{property.addressLine2}</p>
+                  )}
+                </div>
+
+                {hasMap && (
+                  <div className="flex flex-col gap-1">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-400 mb-1">
+                      Coordinates
+                    </p>
+                    <p className="text-[13px] font-medium tabular-nums text-val-heading">
+                      {Math.abs(property.lat).toFixed(5)}°{property.lat >= 0 ? "N" : "S"}
+                      {"  "}
+                      {Math.abs(property.lng).toFixed(5)}°{property.lng >= 0 ? "E" : "W"}
+                    </p>
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-3">
+                  {hasMap && (
+                    <div className="flex gap-1 p-0.5 bg-white/60 border border-slate-200 rounded-lg w-fit">
+                      {(["light", "satellite"] as const).map((style) => (
+                        <button
+                          key={style}
+                          onClick={() => setMapStyle(style)}
+                          className={`px-3 py-1 rounded-md text-[11px] font-semibold capitalize transition-[background-color,color] duration-150 ${
+                            mapStyle === style
+                              ? "bg-white text-val-heading shadow-sm"
+                              : "text-slate-400 hover:text-slate-600"
+                          }`}
+                        >
+                          {style}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="flex flex-col gap-2">
+                    {hasMap && (
+                      <a
+                        href={`https://www.google.com/maps?q=${property.lat},${property.lng}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[12px] font-semibold text-[--val-primary-dark] hover:opacity-75 transition-opacity"
+                      >
+                        Open in Maps ↗
+                      </a>
+                    )}
+                    <Link
+                      href={`/property/${property.id}/location`}
+                      className="text-[12px] font-semibold text-[--val-primary-dark] hover:opacity-75 transition-opacity"
+                    >
+                      View details →
+                    </Link>
+                  </div>
+                </div>
+              </div>
+
+              {/* Map panel */}
+              <div className="flex-1 relative overflow-hidden bg-slate-100">
+                {mapUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={mapUrl}
+                    src={mapUrl}
+                    alt={`Map showing ${property.name} location`}
+                    className="w-full h-full object-cover"
+                    style={{
+                      transform: reducedMotion ? undefined : mounted ? "scale(1)" : "scale(1.04)",
+                      transition: reducedMotion ? undefined : "transform 900ms cubic-bezier(0.25,1,0.5,1)",
+                    }}
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <MapPin className="w-10 h-10 text-slate-200" />
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
         </div>
       </div>
+
+      <ProgressModal
+        property={progressModalProperty}
+        onClose={() => setProgressModalProperty(null)}
+        onExplainerClick={() => setProgressExplainerOpen(true)}
+      />
+      <ProgressExplainerModal
+        open={progressExplainerOpen}
+        onClose={() => setProgressExplainerOpen(false)}
+      />
     </PropertyLayout>
   );
 }

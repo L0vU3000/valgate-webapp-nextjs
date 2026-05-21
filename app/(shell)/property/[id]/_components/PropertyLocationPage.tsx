@@ -1,210 +1,257 @@
 "use client";
 
-import { useState } from "react";
-import type { Property } from "@/lib/mock-data";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import type mapboxgl from "mapbox-gl";
+import { PropertyDetailMap } from "@/components/map/PropertyDetailMap";
+import type { Property } from "@/lib/data/types/property";
+import type { LandParcel } from "@/lib/data/types/land-parcel";
 import { PropertyLayout } from "@/components/property/PropertyLayout";
+import { UnlockButton } from "@/components/feature-unlock/UnlockButton";
+import { LocationUnlockMount } from "@/components/feature-unlock/pillars/LocationUnlock";
+import type { UnlockState } from "@/components/feature-unlock/types";
+import { revokeLocationVerification } from "@/lib/actions/properties.actions";
+import { MapControls } from "@/components/map/MapControls";
 import {
-  ZoomIn,
-  ZoomOut,
-  Minus,
-  Plus,
-  Box,
-  Ruler,
-  Maximize2,
-  Compass,
-  Scan,
-  MapPin,
-  Download,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { toast } from "sonner";
+import {
   ArrowUp,
+  BadgeCheck,
+  MoreHorizontal,
+  Copy,
+  Download,
+  Map as MapIcon,
+  MapPin,
+  Maximize2,
 } from "lucide-react";
+import { cn } from "@/components/ui/utils";
+import { PropertyMapExpandModal } from "@/components/map/PropertyMapExpandModal";
 
-type ViewMode = "default" | "expanded" | "full";
-
-export function PropertyLocationPage({ property }: { property: Property }) {
+export function PropertyLocationPage({
+  property,
+  landParcels,
+}: {
+  property: Property;
+  landParcels: LandParcel[];
+}) {
   const activeTab = "location";
-  const [viewMode, setViewMode] = useState<ViewMode>("full");
-  const [activeInfoTab, setActiveInfoTab] = useState("Zoning");
-  const [satelliteView, setSatelliteView] = useState(true);
-  const [terrain, setTerrain] = useState(true);
-  const [boundaries, setBoundaries] = useState(true);
-  const [labels, setLabels] = useState(true);
-  const [showLegend, setShowLegend] = useState(true);
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [wizardStartAt, setWizardStartAt] = useState<"data" | "verification">("data");
+  const [revokeOpen, setRevokeOpen] = useState(false);
+  const [revoking, setRevoking] = useState(false);
+
+  const parcel = landParcels[0] ?? null;
+
+  const unlockState: UnlockState = property.locationVerified
+    ? { kind: "edit", entityId: property.id }
+    : property.addressLine && property.city
+      ? { kind: "verify", entityId: property.id }
+      : { kind: "unlock" };
+
+  function openWizard() {
+    setWizardStartAt(unlockState.kind === "verify" ? "verification" : "data");
+    setWizardOpen(true);
+  }
+
+  async function handleRevoke() {
+    setRevoking(true);
+    const result = await revokeLocationVerification(property.id);
+    setRevoking(false);
+    setRevokeOpen(false);
+    if (result.ok) {
+      toast.success("Location verification revoked");
+    } else {
+      toast.error(result.error ?? "Failed to revoke verification");
+    }
+  }
 
   return (
-    <PropertyLayout activeTab={activeTab} property={property}>
-      <div className={`bg-val-bg-page-alt ${viewMode === "full" ? "min-h-full" : "h-full"}`}>
-      <div className={`max-w-[1200px] mx-auto w-full flex flex-col ${viewMode === "full" ? "min-h-full" : "h-full"}`}>
-        {viewMode === "full" ? (
-          <FullView
-            viewMode={viewMode}
-            setViewMode={setViewMode}
-            showLegend={showLegend}
-            setShowLegend={setShowLegend}
+    <PropertyLayout
+      activeTab={activeTab}
+      property={property}
+    >
+      <div className="bg-val-bg-page-alt min-h-full">
+        <div className="max-w-[1200px] mx-auto w-full flex flex-col min-h-full">
+          <LocationContent
             property={property}
+            parcel={parcel}
+            unlockState={unlockState}
+            openWizard={openWizard}
+            onOpenRevoke={() => setRevokeOpen(true)}
           />
-        ) : viewMode === "expanded" ? (
-          <ExpandedView
-            viewMode={viewMode}
-            setViewMode={setViewMode}
-            showLegend={showLegend}
-            setShowLegend={setShowLegend}
-            activeInfoTab={activeInfoTab}
-            setActiveInfoTab={setActiveInfoTab}
-          />
-        ) : (
-          <DefaultView
-            viewMode={viewMode}
-            setViewMode={setViewMode}
-            showLegend={showLegend}
-            setShowLegend={setShowLegend}
-            satelliteView={satelliteView}
-            setSatelliteView={setSatelliteView}
-            terrain={terrain}
-            setTerrain={setTerrain}
-            boundaries={boundaries}
-            setBoundaries={setBoundaries}
-            labels={labels}
-            setLabels={setLabels}
-          />
-        )}
+        </div>
       </div>
-      </div>
+
+      {wizardOpen && (
+        <LocationUnlockMount
+          open
+          onOpenChange={setWizardOpen}
+          propertyId={property.id}
+          startAt={wizardStartAt}
+        />
+      )}
+
+      {revokeOpen && (
+      <Dialog open onOpenChange={setRevokeOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center mb-1">
+              <BadgeCheck className="w-5 h-5 text-red-500" />
+            </div>
+            <DialogTitle>Revoke location verification?</DialogTitle>
+            <DialogDescription>
+              The verified status will be removed from this property&apos;s location. Evidence documents will remain in your Documents tab. You can re-verify at any time.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <button
+              onClick={() => setRevokeOpen(false)}
+              className="px-4 py-2 text-sm font-semibold text-val-heading border border-slate-200 rounded hover:bg-slate-50 transition-colors duration-150"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleRevoke}
+              disabled={revoking}
+              className="px-4 py-2 text-sm font-semibold text-white rounded bg-red-500 hover:bg-red-600 disabled:opacity-50 transition-colors duration-150"
+            >
+              {revoking ? "Revoking…" : "Revoke verification"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      )}
     </PropertyLayout>
   );
 }
 
-function MapPlaceholder() {
-  return (
-    <div className="w-full h-full bg-[#1a1d2e] flex flex-col items-center justify-center relative">
-      <Box className="w-14 h-14 text-[#515D66] mb-3" />
-      <p className="text-[18px] font-semibold text-[#8591A0]">3D Aerial View</p>
-      <p className="text-[13px] text-[#515D66] mt-1">Interactive terrain scan — Full immersive mode</p>
-    </div>
-  );
-}
+// ── Address & Identity Card ───────────────────────────────────────────────────
 
-function BorderLegend({
-  showLegend,
-  setShowLegend,
-  compact = false,
+function AddressIdentityCard({
+  property,
+  unlockState,
 }: {
-  showLegend: boolean;
-  setShowLegend: (v: boolean) => void;
-  compact?: boolean;
+  property: Property;
+  unlockState: UnlockState;
 }) {
-  if (!showLegend && compact) {
-    return (
-      <button
-        onClick={() => setShowLegend(true)}
-        className="bg-white rounded-xl p-2.5 shadow-[0px_1px_4px_0px_rgba(18,28,40,0.08)] hover:shadow-md transition-all duration-200"
-      >
-        <Plus className="w-4 h-4 text-slate-500" />
-      </button>
-    );
+  const hasAddress = property.addressLine && property.city;
+
+  function copyCoords() {
+    navigator.clipboard.writeText(`${property.lat}, ${property.lng}`).then(() => {
+      toast.success("Coordinates copied");
+    });
   }
+
   return (
-    <div className="bg-white rounded-xl p-4 w-[192px] shadow-[0px_1px_4px_0px_rgba(18,28,40,0.08)]">
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-[--val-primary-dark]">
-          Border Legend
-        </span>
-        <button
-          onClick={() => setShowLegend(!showLegend)}
-          className="text-slate-400 hover:text-slate-600 transition-colors"
-        >
-          <Minus className="w-3.5 h-3.5" />
-        </button>
+    <div
+      className="relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-4px_rgba(15,23,42,0.06)] animate-[fade-slide-up_0.45s_cubic-bezier(0.22,1,0.36,1)_both]"
+      style={{ textWrap: "balance" }}
+    >
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[var(--val-primary-dark)] via-blue-500 to-sky-400"
+        aria-hidden
+      />
+      <div className="relative px-7 pb-6 pt-8">
+        <div className="mb-4 flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 ring-1 ring-blue-100">
+            <MapPin className="h-5 w-5 text-[var(--val-primary-dark)]" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+              Street Address
+            </p>
+            {hasAddress ? (
+              <div className="mt-2 space-y-1">
+                <p className="text-[22px] font-bold leading-snug tracking-tight text-val-heading">
+                  {property.addressLine}
+                </p>
+                {property.addressLine2 && (
+                  <p className="text-[14px] text-slate-500">{property.addressLine2}</p>
+                )}
+                <p className="text-[15px] text-slate-600">
+                  {[property.city, property.province, property.zip].filter(Boolean).join(", ")}
+                </p>
+                {property.country && (
+                  <p className="text-[14px] text-slate-400">{property.country}</p>
+                )}
+              </div>
+            ) : (
+              <div className="mt-2">
+                <p className="text-[15px] italic text-slate-400">No address on file</p>
+                {unlockState.kind === "unlock" && (
+                  <p className="mt-1 text-[12px] text-slate-400">
+                    Use Unlock to add address data for this property.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
-      <div className="space-y-2">
-        <div className="flex items-center gap-2.5">
-          <div className="w-6 h-0.5 rounded-full bg-[--val-primary-dark]" />
-          <span className="text-[13px] text-val-heading">Property Line</span>
-        </div>
-        <div className="flex items-center gap-2.5">
-          <div className="w-6 h-0.5 rounded-full bg-rose-500" />
-          <span className="text-[13px] text-val-heading">Easement</span>
-        </div>
-        <div className="flex items-center gap-2.5">
-          <div className="w-6 h-0.5 rounded-full bg-amber-400" />
-          <span className="text-[13px] text-val-heading">Setback Zone</span>
-        </div>
+
+      <div className="grid grid-cols-2 gap-px border-t border-slate-100 bg-slate-100 sm:grid-cols-4">
+        <MetaCell label="Property" value={property.name || "—"} />
+        <MetaCell label="Type">
+          <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-semibold capitalize text-[var(--val-primary-dark)]">
+            {property.type || "—"}
+          </span>
+        </MetaCell>
+        <MetaCell label="Title">
+          <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600">
+            {property.title || "—"}
+          </span>
+        </MetaCell>
+        <MetaCell label="Coordinates" align="end">
+          <button
+            type="button"
+            onClick={copyCoords}
+            className="group inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 font-mono text-[11px] text-slate-600 tabular-nums transition-[color,box-shadow,border-color] duration-150 hover:border-slate-300 hover:text-val-heading hover:shadow-sm"
+          >
+            <span>
+              {property.lat.toFixed(5)}, {property.lng.toFixed(5)}
+            </span>
+            <Copy className="h-3 w-3 opacity-40 transition-opacity group-hover:opacity-80" />
+          </button>
+        </MetaCell>
       </div>
     </div>
   );
 }
 
-function ZoomControls() {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <button className="bg-white rounded-xl p-2 shadow-[0px_1px_4px_0px_rgba(18,28,40,0.08)] hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
-        <ZoomIn className="w-5 h-5 text-slate-500" />
-      </button>
-      <button className="bg-white rounded-xl p-2 shadow-[0px_1px_4px_0px_rgba(18,28,40,0.08)] hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
-        <ZoomOut className="w-5 h-5 text-slate-500" />
-      </button>
-    </div>
-  );
-}
-
-function LayerToggle({
+function MetaCell({
   label,
-  enabled,
-  onChange,
+  value,
+  children,
+  align = "start",
 }: {
   label: string;
-  enabled: boolean;
-  onChange: (v: boolean) => void;
+  value?: string;
+  children?: ReactNode;
+  align?: "start" | "end";
 }) {
   return (
-    <div className="flex items-center justify-between">
-      <span className="text-[13px] text-val-heading">{label}</span>
-      <button
-        onClick={() => onChange(!enabled)}
-        className={`w-9 h-5 rounded-full transition-colors duration-200 relative ${
-          enabled ? "bg-[--val-primary-dark]" : "bg-slate-200"
-        }`}
-      >
-        <div
-          className={`w-4 h-4 bg-white rounded-full absolute top-0.5 transition-transform duration-200 shadow-sm ${
-            enabled ? "translate-x-[18px]" : "translate-x-0.5"
-          }`}
-        />
-      </button>
+    <div
+      className={`flex flex-col gap-1.5 bg-slate-50/80 px-5 py-4 ${align === "end" ? "items-end text-right" : ""}`}
+    >
+      <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">{label}</p>
+      {children ?? (
+        <p className="text-[13px] font-semibold text-val-heading">{value}</p>
+      )}
     </div>
   );
 }
-
-const kpiData = [
-  {
-    label: "Total Land Size",
-    value: (
-      <>
-        2,450 m<sup>2</sup>
-      </>
-    ),
-    sub: "0.245 hectares",
-    extras: [
-      { label: "Width", value: "45.2m" },
-      { label: "Length", value: "54.3m" },
-    ],
-  },
-  {
-    label: "Current Zoning",
-    value: "Agricultural Zone",
-    sub: null,
-    badge: { text: "A-2 Classification", color: "bg-emerald-50 text-emerald-700" },
-    bullets: ["Development Potential", "Residential Subdivision", "Up to 6 units"],
-  },
-  {
-    label: "Elevation Range",
-    value: "125m",
-    sub: "Above sea level",
-    extras: [
-      { label: "Slope", value: "2.5°" },
-      { label: "Terrain", value: "Flat" },
-    ],
-  },
-];
 
 const comparables = [
   { corner: "Northeast", lat: "11.5564°N", lng: "104.9282°E", bearing: "45°" },
@@ -219,102 +266,252 @@ const compSales = [
   { area: "2,100 m² nearby", dist: "0.8 km away", time: "5 months ago", price: "$229/m²" },
 ];
 
-function FullView({
-  viewMode,
-  setViewMode,
-  showLegend,
-  setShowLegend,
+// ── Location page content ───────────────────────────────────────────────────────
+
+function LocationContent({
   property,
+  parcel,
+  unlockState,
+  openWizard,
+  onOpenRevoke,
 }: {
-  viewMode: ViewMode;
-  setViewMode: (v: ViewMode) => void;
-  showLegend: boolean;
-  setShowLegend: (v: boolean) => void;
-  property: import("@/lib/mock-data").Property;
+  property: Property;
+  parcel: LandParcel | null;
+  unlockState: UnlockState;
+  openWizard: () => void;
+  onOpenRevoke: () => void;
 }) {
+  const mapRef = useRef<mapboxgl.Map | null>(null);
+  const [mapMounted, setMapMounted] = useState(false);
+  const [mapLoaded, setMapLoaded] = useState(false);
+  const [mapExpanded, setMapExpanded] = useState(false);
+
+  useEffect(() => {
+    setMapMounted(true);
+  }, []);
+  const propertyCenter: [number, number] = [property.lng, property.lat];
+  const mapSubtitle = [property.addressLine, property.city].filter(Boolean).join(", ");
+
   return (
     <div className="flex flex-col">
-      {/* Header */}
+      {/* Page header */}
       <div className="px-8 pt-8 pb-0 animate-[fade-slide-up_0.4s_cubic-bezier(0.22,1,0.36,1)_both]">
         <div className="flex items-center gap-1.5 mb-3">
           <span className="text-xs font-semibold tracking-widest uppercase text-[--val-primary-dark]">Valgate</span>
           <span className="text-xs text-slate-300">/</span>
           <span className="text-xs font-semibold tracking-widest uppercase text-slate-400">Location</span>
         </div>
-        <div className="flex items-end justify-between">
+        <div className="flex items-end justify-between gap-4">
           <div>
-            <h1 className="text-4xl font-extrabold text-val-heading tracking-tight leading-10">
-              Location &amp; Boundaries{" "}
-              <span className="text-[--val-primary-dark]">{property.code}</span>
-            </h1>
-            <p className="text-slate-500 text-base mt-2">{property.type} · {property.province}, Cambodia</p>
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-4xl font-extrabold text-val-heading tracking-tight leading-10">
+                Location &amp; Boundaries{" "}
+                <span className="text-[--val-primary-dark]">{property.code}</span>
+              </h1>
+              {property.locationVerified && (
+                <div className="mb-1 flex items-center gap-1">
+                  <span className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[12px] font-semibold text-emerald-700">
+                    <BadgeCheck className="h-3.5 w-3.5" />
+                    Valgate Verified
+                  </span>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="rounded p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-52">
+                      <DropdownMenuItem
+                        className="cursor-pointer text-red-600 focus:bg-red-50 focus:text-red-600"
+                        onSelect={onOpenRevoke}
+                      >
+                        <BadgeCheck className="mr-2 h-4 w-4" />
+                        Revoke verification
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              )}
+            </div>
+            <p className="mt-2 text-base text-slate-500">
+              {property.type} · {property.province}, Cambodia
+            </p>
           </div>
-          <button
-            onClick={() => setViewMode("expanded")}
-            className="px-5 py-2.5 text-white text-[14px] font-semibold rounded hover:opacity-90 active:scale-[0.97] transition-all duration-150"
-            style={{
-              background: "linear-gradient(168deg, var(--val-primary-dark) 0%, #2563eb 100%)",
-              boxShadow: "0 4px 6px -1px rgba(0,74,198,0.25), 0 2px 4px -2px rgba(0,74,198,0.15)",
-            }}
-          >
-            Full Screen View
-          </button>
+          <div className="shrink-0">
+            <UnlockButton
+              state={unlockState}
+              onClick={openWizard}
+              editLabel="Edit location"
+            />
+          </div>
         </div>
       </div>
 
       {/* Scrollable content */}
       <div className="px-8 py-6 flex flex-col gap-5">
+        {/* Address & Identity card */}
+        <AddressIdentityCard
+          property={property}
+          unlockState={unlockState}
+        />
+
         {/* Map */}
         <div
           className="h-[340px] rounded-xl overflow-hidden relative shrink-0 shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)] animate-[fade-slide-up_0.45s_cubic-bezier(0.22,1,0.36,1)_both]"
           style={{ animationDelay: "60ms" }}
         >
-          <MapPlaceholder />
-          <div className="absolute top-4 right-4 flex gap-3">
-            <ZoomControls />
-            <BorderLegend showLegend={showLegend} setShowLegend={setShowLegend} compact />
+          {mapMounted && (
+            <PropertyDetailMap
+              lat={property.lat}
+              lng={property.lng}
+              onLoad={() => setMapLoaded(true)}
+              onMapReady={(map) => {
+                mapRef.current = map;
+              }}
+              className="absolute inset-0"
+            />
+          )}
+
+          {/* Map loading overlay */}
+          <div
+            className={cn(
+              "absolute inset-0 z-50 flex flex-col items-center justify-center bg-white gap-3 transition-opacity duration-500",
+              mapLoaded ? "opacity-0 pointer-events-none" : "opacity-100",
+            )}
+            onTransitionEnd={(e) => {
+              if (e.propertyName === "opacity" && mapLoaded) {
+                (e.currentTarget as HTMLElement).style.display = "none";
+              }
+            }}
+          >
+            <div className="flex items-center gap-2">
+              <MapIcon className="size-5 text-[var(--val-primary-dark)] animate-pulse" />
+              <span className="text-[13px] font-medium text-slate-500">Loading map…</span>
+            </div>
+            <div className="w-32 h-1 rounded-full bg-slate-100 overflow-hidden">
+              <div className="h-full bg-[var(--val-primary-dark)] rounded-full animate-[loading-bar_1.5s_ease-in-out_infinite]" />
+            </div>
           </div>
+
+          {mapLoaded && (
+            <button
+              type="button"
+              onClick={() => setMapExpanded(true)}
+              className="absolute right-3 top-3 z-10 flex items-center gap-1.5 rounded-full border border-border/60 bg-background/90 px-3 py-1.5 text-[12px] font-semibold text-foreground shadow-sm backdrop-blur-md transition-[colors,transform] duration-150 hover:bg-background active:scale-95 animate-[fade-slide-down_0.35s_cubic-bezier(0.22,1,0.36,1)_both]"
+              aria-label="Expand map"
+            >
+              <Maximize2 className="size-3" />
+              Expand map
+            </button>
+          )}
+          <MapControls
+            mapRef={mapRef}
+            resetCenter={propertyCenter}
+            resetZoom={15}
+          />
         </div>
+
+        {mapExpanded && (
+          <PropertyMapExpandModal
+            lat={property.lat}
+            lng={property.lng}
+            title={`${property.name || property.code} — Location`}
+            subtitle={mapSubtitle || undefined}
+            onClose={() => setMapExpanded(false)}
+          />
+        )}
 
         {/* KPI row */}
         <div className="grid grid-cols-3 gap-4">
-          {kpiData.map((kpi, i) => (
-            <div
-              key={kpi.label}
-              className="bg-white rounded-lg border border-slate-200 p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)] hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 animate-[fade-slide-up_0.45s_cubic-bezier(0.22,1,0.36,1)_both]"
-              style={{ animationDelay: `${100 + i * 80}ms` }}
-            >
-              <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">
-                {kpi.label}
+          {/* Total Land Size */}
+          <div
+            className="bg-white rounded-lg border border-slate-200 p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)] hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 animate-[fade-slide-up_0.45s_cubic-bezier(0.22,1,0.36,1)_both]"
+            style={{ animationDelay: "100ms" }}
+          >
+            <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">
+              Total Land Size
+            </span>
+            <p className="text-[24px] font-bold text-val-heading leading-none mt-2 mb-1">
+              {parcel != null ? <>{parcel.sizeM2.toLocaleString()} m<sup>2</sup></> : "—"}
+            </p>
+            {parcel != null && (
+              <p className="text-xs text-slate-400">{(parcel.sizeM2 / 10000).toFixed(3)} hectares</p>
+            )}
+            {parcel != null && (
+              <div className="flex gap-6 mt-3 pt-3 border-t border-slate-100">
+                <div>
+                  <p className="text-[11px] text-slate-400">Width</p>
+                  <p className="text-[15px] font-semibold text-val-heading">
+                    {parcel.widthM != null ? `${parcel.widthM}m` : "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-slate-400">Length</p>
+                  <p className="text-[15px] font-semibold text-val-heading">
+                    {parcel.lengthM != null ? `${parcel.lengthM}m` : "—"}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Current Zoning */}
+          <div
+            className="bg-white rounded-lg border border-slate-200 p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)] hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 animate-[fade-slide-up_0.45s_cubic-bezier(0.22,1,0.36,1)_both]"
+            style={{ animationDelay: "180ms" }}
+          >
+            <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">
+              Current Zoning
+            </span>
+            <p className="text-[24px] font-bold text-val-heading leading-none mt-2 mb-1">
+              {parcel?.zoningClass ?? "—"}
+            </p>
+            {parcel?.zoningCode != null && (
+              <span className="inline-block mt-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700">
+                {parcel.zoningCode} Classification
               </span>
-              <p className="text-[24px] font-bold text-val-heading leading-none mt-2 mb-1">{kpi.value}</p>
-              {kpi.sub && <p className="text-xs text-slate-400">{kpi.sub}</p>}
-              {"badge" in kpi && kpi.badge && (
-                <span
-                  className={`inline-block mt-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${kpi.badge.color}`}
-                >
-                  {kpi.badge.text}
-                </span>
-              )}
-              {"bullets" in kpi && kpi.bullets && (
-                <div className="mt-2 space-y-0.5">
-                  {kpi.bullets.map((b) => (
-                    <p key={b} className="text-xs text-slate-500">{b}</p>
-                  ))}
+            )}
+            {parcel?.developmentPotential != null && parcel.developmentPotential.length > 0 && (
+              <div className="mt-2 space-y-0.5">
+                <p className="text-xs text-slate-500">Development Potential</p>
+                {parcel.developmentPotential.map((b) => (
+                  <p key={b} className="text-xs text-slate-500">{b}</p>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Elevation Range */}
+          <div
+            className="bg-white rounded-lg border border-slate-200 p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)] hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 animate-[fade-slide-up_0.45s_cubic-bezier(0.22,1,0.36,1)_both]"
+            style={{ animationDelay: "260ms" }}
+          >
+            <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">
+              Elevation Range
+            </span>
+            <p className="text-[24px] font-bold text-val-heading leading-none mt-2 mb-1">
+              {parcel?.elevationM != null ? `${parcel.elevationM}m` : "—"}
+            </p>
+            {parcel?.elevationM != null && (
+              <p className="text-xs text-slate-400">Above sea level</p>
+            )}
+            {parcel != null && (
+              <div className="flex gap-6 mt-3 pt-3 border-t border-slate-100">
+                <div>
+                  <p className="text-[11px] text-slate-400">Slope</p>
+                  <p className="text-[15px] font-semibold text-val-heading">
+                    {parcel.slopeAngleDeg != null ? `${parcel.slopeAngleDeg}°` : "—"}
+                  </p>
                 </div>
-              )}
-              {"extras" in kpi && kpi.extras && (
-                <div className="flex gap-6 mt-3 pt-3 border-t border-slate-100">
-                  {kpi.extras.map((e) => (
-                    <div key={e.label}>
-                      <p className="text-[11px] text-slate-400">{e.label}</p>
-                      <p className="text-[15px] font-semibold text-val-heading">{e.value}</p>
-                    </div>
-                  ))}
+                <div>
+                  <p className="text-[11px] text-slate-400">Terrain</p>
+                  <p className="text-[15px] font-semibold text-val-heading">
+                    {parcel.terrainType ?? "—"}
+                  </p>
                 </div>
-              )}
-            </div>
-          ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Bottom section: comparables + investment */}
@@ -410,256 +607,6 @@ function FullView({
             </button>
           </div>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function ExpandedView({
-  viewMode,
-  setViewMode,
-  showLegend,
-  setShowLegend,
-  activeInfoTab,
-  setActiveInfoTab,
-}: {
-  viewMode: ViewMode;
-  setViewMode: (v: ViewMode) => void;
-  showLegend: boolean;
-  setShowLegend: (v: boolean) => void;
-  activeInfoTab: string;
-  setActiveInfoTab: (v: string) => void;
-}) {
-  const infoTabs = ["Measurements", "Zoning", "Boundaries", "Investment"];
-  return (
-    <div className="flex flex-col h-full">
-      {/* Map */}
-      <div className="relative flex-1 min-h-[400px]">
-        <MapPlaceholder />
-        <div className="absolute top-4 right-4 flex gap-3">
-          <ZoomControls />
-          <BorderLegend showLegend={showLegend} setShowLegend={setShowLegend} compact />
-        </div>
-      </div>
-
-      {/* Bottom panel */}
-      <div className="bg-white border-t border-slate-200 px-6 py-4">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex gap-8">
-            {[
-              { label: "Total Area", value: <>2,450 m<sup>2</sup></> },
-              { label: "Zoning", value: "Agricultural" },
-              { label: "Elevation", value: "125m" },
-              { label: "Price/m²", value: "$245" },
-            ].map((stat) => (
-              <div key={stat.label}>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">
-                  {stat.label}
-                </p>
-                <p className="text-[22px] font-bold text-val-heading leading-tight">{stat.value}</p>
-              </div>
-            ))}
-          </div>
-          <button
-            onClick={() => setViewMode("full")}
-            className="text-slate-400 hover:text-val-heading transition-colors"
-          >
-            <Maximize2 className="w-5 h-5" />
-          </button>
-        </div>
-
-        <div className="flex gap-6 border-b border-slate-200 mb-4">
-          {infoTabs.map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveInfoTab(tab)}
-              className={`pb-2.5 text-[14px] font-medium border-b-2 transition-colors ${
-                activeInfoTab === tab
-                  ? "border-[--val-primary-dark] text-val-heading"
-                  : "border-transparent text-slate-500 hover:text-val-heading"
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
-
-        {activeInfoTab === "Zoning" && (
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-5">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-1">
-                  Current Zoning
-                </p>
-                <p className="text-[18px] font-bold text-val-heading">Agricultural Zone</p>
-              </div>
-              <span className="bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-[12px] font-semibold">
-                A-2 Classification
-              </span>
-              <div className="text-[13px] text-slate-500 space-y-0.5">
-                <p>Development Potential</p>
-                <p>Residential Subdivision</p>
-                <p>Up to 6 units permitted</p>
-              </div>
-            </div>
-            <button
-              onClick={() => setViewMode("full")}
-              className="px-4 py-2 text-white text-[14px] font-semibold rounded hover:opacity-90 active:scale-[0.97] transition-all duration-150"
-              style={{
-                background: "linear-gradient(168deg, var(--val-primary-dark) 0%, #2563eb 100%)",
-                boxShadow: "0 4px 6px -1px rgba(0,74,198,0.25), 0 2px 4px -2px rgba(0,74,198,0.15)",
-              }}
-            >
-              Full Details
-            </button>
-          </div>
-        )}
-        {activeInfoTab === "Measurements" && (
-          <div className="flex gap-10">
-            {[
-              { label: "Width", value: "45.2m" },
-              { label: "Length", value: "54.3m" },
-              { label: "Slope", value: "2.5°" },
-              { label: "Terrain", value: "Flat" },
-            ].map((m) => (
-              <div key={m.label}>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">{m.label}</p>
-                <p className="text-[18px] font-bold text-val-heading">{m.value}</p>
-              </div>
-            ))}
-          </div>
-        )}
-        {activeInfoTab === "Investment" && (
-          <div className="flex items-center gap-6">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-1">Price per m²</p>
-              <p className="text-[22px] font-bold text-val-heading">$245</p>
-            </div>
-            <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 text-[12px] font-semibold px-2.5 py-1 rounded-full">
-              <ArrowUp className="w-3 h-3" />
-              +12% vs avg area
-            </span>
-          </div>
-        )}
-        {activeInfoTab === "Boundaries" && (
-          <div className="flex gap-8">
-            {[
-              { label: "Property Line", color: "bg-[--val-primary-dark]" },
-              { label: "Easement", color: "bg-rose-500" },
-              { label: "Setback Zone", color: "bg-amber-400" },
-            ].map((b) => (
-              <div key={b.label} className="flex items-center gap-2.5">
-                <div className={`w-6 h-0.5 rounded-full ${b.color}`} />
-                <span className="text-[13px] font-medium text-val-heading">{b.label}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function DefaultView({
-  viewMode,
-  setViewMode,
-  showLegend,
-  setShowLegend,
-  satelliteView,
-  setSatelliteView,
-  terrain,
-  setTerrain,
-  boundaries,
-  setBoundaries,
-  labels,
-  setLabels,
-}: {
-  viewMode: ViewMode;
-  setViewMode: (v: ViewMode) => void;
-  showLegend: boolean;
-  setShowLegend: (v: boolean) => void;
-  satelliteView: boolean;
-  setSatelliteView: (v: boolean) => void;
-  terrain: boolean;
-  setTerrain: (v: boolean) => void;
-  boundaries: boolean;
-  setBoundaries: (v: boolean) => void;
-  labels: boolean;
-  setLabels: (v: boolean) => void;
-}) {
-  return (
-    <div className="flex flex-col h-full">
-      {/* Map */}
-      <div className="relative flex-1">
-        <MapPlaceholder />
-        <div className="absolute top-4 right-4 flex gap-3">
-          <ZoomControls />
-          <div className="flex flex-col gap-3">
-            <BorderLegend showLegend={showLegend} setShowLegend={setShowLegend} />
-            <div className="bg-white rounded-xl p-4 w-[192px] shadow-[0px_1px_4px_0px_rgba(18,28,40,0.08)]">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-[--val-primary-dark] mb-3">
-                Layers
-              </p>
-              <div className="space-y-3">
-                <LayerToggle label="Satellite View" enabled={satelliteView} onChange={setSatelliteView} />
-                <LayerToggle label="Terrain" enabled={terrain} onChange={setTerrain} />
-                <LayerToggle label="Boundaries" enabled={boundaries} onChange={setBoundaries} />
-                <LayerToggle label="Labels" enabled={labels} onChange={setLabels} />
-              </div>
-
-              <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-[--val-primary-dark] mt-4 mb-3">
-                Tools
-              </p>
-              <div className="space-y-1.5">
-                {[
-                  { icon: Ruler, label: "Measure Distance" },
-                  { icon: Scan, label: "Measure Area" },
-                  { icon: MapPin, label: "Drop Pin" },
-                  { icon: Compass, label: "Reset View" },
-                ].map(({ icon: Icon, label }) => (
-                  <button
-                    key={label}
-                    className="flex items-center gap-2 text-[13px] text-val-heading hover:bg-slate-50 w-full px-2 py-1.5 rounded-lg transition-colors duration-150"
-                  >
-                    <Icon className="w-3.5 h-3.5 text-[--val-primary-dark]" />
-                    {label}
-                  </button>
-                ))}
-              </div>
-
-              <div className="mt-4 pt-3 border-t border-slate-100">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-[--val-primary-dark] mb-2">
-                  Property
-                </p>
-                <p className="text-[14px] font-bold text-val-heading">SR00015 Land</p>
-                <p className="text-[12px] text-slate-400">Siem Reap, Cambodia</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Stats bar */}
-      <div className="bg-white border-t border-slate-200 px-6 py-4 flex items-center justify-between">
-        <div className="flex gap-8">
-          {[
-            { label: "Total Area", value: <>2,450 m<sup>2</sup></> },
-            { label: "Zoning", value: "Agricultural" },
-            { label: "Elevation", value: "125m" },
-            { label: "Price/m²", value: "$245" },
-          ].map((stat) => (
-            <div key={stat.label}>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">{stat.label}</p>
-              <p className="text-[22px] font-bold text-val-heading leading-tight">{stat.value}</p>
-            </div>
-          ))}
-        </div>
-        <button
-          onClick={() => setViewMode("expanded")}
-          className="text-slate-400 hover:text-val-heading transition-colors"
-        >
-          <Maximize2 className="w-5 h-5" />
-        </button>
       </div>
     </div>
   );

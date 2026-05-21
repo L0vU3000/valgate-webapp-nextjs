@@ -20,8 +20,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { cn } from "@/components/ui/utils";
-import { healthClass, healthBgClass } from "@/lib/property-helpers";
-import type { Property, StatusVariant, TitleVariant, PortfolioStats } from "@/app/(shell)/queries";
+import { progressClass, progressBgClass, titleToVariant } from "@/lib/property-helpers";
+import type { HomeProperty, TitleVariant, PortfolioStats } from "@/app/(shell)/queries";
+import type { Document } from "@/lib/data/types/document";
 import { CommandPalette } from "@/components/home/CommandPalette";
 import { PropertyTable } from "@/components/portfolio/PropertyTable";
 import type { TableAnimationConfig } from "@/components/portfolio/PropertyTable";
@@ -34,13 +35,6 @@ const MapView = dynamic(
   { ssr: false },
 );
 
-const statusClasses: Record<StatusVariant, string> = {
-  rented:
-    "text-status-success-text bg-status-success-bg border border-status-success-border",
-  vacant:
-    "text-status-warning-text bg-status-warning-bg border border-status-warning-border",
-};
-
 const titleClasses: Record<TitleVariant, string> = {
   hard: "text-interactive-primary",
   soft: "text-status-warning-text",
@@ -52,8 +46,8 @@ const HOME_TABLE_ANIMATION: TableAnimationConfig = {
   containerDelay: 0,
   rowDuration: 300,
   rowStagger: 15,
-  healthBarDelay: 80,
-  healthBarStagger: 20,
+  progressBarDelay: 80,
+  progressBarStagger: 20,
 };
 
 const triggerPlaceholders = [
@@ -65,11 +59,11 @@ const triggerPlaceholders = [
 ];
 
 
-export function HomePage({ initialProperties, portfolioStats }: { initialProperties: Property[]; portfolioStats: PortfolioStats }) {
+export function HomePage({ initialProperties, portfolioStats, documents }: { initialProperties: HomeProperty[]; portfolioStats: PortfolioStats; documents: Document[] }) {
 
-  const [selectedPin, setSelectedPin] = useState<number | null>(null);
-  const [closingKey, setClosingKey] = useState<number | null>(null);
-  const [hoveredProperty, setHoveredProperty] = useState<number | null>(null);
+  const [selectedPin, setSelectedPin] = useState<string | null>(null);
+  const [closingKey, setClosingKey] = useState<string | null>(null);
+  const [hoveredProperty, setHoveredProperty] = useState<string | null>(null);
   const [tableOpen, setTableOpen] = useState(false);
   const [tableOpenCount, setTableOpenCount] = useState(0);
   const [commandOpen, setCommandOpen] = useState(false);
@@ -130,7 +124,7 @@ export function HomePage({ initialProperties, portfolioStats }: { initialPropert
   }, [selectedPin]);
 
   const handlePinClick = useCallback(
-    (pinId: number | null) => {
+    (pinId: string | null) => {
       if (pinId === null) return;
       if (selectedPin === pinId) {
         closeDrawer();
@@ -239,6 +233,7 @@ export function HomePage({ initialProperties, portfolioStats }: { initialPropert
           open={commandOpen}
           onOpenChange={setCommandOpen}
           properties={initialProperties}
+          documents={documents}
           navigate={(path) => runCommand(() => router.push(path))}
         />
 
@@ -281,7 +276,7 @@ export function HomePage({ initialProperties, portfolioStats }: { initialPropert
               <div className="absolute top-3 left-3 [animation:pill-in_0.3s_cubic-bezier(0.16,1,0.3,1)_0.1s_both]">
                 <span className={cn(
                   "px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide uppercase",
-                  drawerProperty.statusVariant === "rented"
+                  drawerProperty.status === "Rented"
                     ? "bg-emerald-500/90 text-white"
                     : "bg-amber-400/90 text-amber-950",
                 )}>
@@ -303,9 +298,9 @@ export function HomePage({ initialProperties, portfolioStats }: { initialPropert
             <div className="px-5 pt-5 pb-4 space-y-3.5 text-sm">
               {[
                 { label: "Buy Price", value: <span className="text-base font-display font-bold text-foreground">{drawerProperty.buy}</span> },
-                { label: "Size", value: <span className="font-medium text-foreground">{drawerProperty.size} m&sup2;</span> },
+                { label: "Size", value: <span className="font-medium text-foreground">{drawerProperty.totalArea ? `${Number(drawerProperty.totalArea).toLocaleString()} m²` : "—"}</span> },
                 { label: "Type", value: <span className="font-medium text-foreground">{drawerProperty.type}</span> },
-                { label: "Title", value: <span className={cn("font-medium", titleClasses[drawerProperty.titleVariant])}>{drawerProperty.title}</span> },
+                { label: "Title", value: <span className={cn("font-medium", titleClasses[titleToVariant(drawerProperty.title)])}>{drawerProperty.title}</span> },
               ].map((row, i) => (
                 <div
                   key={row.label}
@@ -320,16 +315,16 @@ export function HomePage({ initialProperties, portfolioStats }: { initialPropert
                 className="flex items-center justify-between [animation:card-row-in_0.35s_cubic-bezier(0.16,1,0.3,1)_both]"
                 style={{ animationDelay: "450ms" }}
               >
-                <span className="text-secondary">Health</span>
+                <span className="text-secondary">Progress</span>
                 <div className="flex items-center gap-2">
                   <div className="w-16 h-1.5 rounded-full bg-surface-sunken overflow-hidden">
                     <div
-                      className={cn("h-full rounded-full origin-left [animation:health-bar-fill_0.6s_cubic-bezier(0.16,1,0.3,1)_0.5s_both]", healthBgClass(drawerProperty.health))}
-                      style={{ width: `${drawerProperty.health}%` }}
+                      className={cn("h-full rounded-full origin-left [animation:health-bar-fill_0.6s_cubic-bezier(0.16,1,0.3,1)_0.5s_both]", progressBgClass(drawerProperty.progress))}
+                      style={{ width: `${drawerProperty.progress}%` }}
                     />
                   </div>
-                  <span className={cn("font-medium tabular-nums", healthClass(drawerProperty.health))}>
-                    {drawerProperty.health}%
+                  <span className={cn("font-medium tabular-nums", progressClass(drawerProperty.progress))}>
+                    {drawerProperty.progress}%
                   </span>
                 </div>
               </div>
@@ -397,6 +392,10 @@ export function HomePage({ initialProperties, portfolioStats }: { initialPropert
                 goToPage={() => {}}
                 onClearFilters={() => {}}
                 animationConfig={HOME_TABLE_ANIMATION}
+                showProgressExplainer={false}
+                sortKey={null}
+                sortDir="asc"
+                onSort={() => {}}
               />
             </div>
           </div>

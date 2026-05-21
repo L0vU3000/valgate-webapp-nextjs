@@ -72,8 +72,8 @@ export const property = defineTable({
       v.literal("none")         // no lease
     )
   ),
-  // Overall completeness/quality score 0..100 auto-computed by triggers
-  health: v.optional(v.number()),
+  // Data completeness score 0..100 auto-computed by triggers
+  progress: v.optional(v.number()),
   documentCount: v.optional(v.number()),
   version: v.optional(v.number()),
   createdAt: v.string(),

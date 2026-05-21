@@ -1,0 +1,13 @@
+{
+  "id": "PROP-0003",
+  "userId": "demo-user",
+  "name": "Kampong Chhnang Parcel",
+  "code": "PROP-0003",
+  "type": "land",
+  "status": "Owner-Occupied",
+  "lat": 12.252,
+  "lng": 104.668,
+  "createdAt": 1778482038680,
+  "updatedAt": 1778482038680,
+  "propertyUse": "personal"
+}

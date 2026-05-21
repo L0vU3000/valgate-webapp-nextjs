@@ -1,0 +1,9 @@
+{
+  "id": "RISK-0002",
+  "propertyId": "PROP-0011",
+  "severity": "Medium",
+  "title": "Smoke alarm overdue",
+  "description": "Two smoke alarms on second floor have not been tested in 14 months.",
+  "createdAt": 1775001600000,
+  "updatedAt": 1775001600000
+}

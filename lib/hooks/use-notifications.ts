@@ -1,26 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { MOCK_NOTIFICATIONS, type Notification } from "@/lib/data/notifications";
+import type { Notification } from "@/lib/data/types/notification";
+import { markRead, markAllRead as markAllReadAction } from "@/lib/actions/notifications.actions";
 
-// TODO(backend): Replace useState + MOCK_NOTIFICATIONS with:
-//   const notifications = useQuery(api.notifications.list);
-//   const markAllReadMutation = useMutation(api.notifications.markAllRead);
-//   const markAsReadMutation  = useMutation(api.notifications.markAsRead);
+export function useNotifications(initial: Notification[] = []) {
+  const [notifications, setNotifications] = useState<Notification[]>(initial);
 
-export function useNotifications() {
-  const [notifications, setNotifications] = useState<Notification[]>(MOCK_NOTIFICATIONS);
-
-  function markAllRead() {
-    // TODO(backend): markAllReadMutation()
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  async function markAsRead(id: string) {
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+    await markRead(id);
   }
 
-  function markAsRead(id: string) {
-    // TODO(backend): markAsReadMutation({ id })
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-    );
+  async function markAllRead() {
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    await markAllReadAction();
   }
 
   return { notifications, markAllRead, markAsRead };

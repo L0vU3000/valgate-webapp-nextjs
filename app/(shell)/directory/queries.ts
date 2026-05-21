@@ -1,3 +1,7 @@
+import "server-only";
+import * as db from "@/lib/data/db";
+import { getCurrentUserId } from "@/lib/data/auth-shim";
+
 export type Category =
   | "All"
   | "Agent"
@@ -10,7 +14,7 @@ export type Category =
   | "Accountant";
 
 export type Professional = {
-  id: number;
+  id: string;
   name: string;
   company: string;
   category: Exclude<Category, "All">;
@@ -20,6 +24,9 @@ export type Professional = {
   available: boolean;
   initials: string;
   avatarBg: string;
+  email?: string;
+  phone?: string;
+  verified: boolean;
 };
 
 export type DirectoryPageData = {
@@ -28,81 +35,27 @@ export type DirectoryPageData = {
 };
 
 export async function getDirectoryPageData(): Promise<DirectoryPageData> {
+  const userId = getCurrentUserId();
+  const dbProfessionals = await db.professionals.list(userId);
+
+  const professionals: Professional[] = dbProfessionals.map((p) => ({
+    id: p.id,
+    name: p.name,
+    company: p.company,
+    category: p.category as Exclude<Category, "All">,
+    rating: p.rating,
+    reviewCount: p.reviewCount,
+    linkedProperties: p.linkedProperties,
+    available: p.available,
+    initials: p.initials,
+    avatarBg: p.avatarBg,
+    email: p.email,
+    phone: p.phone,
+    verified: p.verified ?? false,
+  }));
+
   return {
-    professionals: [
-      {
-        id: 1,
-        name: "Sarah Mitchell",
-        company: "Luxe Realty Group",
-        category: "Agent",
-        rating: 5.0,
-        reviewCount: 124,
-        linkedProperties: 12,
-        available: true,
-        initials: "SM",
-        avatarBg: "bg-blue-400",
-      },
-      {
-        id: 2,
-        name: "Sok Dara",
-        company: "Phnom Penh Notary Office",
-        category: "Notary",
-        rating: 4.9,
-        reviewCount: 82,
-        linkedProperties: 4,
-        available: false,
-        initials: "SD",
-        avatarBg: "bg-indigo-400",
-      },
-      {
-        id: 3,
-        name: "Chea Sophal",
-        company: "Pro Fix Cambodia",
-        category: "Maintenance",
-        rating: 5.0,
-        reviewCount: 206,
-        linkedProperties: 18,
-        available: true,
-        initials: "CS",
-        avatarBg: "bg-green-400",
-      },
-      {
-        id: 4,
-        name: "Ly Bopha",
-        company: "ClearBooks Cambodia",
-        category: "Accountant",
-        rating: 4.1,
-        reviewCount: 54,
-        linkedProperties: 8,
-        available: false,
-        initials: "LB",
-        avatarBg: "bg-emerald-400",
-      },
-      {
-        id: 5,
-        name: "Heng Virak",
-        company: "Virak Electric Co.",
-        category: "Electrician",
-        rating: 4.8,
-        reviewCount: 115,
-        linkedProperties: 21,
-        available: true,
-        initials: "HV",
-        avatarBg: "bg-amber-400",
-      },
-      {
-        id: 6,
-        name: "Noun Sreymom",
-        company: "Cambodia Property Inspections",
-        category: "Inspector",
-        rating: 5.0,
-        reviewCount: 39,
-        linkedProperties: 31,
-        available: true,
-        initials: "NS",
-        avatarBg: "bg-rose-400",
-      },
-    ],
+    professionals,
     categories: [
       "All", "Agent", "Lawyer", "Notary", "Maintenance", "Electrician", "Plumber", "Inspector", "Accountant",
     ],

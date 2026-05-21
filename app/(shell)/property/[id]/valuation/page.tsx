@@ -1,14 +1,8 @@
-import { notFound } from "next/navigation";
-import { PropertyValuationPage } from "../_components/PropertyValuationPage";
-import { getPropertyByIdParam } from "@/lib/data/properties";
+import { redirect } from "next/navigation";
 
 export default async function Page({
   params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+}: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const property = await getPropertyByIdParam(id);
-  if (!property) notFound();
-  return <PropertyValuationPage property={property} />;
+  redirect(`/property/${id}/financials`);
 }
