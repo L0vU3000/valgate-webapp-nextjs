@@ -49,7 +49,7 @@ export function AppHeader({
         <div className="fixed top-0 left-1/2 -translate-x-1/2 h-[56px] flex items-center w-full max-w-[448px] px-6 z-10 pointer-events-none">
           <button
             onClick={() => setCommandOpen(true)}
-            className="relative w-full flex items-center gap-2 pl-10 pr-3 py-2 text-[14px] bg-val-bg-tint rounded text-slate-400 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all duration-200 pointer-events-auto"
+            className="relative w-full flex items-center gap-2 pl-10 pr-3 py-2.5 text-[14px] bg-val-bg-tint rounded text-slate-400 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all duration-200 pointer-events-auto"
           >
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-slate-400 pointer-events-none" />
             <span className="flex-1 text-left">Search...</span>
@@ -73,7 +73,7 @@ export function AppHeader({
                   setNotificationsOpen(true);
                 }
               }}
-              className="p-2 rounded hover:bg-slate-100 transition-colors duration-150 relative"
+              className="p-2.5 rounded hover:bg-slate-100 transition-colors duration-150 relative"
             >
               <Bell className="w-5 h-5 text-slate-500" />
               {notifications.some((n) => !n.read) && (

@@ -65,7 +65,7 @@ export function PropertyLayout({ activeTab, children, property, progress, onProg
           <button
             onClick={() => router.push("/portfolio")}
             aria-label="Back to portfolio"
-            className="text-muted-foreground hover:text-foreground rounded-md p-1.5 hover:bg-accent/50 active:scale-90 transition-[color,background-color,transform] duration-150"
+            className="text-muted-foreground hover:text-foreground rounded-md p-2 hover:bg-accent/50 active:scale-90 transition-[color,background-color,transform] duration-150"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
@@ -79,7 +79,7 @@ export function PropertyLayout({ activeTab, children, property, progress, onProg
           <button
             onClick={handleProgressClick}
             disabled={!handleProgressClick}
-            className="bg-[#ECFDF5] text-[#059669] px-3 py-1 rounded-full text-[12px] flex items-center gap-1.5 hover:bg-emerald-100 active:scale-[0.97] transition-[background-color,transform] duration-150 disabled:pointer-events-none"
+            className="bg-[#ECFDF5] text-[#059669] px-3 py-2 rounded-full text-[12px] flex items-center gap-1.5 hover:bg-emerald-100 active:scale-[0.97] transition-[background-color,transform] duration-150 disabled:pointer-events-none"
             aria-label={`${displayProgress ?? "—"}% progress — view details`}
           >
             <span className="relative flex h-2 w-2 shrink-0">
@@ -101,7 +101,7 @@ export function PropertyLayout({ activeTab, children, property, progress, onProg
                   setNotificationsOpen(true);
                 }
               }}
-              className="p-2 rounded hover:bg-slate-100 transition-colors duration-150 relative"
+              className="p-2.5 rounded hover:bg-slate-100 transition-colors duration-150 relative"
             >
               <Bell className="w-5 h-5 text-slate-500" />
               {notifications.some((n) => !n.read) && (
@@ -125,7 +125,10 @@ export function PropertyLayout({ activeTab, children, property, progress, onProg
           </div>
           <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button aria-label="Property options" className="text-muted-foreground hover:text-foreground transition-colors duration-150 p-2 rounded">
+                <button
+                  aria-label="Property options"
+                  className="text-muted-foreground hover:text-foreground transition-colors duration-150 p-2.5 rounded"
+                >
                   <MoreVertical className="w-5 h-5" />
                 </button>
               </DropdownMenuTrigger>
@@ -214,7 +217,7 @@ export function PropertyLayout({ activeTab, children, property, progress, onProg
           <DialogFooter>
             <button
               onClick={() => setArchiveOpen(false)}
-              className="px-4 py-2 text-sm font-semibold text-val-heading border border-slate-200 rounded hover:bg-slate-50 transition-colors duration-150"
+              className="px-4 py-2.5 text-sm font-semibold text-val-heading border border-slate-200 rounded hover:bg-slate-50 transition-colors duration-150"
             >
               Cancel
             </button>
@@ -236,7 +239,7 @@ export function PropertyLayout({ activeTab, children, property, progress, onProg
                 }
               }}
               disabled={archiving}
-              className="px-4 py-2 text-sm font-semibold text-white rounded bg-amber-500 hover:bg-amber-600 disabled:opacity-50 transition-colors duration-150"
+              className="px-4 py-2.5 text-sm font-semibold text-white rounded bg-amber-500 hover:bg-amber-600 disabled:opacity-50 transition-colors duration-150"
             >
               {archiving ? "Archiving…" : "Archive"}
             </button>
