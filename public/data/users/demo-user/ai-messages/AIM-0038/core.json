@@ -1,7 +1,0 @@
-{
-  "id": "AIM-0038",
-  "sessionId": "AI-0004",
-  "role": "assistant",
-  "content": "Hi Chan — I’ve pulled the rental documents I can see for your portfolio.\n\n**Rental documents found**\n- **PROP-0001** — Lease_Agreement_2025.pdf  \n  Document: DOC-0007 — [Open document](/data/users/demo-user/_storage/PROP-0001/lease-2025.pdf) — [Rental page](/property/PROP-0001/rental)\n- **PROP-0006** — Lease_Agreement_2026.pdf  \n  Document: DOC-0003 — [Open document](/data/users/demo-user/_storage/PROP-0006/lease-2026.pdf) — [Rental page](/property/PROP-0006/rental)\n\nI don’t see other rental records in the data you’ve given me. If you need rent amounts, payment history, tenant contact details or upcoming renewals, that data isn’t included here — you can view those on each property’s Rental page (links above) or in [View Portfolio](/portfolio).\n\nWould you like me to open a specific lease, show payment history for a property, or export these documents?",
-  "createdAt": 1779346559893
-}

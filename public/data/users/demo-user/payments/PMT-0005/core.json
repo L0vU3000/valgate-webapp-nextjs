@@ -1,9 +1,0 @@
-{
-  "id": "PMT-0005",
-  "leaseId": "LEASE-0003",
-  "date": 1775001600000,
-  "kind": "Deposit",
-  "amount": 5000,
-  "method": "Wire transfer",
-  "status": "Pending"
-}
