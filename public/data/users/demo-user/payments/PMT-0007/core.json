@@ -1,9 +1,0 @@
-{
-  "id": "PMT-0007",
-  "leaseId": "LEASE-0004",
-  "date": 1772409600000,
-  "kind": "Rent",
-  "amount": 2400,
-  "method": "Wire transfer",
-  "status": "Paid"
-}

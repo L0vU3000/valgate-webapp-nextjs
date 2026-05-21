@@ -1,9 +1,0 @@
-{
-  "id": "NOTIF-0005",
-  "userId": "demo-user",
-  "category": "APPLICATIONS",
-  "title": "New tenant application received",
-  "description": "Application received for Chak Angre Building A renewal.",
-  "createdAt": 1774515600000,
-  "read": false
-}

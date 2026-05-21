@@ -1,9 +1,0 @@
-{
-  "id": "PMT-0005",
-  "leaseId": "LEASE-0003",
-  "date": 1772409600000,
-  "kind": "Rent",
-  "amount": 1800,
-  "method": "ABA Bank",
-  "status": "Paid"
-}

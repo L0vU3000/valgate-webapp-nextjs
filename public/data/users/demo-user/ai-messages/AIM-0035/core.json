@@ -1,7 +1,0 @@
-{
-  "id": "AIM-0035",
-  "sessionId": "AI-0003",
-  "role": "assistant",
-  "content": "Hi Chan — I’m Valgate Intelligence. How can I help you with your portfolio today?\n\nHere are some quick things I can do — pick one or tell me what you need:\n- **Show portfolio value or breakdown** — [View Portfolio](/portfolio)  \n- **Monthly rent collection / rent KPIs** — [View Portfolio](/portfolio) and then ask for monthly collection  \n- **Pull data or documents for a property** (e.g. PROP-0001) — tell me the property code and I’ll fetch documents and rental info  \n- **Open analytics you're on now** — [Analytics](/analytics)\n\nWhich would you like me to do?",
-  "createdAt": 1779346518727
-}
