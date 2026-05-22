@@ -5,6 +5,8 @@ import dynamic from "next/dynamic";
 import { FileText, X, ExternalLink, Download } from "lucide-react";
 import type { AiWorkspaceDocument } from "@/lib/data/derivations/ai-context";
 
+// react-pdf / pdfjs reference DOMMatrix at module-evaluation time, which crashes
+// during Next.js static prerender. Load PDFViewer only on the client.
 const PDFViewer = dynamic(
   () => import("./PDFViewer").then((mod) => ({ default: mod.PDFViewer })),
   { ssr: false },

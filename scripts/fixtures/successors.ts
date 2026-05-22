@@ -4,8 +4,8 @@ const now = Date.UTC(2026, 3, 1);
 
 export const successors: NewSuccessor[] = [
   {
-    name: "Sophea Chan",
-    initials: "SC",
+    name: "Jennifer Lee",
+    initials: "JL",
     relation: "Spouse",
     role: "primary",
     share: 75,
@@ -14,8 +14,8 @@ export const successors: NewSuccessor[] = [
     updatedAt: now,
   },
   {
-    name: "Dara Chan",
-    initials: "DC",
+    name: "Marcus Lee",
+    initials: "ML",
     relation: "Child",
     role: "contingent",
     share: 12.5,
@@ -24,8 +24,8 @@ export const successors: NewSuccessor[] = [
     updatedAt: now,
   },
   {
-    name: "Chenda Chan",
-    initials: "CC",
+    name: "Chloe Lee",
+    initials: "CL",
     relation: "Child",
     role: "contingent",
     share: 12.5,
