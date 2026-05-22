@@ -1,15 +1,13 @@
 {
   "id": "DOC-0013",
-  "propertyId": "PROP-0001",
-  "name": "dummy-document.pdf",
+  "propertyId": "PROP-0017",
+  "folderId": "FLDR-0011",
+  "name": "Title_Deed_BKK1_Villa_158.pdf",
   "kind": "document",
   "mimeType": "application/pdf",
-  "sizeBytes": 281,
-  "storageId": "_storage/PROP-0001/dummy-document.pdf",
-  "uploadedAt": 1779262255722,
-  "verifies": {
-    "entityType": "ownership-record",
-    "entityId": "OREC-0001"
-  },
-  "description": "Supporting ownership record on file"
+  "extension": "pdf",
+  "sizeBytes": 1750000,
+  "storageId": "_storage/PROP-0017/title-deed.pdf",
+  "category": "Title",
+  "uploadedAt": 1746057600000
 }

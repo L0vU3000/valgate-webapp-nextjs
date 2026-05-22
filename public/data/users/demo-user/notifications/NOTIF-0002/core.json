@@ -2,9 +2,9 @@
   "id": "NOTIF-0002",
   "userId": "demo-user",
   "category": "PAYMENT",
-  "title": "Rent overdue — Unit 2B",
-  "description": "Lim Vichea is 5 days late on the April rent.",
+  "title": "Rent overdue — BKK1 Building 191D",
+  "description": "Malis Fashion Co. is 5 days late on the April rent ($2,200).",
   "createdAt": 1775019600000,
-  "read": true,
-  "linkTo": "/property/PROP-0006/rental"
+  "read": false,
+  "linkTo": "/property/PROP-0010/rental"
 }

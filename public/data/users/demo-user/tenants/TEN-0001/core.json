@@ -1,10 +1,10 @@
 {
   "id": "TEN-0001",
   "propertyId": "PROP-0001",
-  "name": "Sok Dara",
-  "unit": "Unit 1A",
+  "name": "Rith Consultancy",
+  "unit": "Ground Floor",
   "rent": 850,
   "status": "Paid",
-  "email": "sok.dara@example.com",
-  "phone": "+855 12 345 678"
+  "email": "contact@rithconsultancy.com.kh",
+  "phone": "+855 23 456 111"
 }

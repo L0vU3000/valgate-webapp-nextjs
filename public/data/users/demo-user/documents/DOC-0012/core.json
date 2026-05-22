@@ -1,15 +1,13 @@
 {
   "id": "DOC-0012",
-  "propertyId": "PROP-0001",
-  "name": "dummy-document.pdf",
+  "propertyId": "PROP-0014",
+  "folderId": "FLDR-0010",
+  "name": "Title_Deed_Chak_Angre_B.pdf",
   "kind": "document",
   "mimeType": "application/pdf",
-  "sizeBytes": 281,
-  "storageId": "_storage/PROP-0001/dummy-document.pdf",
-  "uploadedAt": 1779261601944,
-  "verifies": {
-    "entityType": "ownership-record",
-    "entityId": "OREC-0001"
-  },
-  "description": "Supporting ownership record on file"
+  "extension": "pdf",
+  "sizeBytes": 1220000,
+  "storageId": "_storage/PROP-0014/title-deed.pdf",
+  "category": "Title",
+  "uploadedAt": 1753833600000
 }

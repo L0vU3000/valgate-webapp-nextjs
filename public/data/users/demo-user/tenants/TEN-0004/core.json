@@ -1,10 +1,10 @@
 {
   "id": "TEN-0004",
-  "propertyId": "PROP-0002",
-  "name": "Chantha Vorn",
-  "unit": "Unit A",
-  "rent": 600,
+  "propertyId": "PROP-0014",
+  "name": "Peng Huot Group",
+  "unit": "Full Building",
+  "rent": 2400,
   "status": "Paid",
-  "email": "chantha.vorn@example.com",
-  "phone": "+855 77 123 456"
+  "email": "info@penghuot.com.kh",
+  "phone": "+855 23 333 999"
 }

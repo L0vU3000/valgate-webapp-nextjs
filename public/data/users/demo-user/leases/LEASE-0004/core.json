@@ -1,12 +1,12 @@
 {
   "id": "LEASE-0004",
-  "propertyId": "PROP-0002",
+  "propertyId": "PROP-0014",
   "tenantId": "TEN-0004",
-  "unit": "Unit A",
+  "unit": "Full Building",
   "stage": "Signed",
-  "startDate": 1762041600000,
-  "endDate": 1793577600000,
-  "monthlyRent": 600,
+  "startDate": 1759449600000,
+  "endDate": 1790985600000,
+  "monthlyRent": 2400,
   "termMonths": 12,
-  "renewalStatus": "Pending decision"
+  "renewalStatus": "Auto-renew"
 }

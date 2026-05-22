@@ -1,18 +1,13 @@
 {
   "id": "DOC-0009",
-  "propertyId": "PROP-0001",
-  "folderId": "FLDR-0001",
-  "name": "Last_Will_and_Testament.pdf",
+  "propertyId": "PROP-0012",
+  "folderId": "FLDR-0007",
+  "name": "Title_Deed_BKK1_No223.pdf",
   "kind": "document",
   "mimeType": "application/pdf",
   "extension": "pdf",
-  "sizeBytes": 892000,
-  "storageId": "_storage/PROP-0001/dummy-document.pdf",
-  "category": "Estate",
-  "uploadedAt": 1778165100000,
-  "verifies": {
-    "entityType": "estate-plan",
-    "entityId": "PROP-0001"
-  },
-  "description": "Last will and testament on record"
+  "sizeBytes": 1480000,
+  "storageId": "_storage/PROP-0012/title-deed.pdf",
+  "category": "Title",
+  "uploadedAt": 1742601600000
 }

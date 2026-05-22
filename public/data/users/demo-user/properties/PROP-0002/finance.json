@@ -1,8 +1,9 @@
 {
-  "buyNumeric": 456000,
-  "purchasePrice": "456000",
-  "purchaseDate": 1672531200000,
-  "currentMarketValue": 510000,
-  "outstandingMortgage": 320000,
-  "monthlyPayment": 1950
+  "purchasePrice": "$65,000",
+  "purchaseDate": 1555286400000,
+  "currentMarketValue": 70000,
+  "annualPropertyTax": 40,
+  "annualInsurance": 195,
+  "ownershipStatus": "Owned outright",
+  "buyNumeric": 65000
 }

@@ -1,12 +1,12 @@
 {
   "id": "PROP-0008",
   "userId": "demo-user",
-  "name": "Prey Veng Agricultural Land",
+  "name": "Olympic Studio 172EE0",
   "code": "PROP-0008",
-  "type": "land",
+  "type": "multi-unit",
   "status": "Vacant",
-  "lat": 11.4828,
-  "lng": 105.3246,
-  "createdAt": 1778482038690,
-  "updatedAt": 1778482038690
+  "lat": 11.55976,
+  "lng": 104.90782,
+  "createdAt": 1779356162874,
+  "updatedAt": 1779356162874
 }

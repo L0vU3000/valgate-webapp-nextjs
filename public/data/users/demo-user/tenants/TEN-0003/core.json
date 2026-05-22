@@ -1,10 +1,10 @@
 {
   "id": "TEN-0003",
-  "propertyId": "PROP-0011",
-  "name": "Chan Soriya",
-  "unit": "Penthouse",
-  "rent": 2500,
-  "status": "Pending",
-  "email": "chan.soriya@example.com",
-  "phone": "+855 12 345 680"
+  "propertyId": "PROP-0013",
+  "name": "Sovann Holdings",
+  "unit": "Full Building",
+  "rent": 1800,
+  "status": "Paid",
+  "email": "admin@sovannholdings.kh",
+  "phone": "+855 23 555 234"
 }

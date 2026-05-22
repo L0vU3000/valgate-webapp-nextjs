@@ -1,12 +1,12 @@
 {
   "id": "PROP-0016",
   "userId": "demo-user",
-  "name": "Chamkar Mon Lot",
+  "name": "Tuol Roka Land",
   "code": "PROP-0016",
   "type": "land",
-  "status": "Rented",
-  "lat": 11.553,
-  "lng": 104.927,
-  "createdAt": 1778482038712,
-  "updatedAt": 1778482038712
+  "status": "Vacant",
+  "lat": 11.50995,
+  "lng": 104.92979,
+  "createdAt": 1779356162885,
+  "updatedAt": 1779356162885
 }

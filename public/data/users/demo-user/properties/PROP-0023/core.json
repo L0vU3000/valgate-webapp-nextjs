@@ -1,0 +1,12 @@
+{
+  "id": "PROP-0023",
+  "userId": "demo-user",
+  "name": "Daun Penh Riverside Unit",
+  "code": "PROP-0023",
+  "type": "residential",
+  "status": "Sold",
+  "lat": 11.5694,
+  "lng": 104.9282,
+  "createdAt": 1779356162906,
+  "updatedAt": 1779356162906
+}

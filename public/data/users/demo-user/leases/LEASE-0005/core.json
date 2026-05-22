@@ -1,0 +1,11 @@
+{
+  "id": "LEASE-0005",
+  "propertyId": "PROP-0015",
+  "tenantId": "TEN-0005",
+  "unit": "Full Plot",
+  "stage": "Offered",
+  "startDate": 1777593600000,
+  "endDate": 1809129600000,
+  "monthlyRent": 1200,
+  "termMonths": 12
+}

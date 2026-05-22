@@ -1,12 +1,11 @@
 {
   "id": "ODOC-0005",
-  "propertyId": "PROP-0001",
-  "name": "Property Insurance Certificate",
-  "type": "Insurance",
-  "documentDate": 1720976400000,
-  "expiryDate": 1752512400000,
-  "ownershipRecordId": "OREC-0001",
-  "status": "Expiring Soon",
-  "createdAt": 1721001600000,
-  "updatedAt": 1721001600000
+  "propertyId": "PROP-0013",
+  "name": "Hard Title — Chak Angre Building A",
+  "type": "Hard Title",
+  "documentDate": 1609459200000,
+  "ownershipRecordId": "OREC-0005",
+  "status": "Current",
+  "createdAt": 1775001600000,
+  "updatedAt": 1775001600000
 }

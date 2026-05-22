@@ -1,12 +1,12 @@
 {
   "id": "PROP-0005",
   "userId": "demo-user",
-  "name": "Temple View Land",
+  "name": "Olympic Shop 172CDE0",
   "code": "PROP-0005",
-  "type": "land",
+  "type": "multi-unit",
   "status": "Vacant",
-  "lat": 13.436,
-  "lng": 103.866,
-  "createdAt": 1778482038685,
-  "updatedAt": 1778482038685
+  "lat": 11.55976,
+  "lng": 104.90782,
+  "createdAt": 1779356162869,
+  "updatedAt": 1779356162869
 }

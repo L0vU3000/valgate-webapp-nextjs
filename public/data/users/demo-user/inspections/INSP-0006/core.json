@@ -1,0 +1,11 @@
+{
+  "id": "INSP-0006",
+  "propertyId": "PROP-0012",
+  "inspectedAt": 1759881600000,
+  "type": "Electrical",
+  "inspectorId": "PROF-0002",
+  "status": "Satisfactory",
+  "issues": 1,
+  "createdAt": 1775001600000,
+  "updatedAt": 1775001600000
+}

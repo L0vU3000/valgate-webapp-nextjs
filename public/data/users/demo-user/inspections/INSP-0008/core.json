@@ -1,0 +1,11 @@
+{
+  "id": "INSP-0008",
+  "propertyId": "PROP-0014",
+  "inspectedAt": 1760486400000,
+  "type": "Annual Fire Safety",
+  "inspectorId": "PROF-0005",
+  "status": "Satisfactory",
+  "issues": 2,
+  "createdAt": 1775001600000,
+  "updatedAt": 1775001600000
+}

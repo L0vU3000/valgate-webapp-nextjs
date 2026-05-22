@@ -1,12 +1,12 @@
 {
   "id": "PROP-0014",
   "userId": "demo-user",
-  "name": "Prey Veng Family Residence",
+  "name": "Chak Angre Building B",
   "code": "PROP-0014",
-  "type": "residential",
+  "type": "commercial",
   "status": "Rented",
-  "lat": 11.47,
-  "lng": 105.31,
-  "createdAt": 1778482038707,
-  "updatedAt": 1778482038707
+  "lat": 11.5098,
+  "lng": 104.93,
+  "createdAt": 1779356162883,
+  "updatedAt": 1779356162883
 }

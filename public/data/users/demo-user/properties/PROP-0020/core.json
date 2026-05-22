@@ -1,13 +1,12 @@
 {
   "id": "PROP-0020",
   "userId": "demo-user",
-  "name": "Kampong Cham River View",
+  "name": "Chroy Changvar Bridge Land",
   "code": "PROP-0020",
-  "type": "residential",
-  "status": "Rented",
-  "lat": 12,
-  "lng": 105.4609,
-  "createdAt": 1778482038730,
-  "updatedAt": 1778482038730,
-  "isArchived": true
+  "type": "land",
+  "status": "Vacant",
+  "lat": 11.63512,
+  "lng": 104.90824,
+  "createdAt": 1779356162894,
+  "updatedAt": 1779356162894
 }

@@ -1,12 +1,12 @@
 {
   "id": "PROP-0010",
   "userId": "demo-user",
-  "name": "Toul Kork Urban Parcel",
+  "name": "BKK1 Commercial Building 191D",
   "code": "PROP-0010",
-  "type": "land",
-  "status": "Vacant",
-  "lat": 11.575,
-  "lng": 104.921,
-  "createdAt": 1778482038699,
-  "updatedAt": 1778482038699
+  "type": "commercial",
+  "status": "Rented",
+  "lat": 11.55264,
+  "lng": 104.92383,
+  "createdAt": 1779356162877,
+  "updatedAt": 1779356162877
 }

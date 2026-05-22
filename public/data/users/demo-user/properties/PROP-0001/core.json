@@ -1,23 +1,12 @@
 {
   "id": "PROP-0001",
   "userId": "demo-user",
-  "name": "Land near river",
+  "name": "Boeung Trabek Corner Building",
   "code": "PROP-0001",
-  "type": "residential",
+  "type": "commercial",
   "status": "Rented",
-  "lat": 11.5564,
-  "lng": 104.9282,
-  "createdAt": 1778482038658,
-  "updatedAt": 1779262252645,
-  "propertyUse": "investment",
-  "rentalVerified": true,
-  "rentalVerifiedAt": 1736000000000,
-  "rentalEvidenceDocIds": [
-    "DOC-0007"
-  ],
-  "estateVerified": true,
-  "estateVerifiedAt": 1778165100000,
-  "estateEvidenceDocIds": [
-    "DOC-0009"
-  ]
+  "lat": 11.52991,
+  "lng": 104.92284,
+  "createdAt": 1779356162859,
+  "updatedAt": 1779356162859
 }
