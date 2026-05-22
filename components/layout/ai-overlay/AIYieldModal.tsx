@@ -101,7 +101,7 @@ export function AIYieldModal({
             </div>
 
             <DialogPrimitive.Close
-              className="flex size-8 shrink-0 items-center justify-center rounded-lg transition-opacity hover:opacity-80"
+              className="flex size-10 shrink-0 items-center justify-center rounded-lg transition-opacity hover:opacity-80"
               style={glassCloseButton}
               aria-label="Close yield projection"
             >
@@ -322,7 +322,7 @@ export function AIYieldModal({
           <div className="flex shrink-0 items-center justify-between px-5 py-4">
             <a
               href={yieldHref}
-              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium text-interactive-primary transition-opacity hover:opacity-80"
+              className="flex items-center gap-1.5 rounded-lg px-3 py-2.5 text-[12px] font-medium text-interactive-primary transition-opacity hover:opacity-80"
               style={glassCloseButton}
             >
               <ExternalLink className="size-3.5" />

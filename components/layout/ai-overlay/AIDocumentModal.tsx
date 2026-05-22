@@ -1,9 +1,14 @@
 "use client";
 
 import * as DialogPrimitive from "@radix-ui/react-dialog";
+import dynamic from "next/dynamic";
 import { FileText, X, ExternalLink, Download } from "lucide-react";
 import type { AiWorkspaceDocument } from "@/lib/data/derivations/ai-context";
-import { PDFViewer } from "./PDFViewer";
+
+const PDFViewer = dynamic(
+  () => import("./PDFViewer").then((mod) => ({ default: mod.PDFViewer })),
+  { ssr: false },
+);
 import {
   glassCloseButton,
   glassDocIcon,
@@ -83,7 +88,7 @@ export function AIDocumentModal({ doc, onClose }: Props) {
             </div>
 
             <DialogPrimitive.Close
-              className="flex size-8 shrink-0 items-center justify-center rounded-lg transition-opacity hover:opacity-80"
+              className="flex size-10 shrink-0 items-center justify-center rounded-lg transition-opacity hover:opacity-80"
               style={glassCloseButton}
               aria-label="Close document viewer"
             >
@@ -146,7 +151,7 @@ export function AIDocumentModal({ doc, onClose }: Props) {
               href={doc?.href}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium text-secondary transition-colors hover:text-foreground"
+              className="flex items-center gap-1.5 rounded-lg px-3 py-2.5 text-[12px] font-medium text-secondary transition-colors hover:text-foreground"
               style={glassCloseButton}
             >
               <ExternalLink className="size-3.5" />
@@ -157,7 +162,7 @@ export function AIDocumentModal({ doc, onClose }: Props) {
               <a
                 href={doc.href}
                 download={doc.name}
-                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold text-interactive-primary transition-opacity hover:opacity-80"
+                className="flex items-center gap-1.5 rounded-lg px-3 py-2.5 text-[12px] font-semibold text-interactive-primary transition-opacity hover:opacity-80"
                 style={glassCloseButton}
               >
                 <Download className="size-3.5" />

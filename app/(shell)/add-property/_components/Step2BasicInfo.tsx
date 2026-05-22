@@ -2,11 +2,20 @@
 
 import { useState } from "react";
 import { Search, Info, Maximize2, Map as MapIcon, ChevronDown } from "lucide-react";
+import dynamic from "next/dynamic";
 import { CAMBODIA_PROVINCES } from "@/lib/constants/cambodia-provinces";
 import { cn } from "@/components/ui/utils";
 import type { FormData } from "./types";
-import { PropertyLocationMap } from "./PropertyLocationMap";
-import { LocationPickerModal } from "./LocationPickerModal";
+
+const PropertyLocationMap = dynamic(
+  () => import("./PropertyLocationMap").then((m) => ({ default: m.PropertyLocationMap })),
+  { ssr: false },
+);
+
+const LocationPickerModal = dynamic(
+  () => import("./LocationPickerModal").then((m) => ({ default: m.LocationPickerModal })),
+  { ssr: false },
+);
 
 const DEFAULT_CENTER: [number, number] = [104.9282, 11.5564]; // Phnom Penh
 

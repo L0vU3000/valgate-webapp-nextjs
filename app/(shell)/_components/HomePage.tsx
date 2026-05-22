@@ -28,11 +28,15 @@ import { CommandPalette } from "@/components/home/CommandPalette";
 import { PropertyTable } from "@/components/portfolio/PropertyTable";
 import type { TableAnimationConfig } from "@/components/portfolio/PropertyTable";
 import { PortfolioLegend } from "./PortfolioLegend";
-import { MapControls } from "@/components/map/MapControls";
 import type mapboxgl from "mapbox-gl";
 
 const MapView = dynamic(
   () => import("@/components/map/MapView").then((m) => m.MapView),
+  { ssr: false },
+);
+
+const MapControls = dynamic(
+  () => import("@/components/map/MapControls").then((m) => ({ default: m.MapControls })),
   { ssr: false },
 );
 

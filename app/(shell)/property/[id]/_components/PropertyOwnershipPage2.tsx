@@ -516,7 +516,7 @@ export function PropertyOwnershipPage2({
                               </span>
                             </td>
                             <td className="px-4 py-3.5 text-right">
-                              <button className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-slate-100">
+                              <button className="opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-slate-100">
                                 <Download className="w-4 h-4 text-slate-400" />
                               </button>
                             </td>

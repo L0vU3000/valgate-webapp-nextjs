@@ -114,7 +114,7 @@ export function Step4PhotosDocs({ form, setForm }: { form: FormData; setForm: (f
                     <motion.button
                       type="button"
                       onClick={() => removePhoto(i)}
-                      className="absolute top-2 right-2 bg-white/80 rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute top-2 right-2 bg-white/80 rounded-full p-1.5 opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 transition-opacity"
                       whileHover={{ scale: 1.15 }}
                       whileTap={{ scale: 0.88 }}
                       transition={{ duration: 0.12 }}

@@ -11,6 +11,10 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  serverExternalPackages: ["mapbox-gl"],
+  outputFileTracingIncludes: {
+    "/**/*": ["./public/data/**/*"],
+  },
   turbopack: {
     root: __dirname,
   },

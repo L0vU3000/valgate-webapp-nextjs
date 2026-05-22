@@ -64,7 +64,8 @@ export function PropertyLayout({ activeTab, children, property, progress, onProg
         <div className="flex items-center gap-2">
           <button
             onClick={() => router.push("/portfolio")}
-            className="text-muted-foreground hover:text-foreground rounded-md p-0.5 hover:bg-accent/50 active:scale-90 transition-[color,background-color,transform] duration-150"
+            aria-label="Back to portfolio"
+            className="text-muted-foreground hover:text-foreground rounded-md p-1.5 hover:bg-accent/50 active:scale-90 transition-[color,background-color,transform] duration-150"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
@@ -124,7 +125,7 @@ export function PropertyLayout({ activeTab, children, property, progress, onProg
           </div>
           <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="text-muted-foreground hover:text-foreground transition-colors duration-150 p-1 rounded">
+                <button aria-label="Property options" className="text-muted-foreground hover:text-foreground transition-colors duration-150 p-2 rounded">
                   <MoreVertical className="w-5 h-5" />
                 </button>
               </DropdownMenuTrigger>

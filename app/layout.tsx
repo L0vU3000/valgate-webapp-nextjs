@@ -1,8 +1,14 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import "../styles/index.css";
 import { AgentationProvider } from "./_components/agentation-provider";
 import { Toaster } from "sonner";
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
 export const metadata: Metadata = {
   title: "Valgate",
   description: "Property portfolio management",
