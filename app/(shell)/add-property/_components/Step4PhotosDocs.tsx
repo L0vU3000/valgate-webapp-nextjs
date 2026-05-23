@@ -4,6 +4,7 @@ import { useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Plus, Upload, MoreVertical, FileText } from "lucide-react";
 import type { FormData } from "./types";
+import { DevFileButton } from "@/components/dev/DevFileButton";
 
 const easeOut: [number, number, number, number] = [0.25, 1, 0.5, 1];
 
@@ -39,6 +40,14 @@ export function Step4PhotosDocs({ form, setForm }: { form: FormData; setForm: (f
     if (files.length === 0) return;
     setForm({ ...form, documents: [...form.documents, ...files.map((f) => f.name)] });
     e.target.value = "";
+  }
+
+  function handleAddDummyPhoto() {
+    setForm({ ...form, photos: [...form.photos, "dummy-photo.jpg"] });
+  }
+
+  function handleAddDummyDoc() {
+    setForm({ ...form, documents: [...form.documents, "dummy-document.pdf"] });
   }
 
   return (
@@ -84,6 +93,10 @@ export function Step4PhotosDocs({ form, setForm }: { form: FormData; setForm: (f
               Add more
             </motion.button>
             <input ref={photoInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoChange} />
+          </div>
+
+          <div className="mb-4">
+            <DevFileButton label="Add dummy photo" onClick={handleAddDummyPhoto} />
           </div>
 
           {form.photos.length > 0 ? (
@@ -167,6 +180,10 @@ export function Step4PhotosDocs({ form, setForm }: { form: FormData; setForm: (f
               Upload
             </motion.button>
             <input ref={docInputRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx" multiple className="hidden" onChange={handleDocChange} />
+          </div>
+
+          <div className="mb-4">
+            <DevFileButton label="Add dummy doc" onClick={handleAddDummyDoc} />
           </div>
 
           {form.documents.length > 0 ? (

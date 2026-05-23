@@ -55,7 +55,7 @@ function mapWizardToProperty(form: WizardForm): NewProperty {
     city: form.city || undefined,
     zip: form.zip || undefined,
     country: form.country || undefined,
-    province: form.province,
+    province: form.province || undefined,
 
     purchasePrice: form.purchasePrice || undefined,
     purchaseDate: parseDateMs(form.purchaseDate),

@@ -365,12 +365,16 @@ export function PropertyOverviewPage({
     ? `https://api.mapbox.com/styles/v1/mapbox/${mapStyleId}/static/pin-l+2563eb(${property.lng},${property.lat})/${property.lng},${property.lat},14,0/900x360@2x?access_token=${mapboxToken}`
     : null;
 
+  const heroMapUrl = hasMap
+    ? `https://api.mapbox.com/styles/v1/mapbox/${mapStyleId}/static/pin-l+2563eb(${property.lng},${property.lat})/${property.lng},${property.lat},13,0/1280x360@2x?access_token=${mapboxToken}`
+    : null;
+
   /* ── KPI metrics ── */
   const metrics = [
     {
-      label: "Property Valuation",
-      value: latestValuation ? "$" + latestValuation.price.toLocaleString("en-US") : "$0",
-      delta: valuationDelta,
+      label: "Purchase Price",
+      value: property.buyNumeric ? "$" + property.buyNumeric.toLocaleString("en-US") : "—",
+      delta: null,
       duration: 1400,
     },
     {
@@ -380,9 +384,9 @@ export function PropertyOverviewPage({
       duration: 1100,
     },
     {
-      label: "Gross Yield",
-      value: grossYield.toFixed(1) + "%",
-      delta: null,
+      label: "Current Valuation",
+      value: latestValuation ? "$" + latestValuation.price.toLocaleString("en-US") : "—",
+      delta: valuationDelta,
       duration: 900,
     },
   ];
@@ -424,13 +428,13 @@ export function PropertyOverviewPage({
 
         {/* ── Hero — photo mosaic ── */}
         <div className="relative h-[360px] overflow-hidden flex items-end">
-          {/* Mosaic grid */}
-          <div className="absolute inset-0 flex gap-px bg-slate-900">
-            {/* Large left tile */}
-            <div className="relative flex-[3] overflow-hidden">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
+          {/* Map background */}
+          <div className="absolute inset-0 bg-slate-900">
+            {heroMapUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
               <img
-                src="/property-hero.jpg"
+                key={heroMapUrl}
+                src={heroMapUrl}
                 alt=""
                 className="absolute inset-0 w-full h-full object-cover object-center"
                 style={{
@@ -438,24 +442,12 @@ export function PropertyOverviewPage({
                   transition: reducedMotion ? undefined : "transform 900ms cubic-bezier(0.25,1,0.5,1)",
                 }}
               />
-            </div>
-            {/* 2×2 right tiles */}
-            <div className="flex-[2] grid grid-rows-2 gap-px">
-              <div className="overflow-hidden">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/property-hero.jpg" alt="" className="w-full h-full object-cover object-top" />
-              </div>
-              <div className="overflow-hidden relative">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/property-hero.jpg" alt="" className="w-full h-full object-cover object-bottom" />
-
-              </div>
-            </div>
+            )}
           </div>
 
           {/* Gradient */}
           <div
-            className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-transparent"
+            className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"
             style={{
               opacity: reducedMotion ? 1 : mounted ? 1 : 0,
               transition: reducedMotion ? undefined : "opacity 600ms ease",

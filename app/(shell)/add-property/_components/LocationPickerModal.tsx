@@ -4,9 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
-import { X, Search, MapPin, Plus, Minus, Map as MapIcon } from "lucide-react";
+import { X, Search, MapPin, Plus, Minus, Map as MapIcon, Loader2 } from "lucide-react";
 import { cn } from "@/components/ui/utils";
 import { env } from "@/lib/env";
+import { useGeocode } from "../_lib/use-geocode";
 
 const DEFAULT_ZOOM = 13;
 
@@ -27,6 +28,9 @@ export function LocationPickerModal({
   const [coords, setCoords] = useState<[number, number]>(center);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [visible, setVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const geocode = useGeocode();
 
   useEffect(() => {
     const id = requestAnimationFrame(() => setVisible(true));
@@ -186,17 +190,77 @@ export function LocationPickerModal({
           <div className="relative">
             <input
               type="text"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                geocode.search(e.target.value);
+                setShowSuggestions(true);
+              }}
+              onFocus={() => {
+                if (geocode.suggestions.length > 0) setShowSuggestions(true);
+              }}
+              onBlur={() => {
+                setTimeout(() => setShowSuggestions(false), 150);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setShowSuggestions(false);
+              }}
               placeholder="Search address…"
+              autoComplete="off"
               className="w-full border border-border rounded-full pl-12 pr-10 py-3 text-[16px] font-medium text-foreground bg-white placeholder:text-muted-foreground shadow-sm focus:outline-none focus:border-primary transition-colors"
               style={{ fontFamily: "var(--font-display)" }}
             />
             <Search className="absolute left-[19px] top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-muted-foreground pointer-events-none" />
-            <button
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full hover:bg-accent/60 transition-colors"
-              aria-label="Clear search"
-            >
-              <X className="w-[14px] h-[14px] text-muted-foreground" />
-            </button>
+            {geocode.loading ? (
+              <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 w-[16px] h-[16px] text-muted-foreground animate-spin pointer-events-none" />
+            ) : searchQuery ? (
+              <button
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  setSearchQuery("");
+                  setShowSuggestions(false);
+                  geocode.clear();
+                }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full hover:bg-accent/60 transition-colors"
+                aria-label="Clear search"
+              >
+                <X className="w-[14px] h-[14px] text-muted-foreground" />
+              </button>
+            ) : null}
+            {showSuggestions && geocode.suggestions.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-border rounded-2xl shadow-lg z-50 overflow-hidden">
+                {geocode.suggestions.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      const [lng, lat] = s.center;
+                      mapRef.current?.flyTo({ center: s.center, zoom: DEFAULT_ZOOM, duration: 800 });
+                      markerRef.current?.setLngLat(s.center);
+                      setCoords([lng, lat]);
+                      setSearchQuery(s.placeName);
+                      setShowSuggestions(false);
+                      geocode.clear();
+                    }}
+                    className="w-full flex items-start gap-3 px-5 py-3 hover:bg-accent/60 transition-colors text-left border-b border-border last:border-b-0"
+                  >
+                    <MapPin className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      <div
+                        className="text-[15px] font-medium text-foreground truncate"
+                        style={{ fontFamily: "var(--font-display)" }}
+                      >
+                        {s.mainText}
+                      </div>
+                      <div className="text-[13px] text-muted-foreground truncate">
+                        {s.secondaryText}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

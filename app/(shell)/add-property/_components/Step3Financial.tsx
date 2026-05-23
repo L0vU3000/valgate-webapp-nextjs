@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Users, Home, KeyRound } from "lucide-react";
 import { cn } from "@/components/ui/utils";
+import { OptionalLabel } from "@/components/ui/required-mark";
 import type { FormData, WizardStatus } from "./types";
 
 const STATUS_OPTIONS: { value: Exclude<WizardStatus, "">; label: string; sub: string; Icon: typeof Users }[] = [
@@ -27,10 +28,12 @@ export function Step3Financial({
   form,
   setForm,
   goNext,
+  errors,
 }: {
   form: FormData;
   setForm: (f: FormData) => void;
   goNext?: () => void;
+  errors?: Record<string, string> | null;
 }) {
   const [displayValue, setDisplayValue] = useState(
     form.currentMarketValue
@@ -51,11 +54,6 @@ export function Step3Financial({
     setForm({ ...form, currentMarketValue: raw });
   }
 
-  function handleSkip() {
-    setForm({ ...form, currentMarketValue: "" });
-    goNext?.();
-  }
-
   function handleStatusSelect(value: Exclude<WizardStatus, "">) {
     setForm({ ...form, status: value });
   }
@@ -71,6 +69,8 @@ export function Step3Financial({
     };
   }
 
+  const hasValueError = !!errors?.currentMarketValue;
+
   return (
     <div className="flex flex-col gap-10 items-start pb-8 w-full max-w-[600px] mx-auto">
       {/* Heading */}
@@ -79,14 +79,14 @@ export function Step3Financial({
           Status and value
         </h2>
         <p className="text-[16px] text-[#5b5f62] text-center leading-[1.43]">
-          Where things stand today and your best estimate of value.
+          Fill in what you know — all fields are optional. You can add more details later.
         </p>
       </div>
 
       {/* Status selector */}
       <div className="flex flex-col gap-3 w-full" style={enterStyle(60)}>
-        <span className="text-[14px] text-foreground" style={{ fontWeight: 600 }}>
-          Current status
+        <span className="text-[14px] text-foreground flex items-center" style={{ fontWeight: 600 }}>
+          Current status <OptionalLabel />
         </span>
         <div className="grid grid-cols-3 gap-2">
           {STATUS_OPTIONS.map((opt) => {
@@ -133,7 +133,12 @@ export function Step3Financial({
       >
         {/* Dollar input */}
         <div className="relative w-full group">
-          <div className="border border-border rounded-xl pl-[65px] pr-6 py-[22px] hover:border-slate-400 focus-within:border-primary focus-within:shadow-[0_0_0_3px_rgba(37,99,235,0.08)] transition-all duration-200">
+          <div className={cn(
+            "border rounded-xl pl-[65px] pr-6 py-[22px] transition-all duration-200",
+            hasValueError
+              ? "border-destructive focus-within:border-destructive focus-within:shadow-[0_0_0_3px_color-mix(in_oklch,var(--destructive)_10%,transparent)]"
+              : "border-border hover:border-slate-400 focus-within:border-primary focus-within:shadow-[0_0_0_3px_rgba(37,99,235,0.08)]",
+          )}>
             <input
               type="text"
               inputMode="numeric"
@@ -148,13 +153,22 @@ export function Step3Financial({
           </span>
         </div>
 
-        {/* Label + skip link */}
+        {/* Error message */}
+        {hasValueError && (
+          <p className="text-[13px] text-destructive -mt-2">{errors!.currentMarketValue}</p>
+        )}
+
+        {/* Label + optional note */}
         <div className="flex items-center justify-between w-full">
-          <span className="text-[14px] text-muted-foreground leading-5">
-            Estimated market value
+          <span className="text-[14px] text-muted-foreground leading-5 flex items-center">
+            Estimated market value <OptionalLabel />
           </span>
           <button
-            onClick={handleSkip}
+            onClick={() => {
+              setDisplayValue("");
+              setForm({ ...form, currentMarketValue: "" });
+              goNext?.();
+            }}
             className="text-[14px] font-medium text-primary leading-5 underline decoration-transparent hover:decoration-current active:opacity-60 transition-[text-decoration-color] duration-200"
           >
             I&apos;ll add this later

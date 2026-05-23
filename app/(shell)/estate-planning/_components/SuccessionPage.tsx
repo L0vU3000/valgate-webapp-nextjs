@@ -33,6 +33,7 @@ import { AppHeader } from "@/components/layout/AppHeader";
 import { useRouter } from "next/navigation";
 import { addSuccessorAndAssign } from "../actions";
 import { Button } from "@/components/ui/button";
+import { RequiredMark, OptionalLabel } from "@/components/ui/required-mark";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -881,7 +882,7 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
                 }}
               >
                 <div className="grid gap-2">
-                  <Label htmlFor="new-plan-type">Plan Type</Label>
+                  <Label htmlFor="new-plan-type" className="flex items-center">Plan Type <RequiredMark /></Label>
                   <select
                     id="new-plan-type"
                     value={newPlanForm.type}
@@ -899,7 +900,7 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
                 </div>
 
                 <div className="grid gap-2">
-                  <Label htmlFor="new-plan-date">Effective Date</Label>
+                  <Label htmlFor="new-plan-date" className="flex items-center">Effective Date <RequiredMark /></Label>
                   <Input
                     id="new-plan-date"
                     type="date"
@@ -911,9 +912,8 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
                 </div>
 
                 <div className="grid gap-2">
-                  <Label htmlFor="new-plan-notes">
-                    Notes{" "}
-                    <span className="text-[#737686] font-normal">(optional)</span>
+                  <Label htmlFor="new-plan-notes" className="flex items-center">
+                    Notes <OptionalLabel />
                   </Label>
                   <textarea
                     id="new-plan-notes"
@@ -1062,7 +1062,7 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
 
               <form className="grid gap-4" onSubmit={handleAddBeneficiary}>
                 <div className="grid gap-2">
-                  <Label htmlFor="beneficiary-name">Full Name</Label>
+                  <Label htmlFor="beneficiary-name" className="flex items-center">Full Name <RequiredMark /></Label>
                   <Input
                     id="beneficiary-name"
                     value={beneficiaryForm.name}
@@ -1074,7 +1074,7 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
                 </div>
 
                 <div className="grid gap-2">
-                  <Label htmlFor="beneficiary-relation">Relation</Label>
+                  <Label htmlFor="beneficiary-relation" className="flex items-center">Relation <RequiredMark /></Label>
                   <Input
                     id="beneficiary-relation"
                     value={beneficiaryForm.relation}
@@ -1087,7 +1087,7 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="beneficiary-role">Role</Label>
+                    <Label htmlFor="beneficiary-role" className="flex items-center">Role <RequiredMark /></Label>
                     <select
                       id="beneficiary-role"
                       value={beneficiaryForm.role}
@@ -1105,7 +1105,7 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
                   </div>
 
                   <div className="grid gap-2">
-                    <Label htmlFor="beneficiary-share">Share (%)</Label>
+                    <Label htmlFor="beneficiary-share" className="flex items-center">Share (%) <RequiredMark /></Label>
                     <Input
                       id="beneficiary-share"
                       type="number"

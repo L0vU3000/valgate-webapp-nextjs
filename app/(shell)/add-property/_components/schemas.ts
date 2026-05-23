@@ -1,9 +1,5 @@
 import { z } from "zod";
 
-const numericString = z
-  .string()
-  .regex(/^\d+(\.\d+)?$/, "Must be a number");
-
 export const step1Schema = z.object({
   propertyType: z.enum([
     "residential",
@@ -19,16 +15,19 @@ export const step1Schema = z.object({
 
 export const step2Schema = z.object({
   propertyName: z.string().min(1, "Please enter a property name"),
-  addressLine: z.string().min(1, "Please enter an address"),
+  addressLine: z.string().optional(),
   addressLine2: z.string().optional(),
   city: z.string().optional(),
-  province: z.string().min(1, "Please select a province"),
+  province: z.string().optional(),
   zip: z.string().optional(),
   country: z.string().optional(),
   yearBuilt: z.string().optional(),
-  totalArea: numericString.refine((s) => s.length > 0, {
-    message: "Please enter a total area",
-  }),
+  totalArea: z
+    .string()
+    .optional()
+    .refine((s) => !s || /^\d+(\.\d+)?$/.test(s), {
+      message: "Total area must be a number",
+    }),
   bedrooms: z.string().optional(),
   bathrooms: z.string().optional(),
   parkingSpaces: z.string().optional(),
@@ -36,13 +35,16 @@ export const step2Schema = z.object({
 });
 
 export const step3Schema = z.object({
-  status: z.enum(["Rented", "Vacant", "Owner-Occupied"], {
-    message: "Please choose a current status",
-  }),
+  status: z.preprocess(
+    (val) => (val === "" ? undefined : val),
+    z.enum(["Rented", "Vacant", "Owner-Occupied"]).optional(),
+  ),
   currentMarketValue: z
     .string()
-    .min(1, "Please enter an estimated market value")
-    .regex(/^\d+$/, "Market value must be a whole-dollar amount"),
+    .optional()
+    .refine((s) => !s || /^\d+$/.test(s), {
+      message: "Market value must be a whole number (e.g. 150000)",
+    }),
   purchasePrice: z.string().optional(),
   purchaseDate: z.string().optional(),
   ownershipStatus: z.string().optional(),

@@ -5,6 +5,7 @@ export function FlowFooter({
   onSubmit,
   isFinalStep,
   submitting = false,
+  stepError = null,
   submitError = null,
 }: {
   onBack: () => void;
@@ -13,6 +14,7 @@ export function FlowFooter({
   onSubmit: () => void;
   isFinalStep: boolean;
   submitting?: boolean;
+  stepError?: string | null;
   submitError?: string | null;
 }) {
   return (
@@ -25,7 +27,10 @@ export function FlowFooter({
           Save as Draft
         </button>
         <div className="flex items-center gap-3">
-          {submitError && (
+          {!isFinalStep && stepError && (
+            <p className="text-[13px] text-destructive">{stepError}</p>
+          )}
+          {isFinalStep && submitError && (
             <p className="text-[13px] text-destructive">{submitError}</p>
           )}
           <button

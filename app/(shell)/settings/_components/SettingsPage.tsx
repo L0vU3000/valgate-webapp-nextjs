@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Check, Smartphone, Download } from "lucide-react";
+import { RequiredMark } from "@/components/ui/required-mark";
 import { AppHeader } from "@/components/layout/AppHeader";
 import type { SettingsPageData, NotifChannels } from "../queries";
 import { saveNotificationPreference, saveUserPreferences } from "../actions";
@@ -116,10 +117,10 @@ export function SettingsPage({ data }: { data: SettingsPageData }) {
             <div className="bg-white border border-[#d1d5db] rounded-[12px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] p-[25px] flex flex-col gap-4">
               <h3 className="font-display font-semibold text-[16px] leading-[24px] text-val-heading">Update Password</h3>
               <div className="flex flex-col gap-4">
-                <PasswordField label="Current Password" value={currentPassword} onChange={setCurrentPassword} />
+                <PasswordField label="Current Password" required value={currentPassword} onChange={setCurrentPassword} />
                 <div className="grid grid-cols-2 gap-4">
-                  <PasswordField label="New Password" value={newPassword} onChange={setNewPassword} />
-                  <PasswordField label="Confirm New Password" value={confirmPassword} onChange={setConfirmPassword} />
+                  <PasswordField label="New Password" required value={newPassword} onChange={setNewPassword} />
+                  <PasswordField label="Confirm New Password" required value={confirmPassword} onChange={setConfirmPassword} />
                 </div>
                 <div className="flex justify-end pt-2">
                   <button className="bg-[#2563eb] text-white font-sans font-medium text-[14px] leading-[20px] px-6 py-2 rounded-[8px] hover:bg-blue-700 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb] transition-all duration-150 cursor-pointer">
@@ -318,12 +319,15 @@ export function SettingsPage({ data }: { data: SettingsPageData }) {
   );
 }
 
-function PasswordField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+function PasswordField({ label, required, value, onChange }: { label: string; required?: boolean; value: string; onChange: (v: string) => void }) {
   return (
     <div className="flex flex-col gap-[6px]">
-      <label className="font-sans font-medium text-[14px] leading-[20px] text-foreground">{label}</label>
+      <label className="font-sans font-medium text-[14px] leading-[20px] text-foreground flex items-center">
+        {label}{required && <RequiredMark />}
+      </label>
       <input
         type="password"
+        aria-required={required}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="••••••••"

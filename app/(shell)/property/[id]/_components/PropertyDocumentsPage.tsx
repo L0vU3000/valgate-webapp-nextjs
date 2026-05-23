@@ -32,6 +32,8 @@ import { DocumentDetailView } from "@/components/property/DocumentDetailView";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { formatBytes } from "@/lib/format";
+import { DevFileButton } from "@/components/dev/DevFileButton";
+import { createDummyPdf } from "@/lib/dev-tools";
 
 type ViewMode = "list" | "grid";
 type UploadStatus = "uploading" | "done" | "failed" | "queued";
@@ -386,6 +388,10 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
 
     return () => clearInterval(timer);
   }, [showUploadPanel, uploadQueue]);
+
+  function handleAddDummyDoc() {
+    setPendingFiles((prev) => [...prev, createDummyPdf()]);
+  }
 
   const startUpload = useCallback(() => {
     const demoFiles = [
@@ -1129,6 +1135,10 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
                 >
                   {pendingFiles.length > 0 ? "Change Files" : "Select from Computer"}
                 </button>
+
+                <div className="w-full mt-3">
+                  <DevFileButton label="Add dummy doc" onClick={handleAddDummyDoc} />
+                </div>
               </div>
             </div>
 

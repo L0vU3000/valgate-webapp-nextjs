@@ -9,6 +9,8 @@ import {
 } from "./VerificationOverlay";
 import type { WizardConfig, ActionResult } from "./types";
 import type { ZodTypeAny } from "zod";
+import { createDummyPdf } from "@/lib/dev-tools";
+import { DevFileButton } from "@/components/dev/DevFileButton";
 
 type VerificationConfig = NonNullable<WizardConfig<ZodTypeAny>["verification"]>;
 
@@ -108,37 +110,11 @@ export function VerificationStep({
 
   const canVerify = files.length >= config.minFiles && declared && !isBusy;
 
-  // Only available in development — lets you skip past the file picker to test the
-  // verification flow end-to-end without a real document.
-  const isDev = process.env.NODE_ENV === "development";
-
   function handleAddDummyDoc() {
-    // Build the smallest valid PDF in memory so uploadDocument doesn't choke on it.
-    const minimalPdf =
-      "%PDF-1.0\n" +
-      "1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n" +
-      "2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n" +
-      "3 0 obj<</Type/Page/MediaBox[0 0 3 3]>>endobj\n" +
-      "xref\n0 4\n" +
-      "0000000000 65535 f\n" +
-      "0000000009 00000 n\n" +
-      "0000000058 00000 n\n" +
-      "0000000115 00000 n\n" +
-      "trailer<</Size 4/Root 1 0 R>>\n" +
-      "startxref\n190\n%%EOF";
-
-    const blob = new Blob([minimalPdf], { type: "application/pdf" });
-    const dummyFile = new File([blob], "dummy-document.pdf", {
-      type: "application/pdf",
-    });
-
-    // Add the file only if there's still a slot available
     const slotsLeft = config.maxFiles - files.length;
     if (slotsLeft > 0) {
-      setFiles((prev) => [...prev, dummyFile]);
+      setFiles((prev) => [...prev, createDummyPdf()]);
     }
-
-    // Auto-check the declaration so you can go straight to the Verify button
     setDeclared(true);
   }
 
@@ -216,20 +192,11 @@ export function VerificationStep({
           disabled={isBusy}
         />
 
-        {/* DEV-only shortcut — never shown in production */}
-        {isDev && (
-          <button
-            type="button"
-            onClick={handleAddDummyDoc}
-            disabled={files.length >= config.maxFiles || isBusy}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-dashed border-amber-400 bg-amber-50 text-amber-700 text-xs font-semibold hover:bg-amber-100 disabled:opacity-40 disabled:pointer-events-none transition-colors duration-150"
-          >
-            <span className="px-1.5 py-0.5 bg-amber-400 text-white rounded text-[10px] font-bold uppercase tracking-wide">
-              DEV
-            </span>
-            Add dummy doc
-          </button>
-        )}
+        <DevFileButton
+          label="Add dummy doc"
+          onClick={handleAddDummyDoc}
+          disabled={files.length >= config.maxFiles || isBusy}
+        />
 
         {/* Staged files */}
         {files.length > 0 && (
@@ -266,6 +233,7 @@ export function VerificationStep({
             checked={declared}
             onChange={(e) => setDeclared(e.target.checked)}
             disabled={isBusy}
+            aria-required="true"
             className="mt-0.5 w-4 h-4 rounded border-slate-300 accent-[var(--val-primary-dark)] shrink-0"
           />
           <span className="text-sm text-slate-600 group-hover:text-val-heading transition-colors leading-relaxed">
