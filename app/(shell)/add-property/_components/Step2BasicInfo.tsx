@@ -1,38 +1,55 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Info, Maximize2, Map as MapIcon, ChevronDown } from "lucide-react";
+import { Search, Maximize2, Map as MapIcon, ChevronDown, MapPin, CheckCircle2, Loader2 } from "lucide-react";
+import dynamic from "next/dynamic";
 import { CAMBODIA_PROVINCES } from "@/lib/constants/cambodia-provinces";
 import { cn } from "@/components/ui/utils";
+import { RequiredMark, OptionalLabel } from "@/components/ui/required-mark";
+import { useGeocode } from "../_lib/use-geocode";
 import type { FormData } from "./types";
-import { PropertyLocationMap } from "./PropertyLocationMap";
-import { LocationPickerModal } from "./LocationPickerModal";
+
+const PropertyLocationMap = dynamic(
+  () => import("./PropertyLocationMap").then((m) => ({ default: m.PropertyLocationMap })),
+  { ssr: false },
+);
+
+const LocationPickerModal = dynamic(
+  () => import("./LocationPickerModal").then((m) => ({ default: m.LocationPickerModal })),
+  { ssr: false },
+);
 
 const DEFAULT_CENTER: [number, number] = [104.9282, 11.5564]; // Phnom Penh
 
 const INPUT =
   "w-full border border-border rounded-xl px-4 py-2.5 text-[14px] text-foreground bg-background placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:shadow-[0_0_0_3px_color-mix(in_oklch,var(--primary)_8%,transparent)] transition-[border-color,box-shadow] duration-200";
 
+const INPUT_ERROR =
+  "w-full border border-destructive rounded-xl px-4 py-2.5 text-[14px] text-foreground bg-background placeholder:text-muted-foreground focus:outline-none focus:border-destructive focus:shadow-[0_0_0_3px_color-mix(in_oklch,var(--destructive)_10%,transparent)] transition-[border-color,box-shadow] duration-200";
+
 export function Step2BasicInfo({
   form,
   setForm,
+  errors,
 }: {
   form: FormData;
-  setForm: (f: FormData) => void;
+  setForm: (f: FormData | ((prev: FormData) => FormData)) => void;
+  errors?: Record<string, string> | null;
 }) {
   const [showManualAddress, setShowManualAddress] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [searchQuery, setSearchQuery] = useState(
+    () => [form.addressLine, form.city, form.province].filter(Boolean).join(", ") || "",
+  );
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const geocode = useGeocode();
 
   const mapCenter = form.mapCenter ?? DEFAULT_CENTER;
-  const setMapCenter = (c: [number, number]) => setForm({ ...form, mapCenter: c });
+  const setMapCenter = (c: [number, number]) => setForm((prev) => ({ ...prev, mapCenter: c }));
 
   const update = (key: keyof FormData, val: string) =>
     setForm({ ...form, [key]: val });
-
-  const combinedAddress = [form.addressLine, form.city, form.province]
-    .filter(Boolean)
-    .join(", ");
 
   const isPinned = !!form.mapCenter;
 
@@ -51,40 +68,54 @@ export function Step2BasicInfo({
       {/* Card */}
       <div className="flex-1 min-h-0 border border-border rounded-2xl p-6 flex flex-col gap-4 animate-[fade-slide-up_0.45s_cubic-bezier(0.22,1,0.36,1)_60ms_both]">
 
-        {/* Property Name */}
+        {/* Form legend */}
+        <p className="text-[11px] text-[--text-tertiary] flex items-center gap-1 self-end">
+          <RequiredMark />
+          <span>Required fields</span>
+        </p>
+
+        {/* Property Name — required */}
         <div className="shrink-0 flex flex-col gap-1.5">
-          <label className="text-[14px] text-foreground block" style={{ fontWeight: 600 }}>
-            Property Name
+          <label className="text-[14px] text-foreground flex items-center" style={{ fontWeight: 600 }}>
+            Property Name <RequiredMark />
           </label>
           <input
             type="text"
+            aria-required="true"
             value={form.propertyName}
             onChange={(e) => update("propertyName", e.target.value)}
             placeholder="e.g. Skyline Luxury Lofts"
-            className={INPUT}
+            className={errors?.propertyName ? INPUT_ERROR : INPUT}
           />
+          {errors?.propertyName && (
+            <p className="text-[13px] text-destructive">{errors.propertyName}</p>
+          )}
         </div>
 
-        {/* Total Area */}
+        {/* Total Area — optional */}
         <div className="shrink-0 flex flex-col gap-1.5">
-          <label className="text-[14px] text-foreground block" style={{ fontWeight: 600 }}>
-            Total Area <span className="text-muted-foreground font-normal">(m²)</span>
+          <label className="text-[14px] text-foreground flex items-center" style={{ fontWeight: 600 }}>
+            Total Area <span className="text-muted-foreground font-normal ml-1">(m²)</span>
+            <OptionalLabel />
           </label>
           <input
-            type="number"
-            min="1"
+            type="text"
+            inputMode="decimal"
             value={form.totalArea}
             onChange={(e) => update("totalArea", e.target.value)}
             placeholder="e.g. 850"
-            className={INPUT}
+            className={errors?.totalArea ? INPUT_ERROR : INPUT}
           />
+          {errors?.totalArea && (
+            <p className="text-[13px] text-destructive">{errors.totalArea}</p>
+          )}
         </div>
 
-        {/* Address */}
+        {/* Address — optional */}
         <div className="shrink-0 flex flex-col gap-1.5">
           <div className="flex items-center justify-between">
-            <label className="text-[14px] text-foreground block" style={{ fontWeight: 600 }}>
-              Address
+            <label className="text-[14px] text-foreground flex items-center" style={{ fontWeight: 600 }}>
+              Address <OptionalLabel />
             </label>
             <button
               onClick={() => setShowManualAddress((v) => !v)}
@@ -97,12 +128,65 @@ export function Step2BasicInfo({
             <div className="relative">
               <input
                 type="text"
-                value={combinedAddress || form.addressLine}
-                onChange={(e) => update("addressLine", e.target.value)}
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  geocode.search(e.target.value);
+                  setShowSuggestions(true);
+                }}
+                onFocus={() => {
+                  if (geocode.suggestions.length > 0) setShowSuggestions(true);
+                }}
+                onBlur={() => {
+                  setTimeout(() => setShowSuggestions(false), 150);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") setShowSuggestions(false);
+                }}
                 placeholder="Search address…"
-                className={`${INPUT} pl-10`}
+                className={`${INPUT} pl-10 pr-9`}
+                autoComplete="off"
               />
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+              {geocode.loading && (
+                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground animate-spin pointer-events-none" />
+              )}
+              {showSuggestions && geocode.suggestions.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-border rounded-xl shadow-lg z-50 overflow-hidden">
+                  {geocode.suggestions.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        setForm((prev) => ({
+                          ...prev,
+                          addressLine: s.addressLine,
+                          city: s.city,
+                          province: s.province,
+                          country: s.country,
+                          zip: s.zip,
+                          mapCenter: s.center,
+                        }));
+                        setSearchQuery(s.placeName);
+                        setShowSuggestions(false);
+                        geocode.clear();
+                      }}
+                      className="w-full flex items-start gap-3 px-4 py-3 hover:bg-accent/60 transition-colors text-left border-b border-border last:border-b-0"
+                    >
+                      <MapPin className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+                      <div className="min-w-0">
+                        <div className="text-[14px] font-medium text-foreground truncate">
+                          {s.mainText}
+                        </div>
+                        <div className="text-[12px] text-muted-foreground truncate">
+                          {s.secondaryText}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -123,7 +207,7 @@ export function Step2BasicInfo({
                   onChange={(e) => update("province", e.target.value)}
                   className={`${INPUT} appearance-none pr-8 ${!form.province ? "text-muted-foreground" : ""}`}
                 >
-                  <option value="" disabled>Province</option>
+                  <option value="" disabled>Province (optional)</option>
                   {CAMBODIA_PROVINCES.map((p) => (
                     <option key={p} value={p}>{p}</option>
                   ))}
@@ -190,17 +274,18 @@ export function Step2BasicInfo({
               )}
             </div>
 
-            <div className="flex items-center gap-1.5 shrink-0 px-0.5">
-              <Info className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-              <span
-                key={String(isPinned)}
-                className="text-[13px] text-muted-foreground animate-[fade-slide-up_0.3s_cubic-bezier(0.22,1,0.36,1)_both]"
-              >
-                {isPinned
-                  ? `Pinned at ${mapCenter[1].toFixed(4)}°, ${mapCenter[0].toFixed(4)}°`
-                  : "This is where your property will appear on your Valgate map."}
-              </span>
-            </div>
+            {/* Location pin status banner */}
+            {isPinned ? (
+              <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-[13px] text-green-700 shrink-0 animate-[fade-slide-up_0.3s_cubic-bezier(0.22,1,0.36,1)_both]">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>Location pinned at {mapCenter[1].toFixed(4)}°, {mapCenter[0].toFixed(4)}°</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-[13px] text-amber-700 shrink-0 animate-[fade-slide-up_0.3s_cubic-bezier(0.22,1,0.36,1)_both]">
+                <MapPin className="w-4 h-4 shrink-0" />
+                <span>Pin your property location — drag the map pin for the best results</span>
+              </div>
+            )}
           </div>
         )}
       </div>

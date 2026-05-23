@@ -1,13 +1,6 @@
 {
-  "addressLine": "123 Riverside Road",
-  "addressLine2": "",
+  "addressLine": "No. AA21, Street 99, Boeng Trabek, Chamkar Mon",
   "city": "Phnom Penh",
-  "zip": "12000",
   "country": "Cambodia",
-  "province": "Phnom Penh",
-  "locationVerified": true,
-  "locationVerifiedAt": 1779259270759,
-  "locationEvidenceDocIds": [
-    "DOC-0011"
-  ]
+  "province": "Phnom Penh"
 }

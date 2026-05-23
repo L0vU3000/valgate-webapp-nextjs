@@ -1,12 +1,12 @@
 {
   "id": "SUCC-0002",
   "userId": "demo-user",
-  "name": "Dara Chan",
-  "initials": "DC",
+  "name": "Marcus Lee",
+  "initials": "ML",
   "relation": "Child",
-  "role": "primary",
-  "share": 100,
-  "verified": false,
+  "role": "contingent",
+  "share": 12.5,
+  "verified": true,
   "createdAt": 1743465600000,
   "updatedAt": 1775001600000
 }

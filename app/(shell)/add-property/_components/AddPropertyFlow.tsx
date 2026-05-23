@@ -43,6 +43,7 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
   const [form, setForm] = useState<FormData>(defaultForm);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [stepErrors, setStepErrors] = useState<Record<string, string> | null>(null);
   const latestFormRef = useRef<FormData>(defaultForm);
   const successScrollRef = useRef<HTMLDivElement>(null);
 
@@ -88,6 +89,11 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
     upsert(activeId, form, step);
   }, [form, step, activeId, mounted, upsert]);
 
+  // Clear step errors whenever the user edits the form
+  useEffect(() => {
+    setStepErrors(null);
+  }, [form]);
+
   const advanceToStep1 = useCallback(
     (newForm: FormData) => {
       const id = crypto.randomUUID();
@@ -100,12 +106,42 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
   );
 
   const goNext = () => {
+    // Step 2: property name is required; total area must be a valid number if provided
+    if (step === 2) {
+      const errors: Record<string, string> = {};
+      if (!form.propertyName.trim()) {
+        errors.propertyName = "Please enter a property name";
+      }
+      if (form.totalArea && !/^\d+(\.\d+)?$/.test(form.totalArea)) {
+        errors.totalArea = "Total area must be a number";
+      }
+      if (Object.keys(errors).length > 0) {
+        setStepErrors(errors);
+        return;
+      }
+    }
+    // Step 3: market value must be a whole number if provided
+    if (step === 3) {
+      const errors: Record<string, string> = {};
+      if (form.currentMarketValue && !/^\d+$/.test(form.currentMarketValue)) {
+        errors.currentMarketValue = "Market value must be a whole number (e.g. 150000)";
+      }
+      if (Object.keys(errors).length > 0) {
+        setStepErrors(errors);
+        return;
+      }
+    }
+    setStepErrors(null);
+
     const next = Math.min(step + 1, 6) as Step;
     if (next === 3 && !gate2Shown) { setWalkthroughGate(2); return; }
     if (next === 5 && !gate3Shown) { setWalkthroughGate(3); return; }
     setStep(next);
   };
-  const goBack = () => setStep((s) => Math.max(s - 1, 0) as Step);
+  const goBack = () => {
+    setStepErrors(null);
+    setStep((s) => Math.max(s - 1, 0) as Step);
+  };
 
   function handleGateContinue() {
     if (walkthroughGate === 1) {
@@ -232,7 +268,7 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
             <HowItWorksGate
               stepIndex={walkthroughGate - 1}
               onContinue={handleGateContinue}
-              onBack={walkthroughGate === 1 ? handleGateBack : undefined}
+              onBack={handleGateBack}
             />
           </div>
         )}
@@ -296,8 +332,8 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
                 />
               )}
               {step === 1 && <Step1PropertyType form={form} setForm={setForm} goNext={goNext} />}
-              {step === 2 && <Step2BasicInfo form={form} setForm={setForm} />}
-              {step === 3 && <Step3Financial form={form} setForm={setForm} goNext={goNext} />}
+              {step === 2 && <Step2BasicInfo form={form} setForm={setForm} errors={stepErrors} />}
+              {step === 3 && <Step3Financial form={form} setForm={setForm} goNext={goNext} errors={stepErrors} />}
               {step === 4 && <Step4PhotosDocs form={form} setForm={setForm} />}
               {step === 5 && <Step5Review form={form} goToStep={(s) => setStep(s as Step)} />}
             </div>
@@ -313,6 +349,7 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
             onSubmit={handleSubmit}
             isFinalStep={step === 5}
             submitting={submitting}
+            stepError={step < 5 ? (stepErrors ? "Please fix the highlighted fields to continue" : null) : null}
             submitError={submitError}
           />
         )}

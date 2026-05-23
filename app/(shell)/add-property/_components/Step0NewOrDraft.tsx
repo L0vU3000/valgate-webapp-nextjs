@@ -128,27 +128,29 @@ export function Step0NewOrDraft({
   const methods = [
     {
       key: "photo" as const,
-      badge: "Recommended",
-      badgeBg: DS.blueTint,
-      badgeColor: DS.blue,
+      badge: "Coming soon",
+      badgeBg: DS.surfaceElevated,
+      badgeColor: DS.textDisabled,
       icon: Camera,
-      iconBg: DS.blueTint,
-      iconColor: DS.blue,
+      iconBg: DS.surfaceElevated,
+      iconColor: DS.textDisabled,
       title: "Take a photo",
       desc: "Scan a title deed, lease, or listing — we'll read the details automatically",
       onClick: () => photoInputRef.current?.click(),
+      disabled: true,
     },
     {
       key: "upload" as const,
-      badge: "PDF or image",
+      badge: "Coming soon",
       badgeBg: DS.surfaceElevated,
-      badgeColor: DS.textSecondary,
+      badgeColor: DS.textDisabled,
       icon: Upload,
       iconBg: DS.surfaceElevated,
-      iconColor: DS.textPrimary,
+      iconColor: DS.textDisabled,
       title: "Upload document",
       desc: "Drop a PDF or image from your device — we'll pull the details for you",
       onClick: () => uploadInputRef.current?.click(),
+      disabled: true,
     },
     {
       key: "manual" as const,
@@ -161,6 +163,7 @@ export function Step0NewOrDraft({
       title: "Enter manually",
       desc: "No document? Answer a few questions step-by-step instead",
       onClick: handleManual,
+      disabled: false,
     },
   ];
 
@@ -239,7 +242,7 @@ export function Step0NewOrDraft({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mb-8">
         {methods.map((m, i) => (
-          <MethodCard key={m.key} method={m} isSelected={false} index={i} />
+          <MethodCard key={m.key} method={m} isSelected={false} index={i} disabled={m.disabled} />
         ))}
       </div>
 
@@ -333,6 +336,7 @@ function MethodCard({
   method,
   isSelected,
   index,
+  disabled = false,
 }: {
   method: {
     badge: string;
@@ -347,35 +351,41 @@ function MethodCard({
   };
   isSelected: boolean;
   index: number;
+  disabled?: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
   const [pressed, setPressed] = useState(false);
 
+  const isHovered = hovered && !disabled;
+  const isPressed = pressed && !disabled;
+
   return (
     <div className="anim-enter h-full" style={{ animationDelay: `${130 + index * 70}ms` }}>
       <button
-        onClick={() => { setHovered(false); setPressed(false); method.onClick(); }}
-        onMouseEnter={() => setHovered(true)}
+        onClick={() => { if (disabled) return; setHovered(false); setPressed(false); method.onClick(); }}
+        onMouseEnter={() => { if (!disabled) setHovered(true); }}
         onMouseLeave={() => { setHovered(false); setPressed(false); }}
-        onMouseDown={() => setPressed(true)}
+        onMouseDown={() => { if (!disabled) setPressed(true); }}
         onMouseUp={() => setPressed(false)}
+        disabled={disabled}
         className="text-left w-full h-full flex flex-col"
         style={{
-          background: isSelected ? DS.blueTint : DS.surfaceBase,
+          background: disabled ? DS.surfaceElevated : isSelected ? DS.blueTint : DS.surfaceBase,
           borderRadius: 16,
           padding: "20px",
           border: isSelected
             ? `2px solid ${DS.blue}`
-            : `1px solid ${hovered ? "#93C5FD" : DS.border}`,
+            : `1px solid ${isHovered ? "#93C5FD" : DS.border}`,
           transition:
             "transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.15s ease, background 0.15s ease, box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
           fontFamily: DS.font,
-          cursor: "pointer",
+          cursor: disabled ? "not-allowed" : "pointer",
           minHeight: 168,
-          transform: `scale(${pressed ? 0.97 : hovered ? 1.02 : 1})`,
+          opacity: disabled ? 0.55 : 1,
+          transform: `scale(${isPressed ? 0.97 : isHovered ? 1.02 : 1})`,
           boxShadow: isSelected
             ? DS.selectedShadow
-            : hovered
+            : isHovered
             ? DS.hoverShadow
             : "none",
         }}
@@ -384,10 +394,10 @@ function MethodCard({
           style={{
             width: 22,
             height: 22,
-            color: isSelected ? DS.blue : hovered ? DS.textPrimary : method.iconColor,
+            color: isSelected ? DS.blue : isHovered ? DS.textPrimary : method.iconColor,
             marginBottom: 16,
             flexShrink: 0,
-            transform: hovered ? "scale(1.12)" : "scale(1)",
+            transform: isHovered ? "scale(1.12)" : "scale(1)",
             transition: "transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), color 0.15s ease",
           }}
         />
@@ -395,7 +405,7 @@ function MethodCard({
           style={{
             fontSize: 15,
             fontWeight: 600,
-            color: DS.textPrimary,
+            color: disabled ? DS.textDisabled : DS.textPrimary,
             marginBottom: 6,
             letterSpacing: "-0.15px",
             lineHeight: 1.3,
@@ -406,7 +416,7 @@ function MethodCard({
         <p
           style={{
             fontSize: 13,
-            color: DS.textSecondary,
+            color: disabled ? DS.textDisabled : DS.textSecondary,
             lineHeight: 1.5,
             flex: 1,
           }}

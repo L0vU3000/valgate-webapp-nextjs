@@ -1,14 +1,13 @@
 {
   "id": "DOC-0008",
-  "propertyId": "PROP-0001",
-  "name": "dummy-document.pdf",
-  "kind": "document",
+  "propertyId": "PROP-0011",
+  "folderId": "FLDR-0006",
+  "name": "Property_Photo_Exterior.jpg",
+  "kind": "photo",
   "mimeType": "application/pdf",
-  "sizeBytes": 281,
-  "storageId": "_storage/PROP-0001/dummy-document.pdf",
-  "uploadedAt": 1779259090872,
-  "verifies": {
-    "entityType": "financials",
-    "entityId": "PROP-0001"
-  }
+  "extension": "pdf",
+  "sizeBytes": 4200000,
+  "storageId": "_storage/PROP-0011/exterior.jpg",
+  "category": "Photos",
+  "uploadedAt": 1768089600000
 }

@@ -1,14 +1,12 @@
 {
   "id": "SUCC-0001",
   "userId": "demo-user",
-  "name": "Sophea Chan",
-  "initials": "SC",
+  "name": "Jennifer Lee",
+  "initials": "JL",
   "relation": "Spouse",
   "role": "primary",
-  "share": 100,
+  "share": 75,
   "verified": true,
-  "email": "sophea.chan@example.com",
-  "phone": "+855 12 345 678",
   "createdAt": 1743465600000,
   "updatedAt": 1775001600000
 }

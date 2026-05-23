@@ -23,15 +23,20 @@ import { cn } from "@/components/ui/utils";
 import { progressClass, progressBgClass, titleToVariant } from "@/lib/property-helpers";
 import type { HomeProperty, TitleVariant, PortfolioStats } from "@/app/(shell)/queries";
 import type { Document } from "@/lib/data/types/document";
+import { formatCurrency, formatDate } from "@/lib/format";
 import { CommandPalette } from "@/components/home/CommandPalette";
 import { PropertyTable } from "@/components/portfolio/PropertyTable";
 import type { TableAnimationConfig } from "@/components/portfolio/PropertyTable";
 import { PortfolioLegend } from "./PortfolioLegend";
-import { MapControls } from "@/components/map/MapControls";
 import type mapboxgl from "mapbox-gl";
 
 const MapView = dynamic(
   () => import("@/components/map/MapView").then((m) => m.MapView),
+  { ssr: false },
+);
+
+const MapControls = dynamic(
+  () => import("@/components/map/MapControls").then((m) => ({ default: m.MapControls })),
   { ssr: false },
 );
 
@@ -70,6 +75,7 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
   const [placeholderIdx, setPlaceholderIdx] = useState(0);
   const [placeholderVisible, setPlaceholderVisible] = useState(true);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [isSatellite, setIsSatellite] = useState(false);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const router = useRouter();
 
@@ -170,6 +176,7 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
           onSelectProperty={handlePinClick}
           onMapLoaded={() => setMapLoaded(true)}
           onMapReady={(map) => { mapRef.current = map; }}
+          isSatellite={isSatellite}
           className="absolute inset-0"
         />
 
@@ -241,7 +248,12 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
         <PortfolioLegend stats={portfolioStats} mapLoaded={mapLoaded} drawerOpen={!!drawerProperty} />
 
         {/* Map controls */}
-        <MapControls mapRef={mapRef} drawerOpen={!!selectedProperty} />
+        <MapControls
+          mapRef={mapRef}
+          drawerOpen={!!selectedProperty}
+          isSatellite={isSatellite}
+          onToggleSatellite={() => setIsSatellite((s) => !s)}
+        />
 
         {/* Property info panel — full-height floating sidebar */}
         {drawerProperty && (
@@ -261,10 +273,10 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
               <ImageWithFallback
                 src="https://images.unsplash.com/photo-1665691964802-956fc06b93cf?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxsdXh1cnklMjBob3VzZSUyMGRyaXZld2F5JTIwbmlnaHR8ZW58MXx8fHwxNzczNzM0NjE4fDA&ixlib=rb-4.1.0&q=80&w=1080"
                 alt={drawerProperty.name}
-                className="w-full h-48 object-cover [animation:card-image-reveal_0.5s_cubic-bezier(0.16,1,0.3,1)_0.15s_both]"
+                className="w-full h-44 object-cover [animation:card-image-reveal_0.5s_cubic-bezier(0.16,1,0.3,1)_0.15s_both]"
               />
               {/* Scrim gradient */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/15 to-transparent" />
               {/* Close */}
               <button
                 onClick={closeDrawer}
@@ -272,69 +284,197 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
               >
                 <X className="size-3.5 text-white" />
               </button>
-              {/* Status pill on image */}
+              {/* Status pill */}
               <div className="absolute top-3 left-3 [animation:pill-in_0.3s_cubic-bezier(0.16,1,0.3,1)_0.1s_both]">
                 <span className={cn(
                   "px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide uppercase",
                   drawerProperty.status === "Rented"
                     ? "bg-emerald-500/90 text-white"
-                    : "bg-amber-400/90 text-amber-950",
+                    : drawerProperty.status === "Vacant"
+                    ? "bg-amber-400/90 text-amber-950"
+                    : "bg-white/20 text-white",
                 )}>
                   {drawerProperty.status}
                 </span>
               </div>
-              {/* Title overlay at bottom of image */}
-              <div className="absolute bottom-0 left-0 right-0 px-5 pb-4">
-                <p className="text-[11px] font-medium text-white/60 tracking-wide uppercase">{drawerProperty.code}</p>
-                <h3 className="text-lg font-display font-semibold text-white leading-tight mt-0.5">{drawerProperty.name}</h3>
+              {/* Title overlay */}
+              <div className="absolute bottom-0 left-0 right-0 px-4 pb-3.5">
+                <p className="text-[10px] font-medium text-white/55 tracking-widest uppercase">{drawerProperty.code}</p>
+                <h3 className="text-base font-display font-semibold text-white leading-snug mt-0.5">{drawerProperty.name}</h3>
                 <div className="flex items-center gap-1 mt-1">
-                  <MapPin className="size-3 text-white/50" />
-                  <span className="text-xs text-white/70">{drawerProperty.province}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Details */}
-            <div className="px-5 pt-5 pb-4 space-y-3.5 text-sm">
-              {[
-                { label: "Buy Price", value: <span className="text-base font-display font-bold text-foreground">{drawerProperty.buy}</span> },
-                { label: "Size", value: <span className="font-medium text-foreground">{drawerProperty.totalArea ? `${Number(drawerProperty.totalArea).toLocaleString()} m²` : "—"}</span> },
-                { label: "Type", value: <span className="font-medium text-foreground">{drawerProperty.type}</span> },
-                { label: "Title", value: <span className={cn("font-medium", titleClasses[titleToVariant(drawerProperty.title)])}>{drawerProperty.title}</span> },
-              ].map((row, i) => (
-                <div
-                  key={row.label}
-                  className="flex items-baseline justify-between [animation:card-row-in_0.35s_cubic-bezier(0.16,1,0.3,1)_both]"
-                  style={{ animationDelay: `${250 + i * 50}ms` }}
-                >
-                  <span className="text-secondary">{row.label}</span>
-                  {row.value}
-                </div>
-              ))}
-              <div
-                className="flex items-center justify-between [animation:card-row-in_0.35s_cubic-bezier(0.16,1,0.3,1)_both]"
-                style={{ animationDelay: "450ms" }}
-              >
-                <span className="text-secondary">Progress</span>
-                <div className="flex items-center gap-2">
-                  <div className="w-16 h-1.5 rounded-full bg-surface-sunken overflow-hidden">
-                    <div
-                      className={cn("h-full rounded-full origin-left [animation:health-bar-fill_0.6s_cubic-bezier(0.16,1,0.3,1)_0.5s_both]", progressBgClass(drawerProperty.progress))}
-                      style={{ width: `${drawerProperty.progress}%` }}
-                    />
-                  </div>
-                  <span className={cn("font-medium tabular-nums", progressClass(drawerProperty.progress))}>
-                    {drawerProperty.progress}%
+                  <MapPin className="size-3 text-white/50 shrink-0" />
+                  <span className="text-xs text-white/65 truncate">
+                    {[drawerProperty.city, drawerProperty.province].filter(Boolean).join(", ")}
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* Spacer */}
-            <div className="flex-1" />
+            {/* Progress strip */}
+            <div className="px-4 py-3 border-b border-border-default shrink-0 [animation:card-row-in_0.35s_cubic-bezier(0.16,1,0.3,1)_0.2s_both]">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-secondary">Progress</span>
+                <span className={cn("text-xs font-semibold tabular-nums", progressClass(drawerProperty.progress))}>
+                  {drawerProperty.progress}%
+                </span>
+              </div>
+              <div className="w-full h-1.5 rounded-full bg-surface-sunken overflow-hidden">
+                <div
+                  className={cn("h-full rounded-full origin-left [animation:health-bar-fill_0.6s_cubic-bezier(0.16,1,0.3,1)_0.5s_both]", progressBgClass(drawerProperty.progress))}
+                  style={{ width: `${drawerProperty.progress}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Scrollable sections */}
+            <div className="flex-1 overflow-y-auto">
+              <div className="px-4 pt-4 pb-4 space-y-5 [animation:card-row-in_0.35s_cubic-bezier(0.16,1,0.3,1)_0.3s_both]">
+
+                {/* Section: Property */}
+                <section>
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-[10px] font-semibold uppercase tracking-widest text-text-disabled whitespace-nowrap">Property</span>
+                    <div className="flex-1 h-px bg-border-subtle" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-3">
+                    <div>
+                      <p className="text-[10px] font-medium uppercase tracking-wide text-secondary mb-0.5">Type</p>
+                      <p className="text-sm font-medium text-foreground capitalize">{drawerProperty.type}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-medium uppercase tracking-wide text-secondary mb-0.5">Use</p>
+                      <p className="text-sm font-medium text-foreground capitalize">{drawerProperty.propertyUse || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-medium uppercase tracking-wide text-secondary mb-0.5">Title</p>
+                      <p className={cn("text-sm font-medium", titleClasses[titleToVariant(drawerProperty.title)])}>{drawerProperty.title}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-medium uppercase tracking-wide text-secondary mb-0.5">Year Built</p>
+                      <p className="text-sm font-medium text-foreground">{drawerProperty.yearBuilt || "—"}</p>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Section: Physical */}
+                <section>
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-[10px] font-semibold uppercase tracking-widest text-text-disabled whitespace-nowrap">Physical</span>
+                    <div className="flex-1 h-px bg-border-subtle" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-3">
+                    <div>
+                      <p className="text-[10px] font-medium uppercase tracking-wide text-secondary mb-0.5">Total Area</p>
+                      <p className="text-sm font-medium text-foreground">
+                        {drawerProperty.totalArea ? `${Number(drawerProperty.totalArea).toLocaleString()} m²` : "—"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-medium uppercase tracking-wide text-secondary mb-0.5">Parking</p>
+                      <p className="text-sm font-medium text-foreground">{drawerProperty.parkingSpaces || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-medium uppercase tracking-wide text-secondary mb-0.5">Bedrooms</p>
+                      <p className="text-sm font-medium text-foreground">{drawerProperty.bedrooms || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-medium uppercase tracking-wide text-secondary mb-0.5">Bathrooms</p>
+                      <p className="text-sm font-medium text-foreground">{drawerProperty.bathrooms || "—"}</p>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Section: Location */}
+                <section>
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-[10px] font-semibold uppercase tracking-widest text-text-disabled whitespace-nowrap">Location</span>
+                    <div className="flex-1 h-px bg-border-subtle" />
+                  </div>
+                  <div className="space-y-3">
+                    {drawerProperty.addressLine && (
+                      <div>
+                        <p className="text-[10px] font-medium uppercase tracking-wide text-secondary mb-0.5">Address</p>
+                        <p className="text-sm font-medium text-foreground">
+                          {drawerProperty.addressLine}{drawerProperty.addressLine2 ? `, ${drawerProperty.addressLine2}` : ""}
+                        </p>
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-3">
+                      <div>
+                        <p className="text-[10px] font-medium uppercase tracking-wide text-secondary mb-0.5">City</p>
+                        <p className="text-sm font-medium text-foreground">{drawerProperty.city || "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-medium uppercase tracking-wide text-secondary mb-0.5">Province</p>
+                        <p className="text-sm font-medium text-foreground">{drawerProperty.province || "—"}</p>
+                      </div>
+                      {drawerProperty.country && (
+                        <div>
+                          <p className="text-[10px] font-medium uppercase tracking-wide text-secondary mb-0.5">Country</p>
+                          <p className="text-sm font-medium text-foreground">{drawerProperty.country}</p>
+                        </div>
+                      )}
+                      {drawerProperty.zip && (
+                        <div>
+                          <p className="text-[10px] font-medium uppercase tracking-wide text-secondary mb-0.5">ZIP</p>
+                          <p className="text-sm font-medium text-foreground">{drawerProperty.zip}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </section>
+
+                {/* Section: Financials */}
+                <section>
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-[10px] font-semibold uppercase tracking-widest text-text-disabled whitespace-nowrap">Financials</span>
+                    <div className="flex-1 h-px bg-border-subtle" />
+                  </div>
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-[10px] font-medium uppercase tracking-wide text-secondary mb-0.5">Purchase Price</p>
+                      <p className="text-base font-bold font-display text-foreground">{drawerProperty.buy}</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-3">
+                      <div>
+                        <p className="text-[10px] font-medium uppercase tracking-wide text-secondary mb-0.5">Market Value</p>
+                        <p className="text-sm font-medium text-foreground">
+                          {drawerProperty.currentMarketValue ? formatCurrency(drawerProperty.currentMarketValue) : "—"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-medium uppercase tracking-wide text-secondary mb-0.5">Mortgage</p>
+                        <p className="text-sm font-medium text-foreground">
+                          {drawerProperty.outstandingMortgage ? formatCurrency(drawerProperty.outstandingMortgage) : "—"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-medium uppercase tracking-wide text-secondary mb-0.5">Monthly</p>
+                        <p className="text-sm font-medium text-foreground">
+                          {drawerProperty.monthlyPayment ? `$${drawerProperty.monthlyPayment.toLocaleString()}` : "—"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-medium uppercase tracking-wide text-secondary mb-0.5">Annual Tax</p>
+                        <p className="text-sm font-medium text-foreground">
+                          {drawerProperty.annualPropertyTax ? `$${drawerProperty.annualPropertyTax.toLocaleString()}` : "—"}
+                        </p>
+                      </div>
+                    </div>
+                    {drawerProperty.purchaseDate ? (
+                      <div>
+                        <p className="text-[10px] font-medium uppercase tracking-wide text-secondary mb-0.5">Purchased</p>
+                        <p className="text-sm font-medium text-foreground">{formatDate(drawerProperty.purchaseDate)}</p>
+                      </div>
+                    ) : null}
+                  </div>
+                </section>
+
+              </div>
+            </div>
 
             {/* CTA */}
-            <div className="px-5 py-4 shrink-0 [animation:card-row-in_0.35s_cubic-bezier(0.16,1,0.3,1)_0.5s_both]">
+            <div className="px-4 py-3 shrink-0 border-t border-border-default [animation:card-row-in_0.35s_cubic-bezier(0.16,1,0.3,1)_0.5s_both]">
               <button
                 onClick={() => router.push(`/property/${drawerProperty.id}`)}
                 className="group w-full flex items-center justify-between px-4 py-2.5 rounded-lg bg-interactive-primary text-white text-sm font-medium hover:brightness-110 active:scale-[0.98] transition-all duration-150"

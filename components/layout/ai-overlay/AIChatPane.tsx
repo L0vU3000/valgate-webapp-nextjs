@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { MapPin, Mic, Paperclip, Send } from "lucide-react";
 import { cn } from "@/components/ui/utils";
 import { AIMessageBubble, AIThinkingIndicator } from "./AIMessageBubble";
@@ -12,6 +13,7 @@ const AGENT_NAME = "Valgate Agent";
 
 type AIChatPaneProps = {
   header: AiOverlayHeader;
+  sessionTitle: string | null;
   messages: AiMessage[];
   userInitials: string;
   documents: AiWorkspaceDocument[];
@@ -22,10 +24,12 @@ type AIChatPaneProps = {
   isSending: boolean;
   isLoading: boolean;
   loadError: string | null;
+  latestAssistantMsgId?: string | null;
 };
 
 export function AIChatPane({
   header,
+  sessionTitle,
   messages,
   userInitials,
   documents,
@@ -36,6 +40,7 @@ export function AIChatPane({
   isSending,
   isLoading,
   loadError,
+  latestAssistantMsgId,
 }: AIChatPaneProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const documentsById = new Map(documents.map((d) => [d.id, d]));
@@ -63,9 +68,40 @@ export function AIChatPane({
       <header className="shrink-0 px-6 py-4 sm:px-8">
         <div className="mx-auto flex w-full max-w-3xl min-w-0 items-center gap-3">
           <div className="min-w-0 flex-1">
-            <h3 className="truncate font-display text-lg font-bold leading-7 text-foreground sm:text-[18px]">
-              {header.title}
+            <h3 className="overflow-hidden font-display text-lg font-bold leading-7 text-foreground sm:text-[18px]">
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.span
+                  key={sessionTitle ?? header.title}
+                  initial={{ opacity: 0, y: 6, scaleX: 0.97 }}
+                  animate={{ opacity: 1, y: 0, scaleX: 1 }}
+                  exit={{ opacity: 0, y: -6, scaleX: 0.97 }}
+                  transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                  className="block truncate"
+                  style={{ transformOrigin: "left center" }}
+                >
+                  {sessionTitle ?? header.title}
+                </motion.span>
+              </AnimatePresence>
             </h3>
+
+            {/* Valgate document accent line — draws left-to-right when a named session is active */}
+            <AnimatePresence>
+              {sessionTitle && (
+                <motion.div
+                  key="vg-doc-accent"
+                  initial={{ scaleX: 0, opacity: 0 }}
+                  animate={{ scaleX: 1, opacity: 1 }}
+                  exit={{ scaleX: 0, opacity: 0 }}
+                  transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1], delay: 0.22 }}
+                  className="mt-1 h-[1.5px] origin-left rounded-full"
+                  style={{
+                    background:
+                      "linear-gradient(90deg, rgba(37,99,235,0.65) 0%, rgba(37,99,235,0.25) 55%, transparent 100%)",
+                  }}
+                />
+              )}
+            </AnimatePresence>
+
             {header.subtitle && (
               <div className="mt-0.5 flex items-center gap-1.5">
                 <MapPin className="size-3.5 shrink-0 text-secondary" aria-hidden />
@@ -130,6 +166,7 @@ export function AIChatPane({
                 userInitials={userInitials}
                 documentsById={documentsById}
                 index={index}
+                isNew={message.id === latestAssistantMsgId}
               />
             ))
           )}

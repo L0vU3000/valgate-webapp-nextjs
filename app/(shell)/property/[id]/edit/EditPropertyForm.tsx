@@ -20,6 +20,7 @@ import {
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { RequiredMark, OptionalLabel } from "@/components/ui/required-mark";
 
 
 type EditFormData = EditPropertyFormData;
@@ -184,15 +185,24 @@ export function EditPropertyForm({ property, defaults }: Props) {
           )}
 
           {/* ── Property Details ── */}
-          <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-[0.05em] mb-6">
-            Property Details
-          </p>
+          <div className="flex items-center justify-between mb-6">
+            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-[0.05em]">
+              Property Details
+            </p>
+            <p className="text-[11px] text-[--text-tertiary] flex items-center gap-1">
+              <RequiredMark />
+              <span>Required fields</span>
+            </p>
+          </div>
 
           {/* Property name */}
           <div className="mb-5">
-            <label className={LABEL}>Property name</label>
+            <label className={LABEL + " flex items-center"}>
+              Property name <RequiredMark />
+            </label>
             <input
               {...register("propertyName")}
+              aria-required="true"
               type="text"
               placeholder="e.g. Skyline Residence"
               className={INPUT}
@@ -310,9 +320,8 @@ export function EditPropertyForm({ property, defaults }: Props) {
           </div>
 
           <div className="mb-4">
-            <label className={LABEL}>
-              Apartment / suite{" "}
-              <span className="text-slate-400 font-normal">(optional)</span>
+            <label className={LABEL + " flex items-center"}>
+              Apartment / suite <OptionalLabel />
             </label>
             <input
               {...register("addressLine2")}
@@ -333,9 +342,7 @@ export function EditPropertyForm({ property, defaults }: Props) {
               />
             </div>
             <div>
-              <label className={LABEL}>
-                Province <span className="text-red-500">*</span>
-              </label>
+              <label className={LABEL}>Province</label>
               <select {...register("province")} className={INPUT}>
                 <option value="">Select province</option>
                 {CAMBODIA_PROVINCES.map((p) => (
@@ -371,9 +378,12 @@ export function EditPropertyForm({ property, defaults }: Props) {
 
           {/* ── Financial Information ── */}
           <div className="border-t border-slate-100 pt-8 mt-8">
-            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-[0.05em] mb-6">
-              Financial Information
-            </p>
+            <div className="mb-6">
+              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-[0.05em]">
+                Financial Information
+              </p>
+              <p className="text-[11px] text-[--text-tertiary] mt-1">All fields in this section are optional</p>
+            </div>
 
             {/* Current market value */}
             <div className="mb-5">

@@ -2,9 +2,9 @@
   "id": "NOTIF-0003",
   "userId": "demo-user",
   "category": "LEASING",
-  "title": "Lease offer sent",
-  "description": "Penthouse offer queued for Chan Soriya. Awaiting signature.",
+  "title": "Land lease offer sent — Chak Angre Plot",
+  "description": "Lease offer queued for Peng Huot Group. Awaiting signature.",
   "createdAt": 1774940400000,
   "read": true,
-  "linkTo": "/property/PROP-0011/rental"
+  "linkTo": "/property/PROP-0015/rental"
 }

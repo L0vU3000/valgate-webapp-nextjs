@@ -39,6 +39,7 @@ import {
 import type { ProfessionalCategory } from "@/lib/data/types/professional";
 import { cn } from "@/components/ui/utils";
 import { toast } from "sonner";
+import { RequiredMark, OptionalLabel } from "@/components/ui/required-mark";
 
 const INPUT =
   "w-full border-0 bg-transparent px-0 py-0 text-[14px] text-val-heading placeholder:text-slate-400 focus:outline-none";
@@ -204,10 +205,15 @@ function DetailsStep({
           </p>
         </div>
 
+        <p className="text-[11px] text-[--text-tertiary] flex items-center gap-1 self-end -mb-1">
+          <RequiredMark />
+          <span>Required fields</span>
+        </p>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div>
-            <label className={LABEL} htmlFor="professionalName">
-              Full name
+            <label className={LABEL + " flex items-center"} htmlFor="professionalName">
+              Full name <RequiredMark />
             </label>
             <div className={INPUT_WRAP}>
               <UserRound className="size-4 text-slate-400 shrink-0" />
@@ -224,8 +230,8 @@ function DetailsStep({
           </div>
 
           <div>
-            <label className={LABEL} htmlFor="professionalCompany">
-              Company or firm
+            <label className={LABEL + " flex items-center"} htmlFor="professionalCompany">
+              Company or firm <RequiredMark />
             </label>
             <div className={INPUT_WRAP}>
               <Building2 className="size-4 text-slate-400 shrink-0" />
@@ -243,8 +249,8 @@ function DetailsStep({
         </div>
 
         <div>
-          <label className={LABEL} htmlFor="professionalCategory">
-            Profession
+          <label className={LABEL + " flex items-center"} htmlFor="professionalCategory">
+            Profession <RequiredMark />
           </label>
           <div className={cn(INPUT_WRAP, "relative pr-10")}>
             <select
@@ -302,10 +308,9 @@ function ContactStep({
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <div>
-          <label className={LABEL} htmlFor="professionalEmail">
-          Email
-          <span className="ml-1.5 font-normal text-slate-400">optional</span>
-        </label>
+          <label className={LABEL + " flex items-center"} htmlFor="professionalEmail">
+            Email <OptionalLabel />
+          </label>
         <div className={INPUT_WRAP}>
           <Mail className="size-4 text-slate-400 shrink-0" />
           <input
@@ -322,10 +327,9 @@ function ContactStep({
         </div>
 
         <div>
-          <label className={LABEL} htmlFor="professionalPhone">
-          Phone
-          <span className="ml-1.5 font-normal text-slate-400">optional</span>
-        </label>
+          <label className={LABEL + " flex items-center"} htmlFor="professionalPhone">
+            Phone <OptionalLabel />
+          </label>
         <div className={INPUT_WRAP}>
           <Phone className="size-4 text-slate-400 shrink-0" />
           <input

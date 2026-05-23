@@ -1,12 +1,12 @@
 {
   "id": "PROP-0013",
   "userId": "demo-user",
-  "name": "Kampot Riverside Villa",
+  "name": "Chak Angre Building A",
   "code": "PROP-0013",
-  "type": "residential",
-  "status": "Vacant",
-  "lat": 10.61,
-  "lng": 104.18,
-  "createdAt": 1778482038705,
-  "updatedAt": 1778482038705
+  "type": "commercial",
+  "status": "Rented",
+  "lat": 11.5095,
+  "lng": 104.9298,
+  "createdAt": 1779356162882,
+  "updatedAt": 1779356162882
 }

@@ -1,8 +1,8 @@
 {
   "id": "MAINT-0002",
-  "propertyId": "PROP-0006",
-  "severity": "Urgent",
-  "title": "Air-con unit not cooling — Unit 2B",
+  "propertyId": "PROP-0001",
+  "severity": "Standard",
+  "title": "Repaint front entrance wall",
   "status": "Open",
-  "createdAt": 1774656000000
+  "createdAt": 1773792000000
 }

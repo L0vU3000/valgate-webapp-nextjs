@@ -1,16 +1,13 @@
 {
   "id": "DOC-0007",
-  "propertyId": "PROP-0001",
-  "name": "Lease_Agreement_2025.pdf",
+  "propertyId": "PROP-0011",
+  "folderId": "FLDR-0006",
+  "name": "Title_Deed_BKK1_No35.pdf",
   "kind": "document",
   "mimeType": "application/pdf",
   "extension": "pdf",
-  "sizeBytes": 920000,
-  "storageId": "_storage/PROP-0001/lease-2025.pdf",
-  "category": "Rental",
-  "uploadedAt": 1759449600000,
-  "verifies": {
-    "entityType": "rental",
-    "entityId": "PROP-0001"
-  }
+  "sizeBytes": 1620000,
+  "storageId": "_storage/PROP-0011/title-deed.pdf",
+  "category": "Title",
+  "uploadedAt": 1740873600000
 }

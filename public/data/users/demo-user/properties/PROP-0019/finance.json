@@ -1,3 +1,9 @@
 {
-  "buyNumeric": 185000
+  "purchasePrice": "$87,000",
+  "purchaseDate": 1609459200000,
+  "currentMarketValue": 92000,
+  "annualPropertyTax": 70,
+  "annualInsurance": 261,
+  "ownershipStatus": "Owned outright",
+  "buyNumeric": 87000
 }

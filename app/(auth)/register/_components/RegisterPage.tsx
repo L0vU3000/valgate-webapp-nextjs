@@ -105,6 +105,7 @@ export function RegisterPage() {
                     type="text"
                     placeholder="John Doe"
                     autoComplete="name"
+                    aria-required="true"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                   />
@@ -123,6 +124,7 @@ export function RegisterPage() {
                     type="email"
                     placeholder="john@company.com"
                     autoComplete="email"
+                    aria-required="true"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                   />
@@ -142,6 +144,7 @@ export function RegisterPage() {
                       type={showPassword ? "text" : "password"}
                       placeholder="••••••••"
                       autoComplete="new-password"
+                      aria-required="true"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       className="pr-10"
@@ -203,6 +206,7 @@ export function RegisterPage() {
                     type="password"
                     placeholder="••••••••"
                     autoComplete="new-password"
+                    aria-required="true"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                   />

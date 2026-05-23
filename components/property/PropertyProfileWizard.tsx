@@ -26,6 +26,7 @@ import {
   type EditPropertyFormData,
 } from "@/lib/property-form";
 import { toast } from "sonner";
+import { RequiredMark, OptionalLabel } from "@/components/ui/required-mark";
 
 const INPUT =
   "w-full border border-slate-200 rounded-lg px-3 py-2.5 text-[14px] text-val-heading bg-white placeholder:text-slate-400 focus:outline-none focus:border-[var(--val-primary-dark)] focus:shadow-[0_0_0_3px_oklch(55%_0.15_250_/_0.08)] transition-[border-color,box-shadow] duration-200";
@@ -219,9 +220,8 @@ function AddressStep({
       </div>
 
       <div>
-        <label className={LABEL} htmlFor="addressLine2">
-          Apartment / suite{" "}
-          <span className="text-slate-400 font-normal">(optional)</span>
+        <label className={LABEL + " flex items-center"} htmlFor="addressLine2">
+          Apartment / suite <OptionalLabel />
         </label>
         <input
           id="addressLine2"
@@ -247,7 +247,7 @@ function AddressStep({
         </div>
         <div>
           <label className={LABEL} htmlFor="province">
-            Province <span className="text-red-500">*</span>
+            Province
           </label>
           <select id="province" {...register("province")} className={INPUT}>
             <option value="">Select province</option>

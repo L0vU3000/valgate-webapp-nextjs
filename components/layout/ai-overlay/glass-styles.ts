@@ -107,6 +107,19 @@ export const glassUpgradeButton = {
   boxShadow: "inset 0 1px 0 rgba(255,255,255,0.6)",
 } as const;
 
+export const glassModalOverlay = {
+  background: "rgba(10, 14, 28, 0.55)",
+  backdropFilter: "blur(12px)",
+} as const;
+
+export const glassModalPanel = {
+  background:
+    "linear-gradient(160deg, rgba(255,255,255,0.92) 0%, rgba(239,246,255,0.88) 50%, rgba(224,242,254,0.85) 100%)",
+  border: "1px solid rgba(255,255,255,0.45)",
+  boxShadow:
+    "0 32px 80px rgba(10,14,28,0.22), 0 8px 24px rgba(37,99,235,0.08), inset 0 1px 0 rgba(255,255,255,0.8)",
+} as const;
+
 export const MARKET_BARS = [
   { h: 45, bg: "linear-gradient(180deg, #a5f3fc, rgba(165,243,252,0.6))" },
   { h: 68, bg: "linear-gradient(180deg, #67e8f9, rgba(103,232,249,0.6))" },

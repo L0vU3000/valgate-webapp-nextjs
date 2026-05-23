@@ -1,0 +1,11 @@
+{
+  "id": "CERT-0007",
+  "propertyId": "PROP-0013",
+  "name": "Plumbing Certificate",
+  "status": "Expired",
+  "issuedAt": 1711929600000,
+  "expiresAt": 1743465600000,
+  "inspectorId": "PROF-0004",
+  "createdAt": 1775001600000,
+  "updatedAt": 1775001600000
+}

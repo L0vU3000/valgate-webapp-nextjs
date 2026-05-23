@@ -1,24 +1,24 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { FileText, TrendingUp, Zap } from "lucide-react";
+import { AIDocumentModal } from "./AIDocumentModal";
+import { AIYieldModal } from "./AIYieldModal";
 import { cn } from "@/components/ui/utils";
 import { formatCurrency } from "@/lib/format";
 import type { AiPortfolioBar, AiWorkspaceDocument } from "@/lib/data/derivations/ai-context";
+import type { PortfolioStats, PortfolioKpis } from "@/lib/data/derivations/portfolio";
 import {
   glassChartArea,
   glassDocIcon,
   glassFilterChipInactive,
-  glassProgressFill,
-  glassProgressTrack,
   glassStorageFill,
   glassStorageTrack,
   glassTrendIcon,
   glassYieldIcon,
 } from "./glass-styles";
 
-const FILTERS = ["All", "Documents", "Charts", "Legal"] as const;
+const FILTERS = ["All", "Documents", "Legal"] as const;
 type AssetFilter = (typeof FILTERS)[number];
 
 const STORAGE_CAP_BYTES = 50 * 1024 * 1024;
@@ -43,18 +43,30 @@ function chartHeights(bars: AiPortfolioBar[]): number[] {
   return bars.map((b) => Math.max(14, Math.round((b.value / max) * 96)));
 }
 
+type PortfolioForYield = {
+  stats: PortfolioStats;
+  kpis: PortfolioKpis;
+  propertyCount: number;
+  monthlyExpectedRaw: number;
+  monthlyCollectedRaw: number;
+} | null;
+
 type AIWorkspaceAssetsProps = {
   documents: AiWorkspaceDocument[];
   portfolioBars: AiPortfolioBar[];
   yieldHref: string;
+  portfolio: PortfolioForYield;
 };
 
 export function AIWorkspaceAssets({
   documents,
   portfolioBars,
   yieldHref,
+  portfolio,
 }: AIWorkspaceAssetsProps) {
   const [activeFilter, setActiveFilter] = useState<AssetFilter>("All");
+  const [selectedDoc, setSelectedDoc] = useState<(typeof documents)[number] | null>(null);
+  const [yieldModalOpen, setYieldModalOpen] = useState(false);
 
   const totalBytes = useMemo(
     () => documents.reduce((sum, d) => sum + (d.sizeBytes ?? 0), 0),
@@ -73,10 +85,11 @@ export function AIWorkspaceAssets({
     return [];
   }, [activeFilter, documents]);
 
-  const showTools = activeFilter === "All" || activeFilter === "Charts";
+  const showTools = activeFilter === "All";
   const showDocs = activeFilter === "All" || activeFilter === "Documents" || activeFilter === "Legal";
 
   return (
+    <>
     <aside
       className={cn(
         "ai-glass-assets flex h-full w-full shrink-0 flex-col lg:w-[320px]",
@@ -110,9 +123,10 @@ export function AIWorkspaceAssets({
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
         {showTools && (
           <>
-            <Link
-              href={yieldHref}
-              className="ai-glass-card flex animate-[glass-card-in_0.35s_ease-out_both] flex-col gap-2 rounded-xl p-4 transition-transform hover:-translate-y-0.5"
+            <button
+              type="button"
+              onClick={() => setYieldModalOpen(true)}
+              className="ai-glass-card flex animate-[glass-card-in_0.35s_ease-out_both] flex-col gap-2 rounded-xl p-4 text-left transition-transform hover:-translate-y-0.5"
               style={{ animationDelay: "0.3s" }}
             >
               <div className="flex items-center gap-3">
@@ -125,64 +139,42 @@ export function AIWorkspaceAssets({
                 <span className="text-sm font-semibold text-foreground">Yield Projection Tool</span>
               </div>
               <p className="text-[11px] leading-[16.5px] text-secondary">
-                Open financials to review yield, cash flow, and ROI for this context.
+                Review yield, cash flow, and ROI for this context.
               </p>
-            </Link>
+            </button>
 
             <div
-              className="ai-glass-card flex animate-[glass-card-in_0.35s_ease-out_both] flex-col gap-3 rounded-xl p-4"
+              className="ai-glass-card flex animate-[glass-card-in_0.35s_ease-out_both] flex-col gap-2.5 rounded-xl p-4"
               style={{ animationDelay: "0.4s" }}
             >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div
-                    className="flex size-8 shrink-0 items-center justify-center rounded-lg"
-                    style={glassTrendIcon}
-                  >
-                    <TrendingUp className="size-4 text-[#9333ea]" />
-                  </div>
-                  <span className="text-sm font-semibold text-foreground">Portfolio Trend</span>
+              <div className="flex items-center gap-3">
+                <div
+                  className="flex size-8 shrink-0 items-center justify-center rounded-lg"
+                  style={glassTrendIcon}
+                >
+                  <TrendingUp className="size-4 text-[#9333ea]" />
                 </div>
+                <span className="text-sm font-semibold text-foreground">Portfolio Snapshot</span>
               </div>
               {portfolioBars.length > 0 ? (
-                <>
-                  <div
-                    className="flex h-24 items-end justify-center gap-1 rounded-lg px-2 pb-2 pt-2"
-                    style={glassChartArea}
-                  >
-                    {portfolioBars.map((bar, i) => (
-                      <div
-                        key={bar.propertyId}
-                        className="group/bar relative flex flex-1 flex-col items-center justify-end"
-                        title={`${bar.label}: ${formatCurrency(bar.value)}`}
-                      >
-                        <div
-                          className="w-full rounded-t-sm"
-                          style={{
-                            height: `${barHeights[i] ?? 40}%`,
-                            background: BAR_GRADIENTS[i % BAR_GRADIENTS.length],
-                            boxShadow:
-                              "0 -2px 6px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.2)",
-                          }}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                  <div className="flex justify-between gap-1 px-1">
-                    {portfolioBars.map((bar) => (
-                      <span
-                        key={bar.propertyId}
-                        className="flex-1 truncate text-center text-[9px] text-secondary"
-                        title={bar.label}
-                      >
-                        {bar.label}
+                <div className="flex flex-col gap-1.5 pt-0.5">
+                  {portfolioBars.slice(0, 3).map((bar) => (
+                    <div key={bar.propertyId} className="flex items-center justify-between gap-2">
+                      <span className="truncate text-[11px] text-secondary">{bar.label}</span>
+                      <span className="shrink-0 text-[11px] font-semibold text-foreground">
+                        {formatCurrency(bar.value)}
                       </span>
-                    ))}
-                  </div>
-                </>
+                    </div>
+                  ))}
+                  {portfolioBars.length > 3 && (
+                    <p className="text-[10px] text-secondary">
+                      +{portfolioBars.length - 3} more properties
+                    </p>
+                  )}
+                </div>
               ) : (
                 <p className="text-[11px] leading-[16.5px] text-secondary">
-                  Open portfolio or a property page to see value trend bars.
+                  Open portfolio or a property page to see values.
                 </p>
               )}
             </div>
@@ -191,32 +183,38 @@ export function AIWorkspaceAssets({
 
         {showDocs &&
           filteredDocs.slice(0, 6).map((doc, i) => (
-            <Link
+            <button
               key={doc.id}
-              href={doc.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="ai-glass-card flex animate-[glass-card-in_0.35s_ease-out_both] flex-col gap-3 rounded-xl p-4"
+              type="button"
+              onClick={() => setSelectedDoc(doc)}
+              className="ai-glass-card flex animate-[glass-card-in_0.35s_ease-out_both] flex-col gap-3 rounded-xl p-4 text-left transition-transform hover:-translate-y-0.5"
               style={{ animationDelay: `${0.35 + i * 0.05}s` }}
             >
               <div className="flex items-center gap-3">
                 <div
                   className="flex size-8 shrink-0 items-center justify-center rounded-lg"
-                  style={glassDocIcon}
+                  style={
+                    doc.mimeType === "application/pdf"
+                      ? {
+                          background: "linear-gradient(135deg, #2563eb, #1d4ed8)",
+                          boxShadow: "0 2px 8px rgba(37,99,235,0.28), inset 0 1px 0 rgba(255,255,255,0.15)",
+                        }
+                      : glassDocIcon
+                  }
                 >
-                  <FileText className="size-4 text-interactive-primary" />
+                  {doc.mimeType === "application/pdf" ? (
+                    <span className="text-[10px] font-black tracking-wide text-white">VG</span>
+                  ) : (
+                    <FileText className="size-4 text-interactive-primary" />
+                  )}
                 </div>
                 <span className="truncate text-sm font-semibold text-foreground">{doc.name}</span>
               </div>
-              <div className="h-2 overflow-hidden rounded-full" style={glassProgressTrack}>
-                <div
-                  className="h-full rounded-full"
-                  style={{
-                    ...glassProgressFill,
-                    width: `${Math.min(100, 40 + (doc.sizeBytes ?? 0) / 50000)}%`,
-                  }}
-                />
-              </div>
+              {doc.description && (
+                <p className="truncate text-[11px] leading-relaxed text-secondary">
+                  {doc.description}
+                </p>
+              )}
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-semibold uppercase tracking-[1px] text-status-success">
                   {doc.category}
@@ -225,33 +223,33 @@ export function AIWorkspaceAssets({
                   {doc.sizeBytes != null ? formatBytes(doc.sizeBytes) : "Document"}
                 </span>
               </div>
-            </Link>
+            </button>
           ))}
 
-        {showDocs && filteredDocs.length === 0 && activeFilter !== "Charts" && (
+        {showDocs && filteredDocs.length === 0 && (
           <p className="px-1 py-2 text-sm text-secondary">No documents in this filter.</p>
         )}
       </div>
 
       <div className="ai-glass-divider-h mx-5" />
 
-      <div className="flex shrink-0 flex-col gap-2 px-5 py-5">
-        <div className="flex items-center justify-between">
-          <span className="text-[12px] font-semibold uppercase tracking-[0.6px] text-foreground">
-            Storage Used
-          </span>
-          <span className="text-xs text-secondary">{storagePct}%</span>
-        </div>
-        <div className="h-1.5 overflow-hidden rounded-full" style={glassStorageTrack}>
-          <div
-            className="h-full rounded-full"
-            style={{ ...glassStorageFill, width: `${Math.max(storagePct, 4)}%` }}
-          />
-        </div>
-        <p className="text-[11px] text-secondary">
-          {formatBytes(totalBytes)} of {formatBytes(STORAGE_CAP_BYTES)} from documents in scope
-        </p>
+      <div className="flex shrink-0 items-center justify-between px-5 py-4">
+        <span className="text-[11px] text-secondary">
+          {documents.length} document{documents.length === 1 ? "" : "s"} in scope
+        </span>
+        <span className="text-[11px] text-secondary">{formatBytes(totalBytes)}</span>
       </div>
     </aside>
+
+      <AIDocumentModal doc={selectedDoc} onClose={() => setSelectedDoc(null)} />
+      <AIYieldModal
+        open={yieldModalOpen}
+        onClose={() => setYieldModalOpen(false)}
+        portfolio={portfolio}
+        portfolioBars={portfolioBars}
+        yieldHref={yieldHref}
+      />
+    </>
   );
 }
+

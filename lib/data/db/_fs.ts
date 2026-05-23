@@ -11,14 +11,31 @@ function assertSafeId(value: string, label: string): void {
   }
 }
 
-function dataRoot(): string {
+// The seed data root — always readable (bundled into the deployment)
+function seedRoot(): string {
   return path.join(process.cwd(), "public", "data");
+}
+
+// The writable root — on Vercel serverless the main filesystem is read-only,
+// so we redirect writes to /tmp which is always writable.
+function writableRoot(): string {
+  if (process.env.VERCEL) return "/tmp/valgate-data";
+  return seedRoot();
+}
+
+// Returns roots to check for reads, most-recent-writes first.
+// On Vercel: [/tmp/valgate-data, public/data]
+// Locally:   [public/data]
+function readRoots(): string[] {
+  const w = writableRoot();
+  const s = seedRoot();
+  return w === s ? [s] : [w, s];
 }
 
 export function collectionDir(userId: string, collection: string): string {
   assertSafeId(userId, "userId");
   assertSafeId(collection, "collection");
-  return path.join(dataRoot(), "users", userId, collection);
+  return path.join(seedRoot(), "users", userId, collection);
 }
 
 export function recordDir(
@@ -57,39 +74,58 @@ async function readJson<T extends object>(filePath: string): Promise<T | null> {
   }
 }
 
+// Reads a record by scanning all read roots in order (writable first, then seed).
+// The first root that contains the record wins.
 export async function readMergedRecord<T>(
   userId: string,
   collection: string,
   recordId: string,
 ): Promise<T | null> {
-  const dir = recordDir(userId, collection, recordId);
-  const files = await listJsonFiles(dir);
-  if (files.length === 0) return null;
+  assertSafeId(userId, "userId");
+  assertSafeId(collection, "collection");
+  assertSafeId(recordId, "recordId");
 
-  const merged: Record<string, unknown> = {};
-  for (const file of files) {
-    const slice = await readJson<Record<string, unknown>>(path.join(dir, file));
-    if (slice) Object.assign(merged, slice);
+  for (const root of readRoots()) {
+    const dir = path.join(root, "users", userId, collection, recordId);
+    const files = await listJsonFiles(dir);
+    if (files.length === 0) continue;
+
+    const merged: Record<string, unknown> = {};
+    for (const file of files) {
+      const slice = await readJson<Record<string, unknown>>(path.join(dir, file));
+      if (slice) Object.assign(merged, slice);
+    }
+    return merged as T;
   }
-  return merged as T;
+
+  return null;
 }
 
+// Lists all records across all read roots, deduplicating by ID.
+// When the same ID exists in multiple roots, the writable root wins.
 export async function listMergedRecords<T>(
   userId: string,
   collection: string,
 ): Promise<T[]> {
-  const dir = collectionDir(userId, collection);
-  let entries: string[];
-  try {
-    const dirents = await readdir(dir, { withFileTypes: true });
-    entries = dirents.filter((e) => e.isDirectory()).map((e) => e.name);
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === "ENOENT") return [];
-    throw err;
+  assertSafeId(userId, "userId");
+  assertSafeId(collection, "collection");
+
+  const allIds = new Set<string>();
+
+  for (const root of readRoots()) {
+    const dir = path.join(root, "users", userId, collection);
+    try {
+      const dirents = await readdir(dir, { withFileTypes: true });
+      for (const e of dirents) {
+        if (e.isDirectory()) allIds.add(e.name);
+      }
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
+    }
   }
 
   const records: T[] = [];
-  for (const id of entries.sort()) {
+  for (const id of Array.from(allIds).sort()) {
     const rec = await readMergedRecord<T>(userId, collection, id);
     if (rec) records.push(rec);
   }
@@ -102,7 +138,11 @@ export async function writeRecord(
   recordId: string,
   splits: Record<string, Record<string, unknown>>,
 ): Promise<void> {
-  const dir = recordDir(userId, collection, recordId);
+  assertSafeId(userId, "userId");
+  assertSafeId(collection, "collection");
+  assertSafeId(recordId, "recordId");
+
+  const dir = path.join(writableRoot(), "users", userId, collection, recordId);
   await mkdir(dir, { recursive: true });
 
   for (const [name, payload] of Object.entries(splits)) {
@@ -119,33 +159,47 @@ export async function deleteRecord(
   collection: string,
   recordId: string,
 ): Promise<void> {
-  const dir = recordDir(userId, collection, recordId);
+  assertSafeId(userId, "userId");
+  assertSafeId(collection, "collection");
+  assertSafeId(recordId, "recordId");
+
+  // Can only delete from the writable root (seed data is read-only on Vercel)
+  const dir = path.join(writableRoot(), "users", userId, collection, recordId);
   if (!existsSync(dir)) return;
   await rm(dir, { recursive: true, force: true });
 }
 
+// Scans all read roots to find the highest existing numeric ID suffix,
+// so newly created records never collide with seed data or existing writes.
 export async function nextId(
   userId: string,
   collection: string,
   prefix: string,
 ): Promise<string> {
   assertSafeId(prefix, "prefix");
-  const dir = collectionDir(userId, collection);
+  assertSafeId(userId, "userId");
+  assertSafeId(collection, "collection");
+
+  const re = new RegExp(`^${prefix}-(\\d+)$`);
   let max = 0;
-  try {
-    const entries = await readdir(dir, { withFileTypes: true });
-    const re = new RegExp(`^${prefix}-(\\d+)$`);
-    for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
-      const match = entry.name.match(re);
-      if (match) {
-        const n = Number(match[1]);
-        if (Number.isFinite(n) && n > max) max = n;
+
+  for (const root of readRoots()) {
+    const dir = path.join(root, "users", userId, collection);
+    try {
+      const entries = await readdir(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        const match = entry.name.match(re);
+        if (match) {
+          const n = Number(match[1]);
+          if (Number.isFinite(n) && n > max) max = n;
+        }
       }
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
     }
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
   }
+
   return `${prefix}-${String(max + 1).padStart(4, "0")}`;
 }
 
@@ -157,10 +211,9 @@ export async function writeUploadedFile(
 ): Promise<string> {
   assertSafeId(userId, "userId");
   assertSafeId(recordId, "recordId");
-  // sanitize filename: strip path separators, collapse to safe chars
   const safeName = path.basename(filename).replace(/[^A-Za-z0-9._-]/g, "_");
   const storageDir = path.join(
-    dataRoot(),
+    writableRoot(),
     "users",
     userId,
     "_storage",
@@ -178,8 +231,7 @@ export async function deleteUploadedFile(
   userId: string,
   storageId: string,
 ): Promise<void> {
-  // storageId is a relative path like "_storage/PROP-0001/file.pdf"
-  const fullPath = path.join(dataRoot(), "users", userId, storageId);
+  const fullPath = path.join(writableRoot(), "users", userId, storageId);
   try {
     await rm(fullPath, { force: true });
   } catch {

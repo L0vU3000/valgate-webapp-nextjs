@@ -1,14 +1,13 @@
 {
   "id": "DOC-0006",
-  "propertyId": "PROP-0001",
-  "name": "dummy-document.pdf",
+  "propertyId": "PROP-0010",
+  "folderId": "FLDR-0005",
+  "name": "Lease_Agreement_Malis_Fashion.pdf",
   "kind": "document",
   "mimeType": "application/pdf",
-  "sizeBytes": 281,
-  "storageId": "_storage/PROP-0001/dummy-document.pdf",
-  "uploadedAt": 1779256239569,
-  "verifies": {
-    "entityType": "ownership-record",
-    "entityId": "OREC-0001"
-  }
+  "extension": "pdf",
+  "sizeBytes": 1050000,
+  "storageId": "_storage/PROP-0010/lease-malis-2025.pdf",
+  "category": "Rental",
+  "uploadedAt": 1743465600000
 }

@@ -35,6 +35,75 @@ function stripUndefined<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
+function fallbackTitle(content: string): string {
+  const trimmed = content.trim().replace(/\s+/g, " ");
+  if (trimmed.length <= 52) return trimmed;
+  const cut = trimmed.slice(0, 52);
+  const lastSpace = cut.lastIndexOf(" ");
+  return (lastSpace > 20 ? cut.slice(0, lastSpace) : cut) + "…";
+}
+
+async function generateSessionTitle(firstMessage: string): Promise<string> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) return fallbackTitle(firstMessage);
+
+  try {
+    const [{ generateText }, { openai }] = await Promise.all([
+      import("ai"),
+      import("@ai-sdk/openai"),
+    ]);
+
+    const { text } = await generateText({
+      model: openai("gpt-5-mini"),
+      system: [
+        "You generate short, descriptive session titles for a property portfolio management app.",
+        "Rules:",
+        "- Return ONLY the title. No quotes, no punctuation at the end, no explanation.",
+        "- 3 to 6 words maximum.",
+        "- Title Case.",
+        "- Be specific and informative — e.g. 'Rental Income Overview', 'Occupancy Rate Check', 'Document Review Request'.",
+        "- Never use generic titles like 'User Query' or 'New Conversation'.",
+      ].join("\n"),
+      messages: [
+        {
+          role: "user",
+          content: `Generate a title for a conversation that starts with: "${firstMessage}"`,
+        },
+      ],
+    });
+
+    const title = text.trim().replace(/^["']|["']$/g, "");
+    return title || fallbackTitle(firstMessage);
+  } catch {
+    return fallbackTitle(firstMessage);
+  }
+}
+
+const SYSTEM_PROMPT = (promptContext: string) => [
+  "You are Valgate Intelligence, the friendly AI assistant embedded in Valgate — a property portfolio management platform.",
+  "Your role: help property owners understand their full portfolio, retrieve data, analyse performance, and navigate the app.",
+  "",
+  "Tone and behaviour:",
+  "- Be warm, friendly, and conversational. Respond naturally to greetings and small talk.",
+  "- After a brief exchange, gently guide toward: 'How can I help you with your portfolio today?'",
+  "- Never be robotic or refuse to say hello. A good assistant is personable first.",
+  "",
+  "Data access:",
+  "- You have full access to the user's portfolio data in the context below: all properties (with purchase prices, market values, mortgage details, financials), active leases, tenants and payment status, latest property valuations, recent payments, ownership records, open maintenance items, and documents.",
+  "- Use this data to answer questions directly and specifically — e.g. rank properties by value, identify overdue tenants, sum rental income, compare equity across properties.",
+  "- Never say you don't have access to data that is present in the context. If you can derive the answer from the context, do so.",
+  "- If data is genuinely missing from the context, say so and direct the user to the relevant page in the app.",
+  "",
+  "When answering:",
+  "- Be specific and data-driven. Show actual numbers from the context.",
+  "- Keep responses concise and practical. Avoid padding or generic filler.",
+  "- Use Markdown formatting (bold, lists, tables where helpful).",
+  "- Link to in-app routes when relevant, e.g. [View Property](/property/PROP-0001) or [Rental Page](/property/PROP-0001/rental).",
+  "",
+  "Context data:",
+  promptContext,
+].join("\n");
+
 async function generateAssistantReply(
   userMessage: string,
   context: AiOverlayContext,
@@ -57,17 +126,8 @@ async function generateAssistantReply(
     }));
 
     const { text } = await generateText({
-      model: openai("gpt-4o-mini"),
-      system: [
-        "You are Valgate Intelligence, the AI assistant for Valgate — a property portfolio management platform.",
-        "Answer using ONLY the context data provided. Never invent property counts, amounts, or document names.",
-        "If data is missing, say so and suggest where in the app to find it.",
-        "Use Markdown. Link to in-app routes like /portfolio or /property/PROP-0001/rental when helpful.",
-        "Be concise and practical for a property owner.",
-        "",
-        "Context:",
-        context.promptContext,
-      ].join("\n"),
+      model: openai("gpt-5-mini"),
+      system: SYSTEM_PROMPT(context.promptContext),
       messages: [...recent, { role: "user", content: userMessage }],
     });
 
@@ -213,7 +273,7 @@ export async function sendMessage(input: {
   sessionId: string;
   content: string;
   pathname: string;
-}): Promise<ActionResult<{ messages: AiMessage[] }>> {
+}): Promise<ActionResult<{ messages: AiMessage[]; updatedSessionTitle?: string }>> {
   try {
     const sessionId = sessionIdSchema.parse(input.sessionId);
     const content = contentSchema.parse(input.content.trim());
@@ -227,6 +287,17 @@ export async function sendMessage(input: {
 
     const context = await buildAiOverlayContext(pathname);
     const history = await aiMessagesDb.listBySession(userId, sessionId);
+
+    // If this is the first user message, set the session title from the message content
+    const isFirstUserMessage = !history.some((m) => m.role === "user");
+    let updatedSessionTitle: string | undefined;
+    if (isFirstUserMessage) {
+      updatedSessionTitle = await generateSessionTitle(content);
+      await aiSessionsDb.update(userId, sessionId, {
+        title: updatedSessionTitle,
+        updatedAt: Date.now(),
+      });
+    }
 
     await aiMessagesDb.create(userId, {
       sessionId,
@@ -243,12 +314,12 @@ export async function sendMessage(input: {
       artifactDocIds: reply.artifactDocIds,
     });
 
-    await aiSessionsDb.update(userId, sessionId, {
-      updatedAt: Date.now(),
-    });
+    if (!updatedSessionTitle) {
+      await aiSessionsDb.update(userId, sessionId, { updatedAt: Date.now() });
+    }
 
     const messages = await aiMessagesDb.listBySession(userId, sessionId);
-    return stripUndefined({ ok: true as const, data: { messages } });
+    return stripUndefined({ ok: true as const, data: { messages, updatedSessionTitle } });
   } catch (err) {
     console.error("[ai-overlay] sendMessage error:", err);
     return { ok: false, error: "Could not send message." };

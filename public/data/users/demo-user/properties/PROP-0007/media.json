@@ -1,5 +1,8 @@
 {
-  "totalArea": "450",
-  "title": "Hard title",
-  "parkingSpaces": "6"
+  "totalArea": "45",
+  "yearBuilt": "2012",
+  "bedrooms": "1",
+  "bathrooms": "1",
+  "parkingSpaces": "1",
+  "title": "Hard title"
 }

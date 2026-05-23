@@ -1,16 +1,13 @@
 {
   "id": "DOC-0005",
-  "propertyId": "PROP-0001",
-  "name": "Utility_Bill_Jan2024.pdf",
+  "propertyId": "PROP-0010",
+  "folderId": "FLDR-0004",
+  "name": "Title_Deed_BKK1_191D.pdf",
   "kind": "document",
   "mimeType": "application/pdf",
   "extension": "pdf",
-  "sizeBytes": 420000,
-  "storageId": "_storage/PROP-0001/utility-bill-jan2024.pdf",
-  "category": "Other",
-  "uploadedAt": 1736000000000,
-  "verifies": {
-    "entityType": "location-identity",
-    "entityId": "PROP-0001"
-  }
+  "sizeBytes": 1380000,
+  "storageId": "_storage/PROP-0010/title-deed.pdf",
+  "category": "Title",
+  "uploadedAt": 1749513600000
 }

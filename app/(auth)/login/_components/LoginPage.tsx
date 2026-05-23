@@ -148,6 +148,7 @@ export function LoginPage() {
                           type="email"
                           placeholder="you@company.com"
                           autoComplete="email"
+                          aria-required="true"
                           {...field}
                         />
                       </FormControl>
@@ -171,6 +172,7 @@ export function LoginPage() {
                             placeholder="••••••••"
                             autoComplete="current-password"
                             className="pr-10"
+                            aria-required="true"
                             {...field}
                           />
                           <button

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ChevronRight, FileText } from "lucide-react";
@@ -38,11 +39,44 @@ function formatBytes(bytes: number | null): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+// Fast typing reveal — 6 chars per 10ms tick ≈ 600 chars/sec
+function useTypingText(fullText: string, isNew: boolean) {
+  const [displayed, setDisplayed] = useState(isNew ? "" : fullText);
+  const [done, setDone] = useState(!isNew);
+
+  useEffect(() => {
+    if (!isNew) {
+      setDisplayed(fullText);
+      setDone(true);
+      return;
+    }
+
+    // Reset on each effect run so StrictMode double-invoke works cleanly
+    setDisplayed("");
+    setDone(false);
+    let i = 0;
+
+    const interval = setInterval(() => {
+      i = Math.min(i + 6, fullText.length);
+      setDisplayed(fullText.slice(0, i));
+      if (i >= fullText.length) {
+        clearInterval(interval);
+        setDone(true);
+      }
+    }, 10);
+
+    return () => clearInterval(interval);
+  }, [isNew, fullText]);
+
+  return { displayed, done };
+}
+
 type AIMessageBubbleProps = {
   message: AiMessage;
   userInitials: string;
   documentsById: Map<string, AiWorkspaceDocument>;
   index?: number;
+  isNew?: boolean;
 };
 
 export function AIMessageBubble({
@@ -50,11 +84,17 @@ export function AIMessageBubble({
   userInitials,
   documentsById,
   index = 0,
+  isNew = false,
 }: AIMessageBubbleProps) {
   const artifacts =
     message.artifactDocIds
       ?.map((id) => documentsById.get(id))
       .filter(Boolean) ?? [];
+
+  const { displayed, done } = useTypingText(
+    message.content,
+    isNew && message.role === "assistant",
+  );
 
   if (message.role === "user") {
     return (
@@ -89,7 +129,14 @@ export function AIMessageBubble({
       <AIAvatar />
       <div className="flex min-w-0 flex-1 flex-col gap-4">
         <div className="text-[16px] leading-[26px] text-foreground">
-          <AIMarkdown content={message.content} />
+          {done ? (
+            <AIMarkdown content={message.content} />
+          ) : (
+            <p className="whitespace-pre-wrap">
+              {displayed}
+              <span className="ml-px inline-block h-[1em] w-[2px] translate-y-[2px] animate-pulse rounded-sm bg-interactive-primary/60" />
+            </p>
+          )}
         </div>
         {artifacts.map((doc) => (
           <Link
@@ -142,7 +189,7 @@ export function AIThinkingIndicator() {
           style={{ animationDelay: "320ms" }}
         />
         <span className="pl-2 text-xs font-medium text-interactive-primary">
-          Valgate Agent is pulling portfolio data…
+          Valgate Agent is working…
         </span>
       </div>
     </div>

@@ -204,6 +204,7 @@ export function ForgotPasswordPage() {
                               placeholder="name@example.com"
                               autoComplete="email"
                               autoFocus
+                              aria-required="true"
                               className="pl-10 bg-[#f8f9ff] border-[#c3c6d7]"
                               {...field}
                             />

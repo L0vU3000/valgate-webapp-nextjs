@@ -61,7 +61,7 @@ export const PropertyLocationSchema = z.object({
   city: z.string().optional(),
   zip: z.string().optional(),
   country: z.string().optional(),
-  province: z.string().min(1),
+  province: z.string().optional(),
   locationVerified: z.boolean().optional(),
   locationVerifiedAt: timestampSchema.optional(),
   locationEvidenceDocIds: z.array(idSchema).optional(),

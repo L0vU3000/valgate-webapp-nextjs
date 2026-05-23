@@ -3,7 +3,7 @@
   "leaseId": "LEASE-0002",
   "date": 1774569600000,
   "kind": "Rent",
-  "amount": 1200,
+  "amount": 2200,
   "method": "Wing",
   "status": "Overdue"
 }

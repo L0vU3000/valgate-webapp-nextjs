@@ -324,7 +324,7 @@ export function AnalyticsPage({ data, period }: { data: AnalyticsPageData; perio
                           <FileText size={16} className="text-slate-400 transition-colors duration-200 group-hover:text-[--val-primary-dark]" />
                           <span className="text-sm font-medium text-slate-700">{report}</span>
                         </div>
-                        <button className="text-xs font-semibold text-[--val-primary-dark] opacity-0 group-hover:opacity-100 transition-opacity duration-200 active:scale-[0.95]">
+                        <button className="text-xs font-semibold text-[--val-primary-dark] opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 transition-opacity duration-200 active:scale-[0.95]">
                           Load
                         </button>
                       </div>

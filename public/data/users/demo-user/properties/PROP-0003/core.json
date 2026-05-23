@@ -1,13 +1,12 @@
 {
   "id": "PROP-0003",
   "userId": "demo-user",
-  "name": "Kampong Chhnang Parcel",
+  "name": "Olympic Studio 172BEo",
   "code": "PROP-0003",
-  "type": "land",
-  "status": "Owner-Occupied",
-  "lat": 12.252,
-  "lng": 104.668,
-  "createdAt": 1778482038680,
-  "updatedAt": 1778482038680,
-  "propertyUse": "personal"
+  "type": "multi-unit",
+  "status": "Vacant",
+  "lat": 11.55976,
+  "lng": 104.90782,
+  "createdAt": 1779356162866,
+  "updatedAt": 1779356162866
 }

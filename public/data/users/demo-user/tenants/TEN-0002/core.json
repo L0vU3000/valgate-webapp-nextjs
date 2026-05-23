@@ -1,10 +1,10 @@
 {
   "id": "TEN-0002",
-  "propertyId": "PROP-0006",
-  "name": "Lim Vichea",
-  "unit": "Unit 2B",
-  "rent": 1200,
+  "propertyId": "PROP-0010",
+  "name": "Malis Fashion Co.",
+  "unit": "Full Building",
+  "rent": 2200,
   "status": "Overdue",
-  "email": "lim.vichea@example.com",
-  "phone": "+855 12 345 679"
+  "email": "malis.fashion@gmail.com",
+  "phone": "+855 12 678 900"
 }

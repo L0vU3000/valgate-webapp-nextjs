@@ -1,0 +1,9 @@
+{
+  "id": "RISK-0004",
+  "propertyId": "PROP-0014",
+  "severity": "Medium",
+  "title": "Roof tiles need replacement",
+  "description": "Three roof tiles on the south-facing side are cracked — risk of water ingress in rainy season.",
+  "createdAt": 1775001600000,
+  "updatedAt": 1775001600000
+}

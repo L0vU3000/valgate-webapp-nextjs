@@ -165,7 +165,7 @@ export function AISessionSidebar({
                   <button
                     type="button"
                     onClick={() => onArchiveSession(session.id)}
-                    className="rounded-lg p-2 text-secondary opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100"
+                    className="rounded-lg p-2 text-secondary opacity-100 [@media(hover:hover)]:opacity-0 transition-opacity hover:text-foreground [@media(hover:hover)]:group-hover:opacity-100 focus-visible:opacity-100"
                     aria-label={`Archive ${session.title}`}
                   >
                     <Archive className="size-3.5" />
