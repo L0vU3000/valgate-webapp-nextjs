@@ -8,6 +8,17 @@ import {
 } from "@/lib/site-gate";
 
 export async function middleware(request: NextRequest) {
+  // Future: pro.valgate.com subdomain routing
+  // When Professional ships on its own host, map the subdomain to /pro/* routes:
+  //
+  // if (request.nextUrl.hostname.startsWith('pro.')) {
+  //   const url = request.nextUrl.clone()
+  //   if (!url.pathname.startsWith('/pro')) {
+  //     url.pathname = `/pro${url.pathname === '/' ? '/dashboard' : url.pathname}`
+  //     return NextResponse.rewrite(url)
+  //   }
+  // }
+
   if (!isSiteGateEnabled()) {
     return NextResponse.next();
   }
