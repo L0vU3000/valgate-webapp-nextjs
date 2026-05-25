@@ -434,8 +434,10 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
     return (
       <PropertyLayout activeTab="documents" property={property}>
         <div className="min-h-full bg-val-bg-page-alt flex">
-          {/* Sidebar: folder tree shown only on file pages */}
-          <aside className="w-[180px] shrink-0 border-r border-slate-200/60 flex flex-col">
+          {/* Sidebar: folder tree shown only on file pages.
+              Hidden on mobile so the detail panel takes the full viewport
+              width — folder navigation happens from the main browse view. */}
+          <aside className="hidden sm:flex w-[180px] shrink-0 border-r border-slate-200/60 flex-col">
             <div className="px-5 pt-7 pb-4">
               <span className="text-[10px] font-semibold tracking-[0.12em] uppercase text-slate-400">
                 Folders
@@ -502,7 +504,7 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
   return (
     <PropertyLayout activeTab="documents" property={property}>
       <div className="min-h-full bg-val-bg-page-alt">
-        <div className="max-w-[1200px] mx-auto px-8 pb-8 flex flex-col gap-5 pt-8">
+        <div className="max-w-[1200px] mx-auto px-4 sm:px-8 pb-6 sm:pb-8 flex flex-col gap-4 sm:gap-5 pt-5 sm:pt-8">
 
           {/* Page header */}
           <div style={fade(0)}>
@@ -515,7 +517,7 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
             </div>
 
             <div className="mb-4">
-              <h1 className="text-4xl font-extrabold tracking-tight leading-10 text-[--val-heading]">
+              <h1 className="text-[28px] sm:text-[40px] font-extrabold tracking-tight leading-tight sm:leading-10 text-[--val-heading]">
                 Documents
               </h1>
               <p className="text-slate-500 text-base mt-2">
@@ -576,7 +578,9 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
 
           {/* Files section */}
           <div className="flex flex-col gap-4 border-t border-slate-100 pt-5" style={fade(80)}>
-              <div className="flex items-center justify-between">
+              {/* Toolbar — flex-wraps on mobile so all controls remain
+                  reachable. The Upload CTA pushes to its own row at 484px. */}
+              <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div className="flex items-center gap-3">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">
                     {activeSubfolder ? activeSubfolder : "All Files"}
@@ -606,7 +610,7 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
                     {selectMode ? "Done" : "Select"}
                   </button>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
                   <div className="bg-val-bg-tint p-1 rounded flex">
                     <button
                       onClick={() => setViewMode("list")}
@@ -635,7 +639,7 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
                   </div>
                   <button
                     onClick={() => { setPendingFiles([]); setShowUploadModal(true); }}
-                    className="px-5 py-2.5 text-white text-[14px] font-semibold rounded flex items-center gap-2
+                    className="flex-1 sm:flex-none px-5 py-2.5 text-white text-[14px] font-semibold rounded flex items-center justify-center gap-2
                       hover:opacity-90 active:scale-[0.97] transition-all duration-150"
                     style={{ background: "var(--val-primary-dark)" }}
                   >
@@ -1188,8 +1192,11 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
 
         return (
           <div
-            className="fixed bottom-5 right-5 z-50 w-[360px]"
-            style={{ animation: "fade-slide-up 0.3s cubic-bezier(0.16,1,0.3,1) both" }}
+            className="fixed z-50 inset-x-3 sm:inset-x-auto sm:right-5 w-auto sm:w-[360px]"
+            style={{
+              animation: "fade-slide-up 0.3s cubic-bezier(0.16,1,0.3,1) both",
+              bottom: "calc(env(safe-area-inset-bottom) + 12px)",
+            }}
           >
             <div
               className="flex flex-col overflow-hidden rounded-[20px] antialiased bg-white"

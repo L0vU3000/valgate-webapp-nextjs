@@ -295,16 +295,16 @@ function LocationContent({
   return (
     <div className="flex flex-col">
       {/* Page header */}
-      <div className="px-8 pt-8 pb-0 animate-[fade-slide-up_0.4s_cubic-bezier(0.22,1,0.36,1)_both]">
+      <div className="px-4 sm:px-8 pt-5 sm:pt-8 pb-0 animate-[fade-slide-up_0.4s_cubic-bezier(0.22,1,0.36,1)_both]">
         <div className="flex items-center gap-1.5 mb-3">
           <span className="text-xs font-semibold tracking-widest uppercase text-[--val-primary-dark]">Valgate</span>
           <span className="text-xs text-slate-300">/</span>
           <span className="text-xs font-semibold tracking-widest uppercase text-slate-400">Location</span>
         </div>
-        <div className="flex items-end justify-between gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
           <div>
             <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-4xl font-extrabold text-val-heading tracking-tight leading-10">
+              <h1 className="text-[28px] sm:text-[40px] font-extrabold text-val-heading tracking-tight leading-tight sm:leading-10">
                 Location &amp; Boundaries{" "}
                 <span className="text-[--val-primary-dark]">{property.code}</span>
               </h1>
@@ -348,7 +348,7 @@ function LocationContent({
       </div>
 
       {/* Scrollable content */}
-      <div className="px-8 py-6 flex flex-col gap-5">
+      <div className="px-4 sm:px-8 py-5 sm:py-6 flex flex-col gap-4 sm:gap-5">
         {/* Address & Identity card */}
         <AddressIdentityCard
           property={property}
@@ -356,8 +356,11 @@ function LocationContent({
         />
 
         {/* Map */}
+        {/* Mobile uses a shorter 240px map; tablet+ keeps the original 340px
+            so the property's geographic context stays visible alongside the
+            KPIs without dominating the fold on a phone. */}
         <div
-          className="h-[340px] rounded-xl overflow-hidden relative shrink-0 shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)] animate-[fade-slide-up_0.45s_cubic-bezier(0.22,1,0.36,1)_both]"
+          className="h-[240px] sm:h-[340px] rounded-xl overflow-hidden relative shrink-0 shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)] animate-[fade-slide-up_0.45s_cubic-bezier(0.22,1,0.36,1)_both]"
           style={{ animationDelay: "60ms" }}
         >
           {mapMounted && (
@@ -422,7 +425,7 @@ function LocationContent({
         )}
 
         {/* KPI row */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 xs:grid-cols-3 gap-3 sm:gap-4">
           {/* Total Land Size */}
           <div
             className="bg-white rounded-lg border border-slate-200 p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)] hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 animate-[fade-slide-up_0.45s_cubic-bezier(0.22,1,0.36,1)_both]"
@@ -516,11 +519,11 @@ function LocationContent({
 
         {/* Bottom section: comparables + investment */}
         <div
-          className="grid grid-cols-12 gap-4 animate-[fade-slide-up_0.45s_cubic-bezier(0.22,1,0.36,1)_both]"
+          className="grid grid-cols-1 lg:grid-cols-12 gap-4 animate-[fade-slide-up_0.45s_cubic-bezier(0.22,1,0.36,1)_both]"
           style={{ animationDelay: "340ms" }}
         >
           {/* Comparable Properties table */}
-          <div className="col-span-7 bg-white rounded-lg border border-slate-200 shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden">
+          <div className="lg:col-span-7 bg-white rounded-lg border border-slate-200 shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden">
             <div className="px-5 py-4 flex items-start justify-between border-b border-slate-100">
               <div>
                 <p className="text-base font-bold text-val-heading">Comparable Properties</p>
@@ -531,13 +534,15 @@ function LocationContent({
                 Export
               </button>
             </div>
+            {/* Comparables — 4 narrow columns. Padding/font shrink on mobile
+                so all four columns stay readable at 484px without overflow. */}
             <table className="w-full">
               <thead>
                 <tr className="bg-slate-50/80 border-b border-slate-200">
                   {["Corner", "Latitude", "Longitude", "Bearing"].map((h) => (
                     <th
                       key={h}
-                      className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]"
+                      className="px-2 sm:px-4 py-3 text-left text-[10px] sm:text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]"
                     >
                       {h}
                     </th>
@@ -551,10 +556,10 @@ function LocationContent({
                     className="border-t border-slate-100 hover:bg-blue-50/30 transition-colors"
                     style={{ animationDelay: `${i * 25}ms` }}
                   >
-                    <td className="px-4 py-3.5 text-[14px] text-val-heading font-medium">{row.corner}</td>
-                    <td className="px-4 py-3.5 text-[14px] text-val-heading">{row.lat}</td>
-                    <td className="px-4 py-3.5 text-[14px] text-val-heading">{row.lng}</td>
-                    <td className="px-4 py-3.5 text-[14px] text-val-heading">{row.bearing}</td>
+                    <td className="px-2 sm:px-4 py-3 sm:py-3.5 text-[12px] sm:text-[14px] text-val-heading font-medium">{row.corner}</td>
+                    <td className="px-2 sm:px-4 py-3 sm:py-3.5 text-[12px] sm:text-[14px] text-val-heading">{row.lat}</td>
+                    <td className="px-2 sm:px-4 py-3 sm:py-3.5 text-[12px] sm:text-[14px] text-val-heading">{row.lng}</td>
+                    <td className="px-2 sm:px-4 py-3 sm:py-3.5 text-[12px] sm:text-[14px] text-val-heading">{row.bearing}</td>
                   </tr>
                 ))}
               </tbody>
@@ -573,7 +578,7 @@ function LocationContent({
           </div>
 
           {/* Investment Metrics card */}
-          <div className="col-span-5 bg-white rounded-lg border border-slate-200 p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
+          <div className="lg:col-span-5 bg-white rounded-lg border border-slate-200 p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
             <p className="text-base font-bold text-val-heading mb-4">Investment Metrics</p>
 
             <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">

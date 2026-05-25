@@ -6,6 +6,7 @@
  */
 
 import { useEffect, useState, type ReactNode } from "react";
+import { TableScroll } from "@/components/ui/table-scroll";
 import type { Property } from "@/lib/data/types/property";
 import type { Inspection } from "@/lib/data/types/inspection";
 import type { Certification } from "@/lib/data/types/certification";
@@ -14,6 +15,7 @@ import type { EmergencyContact } from "@/lib/data/types/emergency-contact";
 import type { Professional } from "@/lib/data/types/professional";
 import type { PropertySafetySummary, ComplianceLevel } from "@/lib/data/derivations/property-safety";
 import { PropertyLayout } from "@/components/property/PropertyLayout";
+import { MobileCardTable } from "@/components/property/MobileCardTable";
 import {
   Calendar,
   Check,
@@ -125,7 +127,7 @@ export function PropertySafetyPageFull({
   return (
     <PropertyLayout activeTab="safety" property={property}>
       <div className="min-h-full bg-val-bg-page-alt">
-        <div className="mx-auto w-full max-w-[1120px] px-6 pb-10 pt-7 lg:px-8">
+        <div className="mx-auto w-full max-w-[1120px] px-4 sm:px-6 pb-10 pt-6 sm:pt-7 lg:px-8">
           {/* Header */}
           <header className="mb-8" style={fadeIn(mounted, 0, reducedMotion)}>
             <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
@@ -135,7 +137,7 @@ export function PropertySafetyPageFull({
             </p>
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <h1 className="text-[32px] font-bold leading-tight tracking-tight text-val-heading">
+                <h1 className="text-[28px] sm:text-[40px] font-extrabold leading-tight tracking-tight text-val-heading">
                   Safety & compliance
                 </h1>
                 <p className="mt-2 max-w-xl text-[15px] leading-relaxed text-slate-600">
@@ -305,54 +307,104 @@ export function PropertySafetyPageFull({
                   />
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[640px] text-left">
-                    <thead>
-                      <tr className="border-b border-slate-100">
-                        <Th>Date</Th>
-                        <Th>Type</Th>
-                        <Th>Inspector</Th>
-                        <Th>Status</Th>
-                        <Th className="tabular-nums">Issues</Th>
-                        <Th className="text-right">Report</Th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sortedInspections.map((insp) => (
-                        <tr
-                          key={insp.id}
-                          className="border-t border-slate-50 transition-colors duration-150 hover:bg-slate-50/50"
-                        >
-                          <Td>{formatDate(insp.inspectedAt)}</Td>
-                          <Td className="font-medium text-val-heading">{insp.type}</Td>
-                          <Td className="text-slate-600">
-                            {profMap.get(insp.inspectorId)?.name ?? insp.inspectorId}
-                          </Td>
-                          <Td>
-                            <span
-                              className={cn(
-                                "font-semibold",
-                                inspectionStatusClass(insp.status),
-                              )}
+                <MobileCardTable
+                  desktop={
+                    <TableScroll stickyFirstColumn>
+                      <table className="w-full min-w-[640px] text-left">
+                        <thead>
+                          <tr className="border-b border-slate-100">
+                            <Th className="data-sticky-col bg-white">Date</Th>
+                            <Th>Type</Th>
+                            <Th>Inspector</Th>
+                            <Th>Status</Th>
+                            <Th className="tabular-nums">Issues</Th>
+                            <Th className="text-right">Report</Th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {sortedInspections.map((insp) => (
+                            <tr
+                              key={insp.id}
+                              className="border-t border-slate-50 transition-colors duration-150 hover:bg-slate-50/50"
                             >
-                              {insp.status}
-                            </span>
-                          </Td>
-                          <Td className="tabular-nums text-val-heading">{insp.issues}</Td>
-                          <Td className="text-right">
+                              <Td className="data-sticky-col bg-white">{formatDate(insp.inspectedAt)}</Td>
+                              <Td className="font-medium text-val-heading">{insp.type}</Td>
+                              <Td className="text-slate-600">
+                                {profMap.get(insp.inspectorId)?.name ?? insp.inspectorId}
+                              </Td>
+                              <Td>
+                                <span
+                                  className={cn(
+                                    "font-semibold",
+                                    inspectionStatusClass(insp.status),
+                                  )}
+                                >
+                                  {insp.status}
+                                </span>
+                              </Td>
+                              <Td className="tabular-nums text-val-heading">{insp.issues}</Td>
+                              <Td className="text-right">
+                                <button
+                                  type="button"
+                                  className="inline-flex items-center gap-0.5 text-[13px] font-semibold text-[var(--val-primary-dark)] transition-opacity duration-150 hover:opacity-75 focus-visible:outline-none focus-visible:underline"
+                                >
+                                  View
+                                  <ChevronRight className="size-3.5" aria-hidden />
+                                </button>
+                              </Td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </TableScroll>
+                  }
+                  mobile={
+                    <div className="flex flex-col divide-y divide-slate-100">
+                      {sortedInspections.map((insp) => {
+                        const inspectorName = profMap.get(insp.inspectorId)?.name ?? insp.inspectorId;
+                        return (
+                          <div key={insp.id} className="px-5 py-4 flex flex-col gap-2">
+                            {/* Row 1 — date + status pill */}
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="text-[14px] font-semibold text-val-heading">
+                                  {formatDate(insp.inspectedAt)}
+                                </p>
+                                <p className="text-[12px] text-slate-500 mt-0.5">{insp.type}</p>
+                              </div>
+                              <span
+                                className={cn(
+                                  "text-[12px] font-semibold shrink-0",
+                                  inspectionStatusClass(insp.status),
+                                )}
+                              >
+                                {insp.status}
+                              </span>
+                            </div>
+
+                            {/* Row 2 — inspector + issue count */}
+                            <div className="flex items-center gap-2 text-[12px] text-slate-500 flex-wrap">
+                              <span>{inspectorName}</span>
+                              <span className="text-slate-300">·</span>
+                              <span className="tabular-nums">
+                                {insp.issues} {insp.issues === 1 ? "issue" : "issues"}
+                              </span>
+                            </div>
+
+                            {/* Row 3 — report link */}
                             <button
                               type="button"
-                              className="inline-flex items-center gap-0.5 text-[13px] font-semibold text-[var(--val-primary-dark)] transition-opacity duration-150 hover:opacity-75 focus-visible:outline-none focus-visible:underline"
+                              className="self-start inline-flex items-center gap-0.5 text-[13px] font-semibold text-[var(--val-primary-dark)] transition-opacity duration-150 hover:opacity-75 focus-visible:outline-none focus-visible:underline mt-1"
                             >
-                              View
+                              View report
                               <ChevronRight className="size-3.5" aria-hidden />
                             </button>
-                          </Td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  }
+                />
               )}
             </section>
 

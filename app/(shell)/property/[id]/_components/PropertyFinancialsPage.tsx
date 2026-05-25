@@ -13,6 +13,7 @@ import {
 import type { Property } from "@/lib/data/types/property";
 import type { PropertyValuation } from "@/lib/data/types/property-valuation";
 import { PropertyLayout } from "@/components/property/PropertyLayout";
+import { MobileCardTable } from "@/components/property/MobileCardTable";
 import { UnlockButton } from "@/components/feature-unlock/UnlockButton";
 import { FinancialsUnlockMount } from "@/components/feature-unlock/pillars/FinancialsUnlock";
 import type { UnlockState } from "@/components/feature-unlock/types";
@@ -110,11 +111,11 @@ function KpiCard({
   const display = useCountUp(value, duration, active);
   return (
     <div
-      className="bg-white rounded-lg border border-slate-200 p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)] flex flex-col gap-2"
+      className="bg-white rounded-lg border border-slate-200 p-4 sm:p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)] flex flex-col gap-2"
       style={fade(mounted, delay, reducedMotion)}
     >
-      <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">{label}</p>
-      <p className="text-[26px] font-bold text-val-heading leading-none">{display}</p>
+      <p className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">{label}</p>
+      <p className="text-[22px] sm:text-[26px] font-bold text-val-heading leading-none">{display}</p>
       {sub && <p className="text-[13px]" style={{ color: subColor ?? "#64748b" }}>{sub}</p>}
       {cta && (
         <button
@@ -235,7 +236,7 @@ export function PropertyFinancialsPage({ property, valuations = [] }: Props) {
       property={property}
     >
       <div className="bg-val-bg-page-alt min-h-full pb-10">
-        <div className="max-w-[1200px] mx-auto px-8 pt-6 flex flex-col gap-5">
+        <div className="max-w-[1200px] mx-auto px-4 sm:px-8 pt-5 sm:pt-6 flex flex-col gap-4 sm:gap-5">
 
           {/* Page Header */}
           <div style={fade(mounted, 0, reducedMotion)}>
@@ -246,10 +247,10 @@ export function PropertyFinancialsPage({ property, valuations = [] }: Props) {
               <span className="text-xs text-slate-300">/</span>
               <span className="text-xs font-semibold tracking-widest uppercase text-slate-400">Financials</span>
             </div>
-            <div className="flex items-end justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <div className="flex items-center gap-3">
-                  <h1 className="text-4xl font-extrabold text-val-heading tracking-tight leading-10">Financials</h1>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <h1 className="text-[28px] sm:text-[40px] font-extrabold text-val-heading tracking-tight leading-tight sm:leading-10">Financials</h1>
                   {property.financialsVerified && (
                     <div className="flex items-center gap-1.5">
                       <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[12px] font-semibold">
@@ -284,7 +285,14 @@ export function PropertyFinancialsPage({ property, valuations = [] }: Props) {
                   .
                 </p>
               </div>
-              <UnlockButton state={unlockState} onClick={openWizard} editLabel="Edit financials" />
+              {/* Edit/Verify pill — top-right on desktop, below the title on
+                  mobile. Standardized wrapper across all 4 property pages
+                  that use UnlockButton (Financials, Ownership, Rental,
+                  Location): always inline with the page title row, always
+                  wrapped in `shrink-0` so it never wraps under the title. */}
+              <div className="shrink-0">
+                <UnlockButton state={unlockState} onClick={openWizard} editLabel="Edit financials" />
+              </div>
             </div>
           </div>
 
@@ -401,7 +409,7 @@ export function PropertyFinancialsPage({ property, valuations = [] }: Props) {
                   </p>
                 )}
               </div>
-              <div className="flex gap-12 mb-5">
+              <div className="flex flex-col sm:flex-row gap-4 sm:gap-12 mb-5">
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-1">
                     Current Estimated Value
@@ -471,7 +479,7 @@ export function PropertyFinancialsPage({ property, valuations = [] }: Props) {
                 )}
               </div>
 
-              <div className="grid grid-cols-4 gap-4 pt-4 border-t border-slate-100">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 pt-4 border-t border-slate-100">
                 {[
                   { label: "LTV Ratio", value: propertyFinancials.ltv },
                   {
@@ -507,7 +515,7 @@ export function PropertyFinancialsPage({ property, valuations = [] }: Props) {
           </div>
 
           {/* Value History + Market Insight */}
-          <div className="grid grid-cols-12 gap-5" style={fade(mounted, 300, reducedMotion)}>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5" style={fade(mounted, 300, reducedMotion)}>
 
             {/* Chart */}
             <div className="col-span-7 bg-white rounded-lg border border-slate-200 p-6 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
@@ -658,46 +666,92 @@ export function PropertyFinancialsPage({ property, valuations = [] }: Props) {
                   View Full Report
                 </button>
               </div>
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-slate-50/80 border-b border-slate-200">
-                    <th className="px-5 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Address</th>
-                    <th className="px-5 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Type</th>
-                    <th className="px-5 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Beds / Bath</th>
-                    <th className="px-5 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Sq Ft</th>
-                    <th className="px-5 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Sold Price</th>
-                    <th className="px-5 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Price / sqft</th>
-                    <th className="px-5 py-3" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {comparables.map((c, i) => (
-                    <tr
-                      key={c.address}
-                      className="border-t border-slate-100 hover:bg-blue-50/30 cursor-pointer transition-colors"
-                      style={{ animationDelay: `${i * 25}ms` }}
-                    >
-                      <td className="px-5 py-3.5">
-                        <p className="text-[14px] text-val-heading font-semibold">{c.address}</p>
-                        <p className="text-[12px] text-slate-400">{c.dist} · Sold {c.sold}</p>
-                      </td>
-                      <td className="px-5 py-3.5">
-                        <p className="text-[14px] text-val-heading">{c.type}</p>
-                        <p className="text-[12px] text-slate-400">Built {c.builtYear}</p>
-                      </td>
-                      <td className="px-5 py-3.5 text-[14px] text-val-heading">{c.beds} / {c.baths}</td>
-                      <td className="px-5 py-3.5 text-[14px] text-val-heading">{c.sqft}</td>
-                      <td className="px-5 py-3.5 text-[14px] font-semibold text-val-heading">{c.price}</td>
-                      <td className="px-5 py-3.5 text-[14px] text-slate-500">{c.psqft}/sqft</td>
-                      <td className="px-5 py-3.5">
-                        <button className="text-[--val-primary-dark] text-[12px] font-semibold hover:opacity-75 transition-opacity flex items-center gap-1">
-                          Contract <ExternalLink className="w-3 h-3" />
+              {/*
+                Comparable Sales — desktop 7-column table, mobile stacked
+                cards. Cards put the most decision-relevant fields (address,
+                price, price/sqft) up top and tuck the rest (beds/bath, sqft,
+                type, distance) into a secondary stat row.
+              */}
+              <MobileCardTable
+                desktop={
+                  <table className="w-full">
+                    <thead>
+                      <tr className="bg-slate-50/80 border-b border-slate-200">
+                        <th className="px-5 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Address</th>
+                        <th className="px-5 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Type</th>
+                        <th className="px-5 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Beds / Bath</th>
+                        <th className="px-5 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Sq Ft</th>
+                        <th className="px-5 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Sold Price</th>
+                        <th className="px-5 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Price / sqft</th>
+                        <th className="px-5 py-3" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {comparables.map((c, i) => (
+                        <tr
+                          key={c.address}
+                          className="border-t border-slate-100 hover:bg-blue-50/30 cursor-pointer transition-colors"
+                          style={{ animationDelay: `${i * 25}ms` }}
+                        >
+                          <td className="px-5 py-3.5">
+                            <p className="text-[14px] text-val-heading font-semibold">{c.address}</p>
+                            <p className="text-[12px] text-slate-400">{c.dist} · Sold {c.sold}</p>
+                          </td>
+                          <td className="px-5 py-3.5">
+                            <p className="text-[14px] text-val-heading">{c.type}</p>
+                            <p className="text-[12px] text-slate-400">Built {c.builtYear}</p>
+                          </td>
+                          <td className="px-5 py-3.5 text-[14px] text-val-heading">{c.beds} / {c.baths}</td>
+                          <td className="px-5 py-3.5 text-[14px] text-val-heading">{c.sqft}</td>
+                          <td className="px-5 py-3.5 text-[14px] font-semibold text-val-heading">{c.price}</td>
+                          <td className="px-5 py-3.5 text-[14px] text-slate-500">{c.psqft}/sqft</td>
+                          <td className="px-5 py-3.5">
+                            <button className="text-[--val-primary-dark] text-[12px] font-semibold hover:opacity-75 transition-opacity flex items-center gap-1">
+                              Contract <ExternalLink className="w-3 h-3" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                }
+                mobile={
+                  <div className="flex flex-col divide-y divide-slate-100">
+                    {comparables.map((c) => (
+                      <div
+                        key={c.address}
+                        className="px-4 py-4 hover:bg-blue-50/30 active:bg-blue-50/60 transition-colors cursor-pointer"
+                      >
+                        {/* Row 1 — address + sold price headline */}
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[14px] text-val-heading font-semibold truncate">{c.address}</p>
+                            <p className="text-[11px] text-slate-400 mt-0.5">{c.dist} · Sold {c.sold}</p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="text-[15px] font-bold text-val-heading tabular-nums">{c.price}</p>
+                            <p className="text-[11px] text-slate-500 tabular-nums">{c.psqft}/sqft</p>
+                          </div>
+                        </div>
+
+                        {/* Row 2 — secondary stats (type, beds/baths, sqft) */}
+                        <div className="flex items-center gap-3 mt-2 text-[12px] text-slate-500">
+                          <span>{c.type}</span>
+                          <span className="text-slate-300">·</span>
+                          <span>{c.beds} bd / {c.baths} ba</span>
+                          <span className="text-slate-300">·</span>
+                          <span>{c.sqft} sqft</span>
+                        </div>
+
+                        {/* Row 3 — contract link */}
+                        <button className="mt-3 text-[--val-primary-dark] text-[12px] font-semibold hover:opacity-75 transition-opacity flex items-center gap-1">
+                          View contract <ExternalLink className="w-3 h-3" />
                         </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      </div>
+                    ))}
+                  </div>
+                }
+              />
               <div className="bg-slate-50/60 border-t border-slate-200 px-5 py-3">
                 <p className="text-[12px] text-slate-500">
                   Average comp price: <span className="text-val-heading font-semibold">$492,000</span>
@@ -711,7 +765,7 @@ export function PropertyFinancialsPage({ property, valuations = [] }: Props) {
           </div>
 
           {/* Bottom Row */}
-          <div className="grid grid-cols-3 gap-5" style={fade(mounted, 460, reducedMotion)}>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5" style={fade(mounted, 460, reducedMotion)}>
 
             {/* Investment Performance */}
             <div className="bg-white rounded-lg border border-slate-200 p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)] flex flex-col gap-4">
