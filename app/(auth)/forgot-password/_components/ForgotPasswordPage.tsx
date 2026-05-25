@@ -150,8 +150,8 @@ export function ForgotPasswordPage() {
   const isSubmitting = form.formState.isSubmitting;
 
   return (
-    <div className="flex flex-col min-h-screen w-full font-sans bg-[#eef4ff]">
-      <div className="flex flex-1 items-center justify-center px-6 py-12">
+    <div className="flex flex-col min-h-dvh w-full font-sans bg-[#eef4ff]">
+      <div className="flex flex-1 items-center justify-center px-4 py-6 sm:px-6 sm:py-12">
         <div className="auth-animate flex flex-col items-center w-full max-w-[460px]">
 
           {/* Logo — icon + wordmark, matching login mobile anchor */}

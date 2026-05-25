@@ -51,7 +51,7 @@ export function RegisterPage() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen w-full font-sans">
+    <div className="flex flex-col min-h-dvh w-full font-sans">
 
       {/* ── Main - Auth Shell Wrapper ── */}
       <div className="flex flex-1">
@@ -61,7 +61,7 @@ export function RegisterPage() {
 
         {/* Right content area — switches between form and success */}
         {step === "form" ? (
-          <div className="flex flex-1 items-center justify-center bg-surface-base px-6 py-12 lg:px-40 overflow-y-auto">
+          <div className="flex flex-1 items-center justify-center bg-surface-base px-4 py-6 sm:px-6 sm:py-12 lg:px-40 overflow-y-auto">
             <div className="auth-animate w-full max-w-[448px]">
 
               {/* Mobile brand anchor — hidden on lg+ since AuthBrandPanel is visible */}
@@ -265,7 +265,7 @@ export function RegisterPage() {
           </div>
         ) : (
           /* Section - Success Content Area (Right) */
-          <div className="flex flex-1 items-center justify-center bg-val-bg-tint px-6 py-12 overflow-y-auto">
+          <div className="flex flex-1 items-center justify-center bg-val-bg-tint px-4 py-6 sm:px-6 sm:py-12 overflow-y-auto">
             <div className="auth-animate flex flex-col gap-8 w-full max-w-[480px]">
 
               {/* Success Card */}

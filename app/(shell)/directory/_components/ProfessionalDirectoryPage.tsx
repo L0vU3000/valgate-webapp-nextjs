@@ -233,7 +233,7 @@ export function ProfessionalDirectoryPage({ data }: { data: DirectoryPageData })
 
       {/* -- Page Content -- */}
       <div className="flex-1 overflow-y-auto bg-val-bg-page-alt">
-        <div className="max-w-6xl mx-auto px-8 py-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6 sm:py-8">
           {/* Page Header */}
           <div
             className="flex items-end justify-between mb-10 animate-[fade-slide-up_0.45s_cubic-bezier(0.22,1,0.36,1)_both]"
@@ -248,7 +248,7 @@ export function ProfessionalDirectoryPage({ data }: { data: DirectoryPageData })
                   Professional Directory
                 </span>
               </div>
-              <h1 className="text-4xl font-extrabold text-val-heading tracking-tight leading-10">
+              <h1 className="text-[28px] sm:text-[40px] font-extrabold text-val-heading tracking-tight leading-tight sm:leading-10">
                 Trusted Professionals
               </h1>
               <p className="text-slate-500 text-base mt-2">
@@ -351,7 +351,7 @@ export function ProfessionalDirectoryPage({ data }: { data: DirectoryPageData })
             className={cn(
               "mb-8",
               view === "grid"
-                ? "grid grid-cols-3 gap-6"
+                ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6"
                 : "flex flex-col gap-4",
             )}
           >

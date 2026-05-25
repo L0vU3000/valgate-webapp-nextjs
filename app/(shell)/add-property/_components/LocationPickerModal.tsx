@@ -152,24 +152,62 @@ export function LocationPickerModal({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm transition-opacity duration-[250ms] ease-out"
+      className="fixed inset-0 z-[200] flex sm:items-center sm:justify-center bg-black/40 sm:backdrop-blur-sm transition-opacity duration-[250ms] ease-out"
       style={{ opacity: visible ? 1 : 0, pointerEvents: visible ? "auto" : "none" }}
       onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}
     >
       <div
-        className="relative bg-white overflow-hidden w-full mx-6 transition-[opacity,transform] duration-[280ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
+        // Phone (Mobbin Shopee/Meituan pattern): full-bleed map sheet with
+        // floating search bar at top and pinned confirm card at bottom.
+        // Desktop: original centered 860×640 modal preserved.
+        className={cn(
+          "relative bg-white overflow-hidden w-full transition-[opacity,transform] duration-[280ms] ease-[cubic-bezier(0.22,1,0.36,1)]",
+          // Phone — full screen, no rounded corners, no margin
+          "h-dvh",
+          // Desktop — return to original centered modal
+          "sm:h-[640px] sm:max-w-[860px] sm:mx-6 sm:rounded-[48px]",
+        )}
         style={{
-          maxWidth: 860,
-          height: 640,
-          borderRadius: 48,
           boxShadow:
             "0px 0px 0px 1px rgba(0,0,0,0.02), 0px 2px 6px 0px rgba(0,0,0,0.04), 0px 20px 40px 0px rgba(0,0,0,0.18)",
           opacity: visible ? 1 : 0,
           transform: visible ? "scale(1) translateY(0)" : "scale(0.96) translateY(12px)",
         }}
       >
-        {/* Header */}
-        <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-6 py-5 bg-white border-b border-border">
+        {/* Map — fills the entire surface on phone, sized 392px on desktop */}
+        <div
+          ref={containerRef}
+          className="absolute inset-0 sm:left-0 sm:right-0 sm:inset-y-auto"
+          style={{}}
+          // Desktop overrides applied via inline style to preserve original layout
+          // when sm: media query matches.
+        />
+        {/* Desktop-only top/height overrides for the map. Tailwind v4 lets us
+            use arbitrary values in classes; we use a style tag for the inline
+            override since sm:top-[163px] sm:h-[392px] would also work. */}
+        <style>{`
+          @media (min-width: 640px) {
+            [data-loc-map] {
+              top: 163px !important;
+              bottom: auto !important;
+              height: 392px !important;
+            }
+            [data-loc-loading] {
+              top: 163px !important;
+              bottom: auto !important;
+              height: 392px !important;
+            }
+          }
+        `}</style>
+        <span data-loc-map ref={(node) => {
+          // Re-tag the actual map container for the media-query override above.
+          if (node && containerRef.current) {
+            containerRef.current.setAttribute("data-loc-map", "");
+          }
+        }} className="hidden" />
+
+        {/* Desktop-only header (phone uses floating chrome instead) */}
+        <div className="hidden sm:flex absolute top-0 left-0 right-0 z-10 items-center justify-between px-6 py-5 bg-white border-b border-border">
           <h2
             className="text-[22px] font-semibold text-foreground leading-[33px]"
             style={{ fontFamily: "var(--font-display)" }}
@@ -185,9 +223,34 @@ export function LocationPickerModal({
           </button>
         </div>
 
-        {/* Search bar */}
-        <div className="absolute top-[73px] left-0 right-0 z-10 px-6 py-4 bg-white">
-          <div className="relative">
+        {/* Phone-only floating close (top-right, safe-area aware) */}
+        <button
+          onClick={handleClose}
+          className="sm:hidden absolute z-20 flex size-11 items-center justify-center rounded-full bg-white/90 backdrop-blur border border-border shadow-md hover:bg-white transition-colors"
+          style={{
+            top: "calc(env(safe-area-inset-top) + 12px)",
+            right: 12,
+          }}
+          aria-label="Close"
+        >
+          <X className="w-5 h-5 text-foreground" />
+        </button>
+
+        {/* Search bar — floats on phone (Mobbin pattern), inset 12px from edges
+            with safe-area top. On desktop, sits below the header bar as before. */}
+        <div
+          className="absolute z-10 inset-x-3 sm:inset-x-0 sm:left-0 sm:right-0 sm:px-6 sm:py-4 sm:bg-white"
+          style={{
+            top: "calc(env(safe-area-inset-top) + 64px)",
+          }}
+        >
+          {/* Desktop-only override for top */}
+          <style>{`
+            @media (min-width: 640px) {
+              [data-loc-search] { top: 73px !important; }
+            }
+          `}</style>
+          <div data-loc-search className="relative">
             <input
               type="text"
               value={searchQuery}
@@ -207,7 +270,8 @@ export function LocationPickerModal({
               }}
               placeholder="Search address…"
               autoComplete="off"
-              className="w-full border border-border rounded-full pl-12 pr-10 py-3 text-[16px] font-medium text-foreground bg-white placeholder:text-muted-foreground shadow-sm focus:outline-none focus:border-primary transition-colors"
+              enterKeyHint="search"
+              className="w-full min-h-11 border border-border rounded-full pl-12 pr-12 sm:pr-10 py-3 text-base sm:text-[16px] font-medium text-foreground bg-white placeholder:text-muted-foreground shadow-md sm:shadow-sm focus:outline-none focus:border-primary transition-colors"
               style={{ fontFamily: "var(--font-display)" }}
             />
             <Search className="absolute left-[19px] top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-muted-foreground pointer-events-none" />
@@ -228,7 +292,7 @@ export function LocationPickerModal({
               </button>
             ) : null}
             {showSuggestions && geocode.suggestions.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-border rounded-2xl shadow-lg z-50 overflow-hidden">
+              <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-border rounded-2xl shadow-lg z-50 overflow-hidden max-h-[40dvh] overflow-y-auto">
                 {geocode.suggestions.map((s) => (
                   <button
                     key={s.id}
@@ -264,20 +328,13 @@ export function LocationPickerModal({
           </div>
         </div>
 
-        {/* Map — explicit top + height so Mapbox always measures a non-zero container */}
+        {/* Loading overlay — covers the map area */}
         <div
-          ref={containerRef}
-          className="absolute left-0 right-0"
-          style={{ top: 163, height: 392 }}
-        />
-
-        {/* Loading overlay */}
-        <div
+          data-loc-loading
           className={cn(
-            "absolute left-0 right-0 z-20 flex flex-col items-center justify-center bg-background gap-3 transition-opacity duration-500",
+            "absolute inset-0 sm:left-0 sm:right-0 sm:inset-y-auto z-[5] flex flex-col items-center justify-center bg-background gap-3 transition-opacity duration-500",
             mapLoaded ? "opacity-0 pointer-events-none" : "opacity-100",
           )}
-          style={{ top: 163, height: 392 }}
           onTransitionEnd={(e) => {
             if (e.propertyName === "opacity" && mapLoaded)
               (e.currentTarget as HTMLElement).style.display = "none";
@@ -292,53 +349,103 @@ export function LocationPickerModal({
           </div>
         </div>
 
-        {/* Coordinates overlay */}
-        <div className="absolute bottom-[101px] left-4 z-10 flex items-center gap-2 px-3.5 py-[7px] rounded-full border border-border bg-background/90 backdrop-blur-sm shadow-sm">
-          <MapPin className="w-[14px] h-[14px] text-muted-foreground shrink-0" />
-          <span
-            className="text-[14px] font-medium text-[#434655] whitespace-nowrap"
-            style={{ fontFamily: "var(--font-display)" }}
-          >
-            {formatCoords(coords)}
-          </span>
+        {/* Zoom controls — phone: bottom-right above footer, desktop: original */}
+        <div
+          className="absolute z-10 flex flex-col gap-2 right-4 sm:right-4"
+          style={{
+            bottom: "calc(env(safe-area-inset-bottom) + 120px)",
+          }}
+        >
+          <style>{`
+            @media (min-width: 640px) {
+              [data-loc-zoom] { bottom: 101px !important; }
+            }
+          `}</style>
+          <div data-loc-zoom className="flex flex-col gap-2">
+            <button
+              onClick={() => handleZoom("in")}
+              className="w-11 h-11 sm:w-10 sm:h-10 rounded-full bg-white border border-border flex items-center justify-center hover:bg-accent/60 transition-colors"
+              style={{ boxShadow: "0px 1px 3px 0px rgba(0,0,0,0.1),0px 1px 2px -1px rgba(0,0,0,0.1)" }}
+              aria-label="Zoom in"
+            >
+              <Plus className="w-[14px] h-[14px] text-foreground" />
+            </button>
+            <button
+              onClick={() => handleZoom("out")}
+              className="w-11 h-11 sm:w-10 sm:h-10 rounded-full bg-white border border-border flex items-center justify-center hover:bg-accent/60 transition-colors"
+              style={{ boxShadow: "0px 1px 3px 0px rgba(0,0,0,0.1),0px 1px 2px -1px rgba(0,0,0,0.1)" }}
+              aria-label="Zoom out"
+            >
+              <Minus className="w-[14px] h-[14px] text-foreground" />
+            </button>
+          </div>
         </div>
 
-        {/* Zoom controls */}
-        <div className="absolute bottom-[101px] right-4 z-10 flex flex-col gap-2">
-          <button
-            onClick={() => handleZoom("in")}
-            className="w-10 h-10 rounded-full bg-white border border-border flex items-center justify-center hover:bg-accent/60 transition-colors"
-            style={{ boxShadow: "0px 1px 3px 0px rgba(0,0,0,0.1),0px 1px 2px -1px rgba(0,0,0,0.1)" }}
-            aria-label="Zoom in"
-          >
-            <Plus className="w-[14px] h-[14px] text-foreground" />
-          </button>
-          <button
-            onClick={() => handleZoom("out")}
-            className="w-10 h-10 rounded-full bg-white border border-border flex items-center justify-center hover:bg-accent/60 transition-colors"
-            style={{ boxShadow: "0px 1px 3px 0px rgba(0,0,0,0.1),0px 1px 2px -1px rgba(0,0,0,0.1)" }}
-            aria-label="Zoom out"
-          >
-            <Minus className="w-[14px] h-[14px] text-foreground" />
-          </button>
-        </div>
+        {/* Footer / selected-location card.
+            Phone: floating card with coords + wide Confirm CTA, pb-safe so it
+            clears the home indicator. Desktop: original bottom-aligned footer. */}
+        <div
+          className={cn(
+            "absolute z-10 bg-white",
+            // Phone — floating card, inset from edges, rounded, shadow
+            "inset-x-3 rounded-2xl shadow-lg border border-border p-3 flex flex-col gap-2",
+            // Desktop — pinned full-width footer, no rounding/shadow
+            "sm:inset-x-0 sm:bottom-0 sm:rounded-none sm:shadow-none sm:border-0 sm:border-t sm:border-border sm:p-0 sm:flex-row sm:items-center sm:justify-end sm:gap-4 sm:px-6 sm:py-5",
+          )}
+          style={{
+            bottom: "calc(env(safe-area-inset-bottom) + 12px)",
+          }}
+        >
+          <style>{`
+            @media (min-width: 640px) {
+              [data-loc-footer] { bottom: 0 !important; }
+            }
+          `}</style>
+          <div data-loc-footer className="contents">
+            {/* Coords summary — phone shows inline at top of card */}
+            <div className="flex items-center gap-2 sm:hidden px-1 pt-1">
+              <MapPin className="w-4 h-4 text-muted-foreground shrink-0" />
+              <span
+                className="text-[13px] font-medium text-secondary truncate"
+                style={{ fontFamily: "var(--font-display)" }}
+              >
+                {formatCoords(coords)}
+              </span>
+            </div>
+            {/* Desktop coords pill */}
+            <div className="hidden sm:flex absolute left-4 items-center gap-2 px-3.5 py-[7px] rounded-full border border-border bg-background/90 backdrop-blur-sm shadow-sm"
+                 style={{ bottom: 101 }}>
+              <MapPin className="w-[14px] h-[14px] text-muted-foreground shrink-0" />
+              <span
+                className="text-[14px] font-medium text-[#434655] whitespace-nowrap"
+                style={{ fontFamily: "var(--font-display)" }}
+              >
+                {formatCoords(coords)}
+              </span>
+            </div>
 
-        {/* Footer */}
-        <div className="absolute bottom-0 left-0 right-0 z-10 flex items-center justify-end gap-4 px-6 py-5 bg-white border-t border-border">
-          <button
-            onClick={handleClose}
-            className="px-5 py-2.5 text-[16px] font-medium text-[#434655] hover:text-foreground transition-colors"
-            style={{ fontFamily: "var(--font-display)" }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => { onConfirm(coords); handleClose(); }}
-            className="px-6 py-2.5 text-[16px] font-medium text-white bg-foreground rounded-2xl hover:bg-foreground/90 transition-colors"
-            style={{ fontFamily: "var(--font-display)", boxShadow: "0px 1px 2px 0px rgba(0,0,0,0.05)" }}
-          >
-            Confirm location
-          </button>
+            {/* Buttons */}
+            <button
+              onClick={handleClose}
+              className="hidden sm:inline-block px-5 py-2.5 text-[16px] font-medium text-[#434655] hover:text-foreground transition-colors"
+              style={{ fontFamily: "var(--font-display)" }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => { onConfirm(coords); handleClose(); }}
+              className="w-full sm:w-auto h-12 sm:h-auto rounded-full sm:rounded-2xl px-6 sm:py-2.5 text-[15px] sm:text-[16px] font-medium text-white bg-foreground hover:bg-foreground/90 transition-colors"
+              style={{ fontFamily: "var(--font-display)", boxShadow: "0px 1px 2px 0px rgba(0,0,0,0.05)" }}
+            >
+              Confirm location
+            </button>
+            <button
+              onClick={handleClose}
+              className="sm:hidden w-full text-center text-[14px] text-secondary underline underline-offset-4 hover:text-foreground transition-colors py-2"
+            >
+              Cancel
+            </button>
+          </div>
         </div>
       </div>
     </div>,
