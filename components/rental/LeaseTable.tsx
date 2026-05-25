@@ -41,12 +41,12 @@ const propertyRows = [
 export function LeaseTable() {
   return (
     <div
-      className="anim-enter col-span-8 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
+      className="anim-enter lg:col-span-8 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
       style={{ animationDelay: "400ms" }}
     >
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
-        <h2 className="text-lg font-bold text-slate-900">
+      <div className="flex items-center justify-between border-b border-slate-100 px-4 sm:px-6 py-4 sm:py-5">
+        <h2 className="text-base sm:text-lg font-bold text-slate-900">
           Property Ranking
         </h2>
         <span className="text-xs font-semibold uppercase tracking-widest text-slate-400">
@@ -54,12 +54,13 @@ export function LeaseTable() {
         </span>
       </div>
 
-      {/* Table header */}
+      {/* Table header — paddings shrink on mobile so the four columns fit
+          within a 484px viewport without horizontal overflow. */}
       <div className="flex bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-        <div className="w-[33%] px-6 py-3">Property</div>
-        <div className="w-[20%] px-6 py-3">NOI (Annual)</div>
-        <div className="w-[22%] px-6 py-3">Monthly Rent</div>
-        <div className="w-[25%] px-6 py-3">Market Index</div>
+        <div className="w-[33%] px-3 sm:px-6 py-3">Property</div>
+        <div className="w-[20%] px-3 sm:px-6 py-3">NOI</div>
+        <div className="w-[22%] px-3 sm:px-6 py-3">Rent</div>
+        <div className="w-[25%] px-3 sm:px-6 py-3">Index</div>
       </div>
 
       {/* Rows */}
@@ -72,30 +73,30 @@ export function LeaseTable() {
           )}
           style={{ animationDelay: `${500 + i * 80}ms` }}
         >
-          <div className="flex w-[33%] items-center gap-3 px-6 py-4">
+          <div className="flex w-[33%] items-center gap-2 sm:gap-3 px-3 sm:px-6 py-3 sm:py-4 min-w-0">
             <div
               className={cn(
-                "h-10 w-10 shrink-0 rounded transition-transform duration-200 group-hover:scale-105",
+                "h-8 w-8 sm:h-10 sm:w-10 shrink-0 rounded transition-transform duration-200 group-hover:scale-105",
                 row.img
               )}
             />
-            <div>
-              <p className="text-sm font-semibold text-slate-900">
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm font-semibold text-slate-900 truncate">
                 {row.name}
               </p>
-              <p className="text-xs text-slate-400">{row.location}</p>
+              <p className="text-[10px] sm:text-xs text-slate-400 truncate">{row.location}</p>
             </div>
           </div>
-          <div className="w-[20%] px-6 py-4 text-base font-semibold text-slate-700">
+          <div className="w-[20%] px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-base font-semibold text-slate-700 truncate">
             {row.noi}
           </div>
-          <div className="w-[22%] px-6 py-4 text-base text-slate-500">
+          <div className="w-[22%] px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-base text-slate-500 truncate">
             {row.rent}
           </div>
-          <div className="w-[25%] px-6 py-4">
+          <div className="w-[25%] px-3 sm:px-6 py-3 sm:py-4">
             <span
               className={cn(
-                "inline-block rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-tight",
+                "inline-block rounded-full px-1.5 sm:px-2 py-0.5 sm:py-1 text-[9px] sm:text-[10px] font-semibold uppercase tracking-tight",
                 row.indexColor
               )}
             >

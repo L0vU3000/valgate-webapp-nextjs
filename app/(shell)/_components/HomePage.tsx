@@ -20,6 +20,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { cn } from "@/components/ui/utils";
+import { useIsMobile } from "@/components/ui/use-mobile";
 import { progressClass, progressBgClass, titleToVariant } from "@/lib/property-helpers";
 import type { HomeProperty, TitleVariant, PortfolioStats } from "@/app/(shell)/queries";
 import type { Document } from "@/lib/data/types/document";
@@ -78,6 +79,12 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
   const [isSatellite, setIsSatellite] = useState(false);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const router = useRouter();
+
+  // The selected-property drawer floats on the right edge on desktop but
+  // pushes up from the bottom on mobile, so the search bar/legend's
+  // `right: 20rem` offset is only meaningful at tablet+ widths. We use
+  // this hook to gate the offset on mobile.
+  const isMobile = useIsMobile();
 
   // Cmd+K / Ctrl+K to open command palette
   useEffect(() => {
@@ -180,10 +187,23 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
           className="absolute inset-0"
         />
 
-        {/* Command Palette Trigger */}
-        <div data-no-drag className="absolute top-6 z-10 flex justify-center transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]" style={{ left: 0, right: selectedProperty ? "20rem" : 0 }}>
+        {/* Command Palette Trigger.
+            Phone: container takes full width below the safe-area top (drawer pushes up from bottom, doesn't compete with this trigger).
+            Tablet+: shrinks to make room for the right-anchored property sidebar when one is selected. */}
+        <div
+          data-no-drag
+          className="absolute z-10 flex justify-center transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] px-4 sm:px-0"
+          style={{
+            top: "calc(env(safe-area-inset-top) + 24px)",
+            left: 0,
+            // On mobile the property drawer pushes up from the bottom (it
+            // doesn't sit on the right edge), so the 20rem right offset
+            // would just shrink the header for no reason — keep it at 0.
+            right: !isMobile && selectedProperty ? "20rem" : 0,
+          }}
+        >
           <div className={cn(
-            "flex flex-col items-center gap-3 w-[700px] max-w-[calc(100%-3rem)]",
+            "flex flex-col items-center gap-3 w-full max-w-[700px] sm:max-w-[calc(100%-3rem)]",
             mapLoaded ? "[animation:fade-slide-down_0.5s_cubic-bezier(0.16,1,0.3,1)_both]" : "opacity-0",
           )}>
           <button
@@ -211,7 +231,13 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
           </button>
 
           {/* Quick actions */}
-          <div className="flex items-center gap-3">
+          {/*
+            On mobile this becomes a horizontally-scrolling strip so all four
+            chips remain reachable without wrapping. Each button shrinks-0
+            and the parent allows overflow-x. On `sm:` and above the row
+            returns to a static centered flex layout.
+          */}
+          <div className="flex items-center gap-3 w-full sm:w-auto overflow-x-auto scrollbar-none -mx-4 sm:mx-0 px-4 sm:px-0">
             {[
               { label: "New Property", icon: Plus, action: () => router.push("/add-property") },
               { label: "Analytics", icon: BarChart2, action: () => router.push("/analytics") },
@@ -223,7 +249,7 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
                 onClick={action}
                 style={{ animationDelay: `${80 + i * 50}ms` }}
                 className={cn(
-                  "flex items-center gap-2 bg-surface-base border border-border-default rounded-full px-4 py-2 text-sm font-medium text-secondary hover:bg-surface-tint hover:text-foreground hover:-translate-y-0.5 hover:shadow-sm active:translate-y-0 transition-all duration-150",
+                  "shrink-0 flex items-center gap-2 bg-surface-base border border-border-default rounded-full px-4 py-2 text-sm font-medium text-secondary hover:bg-surface-tint hover:text-foreground hover:-translate-y-0.5 hover:shadow-sm active:translate-y-0 transition-all duration-150",
                   mapLoaded ? "[animation:fade-slide-up_0.4s_cubic-bezier(0.16,1,0.3,1)_both]" : "opacity-0",
                 )}
               >
@@ -255,18 +281,30 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
           onToggleSatellite={() => setIsSatellite((s) => !s)}
         />
 
-        {/* Property info panel — full-height floating sidebar */}
+        {/* Property info panel.
+            Phone (Apple Maps pattern): bottom-anchored sheet with rounded top,
+            grab handle, ~55dvh height, slides up from below. Map stays visible
+            above and remains pan-able.
+            Tablet+: full-height floating sidebar pinned to the right (original). */}
         {drawerProperty && (
           <div
             key={selectedPin ?? closingKey}
             className={cn(
-              "absolute right-4 top-4 bottom-4 w-80 bg-glass-panel-fill backdrop-blur-md border border-glass-panel-border rounded-xl shadow-sm z-20 flex flex-col overflow-hidden",
+              "absolute z-20 flex flex-col overflow-hidden bg-glass-panel-fill backdrop-blur-md border border-glass-panel-border shadow-sm",
+              // Phone — bottom sheet
+              "inset-x-0 bottom-0 top-auto h-[58dvh] rounded-t-2xl pb-safe",
+              // Tablet+ — restore floating right sidebar
+              "sm:inset-x-auto sm:right-4 sm:top-4 sm:bottom-4 sm:w-80 sm:rounded-xl sm:h-auto sm:pb-0",
               isDrawerClosing
-                ? "[animation:slide-out-right_0.22s_cubic-bezier(0.16,1,0.3,1)_both]"
-                : "[animation:slide-in-right_0.3s_cubic-bezier(0.16,1,0.3,1)_both]",
+                ? "[animation:slide-out-down_0.22s_cubic-bezier(0.16,1,0.3,1)_both] sm:[animation:slide-out-right_0.22s_cubic-bezier(0.16,1,0.3,1)_both]"
+                : "[animation:slide-in-up_0.3s_cubic-bezier(0.16,1,0.3,1)_both] sm:[animation:slide-in-right_0.3s_cubic-bezier(0.16,1,0.3,1)_both]",
             )}
             data-no-drag
           >
+            {/* Phone-only grab handle */}
+            <div className="flex shrink-0 justify-center pt-2 pb-1 sm:hidden" aria-hidden="true">
+              <div className="h-1 w-9 rounded-full bg-white/60" />
+            </div>
 
             {/* Hero image with overlay info */}
             <div className="relative shrink-0 overflow-hidden">

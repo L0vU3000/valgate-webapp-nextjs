@@ -319,7 +319,7 @@ export function AIYieldModal({
           <div className="ai-glass-divider-h mx-5" />
 
           {/* Footer */}
-          <div className="flex shrink-0 items-center justify-between px-5 py-4">
+          <div className="flex shrink-0 items-center justify-between px-5 py-4 pb-safe">
             <a
               href={yieldHref}
               className="flex items-center gap-1.5 rounded-lg px-3 py-2.5 text-[12px] font-medium text-interactive-primary transition-opacity hover:opacity-80"

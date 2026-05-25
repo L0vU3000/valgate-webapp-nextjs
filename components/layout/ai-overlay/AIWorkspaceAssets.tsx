@@ -105,7 +105,7 @@ export function AIWorkspaceAssets({
               type="button"
               onClick={() => setActiveFilter(filter)}
               className={cn(
-                "rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.5px] transition-all",
+                "rounded-full px-3 py-2 sm:py-1 min-h-9 sm:min-h-0 text-[11px] sm:text-[10px] font-semibold uppercase tracking-[0.5px] transition-all",
                 activeFilter === filter
                   ? "ai-glass-cta text-interactive-primary-text"
                   : "text-secondary hover:text-interactive-primary",

@@ -35,8 +35,16 @@ import { addSuccessorAndAssign } from "../actions";
 import { Button } from "@/components/ui/button";
 import { RequiredMark, OptionalLabel } from "@/components/ui/required-mark";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetBody,
+} from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ChevronRight } from "lucide-react";
 import type {
   EstatePlanningPageData,
   EstateStat,
@@ -238,6 +246,10 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
   const [revoking, setRevoking] = useState(false);
   const [newPlanOpen, setNewPlanOpen] = useState(false);
   const [newPlanStep, setNewPlanStep] = useState<1 | 2>(1);
+  // On mobile we hide the property list panel by default and surface a
+  // "Change property" button at the top of the detail panel. Tapping it
+  // opens this bottom sheet with the same filtered property list.
+  const [propertySheetOpen, setPropertySheetOpen] = useState(false);
   const [newPlanForm, setNewPlanForm] = useState({
     type: "will",
     propertyId: "",
@@ -277,7 +289,7 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
     return (
       <div className="h-full flex flex-col bg-val-bg-page-alt">
         <AppHeader />
-        <div className="flex-1 overflow-y-auto p-8">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-8">
           <div className="max-w-[1200px] mx-auto rounded-xl border border-[#e8eaed] bg-white p-6 text-sm text-[#434655]">
             No properties are available for estate planning yet.
           </div>
@@ -408,31 +420,37 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
   return (
     <div className="h-full flex flex-col bg-val-bg-page-alt">
       <AppHeader />
-      <div className="flex-1 overflow-y-auto p-8">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-8">
       <div className="max-w-[1200px] mx-auto flex flex-col gap-8">
 
         {/* -- Header -- */}
-        <div className="flex items-end justify-between anim-enter" style={{ animationDelay: '0ms' }}>
+        {/*
+          On mobile the header stacks: breadcrumb + title + description first,
+          then the actions row below (with the primary "Add New" CTA filling
+          the row and "View Analytics" sized to its content). On `sm:` and up
+          the original side-by-side layout returns.
+        */}
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 anim-enter" style={{ animationDelay: '0ms' }}>
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-2 mb-3">
               <span className="text-xs font-semibold tracking-widest uppercase text-[--val-primary-dark]">Valgate</span>
               <span className="text-xs text-slate-300">/</span>
               <span className="text-xs font-semibold tracking-widest uppercase text-slate-400">Estate Planning</span>
             </div>
-            <h1 className="text-4xl font-extrabold text-val-heading tracking-tight leading-10">
+            <h1 className="text-[28px] sm:text-[40px] font-extrabold text-val-heading tracking-tight leading-tight sm:leading-10">
               Estate Planning
             </h1>
             <p className="text-slate-500 text-base mt-2">
               Protect what matters most — plan how your properties pass to the people you love.
             </p>
           </div>
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-3 sm:shrink-0">
             <button
               onClick={() => router.push("/analytics")}
               className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[#c3c6d7] bg-val-bg-page-alt text-sm font-medium text-val-heading hover:bg-white transition-colors"
             >
               <BarChart2 className="size-4" />
-              View Analytics
+              <span className="hidden xs:inline">View </span>Analytics
             </button>
             <button
               onClick={() => {
@@ -440,7 +458,7 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
                 setNewPlanForm({ type: "will", propertyId: "", effectiveDate: "", notes: "" });
                 setNewPlanOpen(true);
               }}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#2563eb] text-sm font-medium text-white hover:bg-[#1d4ed8] shadow-sm transition-colors"
+              className="flex flex-1 sm:flex-none items-center justify-center gap-2 px-4 py-2 rounded-lg bg-[#2563eb] text-sm font-medium text-white hover:bg-[#1d4ed8] shadow-sm transition-colors"
             >
               <Plus className="size-4" />
               Add New
@@ -449,7 +467,7 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
         </div>
 
         {/* -- Stats Grid -- */}
-        <div className="grid grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6">
           {stats.map((stat, i) => (
             <StatCard
               key={stat.label}
@@ -460,10 +478,17 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
         </div>
 
         {/* -- Two Column Layout -- */}
-        <div className="grid grid-cols-12 gap-8 items-start">
+        {/*
+          Mobile: the left property-list panel is hidden and replaced by a
+          "Change property" pill at the top of the detail panel that opens
+          a bottom sheet with the same filtered list. The detail panel takes
+          the full width.
+          Desktop (`lg:`): the original 4/8 split returns.
+        */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
 
-          {/* Left: Property List */}
-          <div className="col-span-4 flex flex-col gap-4 anim-enter" style={{ animationDelay: '300ms' }}>
+          {/* Left: Property List — desktop only */}
+          <div className="hidden lg:flex lg:col-span-4 flex-col gap-4 anim-enter" style={{ animationDelay: '300ms' }}>
             <div className="flex items-center justify-between px-2">
               <span className="text-xs font-semibold uppercase tracking-[0.7px] text-[#737686]">
                 Properties
@@ -498,12 +523,36 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
             ))}
           </div>
 
+          {/* Mobile: "Change property" trigger that opens the bottom sheet. */}
+          <button
+            type="button"
+            onClick={() => setPropertySheetOpen(true)}
+            className="lg:hidden flex items-center gap-3 w-full p-3 bg-white border border-[#e8eaed] rounded-xl text-left hover:border-[#c3c6d7] transition-colors"
+            aria-label="Change selected property"
+          >
+            <div
+              className="size-10 rounded-lg shrink-0 flex items-center justify-center text-xs font-semibold text-[--val-primary-dark]"
+              style={{ backgroundColor: property.color }}
+            >
+              {property.initials}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-[#737686]">
+                Property
+              </p>
+              <p className="text-sm font-semibold text-val-heading truncate">
+                {property.name}
+              </p>
+            </div>
+            <ChevronRight className="size-4 shrink-0 text-[#737686]" />
+          </button>
+
           {/* Right: Detail Panel */}
-          <div className="col-span-8 anim-enter-right" style={{ animationDelay: '360ms' }}>
+          <div className="lg:col-span-8 anim-enter-right" style={{ animationDelay: '360ms' }}>
             <div className="bg-white border border-[#e8eaed] rounded-2xl shadow-xl overflow-hidden">
 
               {/* Panel Header */}
-              <div key={`ph-${selectedProperty}`} className="border-b border-[#e8eaed] px-8 py-6 flex flex-col gap-4 anim-enter">
+              <div key={`ph-${selectedProperty}`} className="border-b border-[#e8eaed] px-5 sm:px-8 py-5 sm:py-6 flex flex-col gap-4 anim-enter">
                 <div className="flex items-start justify-between gap-4 w-full">
                   <div>
                     <div className="flex flex-wrap items-center gap-2 mb-1">
@@ -564,10 +613,10 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
               </div>
 
               {/* Panel Body */}
-              <div key={`pb-${selectedProperty}`} className="p-8 flex flex-col gap-8 anim-enter" style={{ animationDelay: '40ms' }}>
+              <div key={`pb-${selectedProperty}`} className="p-5 sm:p-8 flex flex-col gap-6 sm:gap-8 anim-enter" style={{ animationDelay: '40ms' }}>
 
                 {/* Status Bar */}
-                <div className="bg-val-bg-tint border border-[rgba(195,198,215,0.3)] rounded-xl p-6 flex flex-col gap-4">
+                <div className="bg-val-bg-tint border border-[rgba(195,198,215,0.3)] rounded-xl p-5 sm:p-6 flex flex-col gap-4">
                   <div className="flex items-end justify-between">
                     <div className="flex flex-col gap-1">
                       <p className="text-xs font-semibold uppercase tracking-[1.2px] text-[#434655]">Status</p>
@@ -598,8 +647,10 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
                   </div>
 
                   <div className="border border-[#e8eaed] rounded-xl overflow-hidden">
-                    {/* Table Header */}
-                    <div className="bg-val-bg-tint grid grid-cols-[2fr_2fr_1fr_1.2fr_auto] items-center px-6 py-4">
+                    {/* Table Header — desktop only. On mobile each beneficiary
+                        is rendered as a stacked card below, no column header
+                        needed because each card carries its own labels. */}
+                    <div className="hidden lg:grid bg-val-bg-tint grid-cols-[2fr_2fr_1fr_1.2fr_auto] items-center px-6 py-4">
                       {["Name", "Role", "Share", "Status", ""].map((col) => (
                         <span
                           key={col}
@@ -610,17 +661,19 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
                       ))}
                     </div>
 
-                    {/* Table Rows */}
+                    {/* Rows — empty state */}
                     {propertySuccessors.length === 0 && (
-                      <div className="px-6 py-8 text-sm text-[#434655]">
+                      <div className="px-5 sm:px-6 py-8 text-sm text-[#434655]">
                         No beneficiaries have been assigned to this property yet.
                       </div>
                     )}
+
+                    {/* Rows — desktop table layout */}
                     {propertySuccessors.map((s, i) => (
                       <div
-                        key={s.id}
+                        key={`d-${s.id}`}
                         className={cn(
-                          "grid grid-cols-[2fr_2fr_1fr_1.2fr_auto] items-center px-6 py-4",
+                          "hidden lg:grid grid-cols-[2fr_2fr_1fr_1.2fr_auto] items-center px-6 py-4",
                           i > 0 && "border-t border-[#e8eaed]",
                         )}
                       >
@@ -662,6 +715,57 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
                         </button>
                       </div>
                     ))}
+
+                    {/* Rows — mobile card layout. One self-contained card per
+                        beneficiary with all four data points (name, role,
+                        share, verification status) clearly labelled. */}
+                    {propertySuccessors.map((s, i) => (
+                      <div
+                        key={`m-${s.id}`}
+                        className={cn(
+                          "lg:hidden flex flex-col gap-3 px-5 py-4",
+                          i > 0 && "border-t border-[#e8eaed]",
+                        )}
+                      >
+                        {/* Row 1: avatar + name + actions */}
+                        <div className="flex items-center gap-3">
+                          <div className="size-10 rounded-full bg-[#d8e3f4] flex items-center justify-center text-sm font-semibold text-[--val-primary-dark] shrink-0">
+                            {s.initials}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold text-val-heading truncate">{s.name}</p>
+                            <p className="text-xs text-[#434655] truncate">{s.relation}</p>
+                          </div>
+                          <button className="p-1 rounded hover:bg-val-bg-page-alt text-[#737686] shrink-0" aria-label="Beneficiary actions">
+                            <MoreHorizontal className="size-4" />
+                          </button>
+                        </div>
+
+                        {/* Row 2: role · share · status */}
+                        <div className="flex items-center justify-between gap-3 flex-wrap">
+                          <RoleBadge role={s.role} />
+                          <div className="flex items-center gap-3">
+                            <div className="flex flex-col items-end">
+                              <span className="text-[10px] uppercase tracking-wide text-[#737686] font-semibold">
+                                Share
+                              </span>
+                              <span className="text-sm font-semibold text-val-heading tabular-nums">{s.share}</span>
+                            </div>
+                            {s.verified ? (
+                              <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-50">
+                                <CheckCircle2 className="size-3 text-[#059669] shrink-0" />
+                                <span className="text-[11px] font-semibold text-[#059669]">Verified</span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-rose-50">
+                                <AlertTriangle className="size-3 text-[#ba1a1a] shrink-0" />
+                                <span className="text-[11px] font-semibold text-[#ba1a1a]">Unverified</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
@@ -670,9 +774,9 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
                   <h3 className="text-lg font-bold font-display text-val-heading">
                     Estate Documents
                   </h3>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     {propertyDocuments.length === 0 && (
-                      <div className="col-span-2 rounded-xl border border-[#e8eaed] bg-[#f8fafc] p-4 text-sm text-[#434655]">
+                      <div className="sm:col-span-2 rounded-xl border border-[#e8eaed] bg-[#f8fafc] p-4 text-sm text-[#434655]">
                         No estate documents are linked to this property yet.
                       </div>
                     )}
@@ -739,7 +843,9 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
               </div>
 
               {/* Panel Footer */}
-              <div className="bg-val-bg-tint border-t border-[#e8eaed] px-8 py-4 flex items-center justify-between">
+              {/* On mobile the privacy note and action links stack into two
+                  rows; on `sm:` and up they sit side-by-side. */}
+              <div className="bg-val-bg-tint border-t border-[#e8eaed] px-5 sm:px-8 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="flex items-center gap-2 text-[#434655]">
                   <Shield className="size-3.5 shrink-0" />
                   <span className="text-xs font-medium">Your estate planning data is kept private in Valgate.</span>
@@ -1168,6 +1274,61 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
           onSuccess={() => router.refresh()}
         />
       )}
+
+      {/* -- Mobile bottom sheet — property switcher -- */}
+      {/*
+        On mobile only (`lg:hidden` on the trigger button above). Shows the
+        same filtered property list as the desktop sidebar, plus the status
+        filter dropdown. Selecting a property closes the sheet and updates
+        the detail panel.
+      */}
+      <Sheet open={propertySheetOpen} onOpenChange={setPropertySheetOpen}>
+        <SheetContent side="bottom" className="h-[80dvh] lg:hidden">
+          <SheetHeader>
+            <SheetTitle>Select property</SheetTitle>
+          </SheetHeader>
+          <SheetBody className="flex flex-col gap-3">
+            {/* Filter row — same options as desktop */}
+            <label className="flex items-center justify-between gap-2 px-1 py-1">
+              <span className="text-xs font-semibold uppercase tracking-[0.7px] text-[#737686]">
+                Filter
+              </span>
+              <select
+                value={statusFilter}
+                onChange={(event) => {
+                  setStatusFilter(event.target.value as "all" | PropertyStatus);
+                  setSelectedProperty(0);
+                }}
+                className="bg-transparent text-sm font-semibold text-[--val-primary-dark] outline-none cursor-pointer"
+              >
+                <option value="all">All</option>
+                {propertyStatusOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {filteredProperties.length === 0 && (
+              <p className="text-sm text-[#434655] px-1">
+                No properties match the current filter.
+              </p>
+            )}
+            {filteredProperties.map((p, i) => (
+              <PropertyCard
+                key={p.id}
+                property={p}
+                isActive={i === safeSelectedProperty}
+                onClick={() => {
+                  setSelectedProperty(i);
+                  setPropertySheetOpen(false);
+                }}
+              />
+            ))}
+          </SheetBody>
+        </SheetContent>
+      </Sheet>
 
       <Dialog open={revokeOpen} onOpenChange={setRevokeOpen}>
         <DialogContent className="max-w-md">

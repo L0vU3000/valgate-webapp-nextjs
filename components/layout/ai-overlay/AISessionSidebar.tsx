@@ -111,7 +111,7 @@ export function AISessionSidebar({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search history..."
-            className="w-full rounded-lg border-0 bg-transparent py-2.5 pl-9 pr-3 text-sm text-foreground placeholder:text-secondary outline-none"
+            className="w-full rounded-lg border-0 bg-transparent min-h-11 sm:min-h-9 py-2.5 pl-9 pr-3 text-base sm:text-sm text-foreground placeholder:text-secondary outline-none"
             aria-label="Search sessions"
           />
         </div>
@@ -133,7 +133,7 @@ export function AISessionSidebar({
                   type="button"
                   onClick={() => onSelectSession(session.id)}
                   className={cn(
-                    "ai-glass-session flex w-full min-w-0 flex-1 items-center gap-3 rounded-lg px-3 py-3 text-left",
+                    "ai-glass-session flex w-full min-w-0 flex-1 items-center gap-3 rounded-lg px-3 py-3.5 min-h-11 text-left",
                     "animate-[glass-card-in_0.3s_ease-out_both]",
                     isActive && "active",
                   )}

@@ -187,7 +187,7 @@ export function ProgressModal({ property, onClose, onExplainerClick }: ProgressM
       {/* Modal */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
         <div
-          className="w-full max-w-[500px] bg-white rounded-xl border border-slate-200 shadow-[0_8px_40px_rgba(0,0,0,0.12)] pointer-events-auto overflow-hidden flex flex-col"
+          className="w-full max-w-[calc(100%-1rem)] sm:max-w-[500px] bg-white rounded-xl border border-slate-200 shadow-[0_8px_40px_rgba(0,0,0,0.12)] pointer-events-auto overflow-hidden flex flex-col"
           style={{
             maxHeight: "min(88vh, 720px)",
             animation: modalAnim,
@@ -209,7 +209,7 @@ export function ProgressModal({ property, onClose, onExplainerClick }: ProgressM
                 {/* Score + tier */}
                 <div className="text-right mr-1.5">
                   <div className="flex items-baseline gap-0.5 justify-end">
-                    <span className={cn("text-[30px] font-bold tabular-nums leading-none",
+                    <span className={cn("text-2xl sm:text-[30px] font-bold tabular-nums leading-none",
                       score >= 70 ? "text-emerald-600" : score >= 40 ? "text-amber-500" : "text-red-400"
                     )}>
                       {displayScore}

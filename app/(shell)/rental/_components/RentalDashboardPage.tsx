@@ -52,7 +52,7 @@ export function RentalDashboardPage({ data }: { data: RentalDashboardData }) {
     <div className="flex h-full flex-col bg-val-bg-page-alt">
       <AppHeader />
 
-      <div className="flex-1 overflow-auto scrollbar-none px-8 pb-8">
+      <div className="flex-1 overflow-auto scrollbar-none px-4 sm:px-8 pb-6 sm:pb-8">
         <div className="max-w-[1200px] mx-auto flex flex-col gap-5 pt-6">
 
           {/* Page Header */}
@@ -68,7 +68,7 @@ export function RentalDashboardPage({ data }: { data: RentalDashboardData }) {
               <span className="text-xs text-slate-300">/</span>
               <span className="text-xs font-semibold tracking-widest uppercase text-slate-400">Rental</span>
             </div>
-            <h1 className="text-4xl font-extrabold text-val-heading tracking-tight leading-10">Rental Dashboard</h1>
+            <h1 className="text-[28px] sm:text-[40px] font-extrabold text-val-heading tracking-tight leading-tight sm:leading-10">Rental Dashboard</h1>
             <p className="text-slate-500 text-base mt-2">Track properties, leases, and income across your rental portfolio.</p>
           </div>
 
@@ -88,15 +88,21 @@ export function RentalDashboardPage({ data }: { data: RentalDashboardData }) {
           {/* ================================================================ */}
           {/*  Zone 2: Quick Actions                                           */}
           {/* ================================================================ */}
+          {/*
+            On mobile the action row becomes a horizontally-scrolling strip so
+            all buttons stay reachable without wrapping awkwardly. On `lg:`
+            and above it returns to the original padded flex row with the
+            "Bulk Increase" CTA pushed to the right via `flex-1` spacer.
+          */}
           <section
-            className="anim-enter flex items-center gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)]"
+            className="anim-enter flex items-center gap-3 lg:gap-4 rounded-lg border border-slate-200 bg-white p-3 lg:p-4 shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)] overflow-x-auto scrollbar-none"
             style={{ animationDelay: "300ms" }}
           >
-            <span className="border-r border-slate-200 pr-4 text-xs font-semibold uppercase tracking-widest text-slate-400">
+            <span className="shrink-0 border-r border-slate-200 pr-3 lg:pr-4 text-xs font-semibold uppercase tracking-widest text-slate-400">
               Actions
             </span>
             <button
-              className="flex items-center gap-2 px-4 py-2 text-white text-[14px] font-semibold rounded hover:opacity-90 active:scale-[0.97] transition-all duration-150"
+              className="shrink-0 flex items-center gap-2 px-4 py-2 text-white text-[14px] font-semibold rounded hover:opacity-90 active:scale-[0.97] transition-all duration-150"
               style={{
                 background: "linear-gradient(168deg, var(--val-primary-dark) 0%, #2563eb 100%)",
                 boxShadow: "0 4px 6px -1px rgba(0,74,198,0.25), 0 2px 4px -2px rgba(0,74,198,0.15)",
@@ -105,20 +111,21 @@ export function RentalDashboardPage({ data }: { data: RentalDashboardData }) {
               <Plus className="h-4 w-4" />
               New Lease
             </button>
-            <button className="flex items-center gap-2 rounded px-4 py-2 text-sm font-semibold text-val-heading hover:bg-slate-50 active:scale-[0.98] transition-all duration-150">
+            <button className="shrink-0 flex items-center gap-2 rounded px-4 py-2 text-sm font-semibold text-val-heading hover:bg-slate-50 active:scale-[0.98] transition-all duration-150">
               <Building2 className="h-4 w-4" />
               Add Property
             </button>
-            <button className="flex items-center gap-2 rounded px-4 py-2 text-sm font-semibold text-val-heading hover:bg-slate-50 active:scale-[0.98] transition-all duration-150">
+            <button className="shrink-0 flex items-center gap-2 rounded px-4 py-2 text-sm font-semibold text-val-heading hover:bg-slate-50 active:scale-[0.98] transition-all duration-150">
               <FileText className="h-4 w-4" />
               Portfolio Report
             </button>
-            <button className="flex items-center gap-2 rounded px-4 py-2 text-sm font-semibold text-val-heading hover:bg-slate-50 active:scale-[0.98] transition-all duration-150">
+            <button className="shrink-0 flex items-center gap-2 rounded px-4 py-2 text-sm font-semibold text-val-heading hover:bg-slate-50 active:scale-[0.98] transition-all duration-150">
               <Download className="h-3.5 w-3.5" />
               Export
             </button>
-            <div className="flex-1" />
-            <button className="flex items-center gap-2 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-600 transition-all duration-150 hover:bg-blue-100 active:scale-95">
+            {/* Spacer only on desktop — on mobile we don't push anything right. */}
+            <div className="hidden lg:block flex-1" />
+            <button className="shrink-0 flex items-center gap-2 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-600 transition-all duration-150 hover:bg-blue-100 active:scale-95">
               <TrendingUp className="h-4 w-4" />
               Bulk Increase
             </button>
@@ -127,7 +134,14 @@ export function RentalDashboardPage({ data }: { data: RentalDashboardData }) {
           {/* ================================================================ */}
           {/*  Zone 3: Asymmetric — Table + Heatmap                           */}
           {/* ================================================================ */}
-          <section className="grid grid-cols-12 gap-6">
+          {/*
+            On mobile we collapse to a single-column stack so the lease table
+            and occupancy heatmap each get the full viewport width. The
+            children keep their `col-span-8` / `col-span-4` for the desktop
+            12-col layout — those values are ignored when the parent grid
+            only has 1 column.
+          */}
+          <section className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6">
             <LeaseTable />
             <HeatmapGrid data={heatmapClusters} />
           </section>
@@ -139,12 +153,17 @@ export function RentalDashboardPage({ data }: { data: RentalDashboardData }) {
             className="anim-enter overflow-hidden rounded-lg border border-slate-200 bg-white shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)]"
             style={{ animationDelay: "550ms" }}
           >
-            <div className="border-b border-slate-100 px-6 py-5">
+            <div className="border-b border-slate-100 px-5 sm:px-6 py-4 sm:py-5">
               <h2 className="text-base font-bold text-val-heading">Lease Renewal Pipeline</h2>
             </div>
-            <div className="flex divide-x divide-slate-100">
+            {/*
+              Mobile: vertical stack of stages, separated by horizontal
+              dividers. Each stage becomes its own readable section.
+              Desktop (`lg:` and up): the original side-by-side kanban.
+            */}
+            <div className="flex flex-col lg:flex-row divide-y lg:divide-y-0 lg:divide-x divide-slate-100">
               {pipelineStages.map((stage, si) => (
-                <div key={stage.label} className="flex flex-1 flex-col gap-4 p-6">
+                <div key={stage.label} className="flex flex-1 flex-col gap-4 p-5 sm:p-6">
                   <div className="flex items-center justify-between">
                     <span className={cn("text-[10px] font-semibold uppercase", stage.color)}>
                       {stage.label}
@@ -174,11 +193,16 @@ export function RentalDashboardPage({ data }: { data: RentalDashboardData }) {
           {/* ================================================================ */}
           {/*  Zone 5: Bottom Triptych                                        */}
           {/* ================================================================ */}
-          <section className="grid grid-cols-12 gap-6 pb-8">
+          {/*
+            On mobile each card is its own full-width section, stacked
+            vertically (Rent Collection → Maintenance → Upcoming Events).
+            On `lg:` the original asymmetric 5/3/4 layout returns.
+          */}
+          <section className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 pb-8">
 
             {/* Rent Collection & Arrears */}
             <div
-              className="anim-enter col-span-5 rounded-lg border border-slate-200 bg-white p-6 shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)]"
+              className="anim-enter lg:col-span-5 rounded-lg border border-slate-200 bg-white p-5 sm:p-6 shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)]"
               style={{ animationDelay: "700ms" }}
             >
               <div className="flex items-center justify-between">
@@ -215,7 +239,7 @@ export function RentalDashboardPage({ data }: { data: RentalDashboardData }) {
 
             {/* Maintenance Exposure */}
             <div
-              className="anim-enter col-span-3 rounded-lg border border-slate-200 bg-white p-6 shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)]"
+              className="anim-enter lg:col-span-3 rounded-lg border border-slate-200 bg-white p-5 sm:p-6 shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)]"
               style={{ animationDelay: "780ms" }}
             >
               <h3 className="text-base font-bold text-val-heading">
@@ -253,7 +277,7 @@ export function RentalDashboardPage({ data }: { data: RentalDashboardData }) {
 
             {/* Upcoming Events */}
             <div
-              className="anim-enter-right col-span-4 rounded-lg border border-slate-200 bg-white p-6 shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)]"
+              className="anim-enter-right lg:col-span-4 rounded-lg border border-slate-200 bg-white p-5 sm:p-6 shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)]"
               style={{ animationDelay: "750ms" }}
             >
               <h3 className="text-base font-bold text-val-heading">Upcoming Events</h3>

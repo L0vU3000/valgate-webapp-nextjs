@@ -47,7 +47,7 @@ function Page1() {
       {/* Score display — matches ProgressModal header style */}
       <div className="flex flex-col items-center gap-3 rounded-lg bg-slate-50 py-8 mb-4">
         <div className="flex items-baseline gap-1">
-          <span className={`text-[52px] font-bold tabular-nums leading-none ${textColor}`}>{pct}</span>
+          <span className={`text-[36px] sm:text-[52px] font-bold tabular-nums leading-none ${textColor}`}>{pct}</span>
           <span className="text-[22px] text-slate-400 font-medium">%</span>
         </div>
         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${tier.bg} ${tier.text}`}>
@@ -242,7 +242,7 @@ export function ProgressExplainerModal({ open, onClose }: ProgressExplainerModal
       {/* Modal */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
         <div
-          className="w-full max-w-[480px] bg-white rounded-xl border border-slate-200 shadow-[0_8px_40px_rgba(0,0,0,0.12)] pointer-events-auto flex flex-col"
+          className="w-full max-w-[calc(100%-1rem)] sm:max-w-[480px] max-h-[88dvh] bg-white rounded-xl border border-slate-200 shadow-[0_8px_40px_rgba(0,0,0,0.12)] pointer-events-auto flex flex-col"
           style={{ animation: modalAnim }}
           onClick={(e) => e.stopPropagation()}
         >

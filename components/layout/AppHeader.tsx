@@ -40,7 +40,7 @@ export function AppHeader({
     <>
       <div
         role="banner"
-        className="relative bg-white border-b border-slate-200 shadow-[0_1px_2px_rgba(0,0,0,0.05)] px-6 flex items-center h-[56px] shrink-0"
+        className="hidden sm:flex relative bg-white border-b border-slate-200 shadow-[0_1px_2px_rgba(0,0,0,0.05)] px-6 items-center h-[56px] shrink-0"
       >
         {/* Left spacer */}
         <div className="flex-1" />

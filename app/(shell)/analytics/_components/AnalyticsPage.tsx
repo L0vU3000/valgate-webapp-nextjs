@@ -77,11 +77,17 @@ export function AnalyticsPage({ data, period }: { data: AnalyticsPageData; perio
       <AppHeader />
 
       {/* Content */}
-      <div className="flex-1 overflow-auto p-8">
+      <div className="flex-1 overflow-auto p-4 sm:p-8">
         <div className="max-w-[1200px] mx-auto flex flex-col gap-6">
           {/* Page title + actions */}
+          {/*
+            On mobile the title + breadcrumb stack above the search/actions
+            row. The search input becomes full-width so it remains usable
+            with the on-screen keyboard. On `lg:` the original side-by-side
+            layout returns.
+          */}
           <div
-            className="flex items-center justify-between"
+            className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4"
             style={{ animation: `analytics-fade-up 450ms ${EASE_OUT_QUART} 0ms both` }}
           >
             <div>
@@ -90,40 +96,50 @@ export function AnalyticsPage({ data, period }: { data: AnalyticsPageData; perio
                 <span className="text-xs text-slate-300">/</span>
                 <span className="text-xs font-semibold tracking-widest uppercase text-slate-400">Analytics</span>
               </div>
-              <h1 className="text-4xl font-extrabold text-val-heading tracking-tight leading-10">
+              <h1 className="text-[28px] sm:text-[40px] font-extrabold text-val-heading tracking-tight leading-tight sm:leading-10">
                 Portfolio Analytics
               </h1>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="relative">
+            <div className="flex items-center gap-2 sm:gap-4">
+              <div className="relative flex-1 lg:flex-none">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-slate-400 transition-colors duration-200" />
                 <input
                   type="text"
                   placeholder="Search data..."
-                  className="bg-slate-100 rounded-xl pl-10 pr-4 py-2 text-sm text-slate-700 placeholder:text-gray-400 w-56 outline-none transition-all duration-250 focus:ring-2 focus:ring-blue-200 focus:bg-white"
+                  className="bg-slate-100 rounded-xl pl-10 pr-4 py-2 text-sm text-slate-700 placeholder:text-gray-400 w-full lg:w-56 outline-none transition-all duration-250 focus:ring-2 focus:ring-blue-200 focus:bg-white"
                 />
               </div>
-              <button className="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors duration-200 active:scale-[0.97]">
+              <button className="shrink-0 px-3 sm:px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors duration-200 active:scale-[0.97]">
                 Compare
               </button>
-              <button className="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors duration-200 active:scale-[0.97]">
+              <button className="shrink-0 hidden sm:block px-3 sm:px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors duration-200 active:scale-[0.97]">
                 Schedule Report
               </button>
             </div>
           </div>
 
           {/* Filters Bar — fades up */}
+          {/*
+            Mobile: each row of filters becomes its own scrollable strip so
+            the period tabs, property dropdowns, and view-mode + export
+            controls each have their own line. The toggle (NET/GROSS) and
+            export button stay on the same row but become smaller.
+            Desktop (`lg:`): the original two-line layout is restored.
+          */}
           <div
-            className="bg-white rounded-lg shadow-sm p-4 flex flex-col gap-4"
+            className="bg-white rounded-lg shadow-sm p-3 sm:p-4 flex flex-col gap-3 sm:gap-4"
             style={{ animation: `analytics-scale-in 450ms ${EASE_OUT_QUART} 80ms both` }}
           >
-            <div className="flex items-center justify-between">
-              <div className="bg-slate-100 flex items-center p-1 rounded relative">
+            {/* Row 1: period tabs + property dropdowns (stacked on mobile) */}
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+              {/* Period tab strip — horizontally scrollable on mobile if it
+                  ever overflows. Each tab keeps a thumb-friendly target. */}
+              <div className="bg-slate-100 flex items-center p-1 rounded relative overflow-x-auto scrollbar-none w-fit max-w-full">
                 {periods.map((p) => (
                   <button
                     key={p}
                     onClick={() => { setActivePeriod(p); router.push(`?period=${p}`); }}
-                    className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 relative z-[1] ${
+                    className={`shrink-0 px-4 py-1.5 text-xs font-semibold rounded-md transition-all duration-200 relative z-[1] ${
                       activePeriod === p
                         ? "text-[--val-primary-dark]"
                         : "text-slate-500 hover:text-slate-700"
@@ -139,13 +155,15 @@ export function AnalyticsPage({ data, period }: { data: AnalyticsPageData; perio
                   </button>
                 ))}
               </div>
-              <div className="flex items-center gap-3">
+              {/* Property/asset/region dropdowns — scrollable strip on mobile. */}
+              <div className="flex items-center gap-3 overflow-x-auto scrollbar-none -mx-1 px-1">
                 <FilterDropdown label="All Properties" />
                 <FilterDropdown label="Asset Class" />
                 <FilterDropdown label="Region" />
               </div>
             </div>
-            <div className="flex items-center gap-4">
+            {/* Row 2: NET/GROSS toggle, view modes, export. Wraps on mobile. */}
+            <div className="flex flex-wrap items-center gap-3 sm:gap-4">
               <div className="bg-slate-50 border border-slate-200 flex items-center gap-2 px-3 py-1.5 rounded transition-colors duration-200">
                 <span className={`text-xs font-semibold transition-colors duration-250 ${!grossMode ? "text-[--val-primary-dark]" : "text-slate-400"}`}>NET</span>
                 <button
@@ -167,7 +185,7 @@ export function AnalyticsPage({ data, period }: { data: AnalyticsPageData; perio
                 <button className="p-1.5 rounded text-slate-400 transition-all duration-200 hover:text-slate-600 hover:bg-slate-100 active:scale-[0.92]"><Table2 size={14} /></button>
                 <button className="p-1.5 rounded text-slate-400 transition-all duration-200 hover:text-slate-600 hover:bg-slate-100 active:scale-[0.92]"><LayoutGrid size={14} /></button>
               </div>
-              <button className="bg-slate-900 text-white text-xs font-semibold px-4 py-1.5 rounded flex items-center gap-2 transition-all duration-200 hover:bg-slate-800 hover:shadow-md active:scale-[0.97]">
+              <button className="bg-slate-900 text-white text-xs font-semibold px-4 py-1.5 rounded flex items-center gap-2 transition-all duration-200 hover:bg-slate-800 hover:shadow-md active:scale-[0.97] ml-auto">
                 Export
                 <ChevronDown size={12} />
               </button>
@@ -175,27 +193,37 @@ export function AnalyticsPage({ data, period }: { data: AnalyticsPageData; perio
           </div>
 
           {/* KPI Strip — staggered entrance */}
-          <div className="grid grid-cols-5 gap-4">
+          {/*
+            Mobile: 2 KPI cards per row so each value stays legible.
+            Tablet (`sm:`): 3 per row.
+            Desktop (`lg:`): the original 5-card horizontal strip.
+          */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
             {kpiCards.map((kpi, i) => (
               <KpiCard key={kpi.label} index={i} {...kpi} icon={KPI_ICONS[kpi.iconKey]} />
             ))}
           </div>
 
           {/* Primary Content: Chart + Right Stack */}
-          <div className="grid grid-cols-12 gap-6">
+          {/*
+            Mobile: chart, occupancy, lease expiry, and saved reports each
+            become their own full-width section, stacked vertically.
+            Desktop (`lg:`): the original 8/4 asymmetric split.
+          */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
             {/* Main Area Chart — fades in after KPIs */}
             <div
-              className="col-span-8 bg-white border border-slate-100 rounded-lg shadow-sm overflow-hidden transition-shadow duration-300 hover:shadow-md"
+              className="lg:col-span-8 bg-white border border-slate-100 rounded-lg shadow-sm overflow-hidden transition-shadow duration-300 hover:shadow-md"
               style={{ animation: `analytics-fade-up 600ms ${EASE_OUT_QUART} 550ms both` }}
             >
-              <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-50">
+              <div className="flex flex-wrap items-start sm:items-center justify-between gap-2 px-4 sm:px-6 pt-5 sm:pt-6 pb-4 border-b border-slate-50">
                 <div>
                   <h2 className="text-base font-bold text-slate-900 font-display">
                     Revenue vs Expenses (YTD)
                   </h2>
                   <p className="text-xs text-slate-500">Comparative analysis across all assets</p>
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3 sm:gap-4">
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 rounded-full bg-amber-400" />
                     <span className="text-xs font-semibold text-slate-600">Revenue</span>
@@ -206,7 +234,7 @@ export function AnalyticsPage({ data, period }: { data: AnalyticsPageData; perio
                   </div>
                 </div>
               </div>
-              <div className="px-6 pt-4">
+              <div className="px-2 sm:px-6 pt-4">
                 <ResponsiveContainer width="100%" height={300}>
                   <AreaChart data={revenueData}>
                     <defs>
@@ -256,7 +284,7 @@ export function AnalyticsPage({ data, period }: { data: AnalyticsPageData; perio
             </div>
 
             {/* Right Stack — staggered after chart */}
-            <div className="col-span-4 flex flex-col gap-6">
+            <div className="lg:col-span-4 flex flex-col gap-4 sm:gap-6">
               {/* Occupancy Sparkline Card */}
               <div
                 className="bg-white border border-slate-100 rounded-lg shadow-sm p-6 transition-shadow duration-300 hover:shadow-md"
@@ -338,7 +366,7 @@ export function AnalyticsPage({ data, period }: { data: AnalyticsPageData; perio
           {/* Bottom Row Cards — scroll-triggered */}
           <div
             ref={bottomRow.ref}
-            className="grid grid-cols-3 gap-6 pb-4"
+            className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 pb-4"
           >
             {/* Expense Breakdown Donut */}
             <div

@@ -252,6 +252,7 @@ export function AIOverlay({ open, onClose, pathname }: AIOverlayProps) {
         tabIndex={-1}
         className={cn(
           "ai-glass-shell ai-glass-shell--fullscreen pointer-events-none relative z-[1] flex h-full w-full flex-col overflow-hidden outline-none",
+          "pt-safe pb-safe",
           "animate-[glass-open_0.35s_cubic-bezier(0.16,1,0.3,1)_both]",
         )}
       >
@@ -261,7 +262,7 @@ export function AIOverlay({ open, onClose, pathname }: AIOverlayProps) {
               type="button"
               onClick={() => setMobilePanel("sessions")}
               className={cn(
-                "flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-medium",
+                "flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2.5 min-h-11 text-[13px] font-medium",
                 mobilePanel === "sessions"
                   ? "bg-white/40 text-foreground"
                   : "text-secondary",
@@ -274,7 +275,7 @@ export function AIOverlay({ open, onClose, pathname }: AIOverlayProps) {
               type="button"
               onClick={() => setMobilePanel("chat")}
               className={cn(
-                "flex flex-1 items-center justify-center rounded-lg py-2 text-xs font-medium",
+                "flex flex-1 items-center justify-center rounded-lg py-2.5 min-h-11 text-[13px] font-medium",
                 mobilePanel === "chat" ? "bg-white/40 text-foreground" : "text-secondary",
               )}
             >
@@ -284,7 +285,7 @@ export function AIOverlay({ open, onClose, pathname }: AIOverlayProps) {
               type="button"
               onClick={() => setMobilePanel("assets")}
               className={cn(
-                "flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-medium",
+                "flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2.5 min-h-11 text-[13px] font-medium",
                 mobilePanel === "assets" ? "bg-white/40 text-foreground" : "text-secondary",
               )}
             >

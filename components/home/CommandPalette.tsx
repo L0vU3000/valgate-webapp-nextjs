@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Search,
   Plus,
@@ -27,6 +29,7 @@ import {
   DialogTitle,
 } from "../ui/dialog";
 import { cn } from "../ui/utils";
+import { useIsMobile } from "../ui/use-mobile";
 import type {
   PropertyListItem,
   PropertyStatus,
@@ -75,10 +78,19 @@ export function CommandPalette({
   documents?: Document[];
   navigate: (path: string) => void;
 }) {
+  // The command palette is a desktop-only surface. On mobile we render
+  // nothing so the Dialog never mounts, any ⌘K shortcut from a paired
+  // hardware keyboard is a no-op, and `setOpen(true)` calls from callers
+  // are silently ignored. This matches the mobile design where search is
+  // not surfaced in the chrome at all.
+  const isMobile = useIsMobile();
+  if (isMobile) {
+    return null;
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="overflow-hidden p-0 sm:max-w-2xl top-[20%] translate-y-0 gap-0 rounded-xl border-border-default bg-surface-base shadow-[0_0_40px_-10px_rgba(37,99,235,0.3)] [&>button:last-child]:hidden [animation:cmd-open_0.22s_cubic-bezier(0.16,1,0.3,1)_both]">
+      <DialogContent className="overflow-hidden p-0 gap-0 border-border-default bg-surface-base shadow-[0_0_40px_-10px_rgba(37,99,235,0.3)] [&>button:last-child]:hidden [animation:cmd-open_0.22s_cubic-bezier(0.16,1,0.3,1)_both] left-1/2 -translate-x-1/2 bottom-0 sm:bottom-auto top-auto sm:top-[20%] translate-y-0 max-w-full sm:max-w-2xl w-full sm:w-[calc(100%-2rem)] rounded-t-2xl sm:rounded-xl pt-safe pb-safe sm:pt-0 sm:pb-0 sm:h-auto">
         <DialogHeader className="sr-only">
           <DialogTitle>Command Palette</DialogTitle>
           <DialogDescription>Search your portfolio — properties, documents, and navigation</DialogDescription>
@@ -88,7 +100,7 @@ export function CommandPalette({
             placeholder="Search properties, documents, tenants..."
             className="h-16 text-base placeholder:text-secondary"
           />
-          <CommandList className="max-h-96">
+          <CommandList className="max-h-[60dvh] sm:max-h-96">
             <CommandEmpty className="py-10 text-center">
               <div className="flex flex-col items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-surface-sunken flex items-center justify-center">

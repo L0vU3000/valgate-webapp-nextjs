@@ -95,10 +95,10 @@ export function KpiCards({ grossIncome, incomeTrend, occupancyPct, vacancyCost, 
   }));
 
   return (
-    <section className="grid grid-cols-12 gap-6">
+    <section className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6">
       {/* Hero Income Card */}
       <div
-        className="rental-hero col-span-7 relative overflow-hidden rounded-lg bg-blue-600 p-8 shadow-xl"
+        className="rental-hero lg:col-span-7 relative overflow-hidden rounded-lg bg-blue-600 p-5 sm:p-8 shadow-xl"
       >
         <div className="absolute -right-16 -top-16 h-64 w-64 rounded-xl bg-blue-500 opacity-20 blur-[32px]" />
 
@@ -108,7 +108,7 @@ export function KpiCards({ grossIncome, incomeTrend, occupancyPct, vacancyCost, 
               Monthly Gross Income
             </span>
             <div className="flex items-center gap-3">
-              <span className="text-[60px] font-extrabold leading-none tracking-tight text-blue-50">
+              <span className="text-[40px] sm:text-[60px] font-extrabold leading-none tracking-tight text-blue-50">
                 <SlotNumber value={grossIncome} />
               </span>
               {incomeTrend && (
@@ -147,7 +147,7 @@ export function KpiCards({ grossIncome, incomeTrend, occupancyPct, vacancyCost, 
       </div>
 
       {/* KPI 2x2 Grid */}
-      <div className="col-span-5 grid grid-cols-2 overflow-hidden rounded-lg border border-slate-200">
+      <div className="lg:col-span-5 grid grid-cols-2 overflow-hidden rounded-lg border border-slate-200">
 
         {/* Occupancy */}
         <div

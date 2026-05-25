@@ -93,7 +93,7 @@ export function HeatmapGrid({ data }: { data: PropertyCluster[] }) {
 
   return (
     <div
-      className="anim-enter-right col-span-4 flex flex-col rounded-lg bg-slate-900 p-6 shadow-xl"
+      className="anim-enter-right lg:col-span-4 flex flex-col rounded-lg bg-slate-900 p-5 sm:p-6 shadow-xl"
       style={{ animationDelay: "450ms" }}
     >
       <div className="flex items-center justify-between">

@@ -59,6 +59,16 @@
   to   { opacity: 0; transform: translateX(24px) scale(0.97); }
 }
 
+@keyframes slide-in-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-out-down {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(24px); }
+}
+
 @keyframes scale-in {
   from { opacity: 0; transform: scale(0.5); }
   to   { opacity: 1; transform: scale(1); }
@@ -1189,6 +1199,47 @@
   --font-sans:    'Geist', ui-sans-serif, system-ui, sans-serif;
   --font-display: 'Bricolage Grotesque', 'Geist', sans-serif;
   --font-mono:    'JetBrains Mono', 'Fira Code', monospace;
+
+  /* Breakpoints — phone vs Pro Max split sits between base and sm */
+  --breakpoint-xs: 30rem; /* 480px */
+}
+
+/* ─── Phone safe-area utilities ─── */
+/* Each maps to env(safe-area-inset-*) so fixed/sticky surfaces clear the
+   Dynamic Island, status bar, and home indicator on iOS. */
+
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+@utility pl-safe {
+  padding-left: env(safe-area-inset-left);
+}
+@utility pr-safe {
+  padding-right: env(safe-area-inset-right);
+}
+@utility px-safe {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+@utility py-safe {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Dynamic viewport height — 100dvh subtracts the iOS Safari URL bar dynamically,
+   preventing the bottom-cropping bug that 100vh causes on mobile Safari. */
+@utility h-dvh-safe {
+  height: 100dvh;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+@utility min-h-dvh-safe {
+  min-height: 100dvh;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 /* ─── DB Diagram · Trace Edge Animation (PK → FK direction) ─── */
@@ -1209,6 +1260,7 @@
 
   html {
     font-size: var(--font-size);
+    scroll-behavior: smooth;
   }
 
   h1 {

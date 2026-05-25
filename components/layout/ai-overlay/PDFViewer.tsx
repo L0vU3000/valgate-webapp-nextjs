@@ -120,7 +120,7 @@ export function PDFViewer({ url, title }: Props) {
             type="button"
             onClick={goToPreviousPage}
             disabled={pageNumber <= 1 || isLoading}
-            className="flex size-7 items-center justify-center rounded-full text-foreground/70 transition-all hover:bg-white hover:text-foreground disabled:opacity-25"
+            className="flex size-11 sm:size-7 items-center justify-center rounded-full text-foreground/70 transition-all hover:bg-white hover:text-foreground disabled:opacity-25"
             aria-label="Previous page"
           >
             <ChevronLeft className="size-3.5" />
@@ -132,7 +132,7 @@ export function PDFViewer({ url, title }: Props) {
             type="button"
             onClick={goToNextPage}
             disabled={pageNumber >= numPages || isLoading}
-            className="flex size-7 items-center justify-center rounded-full text-foreground/70 transition-all hover:bg-white hover:text-foreground disabled:opacity-25"
+            className="flex size-11 sm:size-7 items-center justify-center rounded-full text-foreground/70 transition-all hover:bg-white hover:text-foreground disabled:opacity-25"
             aria-label="Next page"
           >
             <ChevronRight className="size-3.5" />
@@ -152,7 +152,7 @@ export function PDFViewer({ url, title }: Props) {
             type="button"
             onClick={zoomOut}
             disabled={scale <= 0.5}
-            className="flex size-7 items-center justify-center rounded-full text-foreground/70 transition-all hover:bg-white hover:text-foreground disabled:opacity-25"
+            className="flex size-11 sm:size-7 items-center justify-center rounded-full text-foreground/70 transition-all hover:bg-white hover:text-foreground disabled:opacity-25"
             aria-label="Zoom out"
           >
             <ZoomOut className="size-3.5" />
@@ -164,7 +164,7 @@ export function PDFViewer({ url, title }: Props) {
             type="button"
             onClick={zoomIn}
             disabled={scale >= 3.0}
-            className="flex size-7 items-center justify-center rounded-full text-foreground/70 transition-all hover:bg-white hover:text-foreground disabled:opacity-25"
+            className="flex size-11 sm:size-7 items-center justify-center rounded-full text-foreground/70 transition-all hover:bg-white hover:text-foreground disabled:opacity-25"
             aria-label="Zoom in"
           >
             <ZoomIn className="size-3.5" />
