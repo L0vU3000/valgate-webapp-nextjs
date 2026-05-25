@@ -121,7 +121,7 @@ export function PortfolioPage({ data }: { data: PortfolioPageData }) {
       <AppHeader />
 
       {/* Main content */}
-      <div className="flex-1 overflow-auto scrollbar-none px-8 pb-8">
+      <div className="flex-1 overflow-auto scrollbar-none px-4 sm:px-8 pb-6 sm:pb-8">
         <div className="max-w-[1200px] mx-auto flex flex-col gap-5 pt-6">
 
           {/* Page Header */}
@@ -138,7 +138,7 @@ export function PortfolioPage({ data }: { data: PortfolioPageData }) {
                 <span className="text-xs text-slate-300">/</span>
                 <span className="text-xs font-semibold tracking-widest uppercase text-slate-400">Portfolio</span>
               </div>
-              <h1 className="text-4xl font-extrabold text-val-heading tracking-tight leading-10">Portfolio</h1>
+              <h1 className="text-[28px] sm:text-[40px] font-extrabold text-val-heading tracking-tight leading-tight sm:leading-10">Portfolio</h1>
               <p className="text-slate-500 text-base mt-2">
                 Oversee and manage your complete real estate asset inventory across all regions.
               </p>
@@ -154,7 +154,7 @@ export function PortfolioPage({ data }: { data: PortfolioPageData }) {
           </div>
 
           {/* KPI Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <KpiCard index={0} mounted={mounted}>
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Properties</span>
