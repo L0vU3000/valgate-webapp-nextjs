@@ -38,7 +38,7 @@
 | Investment Performance metrics (Cash-on-Cash, Cap Rate, Total ROI, Equity) | PropertyValuation + Payment + Expense | 4 | [property-id-valuation](property-id-valuation/plan.md) (row 27) |
 | Value Drivers (positive factors + opportunities) | MaintenanceItem (+ AI or property-condition data) | 1 | [property-id-valuation](property-id-valuation/plan.md) (row 29) |
 | **PortfolioKPI derivations** (5 functions: `computeMonthlyGrossIncome`, `computeOccupancyRate`, `computeVacancyCost`, `computeCollectionRate`, `computeMaintenanceTotal`) | Q3.M, Q3.N, Q3.O, Q3.P formula definitions → then Lease+Payment+Expense (all shipped) | **15** | [rental-dashboard](rental-dashboard/plan.md) (Hero KPI rows 14–16 + KPI grid rows 17–24) |
-| **`computePropertyYieldRanking`** (1 function: NOI + avg rent + market position per property) | Q4.Q (resolved: internal aggregation) + Phase 6.9 (PropertyComparable derivation) | **15** | [rental-dashboard](rental-dashboard/plan.md) (LeaseTable rows 25–39) |
+| **`computeLeaseTableRows`** (1 function: NOI + avg rent + market-index badge per property) | ✅ Done Phase 6.9 (2026-05-26) — `lib/data/derivations/comparable.ts`; LeaseTable fully wired | **15** | [rental-dashboard](rental-dashboard/plan.md) (LeaseTable rows 25–39) |
 | **`computeRecoveryRate` / `computeEvictionRisk` / `computeTopSpendCategory`** (3 small functions) | Q3.M (recovery), Q3.N (eviction), Q3.Q (top spend) formula definitions → then Payment+Expense (all shipped) | **4** | [rental-dashboard](rental-dashboard/plan.md) (rows 47–48, 52–53) |
 
 ## Status legend
