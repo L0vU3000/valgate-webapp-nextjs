@@ -90,7 +90,7 @@ export function CommandPalette({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="overflow-hidden p-0 gap-0 border-border-default bg-surface-base shadow-[0_0_40px_-10px_rgba(37,99,235,0.3)] [&>button:last-child]:hidden [animation:cmd-open_0.22s_cubic-bezier(0.16,1,0.3,1)_both] left-1/2 -translate-x-1/2 bottom-0 sm:bottom-auto top-auto sm:top-[20%] translate-y-0 max-w-full sm:max-w-2xl w-full sm:w-[calc(100%-2rem)] rounded-t-2xl sm:rounded-xl pt-safe pb-safe sm:pt-0 sm:pb-0 sm:h-auto">
+      <DialogContent className="overflow-hidden p-0 gap-0 border-border-default bg-surface-base shadow-[0_0_40px_-10px_rgba(37,99,235,0.3)] [&>button:last-child]:hidden data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100 [animation:cmd-open_0.22s_cubic-bezier(0.16,1,0.3,1)_both] left-1/2 -translate-x-1/2 bottom-0 sm:bottom-auto top-auto sm:top-[20%] translate-y-0 max-w-full sm:max-w-2xl w-full sm:w-[calc(100%-2rem)] rounded-t-2xl sm:rounded-xl sm:h-auto">
         <DialogHeader className="sr-only">
           <DialogTitle>Command Palette</DialogTitle>
           <DialogDescription>Search your portfolio — properties, documents, and navigation</DialogDescription>
@@ -207,9 +207,9 @@ export function CommandPalette({
             </CommandGroup>
           </CommandList>
 
-          {/* Footer */}
-          <div className="flex items-center justify-between px-5 py-3 border-t border-border-default bg-val-bg-page-alt">
-            <div className="flex items-center gap-1.5 text-[11px] text-secondary">
+          {/* Footer — keyboard hints + branding stacked and centered */}
+          <div className="flex flex-col items-center justify-center gap-1.5 px-5 pt-3 pb-safe sm:py-3 border-t border-border-default bg-val-bg-page-alt rounded-b-2xl sm:rounded-b-xl">
+            <div className="flex items-center justify-center gap-1.5 text-[11px] text-secondary flex-wrap text-center">
               {["\u2191", "\u2193"].map((k) => (
                 <kbd key={k} className="bg-surface-base border border-border-default rounded px-1.5 py-0.5 font-medium text-secondary text-[11px]">
                   {k}

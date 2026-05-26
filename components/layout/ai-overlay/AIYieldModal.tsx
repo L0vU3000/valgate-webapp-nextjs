@@ -318,8 +318,11 @@ export function AIYieldModal({
 
           <div className="ai-glass-divider-h mx-5" />
 
-          {/* Footer */}
-          <div className="flex shrink-0 items-center justify-between px-5 py-4 pb-safe">
+          {/* Footer — extra bottom inset so CTAs clear rounded modal corners (pb-safe is 0 on desktop) */}
+          <div
+            className="flex shrink-0 items-center justify-between gap-4 px-6 pt-4"
+            style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom, 0px))" }}
+          >
             <a
               href={yieldHref}
               className="flex items-center gap-1.5 rounded-lg px-3 py-2.5 text-[12px] font-medium text-interactive-primary transition-opacity hover:opacity-80"

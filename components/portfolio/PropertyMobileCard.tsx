@@ -135,13 +135,12 @@ export function PropertyMobileCard({
           <TypeIcon className="w-5 h-5" />
         </div>
         <div className="min-w-0 flex-1">
-          <p
-            className="text-[15px] text-val-heading font-semibold leading-tight truncate"
+          <p className="text-[15px] sm:text-[18px] text-val-heading font-semibold leading-tight truncate"
             title={property.name}
           >
             {property.name}
           </p>
-          <p className="text-[12px] text-slate-500 mt-0.5 truncate">
+          <p className="text-[12px] text-slate-400 mt-0.5 truncate">
             {TYPE_LABEL[property.type]} · {property.province ?? "—"}
           </p>
         </div>
@@ -155,26 +154,26 @@ export function PropertyMobileCard({
       {/* Row 2 — Size · Buy · (optional) Title */}
       <div className="flex items-end gap-5 pt-1">
         <div className="flex flex-col">
-          <span className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
+          <span className="text-[11px] uppercase tracking-[0.05em] text-slate-500 font-semibold">
             Size
           </span>
-          <span className="text-[13px] text-slate-700 font-medium tabular-nums">
+          <span className="text-[14px] sm:text-[15px] text-slate-700 font-medium tabular-nums">
             {property.totalArea
               ? `${Number(property.totalArea).toLocaleString()} m²`
               : "—"}
           </span>
         </div>
         <div className="flex flex-col">
-          <span className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
+          <span className="text-[11px] uppercase tracking-[0.05em] text-slate-500 font-semibold">
             Buy
           </span>
-          <span className="text-[13px] text-slate-900 font-semibold tabular-nums">
+          <span className="text-[18px] sm:text-[22px] font-bold text-val-heading leading-none tabular-nums">
             {property.buy}
           </span>
         </div>
         {property.title !== "—" && (
           <div className="flex flex-col">
-            <span className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
+            <span className="text-[11px] uppercase tracking-[0.05em] text-slate-500 font-semibold">
               Title
             </span>
             <span
@@ -190,7 +189,7 @@ export function PropertyMobileCard({
       {rowIsArchived ? (
         <button
           onClick={handleRestore}
-          className="self-start px-4 py-2 text-[13px] font-semibold text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors duration-150"
+          className="self-start px-4 py-2 text-[14px] font-semibold text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors duration-150"
         >
           Restore
         </button>
@@ -201,7 +200,7 @@ export function PropertyMobileCard({
           className="flex items-center gap-3 w-full text-left rounded-md -mx-1 px-1 py-1 hover:bg-slate-50 transition-colors duration-150"
         >
           <span
-            className={`text-[13px] font-bold tabular-nums leading-none w-11 shrink-0 ${progressTextColor}`}
+            className={`text-[15px] sm:text-[18px] font-bold tabular-nums leading-none w-14 shrink-0 ${progressTextColor}`}
           >
             {property.progress}%
           </span>
@@ -214,7 +213,7 @@ export function PropertyMobileCard({
               }}
             />
           </div>
-          <span className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold shrink-0">
+          <span className="text-[11px] uppercase tracking-[0.05em] text-slate-500 font-semibold shrink-0">
             Progress
           </span>
         </button>

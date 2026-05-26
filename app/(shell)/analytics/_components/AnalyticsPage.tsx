@@ -92,9 +92,9 @@ export function AnalyticsPage({ data, period }: { data: AnalyticsPageData; perio
           >
             <div>
               <div className="flex items-center gap-2 mb-3">
-                <span className="text-xs font-semibold tracking-widest uppercase text-[--val-primary-dark]">Valgate</span>
-                <span className="text-xs text-slate-300">/</span>
-                <span className="text-xs font-semibold tracking-widest uppercase text-slate-400">Analytics</span>
+                <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-[--val-primary-dark]">Valgate</span>
+                <span className="text-[11px] text-slate-300">/</span>
+                <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-400">Analytics</span>
               </div>
               <h1 className="text-[28px] sm:text-[40px] font-extrabold text-val-heading tracking-tight leading-tight sm:leading-10">
                 Portfolio Analytics
@@ -218,10 +218,10 @@ export function AnalyticsPage({ data, period }: { data: AnalyticsPageData; perio
             >
               <div className="flex flex-wrap items-start sm:items-center justify-between gap-2 px-4 sm:px-6 pt-5 sm:pt-6 pb-4 border-b border-slate-50">
                 <div>
-                  <h2 className="text-base font-bold text-slate-900 font-display">
+                  <h2 className="text-[18px] sm:text-[24px] font-bold text-val-heading font-display">
                     Revenue vs Expenses (YTD)
                   </h2>
-                  <p className="text-xs text-slate-500">Comparative analysis across all assets</p>
+                  <p className="text-[12px] text-slate-400">Comparative analysis across all assets</p>
                 </div>
                 <div className="flex items-center gap-3 sm:gap-4">
                   <div className="flex items-center gap-2">
@@ -248,8 +248,8 @@ export function AnalyticsPage({ data, period }: { data: AnalyticsPageData; perio
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                    <XAxis dataKey="month" tick={{ fontSize: 10, fill: "#94a3b8", fontWeight: 600 }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} tickFormatter={(v) => `$${v / 1000}k`} axisLine={false} tickLine={false} />
+                    <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#94a3b8", fontWeight: 600 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} tickFormatter={(v) => `$${v / 1000}k`} axisLine={false} tickLine={false} />
                     <Tooltip
                       contentStyle={{ backgroundColor: "#0f172a", border: "none", borderRadius: 4, color: "white", fontSize: 10 }}
                       formatter={(value: number, name: string) => [`$${(value / 1000).toFixed(0)}k`, name === "revenue" ? "Revenue" : "Expenses"]}
@@ -277,8 +277,8 @@ export function AnalyticsPage({ data, period }: { data: AnalyticsPageData; perio
                   </div>
                 </div>
                 <div className="flex items-center justify-between mt-3">
-                  <span className="text-[10px] font-semibold text-slate-500">TIMELINE ZOOM</span>
-                  <span className="text-[10px] font-semibold text-slate-500">MARCH 2024 - AUGUST 2024</span>
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">TIMELINE ZOOM</span>
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">MARCH 2024 - AUGUST 2024</span>
                 </div>
               </div>
             </div>
@@ -290,11 +290,11 @@ export function AnalyticsPage({ data, period }: { data: AnalyticsPageData; perio
                 className="bg-white border border-slate-100 rounded-lg shadow-sm p-6 transition-shadow duration-300 hover:shadow-md"
                 style={{ animation: `analytics-fade-up 500ms ${EASE_OUT_QUART} 650ms both` }}
               >
-                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Occupancy Rate</p>
-                <p className="text-3xl font-semibold text-slate-900 mt-1">
+                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Occupancy Rate</p>
+                <p className="text-[22px] sm:text-[26px] font-bold text-val-heading leading-none tabular-nums mt-1">
                   {kpiCards.find((k) => k.label === "Occupancy")?.value ?? "—"}
                 </p>
-                <p className="text-xs font-semibold text-slate-500 mt-1">Point-in-time</p>
+                <p className="text-[12px] text-slate-400 mt-1">Point-in-time</p>
               </div>
 
               {/* Lease Expiry Pipeline */}
@@ -303,7 +303,7 @@ export function AnalyticsPage({ data, period }: { data: AnalyticsPageData; perio
                 style={{ animation: `analytics-fade-up 500ms ${EASE_OUT_QUART} 750ms both` }}
               >
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider font-display">
+                  <h3 className="text-[15px] sm:text-[18px] font-semibold text-val-heading font-display">
                     Lease Expiry Pipeline
                   </h3>
                   <button className="text-xs font-semibold text-[--val-primary-dark] transition-opacity duration-200 hover:opacity-70 active:scale-[0.97]">View All</button>
@@ -335,7 +335,7 @@ export function AnalyticsPage({ data, period }: { data: AnalyticsPageData; perio
                 className="bg-white border border-slate-100 rounded-lg shadow-sm p-6 transition-shadow duration-300 hover:shadow-md"
                 style={{ animation: `analytics-fade-up 500ms ${EASE_OUT_QUART} 850ms both` }}
               >
-                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider font-display mb-4">
+                <h3 className="text-[15px] sm:text-[18px] font-semibold text-slate-400 font-display mb-4">
                   Saved Reports
                 </h3>
                 <div className="space-y-3">
@@ -373,7 +373,7 @@ export function AnalyticsPage({ data, period }: { data: AnalyticsPageData; perio
               className="bg-white border border-slate-100 rounded-lg shadow-sm p-6 transition-shadow duration-300 hover:shadow-md"
               style={bottomRow.visible ? { animation: `analytics-fade-up 500ms ${EASE_OUT_QUART} 0ms both` } : { opacity: 0 }}
             >
-              <h3 className="text-base font-bold text-slate-900 font-display mb-6">
+              <h3 className="text-[15px] sm:text-[18px] font-semibold text-val-heading font-display mb-6">
                 Expense Breakdown
               </h3>
               <div className="flex items-center gap-6">
@@ -403,7 +403,7 @@ export function AnalyticsPage({ data, period }: { data: AnalyticsPageData; perio
                         : expenseBreakdownTotal >= 1000 ? `$${(expenseBreakdownTotal / 1000).toFixed(1)}k`
                         : `$${expenseBreakdownTotal}`}
                     </span>
-                    <span className="text-[8px] font-semibold text-slate-400 uppercase">Total</span>
+                    <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-[0.05em]">Total</span>
                   </div>
                 </div>
                 <div className="flex-1 space-y-2">
@@ -411,9 +411,9 @@ export function AnalyticsPage({ data, period }: { data: AnalyticsPageData; perio
                     <div key={item.name} className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <div className="w-2 h-2 rounded-full transition-transform duration-200 hover:scale-150" style={{ backgroundColor: item.color }} />
-                        <span className="text-[10px] font-semibold text-slate-900">{item.name}</span>
+                        <span className="text-[11px] font-semibold text-val-heading">{item.name}</span>
                       </div>
-                      <span className="text-[10px] font-semibold text-slate-900">{item.pct}%</span>
+                      <span className="text-[11px] font-semibold text-val-heading tabular-nums">{item.pct}%</span>
                     </div>
                   ))}
                 </div>
@@ -425,13 +425,13 @@ export function AnalyticsPage({ data, period }: { data: AnalyticsPageData; perio
               className="bg-white border border-slate-100 rounded-lg shadow-sm p-6 transition-shadow duration-300 hover:shadow-md"
               style={bottomRow.visible ? { animation: `analytics-fade-up 500ms ${EASE_OUT_QUART} 100ms both` } : { opacity: 0 }}
             >
-              <h3 className="text-base font-bold text-slate-900 font-display mb-6">
+              <h3 className="text-[15px] sm:text-[18px] font-semibold text-val-heading font-display mb-6">
                 Capital Growth (Ranked)
               </h3>
               <div className="space-y-4">
                 {capitalGrowth.map((item, i) => (
                   <div key={item.rank} className="flex items-center gap-3">
-                    <span className="text-[10px] font-semibold text-slate-400 w-4">{item.rank}</span>
+                    <span className="text-[11px] font-semibold text-slate-500 w-4 tabular-nums">{item.rank}</span>
                     <div className="flex-1 space-y-1">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-semibold text-slate-900">{item.name}</span>
@@ -457,12 +457,12 @@ export function AnalyticsPage({ data, period }: { data: AnalyticsPageData; perio
               className="bg-white border border-slate-100 rounded-lg shadow-sm p-6 transition-shadow duration-300 hover:shadow-md"
               style={bottomRow.visible ? { animation: `analytics-fade-up 500ms ${EASE_OUT_QUART} 200ms both` } : { opacity: 0 }}
             >
-              <h3 className="text-base font-bold text-slate-900 font-display mb-6">
+              <h3 className="text-[15px] sm:text-[18px] font-semibold text-val-heading font-display mb-6">
                 Maintenance Spend (6M)
               </h3>
               <ResponsiveContainer width="100%" height={128}>
                 <BarChart data={maintenanceSpend}>
-                  <XAxis dataKey="month" tick={{ fontSize: 8, fill: "#94a3b8", fontWeight: 600 }} axisLine={false} tickLine={false} />
+                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#94a3b8", fontWeight: 600 }} axisLine={false} tickLine={false} />
                   <Tooltip
                     formatter={(value: number) => [`$${value.toLocaleString()}`, "Spend"]}
                     contentStyle={{ fontSize: 10, borderRadius: 4 }}
@@ -498,14 +498,14 @@ function KpiCard({ label, value, change, positive, icon: Icon, index }: {
       style={staggerStyle(index, 200)}
     >
       <div className="flex items-start justify-between">
-        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider whitespace-pre-line">
+        <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em] whitespace-pre-line">
           {label}
         </span>
         <div className="bg-slate-50 p-1.5 rounded transition-colors duration-200 group-hover:bg-slate-100">
           <Icon size={16} className="text-slate-400" />
         </div>
       </div>
-      <p className="text-2xl font-semibold text-slate-900">{value}</p>
+      <p className="text-[22px] sm:text-[26px] font-bold text-val-heading leading-none tabular-nums">{value}</p>
       <div className="flex items-center gap-1">
         {positive ? (
           <TrendingUp size={12} className="text-emerald-600" />

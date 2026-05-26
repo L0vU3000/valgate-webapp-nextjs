@@ -123,8 +123,8 @@ function StatCard({
       {stat.accent && (
         <div className="absolute top-[-32px] right-[-32px] size-24 rounded-full bg-[rgba(0,74,198,0.05)]" />
       )}
-      <p className="text-sm font-medium text-[#434655]">{stat.label}</p>
-      <p className="text-2xl font-semibold text-val-heading">{stat.value}</p>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">{stat.label}</p>
+      <p className="text-[22px] sm:text-[26px] font-bold text-val-heading leading-none tabular-nums">{stat.value}</p>
 
       {stat.progress !== null && (
         <div className="bg-[#d8e3f4] h-1.5 rounded-full w-full overflow-hidden">
@@ -146,7 +146,7 @@ function StatCard({
             </>
           )}
           {stat.subVariant === "neutral" && (
-            <span className="text-xs text-[#434655]">{stat.sub}</span>
+            <span className="text-xs text-slate-400">{stat.sub}</span>
           )}
           {stat.subVariant === "primary" && (
             <>
@@ -433,14 +433,14 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 anim-enter" style={{ animationDelay: '0ms' }}>
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-2 mb-3">
-              <span className="text-xs font-semibold tracking-widest uppercase text-[--val-primary-dark]">Valgate</span>
-              <span className="text-xs text-slate-300">/</span>
-              <span className="text-xs font-semibold tracking-widest uppercase text-slate-400">Estate Planning</span>
+              <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-[--val-primary-dark]">Valgate</span>
+              <span className="text-[11px] text-slate-300">/</span>
+              <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-400">Estate Planning</span>
             </div>
             <h1 className="text-[28px] sm:text-[40px] font-extrabold text-val-heading tracking-tight leading-tight sm:leading-10">
               Estate Planning
             </h1>
-            <p className="text-slate-500 text-base mt-2">
+            <p className="text-[14px] sm:text-[15px] text-slate-500 mt-2">
               Protect what matters most — plan how your properties pass to the people you love.
             </p>
           </div>
@@ -537,7 +537,7 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
               {property.initials}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-[#737686]">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">
                 Property
               </p>
               <p className="text-sm font-semibold text-val-heading truncate">
@@ -556,7 +556,7 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
                 <div className="flex items-start justify-between gap-4 w-full">
                   <div>
                     <div className="flex flex-wrap items-center gap-2 mb-1">
-                      <h2 className="text-2xl font-bold font-display text-val-heading">
+                      <h2 className="text-[18px] sm:text-[24px] font-bold font-display text-val-heading">
                         {property.name}{" "}
                         <span className="font-semibold text-[#c3c6d7]">Estate Plan</span>
                       </h2>
@@ -567,7 +567,7 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
                         </span>
                       )}
                     </div>
-                    <p className="text-sm text-[#434655]">
+                    <p className="text-[14px] sm:text-[15px] text-slate-600">
                       Last updated: {property.lastUpdatedLabel}
                     </p>
                   </div>
@@ -619,7 +619,7 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
                 <div className="bg-val-bg-tint border border-[rgba(195,198,215,0.3)] rounded-xl p-5 sm:p-6 flex flex-col gap-4">
                   <div className="flex items-end justify-between">
                     <div className="flex flex-col gap-1">
-                      <p className="text-xs font-semibold uppercase tracking-[1.2px] text-[#434655]">Status</p>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">Status</p>
                       <div className={cn("flex items-center gap-2", statusPanel.textClass)}>
                         {statusPanel.icon}
                         <span className={cn("text-lg font-semibold", statusPanel.textClass)}>
@@ -640,10 +640,10 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
                 {/* Successors Table */}
                 <div className="flex flex-col gap-4">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-bold font-display text-val-heading">
+                    <h3 className="text-[15px] sm:text-[18px] font-semibold font-display text-val-heading">
                       Designated Beneficiaries
                     </h3>
-                    <span className="text-xs text-[#434655]">{propertySuccessors.length} total entries</span>
+                    <span className="text-[12px] text-slate-400">{propertySuccessors.length} total entries</span>
                   </div>
 
                   <div className="border border-[#e8eaed] rounded-xl overflow-hidden">
@@ -654,7 +654,7 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
                       {["Name", "Role", "Share", "Status", ""].map((col) => (
                         <span
                           key={col}
-                          className="text-xs font-semibold uppercase tracking-[0.6px] text-[#737686]"
+                          className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500"
                         >
                           {col}
                         </span>
@@ -746,7 +746,7 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
                           <RoleBadge role={s.role} />
                           <div className="flex items-center gap-3">
                             <div className="flex flex-col items-end">
-                              <span className="text-[10px] uppercase tracking-wide text-[#737686] font-semibold">
+                              <span className="text-[11px] uppercase tracking-[0.05em] text-slate-500 font-semibold">
                                 Share
                               </span>
                               <span className="text-sm font-semibold text-val-heading tabular-nums">{s.share}</span>
@@ -771,7 +771,7 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
 
                 {/* Required Documents */}
                 <div className="flex flex-col gap-4">
-                  <h3 className="text-lg font-bold font-display text-val-heading">
+                  <h3 className="text-[15px] sm:text-[18px] font-semibold font-display text-val-heading">
                     Estate Documents
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
@@ -794,7 +794,7 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
                           </div>
                           <div>
                             <p className="text-sm font-semibold text-val-heading">{doc.name}</p>
-                            <p className="text-[10px] font-semibold uppercase text-[#434655] mt-0.5">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mt-0.5">
                               {doc.meta}
                             </p>
                           </div>
@@ -809,7 +809,7 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
 
                 {/* Recent Activities */}
                 <div className="flex flex-col gap-6 pt-4">
-                  <h3 className="text-lg font-bold font-display text-val-heading">
+                  <h3 className="text-[15px] sm:text-[18px] font-semibold font-display text-val-heading">
                     Recent Activity
                   </h3>
 

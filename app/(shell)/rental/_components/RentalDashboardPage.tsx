@@ -64,12 +64,12 @@ export function RentalDashboardPage({ data }: { data: RentalDashboardData }) {
             }}
           >
             <div className="flex items-center gap-1.5 mb-3">
-              <span className="text-xs font-semibold tracking-widest uppercase text-[--val-primary-dark]">Valgate</span>
-              <span className="text-xs text-slate-300">/</span>
-              <span className="text-xs font-semibold tracking-widest uppercase text-slate-400">Rental</span>
+              <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-[--val-primary-dark]">Valgate</span>
+              <span className="text-[11px] text-slate-300">/</span>
+              <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-400">Rental</span>
             </div>
             <h1 className="text-[28px] sm:text-[40px] font-extrabold text-val-heading tracking-tight leading-tight sm:leading-10">Rental Dashboard</h1>
-            <p className="text-slate-500 text-base mt-2">Track properties, leases, and income across your rental portfolio.</p>
+            <p className="text-[14px] sm:text-[15px] text-slate-500 mt-2">Track properties, leases, and income across your rental portfolio.</p>
           </div>
 
           {/* ================================================================ */}
@@ -98,7 +98,7 @@ export function RentalDashboardPage({ data }: { data: RentalDashboardData }) {
             className="anim-enter flex items-center gap-3 lg:gap-4 rounded-lg border border-slate-200 bg-white p-3 lg:p-4 shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)] overflow-x-auto scrollbar-none"
             style={{ animationDelay: "300ms" }}
           >
-            <span className="shrink-0 border-r border-slate-200 pr-3 lg:pr-4 text-xs font-semibold uppercase tracking-widest text-slate-400">
+            <span className="shrink-0 border-r border-slate-200 pr-3 lg:pr-4 text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-400">
               Actions
             </span>
             <button
@@ -154,7 +154,7 @@ export function RentalDashboardPage({ data }: { data: RentalDashboardData }) {
             style={{ animationDelay: "550ms" }}
           >
             <div className="border-b border-slate-100 px-5 sm:px-6 py-4 sm:py-5">
-              <h2 className="text-base font-bold text-val-heading">Lease Renewal Pipeline</h2>
+              <h2 className="text-[18px] sm:text-[24px] font-bold text-val-heading">Lease Renewal Pipeline</h2>
             </div>
             {/*
               Mobile: vertical stack of stages, separated by horizontal
@@ -165,7 +165,7 @@ export function RentalDashboardPage({ data }: { data: RentalDashboardData }) {
               {pipelineStages.map((stage, si) => (
                 <div key={stage.label} className="flex flex-1 flex-col gap-4 p-5 sm:p-6">
                   <div className="flex items-center justify-between">
-                    <span className={cn("text-[10px] font-semibold uppercase", stage.color)}>
+                    <span className={cn("text-[11px] font-semibold uppercase tracking-[0.05em]", stage.color)}>
                       {stage.label}
                     </span>
                     <span className={cn("rounded px-2 py-0.5 text-xs font-semibold", stage.countBg)}>
@@ -181,8 +181,8 @@ export function RentalDashboardPage({ data }: { data: RentalDashboardData }) {
                       )}
                       style={{ animationDelay: `${650 + si * 100 + ci * 60}ms` }}
                     >
-                      <p className="text-sm font-semibold text-val-heading">{card.unit}</p>
-                      <p className="text-xs text-slate-500">{card.detail}</p>
+                      <p className="text-[14px] sm:text-[15px] font-semibold text-val-heading">{card.unit}</p>
+                      <p className="text-[12px] text-slate-400">{card.detail}</p>
                     </div>
                   ))}
                 </div>
@@ -206,31 +206,31 @@ export function RentalDashboardPage({ data }: { data: RentalDashboardData }) {
               style={{ animationDelay: "700ms" }}
             >
               <div className="flex items-center justify-between">
-                <h3 className="text-base font-bold text-val-heading">Rent Collection &amp; Arrears</h3>
-                <span className="text-xs font-semibold text-slate-400">Aging Buckets</span>
+                <h3 className="text-[15px] sm:text-[18px] font-semibold text-val-heading">Rent Collection &amp; Arrears</h3>
+                <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-400">Aging Buckets</span>
               </div>
               <div className="mt-6 flex flex-col gap-4">
                 {arrearsBuckets.map((bucket, i) => (
                   <div key={bucket.label} className="flex items-center gap-4">
-                    <span className="w-12 text-right text-xs font-semibold text-slate-400">{bucket.label}</span>
+                    <span className="w-12 text-right text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">{bucket.label}</span>
                     <div className="flex-1 overflow-hidden rounded-full bg-slate-50 h-8">
                       <div
                         className={cn("rental-bar h-full", bucket.color)}
                         style={{ width: bucket.width, animationDelay: `${900 + i * 120}ms` }}
                       />
                     </div>
-                    <span className="text-xs font-semibold text-val-heading">{bucket.amount}</span>
+                    <span className="text-[14px] sm:text-[15px] font-semibold text-val-heading tabular-nums">{bucket.amount}</span>
                   </div>
                 ))}
               </div>
               <div className="mt-6 flex items-start justify-around border-t border-slate-100 pt-5">
                 <div className="text-center">
-                  <p className="text-[10px] font-semibold uppercase text-slate-400">Billing Recovery</p>
-                  <p className="text-xl font-semibold text-val-heading">{recoveryRate}</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">Billing Recovery</p>
+                  <p className="text-[22px] sm:text-[26px] font-bold text-val-heading leading-none tabular-nums">{recoveryRate}</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-[10px] font-semibold uppercase text-slate-400">Eviction Risk</p>
-                  <p className={cn("text-xl font-semibold", evictionRisk === "None" ? "text-green-600" : "text-rose-700")}>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">Eviction Risk</p>
+                  <p className={cn("text-[22px] sm:text-[26px] font-bold leading-none tabular-nums", evictionRisk === "None" ? "text-green-600" : "text-rose-700")}>
                     {evictionRisk}
                   </p>
                 </div>
@@ -242,7 +242,7 @@ export function RentalDashboardPage({ data }: { data: RentalDashboardData }) {
               className="anim-enter lg:col-span-3 rounded-lg border border-slate-200 bg-white p-5 sm:p-6 shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)]"
               style={{ animationDelay: "780ms" }}
             >
-              <h3 className="text-base font-bold text-val-heading">
+              <h3 className="text-[15px] sm:text-[18px] font-semibold text-val-heading">
                 Maintenance<br />Exposure
               </h3>
               <div className="mt-6 flex flex-col gap-4">
@@ -250,13 +250,13 @@ export function RentalDashboardPage({ data }: { data: RentalDashboardData }) {
                   <div key={item.label} className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className={cn("h-2 w-2 rounded-full", item.color)} />
-                      <span className="text-sm font-medium text-slate-700">{item.label}</span>
+                      <span className="text-[14px] sm:text-[15px] font-medium text-slate-700">{item.label}</span>
                     </div>
-                    <span className="text-sm font-semibold text-val-heading">{item.count}</span>
+                    <span className="text-[14px] sm:text-[15px] font-semibold text-val-heading tabular-nums">{item.count}</span>
                   </div>
                 ))}
               </div>
-              <p className="mt-6 text-[10px] font-semibold uppercase text-slate-400">Top Spend Category</p>
+              <p className="mt-6 text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">Top Spend Category</p>
               {topSpend ? (
                 <div className="mt-2 rounded bg-slate-50 p-3">
                   <div className="flex items-center justify-between">
@@ -280,7 +280,7 @@ export function RentalDashboardPage({ data }: { data: RentalDashboardData }) {
               className="anim-enter-right lg:col-span-4 rounded-lg border border-slate-200 bg-white p-5 sm:p-6 shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)]"
               style={{ animationDelay: "750ms" }}
             >
-              <h3 className="text-base font-bold text-val-heading">Upcoming Events</h3>
+              <h3 className="text-[15px] sm:text-[18px] font-semibold text-val-heading">Upcoming Events</h3>
               <div className="relative mt-6 flex flex-col gap-6">
                 <div className="absolute bottom-2 left-[7px] top-2 w-px bg-slate-100" />
                 {upcomingEvents.map((event, i) => (
@@ -296,9 +296,9 @@ export function RentalDashboardPage({ data }: { data: RentalDashboardData }) {
                         event.active && "rental-timeline-active shadow-sm"
                       )}
                     />
-                    <span className={cn("text-[10px] font-semibold uppercase", event.timeColor)}>{event.time}</span>
-                    <span className="text-sm font-semibold text-val-heading">{event.title}</span>
-                    <span className="text-xs text-slate-500">{event.detail}</span>
+                    <span className={cn("text-[11px] font-semibold uppercase tracking-[0.05em]", event.timeColor)}>{event.time}</span>
+                    <span className="text-[14px] sm:text-[15px] font-semibold text-val-heading">{event.title}</span>
+                    <span className="text-[12px] text-slate-400">{event.detail}</span>
                   </div>
                 ))}
               </div>

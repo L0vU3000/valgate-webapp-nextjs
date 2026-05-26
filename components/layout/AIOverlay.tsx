@@ -16,6 +16,8 @@ import {
 import type { AiMessage } from "@/lib/data/types/ai-message";
 import type { AiSession } from "@/lib/data/types/ai-session";
 import type { AiOverlayClientContext } from "@/lib/data/derivations/ai-context";
+import type { AiWorkspaceDocument } from "@/lib/data/derivations/ai-context";
+import { AIDocumentModal } from "./ai-overlay/AIDocumentModal";
 import { AISessionSidebar } from "./ai-overlay/AISessionSidebar";
 import { AIChatPane } from "./ai-overlay/AIChatPane";
 import { AIWorkspaceAssets } from "./ai-overlay/AIWorkspaceAssets";
@@ -41,6 +43,7 @@ export function AIOverlay({ open, onClose, pathname }: AIOverlayProps) {
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>("chat");
   const [bootstrapped, setBootstrapped] = useState(false);
   const [latestAssistantMsgId, setLatestAssistantMsgId] = useState<string | null>(null);
+  const [selectedDoc, setSelectedDoc] = useState<AiWorkspaceDocument | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const activeSessionIdRef = useRef<string | null>(null);
   const pathnameRef = useRef(pathname);
@@ -73,6 +76,7 @@ export function AIOverlay({ open, onClose, pathname }: AIOverlayProps) {
   useEffect(() => {
     if (!open) {
       setBootstrapped(false);
+      setSelectedDoc(null);
       return;
     }
     setMobilePanel("chat");
@@ -327,6 +331,7 @@ export function AIOverlay({ open, onClose, pathname }: AIOverlayProps) {
                 messages={messages}
                 userInitials={context?.userInitials ?? "U"}
                 documents={context?.documents ?? []}
+                onOpenDocument={setSelectedDoc}
                 inputValue={inputValue}
                 onInputChange={setInputValue}
                 onSend={handleSend}
@@ -349,12 +354,15 @@ export function AIOverlay({ open, onClose, pathname }: AIOverlayProps) {
                   portfolioBars={context.portfolioBars}
                   yieldHref={context.yieldHref}
                   portfolio={context.portfolio}
+                  onOpenDocument={setSelectedDoc}
                 />
               </div>
             )}
           </div>
         </div>
       </div>
+
+      <AIDocumentModal doc={selectedDoc} onClose={() => setSelectedDoc(null)} />
     </div>
   );
 }

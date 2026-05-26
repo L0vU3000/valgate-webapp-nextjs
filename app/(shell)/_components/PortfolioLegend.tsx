@@ -63,22 +63,22 @@ export function PortfolioLegend({
           <div className="grid grid-cols-2 gap-x-3 gap-y-2 bg-glass-panel-fill backdrop-blur-md border border-glass-panel-border rounded-2xl shadow-sm px-4 py-3">
             {/* Portfolio value */}
             <div className="flex flex-col">
-              <span className="text-[10px] uppercase tracking-wider text-secondary font-medium">
+              <span className="text-[11px] uppercase tracking-[0.05em] text-slate-500 font-semibold">
                 Portfolio
               </span>
-              <span className="text-sm font-bold font-display text-foreground truncate">
+              <span className="text-[18px] sm:text-[22px] font-bold font-display text-foreground tabular-nums truncate">
                 {portfolioValue}
               </span>
             </div>
 
             {/* Property count */}
             <div className="flex flex-col">
-              <span className="text-[10px] uppercase tracking-wider text-secondary font-medium">
+              <span className="text-[11px] uppercase tracking-[0.05em] text-slate-500 font-semibold">
                 Properties
               </span>
               <div className="flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-interactive-primary shrink-0" />
-                <span className="text-sm font-medium text-foreground">
+                <span className="text-[18px] sm:text-[22px] font-bold text-foreground tabular-nums">
                   {stats.totalProperties}
                 </span>
               </div>
@@ -86,7 +86,7 @@ export function PortfolioLegend({
 
             {/* Rented */}
             <div className="flex flex-col">
-              <span className="text-[10px] uppercase tracking-wider text-secondary font-medium">
+              <span className="text-[11px] uppercase tracking-[0.05em] text-slate-500 font-semibold">
                 Rented
               </span>
               <div className="flex items-center gap-1.5">
@@ -101,7 +101,7 @@ export function PortfolioLegend({
 
             {/* Avg progress */}
             <div className="flex flex-col">
-              <span className="text-[10px] uppercase tracking-wider text-secondary font-medium">
+              <span className="text-[11px] uppercase tracking-[0.05em] text-slate-500 font-semibold">
                 Avg Progress
               </span>
               <div className="flex items-center gap-1.5">
@@ -144,7 +144,7 @@ export function PortfolioLegend({
         <div className="flex items-center bg-glass-panel-fill backdrop-blur-md border border-glass-panel-border rounded-full shadow-sm px-5 py-2.5 gap-4 whitespace-nowrap">
           {/* Total value */}
           <div className="flex items-baseline gap-2">
-            <span className="text-[10px] uppercase tracking-wider text-secondary font-medium">
+            <span className="text-[11px] uppercase tracking-[0.05em] text-slate-500 font-semibold">
               Portfolio
             </span>
             <span className="text-sm font-bold font-display text-foreground">

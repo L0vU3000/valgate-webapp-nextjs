@@ -49,14 +49,14 @@ export function SettingsPage({ data }: { data: SettingsPageData }) {
         {/* Page Header */}
         <div className="flex flex-col gap-1" style={sectionStyle(0)}>
           <div className="flex items-center gap-2 mb-3">
-            <span className="text-xs font-semibold tracking-widest uppercase text-[--val-primary-dark]">Valgate</span>
-            <span className="text-xs text-slate-300">/</span>
-            <span className="text-xs font-semibold tracking-widest uppercase text-slate-400">Settings</span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-[--val-primary-dark]">Valgate</span>
+            <span className="text-[11px] text-slate-300">/</span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-400">Settings</span>
           </div>
           <h1 className="text-[28px] sm:text-[40px] font-extrabold text-val-heading tracking-tight leading-tight sm:leading-10">
             Account Settings
           </h1>
-          <p className="text-slate-500 text-base mt-2">
+          <p className="text-[14px] sm:text-[15px] text-slate-500 mt-2">
             Manage your personal information, security preferences, and notification settings.
           </p>
         </div>
@@ -80,7 +80,7 @@ export function SettingsPage({ data }: { data: SettingsPageData }) {
                 </div>
                 <div className="flex flex-col">
                   <div className="flex items-center gap-2">
-                    <h3 className="font-display font-bold text-[18px] text-val-heading">
+                    <h3 className="font-display font-semibold text-[15px] sm:text-[18px] text-val-heading">
                       {data.profile.firstName} {data.profile.lastName}
                     </h3>
                     {data.profile.role && (
@@ -115,7 +115,7 @@ export function SettingsPage({ data }: { data: SettingsPageData }) {
           <div className="col-span-2 flex flex-col gap-6">
             {/* Update Password Card */}
             <div className="bg-white border border-[#d1d5db] rounded-[12px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] p-4 sm:p-[25px] flex flex-col gap-4">
-              <h3 className="font-display font-semibold text-[16px] leading-[24px] text-val-heading">Update Password</h3>
+              <h3 className="font-display font-semibold text-[15px] sm:text-[18px] text-val-heading">Update Password</h3>
               <div className="flex flex-col gap-4">
                 <PasswordField label="Current Password" required value={currentPassword} onChange={setCurrentPassword} />
                 <div className="grid grid-cols-1 xs:grid-cols-2 gap-3 sm:gap-4">
@@ -132,7 +132,7 @@ export function SettingsPage({ data }: { data: SettingsPageData }) {
 
             {/* MFA Card */}
             <div className="bg-white border border-[#d1d5db] rounded-[12px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] p-4 sm:p-[25px] flex flex-col gap-4">
-              <h3 className="font-display font-semibold text-[16px] leading-[24px] text-val-heading">Multi-Factor Authentication</h3>
+              <h3 className="font-display font-semibold text-[15px] sm:text-[18px] text-val-heading">Multi-Factor Authentication</h3>
               <div className="flex flex-col gap-3">
                 {/* Authenticator App — enabled */}
                 <div className="bg-[#ecfdf5] border border-[#a7f3d0] rounded-[12px] p-[17px] flex items-center justify-between transition-colors duration-150 hover:bg-[#d1fae5]">
@@ -183,10 +183,10 @@ export function SettingsPage({ data }: { data: SettingsPageData }) {
           <div className="col-span-2 bg-white border border-[#d1d5db] rounded-[12px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] overflow-hidden">
             {/* Table Header */}
             <div className="bg-[#f5f6f7] border-b border-[#d1d5db] grid grid-cols-12 px-6 py-3">
-              <div className="col-span-6 font-sans font-semibold text-[12px] leading-[16px] tracking-[0.6px] uppercase text-tertiary">Event Activity</div>
-              <div className="col-span-2 font-sans font-semibold text-[12px] leading-[16px] tracking-[0.6px] uppercase text-tertiary text-center">Email</div>
-              <div className="col-span-2 font-sans font-semibold text-[12px] leading-[16px] tracking-[0.6px] uppercase text-tertiary text-center">Slack</div>
-              <div className="col-span-2 font-sans font-semibold text-[12px] leading-[16px] tracking-[0.6px] uppercase text-tertiary text-center">SMS</div>
+              <div className="col-span-6 font-sans font-semibold text-[11px] leading-[16px] tracking-[0.05em] uppercase text-slate-500">Event Activity</div>
+              <div className="col-span-2 font-sans font-semibold text-[11px] leading-[16px] tracking-[0.05em] uppercase text-slate-500 text-center">Email</div>
+              <div className="col-span-2 font-sans font-semibold text-[11px] leading-[16px] tracking-[0.05em] uppercase text-slate-500 text-center">Slack</div>
+              <div className="col-span-2 font-sans font-semibold text-[11px] leading-[16px] tracking-[0.05em] uppercase text-slate-500 text-center">SMS</div>
             </div>
             {/* Table Rows */}
             {data.notificationRows.map((row, i) => (
@@ -197,7 +197,7 @@ export function SettingsPage({ data }: { data: SettingsPageData }) {
                 } ${flashRow === row.key ? "bg-blue-50" : "hover:bg-[#fafbff]"}`}
               >
                 <div className="col-span-6">
-                  <p className="font-sans font-medium text-[14px] leading-[20px] text-foreground">{row.label}</p>
+                  <p className="font-sans font-medium text-[14px] sm:text-[15px] leading-[20px] text-foreground">{row.label}</p>
                   <p className="font-sans text-[12px] leading-[16px] text-tertiary">{row.description}</p>
                 </div>
                 {(["email", "slack", "sms"] as const).map((channel) => (
@@ -274,7 +274,7 @@ export function SettingsPage({ data }: { data: SettingsPageData }) {
           <div className="col-span-2 bg-white border border-[#d1d5db] rounded-[12px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] p-4 sm:p-[25px]">
             <div className="flex items-center justify-between">
               <div className="flex flex-col gap-1">
-                <h3 className="font-display font-semibold text-[16px] leading-[24px] text-val-heading">Export Activity Log</h3>
+                <h3 className="font-display font-semibold text-[15px] sm:text-[18px] text-val-heading">Export Activity Log</h3>
                 <p className="font-sans text-[14px] leading-[20px] text-tertiary">
                   Download a full history of your account actions in CSV format.
                 </p>
@@ -301,7 +301,7 @@ export function SettingsPage({ data }: { data: SettingsPageData }) {
           <div className="col-span-2 bg-[#fff1f2] border border-[#fecdd3] rounded-[12px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] p-4 sm:p-[25px]">
             <div className="flex items-center justify-between">
               <div className="flex flex-col gap-1">
-                <h3 className="font-display font-semibold text-[16px] leading-[24px] text-[#881337]">Delete Account</h3>
+                <h3 className="font-display font-semibold text-[15px] sm:text-[18px] text-[#881337]">Delete Account</h3>
                 <p className="font-sans text-[14px] leading-[20px] text-[#9f1239]/75">
                   Once you delete your account, there is no going back. Please be certain.
                 </p>

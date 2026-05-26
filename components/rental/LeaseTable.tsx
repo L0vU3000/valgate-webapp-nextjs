@@ -46,17 +46,17 @@ export function LeaseTable() {
     >
       {/* Header */}
       <div className="flex items-center justify-between border-b border-slate-100 px-4 sm:px-6 py-4 sm:py-5">
-        <h2 className="text-base sm:text-lg font-bold text-slate-900">
+        <h2 className="text-[18px] sm:text-[24px] font-bold text-val-heading">
           Property Ranking
         </h2>
-        <span className="text-xs font-semibold uppercase tracking-widest text-slate-400">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-400">
           By Yield
         </span>
       </div>
 
       {/* Table header — paddings shrink on mobile so the four columns fit
           within a 484px viewport without horizontal overflow. */}
-      <div className="flex bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+      <div className="flex bg-slate-50 text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">
         <div className="w-[33%] px-3 sm:px-6 py-3">Property</div>
         <div className="w-[20%] px-3 sm:px-6 py-3">NOI</div>
         <div className="w-[22%] px-3 sm:px-6 py-3">Rent</div>
@@ -81,22 +81,22 @@ export function LeaseTable() {
               )}
             />
             <div className="min-w-0">
-              <p className="text-xs sm:text-sm font-semibold text-slate-900 truncate">
+              <p className="text-[14px] sm:text-[15px] font-semibold text-val-heading truncate">
                 {row.name}
               </p>
-              <p className="text-[10px] sm:text-xs text-slate-400 truncate">{row.location}</p>
+              <p className="text-[12px] text-slate-400 truncate">{row.location}</p>
             </div>
           </div>
-          <div className="w-[20%] px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-base font-semibold text-slate-700 truncate">
+          <div className="w-[20%] px-3 sm:px-6 py-3 sm:py-4 text-[14px] sm:text-[15px] font-semibold text-slate-700 tabular-nums truncate">
             {row.noi}
           </div>
-          <div className="w-[22%] px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-base text-slate-500 truncate">
+          <div className="w-[22%] px-3 sm:px-6 py-3 sm:py-4 text-[14px] sm:text-[15px] text-slate-600 tabular-nums truncate">
             {row.rent}
           </div>
           <div className="w-[25%] px-3 sm:px-6 py-3 sm:py-4">
             <span
               className={cn(
-                "inline-block rounded-full px-1.5 sm:px-2 py-0.5 sm:py-1 text-[9px] sm:text-[10px] font-semibold uppercase tracking-tight",
+                "inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.05em]",
                 row.indexColor
               )}
             >

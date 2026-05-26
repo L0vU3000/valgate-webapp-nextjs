@@ -51,7 +51,7 @@ function StarRating({ rating, count }: { rating: number; count: number }) {
           )}
         />
       ))}
-      <span className="text-xs font-semibold text-slate-400 pl-1">
+        <span className="text-[12px] text-slate-400 pl-1">
         {rating.toFixed(1)} ({count})
       </span>
     </div>
@@ -102,7 +102,7 @@ function ProfessionalCard({ pro, index }: { pro: Professional; index: number }) 
         </div>
         <span
           className={cn(
-            "text-[10px] font-semibold tracking-[1px] uppercase px-3 py-1 rounded-full",
+            "text-[11px] font-semibold uppercase tracking-[0.05em] px-3 py-1 rounded-full",
             badgeClass,
           )}
         >
@@ -111,8 +111,8 @@ function ProfessionalCard({ pro, index }: { pro: Professional; index: number }) 
       </div>
 
       {/* Name + company */}
-      <h3 className="text-val-heading font-bold text-lg leading-7">{pro.name}</h3>
-      <p className="text-slate-500 text-sm mb-3">{pro.company}</p>
+      <h3 className="text-[15px] sm:text-[18px] font-semibold text-val-heading leading-7">{pro.name}</h3>
+      <p className="text-[14px] sm:text-[15px] text-slate-500 mb-3">{pro.company}</p>
 
       {/* Rating */}
       <div className="mb-4">
@@ -177,7 +177,7 @@ function ProfessionalCard({ pro, index }: { pro: Professional; index: number }) 
 
       {/* Footer */}
       <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
-        <span className="text-slate-500 text-xs">
+        <span className="text-[12px] text-slate-400">
           Linked Properties:{" "}
           <span className="font-semibold text-val-heading">{pro.linkedProperties}</span>
         </span>
@@ -240,18 +240,18 @@ export function ProfessionalDirectoryPage({ data }: { data: DirectoryPageData })
           >
             <div>
               <div className="flex items-center gap-2 mb-3">
-                <span className="text-xs font-semibold tracking-widest uppercase text-[--val-primary-dark]">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-[--val-primary-dark]">
                   Valgate
                 </span>
-                <span className="text-xs text-slate-300">/</span>
-                <span className="text-xs font-semibold tracking-widest uppercase text-slate-400">
+                <span className="text-[11px] text-slate-300">/</span>
+                <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-400">
                   Professional Directory
                 </span>
               </div>
               <h1 className="text-[28px] sm:text-[40px] font-extrabold text-val-heading tracking-tight leading-tight sm:leading-10">
                 Trusted Professionals
               </h1>
-              <p className="text-slate-500 text-base mt-2">
+              <p className="text-[14px] sm:text-[15px] text-slate-500 mt-2">
                 Manage and connect with your network of property service providers.
               </p>
             </div>

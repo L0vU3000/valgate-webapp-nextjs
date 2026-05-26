@@ -17,12 +17,10 @@ import { ShellContext } from "./shell-context";
 
 export function ShellLayout({
   children,
-  defaultDark = false,
 }: {
   children: React.ReactNode;
-  defaultDark?: boolean;
 }) {
-  const [isDark, setIsDark] = useState(defaultDark);
+  const [isDark, setIsDark] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
   const pathname = usePathname();
