@@ -1,44 +1,11 @@
 import { cn } from "../ui/utils";
-
-/* -------------------------------------------------------------------------- */
-/*  Static Data                                                               */
-/* -------------------------------------------------------------------------- */
-
-const propertyRows = [
-  {
-    name: "Borey Tonle Bassac",
-    location: "BKK1, Phnom Penh",
-    noi: "$412,000",
-    rent: "$4,200 avg",
-    index: "Below Market (8%)",
-    indexColor: "bg-amber-50 text-amber-700",
-    img: "bg-gradient-to-br from-blue-400 to-indigo-500",
-  },
-  {
-    name: "Mekong Residence",
-    location: "Chroy Changvar, Phnom Penh",
-    noi: "$284,500",
-    rent: "$2,850 avg",
-    index: "Optimal",
-    indexColor: "bg-green-50 text-green-700",
-    img: "bg-gradient-to-br from-emerald-400 to-teal-500",
-  },
-  {
-    name: "Angkor Gateway",
-    location: "Svay Dangkum, Siem Reap",
-    noi: "$195,000",
-    rent: "$3,400 avg",
-    index: "Market Leader",
-    indexColor: "bg-blue-50 text-blue-700",
-    img: "bg-gradient-to-br from-violet-400 to-purple-500",
-  },
-];
+import type { LeaseTableRow } from "@/lib/data/derivations/comparable";
 
 /* -------------------------------------------------------------------------- */
 /*  LeaseTable Component                                                      */
 /* -------------------------------------------------------------------------- */
 
-export function LeaseTable() {
+export function LeaseTable({ data }: { data: LeaseTableRow[] }) {
   return (
     <div
       className="anim-enter lg:col-span-8 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
@@ -64,9 +31,9 @@ export function LeaseTable() {
       </div>
 
       {/* Rows */}
-      {propertyRows.map((row, i) => (
+      {data.map((row, i) => (
         <div
-          key={row.name}
+          key={row.propertyId}
           className={cn(
             "anim-enter flex items-center transition-colors duration-150 hover:bg-slate-50/50",
             i > 0 && "border-t border-slate-100"
@@ -77,7 +44,7 @@ export function LeaseTable() {
             <div
               className={cn(
                 "h-8 w-8 sm:h-10 sm:w-10 shrink-0 rounded transition-transform duration-200 group-hover:scale-105",
-                row.img
+                row.avatarColor
               )}
             />
             <div className="min-w-0">
