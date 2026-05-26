@@ -73,13 +73,12 @@ export function SlotNumber({ value }: { value: string }) {
 /*  KpiCards Component                                                        */
 /* -------------------------------------------------------------------------- */
 
-const sparklineHeights = [40, 55, 45, 70, 85, 96];
-
 const DOT_SEVERITY_COLORS = ["bg-red-700", "bg-orange-400", "bg-slate-200"] as const;
 
 type KpiCardsProps = {
   grossIncome: string;
   incomeTrend: string;
+  incomeHistory: number[];
   occupancyPct: number;
   vacancyCost: string;
   collectionRate: string;
@@ -87,7 +86,7 @@ type KpiCardsProps = {
   maintenanceTotal: string;
 };
 
-export function KpiCards({ grossIncome, incomeTrend, occupancyPct, vacancyCost, collectionRate, maintenanceItems, maintenanceTotal }: KpiCardsProps) {
+export function KpiCards({ grossIncome, incomeTrend, incomeHistory, occupancyPct, vacancyCost, collectionRate, maintenanceItems, maintenanceTotal }: KpiCardsProps) {
   const trendUp = incomeTrend.startsWith("+");
   const dots = DOT_SEVERITY_COLORS.map((color, i) => ({
     color,
@@ -127,12 +126,12 @@ export function KpiCards({ grossIncome, incomeTrend, occupancyPct, vacancyCost, 
           </div>
 
           <div className="mt-8 flex h-24 items-end gap-1">
-            {sparklineHeights.map((h, i) => (
+            {incomeHistory.map((h, i) => (
               <div
                 key={i}
                 className={cn(
                   "rental-sparkline-bar flex-1 rounded-t-sm",
-                  i === sparklineHeights.length - 1
+                  i === incomeHistory.length - 1
                     ? "bg-white"
                     : "bg-blue-400/30"
                 )}

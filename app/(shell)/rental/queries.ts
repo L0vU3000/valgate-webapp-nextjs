@@ -18,6 +18,7 @@ import {
   computeHeatmapData,
   computeOccupancyRate,
   computeMonthlyGrossIncome,
+  computeMonthlyGrossIncomeHistory,
   computeCollectionRate,
   type PipelineStage,
   type PipelineCard,
@@ -27,6 +28,10 @@ import {
   type PropertyCluster,
   type TopSpend,
 } from "@/lib/data/derivations/rental";
+import {
+  computeLeaseTableRows,
+  type LeaseTableRow,
+} from "@/lib/data/derivations/comparable";
 
 export type {
   PipelineStage,
@@ -35,6 +40,7 @@ export type {
   UpcomingEvent,
   PropertyCluster,
   TopSpend,
+  LeaseTableRow,
 };
 
 export type MaintenanceItem = MaintenanceSummaryItem;
@@ -53,7 +59,9 @@ export type RentalDashboardData = {
   occupancyPct: number;
   grossIncome: string;
   incomeTrend: string;
+  incomeHistory: number[];
   collectionRate: string;
+  leaseTableRows: LeaseTableRow[];
 };
 
 export async function getRentalDashboardData(): Promise<RentalDashboardData> {
@@ -67,6 +75,8 @@ export async function getRentalDashboardData(): Promise<RentalDashboardData> {
   ]);
 
   const { amount: grossIncome, trend: incomeTrend } = computeMonthlyGrossIncome(leases);
+  const incomeHistory = computeMonthlyGrossIncomeHistory(leases, payments, 6);
+  const leaseTableRows = computeLeaseTableRows(properties, leases, expenses);
 
   return {
     pipelineStages: computePipeline(leases),
@@ -82,6 +92,8 @@ export async function getRentalDashboardData(): Promise<RentalDashboardData> {
     occupancyPct: computeOccupancyRate(properties, leases),
     grossIncome,
     incomeTrend,
+    incomeHistory,
     collectionRate: computeCollectionRate(payments, leases),
+    leaseTableRows,
   };
 }

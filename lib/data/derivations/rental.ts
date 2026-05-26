@@ -392,6 +392,53 @@ export function computeMonthlyGrossIncome(leases: Lease[]): { amount: string; tr
 }
 
 /* -------------------------------------------------------------------------- */
+/*  Q3.B-History — 6-month income sparkline heights (0-100 normalised)       */
+/* -------------------------------------------------------------------------- */
+
+export function computeMonthlyGrossIncomeHistory(
+  leases: Lease[],
+  payments: Payment[],
+  monthCount: number,
+): number[] {
+  const now = Date.now();
+  const raw: number[] = [];
+
+  for (let i = monthCount - 1; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(1);
+    d.setHours(0, 0, 0, 0);
+    d.setMonth(d.getMonth() - i);
+    const monthStart = d.getTime();
+    const monthEnd = new Date(d);
+    monthEnd.setMonth(monthEnd.getMonth() + 1);
+
+    const paidRent = payments
+      .filter(
+        (p) =>
+          p.kind === "Rent" &&
+          p.status === "Paid" &&
+          p.date >= monthStart &&
+          p.date < monthEnd.getTime(),
+      )
+      .reduce((sum, p) => sum + p.amount, 0);
+
+    const expectedRent = leases
+      .filter(
+        (l) =>
+          l.stage === "Signed" &&
+          l.startDate <= monthEnd.getTime() &&
+          l.endDate >= monthStart,
+      )
+      .reduce((sum, l) => sum + l.monthlyRent, 0);
+
+    raw.push(paidRent > 0 ? paidRent : expectedRent);
+  }
+
+  const max = Math.max(...raw, 1);
+  return raw.map((v) => Math.round((v / max) * 100));
+}
+
+/* -------------------------------------------------------------------------- */
 /*  Q3.P — Collection Rate: Paid Rent $ this month / expected Rent $ this mo */
 /* -------------------------------------------------------------------------- */
 

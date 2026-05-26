@@ -40,7 +40,9 @@ export function RentalDashboardPage({ data }: { data: RentalDashboardData }) {
     occupancyPct,
     grossIncome,
     incomeTrend,
+    incomeHistory,
     collectionRate,
+    leaseTableRows,
   } = data;
 
   useEffect(() => {
@@ -78,6 +80,7 @@ export function RentalDashboardPage({ data }: { data: RentalDashboardData }) {
           <KpiCards
             grossIncome={grossIncome}
             incomeTrend={incomeTrend}
+            incomeHistory={incomeHistory}
             occupancyPct={occupancyPct}
             vacancyCost={vacancyCost}
             collectionRate={collectionRate}
@@ -142,7 +145,7 @@ export function RentalDashboardPage({ data }: { data: RentalDashboardData }) {
             only has 1 column.
           */}
           <section className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6">
-            <LeaseTable />
+            <LeaseTable data={leaseTableRows} />
             <HeatmapGrid data={heatmapClusters} />
           </section>
 
