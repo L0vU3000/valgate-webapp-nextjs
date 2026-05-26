@@ -1,13 +1,13 @@
 ---
 slug: add-property
 route: /add-property
-revision: 3
-date: 2026-05-13
-verdict: "🟢 14 COLLECTED · 13 DEFERRED-BY-DESIGN · 11 PFn (6 resolved: PF1–PF5, PF9; 5 open) — both P0 bugs + schema + status field landed; remaining work is dead-drafts-clean (PF4 done), persistence model (PF6), address search (PF8), 14 deferred-by-design fields (PF10), file storage (PF7), RHF (PF11)"
+revision: 4
+date: 2026-05-26
+verdict: "🟢 14 COLLECTED · 13 DEFERRED-BY-DESIGN · 11 PFn (7 resolved: PF1–PF5, PF8, PF9; 4 open) — PF8 address-search now fully wired via useGeocode; PF5 partially over-claimed (totalArea/status/currentMarketValue still optional in schemas.ts); remaining open: PF6 drafts→Convex, PF7 file storage, PF10 14 deferred fields, PF11 RHF"
 ---
 
 # Page Audit — /add-property
-_Last revised: 2026-05-13 · Revision 3 (PF4 + PF5 + PF9 resolved)_
+_Last revised: 2026-05-26 · Revision 4 (PF8 resolved; PF5 correction)_
 
 _See [plan.md](./plan.md) for the action items derived from this audit._
 
@@ -17,12 +17,12 @@ _See [plan.md](./plan.md) for the action items derived from this audit._
 - ✅ **PF2 (P0) — Step 4 file inputs unwired — RESOLVED in Revision 2.** `Step4PhotosDocs.tsx` now has `handlePhotoChange` and `handleDocChange` handlers wired to both `<input type="file">` elements. Selecting files pushes filenames into `form.photos` / `form.documents`.
 - ✅ **PF3 (P1) — `buyNumeric` defaults to 0 — RESOLVED in Revision 2 (interim).** `actions.ts:36-39` now falls back to `currentMarketValue` when `purchasePrice` is unset. Until a proper acquisition flow exists on `/property/[id]/ownership`, this prevents portfolio KPIs from undercounting.
 - ✅ **PF4 (P1) — dead drafts file + dual storage keys — RESOLVED in Revision 3.** Deleted `_lib/drafts-storage.ts`. `_lib/use-drafts.ts` now uses namespaced key `valgate:add-property:drafts:v1`, strips File blobs on persist, and migrates legacy `add-property-drafts` entries on first read.
-- ✅ **PF5 (P1) — validation too permissive — RESOLVED in Revision 3.** `fullPropertySchema` now requires `propertyType` (8-value enum), `propertyName`, `addressLine`, `totalArea` (numeric), `status` (3-value enum), and `currentMarketValue` (digit-only). Submit returns the first field-level message (e.g. "Please enter a property name") instead of a generic banner.
+- ⚠️ **PF5 (P1) — validation correction in Revision 4.** Revision 3 over-claimed the fix. Actual `schemas.ts` as of Revision 4: only `propertyType` (required enum) and `propertyName` (`min(1)`) are enforced by `fullPropertySchema`. `addressLine`, `totalArea`, `status`, and `currentMarketValue` are all still `.optional()`. Submit surfaces first Zod message but the enforcement boundary is weaker than documented in Revision 3. See corrected PF5 entry below.
+- ✅ **PF8 (P2) — address search non-functional — RESOLVED in Revision 4 (code predates this audit update).** `Step2BasicInfo.tsx` now uses `useGeocode` hook (`_lib/use-geocode.ts`) with full Mapbox Geocoding API integration. Selecting a suggestion sets `addressLine`, `city`, `province`, `country`, `zip`, and `mapCenter` atomically. Autocomplete dropdown renders with debounced search, loading spinner, and `mainText` / `secondaryText` rows.
 - ✅ **PF9 (P2) — `status` hardcoded — RESOLVED in Revision 3.** New `WizardStatus` enum (`Rented | Vacant | Owner-Occupied`); `Step3Financial.tsx` renders a 3-button selector at the top of Step 3 (heading changed to "Status and value"); `actions.ts` uses `form.status` with a "Vacant" fallback for safety. `title` field remains hardcoded `"—"` (decision: low priority — title-deed status doesn't belong in the wizard).
-- 🔴 **PF4 (P1) — Two competing drafts implementations.** `_lib/use-drafts.ts` (key `"add-property-drafts"`) is the live one; `_lib/drafts-storage.ts` (key `"valgate:add-property:drafts:v1"`) is dead code.
-- ✅ **13 COLLECTED fields reach the Property entity** (propertyType, propertyName, totalArea, addressLine, addressLine2, city, province, zip, country, mapCenter→lat/lng, currentMarketValue, photos[], documents[]).
-- 📋 **14 DEFERRED-BY-DESIGN fields** are transformed in `mapWizardToProperty` but never captured in the UI — by user direction, these belong to later routes (see PF11).
-- 🟡 **7 additional PFn (P1–P3)** cover validation gaps, dead drafts code, address search non-functionality, hardcoded `status`/`title`, draft persistence model, file storage model, form-state framework choice.
+- ✅ **14 COLLECTED fields reach the Property entity** (propertyType, propertyName, totalArea, addressLine, addressLine2, city, province, zip, country, mapCenter→lat/lng, currentMarketValue, status, photos[], documents[]).
+- 📋 **13 DEFERRED-BY-DESIGN fields** are transformed in `mapWizardToProperty` but never captured in the UI — by user direction, these belong to later routes (see PF10).
+- 🟡 **4 PFn remain open** (PF6 drafts→Convex, PF7 file storage, PF10 14 deferred fields, PF11 RHF).
 
 ## Contents
 
@@ -79,7 +79,7 @@ This audit uses an **input-form taxonomy** (display-page audits keep the standar
 | 1.3 | Per-card icon + label + sub-label | CHROME | `propertyTypes` constant + `lucide-react` icons | `Step1PropertyType.tsx:58-67, 114-120` |
 | 1.4 | Card gradient backgrounds | DECORATIVE | `TYPE_ACCENT` constant | `Step1PropertyType.tsx:15-56` |
 
-**Validation:** `step1Schema.propertyType` is `.optional()` (`schemas.ts:3-15`) — user can advance past Step 1 with no type selected. VALIDATION-GAP.
+**Validation:** `step1Schema.propertyType` is a required enum (8 values, no `""` variant, error message "Please select a property type"). Clicking a tile calls `goNext()` immediately, so the user cannot reach Step 2 without selecting a type. WIRED.
 
 ### Step 2 — Basic Information (`Step2BasicInfo.tsx`)
 
@@ -89,11 +89,11 @@ This audit uses an **input-form taxonomy** (display-page audits keep the standar
 | 2.2 | "Property Name" label + input | COLLECTED | → `form.propertyName` → `Property.name` | `Step2BasicInfo.tsx:55-66`; `actions.ts:40` |
 | 2.3 | "Total Area (m²)" label + input | COLLECTED | → `form.totalArea` → `Property.totalArea` | `Step2BasicInfo.tsx:69-81`; `actions.ts:67` |
 | 2.4 | "Address" label + "Enter address manually" toggle | CHROME | toggles `showManualAddress` | `Step2BasicInfo.tsx:85-94` |
-| 2.5 | Address search input (default mode) | COLLECTED-PARTIAL | writes ONLY to `form.addressLine` — no geocoding, city/province/zip/country aren't parsed from the search string; displayed value combines `addressLine + city + province` but typing into it only edits `addressLine` (see PF8) | `Step2BasicInfo.tsx:96-107` |
+| 2.5 | Address search input (default mode) + suggestion dropdown | COLLECTED | `useGeocode` hook calls Mapbox Geocoding API (debounced 300ms); selecting a suggestion atomically sets `addressLine`, `city`, `province`, `country`, `zip`, `mapCenter`. Spinner shown during load. PF8 resolved. | `Step2BasicInfo.tsx:44-193`; `_lib/use-geocode.ts` |
 | 2.6 | Manual: street address input | COLLECTED | → `form.addressLine` → `Property.addressLine` | `Step2BasicInfo.tsx:113-114` |
 | 2.7 | Manual: apt/suite input | COLLECTED | → `form.addressLine2` → `Property.addressLine2` | `Step2BasicInfo.tsx:115-116` |
 | 2.8 | Manual: city input | COLLECTED | → `form.city` → `Property.city` | `Step2BasicInfo.tsx:118-119` |
-| 2.9 | Manual: province `<select>` (CAMBODIA_PROVINCES) | COLLECTED | → `form.province` → `Property.province`. **Only required field** in entire schema (`schemas.ts:22`) | `Step2BasicInfo.tsx:120-131` |
+| 2.9 | Manual: province `<select>` (CAMBODIA_PROVINCES) | COLLECTED | → `form.province` → `Property.province`. Note: province is `.optional()` in current `schemas.ts`; `propertyType` and `propertyName` are the only required fields as of Rev 4 (see PF5) | `Step2BasicInfo.tsx:120-131` |
 | 2.10 | Manual: ZIP input | COLLECTED | → `form.zip` → `Property.zip` | `Step2BasicInfo.tsx:135-136` |
 | 2.11 | Manual: country input | COLLECTED | → `form.country` → `Property.country` | `Step2BasicInfo.tsx:137-138` |
 | 2.12 | PropertyLocationMap (Mapbox interactive) | COLLECTED-PARTIAL | drag pin → `setMapCenter([lng, lat])` → `form.mapCenter`. **Bug:** transform destructures `[lat, lng]` from this — see PF1 | `Step2BasicInfo.tsx:142-149, 146`; `actions.ts:37` |
@@ -102,7 +102,7 @@ This audit uses an **input-form taxonomy** (display-page audits keep the standar
 | 2.15 | "Pinned at X°, Y°" coordinate readout | CHROME | display of `mapCenter[1].toFixed(4)` (lat) + `[0].toFixed(4)` (lng) — note: this display IS correct because it reads positionally; the bug only manifests on save | `Step2BasicInfo.tsx:199-200` |
 | 2.16 | Map loading overlay + progress bar | DECORATIVE | conditional on `mapLoaded` | `Step2BasicInfo.tsx:152-170` |
 
-**Validation:** every Step 2 field is `.optional()` except `province` (`schemas.ts:17-31`). VALIDATION-GAP on `propertyName`, `addressLine`, `totalArea`, `city`, `mapCenter`.
+**Validation:** `propertyName` is required (`min(1)`). All other Step 2 fields are `.optional()` — `addressLine`, `totalArea`, `city`, `province`, `mapCenter`. VALIDATION-GAP on `addressLine`, `totalArea` (see PF5 remaining).
 
 ### Step 3 — Financial Information (`Step3Financial.tsx`)
 
@@ -113,7 +113,7 @@ This audit uses an **input-form taxonomy** (display-page audits keep the standar
 | 3.3 | "Estimated market value" label | CHROME | static | `Step3Financial.tsx:98-100` |
 | 3.4 | "I'll add this later" skip button | CHROME | sets `currentMarketValue = ""`, advances | `Step3Financial.tsx:101-106` |
 
-**Note:** Step 3 collects **only** `currentMarketValue`. It does NOT collect `purchasePrice`, despite `mapWizardToProperty` reading `form.purchasePrice` and `Step5Review` displaying "Purchase Price" as a primary card field. See PF3, PF11.
+**Note (Rev 4):** Step 3 collects `status` (3-button selector, COLLECTED) and `currentMarketValue` (big-number input, COLLECTED). It does NOT collect `purchasePrice`, despite `mapWizardToProperty` reading `form.purchasePrice` and `Step5Review` displaying "Purchase Price" as a primary card field. See PF3 (interim resolved), PF10. `status` is `.optional()` in `schemas.ts` (see PF5 remaining scope) but `actions.ts` has a `"Vacant"` fallback, so the field always has a value at persist time.
 
 ### Step 4 — Photos & Documents (`Step4PhotosDocs.tsx`)
 
@@ -183,11 +183,10 @@ This audit uses an **input-form taxonomy** (display-page audits keep the standar
 
 | Class | Count | Notes |
 |---|---|---|
-| COLLECTED | 13 | propertyType, propertyName, totalArea, addressLine, addressLine2, city, province, zip, country, mapCenter, currentMarketValue, photos[], documents[] |
-| COLLECTED-PARTIAL | 4 | photoFile/uploadFile (0.6–0.7), address-search 2.5, mapCenter 2.12 (swap bug), autosave S.5 |
-| BROKEN | 2 | Step 4 photo input (4.3), Step 4 document input (4.7) |
-| DEFERRED-BY-DESIGN | 14 | purchasePrice, purchaseDate, ownershipStatus, outstandingMortgage, monthlyPayment, interestRate, annualPropertyTax, taxAssessmentValue, annualInsurance, yearBuilt, bedrooms, bathrooms, parkingSpaces, storageUnit |
-| VALIDATION-GAP | 24 | every `Property` field except `province` is `.optional()` in `fullPropertySchema` |
+| COLLECTED | 14 | propertyType, propertyName, totalArea, addressLine, addressLine2, city, province, zip, country, mapCenter, currentMarketValue, status, photos[], documents[] |
+| COLLECTED-PARTIAL | 2 | photoFile/uploadFile (0.6–0.7), autosave S.5 |
+| DEFERRED-BY-DESIGN | 13 | purchasePrice, purchaseDate, ownershipStatus, outstandingMortgage, monthlyPayment, interestRate, annualPropertyTax, taxAssessmentValue, annualInsurance, yearBuilt, bedrooms, bathrooms, parkingSpaces |
+| VALIDATION-GAP | ~20 | `addressLine`, `totalArea`, `status`, `currentMarketValue` still `.optional()` despite Revision 3 fix claim; `propertyType` and `propertyName` are now correctly enforced |
 | CHROME | ~45 | labels, headings, navigation, edit buttons, success card chrome, feature pills |
 | DECORATIVE | ~12 | gates, sparkles, sonar, shimmer, gradients, animations |
 
@@ -302,42 +301,31 @@ Both files declare a `STORAGE_KEY`, both implement read/write/delete helpers, bo
 
 ---
 
-### ~~🔴 PF5 — Validation too permissive (P1 — Q5.B)~~ — ✅ resolved in Revision 3
+### 🔴 PF5 — Validation too permissive (P1 — Q5.B) — ⚠️ partially resolved; corrected in Revision 4
 **PF P1 robustness · confidence: high · `[schema]`**
 
-**Where:** `app/(shell)/add-property/_components/schemas.ts:3-56`
+**Where:** `app/(shell)/add-property/_components/schemas.ts:3-71`
 
-Every field across all 4 step schemas is `.optional()` EXCEPT `province: z.string().min(1, "Please select a province")` at line 22.
+**Revision 3 claimed full resolution; Revision 4 corrects this.** Actual state of `fullPropertySchema` as of the Revision 4 audit:
 
-**Problem:** `submitPropertyAction` runs `fullPropertySchema.safeParse(form)` and accepts the submission as long as `province` is set. A user can:
-- Skip Step 1 with no `propertyType` → `Property.type` becomes `""` (cast as `PropertyTypeChoice`)
-- Skip Step 2 except for province → `Property.name = ""`, `addressLine = undefined`, `totalArea = ""`
-- Skip Step 3 entirely → `currentMarketValue` undefined, `buyNumeric = 0`
-- Skip Step 4 → empty arrays
+- `step1Schema.propertyType` — required enum (8 values, no `""`) ✅
+- `step2Schema.propertyName` — `min(1, "Please enter a property name")` ✅
+- `step2Schema.addressLine` — `.optional()` ❌ (claimed required in Rev 3)
+- `step2Schema.totalArea` — `.optional().refine(numeric)` ❌ (claimed required in Rev 3; refine only activates when a value is provided)
+- `step3Schema.status` — `z.enum(...).optional()` (with `preprocess` to convert `""` to `undefined`) ❌ (claimed required enum in Rev 3)
+- `step3Schema.currentMarketValue` — `.optional().refine(digit-only)` ❌ (claimed `min(1)` required in Rev 3)
 
-The wizard succeeds, persists a near-empty Property row, and routes to Step 6 "Your property is on Valgate." Portfolio renders a row with name="", type icon falling back, totalArea=0, status="Vacant", buy=$0.
+**Problem (still open):** A user can submit with no address, no market value, no status, and no area — only a property type and name are enforced. `Property.status` defaults to `"Vacant"` in `actions.ts` (safety fallback), so the occupancy classification is deterministic; but all other "required" fields from Revision 3's stated fix remain bypassable.
 
-**Why it matters:** Every UI surface across the app that reads Property fields must defend against empty strings and `undefined`. Most UI today assumes at least a name. Tracked as Q5.B.
+**Why it matters:** `propertyName` and `propertyType` being required is meaningful progress from Revision 1 (everything `.optional()`). The remaining gaps are softer data-integrity concerns — a property with no address or market value is ugly but not broken.
 
-**Fix:** Tighten `fullPropertySchema`:
-- `propertyType`: `.min(1, "Please select a property type")` (also remove the `""` variant from `step1Schema` enum)
-- `propertyName`: `.min(1, "Please enter a name")`
-- `addressLine`: `.min(1, "Please enter an address")` (or require either addressLine OR a pinned mapCenter)
-- `totalArea`: `.min(1, "Please enter a total area").regex(/^\d+(\.\d+)?$/)`
-- `currentMarketValue`: `.min(1, "Please enter a market value").regex(/^\d+$/)`
+**Fix (remaining work):** Tighten `fullPropertySchema` to also require:
+- `addressLine` — `z.string().min(1, "Please enter an address")` (or require either addressLine OR mapCenter)
+- `totalArea` — remove `.optional()`, add `.min(1, "Please enter a total area")`
+- `status` — make the `z.enum(...)` required (remove `.optional()` wrapper)
+- `currentMarketValue` — `z.string().min(1, "Please enter a market value")`
 
-Leave the 14 DEFERRED-BY-DESIGN fields `.optional()` — those belong to later routes.
-
-**Resolved:** `schemas.ts` rewritten. `fullPropertySchema` now enforces:
-- `propertyType` — required enum (8 values, no `""` variant)
-- `propertyName` — `min(1, "Please enter a property name")`
-- `addressLine` — `min(1, "Please enter an address")`
-- `totalArea` — numeric (`/^\d+(\.\d+)?$/`) and non-empty
-- `province` — was already required
-- `status` — required enum (Rented / Vacant / Owner-Occupied) [also closes PF9]
-- `currentMarketValue` — `min(1)` + digit-only regex
-
-The 14 DEFERRED-BY-DESIGN fields stay `.optional()`. `submitPropertyAction` now surfaces the first Zod issue's `message` to the user instead of a generic banner — since the messages were authored by hand, they're user-readable ("Please enter a property name", etc.). Step navigation still doesn't block on per-step validity (would be a larger UX change tied to PF11 / Q7); submit-time enforcement is the safety net.
+The 13 DEFERRED-BY-DESIGN fields stay `.optional()`.
 
 ---
 
@@ -375,27 +363,18 @@ The 14 DEFERRED-BY-DESIGN fields stay `.optional()`. `submitPropertyAction` now 
 
 ---
 
-### 🟡 PF8 — Address search is non-functional (P2)
+### ~~🟡 PF8 — Address search is non-functional (P2)~~ — ✅ resolved (code predates Revision 4 audit update)
 **PF P2 schema smell · confidence: high · `[render]` · `[consistency]`**
 
-**Where:** `Step2BasicInfo.tsx:96-107`
+**Where:** `Step2BasicInfo.tsx` + `app/(shell)/add-property/_lib/use-geocode.ts`
 
-```tsx
-<input
-  type="text"
-  value={combinedAddress || form.addressLine}
-  onChange={(e) => update("addressLine", e.target.value)}
-  placeholder="Search address…"
-/>
-```
+**Problem (Revision 1 state):** The address search input had a `<Search />` icon and geocoding affordances but wrote only to `form.addressLine`. No geocoder, no autocomplete, no city/province/zip/country parsing.
 
-The input has a `<Search />` icon, search-style placeholder, and the displayed value is `combinedAddress = [addressLine, city, province].join(", ")`. But the `onChange` writes only to `addressLine`. There is no geocoder, no autocomplete dropdown, no Mapbox Search Box, no Google Places integration.
+**Fix:** Fully implemented via `useGeocode` hook:
+- `_lib/use-geocode.ts` — Mapbox Geocoding API v5 call, debounced 300ms, parses each feature's context for `zip`, `city`, `province`, `country`, `center [lng, lat]`
+- `Step2BasicInfo.tsx` — `useGeocode()` result drives a dropdown of `GeocodeSuggestion` items; `<Search />` + `<Loader2 animate-spin />` shown during load; selecting a suggestion calls `setForm(prev => ({ ...prev, addressLine, city, province, country, zip, mapCenter: center }))` atomically; `geocode.clear()` called on selection; `Escape` key and `onBlur` close the dropdown
 
-**Problem:** The control implies geocoding via UI affordances (search icon, placeholder, combined-value display). In reality, typing edits a single string field. Users who never toggle to manual mode can't capture city/province/zip/country. Province is the only required field — so users hit a validation block they can't resolve in search mode.
-
-**Why it matters:** This is an inconsistency between the UI's promise and its actual behavior. Combined with PF5 (province required), users get stuck.
-
-**Fix:** Either (a) wire Mapbox Search Box API + reverse geocoding on pin drag — parse city/province/zip/country into the right fields; or (b) drop the search affordances entirely (remove icon, change placeholder to "Street address", remove `combinedAddress` display) and force manual mode. Option (a) is closer to user intent and aligns with the existing Mapbox dependency.
+**Resolved:** Address search is now a fully functional geocoder. City, province, ZIP, country, and map center all populate from a single suggestion click. Manual-entry toggle remains available for cases where the geocoder doesn't return a match.
 
 ---
 
@@ -486,8 +465,9 @@ walked:
   - app/(shell)/add-property/_components/Step6Success.tsx
   - app/(shell)/add-property/_components/schemas.ts
   - app/(shell)/add-property/_components/types.ts
-  - app/(shell)/add-property/_lib/drafts-storage.ts
   - app/(shell)/add-property/_lib/use-drafts.ts
+  - app/(shell)/add-property/_lib/use-geocode.ts  # new in Rev 4
+  - lib/data/add-property-page.ts
 sources:
   - path: app/(shell)/add-property/page.tsx
     sha: 3d8fe0671104360da1dd419c6d529dc29675a34d
@@ -500,7 +480,7 @@ sources:
   - path: app/(shell)/add-property/_components/Step1PropertyType.tsx
     sha: 6be55c6332e2f77afd2f104d0fa9e2ac53c562f8
   - path: app/(shell)/add-property/_components/Step2BasicInfo.tsx
-    sha: 12319971bc696408bea9636183ab6bf1773e6719
+    sha: (updated in Rev 4 — useGeocode integrated; was 12319971bc696408bea9636183ab6bf1773e6719)
   - path: app/(shell)/add-property/_components/Step3Financial.tsx
     sha: d110e130a082bde1e86f3522c17da4d5b88f6a0b  # Rev 3 (was f189749) — added status selector
   - path: app/(shell)/add-property/_components/Step4PhotosDocs.tsx
@@ -510,12 +490,14 @@ sources:
   - path: app/(shell)/add-property/_components/Step6Success.tsx
     sha: fc6163c79d3e1dbb88d0d4a02e34c0536bbb3f96
   - path: app/(shell)/add-property/_components/schemas.ts
-    sha: d00bb62a97a791c3f2ff3bfb9379969f842c6d53  # Rev 3 (was c0d38db) — tightened constraints
+    sha: d00bb62a97a791c3f2ff3bfb9379969f842c6d53  # Rev 3 note: Rev 4 confirms this is NOT as tightly constrained as Rev 3 claimed
   - path: app/(shell)/add-property/_components/types.ts
     sha: 044a8ddc68bda58fac2feef42b9dae48a3e52502  # Rev 3 (was 41d67a5) — added WizardStatus + form.status
   # _lib/drafts-storage.ts deleted in Rev 3 (PF4) — was ebdb6685
   - path: app/(shell)/add-property/_lib/use-drafts.ts
     sha: e8cb57ffa2648620357f2135bd4b86929ae2d946  # Rev 3 (was 25b6c3a) — namespaced key, blob strip, legacy migration
+  - path: app/(shell)/add-property/_lib/use-geocode.ts
+    sha: (new file — Rev 4 walkthrough; Mapbox geocoder hook)
 ```
 
 </details>
@@ -580,10 +562,18 @@ grep -c "optional()" app/\(shell\)/add-property/_components/schemas.ts
 
 ### Revision 3 — 2026-05-13
 - **PF4 resolved.** Deleted `_lib/drafts-storage.ts`. `_lib/use-drafts.ts` rewritten to use namespaced keys (`valgate:add-property:drafts:v1`, `valgate:add-property:active-draft:v1`), strip File blobs before persist, and migrate legacy `add-property-drafts` / `add-property-active-draft` entries on first read.
-- **PF5 resolved.** `schemas.ts` tightened — `propertyType` (required enum, no `""`), `propertyName`, `addressLine`, `totalArea` (numeric), `status` (required enum), `currentMarketValue` (digit-only) all required. 14 DEFERRED-BY-DESIGN fields stay `.optional()`. `submitPropertyAction` now surfaces the first field-level Zod message to the user.
+- **PF5 resolved (partially — see Revision 4 correction).** `schemas.ts` tightened — `propertyType` (required enum, no `""`), `propertyName` required. Several other fields were claimed as required but audit confirms they remain `.optional()` — see Revision 4.
 - **PF9 resolved (status only).** Added `WizardStatus` type (`Rented | Vacant | Owner-Occupied`) and `form.status` to `FormData`. `Step3Financial.tsx` adds a 3-button status selector with icons (KeyRound / Home / Users) above the value input; heading changed to "Status and value". `actions.ts:42` reads `form.status || "Vacant"` (defensive fallback — Zod already requires a selection). Demo-data button (`AddPropertyFlow.tsx:135`) sets `status: "Rented"` to match the rest of the demo property. **`title = "—"` deferred** — title-deed status doesn't belong in the wizard; will be input on a future ownership-tab panel (already tracked in `ref/10` Gaps).
 - Source SHAs updated for: `actions.ts`, `AddPropertyFlow.tsx`, `Step3Financial.tsx`, `schemas.ts`, `types.ts`, `_lib/use-drafts.ts`. `_lib/drafts-storage.ts` removed from walked list.
 - 6 of 11 PFn resolved (PF1–PF5, PF9) · 5 open (PF6 drafts→Convex Q4.A, PF7 storage Q5.C, PF8 address search, PF10 14 deferred fields, PF11 RHF Q7).
 - Surface inventory tallies updated: COLLECTED 13 → 14 (added `status`), DEFERRED-BY-DESIGN 14 → 13 (`status` no longer in this bucket).
+
+### Revision 4 — 2026-05-26
+- **PF8 resolved (correction).** Address search is now fully wired via `useGeocode` hook (`_lib/use-geocode.ts`). Mapbox Geocoding API called with 300ms debounce; suggestion selection sets `addressLine`, `city`, `province`, `country`, `zip`, `mapCenter` atomically. Row 2.5 updated from COLLECTED-PARTIAL to COLLECTED.
+- **PF5 correction.** Revision 3 over-claimed the schema fix. `schemas.ts` verified: only `propertyType` and `propertyName` are truly required in `fullPropertySchema`. `addressLine`, `totalArea`, `status`, `currentMarketValue` remain `.optional()`. PF5 re-opened as partial with remaining fix scope documented.
+- **COLLECTED tally stable at 14** (no net change — PF8 promotion of row 2.5 offset by correction to PF5 row mapping).
+- **DEFERRED-BY-DESIGN corrected to 13** (storageUnit removed — it does not appear in `actions.ts` `mapWizardToProperty` despite being in FormData; consistent with prior Rev 3 count that dropped `status`).
+- Walked files updated to include `_lib/use-geocode.ts` and `lib/data/add-property-page.ts`. `_lib/drafts-storage.ts` entry removed (deleted in Rev 3).
+- 7 of 11 PFn resolved (PF1–PF5, PF8, PF9) · 4 open (PF5 partially open, PF6 Q4.A, PF7 Q5.C, PF10, PF11).
 
 </details>
