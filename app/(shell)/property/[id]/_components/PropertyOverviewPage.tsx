@@ -99,6 +99,31 @@ function getValuationDelta(valuations: PropertyValuation[]): number | null {
   return prev.price === 0 ? null : ((latest.price - prev.price) / prev.price) * 100;
 }
 
+function deriveIncomeStatus(payments: Payment[], activeLeases: Lease[], now: number): string {
+  const expectedRent = activeLeases.reduce((sum, l) => sum + l.monthlyRent, 0);
+  if (expectedRent === 0) return "Due";
+
+  const monthStart = new Date(now);
+  monthStart.setDate(1);
+  monthStart.setHours(0, 0, 0, 0);
+  const monthEnd = new Date(monthStart);
+  monthEnd.setMonth(monthEnd.getMonth() + 1);
+
+  const thisMonthRent = payments.filter(
+    (p) => p.kind === "Rent" && p.date >= monthStart.getTime() && p.date < monthEnd.getTime(),
+  );
+
+  if (thisMonthRent.some((p) => p.status === "Overdue")) return "Overdue";
+
+  const collected = thisMonthRent
+    .filter((p) => p.status === "Paid")
+    .reduce((sum, p) => sum + p.amount, 0);
+
+  if (collected >= expectedRent) return "Collected";
+  if (collected > 0) return "Partial";
+  return "Due";
+}
+
 function buildActivityFeed(
   payments: Payment[],
   leases: Lease[],
@@ -292,6 +317,7 @@ export function PropertyOverviewPage({
     (l) => l.stage === "Signed" && l.startDate <= now && l.endDate >= now,
   );
   const monthlyIncome = activeLeases.reduce((sum, l) => sum + l.monthlyRent, 0);
+  const incomeStatus = deriveIncomeStatus(payments, activeLeases, now);
   const tenantMap = new Map(tenants.map((t) => [t.id, t]));
   const activeLeaseholders = activeLeases.map((l) => {
     const t = l.tenantId ? tenantMap.get(l.tenantId) : undefined;
@@ -387,6 +413,11 @@ export function PropertyOverviewPage({
       value: "$" + monthlyIncome.toLocaleString("en-US"),
       delta: incomeDelta,
       duration: 1100,
+      badge: incomeStatus,
+      badgeColor: incomeStatus === "Collected" ? "#059669"
+        : incomeStatus === "Partial" ? "#d97706"
+        : incomeStatus === "Overdue" ? "#dc2626"
+        : "#64748b",
     },
     {
       label: "Current Valuation",
@@ -552,6 +583,8 @@ export function PropertyOverviewPage({
                 duration={m.duration}
                 active={countUpActive}
                 delta={m.delta}
+                badge={(m as { badge?: string }).badge}
+                badgeColor={(m as { badgeColor?: string }).badgeColor}
               />
             ))}
           </div>

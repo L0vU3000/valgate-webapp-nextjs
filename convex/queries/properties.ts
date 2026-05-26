@@ -301,10 +301,10 @@ export const orgMetrics = queryWithRLS({
 
     const totalProps = properties.length;
 
-    // Health average (rounded)
-    const healthAvg = totalProps > 0
+    // Progress average (rounded) — weighted pillar completeness score
+    const progressAvg = totalProps > 0
       ? Math.round(
-          properties.reduce((sum: number, p: any) => sum + (typeof p.health === "number" ? p.health : 0), 0) /
+          properties.reduce((sum: number, p: any) => sum + (typeof p.progress === "number" ? p.progress : 0), 0) /
             totalProps,
         )
       : 0;
@@ -397,7 +397,7 @@ export const orgMetrics = queryWithRLS({
     return {
       totals: { properties: totalProps },
       valuation: { totalEstimated: totalEstimatedValuation, percentValuated: 0 }, // percent placeholder (soon)
-      portfolio: { healthAvg },
+      portfolio: { progressAvg },
       mappingStatus: mappingCounts,
       documents: {
         required: {
@@ -570,7 +570,7 @@ export const listPropertySummaries = queryWithRLS({
         valuation,
         purchasePrice,
         documentCount: (p as any).documentCount,
-        healthPercent: typeof (p as any).health === "number" ? Math.max(0, Math.min(100, Math.round((p as any).health))) : 0,
+        progressPercent: typeof (p as any).progress === "number" ? Math.max(0, Math.min(100, Math.round((p as any).progress))) : 0,
         riskAssessment: (p as any).riskAssessment,
         location: {
           mappingStatus,
@@ -762,9 +762,9 @@ export const listPropertySummariesUpdateAt = queryWithRLS({
         valuation,
         purchasePrice,
         documentCount: (p as any).documentCount,
-        healthPercent:
-          typeof (p as any).health === "number"
-            ? Math.max(0, Math.min(100, Math.round((p as any).health)))
+        progressPercent:
+          typeof (p as any).progress === "number"
+            ? Math.max(0, Math.min(100, Math.round((p as any).progress)))
             : 0,
         riskAssessment: (p as any).riskAssessment,
         location: {
