@@ -1,4 +1,4 @@
-import type { Property } from "@/lib/data/types/property";
+import type { Property, PropertyTypeChoice } from "@/lib/data/types/property";
 import type { Lease } from "@/lib/data/types/lease";
 import type { Expense } from "@/lib/data/types/expense";
 
@@ -11,6 +11,7 @@ export interface LeaseTableRow {
   index: string;
   indexColor: string;
   avatarColor: string;
+  propertyType: PropertyTypeChoice;
 }
 
 const AVATAR_GRADIENTS = [
@@ -99,6 +100,7 @@ export function computeLeaseTableRows(
         index,
         indexColor,
         avatarColor: AVATAR_GRADIENTS[i % AVATAR_GRADIENTS.length],
+        propertyType: p.type,
       };
     });
 

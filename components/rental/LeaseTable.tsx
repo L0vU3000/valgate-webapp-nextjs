@@ -1,4 +1,5 @@
 import { cn } from "../ui/utils";
+import { TYPE_ICON, TYPE_COLOR } from "@/lib/property-helpers";
 import type { LeaseTableRow } from "@/lib/data/derivations/comparable";
 
 /* -------------------------------------------------------------------------- */
@@ -41,12 +42,20 @@ export function LeaseTable({ data }: { data: LeaseTableRow[] }) {
           style={{ animationDelay: `${500 + i * 80}ms` }}
         >
           <div className="flex w-[33%] items-center gap-2 sm:gap-3 px-3 sm:px-6 py-3 sm:py-4 min-w-0">
-            <div
-              className={cn(
-                "h-8 w-8 sm:h-10 sm:w-10 shrink-0 rounded transition-transform duration-200 group-hover:scale-105",
-                row.avatarColor
-              )}
-            />
+            {(() => {
+              const Icon = TYPE_ICON[row.propertyType] ?? TYPE_ICON["other"];
+              const colorClass = TYPE_COLOR[row.propertyType] ?? TYPE_COLOR["other"];
+              return (
+                <div
+                  className={cn(
+                    "h-8 w-8 sm:h-10 sm:w-10 shrink-0 rounded flex items-center justify-center transition-transform duration-200",
+                    colorClass
+                  )}
+                >
+                  <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
+                </div>
+              );
+            })()}
             <div className="min-w-0">
               <p className="text-[14px] sm:text-[15px] font-semibold text-val-heading truncate">
                 {row.name}

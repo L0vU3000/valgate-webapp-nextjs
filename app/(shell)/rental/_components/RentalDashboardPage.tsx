@@ -1,18 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import {
-  Plus,
-  Building2,
-  FileText,
-  Download,
-  TrendingUp,
-} from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Plus, Building2, FileText } from "lucide-react";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { cn } from "@/components/ui/utils";
 import { KpiCards } from "@/components/rental/KpiCards";
 import { HeatmapGrid } from "@/components/rental/HeatmapGrid";
 import { LeaseTable } from "@/components/rental/LeaseTable";
+import { AddLeaseModal } from "@/components/rental/AddLeaseModal";
+import { PortfolioReportModal } from "@/components/rental/PortfolioReportModal";
 import type { RentalDashboardData } from "../queries";
 
 /* -------------------------------------------------------------------------- */
@@ -24,9 +21,13 @@ import type { RentalDashboardData } from "../queries";
 /* -------------------------------------------------------------------------- */
 
 export function RentalDashboardPage({ data }: { data: RentalDashboardData }) {
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
+  const [showAddLease, setShowAddLease] = useState(false);
+  const [showPortfolioReport, setShowPortfolioReport] = useState(false);
 
   const {
+    properties,
     pipelineStages,
     arrearsBuckets,
     maintenanceItems,
@@ -91,12 +92,6 @@ export function RentalDashboardPage({ data }: { data: RentalDashboardData }) {
           {/* ================================================================ */}
           {/*  Zone 2: Quick Actions                                           */}
           {/* ================================================================ */}
-          {/*
-            On mobile the action row becomes a horizontally-scrolling strip so
-            all buttons stay reachable without wrapping awkwardly. On `lg:`
-            and above it returns to the original padded flex row with the
-            "Bulk Increase" CTA pushed to the right via `flex-1` spacer.
-          */}
           <section
             className="anim-enter flex items-center gap-3 lg:gap-4 rounded-lg border border-slate-200 bg-white p-3 lg:p-4 shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)] overflow-x-auto scrollbar-none"
             style={{ animationDelay: "300ms" }}
@@ -105,6 +100,7 @@ export function RentalDashboardPage({ data }: { data: RentalDashboardData }) {
               Actions
             </span>
             <button
+              onClick={() => setShowAddLease(true)}
               className="shrink-0 flex items-center gap-2 px-4 py-2 text-white text-[14px] font-semibold rounded hover:opacity-90 active:scale-[0.97] transition-all duration-150"
               style={{
                 background: "linear-gradient(168deg, var(--val-primary-dark) 0%, #2563eb 100%)",
@@ -114,25 +110,43 @@ export function RentalDashboardPage({ data }: { data: RentalDashboardData }) {
               <Plus className="h-4 w-4" />
               New Lease
             </button>
-            <button className="shrink-0 flex items-center gap-2 rounded px-4 py-2 text-sm font-semibold text-val-heading hover:bg-slate-50 active:scale-[0.98] transition-all duration-150">
+            <button
+              onClick={() => router.push("/add-property")}
+              className="shrink-0 flex items-center gap-2 rounded px-4 py-2 text-sm font-semibold text-val-heading hover:bg-slate-50 active:scale-[0.98] transition-all duration-150"
+            >
               <Building2 className="h-4 w-4" />
               Add Property
             </button>
-            <button className="shrink-0 flex items-center gap-2 rounded px-4 py-2 text-sm font-semibold text-val-heading hover:bg-slate-50 active:scale-[0.98] transition-all duration-150">
+            <button
+              onClick={() => setShowPortfolioReport(true)}
+              className="shrink-0 flex items-center gap-2 rounded px-4 py-2 text-sm font-semibold text-val-heading hover:bg-slate-50 active:scale-[0.98] transition-all duration-150"
+            >
               <FileText className="h-4 w-4" />
               Portfolio Report
             </button>
-            <button className="shrink-0 flex items-center gap-2 rounded px-4 py-2 text-sm font-semibold text-val-heading hover:bg-slate-50 active:scale-[0.98] transition-all duration-150">
-              <Download className="h-3.5 w-3.5" />
-              Export
-            </button>
-            {/* Spacer only on desktop — on mobile we don't push anything right. */}
-            <div className="hidden lg:block flex-1" />
-            <button className="shrink-0 flex items-center gap-2 rounded border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-600 transition-all duration-150 hover:bg-blue-100 active:scale-95">
-              <TrendingUp className="h-4 w-4" />
-              Bulk Increase
-            </button>
           </section>
+
+          {/* Modals */}
+          <AddLeaseModal
+            open={showAddLease}
+            onClose={() => setShowAddLease(false)}
+            properties={properties}
+          />
+          <PortfolioReportModal
+            open={showPortfolioReport}
+            onClose={() => setShowPortfolioReport(false)}
+            data={{
+              grossIncome,
+              incomeTrend,
+              occupancyPct,
+              collectionRate,
+              recoveryRate,
+              evictionRisk,
+              vacancyCost,
+              leaseTableRows,
+              properties,
+            }}
+          />
 
           {/* ================================================================ */}
           {/*  Zone 3: Asymmetric — Table + Heatmap                           */}
