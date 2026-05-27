@@ -1,8 +1,8 @@
 # Mock-to-Backend Pattern
 
-*Last updated: April 2026*
+*Last updated: May 2026*
 
-A standard method for building UI features with mock data that can be swapped to a real backend (Convex) with minimal code change.
+A standard method for building UI features with mock data that can be swapped to **Neon PostgreSQL** with minimal code change.
 
 The notifications feature is the reference implementation.
 
@@ -23,10 +23,12 @@ Four layers, each with a single responsibility:
 
 ```
 lib/data/[feature].ts          — types + mock data
-lib/hooks/use-[feature].ts     — data fetching + mutations (the swap point)
+lib/hooks/use-[feature].ts     — client mutations (optional; swap point for actions)
 lib/format.ts                  — display formatting utilities
 components/[feature].tsx       — pure display component, receives props
 ```
+
+For **Server Component** pages, the swap point is often `lib/data/[feature].ts` alone (async functions called from `page.tsx` or `queries.ts`).
 
 ### 1. Types + Mock Data (`lib/data/[feature].ts`)
 
@@ -34,8 +36,9 @@ Define the data shape here. Mock data lives alongside the types so both can be r
 
 **Rules:**
 - Export the TypeScript types — components import from here, not from each other
-- Store timestamps as `number` (Unix ms), never as pre-formatted strings like `"2m ago"`
-- Include fields the backend will need even if the UI doesn't use them yet (e.g. `linkTo?`, `userId`)
+- Store timestamps as `number` (Unix ms) or `Date`, never as pre-formatted strings like `"2m ago"`
+- Include fields Postgres will need even if the UI doesn't use them yet (e.g. `linkTo?`, `orgId`)
+- Align field names with [`docs/database/prototype/schema.sql`](./database/prototype/schema.sql) when the table exists
 
 ```ts
 // lib/data/notifications.ts
@@ -44,12 +47,13 @@ export type NotificationCategory = "MAINTENANCE" | "LEASING" | ...;
 
 export interface Notification {
   id: string;
+  orgId: string;
   category: NotificationCategory;
   title: string;
   description: string;
   createdAt: number;  // timestamp — format at render time
   read: boolean;
-  linkTo?: string;    // future navigation
+  linkTo?: string;
 }
 
 const now = Date.now();
@@ -57,6 +61,7 @@ const now = Date.now();
 export const MOCK_NOTIFICATIONS: Notification[] = [
   {
     id: "1",
+    orgId: "org_demo",
     category: "MAINTENANCE",
     title: "New maintenance request",
     description: "Unit 3B • Water leak reported in bathroom",
@@ -67,80 +72,78 @@ export const MOCK_NOTIFICATIONS: Notification[] = [
 ];
 ```
 
-### 2. The Hook (`lib/hooks/use-[feature].ts`)
+### 2. The Hook (`lib/hooks/use-[feature].ts`) — client-side features
 
-This is the swap point — the only file that changes when the backend is ready.
+This is the swap point for **client** trees that need live updates (e.g. notification panel).
 
-Today it returns `useState` + mock data. When Convex is wired, the `useState` lines become `useQuery` and `useMutation` calls. The rest of the app doesn't change.
+Today it uses `useState` + mock data. When Neon is wired, call **Server Actions** or pass data from a parent Server Component — do **not** use Convex.
 
 **Rules:**
 - Mark `"use client"` — hooks are always client-side
-- Leave `TODO(backend):` comments on every line that gets replaced
-- Expose the same return shape regardless of whether data comes from mock or real backend
-- Include all mutations the UI will need (e.g. `markAllRead`, `markAsRead`) even if some aren't used yet
+- Leave `TODO(neon):` comments on every line that gets replaced
+- Expose the same return shape regardless of data source
+- Include all mutations the UI will need even if some aren't used yet
 
 ```ts
 // lib/hooks/use-notifications.ts
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { MOCK_NOTIFICATIONS, type Notification } from "@/lib/data/notifications";
-
-// TODO(backend): Replace useState + MOCK_NOTIFICATIONS with:
-//   const notifications = useQuery(api.notifications.list);
-//   const markAllReadMutation = useMutation(api.notifications.markAllRead);
-//   const markAsReadMutation  = useMutation(api.notifications.markAsRead);
+// TODO(neon): import { markAllReadAction, markAsReadAction } from "@/actions/notifications.actions";
 
 export function useNotifications() {
   const [notifications, setNotifications] = useState<Notification[]>(MOCK_NOTIFICATIONS);
+  const [pending, startTransition] = useTransition();
 
   function markAllRead() {
-    // TODO(backend): markAllReadMutation()
+    // TODO(neon): startTransition(() => markAllReadAction());
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
   }
 
   function markAsRead(id: string) {
-    // TODO(backend): markAsReadMutation({ id })
+    // TODO(neon): startTransition(() => markAsReadAction({ id }));
     setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+      prev.map((n) => (n.id === id ? { ...n, read: true } : n)),
     );
   }
 
-  return { notifications, markAllRead, markAsRead };
+  return { notifications, markAllRead, markAsRead, pending };
 }
 ```
 
-**When wiring Convex**, the replacement looks like:
+**After Neon is wired**, mutations go through Server Actions; reads can stay in a parent Server Component or use optimistic updates:
 
 ```ts
 // lib/hooks/use-notifications.ts (after backend)
 "use client";
 
-import { useQuery, useMutation } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { useTransition } from "react";
+import { markAllReadAction, markAsReadAction } from "@/actions/notifications.actions";
+import type { Notification } from "@/lib/data/notifications";
 
-export function useNotifications() {
-  const notifications = useQuery(api.notifications.list) ?? [];
-  const markAllReadMutation = useMutation(api.notifications.markAllRead);
-  const markAsReadMutation  = useMutation(api.notifications.markAsRead);
+export function useNotifications(initial: Notification[]) {
+  const [notifications, setNotifications] = useState(initial);
+  const [pending, startTransition] = useTransition();
 
-  return {
-    notifications,
-    markAllRead: () => markAllReadMutation(),
-    markAsRead:  (id: string) => markAsReadMutation({ id }),
-  };
+  function markAllRead() {
+    startTransition(async () => {
+      await markAllReadAction();
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    });
+  }
+
+  // ...
 }
 ```
 
-The component and its consumers are untouched.
+The display component and its consumers stay unchanged if props shape is stable.
 
 ### 3. Display Formatting (`lib/format.ts`)
 
 Formatting utilities that transform raw data (timestamps, numbers) into display strings. Never put these inside components.
 
 ```ts
-// lib/format.ts
-
 export function formatRelativeTime(createdAt: number): string {
   const diff = Date.now() - createdAt;
   const minutes = Math.floor(diff / 60_000);
@@ -159,73 +162,76 @@ export function formatRelativeTime(createdAt: number): string {
 A pure display component. It receives data and callbacks as props — it owns neither.
 
 **Rules:**
-- No `useState` for server data
+- No `useState` for server-owned data (unless optimistic UI)
 - No inline mock arrays
 - Import types from `lib/data/[feature].ts`
 - Import formatters from `lib/format.ts`
 - Accept mutation callbacks as props (`onMarkAllRead`, `onMarkAsRead`)
 
-```tsx
-// components/layout/NotificationsPanel.tsx
+---
 
-interface NotificationsPanelProps {
-  notifications: Notification[];
-  onMarkAllRead: () => void;
-  onClose: () => void;
-}
+## Postgres schema
+
+When the backend is ready, add or extend tables in **`docs/database/prototype/schema.sql`**, then migrate to Neon.
+
+Example (aligned with prototype conventions):
+
+```sql
+CREATE TABLE notifications (
+  id          TEXT PRIMARY KEY,
+  org_id      TEXT NOT NULL REFERENCES orgs(id),
+  category    notification_category NOT NULL,
+  title       TEXT NOT NULL,
+  description TEXT NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  read        BOOLEAN NOT NULL DEFAULT false,
+  link_to     TEXT
+);
+CREATE INDEX idx_notifications_org_read ON notifications(org_id, read);
 ```
 
-The consumer (e.g. `AppHeader`) calls the hook and passes results down:
-
-```tsx
-// components/layout/AppHeader.tsx
-
-const { notifications, markAllRead } = useNotifications();
-
-<NotificationsPanel
-  notifications={notifications}
-  onMarkAllRead={markAllRead}
-  onClose={...}
-/>
-```
+Access via `lib/db` (Drizzle/Prisma/raw SQL — TBD) with **org_id from Clerk session**, never from client input alone.
 
 ---
 
-## Convex Schema
-
-When the backend is ready, add the table to `convex/schema.ts`:
-
-```ts
-notifications: defineTable({
-  userId:      v.string(),   // Clerk userId — always filter by this
-  category:    v.union(v.literal("MAINTENANCE"), v.literal("LEASING"), ...),
-  title:       v.string(),
-  description: v.string(),
-  createdAt:   v.number(),   // Date.now()
-  read:        v.boolean(),
-  linkTo:      v.optional(v.string()),
-}).index("by_user", ["userId"]),
-```
-
----
-
-## What Changes When the Backend Is Wired
+## What changes when the backend is wired
 
 | File | Change |
 |---|---|
-| `lib/hooks/use-notifications.ts` | Swap `useState` → `useQuery` + `useMutation` |
-| `convex/notifications.ts` | New file — Convex query + mutation functions |
-| `convex/schema.ts` | Add `notifications` table |
-| `lib/data/notifications.ts` | Remove `MOCK_NOTIFICATIONS` array, keep types |
-| Everything else | No change |
+| `lib/data/[feature].ts` | Replace mock array with SQL queries; keep types |
+| `lib/hooks/use-[feature].ts` | `useState` mocks → Server Actions + optional optimistic UI |
+| `actions/[feature].actions.ts` | New — Zod, authz, SQL |
+| `docs/database/prototype/schema.sql` | Table + indexes |
+| `lib/db` / migrations | Connection + queries |
+| Components | **No change** if props stable |
 
 ---
 
-## Applying This Pattern to Other Features
+## Server Component variant (preferred for pages)
 
-Follow the same four-layer structure for any feature that will eventually hit the backend:
+```ts
+// lib/data/properties.ts
+export async function getProperties(orgId: string): Promise<Property[]> {
+  // today
+  return structuredClone(properties);
+  // TODO(neon): return db.select().from(properties).where(eq(properties.orgId, orgId));
+}
+
+// app/(shell)/page.tsx
+export default async function HomePage() {
+  const orgId = await requireOrgId();
+  const properties = await getProperties(orgId);
+  return <HomePageClient properties={properties} />;
+}
+```
+
+---
+
+## Applying this pattern to other features
 
 1. Define types and mock data in `lib/data/[feature].ts`
-2. Create `lib/hooks/use-[feature].ts` with `TODO(backend):` comments marking the swap points
+2. For client widgets: `lib/hooks/use-[feature].ts` with `TODO(neon):` markers
 3. Keep display formatting in `lib/format.ts`
-4. Make the component a pure display component that receives props
+4. Pure display components; wire pages through Server Components when possible
+
+**Do not** use `convex/` or Convex hooks for new features — see [`AGENTS.md`](../AGENTS.md).
