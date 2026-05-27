@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { TableScroll } from "@/components/ui/table-scroll";
 import type { Property } from "@/lib/data/types/property";
 import type { CoOwner } from "@/lib/data/types/co-owner";
 import type { OwnershipDocument } from "@/lib/data/types/ownership-document";
@@ -8,6 +9,7 @@ import type { OwnershipRecord } from "@/lib/data/types/ownership-record";
 import type { OwnershipHistory } from "@/lib/data/types/ownership-history";
 import type { PropertyFinancials } from "@/app/(shell)/property/[id]/ownership/queries";
 import { PropertyLayout } from "@/components/property/PropertyLayout";
+import { MobileCardTable } from "@/components/property/MobileCardTable";
 import {
   ChevronDown, Download, FileText, History, Mail, Phone, Upload, UserPlus, Users,
 } from "lucide-react";
@@ -131,7 +133,7 @@ export function PropertyOwnershipPage2({
 
         {/* Page Header */}
         <div className="pt-8 pb-6" style={fade(mounted, 0, reducedMotion)}>
-          <div className="max-w-[1200px] mx-auto px-8">
+          <div className="max-w-[1200px] mx-auto px-4 sm:px-8">
             <div className="flex items-center gap-1.5 mb-3">
               <span className="text-xs font-semibold tracking-widest uppercase text-[--val-primary-dark]">Valgate</span>
               <span className="text-xs text-slate-300">/</span>
@@ -139,9 +141,9 @@ export function PropertyOwnershipPage2({
               <span className="text-xs text-slate-300">/</span>
               <span className="text-xs font-semibold tracking-widest uppercase text-slate-400">Ownership</span>
             </div>
-            <div className="flex items-end justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <h1 className="text-4xl font-extrabold text-val-heading tracking-tight leading-10">Ownership</h1>
+                <h1 className="text-[28px] sm:text-[40px] font-extrabold text-val-heading tracking-tight leading-tight sm:leading-10">Ownership</h1>
                 <p className="text-slate-500 text-base mt-2">
                   Co-owners, equity position, and legal structure for {property.name}.
                 </p>
@@ -160,14 +162,14 @@ export function PropertyOwnershipPage2({
           </div>
         </div>
 
-        <div className="max-w-[1200px] mx-auto px-8 pt-2 flex flex-col gap-5">
+        <div className="max-w-[1200px] mx-auto px-4 sm:px-8 pt-2 flex flex-col gap-4 sm:gap-5">
 
           {/* Summary Bar */}
-          <div className="grid grid-cols-3 gap-4" style={fade(mounted, 60, reducedMotion)}>
+          <div className="grid grid-cols-1 xs:grid-cols-3 gap-3 sm:gap-4" style={fade(mounted, 60, reducedMotion)}>
             {/* Card 1 — Primary Share */}
             <div className="bg-white rounded-lg border border-slate-200 p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)] hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
               <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-2">Primary Share</p>
-              <p className="text-[20px] font-bold text-val-heading leading-none">
+              <p className="text-[22px] sm:text-[26px] font-bold text-val-heading leading-none">
                 {topOwner ? `${topOwner.name} · ${topOwner.sharePercent}%` : "—"}
               </p>
               <p className="text-xs text-slate-400 mt-1.5">= {topOwnerEquity} equity</p>
@@ -176,7 +178,7 @@ export function PropertyOwnershipPage2({
             {/* Card 2 — Net Equity */}
             <div className="bg-white rounded-lg border border-slate-200 p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)] hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
               <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-2">Net Equity</p>
-              <p className="text-[20px] font-bold text-val-heading leading-none">{propertyFinancials.equityAmount}</p>
+              <p className="text-[22px] sm:text-[26px] font-bold text-val-heading leading-none">{propertyFinancials.equityAmount}</p>
               {propertyFinancials.appreciationPct !== "—" && (
                 <p className="text-xs text-emerald-600 font-semibold mt-1.5">▲ {propertyFinancials.appreciationPct} since purchase</p>
               )}
@@ -185,7 +187,7 @@ export function PropertyOwnershipPage2({
             {/* Card 3 — Next Payment */}
             <div className={`bg-white rounded-lg border p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)] hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 ${nextPaymentDays != null && nextPaymentDays <= 14 ? "border-amber-200 bg-amber-50/30" : "border-slate-200"}`}>
               <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-2">Next Payment</p>
-              <p className="text-[20px] font-bold text-val-heading leading-none">{nextPaymentLabel}</p>
+              <p className="text-[22px] sm:text-[26px] font-bold text-val-heading leading-none">{nextPaymentLabel}</p>
               {nextPaymentDays != null && (
                 <p className={`text-xs font-semibold mt-1.5 ${nextPaymentDays <= 14 ? "text-amber-600" : "text-slate-400"}`}>
                   in {nextPaymentDays} day{nextPaymentDays !== 1 ? "s" : ""}
@@ -195,12 +197,12 @@ export function PropertyOwnershipPage2({
           </div>
 
           {/* Equity & Financial Position + Ownership Split */}
-          <div className="grid grid-cols-12 gap-5" style={fade(mounted, 140, reducedMotion)}>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5" style={fade(mounted, 140, reducedMotion)}>
 
             {/* Equity card */}
-            <div className="col-span-7 bg-white rounded-xl border border-slate-200 p-6 shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)]">
+            <div className="lg:col-span-7 bg-white rounded-xl border border-slate-200 p-5 sm:p-6 shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)]">
               <h3 className="text-base font-bold text-val-heading mb-5">Equity &amp; Financial Position</h3>
-              <div className="flex gap-12 mb-5">
+              <div className="flex flex-col sm:flex-row gap-4 sm:gap-12 mb-5">
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-1">
                     Current Estimated Value
@@ -242,7 +244,7 @@ export function PropertyOwnershipPage2({
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-4 pt-4 border-t border-slate-100">
+              <div className="grid grid-cols-1 xs:grid-cols-3 gap-3 sm:gap-4 pt-4 border-t border-slate-100">
                 {[
                   { label: "LTV Ratio", value: propertyFinancials.ltv },
                   { label: "Monthly P/I", value: propertyFinancials.monthlyPayment !== "—" ? `${propertyFinancials.monthlyPayment}/mo` : "—" },
@@ -304,7 +306,7 @@ export function PropertyOwnershipPage2({
           </div>
 
           {/* Owner Cards */}
-          <div className="grid grid-cols-2 gap-5" style={fade(mounted, 220, reducedMotion)}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5" style={fade(mounted, 220, reducedMotion)}>
             {sortedOwners.length === 0 ? (
               <div className="col-span-2">
                 <EmptyState
@@ -351,7 +353,13 @@ export function PropertyOwnershipPage2({
 
             {/* Details tab */}
             {section === "details" && (
-              <div className="grid grid-cols-2 gap-0 divide-x divide-slate-100">
+              /*
+                On mobile the two-column Acquisition + Income/Expense
+                Distribution layout stacks vertically. The divider flips
+                from vertical (between columns) to horizontal (between
+                rows) so the two sections still feel related but readable.
+              */
+              <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-slate-100">
                 {/* Acquisition Details */}
                 <div className="p-6">
                   <h3 className="text-base font-bold text-val-heading mb-4">Acquisition Details</h3>
@@ -468,63 +476,128 @@ export function PropertyOwnershipPage2({
                     />
                   </div>
                 ) : (
-                  <table className="w-full">
-                    <thead>
-                      <tr className="bg-slate-50/60 border-b border-slate-200">
-                        {["Name", "Type", "Issued", "Expires", "Owner", "Status", ""].map((col) => (
-                          <th
-                            key={col}
-                            className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]"
-                          >
-                            {col}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {ownershipDocuments.map((doc, i) => {
-                        const statusStyle = STATUS_STYLE[doc.status ?? "Current"] ?? STATUS_STYLE["Current"];
-                        return (
-                          <tr
-                            key={doc.id}
-                            className="border-t border-slate-100 hover:bg-blue-50/30 transition-colors group cursor-pointer"
-                            style={{ animationDelay: `${i * 25}ms` }}
-                          >
-                            <td className="px-4 py-3.5 text-[14px] text-val-heading">
-                              <div className="flex items-center gap-2">
-                                <FileText className="w-4 h-4 text-slate-400 shrink-0" />
-                                {doc.name}
-                              </div>
-                            </td>
-                            <td className="px-4 py-3.5 text-[14px] text-slate-500">{doc.type}</td>
-                            <td className="px-4 py-3.5 text-[14px] text-slate-500">{formatDate(doc.documentDate)}</td>
-                            <td className="px-4 py-3.5 text-[14px] text-slate-500">{doc.expiryDate ? formatDate(doc.expiryDate) : "—"}</td>
-                            <td className="px-4 py-3.5">
-                              <div className="flex items-center gap-1.5">
-                                <span
-                                  className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0"
-                                  style={{ background: "var(--val-primary-dark)" }}
+                  <MobileCardTable
+                    desktop={
+                      <TableScroll stickyFirstColumn>
+                        <table className="w-full min-w-[680px] sm:min-w-0">
+                          <thead>
+                            <tr className="bg-slate-50/60 border-b border-slate-200">
+                              {["Name", "Type", "Issued", "Expires", "Owner", "Status", ""].map((col, idx) => (
+                                <th
+                                  key={col}
+                                  className={`px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em] ${idx === 0 ? "data-sticky-col bg-slate-50/60" : ""}`}
                                 >
-                                  {ownerInitials(orecMap.get(doc.ownershipRecordId)?.holdingType ?? "—")}
+                                  {col}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {ownershipDocuments.map((doc, i) => {
+                              const statusStyle = STATUS_STYLE[doc.status ?? "Current"] ?? STATUS_STYLE["Current"];
+                              return (
+                                <tr
+                                  key={doc.id}
+                                  className="border-t border-slate-100 hover:bg-blue-50/30 transition-colors group cursor-pointer"
+                                  style={{ animationDelay: `${i * 25}ms` }}
+                                >
+                                  <td className="data-sticky-col px-4 py-3.5 text-[14px] text-val-heading">
+                                    <div className="flex items-center gap-2">
+                                      <FileText className="w-4 h-4 text-slate-400 shrink-0" />
+                                      {doc.name}
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3.5 text-[14px] text-slate-500">{doc.type}</td>
+                                  <td className="px-4 py-3.5 text-[14px] text-slate-500">{formatDate(doc.documentDate)}</td>
+                                  <td className="px-4 py-3.5 text-[14px] text-slate-500">{doc.expiryDate ? formatDate(doc.expiryDate) : "—"}</td>
+                                  <td className="px-4 py-3.5">
+                                    <div className="flex items-center gap-1.5">
+                                      <span
+                                        className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0"
+                                        style={{ background: "var(--val-primary-dark)" }}
+                                      >
+                                        {ownerInitials(orecMap.get(doc.ownershipRecordId)?.holdingType ?? "—")}
+                                      </span>
+                                      <span className="text-[14px] text-slate-500">{orecMap.get(doc.ownershipRecordId)?.holdingType ?? "—"}</span>
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3.5">
+                                    <span className={`text-[10px] font-semibold tracking-[1px] uppercase px-2.5 py-0.5 rounded-full border ${statusStyle}`}>
+                                      {doc.status ?? "Current"}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-3.5 text-right">
+                                    <button className="opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-slate-100">
+                                      <Download className="w-4 h-4 text-slate-400" />
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </TableScroll>
+                    }
+                    mobile={
+                      <div className="flex flex-col divide-y divide-slate-100">
+                        {ownershipDocuments.map((doc) => {
+                          const statusStyle = STATUS_STYLE[doc.status ?? "Current"] ?? STATUS_STYLE["Current"];
+                          const ownerLabel = orecMap.get(doc.ownershipRecordId)?.holdingType ?? "—";
+                          return (
+                            <div
+                              key={doc.id}
+                              className="px-4 py-3.5 flex flex-col gap-2 hover:bg-blue-50/30 active:bg-blue-50/60 transition-colors cursor-pointer group"
+                            >
+                              {/* Row 1 — file name + status pill */}
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="flex items-center gap-2 min-w-0 flex-1">
+                                  <FileText className="w-4 h-4 text-slate-400 shrink-0" />
+                                  <span className="text-[14px] text-val-heading font-semibold truncate">
+                                    {doc.name}
+                                  </span>
+                                </div>
+                                <span className={`text-[10px] font-semibold tracking-[1px] uppercase px-2.5 py-0.5 rounded-full border shrink-0 ${statusStyle}`}>
+                                  {doc.status ?? "Current"}
                                 </span>
-                                <span className="text-[14px] text-slate-500">{orecMap.get(doc.ownershipRecordId)?.holdingType ?? "—"}</span>
                               </div>
-                            </td>
-                            <td className="px-4 py-3.5">
-                              <span className={`text-[10px] font-semibold tracking-[1px] uppercase px-2.5 py-0.5 rounded-full border ${statusStyle}`}>
-                                {doc.status ?? "Current"}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3.5 text-right">
-                              <button className="opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-slate-100">
-                                <Download className="w-4 h-4 text-slate-400" />
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+
+                              {/* Row 2 — secondary meta */}
+                              <div className="flex items-center gap-2 text-[12px] text-slate-500 flex-wrap">
+                                <span>{doc.type}</span>
+                                <span className="text-slate-300">·</span>
+                                <span>Issued {formatDate(doc.documentDate)}</span>
+                                {doc.expiryDate && (
+                                  <>
+                                    <span className="text-slate-300">·</span>
+                                    <span>Expires {formatDate(doc.expiryDate)}</span>
+                                  </>
+                                )}
+                              </div>
+
+                              {/* Row 3 — owner + download */}
+                              <div className="flex items-center justify-between gap-3 mt-0.5">
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <span
+                                    className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[9px] font-bold shrink-0"
+                                    style={{ background: "var(--val-primary-dark)" }}
+                                  >
+                                    {ownerInitials(ownerLabel)}
+                                  </span>
+                                  <span className="text-[12px] text-slate-500 truncate">{ownerLabel}</span>
+                                </div>
+                                <button
+                                  className="p-1 rounded hover:bg-slate-100 shrink-0"
+                                  aria-label="Download document"
+                                >
+                                  <Download className="w-4 h-4 text-slate-400" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    }
+                  />
                 )}
               </div>
             )}

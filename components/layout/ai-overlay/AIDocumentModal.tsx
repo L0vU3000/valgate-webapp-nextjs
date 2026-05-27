@@ -145,8 +145,11 @@ export function AIDocumentModal({ doc, onClose }: Props) {
 
           <div className="ai-glass-divider-h mx-5" />
 
-          {/* Footer */}
-          <div className="flex shrink-0 items-center justify-between px-5 py-4">
+          {/* Footer — extra bottom inset so actions clear rounded modal corners */}
+          <div
+            className="flex shrink-0 items-center justify-between gap-4 px-6 pt-4"
+            style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom, 0px))" }}
+          >
             <a
               href={doc?.href}
               target="_blank"

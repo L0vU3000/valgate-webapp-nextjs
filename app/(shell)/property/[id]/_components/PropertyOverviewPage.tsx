@@ -34,6 +34,7 @@ import { formatCurrency, formatCurrencyFull, formatRelativeTime } from "@/lib/fo
 import { TYPE_LABEL, TYPE_ICON } from "@/lib/property-helpers";
 import { PropertyLayout } from "@/components/property/PropertyLayout";
 import { usePropertyShell } from "@/components/property/PropertyShellContext";
+import { StackedCardTable } from "@/components/ui/stacked-card-table";
 
 /* ─── Constants ──────────────────────────────────────────────────────────── */
 
@@ -96,6 +97,31 @@ function getValuationDelta(valuations: PropertyValuation[]): number | null {
   const prev   = sorted[sorted.length - 2];
   const latest = sorted[sorted.length - 1];
   return prev.price === 0 ? null : ((latest.price - prev.price) / prev.price) * 100;
+}
+
+function deriveIncomeStatus(payments: Payment[], activeLeases: Lease[], now: number): string {
+  const expectedRent = activeLeases.reduce((sum, l) => sum + l.monthlyRent, 0);
+  if (expectedRent === 0) return "Due";
+
+  const monthStart = new Date(now);
+  monthStart.setDate(1);
+  monthStart.setHours(0, 0, 0, 0);
+  const monthEnd = new Date(monthStart);
+  monthEnd.setMonth(monthEnd.getMonth() + 1);
+
+  const thisMonthRent = payments.filter(
+    (p) => p.kind === "Rent" && p.date >= monthStart.getTime() && p.date < monthEnd.getTime(),
+  );
+
+  if (thisMonthRent.some((p) => p.status === "Overdue")) return "Overdue";
+
+  const collected = thisMonthRent
+    .filter((p) => p.status === "Paid")
+    .reduce((sum, p) => sum + p.amount, 0);
+
+  if (collected >= expectedRent) return "Collected";
+  if (collected > 0) return "Partial";
+  return "Due";
 }
 
 function buildActivityFeed(
@@ -220,12 +246,16 @@ function MetricCell({ label, value, badge, badgeColor, duration, active, delta }
 }) {
   const display = useCountUp(value, duration, active);
   const isIncome = label === "Monthly Income";
+  // Mobile padding tightens to keep two cells side-by-side at 484px; the
+  // value drops from 26px to 22px and the inline badge from 15px to 13px so
+  // the cell doesn't wrap awkwardly. Label tier matches the canonical
+  // Stat Label class string from the type scale.
   return (
-    <div className={`flex-1 px-6 py-4${isIncome ? " bg-[--val-bg-tint]" : ""}`}>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-400 mb-1">{label}</p>
-      <div className="flex items-baseline gap-2 flex-wrap">
-        <p className="text-val-heading text-[26px] font-bold leading-none">{display}</p>
-        {badge && <span className="text-[15px] font-semibold" style={{ color: badgeColor }}>{badge}</span>}
+    <div className={`flex-1 px-4 sm:px-6 py-3 sm:py-4${isIncome ? " bg-[--val-bg-tint]" : ""}`}>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-1">{label}</p>
+      <div className="flex items-baseline gap-1.5 sm:gap-2 flex-wrap">
+        <p className="text-val-heading text-[22px] sm:text-[26px] font-bold leading-none">{display}</p>
+        {badge && <span className="text-[13px] sm:text-[15px] font-semibold" style={{ color: badgeColor }}>{badge}</span>}
         {delta != null && <DeltaBadge delta={delta} />}
       </div>
     </div>
@@ -287,6 +317,7 @@ export function PropertyOverviewPage({
     (l) => l.stage === "Signed" && l.startDate <= now && l.endDate >= now,
   );
   const monthlyIncome = activeLeases.reduce((sum, l) => sum + l.monthlyRent, 0);
+  const incomeStatus = deriveIncomeStatus(payments, activeLeases, now);
   const tenantMap = new Map(tenants.map((t) => [t.id, t]));
   const activeLeaseholders = activeLeases.map((l) => {
     const t = l.tenantId ? tenantMap.get(l.tenantId) : undefined;
@@ -382,6 +413,11 @@ export function PropertyOverviewPage({
       value: "$" + monthlyIncome.toLocaleString("en-US"),
       delta: incomeDelta,
       duration: 1100,
+      badge: incomeStatus,
+      badgeColor: incomeStatus === "Collected" ? "#059669"
+        : incomeStatus === "Partial" ? "#d97706"
+        : incomeStatus === "Overdue" ? "#dc2626"
+        : "#64748b",
     },
     {
       label: "Current Valuation",
@@ -427,7 +463,10 @@ export function PropertyOverviewPage({
       <div className="bg-val-bg-page-alt min-h-full pb-10">
 
         {/* ── Hero — photo mosaic ── */}
-        <div className="relative h-[360px] overflow-hidden flex items-end">
+        {/* Mobile uses a shorter 240px hero so the property title and KPI
+            strip stay near the top of the fold; tablet+ keeps the original
+            360px immersive height. */}
+        <div className="relative h-[240px] sm:h-[360px] overflow-hidden flex items-end">
           {/* Map background */}
           <div className="absolute inset-0 bg-slate-900">
             {heroMapUrl && (
@@ -455,8 +494,8 @@ export function PropertyOverviewPage({
           />
 
           {/* Hero text & actions */}
-          <div className="relative z-20 w-full flex items-end justify-between px-8 pb-8">
-            <div className="flex flex-col gap-2">
+          <div className="relative z-20 w-full flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between px-4 sm:px-8 pb-5 sm:pb-8">
+            <div className="flex flex-col gap-2 min-w-0">
               <div className="flex items-center gap-2.5" style={heroIn(80)}>
                 <span className="bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-semibold tracking-[0.05em] uppercase px-2.5 py-0.5 rounded-full">
                   {property.status}
@@ -467,13 +506,13 @@ export function PropertyOverviewPage({
                 Purchased {property.buyNumeric ? formatCurrency(property.buyNumeric) : "—"}
               </p>
               <h1
-                className="text-white font-extrabold tracking-tight leading-none"
-                style={{ fontSize: "clamp(38px, 4vw, 58px)", ...heroIn(240) }}
+                className="text-white font-extrabold tracking-tight leading-none break-words"
+                style={{ fontSize: "clamp(28px, 5vw, 58px)", ...heroIn(240) }}
               >
                 {property.name}
               </h1>
             </div>
-            <div className="flex items-center gap-2.5" style={heroIn(340)}>
+            <div className="flex items-center gap-2.5 shrink-0" style={heroIn(340)}>
               <button
                 type="button"
                 onClick={() => shell?.openPropertyWizard()}
@@ -495,7 +534,7 @@ export function PropertyOverviewPage({
         </div>
 
         {/* ── Below-hero content ── */}
-        <div className="max-w-[1200px] mx-auto px-8 pt-0 flex flex-col gap-4">
+        <div className="max-w-[1200px] mx-auto px-4 sm:px-8 pt-0 flex flex-col gap-4">
 
           {/* Attribute strip + section anchor nav */}
           <div className="pt-5">
@@ -533,7 +572,7 @@ export function PropertyOverviewPage({
 
           {/* KPI metrics bar */}
           <div
-            className="bg-white border border-slate-200 rounded-lg flex divide-x divide-slate-200 overflow-hidden"
+            className="bg-white border border-slate-200 rounded-lg grid grid-cols-2 sm:flex sm:divide-x sm:divide-slate-200 overflow-hidden divide-y sm:divide-y-0 divide-slate-200"
             style={fade(mounted, 120, reducedMotion)}
           >
             {metrics.map((m) => (
@@ -544,18 +583,26 @@ export function PropertyOverviewPage({
                 duration={m.duration}
                 active={countUpActive}
                 delta={m.delta}
+                badge={(m as { badge?: string }).badge}
+                badgeColor={(m as { badgeColor?: string }).badgeColor}
               />
             ))}
           </div>
 
           {/* Main grid */}
-          <div className="grid grid-cols-12 gap-5">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5">
 
             {/* ── Left column ── */}
-            <div className="col-span-8 flex flex-col gap-4" style={fade(mounted, 280, reducedMotion)}>
+            <div className="lg:col-span-8 flex flex-col gap-4" style={fade(mounted, 280, reducedMotion)}>
 
               {/* Summary row */}
-              <div className="grid grid-cols-2 gap-4">
+              {/*
+                Stack the Financials and Ownership cards on mobile (was
+                `xs:grid-cols-2` which activated 2-col at 480px — too narrow
+                at 484px, the Financials chart bars collapsed and Ownership
+                owner names wrapped). 2-col returns at `sm:` (640px+).
+              */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
 
                 {/* Financials card with mini chart */}
                 <div id="overview-financials" className="bg-white border border-slate-200 rounded-lg p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)] flex flex-col gap-3 scroll-mt-20">
@@ -691,44 +738,50 @@ export function PropertyOverviewPage({
                   <h3 className="text-val-heading text-[15px] font-semibold">Active Leaseholders</h3>
                   <button className="text-[--val-primary-dark] text-[12px] font-semibold hover:opacity-75 transition-opacity" aria-label="View all leaseholders">View All</button>
                 </div>
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-slate-100">
-                      <th className="text-left px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-400">Tenant</th>
-                      <th className="text-left px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-400">Unit</th>
-                      <th className="text-left px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-400">Monthly Rent</th>
-                      <th className="text-left px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-400">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {activeLeaseholders.length === 0 ? (
-                      <tr>
-                        <td colSpan={4} className="px-5 py-6 text-center text-slate-400 text-[13px]">—</td>
-                      </tr>
-                    ) : activeLeaseholders.map((t, i) => (
-                      <tr
-                        key={t.name + t.unit}
-                        className={`hover:bg-blue-50/30 transition-colors duration-150${i > 0 ? " border-t border-slate-100" : ""}`}
-                        style={{
-                          animationName: mounted ? "analytics-fade-up" : "none",
-                          animationDuration: "0.5s",
-                          animationTimingFunction: "cubic-bezier(0.16,1,0.3,1)",
-                          animationFillMode: "forwards",
-                          animationDelay: `${400 + i * 80}ms`,
-                          opacity: mounted ? undefined : 0,
-                        }}
-                      >
-                        <td className="px-5 py-3.5">
+                <div className="p-4 sm:p-0">
+                  <StackedCardTable
+                    rows={activeLeaseholders}
+                    rowKey={(t) => t.name + t.unit}
+                    primaryColumn="tenant"
+                    trailingColumn="status"
+                    emptyState={
+                      <p className="text-center text-slate-400 text-[13px] py-6">—</p>
+                    }
+                    columns={[
+                      {
+                        key: "tenant",
+                        label: "Tenant",
+                        render: (t) => (
                           <div className="flex items-center gap-3 min-w-0">
                             <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-[12px] font-semibold shrink-0">
                               {t.initials}
                             </div>
-                            <span className="text-val-heading text-[14px] font-semibold truncate">{t.name}</span>
+                            <span className="text-val-heading text-[14px] font-semibold truncate">
+                              {t.name}
+                            </span>
                           </div>
-                        </td>
-                        <td className="px-5 py-3.5 text-slate-500 text-[14px]">{t.unit}</td>
-                        <td className="px-5 py-3.5 text-val-heading text-[14px] font-semibold">{t.rent}</td>
-                        <td className="px-5 py-3.5">
+                        ),
+                      },
+                      {
+                        key: "unit",
+                        label: "Unit",
+                        render: (t) => (
+                          <span className="text-slate-500 text-[14px]">{t.unit}</span>
+                        ),
+                      },
+                      {
+                        key: "rent",
+                        label: "Monthly Rent",
+                        render: (t) => (
+                          <span className="text-val-heading text-[14px] font-semibold">
+                            {t.rent}
+                          </span>
+                        ),
+                      },
+                      {
+                        key: "status",
+                        label: "Status",
+                        render: (t) => (
                           <span
                             className={`inline-flex px-2 py-0.5 rounded-full text-[12px] font-medium border ${
                               t.statusOk
@@ -738,11 +791,11 @@ export function PropertyOverviewPage({
                           >
                             {t.status}
                           </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        ),
+                      },
+                    ]}
+                  />
+                </div>
               </div>
 
               {/* Activity Feed */}
@@ -788,7 +841,7 @@ export function PropertyOverviewPage({
             </div>
 
             {/* ── Right sidebar ── */}
-            <div className="col-span-4 flex flex-col gap-4" style={fade(mounted, 340, reducedMotion)}>
+            <div className="lg:col-span-4 flex flex-col gap-4" style={fade(mounted, 340, reducedMotion)}>
 
               {/* Property Progress card */}
               {progressDetails && (
@@ -937,11 +990,11 @@ export function PropertyOverviewPage({
           {(mapUrl || property.province) && (
             <div
               id="overview-location"
-              className="border border-slate-200 rounded-xl overflow-hidden scroll-mt-20 flex"
+              className="border border-slate-200 rounded-xl overflow-hidden scroll-mt-20 flex flex-col sm:flex-row"
               style={{ minHeight: 280, ...fade(mounted, 400, reducedMotion) }}
             >
               {/* Info panel */}
-              <div className="w-[300px] shrink-0 bg-white flex flex-col justify-between p-6 gap-6">
+              <div className="w-full sm:w-[300px] shrink-0 bg-white flex flex-col justify-between p-5 sm:p-6 gap-4 sm:gap-6">
                 <div className="flex flex-col gap-1">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-400 mb-3">
                     Location

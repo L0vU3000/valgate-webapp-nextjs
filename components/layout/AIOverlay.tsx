@@ -16,6 +16,8 @@ import {
 import type { AiMessage } from "@/lib/data/types/ai-message";
 import type { AiSession } from "@/lib/data/types/ai-session";
 import type { AiOverlayClientContext } from "@/lib/data/derivations/ai-context";
+import type { AiWorkspaceDocument } from "@/lib/data/derivations/ai-context";
+import { AIDocumentModal } from "./ai-overlay/AIDocumentModal";
 import { AISessionSidebar } from "./ai-overlay/AISessionSidebar";
 import { AIChatPane } from "./ai-overlay/AIChatPane";
 import { AIWorkspaceAssets } from "./ai-overlay/AIWorkspaceAssets";
@@ -41,6 +43,7 @@ export function AIOverlay({ open, onClose, pathname }: AIOverlayProps) {
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>("chat");
   const [bootstrapped, setBootstrapped] = useState(false);
   const [latestAssistantMsgId, setLatestAssistantMsgId] = useState<string | null>(null);
+  const [selectedDoc, setSelectedDoc] = useState<AiWorkspaceDocument | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const activeSessionIdRef = useRef<string | null>(null);
   const pathnameRef = useRef(pathname);
@@ -73,6 +76,7 @@ export function AIOverlay({ open, onClose, pathname }: AIOverlayProps) {
   useEffect(() => {
     if (!open) {
       setBootstrapped(false);
+      setSelectedDoc(null);
       return;
     }
     setMobilePanel("chat");
@@ -252,6 +256,7 @@ export function AIOverlay({ open, onClose, pathname }: AIOverlayProps) {
         tabIndex={-1}
         className={cn(
           "ai-glass-shell ai-glass-shell--fullscreen pointer-events-none relative z-[1] flex h-full w-full flex-col overflow-hidden outline-none",
+          "pt-safe pb-safe",
           "animate-[glass-open_0.35s_cubic-bezier(0.16,1,0.3,1)_both]",
         )}
       >
@@ -261,7 +266,7 @@ export function AIOverlay({ open, onClose, pathname }: AIOverlayProps) {
               type="button"
               onClick={() => setMobilePanel("sessions")}
               className={cn(
-                "flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-medium",
+                "flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2.5 min-h-11 text-[13px] font-medium",
                 mobilePanel === "sessions"
                   ? "bg-white/40 text-foreground"
                   : "text-secondary",
@@ -274,7 +279,7 @@ export function AIOverlay({ open, onClose, pathname }: AIOverlayProps) {
               type="button"
               onClick={() => setMobilePanel("chat")}
               className={cn(
-                "flex flex-1 items-center justify-center rounded-lg py-2 text-xs font-medium",
+                "flex flex-1 items-center justify-center rounded-lg py-2.5 min-h-11 text-[13px] font-medium",
                 mobilePanel === "chat" ? "bg-white/40 text-foreground" : "text-secondary",
               )}
             >
@@ -284,7 +289,7 @@ export function AIOverlay({ open, onClose, pathname }: AIOverlayProps) {
               type="button"
               onClick={() => setMobilePanel("assets")}
               className={cn(
-                "flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-medium",
+                "flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2.5 min-h-11 text-[13px] font-medium",
                 mobilePanel === "assets" ? "bg-white/40 text-foreground" : "text-secondary",
               )}
             >
@@ -326,6 +331,7 @@ export function AIOverlay({ open, onClose, pathname }: AIOverlayProps) {
                 messages={messages}
                 userInitials={context?.userInitials ?? "U"}
                 documents={context?.documents ?? []}
+                onOpenDocument={setSelectedDoc}
                 inputValue={inputValue}
                 onInputChange={setInputValue}
                 onSend={handleSend}
@@ -348,12 +354,15 @@ export function AIOverlay({ open, onClose, pathname }: AIOverlayProps) {
                   portfolioBars={context.portfolioBars}
                   yieldHref={context.yieldHref}
                   portfolio={context.portfolio}
+                  onOpenDocument={setSelectedDoc}
                 />
               </div>
             )}
           </div>
         </div>
       </div>
+
+      <AIDocumentModal doc={selectedDoc} onClose={() => setSelectedDoc(null)} />
     </div>
   );
 }

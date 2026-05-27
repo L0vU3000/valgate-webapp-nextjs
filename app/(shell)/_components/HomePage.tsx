@@ -180,10 +180,22 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
           className="absolute inset-0"
         />
 
-        {/* Command Palette Trigger */}
-        <div data-no-drag className="absolute top-6 z-10 flex justify-center transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]" style={{ left: 0, right: selectedProperty ? "20rem" : 0 }}>
+        {/* Command Palette Trigger.
+            Phone: container takes full width below the safe-area top (drawer pushes up from bottom, doesn't compete with this trigger).
+            Tablet+: shrinks to make room for the right-anchored property sidebar when one is selected. */}
+        <div
+          data-no-drag
+          className={cn(
+            "absolute z-10 flex justify-center transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] px-4 sm:px-0",
+            "top-[calc(env(safe-area-inset-top)+24px)] sm:top-6 left-0 right-0",
+            // Desktop drawer sits on the right — shrink the trigger area so it
+            // stays centered in the remaining map space. On mobile the drawer
+            // is a bottom sheet, so the offset only applies from `sm:` up.
+            selectedProperty && "sm:right-80",
+          )}
+        >
           <div className={cn(
-            "flex flex-col items-center gap-3 w-[700px] max-w-[calc(100%-3rem)]",
+            "flex flex-col items-center gap-3 w-full max-w-[calc(100%-2rem)] sm:w-[700px] sm:max-w-[calc(100%-3rem)]",
             mapLoaded ? "[animation:fade-slide-down_0.5s_cubic-bezier(0.16,1,0.3,1)_both]" : "opacity-0",
           )}>
           <button
@@ -211,7 +223,13 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
           </button>
 
           {/* Quick actions */}
-          <div className="flex items-center gap-3">
+          {/*
+            On mobile this becomes a horizontally-scrolling strip so all four
+            chips remain reachable without wrapping. Each button shrinks-0
+            and the parent allows overflow-x. On `sm:` and above the row
+            returns to a static centered flex layout.
+          */}
+          <div className="flex items-center gap-3 w-full sm:w-auto overflow-x-auto scrollbar-none -mx-4 sm:mx-0 px-4 sm:px-0">
             {[
               { label: "New Property", icon: Plus, action: () => router.push("/add-property") },
               { label: "Analytics", icon: BarChart2, action: () => router.push("/analytics") },
@@ -223,7 +241,7 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
                 onClick={action}
                 style={{ animationDelay: `${80 + i * 50}ms` }}
                 className={cn(
-                  "flex items-center gap-2 bg-surface-base border border-border-default rounded-full px-4 py-2 text-sm font-medium text-secondary hover:bg-surface-tint hover:text-foreground hover:-translate-y-0.5 hover:shadow-sm active:translate-y-0 transition-all duration-150",
+                  "shrink-0 flex items-center gap-2 bg-surface-base border border-border-default rounded-full px-4 py-2 text-sm font-medium text-secondary hover:bg-surface-tint hover:text-foreground hover:-translate-y-0.5 hover:shadow-sm active:translate-y-0 transition-all duration-150",
                   mapLoaded ? "[animation:fade-slide-up_0.4s_cubic-bezier(0.16,1,0.3,1)_both]" : "opacity-0",
                 )}
               >
@@ -255,18 +273,30 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
           onToggleSatellite={() => setIsSatellite((s) => !s)}
         />
 
-        {/* Property info panel — full-height floating sidebar */}
+        {/* Property info panel.
+            Phone (Apple Maps pattern): bottom-anchored sheet with rounded top,
+            grab handle, ~55dvh height, slides up from below. Map stays visible
+            above and remains pan-able.
+            Tablet+: full-height floating sidebar pinned to the right (original). */}
         {drawerProperty && (
           <div
             key={selectedPin ?? closingKey}
             className={cn(
-              "absolute right-4 top-4 bottom-4 w-80 bg-glass-panel-fill backdrop-blur-md border border-glass-panel-border rounded-xl shadow-sm z-20 flex flex-col overflow-hidden",
+              "absolute z-20 flex flex-col overflow-hidden bg-glass-panel-fill backdrop-blur-md border border-glass-panel-border shadow-sm",
+              // Phone — bottom sheet
+              "inset-x-0 bottom-0 top-auto h-[58dvh] rounded-t-2xl pb-safe",
+              // Tablet+ — restore floating right sidebar
+              "sm:inset-x-auto sm:right-4 sm:top-4 sm:bottom-4 sm:w-80 sm:rounded-xl sm:h-auto sm:pb-0",
               isDrawerClosing
-                ? "[animation:slide-out-right_0.22s_cubic-bezier(0.16,1,0.3,1)_both]"
-                : "[animation:slide-in-right_0.3s_cubic-bezier(0.16,1,0.3,1)_both]",
+                ? "[animation:slide-out-down_0.22s_cubic-bezier(0.16,1,0.3,1)_both] sm:[animation:slide-out-right_0.22s_cubic-bezier(0.16,1,0.3,1)_both]"
+                : "[animation:slide-in-up_0.3s_cubic-bezier(0.16,1,0.3,1)_both] sm:[animation:slide-in-right_0.3s_cubic-bezier(0.16,1,0.3,1)_both]",
             )}
             data-no-drag
           >
+            {/* Phone-only grab handle */}
+            <div className="flex shrink-0 justify-center pt-2 pb-1 sm:hidden" aria-hidden="true">
+              <div className="h-1 w-9 rounded-full bg-white/60" />
+            </div>
 
             {/* Hero image with overlay info */}
             <div className="relative shrink-0 overflow-hidden">
@@ -299,8 +329,8 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
               </div>
               {/* Title overlay */}
               <div className="absolute bottom-0 left-0 right-0 px-4 pb-3.5">
-                <p className="text-[10px] font-medium text-white/55 tracking-widest uppercase">{drawerProperty.code}</p>
-                <h3 className="text-base font-display font-semibold text-white leading-snug mt-0.5">{drawerProperty.name}</h3>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-white/70">{drawerProperty.code}</p>
+                <h3 className="text-[15px] sm:text-[18px] font-display font-semibold text-white leading-snug mt-0.5">{drawerProperty.name}</h3>
                 <div className="flex items-center gap-1 mt-1">
                   <MapPin className="size-3 text-white/50 shrink-0" />
                   <span className="text-xs text-white/65 truncate">
@@ -313,7 +343,7 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
             {/* Progress strip */}
             <div className="px-4 py-3 border-b border-border-default shrink-0 [animation:card-row-in_0.35s_cubic-bezier(0.16,1,0.3,1)_0.2s_both]">
               <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-secondary">Progress</span>
+                <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">Progress</span>
                 <span className={cn("text-xs font-semibold tabular-nums", progressClass(drawerProperty.progress))}>
                   {drawerProperty.progress}%
                 </span>
@@ -333,24 +363,24 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
                 {/* Section: Property */}
                 <section>
                   <div className="flex items-center gap-2 mb-3">
-                    <span className="text-[10px] font-semibold uppercase tracking-widest text-text-disabled whitespace-nowrap">Property</span>
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 whitespace-nowrap">Property</span>
                     <div className="flex-1 h-px bg-border-subtle" />
                   </div>
                   <div className="grid grid-cols-2 gap-x-3 gap-y-3">
                     <div>
-                      <p className="text-[10px] font-medium uppercase tracking-wide text-secondary mb-0.5">Type</p>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">Type</p>
                       <p className="text-sm font-medium text-foreground capitalize">{drawerProperty.type}</p>
                     </div>
                     <div>
-                      <p className="text-[10px] font-medium uppercase tracking-wide text-secondary mb-0.5">Use</p>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">Use</p>
                       <p className="text-sm font-medium text-foreground capitalize">{drawerProperty.propertyUse || "—"}</p>
                     </div>
                     <div>
-                      <p className="text-[10px] font-medium uppercase tracking-wide text-secondary mb-0.5">Title</p>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">Title</p>
                       <p className={cn("text-sm font-medium", titleClasses[titleToVariant(drawerProperty.title)])}>{drawerProperty.title}</p>
                     </div>
                     <div>
-                      <p className="text-[10px] font-medium uppercase tracking-wide text-secondary mb-0.5">Year Built</p>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">Year Built</p>
                       <p className="text-sm font-medium text-foreground">{drawerProperty.yearBuilt || "—"}</p>
                     </div>
                   </div>
@@ -359,26 +389,26 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
                 {/* Section: Physical */}
                 <section>
                   <div className="flex items-center gap-2 mb-3">
-                    <span className="text-[10px] font-semibold uppercase tracking-widest text-text-disabled whitespace-nowrap">Physical</span>
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 whitespace-nowrap">Physical</span>
                     <div className="flex-1 h-px bg-border-subtle" />
                   </div>
                   <div className="grid grid-cols-2 gap-x-3 gap-y-3">
                     <div>
-                      <p className="text-[10px] font-medium uppercase tracking-wide text-secondary mb-0.5">Total Area</p>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">Total Area</p>
                       <p className="text-sm font-medium text-foreground">
                         {drawerProperty.totalArea ? `${Number(drawerProperty.totalArea).toLocaleString()} m²` : "—"}
                       </p>
                     </div>
                     <div>
-                      <p className="text-[10px] font-medium uppercase tracking-wide text-secondary mb-0.5">Parking</p>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">Parking</p>
                       <p className="text-sm font-medium text-foreground">{drawerProperty.parkingSpaces || "—"}</p>
                     </div>
                     <div>
-                      <p className="text-[10px] font-medium uppercase tracking-wide text-secondary mb-0.5">Bedrooms</p>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">Bedrooms</p>
                       <p className="text-sm font-medium text-foreground">{drawerProperty.bedrooms || "—"}</p>
                     </div>
                     <div>
-                      <p className="text-[10px] font-medium uppercase tracking-wide text-secondary mb-0.5">Bathrooms</p>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">Bathrooms</p>
                       <p className="text-sm font-medium text-foreground">{drawerProperty.bathrooms || "—"}</p>
                     </div>
                   </div>
@@ -387,13 +417,13 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
                 {/* Section: Location */}
                 <section>
                   <div className="flex items-center gap-2 mb-3">
-                    <span className="text-[10px] font-semibold uppercase tracking-widest text-text-disabled whitespace-nowrap">Location</span>
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 whitespace-nowrap">Location</span>
                     <div className="flex-1 h-px bg-border-subtle" />
                   </div>
                   <div className="space-y-3">
                     {drawerProperty.addressLine && (
                       <div>
-                        <p className="text-[10px] font-medium uppercase tracking-wide text-secondary mb-0.5">Address</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">Address</p>
                         <p className="text-sm font-medium text-foreground">
                           {drawerProperty.addressLine}{drawerProperty.addressLine2 ? `, ${drawerProperty.addressLine2}` : ""}
                         </p>
@@ -401,22 +431,22 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
                     )}
                     <div className="grid grid-cols-2 gap-x-3 gap-y-3">
                       <div>
-                        <p className="text-[10px] font-medium uppercase tracking-wide text-secondary mb-0.5">City</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">City</p>
                         <p className="text-sm font-medium text-foreground">{drawerProperty.city || "—"}</p>
                       </div>
                       <div>
-                        <p className="text-[10px] font-medium uppercase tracking-wide text-secondary mb-0.5">Province</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">Province</p>
                         <p className="text-sm font-medium text-foreground">{drawerProperty.province || "—"}</p>
                       </div>
                       {drawerProperty.country && (
                         <div>
-                          <p className="text-[10px] font-medium uppercase tracking-wide text-secondary mb-0.5">Country</p>
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">Country</p>
                           <p className="text-sm font-medium text-foreground">{drawerProperty.country}</p>
                         </div>
                       )}
                       {drawerProperty.zip && (
                         <div>
-                          <p className="text-[10px] font-medium uppercase tracking-wide text-secondary mb-0.5">ZIP</p>
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">ZIP</p>
                           <p className="text-sm font-medium text-foreground">{drawerProperty.zip}</p>
                         </div>
                       )}
@@ -427,35 +457,35 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
                 {/* Section: Financials */}
                 <section>
                   <div className="flex items-center gap-2 mb-3">
-                    <span className="text-[10px] font-semibold uppercase tracking-widest text-text-disabled whitespace-nowrap">Financials</span>
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 whitespace-nowrap">Financials</span>
                     <div className="flex-1 h-px bg-border-subtle" />
                   </div>
                   <div className="space-y-3">
                     <div>
-                      <p className="text-[10px] font-medium uppercase tracking-wide text-secondary mb-0.5">Purchase Price</p>
-                      <p className="text-base font-bold font-display text-foreground">{drawerProperty.buy}</p>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">Purchase Price</p>
+                      <p className="text-[22px] sm:text-[26px] font-bold font-display text-foreground leading-none tabular-nums">{drawerProperty.buy}</p>
                     </div>
                     <div className="grid grid-cols-2 gap-x-3 gap-y-3">
                       <div>
-                        <p className="text-[10px] font-medium uppercase tracking-wide text-secondary mb-0.5">Market Value</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">Market Value</p>
                         <p className="text-sm font-medium text-foreground">
                           {drawerProperty.currentMarketValue ? formatCurrency(drawerProperty.currentMarketValue) : "—"}
                         </p>
                       </div>
                       <div>
-                        <p className="text-[10px] font-medium uppercase tracking-wide text-secondary mb-0.5">Mortgage</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">Mortgage</p>
                         <p className="text-sm font-medium text-foreground">
                           {drawerProperty.outstandingMortgage ? formatCurrency(drawerProperty.outstandingMortgage) : "—"}
                         </p>
                       </div>
                       <div>
-                        <p className="text-[10px] font-medium uppercase tracking-wide text-secondary mb-0.5">Monthly</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">Monthly</p>
                         <p className="text-sm font-medium text-foreground">
                           {drawerProperty.monthlyPayment ? `$${drawerProperty.monthlyPayment.toLocaleString()}` : "—"}
                         </p>
                       </div>
                       <div>
-                        <p className="text-[10px] font-medium uppercase tracking-wide text-secondary mb-0.5">Annual Tax</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">Annual Tax</p>
                         <p className="text-sm font-medium text-foreground">
                           {drawerProperty.annualPropertyTax ? `$${drawerProperty.annualPropertyTax.toLocaleString()}` : "—"}
                         </p>
@@ -463,7 +493,7 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
                     </div>
                     {drawerProperty.purchaseDate ? (
                       <div>
-                        <p className="text-[10px] font-medium uppercase tracking-wide text-secondary mb-0.5">Purchased</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">Purchased</p>
                         <p className="text-sm font-medium text-foreground">{formatDate(drawerProperty.purchaseDate)}</p>
                       </div>
                     ) : null}
@@ -493,7 +523,7 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
           className="flex items-center justify-between px-6 py-2.5 cursor-pointer group hover:bg-surface-tint transition-colors duration-150"
           onClick={() => setTableOpen(!tableOpen)}
         >
-          <h2 className="text-xl font-semibold font-display text-foreground">
+          <h2 className="text-[18px] sm:text-[24px] font-bold font-display text-foreground">
             Properties
           </h2>
           <ChevronUp

@@ -66,7 +66,7 @@ function HeatmapTile({ unit, delay }: { unit: HeatmapUnit; delay: number }) {
             </>
           )}
           {unit.status === "expiring" && (
-            <div className="mt-1 text-[9px] font-semibold uppercase tracking-wide text-amber-400">
+            <div className="mt-1 text-[11px] font-semibold uppercase tracking-[0.05em] text-amber-400">
               Lease expiring soon
             </div>
           )}
@@ -93,11 +93,11 @@ export function HeatmapGrid({ data }: { data: PropertyCluster[] }) {
 
   return (
     <div
-      className="anim-enter-right col-span-4 flex flex-col rounded-lg bg-slate-900 p-6 shadow-xl"
+      className="anim-enter-right lg:col-span-4 flex flex-col rounded-lg bg-slate-900 p-5 sm:p-6 shadow-xl"
       style={{ animationDelay: "450ms" }}
     >
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold text-white">
+        <h2 className="text-[18px] sm:text-[24px] font-bold text-white">
           Portfolio Occupancy
         </h2>
         <button className="rounded p-1 text-slate-400 transition-colors duration-150 hover:bg-slate-800 hover:text-slate-200 active:scale-95">
@@ -120,7 +120,7 @@ export function HeatmapGrid({ data }: { data: PropertyCluster[] }) {
           let tileIdx = 0;
           return (
             <div key={cluster.property}>
-              <div className="mb-1.5 text-[9px] font-semibold uppercase tracking-widest text-slate-500">
+              <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">
                 {cluster.property}
               </div>
               <div className="flex flex-wrap gap-1.5">
@@ -141,15 +141,15 @@ export function HeatmapGrid({ data }: { data: PropertyCluster[] }) {
       <div className="mt-5 flex items-center gap-4 border-t border-slate-800 pt-4">
         <div className="flex items-center gap-1.5">
           <div className="h-3 w-3 rounded-[2px] bg-blue-500" />
-          <span className="text-[9px] font-medium text-slate-500">Occupied</span>
+          <span className="text-[11px] font-semibold text-slate-500">Occupied</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="h-3 w-3 rounded-[2px] border-2 border-dashed border-slate-500" />
-          <span className="text-[9px] font-medium text-slate-500">Vacant</span>
+          <span className="text-[11px] font-semibold text-slate-500">Vacant</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="h-3 w-3 rounded-[2px] bg-amber-500 ring-1 ring-amber-300/50" />
-          <span className="text-[9px] font-medium text-slate-500">Expiring</span>
+          <span className="text-[11px] font-semibold text-slate-500">Expiring</span>
         </div>
       </div>
     </div>

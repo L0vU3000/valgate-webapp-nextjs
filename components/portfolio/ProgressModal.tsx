@@ -61,10 +61,10 @@ function PillarRow({ pillar, index, animate }: { pillar: ProgressPillar; index: 
       {/* Pillar header */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="text-[11px] font-semibold text-slate-600 truncate">
+          <span className="text-[11px] font-semibold text-slate-500 truncate">
             {pillar.name}
           </span>
-          <span className="text-[10px] font-medium text-slate-400 bg-slate-100 px-1.5 py-px rounded shrink-0">
+          <span className="text-[11px] font-medium text-slate-400 bg-slate-100 px-1.5 py-px rounded shrink-0">
             {pillar.weight}%
           </span>
         </div>
@@ -100,7 +100,7 @@ function PillarRow({ pillar, index, animate }: { pillar: ProgressPillar; index: 
                 <span className="w-[18px] h-[18px] rounded-full border border-slate-200 shrink-0" />
               )}
               <span className={cn(
-                "text-[13px] leading-tight truncate",
+                "text-[14px] sm:text-[15px] leading-tight truncate",
                 check.done ? "text-slate-400 line-through decoration-slate-300/60" : "text-slate-600"
               )}>
                 {check.label}
@@ -187,7 +187,7 @@ export function ProgressModal({ property, onClose, onExplainerClick }: ProgressM
       {/* Modal */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
         <div
-          className="w-full max-w-[500px] bg-white rounded-xl border border-slate-200 shadow-[0_8px_40px_rgba(0,0,0,0.12)] pointer-events-auto overflow-hidden flex flex-col"
+          className="w-full max-w-[calc(100%-1rem)] sm:max-w-[500px] bg-white rounded-xl border border-slate-200 shadow-[0_8px_40px_rgba(0,0,0,0.12)] pointer-events-auto overflow-hidden flex flex-col"
           style={{
             maxHeight: "min(88vh, 720px)",
             animation: modalAnim,
@@ -198,10 +198,10 @@ export function ProgressModal({ property, onClose, onExplainerClick }: ProgressM
           <div className="px-6 pt-6 pb-5 border-b border-slate-100 shrink-0">
             <div className="flex items-start justify-between gap-4 mb-4">
               <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-[0.1em] mb-1">
+                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em] mb-1">
                   {current.code}
                 </p>
-                <h2 className="text-[15px] font-semibold text-val-heading leading-snug truncate pr-2">
+                <h2 className="text-[15px] sm:text-[18px] font-semibold text-val-heading leading-snug truncate pr-2">
                   {current.name}
                 </h2>
               </div>
@@ -209,7 +209,7 @@ export function ProgressModal({ property, onClose, onExplainerClick }: ProgressM
                 {/* Score + tier */}
                 <div className="text-right mr-1.5">
                   <div className="flex items-baseline gap-0.5 justify-end">
-                    <span className={cn("text-[30px] font-bold tabular-nums leading-none",
+                    <span className={cn("text-[22px] sm:text-[26px] font-bold tabular-nums leading-none",
                       score >= 70 ? "text-emerald-600" : score >= 40 ? "text-amber-500" : "text-red-400"
                     )}>
                       {displayScore}
@@ -217,7 +217,7 @@ export function ProgressModal({ property, onClose, onExplainerClick }: ProgressM
                     <span className="text-[14px] text-slate-400">%</span>
                   </div>
                   <span className={cn(
-                    "inline-block mt-1 text-[10px] font-semibold px-2 py-0.5 rounded-full",
+                    "inline-block mt-1 text-[11px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-[0.05em]",
                     tier.bg, tier.text
                   )}>
                     {tier.label}
@@ -263,7 +263,7 @@ export function ProgressModal({ property, onClose, onExplainerClick }: ProgressM
                 {i === firstCompletedIndex && firstCompletedIndex > 0 && (
                   <div className="px-6 py-2 flex items-center gap-3">
                     <div className="h-px bg-slate-100 flex-1" />
-                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-[0.08em]">
+                    <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">
                       Completed
                     </span>
                     <div className="h-px bg-slate-100 flex-1" />
@@ -293,7 +293,7 @@ export function ProgressModal({ property, onClose, onExplainerClick }: ProgressM
             </div>
             <button
               onClick={() => { router.push(`/property/${current.id}`); onClose(); }}
-              className="shrink-0 px-3.5 py-1.5 rounded-md text-[13px] font-semibold text-white bg-blue-600 hover:bg-blue-700 active:scale-95 transition-all duration-150 whitespace-nowrap"
+              className="shrink-0 px-3.5 py-1.5 rounded-md text-[14px] font-semibold text-white bg-blue-600 hover:bg-blue-700 active:scale-95 transition-all duration-150 whitespace-nowrap"
             >
               Go to property →
             </button>

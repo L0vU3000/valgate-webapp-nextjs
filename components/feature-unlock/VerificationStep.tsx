@@ -131,7 +131,7 @@ export function VerificationStep({
       )}
 
       {/* Step header */}
-      <div className="px-8 py-6 border-b border-slate-100">
+      <div className="px-5 sm:px-8 py-5 sm:py-6 border-b border-slate-100">
         <p className="text-[11px] font-semibold uppercase tracking-widest text-emerald-600 mb-1">
           Verification
         </p>
@@ -142,7 +142,7 @@ export function VerificationStep({
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto px-8 py-6 space-y-5">
+      <div className="flex-1 overflow-y-auto px-5 sm:px-8 py-5 sm:py-6 space-y-5">
         {error && !isBusy && (
           <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 flex items-start gap-3">
             <div className="flex-1 min-w-0">
@@ -243,7 +243,7 @@ export function VerificationStep({
       </div>
 
       {/* Footer */}
-      <div className="px-8 py-5 border-t border-slate-100 flex items-center justify-between gap-4">
+      <div className="px-5 sm:px-8 py-4 sm:py-5 pb-safe sm:pb-5 border-t border-slate-100 flex items-center justify-between gap-4">
         <button
           onClick={onBack}
           disabled={isBusy}

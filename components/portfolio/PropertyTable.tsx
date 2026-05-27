@@ -8,6 +8,7 @@ import { restorePropertyAction } from "@/app/(shell)/property/actions";
 import { toast } from "sonner";
 import { ProgressModal } from "./ProgressModal";
 import { ProgressExplainerModal } from "./ProgressExplainerModal";
+import { PropertyMobileCard } from "./PropertyMobileCard";
 import { useDismissable } from "@/lib/hooks/use-dismissable";
 
 export type SortKey = "name" | "province" | "status" | "size" | "buy" | "progress"
@@ -103,12 +104,114 @@ export function PropertyTable({
   const showExplainer = showProgressExplainer && (showExplainerOnce || explainerForcedOpen);
   const handleCloseExplainer = () => { dismissExplainerOnce(); setExplainerForcedOpen(false); };
 
+  // Pagination is identical on mobile and desktop, so we render it once
+  // and reuse the JSX in both branches. Kept as a render helper rather than
+  // a separate component because it closes over so many parent props.
+  const renderPagination = () => (
+    <div className="flex items-center justify-between px-4 py-4 bg-slate-50/60 border-t border-slate-200">
+      <p className="text-[14px] text-slate-500" aria-live="polite" aria-atomic="true">
+        {totalPages > 1 ? (
+          <>
+            Showing{" "}
+            <span className="font-semibold text-val-heading">{pageStart + 1}–{pageStart + pageRows.length}</span>
+            {" "}of{" "}
+            <span className="font-semibold text-val-heading">{filtered.length}</span>
+            {filtered.length < properties.length ? (
+              <> filtered, <span className="font-semibold text-val-heading">{properties.length}</span> total</>
+            ) : " properties"}
+          </>
+        ) : (
+          <>
+            <span className="font-semibold text-val-heading">{filtered.length}</span>
+            {filtered.length < properties.length && (
+              <>{" "}of{" "}<span className="font-semibold text-val-heading">{properties.length}</span></>
+            )}
+            {" "}properties
+          </>
+        )}
+      </p>
+      {totalPages > 1 && (
+        <div className="flex items-center gap-2">
+          <button
+            disabled={safePage === 1}
+            onClick={() => goToPage(safePage - 1)}
+            className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded border border-slate-200 hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150 active:scale-95"
+            aria-label="Previous page"
+          >
+            <ChevronLeft className="w-3.5 h-3.5 text-slate-500" />
+          </button>
+          <button className="px-3 py-1 rounded text-white text-[14px] font-semibold min-w-[32px] shadow-sm" style={{ background: "var(--val-primary-dark)" }}>
+            {safePage}
+          </button>
+          <button
+            disabled={safePage === totalPages}
+            onClick={() => goToPage(safePage + 1)}
+            className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded border border-slate-200 hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150 active:scale-95"
+            aria-label="Next page"
+          >
+            <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <>
     <ProgressModal property={progressProperty} onClose={() => setProgressProperty(null)} />
     <ProgressExplainerModal open={showExplainer} onClose={handleCloseExplainer} />
+
+    {/* Mobile branch — stacked card list. Hidden on `sm:` and above. */}
     <div
-      className="bg-white rounded-lg border border-slate-200 shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden"
+      className="sm:hidden flex flex-col"
+      style={{
+        opacity: mounted ? 1 : 0,
+        transform: mounted ? "translateY(0)" : "translateY(-8px)",
+        transition: `opacity ${cfg.containerDuration}ms cubic-bezier(0.25,1,0.5,1), transform ${cfg.containerDuration}ms cubic-bezier(0.25,1,0.5,1)`,
+        transitionDelay: `${cfg.containerDelay}ms`,
+      }}
+    >
+      {pageRows.length === 0 ? (
+        <div className="bg-white rounded-xl border border-slate-200 py-16 px-6 text-center">
+          <p className="text-[14px] text-slate-400">
+            {showArchived ? "No archived properties." : "No properties match your filters."}
+          </p>
+          {!showArchived && (
+            <button
+              onClick={onClearFilters}
+              className="mt-3 text-[14px] text-blue-600 font-medium hover:underline"
+            >
+              Clear all filters
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {pageRows.map((p, i) => (
+            <PropertyMobileCard
+              key={p.id}
+              property={p}
+              rowIndex={i}
+              mounted={mounted}
+              cfg={cfg}
+              showArchived={showArchived}
+              navigate={navigate}
+              onClickProgress={setProgressProperty}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Pagination — sits inside its own card container on mobile so the
+          stacked list above doesn't visually merge with the controls. */}
+      <div className="mt-4 bg-white rounded-xl border border-slate-200 overflow-hidden">
+        {renderPagination()}
+      </div>
+    </div>
+
+    {/* Desktop branch — original table layout. Hidden below `sm:`. */}
+    <div
+      className="hidden sm:block bg-white rounded-lg border border-slate-200 shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden"
       style={{
         opacity: mounted ? 1 : 0,
         transform: mounted ? "translateY(0)" : "translateY(-8px)",
@@ -317,51 +420,8 @@ export function PropertyTable({
         </table>
       </div>
 
-      {/* Pagination */}
-      <div className="flex items-center justify-between px-4 py-4 bg-slate-50/60 border-t border-slate-200">
-        <p className="text-[14px] text-slate-500" aria-live="polite" aria-atomic="true">
-          {totalPages > 1 ? (
-            <>
-              Showing{" "}
-              <span className="font-semibold text-val-heading">{pageStart + 1}–{pageStart + pageRows.length}</span>
-              {" "}of{" "}
-              <span className="font-semibold text-val-heading">{filtered.length}</span>
-              {filtered.length < properties.length ? (
-                <> filtered, <span className="font-semibold text-val-heading">{properties.length}</span> total</>
-              ) : " properties"}
-            </>
-          ) : (
-            <>
-              <span className="font-semibold text-val-heading">{filtered.length}</span>
-              {filtered.length < properties.length && (
-                <>{" "}of{" "}<span className="font-semibold text-val-heading">{properties.length}</span></>
-              )}
-              {" "}properties
-            </>
-          )}
-        </p>
-        {totalPages > 1 && (
-          <div className="flex items-center gap-2">
-            <button
-              disabled={safePage === 1}
-              onClick={() => goToPage(safePage - 1)}
-              className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded border border-slate-200 hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150 active:scale-95"
-            >
-              <ChevronLeft className="w-3.5 h-3.5 text-slate-500" />
-            </button>
-            <button className="px-3 py-1 rounded text-white text-[14px] font-semibold min-w-[32px] shadow-sm" style={{ background: "var(--val-primary-dark)" }}>
-              {safePage}
-            </button>
-            <button
-              disabled={safePage === totalPages}
-              onClick={() => goToPage(safePage + 1)}
-              className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded border border-slate-200 hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150 active:scale-95"
-            >
-              <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
-            </button>
-          </div>
-        )}
-      </div>
+      {/* Pagination — shared between mobile and desktop via the helper. */}
+      {renderPagination()}
     </div>
     </>
   );

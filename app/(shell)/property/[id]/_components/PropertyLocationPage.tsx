@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import {
+  ArrowDown,
   ArrowUp,
   BadgeCheck,
   MoreHorizontal,
@@ -38,13 +39,20 @@ import {
 } from "lucide-react";
 import { cn } from "@/components/ui/utils";
 import { PropertyMapExpandModal } from "@/components/map/PropertyMapExpandModal";
+import type { PropertyComparable } from "@/lib/data/types/property-comparable";
+import type { MarketSnapshot } from "@/lib/data/types/market-snapshot";
+import { formatAcquiredLabel } from "@/lib/data/derivations/property-comparables";
 
 export function PropertyLocationPage({
   property,
   landParcels,
+  comparables,
+  marketSnapshot,
 }: {
   property: Property;
   landParcels: LandParcel[];
+  comparables: PropertyComparable[];
+  marketSnapshot: MarketSnapshot;
 }) {
   const activeTab = "location";
   const [wizardOpen, setWizardOpen] = useState(false);
@@ -90,6 +98,8 @@ export function PropertyLocationPage({
             unlockState={unlockState}
             openWizard={openWizard}
             onOpenRevoke={() => setRevokeOpen(true)}
+            comparables={comparables}
+            marketSnapshot={marketSnapshot}
           />
         </div>
       </div>
@@ -253,19 +263,6 @@ function MetaCell({
   );
 }
 
-const comparables = [
-  { corner: "Northeast", lat: "11.5564°N", lng: "104.9282°E", bearing: "45°" },
-  { corner: "Southeast", lat: "11.5512°N", lng: "104.9301°E", bearing: "135°" },
-  { corner: "Southwest", lat: "11.5488°N", lng: "104.9256°E", bearing: "225°" },
-  { corner: "Northwest", lat: "11.5540°N", lng: "104.9238°E", bearing: "315°" },
-];
-
-const compSales = [
-  { area: "2,380 m² nearby", dist: "0.3 km away", time: "2 months ago", price: "$238/m²" },
-  { area: "2,650 m² nearby", dist: "0.5 km away", time: "4 months ago", price: "$252/m²" },
-  { area: "2,100 m² nearby", dist: "0.8 km away", time: "5 months ago", price: "$229/m²" },
-];
-
 // ── Location page content ───────────────────────────────────────────────────────
 
 function LocationContent({
@@ -274,12 +271,16 @@ function LocationContent({
   unlockState,
   openWizard,
   onOpenRevoke,
+  comparables,
+  marketSnapshot,
 }: {
   property: Property;
   parcel: LandParcel | null;
   unlockState: UnlockState;
   openWizard: () => void;
   onOpenRevoke: () => void;
+  comparables: PropertyComparable[];
+  marketSnapshot: MarketSnapshot;
 }) {
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const [mapMounted, setMapMounted] = useState(false);
@@ -295,16 +296,16 @@ function LocationContent({
   return (
     <div className="flex flex-col">
       {/* Page header */}
-      <div className="px-8 pt-8 pb-0 animate-[fade-slide-up_0.4s_cubic-bezier(0.22,1,0.36,1)_both]">
+      <div className="px-4 sm:px-8 pt-5 sm:pt-8 pb-0 animate-[fade-slide-up_0.4s_cubic-bezier(0.22,1,0.36,1)_both]">
         <div className="flex items-center gap-1.5 mb-3">
           <span className="text-xs font-semibold tracking-widest uppercase text-[--val-primary-dark]">Valgate</span>
           <span className="text-xs text-slate-300">/</span>
           <span className="text-xs font-semibold tracking-widest uppercase text-slate-400">Location</span>
         </div>
-        <div className="flex items-end justify-between gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
           <div>
             <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-4xl font-extrabold text-val-heading tracking-tight leading-10">
+              <h1 className="text-[28px] sm:text-[40px] font-extrabold text-val-heading tracking-tight leading-tight sm:leading-10">
                 Location &amp; Boundaries{" "}
                 <span className="text-[--val-primary-dark]">{property.code}</span>
               </h1>
@@ -348,7 +349,7 @@ function LocationContent({
       </div>
 
       {/* Scrollable content */}
-      <div className="px-8 py-6 flex flex-col gap-5">
+      <div className="px-4 sm:px-8 py-5 sm:py-6 flex flex-col gap-4 sm:gap-5">
         {/* Address & Identity card */}
         <AddressIdentityCard
           property={property}
@@ -356,8 +357,11 @@ function LocationContent({
         />
 
         {/* Map */}
+        {/* Mobile uses a shorter 240px map; tablet+ keeps the original 340px
+            so the property's geographic context stays visible alongside the
+            KPIs without dominating the fold on a phone. */}
         <div
-          className="h-[340px] rounded-xl overflow-hidden relative shrink-0 shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)] animate-[fade-slide-up_0.45s_cubic-bezier(0.22,1,0.36,1)_both]"
+          className="h-[240px] sm:h-[340px] rounded-xl overflow-hidden relative shrink-0 shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)] animate-[fade-slide-up_0.45s_cubic-bezier(0.22,1,0.36,1)_both]"
           style={{ animationDelay: "60ms" }}
         >
           {mapMounted && (
@@ -422,7 +426,7 @@ function LocationContent({
         )}
 
         {/* KPI row */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 xs:grid-cols-3 gap-3 sm:gap-4">
           {/* Total Land Size */}
           <div
             className="bg-white rounded-lg border border-slate-200 p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)] hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 animate-[fade-slide-up_0.45s_cubic-bezier(0.22,1,0.36,1)_both]"
@@ -516,15 +520,19 @@ function LocationContent({
 
         {/* Bottom section: comparables + investment */}
         <div
-          className="grid grid-cols-12 gap-4 animate-[fade-slide-up_0.45s_cubic-bezier(0.22,1,0.36,1)_both]"
+          className="grid grid-cols-1 lg:grid-cols-12 gap-4 animate-[fade-slide-up_0.45s_cubic-bezier(0.22,1,0.36,1)_both]"
           style={{ animationDelay: "340ms" }}
         >
           {/* Comparable Properties table */}
-          <div className="col-span-7 bg-white rounded-lg border border-slate-200 shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden">
+          <div className="lg:col-span-7 bg-white rounded-lg border border-slate-200 shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden">
             <div className="px-5 py-4 flex items-start justify-between border-b border-slate-100">
               <div>
                 <p className="text-base font-bold text-val-heading">Comparable Properties</p>
-                <p className="text-xs text-slate-400 mt-0.5">Properties similar to yours sold recently</p>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {comparables.length > 0
+                    ? `${comparables.length} nearby propert${comparables.length === 1 ? "y" : "ies"} in your area`
+                    : "No nearby properties found"}
+                </p>
               </div>
               <button className="flex items-center gap-1.5 text-[13px] font-medium text-[--val-primary-dark] hover:opacity-80 transition-opacity">
                 <Download className="w-3.5 h-3.5" />
@@ -534,10 +542,10 @@ function LocationContent({
             <table className="w-full">
               <thead>
                 <tr className="bg-slate-50/80 border-b border-slate-200">
-                  {["Corner", "Latitude", "Longitude", "Bearing"].map((h) => (
+                  {["Property", "Distance", "Type", "Price/m²"].map((h) => (
                     <th
                       key={h}
-                      className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]"
+                      className="px-2 sm:px-4 py-3 text-left text-[10px] sm:text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]"
                     >
                       {h}
                     </th>
@@ -545,61 +553,101 @@ function LocationContent({
                 </tr>
               </thead>
               <tbody>
-                {comparables.map((row, i) => (
+                {comparables.slice(0, 4).map((row, i) => (
                   <tr
-                    key={i}
+                    key={row.id}
                     className="border-t border-slate-100 hover:bg-blue-50/30 transition-colors"
                     style={{ animationDelay: `${i * 25}ms` }}
                   >
-                    <td className="px-4 py-3.5 text-[14px] text-val-heading font-medium">{row.corner}</td>
-                    <td className="px-4 py-3.5 text-[14px] text-val-heading">{row.lat}</td>
-                    <td className="px-4 py-3.5 text-[14px] text-val-heading">{row.lng}</td>
-                    <td className="px-4 py-3.5 text-[14px] text-val-heading">{row.bearing}</td>
+                    <td className="px-2 sm:px-4 py-3 sm:py-3.5 text-[12px] sm:text-[14px] text-val-heading font-medium">{row.name}</td>
+                    <td className="px-2 sm:px-4 py-3 sm:py-3.5 text-[12px] sm:text-[14px] text-val-heading">{row.distanceKm.toFixed(1)} km</td>
+                    <td className="px-2 sm:px-4 py-3 sm:py-3.5 text-[12px] sm:text-[14px] text-val-heading capitalize">{row.type}</td>
+                    <td className="px-2 sm:px-4 py-3 sm:py-3.5 text-[12px] sm:text-[14px] text-val-heading">${row.pricePerM2.toLocaleString()}/m²</td>
                   </tr>
                 ))}
+                {comparables.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-6 text-[13px] text-slate-400 italic text-center">
+                      No comparable properties found within range
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
             <div className="bg-slate-50/60 border-t border-slate-200 px-4 py-3 flex items-center gap-4 text-[13px] text-slate-500">
               <span>
                 Avg comp price:{" "}
-                <span className="font-semibold text-val-heading">$492,100</span>
+                <span className="font-semibold text-val-heading">
+                  {marketSnapshot.comparableCount > 0
+                    ? `$${marketSnapshot.avgComparableValue.toLocaleString()}`
+                    : "—"}
+                </span>
               </span>
               <span className="text-slate-300">·</span>
               <span>
                 Estimated value:{" "}
-                <span className="font-semibold text-val-heading">$485,000</span>
+                <span className="font-semibold text-val-heading">
+                  {marketSnapshot.estimatedValue != null
+                    ? `$${marketSnapshot.estimatedValue.toLocaleString()}`
+                    : "—"}
+                </span>
               </span>
             </div>
           </div>
 
           {/* Investment Metrics card */}
-          <div className="col-span-5 bg-white rounded-lg border border-slate-200 p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
+          <div className="lg:col-span-5 bg-white rounded-lg border border-slate-200 p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
             <p className="text-base font-bold text-val-heading mb-4">Investment Metrics</p>
 
             <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">
               Price per m²
             </span>
-            <p className="text-[30px] font-bold text-val-heading leading-none mt-1">$245</p>
+            <p className="text-[30px] font-bold text-val-heading leading-none mt-1">
+              {marketSnapshot.targetPricePerM2 > 0
+                ? `$${marketSnapshot.targetPricePerM2.toLocaleString()}`
+                : "—"}
+            </p>
             <div className="flex items-center gap-2 mt-2 mb-5">
-              <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 text-[12px] font-semibold px-2.5 py-0.5 rounded-full">
-                <ArrowUp className="w-3 h-3" />
-                +12%
-              </span>
-              <span className="text-[12px] text-slate-400">vs. avg area price</span>
+              {marketSnapshot.comparableCount > 0 && marketSnapshot.targetPricePerM2 > 0 ? (
+                <>
+                  <span
+                    className={`inline-flex items-center gap-1 text-[12px] font-semibold px-2.5 py-0.5 rounded-full ${
+                      marketSnapshot.pctVsAvgPricePerM2 >= 0
+                        ? "bg-emerald-50 text-emerald-700"
+                        : "bg-amber-50 text-amber-700"
+                    }`}
+                  >
+                    {marketSnapshot.pctVsAvgPricePerM2 >= 0 ? (
+                      <ArrowUp className="w-3 h-3" />
+                    ) : (
+                      <ArrowDown className="w-3 h-3" />
+                    )}
+                    {marketSnapshot.pctVsAvgPricePerM2 >= 0
+                      ? `+${marketSnapshot.pctVsAvgPricePerM2.toFixed(1)}%`
+                      : `${marketSnapshot.pctVsAvgPricePerM2.toFixed(1)}%`}
+                  </span>
+                  <span className="text-[12px] text-slate-400">vs. avg area price</span>
+                </>
+              ) : (
+                <span className="text-[12px] text-slate-400">No area comparables</span>
+              )}
             </div>
 
             <div className="space-y-3 border-t border-slate-100 pt-4">
-              {compSales.map((c, i) => (
-                <div key={i} className="flex items-center justify-between text-[13px]">
+              {comparables.slice(0, 3).map((c) => (
+                <div key={c.id} className="flex items-center justify-between text-[13px]">
                   <div>
-                    <p className="font-medium text-val-heading">{c.area}</p>
+                    <p className="font-medium text-val-heading">{c.totalAreaM2.toLocaleString()} m²</p>
                     <p className="text-slate-400 text-[12px]">
-                      {c.dist} · {c.time}
+                      {c.distanceKm.toFixed(1)} km away · {formatAcquiredLabel(c.purchaseDate)}
                     </p>
                   </div>
-                  <span className="font-semibold text-val-heading">{c.price}</span>
+                  <span className="font-semibold text-val-heading">${c.pricePerM2.toLocaleString()}/m²</span>
                 </div>
               ))}
+              {comparables.length === 0 && (
+                <p className="text-[13px] text-slate-400 italic">No nearby properties found</p>
+              )}
             </div>
 
             <button className="text-[13px] font-medium text-[--val-primary-dark] mt-4 hover:opacity-80 transition-opacity">

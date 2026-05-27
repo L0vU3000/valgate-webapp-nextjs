@@ -750,12 +750,12 @@ export function AddProfessionalWizard({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-[min(1040px,calc(100%-2rem))] sm:max-w-[min(1040px,calc(100%-2rem))] p-0 gap-0 overflow-hidden rounded-2xl border-[var(--val-border-subtle)]">
+      <DialogContent className="max-w-[calc(100%-1rem)] sm:max-w-[min(1040px,calc(100%-2rem))] p-0 gap-0 overflow-hidden rounded-none sm:rounded-2xl border-[var(--val-border-subtle)] h-dvh sm:h-auto">
         <DialogTitle className="sr-only">Add professional</DialogTitle>
 
-        <div className="flex min-h-[640px] max-h-[88vh]">
-          {/* Left rail */}
-          <div className="w-[240px] shrink-0 flex flex-col border-r border-[var(--val-border-subtle)] bg-val-bg-page-alt overflow-y-auto">
+        <div className="flex h-full sm:min-h-[640px] sm:max-h-[88vh]">
+          {/* Left rail — hidden on phone, condensed progress shown in right body */}
+          <div className="hidden sm:flex w-[240px] shrink-0 flex-col border-r border-[var(--val-border-subtle)] bg-val-bg-page-alt overflow-y-auto">
             <div className="px-6 pt-8 pb-6 border-b border-[var(--val-border-subtle)]">
               <div className="flex items-center gap-2 mb-4">
                 <div className="size-8 rounded-lg bg-white border border-[var(--val-border-subtle)] flex items-center justify-center">
@@ -788,19 +788,28 @@ export function AddProfessionalWizard({
               />
             </div>
 
-            <div className="px-10 pt-8 pb-6 border-b border-[var(--val-border-subtle)] shrink-0">
+            <div className="px-5 sm:px-10 pt-5 sm:pt-8 pb-5 sm:pb-6 border-b border-[var(--val-border-subtle)] shrink-0">
               <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-400 mb-2 tabular-nums">
                 Step {stepIndex + 1} of {ADD_PROFESSIONAL_STEPS.length}
               </p>
-              <h3 className="text-[24px] font-bold text-val-heading leading-tight tracking-tight">
+              <h3 className="text-[18px] sm:text-[24px] font-bold text-val-heading leading-tight tracking-tight">
                 {currentStep.title}
               </h3>
               <p className="text-[14px] text-slate-500 mt-2 leading-relaxed">
                 {currentStep.description}
               </p>
+              {/* Phone-only step progress bar */}
+              <div className="sm:hidden mt-4 w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-[var(--val-primary-dark)] rounded-full transition-all duration-500"
+                  style={{
+                    width: `${((stepIndex + 1) / ADD_PROFESSIONAL_STEPS.length) * 100}%`,
+                  }}
+                />
+              </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-10 py-8">
+            <div className="flex-1 overflow-y-auto px-5 sm:px-10 py-5 sm:py-8">
               {error && (
                 <div
                   role="alert"
@@ -838,7 +847,7 @@ export function AddProfessionalWizard({
               </div>
             </div>
 
-            <div className="px-10 py-5 border-t border-[var(--val-border-subtle)] flex items-center justify-between shrink-0 bg-val-bg-page-alt/30">
+            <div className="px-5 sm:px-10 py-4 sm:py-5 pb-safe sm:pb-5 border-t border-[var(--val-border-subtle)] flex items-center justify-between shrink-0 bg-val-bg-page-alt/30">
               <button
                 type="button"
                 onClick={handleBack}

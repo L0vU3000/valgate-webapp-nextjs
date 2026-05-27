@@ -1,6 +1,8 @@
 # Next.js 15 App Router — Architecture Reference
 
-*Last updated: April 2026 — Next.js 15 / React 19*
+*Last updated: May 2026 — Next.js 15 / React 19*
+
+> **Two products in one app:** See [products.md](./products.md) for how Consumer (`(shell)`) and Professional (`(pro)`) are separated.
 
 ---
 
@@ -9,27 +11,24 @@
 ```
 my-app/
 ├── app/                          # App Router root
-│   ├── (marketing)/              # Route group — public pages
-│   │   ├── page.tsx              # /
-│   │   ├── about/
-│   │   │   └── page.tsx          # /about
-│   │   └── layout.tsx            # Shared marketing layout
+│   ├── (auth)/                   # Shared login / signup
+│   │   ├── login/page.tsx
+│   │   └── register/page.tsx
 │   │
-│   ├── (app)/                    # Route group — authenticated app
-│   │   ├── dashboard/
-│   │   │   ├── page.tsx          # /dashboard
-│   │   │   └── loading.tsx
-│   │   ├── settings/
-│   │   │   └── page.tsx          # /settings
-│   │   └── layout.tsx            # Auth-gated layout
+│   ├── (shell)/                  # Consumer — owner property app
+│   │   ├── portfolio/page.tsx    # /portfolio
+│   │   ├── property/[id]/...
+│   │   └── layout.tsx            # ShellLayout wrapper
+│   │
+│   ├── (pro)/                    # Professional — manager control plane
+│   │   ├── layout.tsx            # Pro guard (auth / env)
+│   │   └── pro/                  # URL prefix /pro/*
+│   │       ├── dashboard/page.tsx
+│   │       ├── clients/[clientId]/page.tsx
+│   │       └── layout.tsx        # ManagerProShell
 │   │
 │   ├── api/                      # API Route Handlers
-│   │   ├── auth/
-│   │   │   └── [...nextauth]/
-│   │   │       └── route.ts
-│   │   └── webhooks/
-│   │       └── stripe/
-│   │           └── route.ts
+│   │   └── ...
 │   │
 │   ├── error.tsx                 # Global error boundary
 │   ├── not-found.tsx             # Global 404

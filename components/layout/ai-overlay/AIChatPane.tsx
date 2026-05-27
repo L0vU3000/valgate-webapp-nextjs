@@ -17,6 +17,7 @@ type AIChatPaneProps = {
   messages: AiMessage[];
   userInitials: string;
   documents: AiWorkspaceDocument[];
+  onOpenDocument: (doc: AiWorkspaceDocument) => void;
   inputValue: string;
   onInputChange: (value: string) => void;
   onSend: () => void;
@@ -33,6 +34,7 @@ export function AIChatPane({
   messages,
   userInitials,
   documents,
+  onOpenDocument,
   inputValue,
   onInputChange,
   onSend,
@@ -165,6 +167,7 @@ export function AIChatPane({
                 message={message}
                 userInitials={userInitials}
                 documentsById={documentsById}
+                onOpenDocument={onOpenDocument}
                 index={index}
                 isNew={message.id === latestAssistantMsgId}
               />

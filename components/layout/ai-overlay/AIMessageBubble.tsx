@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import { ChevronRight, FileText } from "lucide-react";
 import { AIMarkdown } from "./AIMarkdown";
 import type { AiMessage } from "@/lib/data/types/ai-message";
@@ -75,6 +74,7 @@ type AIMessageBubbleProps = {
   message: AiMessage;
   userInitials: string;
   documentsById: Map<string, AiWorkspaceDocument>;
+  onOpenDocument: (doc: AiWorkspaceDocument) => void;
   index?: number;
   isNew?: boolean;
 };
@@ -83,6 +83,7 @@ export function AIMessageBubble({
   message,
   userInitials,
   documentsById,
+  onOpenDocument,
   index = 0,
   isNew = false,
 }: AIMessageBubbleProps) {
@@ -139,12 +140,11 @@ export function AIMessageBubble({
           )}
         </div>
         {artifacts.map((doc) => (
-          <Link
+          <button
             key={doc!.id}
-            href={doc!.href}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="ai-glass-card flex items-start gap-4 rounded-xl p-5"
+            type="button"
+            onClick={() => onOpenDocument(doc!)}
+            className="ai-glass-card flex w-full items-start gap-4 rounded-xl p-5 text-left transition-transform hover:-translate-y-0.5"
           >
             <div
               className="flex size-12 shrink-0 items-center justify-center rounded-lg"
@@ -167,7 +167,7 @@ export function AIMessageBubble({
               <p className="mt-0.5 text-sm leading-5 text-secondary">{doc!.propertyId}</p>
             </div>
             <ChevronRight className="mt-1 size-4.5 shrink-0 text-secondary" />
-          </Link>
+          </button>
         ))}
       </div>
     </div>

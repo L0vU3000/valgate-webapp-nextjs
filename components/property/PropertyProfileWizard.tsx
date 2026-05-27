@@ -528,13 +528,13 @@ export function PropertyProfileWizard({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-[860px] sm:max-w-[860px] p-0 gap-0 overflow-hidden">
+      <DialogContent className="max-w-[calc(100%-1rem)] sm:max-w-[860px] p-0 gap-0 overflow-hidden h-dvh sm:h-auto rounded-none sm:rounded-xl">
         <DialogTitle className="sr-only">Edit property profile</DialogTitle>
 
-        <div className="flex min-h-[620px] max-h-[88vh]">
-          {/* Left rail */}
+        <div className="flex h-full sm:min-h-[620px] sm:max-h-[88vh]">
+          {/* Left rail — hidden on phone, content lifted into right body header */}
           <div
-            className="w-[216px] shrink-0 flex flex-col border-r border-slate-200 overflow-y-auto"
+            className="hidden sm:flex w-[216px] shrink-0 flex-col border-r border-slate-200 overflow-y-auto"
             style={{ background: "oklch(97% 0.005 250)" }}
           >
             <div className="px-6 pt-8 pb-6 border-b border-slate-200/70">
@@ -556,19 +556,28 @@ export function PropertyProfileWizard({
 
           {/* Right body */}
           <div className="flex-1 flex flex-col overflow-hidden min-w-0 bg-white">
-            <div className="px-10 pt-8 pb-6 border-b border-slate-100 shrink-0">
+            <div className="px-5 sm:px-10 pt-5 sm:pt-8 pb-5 sm:pb-6 border-b border-slate-100 shrink-0">
               <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--val-primary-dark)] mb-2">
                 {String(stepIndex + 1).padStart(2, "0")} / {String(PROPERTY_PROFILE_STEPS.length).padStart(2, "0")}
               </p>
-              <h3 className="text-[22px] font-bold text-val-heading leading-tight">
+              <h3 className="text-[18px] sm:text-[22px] font-bold text-val-heading leading-tight">
                 {currentStep.title}
               </h3>
               <p className="text-[14px] text-slate-500 mt-1.5 leading-relaxed">
                 {currentStep.description}
               </p>
+              {/* Phone-only step progress bar — replaces the hidden side rail */}
+              <div className="sm:hidden mt-4 w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-[var(--val-primary-dark)] rounded-full transition-all duration-500"
+                  style={{
+                    width: `${((stepIndex + 1) / PROPERTY_PROFILE_STEPS.length) * 100}%`,
+                  }}
+                />
+              </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-10 py-7">
+            <div className="flex-1 overflow-y-auto px-5 sm:px-10 py-5 sm:py-7">
               {error && (
                 <div className="mb-5 rounded-lg bg-red-50 border border-red-200 px-4 py-3 flex items-start gap-3">
                   <div className="flex-1 min-w-0">
@@ -595,7 +604,7 @@ export function PropertyProfileWizard({
               {currentStep.key === "financial" && <FinancialStep form={form} />}
             </div>
 
-            <div className="px-10 py-5 border-t border-slate-100 flex items-center justify-between shrink-0">
+            <div className="px-5 sm:px-10 py-4 sm:py-5 pb-safe sm:pb-5 border-t border-slate-100 flex items-center justify-between shrink-0 bg-white">
               <button
                 type="button"
                 onClick={handleBack}

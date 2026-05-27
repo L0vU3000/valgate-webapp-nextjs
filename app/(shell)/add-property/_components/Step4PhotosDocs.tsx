@@ -100,7 +100,7 @@ export function Step4PhotosDocs({ form, setForm }: { form: FormData; setForm: (f
           </div>
 
           {form.photos.length > 0 ? (
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 gap-3 sm:gap-4">
               <AnimatePresence>
                 {form.photos.map((photo, i) => (
                   <motion.div
@@ -111,7 +111,7 @@ export function Step4PhotosDocs({ form, setForm }: { form: FormData; setForm: (f
                     exit={{ opacity: 0, scale: 0.85 }}
                     transition={{ duration: 0.3, ease: easeOut, delay: i * 0.05 }}
                   >
-                    <div className="h-[156px] bg-muted flex items-center justify-center px-2">
+                    <div className="aspect-square sm:aspect-auto sm:h-[156px] bg-muted flex items-center justify-center px-2">
                       <span className="text-xs text-muted-foreground truncate">{photo}</span>
                     </div>
                     {i === 0 && (

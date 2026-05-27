@@ -275,7 +275,7 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
         {preFlowStage === null && walkthroughGate === null && <>
         {/* Header — steps 1–5 */}
         {step >= 1 && step <= 5 && (
-          <div className="px-8 pt-5 pb-0 shrink-0">
+          <div className="px-4 sm:px-8 pt-4 sm:pt-5 pb-0 shrink-0 sticky top-0 z-[5] bg-surface-page/95 backdrop-blur sm:static sm:bg-transparent sm:backdrop-blur-0">
             <div className="max-w-[1160px] mx-auto">
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-xs font-semibold tracking-widest uppercase text-[--val-primary-dark]">Valgate</span>
@@ -312,8 +312,8 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
             <Step6Success form={form} />
           </div>
         ) : (
-          <div className="flex-1 overflow-auto px-8 pb-4 flex flex-col min-h-0">
-            <div className="max-w-[1160px] mx-auto w-full flex-1 min-h-0 flex flex-col">
+          <div className="flex-1 overflow-auto px-4 sm:px-8 pb-4 flex flex-col min-h-0">
+            <div className="max-w-full sm:max-w-[1160px] mx-auto w-full flex-1 min-h-0 flex flex-col">
               {step === 0 && (
                 <Step0NewOrDraft
                   form={form}

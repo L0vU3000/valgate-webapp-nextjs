@@ -1,19 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { FileText, TrendingUp, Zap } from "lucide-react";
-import { AIDocumentModal } from "./AIDocumentModal";
+import { ChevronRight, FileText, TrendingUp, Zap } from "lucide-react";
+import { AIPortfolioSnapshotModal } from "./AIPortfolioSnapshotModal";
 import { AIYieldModal } from "./AIYieldModal";
 import { cn } from "@/components/ui/utils";
 import { formatCurrency } from "@/lib/format";
 import type { AiPortfolioBar, AiWorkspaceDocument } from "@/lib/data/derivations/ai-context";
 import type { PortfolioStats, PortfolioKpis } from "@/lib/data/derivations/portfolio";
 import {
-  glassChartArea,
   glassDocIcon,
   glassFilterChipInactive,
-  glassStorageFill,
-  glassStorageTrack,
   glassTrendIcon,
   glassYieldIcon,
 } from "./glass-styles";
@@ -21,26 +18,10 @@ import {
 const FILTERS = ["All", "Documents", "Legal"] as const;
 type AssetFilter = (typeof FILTERS)[number];
 
-const STORAGE_CAP_BYTES = 50 * 1024 * 1024;
-
-const BAR_GRADIENTS = [
-  "linear-gradient(180deg, #a5f3fc, rgba(165,243,252,0.6))",
-  "linear-gradient(180deg, #67e8f9, rgba(103,232,249,0.6))",
-  "linear-gradient(180deg, #22d3ee, rgba(34,211,238,0.6))",
-  "linear-gradient(180deg, var(--val-primary-dark), rgba(0,74,198,0.7))",
-  "linear-gradient(180deg, rgba(0,74,198,0.7), rgba(0,74,198,0.35))",
-] as const;
-
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function chartHeights(bars: AiPortfolioBar[]): number[] {
-  if (bars.length === 0) return [45, 68, 62, 96, 79];
-  const max = Math.max(...bars.map((b) => b.value), 1);
-  return bars.map((b) => Math.max(14, Math.round((b.value / max) * 96)));
 }
 
 type PortfolioForYield = {
@@ -56,6 +37,7 @@ type AIWorkspaceAssetsProps = {
   portfolioBars: AiPortfolioBar[];
   yieldHref: string;
   portfolio: PortfolioForYield;
+  onOpenDocument: (doc: AiWorkspaceDocument) => void;
 };
 
 export function AIWorkspaceAssets({
@@ -63,17 +45,21 @@ export function AIWorkspaceAssets({
   portfolioBars,
   yieldHref,
   portfolio,
+  onOpenDocument,
 }: AIWorkspaceAssetsProps) {
   const [activeFilter, setActiveFilter] = useState<AssetFilter>("All");
-  const [selectedDoc, setSelectedDoc] = useState<(typeof documents)[number] | null>(null);
   const [yieldModalOpen, setYieldModalOpen] = useState(false);
+  const [snapshotModalOpen, setSnapshotModalOpen] = useState(false);
 
   const totalBytes = useMemo(
     () => documents.reduce((sum, d) => sum + (d.sizeBytes ?? 0), 0),
     [documents],
   );
-  const storagePct = Math.min(100, Math.round((totalBytes / STORAGE_CAP_BYTES) * 100));
-  const barHeights = useMemo(() => chartHeights(portfolioBars), [portfolioBars]);
+
+  const portfolioHref =
+    portfolioBars.length === 1
+      ? `/property/${portfolioBars[0].propertyId}`
+      : "/portfolio";
 
   const filteredDocs = useMemo(() => {
     if (activeFilter === "All" || activeFilter === "Documents") {
@@ -105,7 +91,7 @@ export function AIWorkspaceAssets({
               type="button"
               onClick={() => setActiveFilter(filter)}
               className={cn(
-                "rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.5px] transition-all",
+                "rounded-full px-3 py-2 sm:py-1 min-h-9 sm:min-h-0 text-[11px] sm:text-[10px] font-semibold uppercase tracking-[0.5px] transition-all",
                 activeFilter === filter
                   ? "ai-glass-cta text-interactive-primary-text"
                   : "text-secondary hover:text-interactive-primary",
@@ -143,8 +129,10 @@ export function AIWorkspaceAssets({
               </p>
             </button>
 
-            <div
-              className="ai-glass-card flex animate-[glass-card-in_0.35s_ease-out_both] flex-col gap-2.5 rounded-xl p-4"
+            <button
+              type="button"
+              onClick={() => setSnapshotModalOpen(true)}
+              className="ai-glass-card flex animate-[glass-card-in_0.35s_ease-out_both] flex-col gap-2.5 rounded-xl p-4 text-left transition-transform hover:-translate-y-0.5"
               style={{ animationDelay: "0.4s" }}
             >
               <div className="flex items-center gap-3">
@@ -154,21 +142,24 @@ export function AIWorkspaceAssets({
                 >
                   <TrendingUp className="size-4 text-[#9333ea]" />
                 </div>
-                <span className="text-sm font-semibold text-foreground">Portfolio Snapshot</span>
+                <span className="min-w-0 flex-1 text-sm font-semibold text-foreground">
+                  Portfolio Snapshot
+                </span>
+                <ChevronRight className="size-4 shrink-0 text-secondary" aria-hidden />
               </div>
               {portfolioBars.length > 0 ? (
                 <div className="flex flex-col gap-1.5 pt-0.5">
                   {portfolioBars.slice(0, 3).map((bar) => (
                     <div key={bar.propertyId} className="flex items-center justify-between gap-2">
                       <span className="truncate text-[11px] text-secondary">{bar.label}</span>
-                      <span className="shrink-0 text-[11px] font-semibold text-foreground">
+                      <span className="shrink-0 text-[11px] font-semibold tabular-nums text-foreground">
                         {formatCurrency(bar.value)}
                       </span>
                     </div>
                   ))}
                   {portfolioBars.length > 3 && (
                     <p className="text-[10px] text-secondary">
-                      +{portfolioBars.length - 3} more properties
+                      +{portfolioBars.length - 3} more — tap to view chart
                     </p>
                   )}
                 </div>
@@ -177,7 +168,7 @@ export function AIWorkspaceAssets({
                   Open portfolio or a property page to see values.
                 </p>
               )}
-            </div>
+            </button>
           </>
         )}
 
@@ -186,7 +177,7 @@ export function AIWorkspaceAssets({
             <button
               key={doc.id}
               type="button"
-              onClick={() => setSelectedDoc(doc)}
+              onClick={() => onOpenDocument(doc)}
               className="ai-glass-card flex animate-[glass-card-in_0.35s_ease-out_both] flex-col gap-3 rounded-xl p-4 text-left transition-transform hover:-translate-y-0.5"
               style={{ animationDelay: `${0.35 + i * 0.05}s` }}
             >
@@ -241,7 +232,13 @@ export function AIWorkspaceAssets({
       </div>
     </aside>
 
-      <AIDocumentModal doc={selectedDoc} onClose={() => setSelectedDoc(null)} />
+      <AIPortfolioSnapshotModal
+        open={snapshotModalOpen}
+        onClose={() => setSnapshotModalOpen(false)}
+        portfolioBars={portfolioBars}
+        portfolio={portfolio}
+        portfolioHref={portfolioHref}
+      />
       <AIYieldModal
         open={yieldModalOpen}
         onClose={() => setYieldModalOpen(false)}

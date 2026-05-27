@@ -1,4 +1,6 @@
 import type { Property } from "@/lib/data/types/property";
+import type { Lease } from "@/lib/data/types/lease";
+import type { Expense } from "@/lib/data/types/expense";
 import { formatCurrencyFull } from "@/lib/format";
 
 export type PropertyFinancials = {
@@ -75,4 +77,66 @@ function deriveEquityPct(cmv?: number, mortgage?: number): number | null {
 function deriveLtv(cmv?: number, mortgage?: number): string {
   if (!cmv || mortgage == null) return "—";
   return `${((mortgage / cmv) * 100).toFixed(1)}%`;
+}
+
+export type InvestmentPerformance = {
+  equityGained: string;
+  totalRoiPct: string;
+  capRate: string;
+  cashOnCash: string;
+};
+
+export function computeInvestmentPerformance(
+  property: Property,
+  leases: Lease[],
+  expenses: Expense[],
+): InvestmentPerformance {
+  const cmv = property.currentMarketValue;
+  const mortgage = property.outstandingMortgage;
+  const buyBase = property.buyNumeric;
+
+  // Equity Gained: market value minus outstanding debt (or purchase price if no mortgage recorded)
+  const equityGained =
+    cmv != null
+      ? formatCurrencyFull(Math.round(cmv - (mortgage ?? buyBase ?? 0)))
+      : "—";
+
+  // Total ROI: appreciation from purchase price to current market value
+  const totalRoiPct =
+    cmv != null && buyBase != null && buyBase > 0
+      ? (() => {
+          const pct = ((cmv - buyBase) / buyBase) * 100;
+          const sign = pct >= 0 ? "+" : "";
+          return `${sign}${pct.toFixed(1)}%`;
+        })()
+      : "—";
+
+  // Only count active signed leases for this property
+  const propertyLeases = leases.filter(
+    (l) => l.propertyId === property.id && l.stage === "Signed",
+  );
+  const annualRent = propertyLeases.reduce((sum, l) => sum + l.monthlyRent, 0) * 12;
+
+  // Annual expenses for this property
+  const annualExpenses = expenses
+    .filter((e) => e.propertyId === property.id)
+    .reduce((sum, e) => sum + e.amount, 0);
+
+  const noi = annualRent - annualExpenses;
+
+  // Cap Rate: NOI / market value (can be negative if expenses exceed rent)
+  const capRate =
+    propertyLeases.length > 0 && cmv != null && cmv > 0
+      ? `${((noi / cmv) * 100).toFixed(1)}%`
+      : "—";
+
+  // Cash-on-Cash: annual pre-tax cash flow / purchase price
+  const annualMortgagePayments = (property.monthlyPayment ?? 0) * 12;
+  const annualCashFlow = noi - annualMortgagePayments;
+  const cashOnCash =
+    propertyLeases.length > 0 && buyBase != null && buyBase > 0
+      ? `${((annualCashFlow / buyBase) * 100).toFixed(1)}%`
+      : "—";
+
+  return { equityGained, totalRoiPct, capRate, cashOnCash };
 }

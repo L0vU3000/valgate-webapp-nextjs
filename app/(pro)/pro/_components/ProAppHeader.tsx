@@ -1,0 +1,199 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  Search,
+  Bell,
+  HelpCircle,
+  Settings,
+  Plus,
+  ChevronDown,
+  Building2,
+  UserPlus,
+  ClipboardList,
+} from "lucide-react";
+import { CommandPalette } from "@/components/home/CommandPalette";
+import {
+  NotificationsPanel,
+  type NotificationsPanelHandle,
+} from "@/components/layout/NotificationsPanel";
+import { useNotifications } from "@/lib/hooks/use-notifications";
+import { properties } from "@/lib/mock-data";
+
+export function ProAppHeader() {
+  const [commandOpen, setCommandOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const createRef = useRef<HTMLDivElement>(null);
+  const bellRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<NotificationsPanelHandle>(null);
+  const { notifications, markAllRead } = useNotifications();
+  const router = useRouter();
+
+  useEffect(() => {
+    const down = (event: KeyboardEvent) => {
+      if (event.key === "k" && (event.metaKey || event.ctrlKey)) {
+        event.preventDefault();
+        setCommandOpen((open) => !open);
+      }
+    };
+    document.addEventListener("keydown", down);
+    return () => document.removeEventListener("keydown", down);
+  }, []);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        createRef.current &&
+        !createRef.current.contains(event.target as Node)
+      ) {
+        setCreateOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  return (
+    <>
+      <header
+        role="banner"
+        className="relative flex h-14 shrink-0 items-center border-b border-border-default bg-surface-base px-4"
+      >
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <span className="truncate text-[15px] font-semibold text-foreground">
+            Valgate Professional
+          </span>
+          <button
+            type="button"
+            className="inline-flex h-8 items-center gap-1 rounded-md border border-border-default bg-surface-tint px-2.5 text-[12px] font-medium text-secondary hover:bg-surface-elevated transition-colors"
+          >
+            My Workspace
+            <ChevronDown className="h-3.5 w-3.5" />
+          </button>
+        </div>
+
+        <div className="pointer-events-none absolute left-1/2 top-0 flex h-14 w-full max-w-md -translate-x-1/2 items-center px-4">
+          <button
+            type="button"
+            onClick={() => setCommandOpen(true)}
+            className="pointer-events-auto relative flex w-full items-center gap-2 rounded-md bg-val-bg-tint py-2 pl-10 pr-3 text-[13px] text-secondary transition-colors hover:bg-surface-tint focus:outline-none focus:ring-2 focus:ring-blue-200"
+          >
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-secondary" />
+            <span className="flex-1 text-left">
+              Search assets, clients, work orders…
+            </span>
+            <kbd className="hidden shrink-0 items-center gap-0.5 rounded border border-border-default bg-surface-base px-1.5 py-0.5 text-[11px] font-medium text-secondary sm:flex">
+              <span className="text-[13px] leading-none">⌘</span>K
+            </kbd>
+          </button>
+        </div>
+
+        <div className="flex flex-1 items-center justify-end gap-1">
+          <div ref={createRef} className="relative">
+            <button
+              type="button"
+              aria-expanded={createOpen}
+              onClick={() => setCreateOpen((open) => !open)}
+              className="inline-flex h-9 items-center gap-1.5 rounded-md bg-interactive-primary px-3 text-[13px] font-medium text-white transition-colors hover:bg-blue-700"
+            >
+              <Plus className="h-4 w-4" />
+              Create
+              <ChevronDown className="h-3.5 w-3.5 opacity-80" />
+            </button>
+            {createOpen && (
+              <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-md border border-border-default bg-surface-base py-1 shadow-lg">
+                <CreateMenuItem icon={Building2} label="New Asset" />
+                <CreateMenuItem icon={UserPlus} label="New Client" />
+                <CreateMenuItem icon={ClipboardList} label="New Work Order" />
+              </div>
+            )}
+          </div>
+
+          <div className="relative">
+            <button
+              ref={bellRef}
+              type="button"
+              aria-label="Notifications"
+              aria-expanded={notificationsOpen}
+              onClick={() => {
+                if (notificationsOpen) {
+                  panelRef.current?.close();
+                } else {
+                  setNotificationsOpen(true);
+                }
+              }}
+              className="relative rounded p-2 transition-colors hover:bg-surface-tint"
+            >
+              <Bell className="h-5 w-5 text-secondary" />
+              <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500" />
+            </button>
+            {notificationsOpen && (
+              <NotificationsPanel
+                ref={panelRef}
+                notifications={notifications}
+                onMarkAllRead={markAllRead}
+                onClose={() => setNotificationsOpen(false)}
+                triggerRef={bellRef}
+              />
+            )}
+          </div>
+
+          <button
+            type="button"
+            aria-label="Help"
+            className="rounded p-2 transition-colors hover:bg-surface-tint"
+          >
+            <HelpCircle className="h-5 w-5 text-secondary" />
+          </button>
+
+          <button
+            type="button"
+            aria-label="Settings"
+            className="rounded p-2 transition-colors hover:bg-surface-tint"
+          >
+            <Settings className="h-5 w-5 text-secondary" />
+          </button>
+
+          <button
+            type="button"
+            className="ml-1 inline-flex items-center gap-2 rounded-md py-1 pl-1 pr-2 transition-colors hover:bg-surface-tint"
+          >
+            <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-teal-100 text-[11px] font-semibold text-teal-700">
+              AM
+            </span>
+            <span className="hidden text-[13px] font-medium text-foreground sm:inline">
+              Alex Morgan
+            </span>
+          </button>
+        </div>
+      </header>
+
+      <CommandPalette
+        open={commandOpen}
+        onOpenChange={setCommandOpen}
+        properties={properties}
+        navigate={(path) => router.push(path)}
+      />
+    </>
+  );
+}
+
+function CreateMenuItem({
+  icon: Icon,
+  label,
+}: {
+  icon: typeof Building2;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-foreground hover:bg-surface-tint"
+    >
+      <Icon className="h-4 w-4 text-secondary" />
+      {label}
+    </button>
+  );
+}

@@ -60,36 +60,67 @@ export function PropertyLayout({ activeTab, children, property, progress, onProg
   return (
     <div className="h-full flex flex-col font-['Inter',sans-serif]">
       {/* Header */}
-      <div className="bg-card border-b border-border px-6 py-3 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-2">
+      {/*
+        Mobile-tuned chrome header. At 484px the original `px-6` + breadcrumb
+        text + progress badge + action cluster all together overflow, so we:
+        - Drop side padding to `px-3` on mobile.
+        - Hide the literal "Property /" breadcrumb prefix below `sm:` so only
+          the property code + type remain (back chevron handles navigation).
+        - Hide the trailing word "progress" from the badge on mobile — the
+          colored dot + percent communicate the same thing.
+        - Tighten the right cluster `gap-3` to `gap-1` so the bell + dropdown
+          + headerSlot still fit.
+        `pt-safe` keeps the bar below the iOS Dynamic Island.
+      */}
+      <div className="bg-card border-b border-border px-3 sm:px-6 py-3 flex items-center justify-between shrink-0 pt-safe">
+        <div className="flex items-center gap-2 min-w-0">
           <button
             onClick={() => router.push("/portfolio")}
             aria-label="Back to portfolio"
-            className="text-muted-foreground hover:text-foreground rounded-md p-1.5 hover:bg-accent/50 active:scale-90 transition-[color,background-color,transform] duration-150"
+            className="text-muted-foreground hover:text-foreground rounded-md p-1.5 hover:bg-accent/50 active:scale-90 transition-[color,background-color,transform] duration-150 shrink-0"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
-          <span className="text-muted-foreground text-[14px]">Property</span>
-          <span className="text-muted-foreground text-[14px]">/</span>
-          <span className="text-foreground text-[16px]" style={{ fontWeight: 600 }}>
+          {/* Breadcrumb prefix — desktop only. */}
+          <span className="hidden sm:inline text-muted-foreground text-[14px]">Property</span>
+          <span className="hidden sm:inline text-muted-foreground text-[14px]">/</span>
+          <span className="text-foreground text-[15px] sm:text-[16px] truncate" style={{ fontWeight: 600 }}>
             {property.code} {property.type}
           </span>
         </div>
-        <div className="flex items-center gap-3">
+        {/*
+          Right cluster. All children share `h-9` so their visual baselines
+          line up — the progress badge previously used `py-1` (no fixed
+          height) which made it sit slightly above the icon buttons.
+
+          Mobile (below `sm:`): the bell + "Property options" menu are
+          replaced by a single consolidated `MoreVertical` dropdown that
+          contains Notifications, Edit property, and Archive property.
+          This keeps the mobile header clean (just progress badge + one
+          icon) while preserving every action.
+
+          Desktop (`sm:` and above): keep the original two-control layout
+          (bell + more menu) since horizontal space isn't a problem.
+        */}
+        <div className="flex items-center gap-1 sm:gap-3 shrink-0">
+          {/* Progress badge — visible on both mobile and desktop. */}
           <button
             onClick={handleProgressClick}
             disabled={!handleProgressClick}
-            className="bg-[#ECFDF5] text-[#059669] px-3 py-1 rounded-full text-[12px] flex items-center gap-1.5 hover:bg-emerald-100 active:scale-[0.97] transition-[background-color,transform] duration-150 disabled:pointer-events-none"
+            className="bg-[#ECFDF5] text-[#059669] inline-flex items-center gap-1.5 h-7 px-2 sm:px-3 rounded-full text-[12px] hover:bg-emerald-100 active:scale-[0.97] transition-[background-color,transform] duration-150 disabled:pointer-events-none"
             aria-label={`${displayProgress ?? "—"}% progress — view details`}
           >
             <span className="relative flex h-2 w-2 shrink-0">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
             </span>
-            {displayProgress !== undefined ? `${displayProgress}%` : "—"} progress
+            <span>{displayProgress !== undefined ? `${displayProgress}%` : "—"}</span>
+            <span className="hidden sm:inline">progress</span>
           </button>
           {headerSlot}
-          <div className="relative">
+
+          {/* Desktop bell + standalone NotificationsPanel — visible at sm+. */}
+          <div className="relative hidden sm:block">
             <button
               ref={bellRef}
               aria-label="Notifications"
@@ -101,7 +132,7 @@ export function PropertyLayout({ activeTab, children, property, progress, onProg
                   setNotificationsOpen(true);
                 }
               }}
-              className="p-2 rounded hover:bg-slate-100 transition-colors duration-150 relative"
+              className="inline-flex h-9 w-9 items-center justify-center rounded hover:bg-slate-100 transition-colors duration-150 relative"
             >
               <Bell className="w-5 h-5 text-slate-500" />
               {notifications.some((n) => !n.read) && (
@@ -123,9 +154,15 @@ export function PropertyLayout({ activeTab, children, property, progress, onProg
               />
             )}
           </div>
-          <DropdownMenu>
+
+          {/* Desktop "Property options" menu — Edit + Archive only. */}
+          <div className="hidden sm:block">
+            <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button aria-label="Property options" className="text-muted-foreground hover:text-foreground transition-colors duration-150 p-2 rounded">
+                <button
+                  aria-label="Property options"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-slate-100 transition-colors duration-150"
+                >
                   <MoreVertical className="w-5 h-5" />
                 </button>
               </DropdownMenuTrigger>
@@ -147,17 +184,83 @@ export function PropertyLayout({ activeTab, children, property, progress, onProg
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+          </div>
+
+          {/* Mobile consolidated menu — Notifications + Edit + Archive in
+              one dropdown so the header stays uncluttered at 484px. */}
+          <div className="block sm:hidden">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  aria-label="Property options"
+                  className="relative inline-flex h-9 w-9 items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-slate-100 transition-colors duration-150"
+                >
+                  <MoreVertical className="w-5 h-5" />
+                  {/* Unread indicator carries over from the bell so users
+                      know to open the menu to see notifications. */}
+                  {notifications.some((n) => !n.read) && (
+                    <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
+                  )}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem
+                  className="cursor-pointer"
+                  onSelect={() => setNotificationsOpen(true)}
+                >
+                  <Bell className="w-4 h-4 mr-2" />
+                  <span className="flex-1">Notifications</span>
+                  {notifications.some((n) => !n.read) && (
+                    <span className="ml-auto h-2 w-2 rounded-full bg-red-500" />
+                  )}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="cursor-pointer"
+                  onSelect={() => openPropertyWizard?.()}
+                >
+                  <Pencil className="w-4 h-4 mr-2" />
+                  Edit property
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-amber-600 focus:text-amber-600 focus:bg-amber-50 cursor-pointer"
+                  onSelect={() => setArchiveOpen(true)}
+                >
+                  <Archive className="w-4 h-4 mr-2" />
+                  Archive property
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Notifications panel — also mounted on mobile, opens when the
+                consolidated menu's Notifications item is selected. */}
+            {notificationsOpen && (
+              <NotificationsPanel
+                ref={panelRef}
+                notifications={notifications}
+                onMarkAllRead={markAllRead}
+                onNotificationClick={(n) => {
+                  markAsRead(n.id);
+                  if (n.linkTo) router.push(n.linkTo);
+                  panelRef.current?.close();
+                }}
+                onClose={() => setNotificationsOpen(false)}
+                triggerRef={bellRef}
+              />
+            )}
+          </div>
         </div>
       </div>
 
       {/* Tab bar */}
-      <div className="bg-card border-b border-border px-6 flex gap-0 shrink-0 overflow-x-auto relative">
+      <div className="bg-card border-b border-border px-4 sm:px-6 flex gap-0 shrink-0 overflow-x-auto snap-x snap-mandatory sm:snap-none relative">
         {tabs.map((tab, i) => (
           <button
             key={tab.key}
             ref={(el) => { tabRefs.current[i] = el; }}
             onClick={() => router.push(`/property/${id}/${tab.key}`)}
-            className={`group px-4 py-3 text-[14px] transition-colors duration-200 whitespace-nowrap flex items-center gap-1.5 ${
+            className={`group px-4 py-3 min-h-11 text-[14px] transition-colors duration-200 whitespace-nowrap flex items-center gap-1.5 snap-start sm:snap-align-none ${
               activeTab === tab.key
                 ? "text-primary"
                 : "text-muted-foreground hover:text-foreground"

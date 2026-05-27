@@ -72,7 +72,7 @@ export function LoginPage() {
   const isSubmitting = form.formState.isSubmitting;
 
   return (
-    <div className="flex flex-col min-h-screen w-full font-sans">
+    <div className="flex flex-col min-h-dvh w-full font-sans">
 
       {/* ── Main - Auth Shell Wrapper ── */}
       <div className="flex flex-1">
@@ -81,7 +81,7 @@ export function LoginPage() {
         <AuthBrandPanel />
 
         {/* Right: Login Form */}
-        <div className="flex flex-1 items-center justify-center bg-surface-base px-6 py-12 lg:px-24 overflow-y-auto">
+        <div className="flex flex-1 items-center justify-center bg-surface-base px-4 py-6 sm:px-6 sm:py-12 lg:px-24 overflow-y-auto">
           <div className="auth-animate w-full max-w-[440px]">
 
             {/* Mobile brand anchor — hidden on lg+ since AuthBrandPanel is visible */}

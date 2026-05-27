@@ -21,11 +21,13 @@ const LocationPickerModal = dynamic(
 
 const DEFAULT_CENTER: [number, number] = [104.9282, 11.5564]; // Phnom Penh
 
+// text-base (16px) on phone defeats iOS zoom-on-focus; sm:text-[14px] preserves
+// the denser desktop look. min-h-11 = 44px touch target.
 const INPUT =
-  "w-full border border-border rounded-xl px-4 py-2.5 text-[14px] text-foreground bg-background placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:shadow-[0_0_0_3px_color-mix(in_oklch,var(--primary)_8%,transparent)] transition-[border-color,box-shadow] duration-200";
+  "w-full min-h-11 border border-border rounded-xl px-4 py-2.5 text-base sm:text-[14px] text-foreground bg-background placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:shadow-[0_0_0_3px_color-mix(in_oklch,var(--primary)_8%,transparent)] transition-[border-color,box-shadow] duration-200";
 
 const INPUT_ERROR =
-  "w-full border border-destructive rounded-xl px-4 py-2.5 text-[14px] text-foreground bg-background placeholder:text-muted-foreground focus:outline-none focus:border-destructive focus:shadow-[0_0_0_3px_color-mix(in_oklch,var(--destructive)_10%,transparent)] transition-[border-color,box-shadow] duration-200";
+  "w-full min-h-11 border border-destructive rounded-xl px-4 py-2.5 text-base sm:text-[14px] text-foreground bg-background placeholder:text-muted-foreground focus:outline-none focus:border-destructive focus:shadow-[0_0_0_3px_color-mix(in_oklch,var(--destructive)_10%,transparent)] transition-[border-color,box-shadow] duration-200";
 
 export function Step2BasicInfo({
   form,
@@ -195,17 +197,21 @@ export function Step2BasicInfo({
         {showManualAddress ? (
           <div key="manual" className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2 pr-0.5 animate-[fade-slide-up_0.35s_cubic-bezier(0.22,1,0.36,1)_both]">
             <input type="text" value={form.addressLine} onChange={(e) => update("addressLine", e.target.value)}
-              placeholder="Street address" className={INPUT} />
+              placeholder="Street address" className={INPUT}
+              autoComplete="street-address" enterKeyHint="next" />
             <input type="text" value={form.addressLine2} onChange={(e) => update("addressLine2", e.target.value)}
-              placeholder="Apartment, suite, etc. (optional)" className={INPUT} />
-            <div className="grid grid-cols-2 gap-2">
+              placeholder="Apartment, suite, etc. (optional)" className={INPUT}
+              autoComplete="address-line2" enterKeyHint="next" />
+            <div className="grid grid-cols-1 xs:grid-cols-2 gap-2">
               <input type="text" value={form.city} onChange={(e) => update("city", e.target.value)}
-                placeholder="City" className={INPUT} />
+                placeholder="City" className={INPUT}
+                autoComplete="address-level2" enterKeyHint="next" />
               <div className="relative">
                 <select
                   value={form.province}
                   onChange={(e) => update("province", e.target.value)}
                   className={`${INPUT} appearance-none pr-8 ${!form.province ? "text-muted-foreground" : ""}`}
+                  autoComplete="address-level1"
                 >
                   <option value="" disabled>Province (optional)</option>
                   {CAMBODIA_PROVINCES.map((p) => (
@@ -215,11 +221,13 @@ export function Step2BasicInfo({
                 <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 xs:grid-cols-2 gap-2">
               <input type="text" value={form.zip} onChange={(e) => update("zip", e.target.value)}
-                placeholder="ZIP code" className={INPUT} />
+                placeholder="ZIP code" className={INPUT}
+                inputMode="numeric" autoComplete="postal-code" enterKeyHint="next" />
               <input type="text" value={form.country} onChange={(e) => update("country", e.target.value)}
-                placeholder="Country" className={INPUT} />
+                placeholder="Country" className={INPUT}
+                autoComplete="country-name" enterKeyHint="done" />
             </div>
           </div>
         ) : (

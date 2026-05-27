@@ -139,7 +139,8 @@ export const NotificationsPanel = forwardRef<NotificationsPanelHandle, Notificat
       ref={panelRef}
       role="dialog"
       aria-labelledby="notifications-heading"
-      className={`absolute right-[-14px] top-[calc(100%+20px)] z-50 w-[420px] bg-white border border-slate-300 rounded-lg shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.3)] overflow-hidden motion-reduce:animate-none ${
+      style={{ bottom: "calc(env(safe-area-inset-bottom) + 12px)" }}
+      className={`fixed inset-x-3 top-auto sm:absolute sm:inset-x-auto sm:right-[-14px] sm:top-[calc(100%+20px)] sm:bottom-auto z-50 w-auto sm:w-[420px] max-h-[80dvh] sm:max-h-none bg-white border border-slate-300 rounded-2xl sm:rounded-lg shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.3)] overflow-hidden motion-reduce:animate-none pb-safe sm:pb-0 ${
         isClosing
           ? "animate-[fade-slide-up-out_0.14s_cubic-bezier(0.5,0,0.75,0)_both]"
           : "animate-[fade-slide-down_0.18s_cubic-bezier(0.25,1,0.5,1)_both]"

@@ -11,22 +11,11 @@ import {
 } from "recharts";
 import type { Property } from "@/lib/data/types/property";
 import type { PropertyValuation } from "@/lib/data/types/property-valuation";
+import type { PropertyComparable } from "@/lib/data/types/property-comparable";
+import type { MarketSnapshot } from "@/lib/data/types/market-snapshot";
+import { formatAcquiredLabel } from "@/lib/data/derivations/property-comparables";
+import type { InvestmentPerformance } from "@/lib/data/derivations/property-financials";
 import { PropertyLayout } from "@/components/property/PropertyLayout";
-
-
-const comparables = [
-  { address: "1847 Oak Street", dist: "0.3 mi", sold: "Feb 2026", type: "House", builtYear: "'18", beds: "3", baths: "2", sqft: "1,850", price: "$492,000", psqft: "$266" },
-  { address: "212 Maple Avenue", dist: "0.5 mi", sold: "Jan 2026", type: "House", builtYear: "'16", beds: "3", baths: "2", sqft: "1,920", price: "$488,000", psqft: "$254" },
-  { address: "56 Birch Lane", dist: "0.7 mi", sold: "Dec 2025", type: "House", builtYear: "'20", beds: "4", baths: "2", sqft: "2,100", price: "$510,000", psqft: "$243" },
-  { address: "98 Cedar Road", dist: "0.9 mi", sold: "Dec 2025", type: "House", builtYear: "'17", beds: "3", baths: "3", sqft: "1,780", price: "$478,000", psqft: "$269" },
-];
-
-const investmentMetrics = [
-  { label: "Cash-on-Cash Return", value: "8.4%" },
-  { label: "Cap Rate", value: "6.2%" },
-  { label: "Total ROI (Since Purchase)", value: "42.7%" },
-  { label: "Equity Gained", value: "$137,800" },
-];
 
 const positiveFactors = [
   "Recent kitchen renovation",
@@ -110,9 +99,12 @@ function KpiCard({
 interface Props {
   property: Property;
   valuations: PropertyValuation[];
+  comparables: PropertyComparable[];
+  marketSnapshot: MarketSnapshot;
+  investmentPerformance: InvestmentPerformance;
 }
 
-export function PropertyValuationPage({ property, valuations = [] }: Props) {
+export function PropertyValuationPage({ property, valuations = [], comparables, marketSnapshot, investmentPerformance }: Props) {
   const [mounted, setMounted] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
 
@@ -333,46 +325,45 @@ export function PropertyValuationPage({ property, valuations = [] }: Props) {
                 <h3 className="text-base font-bold text-val-heading mb-1.5">Market Insight</h3>
                 <div className="flex items-center gap-1.5">
                   <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                  <p className="text-[13px] font-semibold text-val-heading">Phnom Penh, Cambodia</p>
+                  <p className="text-[13px] font-semibold text-val-heading">{marketSnapshot.city}, Cambodia</p>
                 </div>
               </div>
 
               <div className="bg-val-bg-tint rounded-lg px-4 py-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">Market Trend</p>
-                <p className="text-[14px] font-bold text-[--val-primary-dark]">Seller&apos;s Market</p>
-                <p className="text-[12px] text-slate-500 mt-0.5">Properties selling 12% above list price on average</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">Local Comparables</p>
+                <p className="text-[14px] font-bold text-[--val-primary-dark]">
+                  {marketSnapshot.comparableCount > 0
+                    ? `${marketSnapshot.comparableCount} propert${marketSnapshot.comparableCount === 1 ? "y" : "ies"} found nearby`
+                    : "No comparables found"}
+                </p>
+                <p className="text-[12px] text-slate-500 mt-0.5">
+                  {marketSnapshot.comparableCount > 0
+                    ? `Avg. price/m² across nearby properties: $${marketSnapshot.avgPricePerM2.toLocaleString()}`
+                    : "No nearby properties to compare against"}
+                </p>
               </div>
 
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center justify-between">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">Avg. Days on Market</p>
-                  <p className="text-[18px] font-bold text-val-heading leading-none">
-                    42 <span className="text-[12px] font-normal text-slate-400">days</span>
+                  <p className="text-[18px] font-bold text-slate-400 leading-none">
+                    — <span className="text-[12px] font-normal text-slate-400">days</span>
                   </p>
                 </div>
                 <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-amber-400"
-                    style={{
-                      width: mounted ? "42%" : "0%",
-                      transition: "width 800ms cubic-bezier(0.25,1,0.5,1) 400ms",
-                    }}
-                  />
+                  <div className="h-full rounded-full bg-slate-100" style={{ width: "0%" }} />
                 </div>
+                <p className="text-[11px] text-slate-400">Market signal not available</p>
               </div>
 
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center justify-between">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">Inventory Level</p>
-                  <p className="text-[13px] font-semibold text-rose-600">Low</p>
+                  <p className="text-[13px] font-semibold text-slate-400">—</p>
                 </div>
                 <div className="flex gap-1">
                   {[1, 2, 3, 4, 5].map((i) => (
-                    <div
-                      key={i}
-                      className={`flex-1 h-2 rounded-sm transition-all duration-500 ${i <= 2 ? "bg-rose-400" : "bg-slate-100"}`}
-                      style={{ transitionDelay: `${350 + i * 50}ms` }}
-                    />
+                    <div key={i} className="flex-1 h-2 rounded-sm bg-slate-100" />
                   ))}
                 </div>
               </div>
@@ -380,15 +371,11 @@ export function PropertyValuationPage({ property, valuations = [] }: Props) {
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center justify-between">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">Buyer Demand</p>
-                  <p className="text-[13px] font-semibold text-emerald-600">High</p>
+                  <p className="text-[13px] font-semibold text-slate-400">—</p>
                 </div>
                 <div className="flex gap-1">
                   {[1, 2, 3, 4, 5].map((i) => (
-                    <div
-                      key={i}
-                      className={`flex-1 h-2 rounded-sm transition-all duration-500 ${i <= 4 ? "bg-emerald-400" : "bg-slate-100"}`}
-                      style={{ transitionDelay: `${430 + i * 50}ms` }}
-                    />
+                    <div key={i} className="flex-1 h-2 rounded-sm bg-slate-100" />
                   ))}
                 </div>
               </div>
@@ -401,7 +388,11 @@ export function PropertyValuationPage({ property, valuations = [] }: Props) {
               <div className="flex items-center justify-between px-5 py-3.5 bg-slate-50/80 border-b border-slate-200">
                 <div>
                   <h3 className="text-base font-bold text-val-heading">Comparable Sales</h3>
-                  <p className="text-[12px] text-slate-400">Similar properties that sold recently in your area</p>
+                  <p className="text-[12px] text-slate-400">
+                    {comparables.length > 0
+                      ? `${comparables.length} nearby propert${comparables.length === 1 ? "y" : "ies"} in your area`
+                      : "No nearby properties found"}
+                  </p>
                 </div>
                 <button className="px-4 py-2 bg-white border border-slate-200 rounded text-sm font-semibold text-val-heading hover:bg-slate-50 active:scale-[0.98] transition-all duration-150">
                   View Full Report
@@ -410,50 +401,80 @@ export function PropertyValuationPage({ property, valuations = [] }: Props) {
               <table className="w-full">
                 <thead>
                   <tr className="bg-slate-50/80 border-b border-slate-200">
-                    <th className="px-5 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Address</th>
+                    <th className="px-5 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Property</th>
                     <th className="px-5 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Type</th>
                     <th className="px-5 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Beds / Bath</th>
-                    <th className="px-5 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Sq Ft</th>
-                    <th className="px-5 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Sold Price</th>
-                    <th className="px-5 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Price / sqft</th>
+                    <th className="px-5 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Area</th>
+                    <th className="px-5 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Market Value</th>
+                    <th className="px-5 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Price/m²</th>
                     <th className="px-5 py-3" />
                   </tr>
                 </thead>
                 <tbody>
-                  {comparables.map((c, i) => (
+                  {comparables.slice(0, 6).map((c, i) => (
                     <tr
-                      key={c.address}
+                      key={c.id}
                       className="border-t border-slate-100 hover:bg-blue-50/30 cursor-pointer transition-colors"
                       style={{ animationDelay: `${i * 25}ms` }}
                     >
                       <td className="px-5 py-3.5">
-                        <p className="text-[14px] text-val-heading font-semibold">{c.address}</p>
-                        <p className="text-[12px] text-slate-400">{c.dist} · Sold {c.sold}</p>
+                        <p className="text-[14px] text-val-heading font-semibold">{c.name}</p>
+                        <p className="text-[12px] text-slate-400">
+                          {c.distanceKm.toFixed(1)} km · {formatAcquiredLabel(c.purchaseDate)}
+                        </p>
                       </td>
                       <td className="px-5 py-3.5">
-                        <p className="text-[14px] text-val-heading">{c.type}</p>
-                        <p className="text-[12px] text-slate-400">Built {c.builtYear}</p>
+                        <p className="text-[14px] text-val-heading capitalize">{c.type}</p>
+                        <p className="text-[12px] text-slate-400">{c.yearBuilt ? `Built ${c.yearBuilt}` : "—"}</p>
                       </td>
-                      <td className="px-5 py-3.5 text-[14px] text-val-heading">{c.beds} / {c.baths}</td>
-                      <td className="px-5 py-3.5 text-[14px] text-val-heading">{c.sqft}</td>
-                      <td className="px-5 py-3.5 text-[14px] font-semibold text-val-heading">{c.price}</td>
-                      <td className="px-5 py-3.5 text-[14px] text-slate-500">{c.psqft}/sqft</td>
+                      <td className="px-5 py-3.5 text-[14px] text-val-heading">
+                        {c.bedrooms ?? "—"} / {c.bathrooms ?? "—"}
+                      </td>
+                      <td className="px-5 py-3.5 text-[14px] text-val-heading">
+                        {c.totalAreaM2.toLocaleString()} m²
+                      </td>
+                      <td className="px-5 py-3.5 text-[14px] font-semibold text-val-heading">
+                        ${c.currentMarketValue.toLocaleString()}
+                      </td>
+                      <td className="px-5 py-3.5 text-[14px] text-slate-500">
+                        ${c.pricePerM2.toLocaleString()}/m²
+                      </td>
                       <td className="px-5 py-3.5">
                         <button className="text-[--val-primary-dark] text-[12px] font-semibold hover:opacity-75 transition-opacity flex items-center gap-1">
-                          Contract <ExternalLink className="w-3 h-3" />
+                          Details <ExternalLink className="w-3 h-3" />
                         </button>
                       </td>
                     </tr>
                   ))}
+                  {comparables.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="px-5 py-8 text-[13px] text-slate-400 italic text-center">
+                        No comparable properties found within range
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
               <div className="bg-slate-50/60 border-t border-slate-200 px-5 py-3">
                 <p className="text-[12px] text-slate-500">
-                  Average comp price: <span className="text-val-heading font-semibold">$492,000</span>
+                  Average comp price:{" "}
+                  <span className="text-val-heading font-semibold">
+                    {marketSnapshot.comparableCount > 0
+                      ? `$${marketSnapshot.avgComparableValue.toLocaleString()}`
+                      : "—"}
+                  </span>
                   <span className="mx-2 text-slate-300">·</span>
                   Your estimate: <span className="text-val-heading font-semibold">{yourEstimateStr}</span>
-                  <span className="mx-2 text-slate-300">·</span>
-                  <span className="text-amber-600 font-semibold">1.4% below comps</span>
+                  {marketSnapshot.comparableCount > 0 && marketSnapshot.pctVsAvgPricePerM2 !== 0 && (
+                    <>
+                      <span className="mx-2 text-slate-300">·</span>
+                      <span className={marketSnapshot.pctVsAvgPricePerM2 >= 0 ? "text-emerald-600 font-semibold" : "text-amber-600 font-semibold"}>
+                        {marketSnapshot.pctVsAvgPricePerM2 >= 0
+                          ? `+${marketSnapshot.pctVsAvgPricePerM2.toFixed(1)}% vs comps`
+                          : `${marketSnapshot.pctVsAvgPricePerM2.toFixed(1)}% vs comps`}
+                      </span>
+                    </>
+                  )}
                 </p>
               </div>
             </div>
@@ -469,7 +490,12 @@ export function PropertyValuationPage({ property, valuations = [] }: Props) {
                 <BarChart2 className="w-4 h-4 text-slate-300" />
               </div>
               <div className="flex flex-col divide-y divide-slate-100">
-                {investmentMetrics.map(({ label, value }) => (
+                {[
+                  { label: "Cash-on-Cash Return", value: investmentPerformance.cashOnCash },
+                  { label: "Cap Rate", value: investmentPerformance.capRate },
+                  { label: "Total ROI (Since Purchase)", value: investmentPerformance.totalRoiPct },
+                  { label: "Equity Gained", value: investmentPerformance.equityGained },
+                ].map(({ label, value }) => (
                   <div key={label} className="flex items-center justify-between py-2.5">
                     <span className="text-[13px] text-slate-500">{label}</span>
                     <span className="text-[14px] font-semibold text-val-heading">{value}</span>

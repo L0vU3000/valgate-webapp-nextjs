@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { TableScroll } from "@/components/ui/table-scroll";
 import type { Property } from "@/lib/data/types/property";
 import type { CoOwner } from "@/lib/data/types/co-owner";
 import type { OwnershipDocument } from "@/lib/data/types/ownership-document";
@@ -10,6 +11,7 @@ import type { OwnershipHistory } from "@/lib/data/types/ownership-history";
 import type { Document as CentralDocument } from "@/lib/data/types/document";
 import type { PropertyFinancials } from "@/app/(shell)/property/[id]/ownership/queries";
 import { PropertyLayout } from "@/components/property/PropertyLayout";
+import { MobileCardTable } from "@/components/property/MobileCardTable";
 import { UnlockButton } from "@/components/feature-unlock/UnlockButton";
 import { OwnershipUnlockMount } from "@/components/feature-unlock/pillars/OwnershipUnlock";
 import type { UnlockState } from "@/components/feature-unlock/types";
@@ -206,7 +208,7 @@ export function PropertyOwnershipPage({
             className="pt-8 pb-6"
             style={fade(mounted, 0, reducedMotion)}
           >
-            <div className="max-w-[1200px] mx-auto px-8">
+            <div className="max-w-[1200px] mx-auto px-4 sm:px-8">
               {/* Breadcrumb */}
               <div className="flex items-center gap-1.5 mb-3">
                 <span className="text-xs font-semibold tracking-widest uppercase text-[--val-primary-dark]">
@@ -223,10 +225,10 @@ export function PropertyOwnershipPage({
               </div>
 
               {/* Title row */}
-              <div className="flex items-end justify-between">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                  <div className="flex items-center gap-3">
-                    <h1 className="text-4xl font-extrabold text-val-heading tracking-tight leading-10">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <h1 className="text-[28px] sm:text-[40px] font-extrabold text-val-heading tracking-tight leading-tight sm:leading-10">
                       Ownership
                     </h1>
                     {ownershipRecord?.verified && (
@@ -241,16 +243,19 @@ export function PropertyOwnershipPage({
                     {property.name}.
                   </p>
                 </div>
-                <UnlockButton state={unlockState} onClick={openWizard} />
+                {/* Edit/Verify pill — standardized wrapper (see Financials). */}
+                <div className="shrink-0">
+                  <UnlockButton state={unlockState} onClick={openWizard} editLabel="Edit ownership" />
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="max-w-[1200px] mx-auto px-8 pt-6 flex flex-col gap-5">
+          <div className="max-w-[1200px] mx-auto px-4 sm:px-8 pt-5 sm:pt-6 flex flex-col gap-4 sm:gap-5">
 
             {/* KPI Row */}
             <div
-              className="grid grid-cols-4 gap-4"
+              className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4"
               style={fade(mounted, 60, reducedMotion)}
             >
               {buildKpis(ownershipRecord, coOwners, propertyFinancials).map(
@@ -268,7 +273,7 @@ export function PropertyOwnershipPage({
                         <kpi.Icon className="size-4 text-blue-500" />
                       </div>
                     </div>
-                    <div className="text-[20px] font-bold text-val-heading leading-none">
+                    <div className="text-[22px] sm:text-[26px] font-bold text-val-heading leading-none">
                       {kpi.value}
                     </div>
                     <div className="text-xs text-slate-400 mt-1">{kpi.sub}</div>
@@ -279,14 +284,14 @@ export function PropertyOwnershipPage({
 
             {/* Equity & Financial + Ownership Split */}
             <div
-              className="grid grid-cols-12 gap-5"
+              className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5"
               style={fade(mounted, 160, reducedMotion)}
             >
-              <div className="col-span-7 bg-white rounded-xl border border-slate-200 p-6 shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)]">
+              <div className="lg:col-span-7 bg-white rounded-xl border border-slate-200 p-5 sm:p-6 shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)]">
                 <h3 className="text-base font-bold text-val-heading mb-5">
                   Equity &amp; Financial Position
                 </h3>
-                <div className="flex gap-12 mb-5">
+                <div className="flex flex-col sm:flex-row gap-4 sm:gap-12 mb-5">
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-1">
                       Current Estimated Value
@@ -342,7 +347,7 @@ export function PropertyOwnershipPage({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-4 pt-4 border-t border-slate-100">
+                <div className="grid grid-cols-1 xs:grid-cols-3 gap-3 sm:gap-4 pt-4 border-t border-slate-100">
                   {[
                     { label: "LTV Ratio", value: propertyFinancials.ltv },
                     {
@@ -373,7 +378,7 @@ export function PropertyOwnershipPage({
               </div>
 
               {/* Ownership Split */}
-              <div className="col-span-5 bg-white rounded-xl border border-slate-200 p-6 shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)]">
+              <div className="lg:col-span-5 bg-white rounded-xl border border-slate-200 p-5 sm:p-6 shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)]">
                 <h3 className="text-base font-bold text-val-heading mb-5">
                   Ownership Split
                 </h3>
@@ -464,7 +469,7 @@ export function PropertyOwnershipPage({
 
             {/* Owner Cards */}
             <div
-              className="grid grid-cols-2 gap-5"
+              className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5"
               style={fade(mounted, 240, reducedMotion)}
             >
               {displayedOwners.length === 0 ? (
@@ -516,7 +521,7 @@ export function PropertyOwnershipPage({
 
             {/* Acquisition Details + Income Distribution */}
             <div
-              className="grid grid-cols-2 gap-5"
+              className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5"
               style={fade(mounted, 300, reducedMotion)}
             >
               <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)]">
@@ -669,99 +674,176 @@ export function PropertyOwnershipPage({
                     Upload Doc
                   </button>
                 </div>
-                <table className="w-full">
-                  <thead>
-                    <tr className="bg-slate-50/80 border-b border-slate-200">
-                      {["Name", "Type", "Date", "Owner", "Status"].map(
-                        (col) => (
-                          <th
-                            key={col}
-                            className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]"
-                          >
-                            {col}
-                          </th>
-                        ),
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {allOwnershipDocs.length === 0 &&
-                    verificationDocs.length === 0 ? (
-                      <tr>
-                        <td colSpan={5} className="px-4 py-6">
-                          <EmptyState
-                            icon={<FileText className="size-6" />}
-                            title="No ownership documents yet"
-                            description="Add a deed or title to start tracking ownership for this property."
-                          />
-                        </td>
-                      </tr>
+                {/*
+                  Ownership Documents — desktop keeps the 5-column scrollable
+                  table; mobile renders a stacked card list (one card per
+                  document, name + status pill at the top, the rest as a
+                  labelled meta row below).
+                */}
+                <MobileCardTable
+                  desktop={
+                    <TableScroll stickyFirstColumn>
+                      <table className="w-full min-w-[560px] sm:min-w-0">
+                        <thead>
+                          <tr className="bg-slate-50/80 border-b border-slate-200">
+                            {["Name", "Type", "Date", "Owner", "Status"].map(
+                              (col, idx) => (
+                                <th
+                                  key={col}
+                                  className={`px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em] ${idx === 0 ? "data-sticky-col bg-slate-50/80" : ""}`}
+                                >
+                                  {col}
+                                </th>
+                              ),
+                            )}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {allOwnershipDocs.length === 0 &&
+                          verificationDocs.length === 0 ? (
+                            <tr>
+                              <td colSpan={5} className="px-4 py-6">
+                                <EmptyState
+                                  icon={<FileText className="size-6" />}
+                                  title="No ownership documents yet"
+                                  description="Add a deed or title to start tracking ownership for this property."
+                                />
+                              </td>
+                            </tr>
+                          ) : (
+                            <>
+                              {allOwnershipDocs.map((doc, i) => (
+                                <tr
+                                  key={doc.id}
+                                  className="border-t border-slate-100 hover:bg-blue-50/30 cursor-pointer transition-colors"
+                                  style={{ animationDelay: `${i * 25}ms` }}
+                                >
+                                  <td className="data-sticky-col px-4 py-3.5 text-[14px] text-val-heading">
+                                    <div className="flex items-center gap-2">
+                                      <FileText className="w-4 h-4 text-slate-400 shrink-0" />
+                                      {doc.name}
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3.5 text-[14px] text-slate-500">
+                                    {doc.type}
+                                  </td>
+                                  <td className="px-4 py-3.5 text-[14px] text-slate-500">
+                                    {formatDate(doc.documentDate)}
+                                  </td>
+                                  <td className="px-4 py-3.5 text-[14px] text-slate-500">
+                                    {orecMap.get(doc.ownershipRecordId)?.holdingType ??
+                                      "—"}
+                                  </td>
+                                  <td className="px-4 py-3.5">
+                                    <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-semibold tracking-[1px] uppercase px-2.5 py-0.5 rounded-full">
+                                      {doc.status ?? "Current"}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                              {verificationDocs.map((doc, i) => (
+                                <tr
+                                  key={doc.id}
+                                  className="border-t border-slate-100 hover:bg-emerald-50/30 cursor-pointer transition-colors"
+                                  style={{
+                                    animationDelay: `${(ownershipDocuments.length + i) * 25}ms`,
+                                  }}
+                                >
+                                  <td className="data-sticky-col px-4 py-3.5 text-[14px] text-val-heading">
+                                    <div className="flex items-center gap-2">
+                                      <FileText className="w-4 h-4 text-emerald-500 shrink-0" />
+                                      {doc.name}
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-3.5 text-[14px] text-slate-500">
+                                    Title Deed (Verified)
+                                  </td>
+                                  <td className="px-4 py-3.5 text-[14px] text-slate-500">
+                                    {formatDate(doc.uploadedAt)}
+                                  </td>
+                                  <td className="px-4 py-3.5 text-[14px] text-slate-500">
+                                    {ownershipRecord?.holdingType ?? "—"}
+                                  </td>
+                                  <td className="px-4 py-3.5">
+                                    <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-semibold tracking-[1px] uppercase px-2.5 py-0.5 rounded-full flex items-center gap-1 w-fit">
+                                      <ShieldCheck className="w-3 h-3" />
+                                      Verified
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </>
+                          )}
+                        </tbody>
+                      </table>
+                    </TableScroll>
+                  }
+                  mobile={
+                    allOwnershipDocs.length === 0 && verificationDocs.length === 0 ? (
+                      <div className="px-4 py-6">
+                        <EmptyState
+                          icon={<FileText className="size-6" />}
+                          title="No ownership documents yet"
+                          description="Add a deed or title to start tracking ownership for this property."
+                        />
+                      </div>
                     ) : (
-                      <>
-                        {allOwnershipDocs.map((doc, i) => (
-                          <tr
+                      <div className="flex flex-col divide-y divide-slate-100">
+                        {allOwnershipDocs.map((doc) => (
+                          <div
                             key={doc.id}
-                            className="border-t border-slate-100 hover:bg-blue-50/30 cursor-pointer transition-colors"
-                            style={{ animationDelay: `${i * 25}ms` }}
+                            className="px-4 py-3.5 flex flex-col gap-2 hover:bg-blue-50/30 active:bg-blue-50/60 transition-colors cursor-pointer"
                           >
-                            <td className="px-4 py-3.5 text-[14px] text-val-heading">
-                              <div className="flex items-center gap-2">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex items-center gap-2 min-w-0 flex-1">
                                 <FileText className="w-4 h-4 text-slate-400 shrink-0" />
-                                {doc.name}
+                                <span className="text-[14px] text-val-heading font-semibold truncate">
+                                  {doc.name}
+                                </span>
                               </div>
-                            </td>
-                            <td className="px-4 py-3.5 text-[14px] text-slate-500">
-                              {doc.type}
-                            </td>
-                            <td className="px-4 py-3.5 text-[14px] text-slate-500">
-                              {formatDate(doc.documentDate)}
-                            </td>
-                            <td className="px-4 py-3.5 text-[14px] text-slate-500">
-                              {orecMap.get(doc.ownershipRecordId)?.holdingType ??
-                                "—"}
-                            </td>
-                            <td className="px-4 py-3.5">
-                              <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-semibold tracking-[1px] uppercase px-2.5 py-0.5 rounded-full">
+                              <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-semibold tracking-[1px] uppercase px-2 py-0.5 rounded-full shrink-0">
                                 {doc.status ?? "Current"}
                               </span>
-                            </td>
-                          </tr>
+                            </div>
+                            <div className="flex items-center gap-2 text-[12px] text-slate-500 flex-wrap">
+                              <span>{doc.type}</span>
+                              <span className="text-slate-300">·</span>
+                              <span>{formatDate(doc.documentDate)}</span>
+                              <span className="text-slate-300">·</span>
+                              <span>{orecMap.get(doc.ownershipRecordId)?.holdingType ?? "—"}</span>
+                            </div>
+                          </div>
                         ))}
-                        {verificationDocs.map((doc, i) => (
-                          <tr
+                        {verificationDocs.map((doc) => (
+                          <div
                             key={doc.id}
-                            className="border-t border-slate-100 hover:bg-emerald-50/30 cursor-pointer transition-colors"
-                            style={{
-                              animationDelay: `${(ownershipDocuments.length + i) * 25}ms`,
-                            }}
+                            className="px-4 py-3.5 flex flex-col gap-2 hover:bg-emerald-50/30 active:bg-emerald-50/60 transition-colors cursor-pointer"
                           >
-                            <td className="px-4 py-3.5 text-[14px] text-val-heading">
-                              <div className="flex items-center gap-2">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex items-center gap-2 min-w-0 flex-1">
                                 <FileText className="w-4 h-4 text-emerald-500 shrink-0" />
-                                {doc.name}
+                                <span className="text-[14px] text-val-heading font-semibold truncate">
+                                  {doc.name}
+                                </span>
                               </div>
-                            </td>
-                            <td className="px-4 py-3.5 text-[14px] text-slate-500">
-                              Title Deed (Verified)
-                            </td>
-                            <td className="px-4 py-3.5 text-[14px] text-slate-500">
-                              {formatDate(doc.uploadedAt)}
-                            </td>
-                            <td className="px-4 py-3.5 text-[14px] text-slate-500">
-                              {ownershipRecord?.holdingType ?? "—"}
-                            </td>
-                            <td className="px-4 py-3.5">
-                              <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-semibold tracking-[1px] uppercase px-2.5 py-0.5 rounded-full flex items-center gap-1 w-fit">
+                              <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-semibold tracking-[1px] uppercase px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0">
                                 <ShieldCheck className="w-3 h-3" />
                                 Verified
                               </span>
-                            </td>
-                          </tr>
+                            </div>
+                            <div className="flex items-center gap-2 text-[12px] text-slate-500 flex-wrap">
+                              <span>Title Deed (Verified)</span>
+                              <span className="text-slate-300">·</span>
+                              <span>{formatDate(doc.uploadedAt)}</span>
+                              <span className="text-slate-300">·</span>
+                              <span>{ownershipRecord?.holdingType ?? "—"}</span>
+                            </div>
+                          </div>
                         ))}
-                      </>
-                    )}
-                  </tbody>
-                </table>
+                      </div>
+                    )
+                  }
+                />
               </div>
             </div>
 

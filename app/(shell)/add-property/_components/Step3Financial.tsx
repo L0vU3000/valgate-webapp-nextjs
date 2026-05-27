@@ -88,7 +88,7 @@ export function Step3Financial({
         <span className="text-[14px] text-foreground flex items-center" style={{ fontWeight: 600 }}>
           Current status <OptionalLabel />
         </span>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 xs:grid-cols-3 gap-2">
           {STATUS_OPTIONS.map((opt) => {
             const selected = form.status === opt.value;
             return (

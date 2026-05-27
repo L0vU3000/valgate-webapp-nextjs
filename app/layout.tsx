@@ -2,17 +2,26 @@ import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import "../styles/index.css";
 import { AgentationProvider } from "./_components/agentation-provider";
-import { Toaster } from "sonner";
+
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+  themeColor: "#ffffff",
 };
 
 export const metadata: Metadata = {
   title: "Valgate",
   description: "Property portfolio management",
   icons: { icon: "/valgate-icon.svg" },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Valgate",
+  },
+  formatDetection: {
+    telephone: false,
+  },
 };
 
 export default function RootLayout({
@@ -28,7 +37,6 @@ export default function RootLayout({
           strategy="lazyOnload"
         />
         {children}
-        <Toaster position="top-right" richColors />
         <AgentationProvider />
       </body>
     </html>

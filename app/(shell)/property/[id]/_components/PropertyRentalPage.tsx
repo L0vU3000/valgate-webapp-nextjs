@@ -11,6 +11,7 @@ import type { Document as DbDocument } from "@/lib/data/types/document";
 import type { MaintenanceItem, MaintenanceSeverity } from "@/lib/data/types/maintenance-item";
 import { formatCurrencyFull } from "@/lib/format";
 import { PropertyLayout } from "@/components/property/PropertyLayout";
+import { MobileCardTable } from "@/components/property/MobileCardTable";
 import { UnlockButton } from "@/components/feature-unlock/UnlockButton";
 import { RentalUnlockMount } from "@/components/feature-unlock/pillars/RentalUnlock";
 import type { UnlockState } from "@/components/feature-unlock/types";
@@ -369,7 +370,7 @@ export function PropertyRentalPage({
     <>
     <PropertyLayout activeTab="rental" property={property} progress={progress}>
       <div className="bg-val-bg-page-alt min-h-full pb-12">
-        <div className="max-w-[1200px] mx-auto px-8 flex flex-col gap-5">
+        <div className="max-w-[1200px] mx-auto px-4 sm:px-8 flex flex-col gap-4 sm:gap-5">
 
           {/* ── Page header ── */}
           <div className="pt-8" style={fade(0)}>
@@ -380,10 +381,10 @@ export function PropertyRentalPage({
               <span className="text-xs text-slate-300">/</span>
               <span className="text-xs font-semibold tracking-widest uppercase text-slate-400">Rental</span>
             </div>
-            <div className="flex items-end justify-between gap-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
               <div>
-                <div className="flex items-center gap-3">
-                  <h1 className="text-4xl font-extrabold tracking-tight leading-10 text-[--val-heading]">Rental</h1>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <h1 className="text-[28px] sm:text-[40px] font-extrabold tracking-tight leading-tight sm:leading-10 text-[--val-heading]">Rental</h1>
                   {property.rentalVerified ? (
                     <div className="flex items-center gap-1.5 mb-1">
                       <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[12px] font-semibold">
@@ -415,7 +416,10 @@ export function PropertyRentalPage({
                 </div>
                 <p className="text-slate-500 text-base mt-2">{pageSubtitle}</p>
               </div>
-              <UnlockButton state={unlockState} onClick={openWizard} editLabel="Edit rental" />
+              {/* Edit/Verify pill — standardized wrapper (see Financials). */}
+              <div className="shrink-0">
+                <UnlockButton state={unlockState} onClick={openWizard} editLabel="Edit rental" />
+              </div>
             </div>
           </div>
 
@@ -463,7 +467,7 @@ export function PropertyRentalPage({
             className="bg-white border border-slate-200 rounded-lg overflow-hidden"
             style={fade(80)}
           >
-            <div className="grid grid-cols-4 divide-x divide-slate-100">
+            <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100">
               <KpiStat
                 label="Monthly Rent"
                 value={rentValue}
@@ -496,7 +500,7 @@ export function PropertyRentalPage({
           </div>
 
           {/* ── Financial Overview (8) + Lease Summary (4) ── */}
-          <div className="grid grid-cols-12 gap-5" style={fade(120)}>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5" style={fade(120)}>
 
             <FinancialOverviewCard
               periodLabel={periodLabel}
@@ -507,7 +511,7 @@ export function PropertyRentalPage({
             />
 
             {/* Lease Summary */}
-            <div className="col-span-4 bg-white border border-slate-200 rounded-lg p-6 flex flex-col">
+            <div className="lg:col-span-4 bg-white border border-slate-200 rounded-lg p-5 sm:p-6 flex flex-col">
               <div className="flex items-start justify-between mb-4 gap-2">
                 <div className="flex flex-col gap-1.5 min-w-0">
                   <h3 className="text-base font-bold text-val-heading leading-none">Lease</h3>
@@ -609,10 +613,10 @@ export function PropertyRentalPage({
           </div>
 
           {/* ── Tenant + Maintenance (8) | Documents (4) ── */}
-          <div className="grid grid-cols-12 gap-5" style={fade(180)}>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5" style={fade(180)}>
 
             {/* Left column: Tenant + Maintenance stacked */}
-            <div className="col-span-8 flex flex-col gap-5">
+            <div className="lg:col-span-8 flex flex-col gap-4 sm:gap-5">
 
               {/* Tenant Profile */}
               <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
@@ -652,7 +656,7 @@ export function PropertyRentalPage({
                 </div>
 
                 {/* Stats grid */}
-                <div className="px-6 py-4 grid grid-cols-3 gap-6 border-b border-slate-100 text-[13px]">
+                <div className="px-5 sm:px-6 py-4 grid grid-cols-1 xs:grid-cols-3 gap-3 sm:gap-6 border-b border-slate-100 text-[13px]">
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-400 mb-1">
                       Moved In
@@ -743,7 +747,7 @@ export function PropertyRentalPage({
             </div>
 
             {/* Right column: Documents */}
-            <div className="col-span-4 bg-white border border-slate-200 rounded-lg p-6">
+            <div className="lg:col-span-4 bg-white border border-slate-200 rounded-lg p-5 sm:p-6">
               <h3 className="text-base font-bold text-val-heading mb-4">Documents</h3>
 
               {documents.length === 0 ? (
@@ -829,63 +833,117 @@ export function PropertyRentalPage({
               </div>
             )}
 
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-slate-100">
-                  <th className="px-6 py-3 text-left text-[11px] font-semibold text-slate-400 uppercase tracking-[0.05em]">
-                    Date
-                  </th>
-                  <th className="px-6 py-3 text-left text-[11px] font-semibold text-slate-400 uppercase tracking-[0.05em]">
-                    Type
-                  </th>
-                  <th className="px-6 py-3 text-left text-[11px] font-semibold text-slate-400 uppercase tracking-[0.05em]">
-                    Amount
-                  </th>
-                  <th className="px-6 py-3 text-left text-[11px] font-semibold text-slate-400 uppercase tracking-[0.05em]">
-                    Method
-                  </th>
-                  <th className="px-6 py-3 text-left text-[11px] font-semibold text-slate-400 uppercase tracking-[0.05em]">
-                    Status
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {pagedPayments.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-[13px] text-slate-400">
-                      No payments recorded yet.
-                    </td>
-                  </tr>
-                ) : (
-                  pagedPayments.map((p) => {
-                    const variant = paymentStatusVariant(p.status);
-                    return (
-                      <tr
-                        key={p.id}
-                        className={`border-t border-slate-100 hover:bg-slate-50/50 transition-colors ${
-                          p.status === "Overdue" ? "bg-rose-50/30" : ""
-                        }`}
-                      >
-                        <td className="px-6 py-3.5 text-[13px] text-slate-600">{formatDate(p.date)}</td>
-                        <td className="px-6 py-3.5 text-[13px] text-slate-600">{p.kind}</td>
-                        <td className="px-6 py-3.5 text-[13px] font-semibold text-val-heading">
-                          {formatCurrencyFull(p.amount)}
-                        </td>
-                        <td className="px-6 py-3.5 text-[13px] text-slate-400">{p.method}</td>
-                        <td className="px-6 py-3.5">
-                          <span
-                            className={`flex items-center gap-1.5 text-[12px] font-medium ${statusVariants[variant]}`}
-                          >
-                            <Circle className="w-1.5 h-1.5 fill-current" />
-                            {p.status}
-                          </span>
+            {/*
+              Payment History — desktop 5-column table; mobile stacked cards
+              where the date + amount form the headline and method + status
+              live below in a smaller meta row.
+            */}
+            <MobileCardTable
+              desktop={
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-slate-100">
+                      <th className="px-6 py-3 text-left text-[11px] font-semibold text-slate-400 uppercase tracking-[0.05em]">
+                        Date
+                      </th>
+                      <th className="px-6 py-3 text-left text-[11px] font-semibold text-slate-400 uppercase tracking-[0.05em]">
+                        Type
+                      </th>
+                      <th className="px-6 py-3 text-left text-[11px] font-semibold text-slate-400 uppercase tracking-[0.05em]">
+                        Amount
+                      </th>
+                      <th className="px-6 py-3 text-left text-[11px] font-semibold text-slate-400 uppercase tracking-[0.05em]">
+                        Method
+                      </th>
+                      <th className="px-6 py-3 text-left text-[11px] font-semibold text-slate-400 uppercase tracking-[0.05em]">
+                        Status
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pagedPayments.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="px-6 py-8 text-center text-[13px] text-slate-400">
+                          No payments recorded yet.
                         </td>
                       </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
+                    ) : (
+                      pagedPayments.map((p) => {
+                        const variant = paymentStatusVariant(p.status);
+                        return (
+                          <tr
+                            key={p.id}
+                            className={`border-t border-slate-100 hover:bg-slate-50/50 transition-colors ${
+                              p.status === "Overdue" ? "bg-rose-50/30" : ""
+                            }`}
+                          >
+                            <td className="px-6 py-3.5 text-[13px] text-slate-600">{formatDate(p.date)}</td>
+                            <td className="px-6 py-3.5 text-[13px] text-slate-600">{p.kind}</td>
+                            <td className="px-6 py-3.5 text-[13px] font-semibold text-val-heading">
+                              {formatCurrencyFull(p.amount)}
+                            </td>
+                            <td className="px-6 py-3.5 text-[13px] text-slate-400">{p.method}</td>
+                            <td className="px-6 py-3.5">
+                              <span
+                                className={`flex items-center gap-1.5 text-[12px] font-medium ${statusVariants[variant]}`}
+                              >
+                                <Circle className="w-1.5 h-1.5 fill-current" />
+                                {p.status}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              }
+              mobile={
+                pagedPayments.length === 0 ? (
+                  <p className="px-4 py-8 text-center text-[13px] text-slate-400">
+                    No payments recorded yet.
+                  </p>
+                ) : (
+                  <div className="flex flex-col divide-y divide-slate-100">
+                    {pagedPayments.map((p) => {
+                      const variant = paymentStatusVariant(p.status);
+                      return (
+                        <div
+                          key={p.id}
+                          className={`px-4 py-3.5 flex flex-col gap-1.5 ${
+                            p.status === "Overdue" ? "bg-rose-50/30" : ""
+                          }`}
+                        >
+                          {/* Row 1 — date + amount headline */}
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-[13px] text-val-heading font-medium">
+                                {formatDate(p.date)}
+                              </p>
+                              <p className="text-[11px] text-slate-400">{p.kind}</p>
+                            </div>
+                            <p className="text-[14px] font-semibold text-val-heading tabular-nums shrink-0">
+                              {formatCurrencyFull(p.amount)}
+                            </p>
+                          </div>
+
+                          {/* Row 2 — method + status */}
+                          <div className="flex items-center justify-between gap-3 mt-0.5">
+                            <span className="text-[12px] text-slate-500">{p.method}</span>
+                            <span
+                              className={`flex items-center gap-1.5 text-[12px] font-medium ${statusVariants[variant]}`}
+                            >
+                              <Circle className="w-1.5 h-1.5 fill-current" />
+                              {p.status}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )
+              }
+            />
 
             <div className="border-t border-slate-100 px-6 py-3 flex items-center justify-between bg-slate-50/40">
               <span className="text-[12px] text-slate-400">
@@ -1029,7 +1087,7 @@ function FinancialOverviewCard({
   const hasChartData = chartData.some((d) => d.rent > 0 || d.expenses > 0);
 
   return (
-    <div className="col-span-8 bg-white border border-slate-200 rounded-xl overflow-hidden shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)]">
+    <div className="lg:col-span-8 bg-white border border-slate-200 rounded-xl overflow-hidden shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)]">
       <div className="px-6 pt-6 pb-5 flex items-start justify-between gap-8">
         <div className="min-w-0">
           <h3 className="text-[15px] font-semibold text-val-heading tracking-tight">

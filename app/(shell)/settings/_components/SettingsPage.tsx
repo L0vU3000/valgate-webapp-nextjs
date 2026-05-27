@@ -44,19 +44,19 @@ export function SettingsPage({ data }: { data: SettingsPageData }) {
     <div className="h-full flex flex-col bg-val-bg-page-alt">
       <AppHeader />
       <div className="flex-1 overflow-y-auto">
-      <div className="max-w-[1200px] mx-auto p-8 flex flex-col gap-8">
+      <div className="max-w-full sm:max-w-[1200px] mx-auto p-4 sm:p-8 flex flex-col gap-6 sm:gap-8">
 
         {/* Page Header */}
         <div className="flex flex-col gap-1" style={sectionStyle(0)}>
           <div className="flex items-center gap-2 mb-3">
-            <span className="text-xs font-semibold tracking-widest uppercase text-[--val-primary-dark]">Valgate</span>
-            <span className="text-xs text-slate-300">/</span>
-            <span className="text-xs font-semibold tracking-widest uppercase text-slate-400">Settings</span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-[--val-primary-dark]">Valgate</span>
+            <span className="text-[11px] text-slate-300">/</span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-400">Settings</span>
           </div>
-          <h1 className="text-4xl font-extrabold text-val-heading tracking-tight leading-10">
+          <h1 className="text-[28px] sm:text-[40px] font-extrabold text-val-heading tracking-tight leading-tight sm:leading-10">
             Account Settings
           </h1>
-          <p className="text-slate-500 text-base mt-2">
+          <p className="text-[14px] sm:text-[15px] text-slate-500 mt-2">
             Manage your personal information, security preferences, and notification settings.
           </p>
         </div>
@@ -64,23 +64,23 @@ export function SettingsPage({ data }: { data: SettingsPageData }) {
         {/* Profile Section */}
         {data.profile && (
           <section
-            className="grid grid-cols-3 gap-8 pb-8 border-b border-[#e8eaed]"
+            className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-8 pb-6 sm:pb-8 border-b border-[#e8eaed]"
             style={sectionStyle(1)}
           >
             <div className="flex flex-col gap-2">
-              <h2 className="font-display font-bold text-[20px] leading-[28px] text-foreground">Profile</h2>
+              <h2 className="font-display font-bold text-[18px] sm:text-[24px] leading-tight text-foreground">Profile</h2>
               <p className="font-sans text-[14px] leading-[20px] text-tertiary">
                 Your personal information and identity on the platform.
               </p>
             </div>
-            <div className="col-span-2 bg-white border border-[#d1d5db] rounded-[12px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] p-[25px] flex items-center justify-between">
+            <div className="col-span-1 sm:col-span-2 bg-white border border-[#d1d5db] rounded-[12px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] p-4 sm:p-[25px] flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-4">
                 <div className="size-[64px] rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-display font-bold text-[24px]">
                   {data.profile.firstName[0]}{data.profile.lastName[0]}
                 </div>
                 <div className="flex flex-col">
                   <div className="flex items-center gap-2">
-                    <h3 className="font-display font-bold text-[18px] text-val-heading">
+                    <h3 className="font-display font-semibold text-[15px] sm:text-[18px] text-val-heading">
                       {data.profile.firstName} {data.profile.lastName}
                     </h3>
                     {data.profile.role && (
@@ -103,22 +103,22 @@ export function SettingsPage({ data }: { data: SettingsPageData }) {
 
         {/* Security Section */}
         <section
-          className="grid grid-cols-3 gap-8 pb-8 border-b border-[#e8eaed]"
+          className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-8 pb-6 sm:pb-8 border-b border-[#e8eaed]"
           style={sectionStyle(2)}
         >
           <div className="flex flex-col gap-2">
-            <h2 className="font-display font-bold text-[20px] leading-[28px] text-foreground">Security</h2>
+            <h2 className="font-display font-bold text-[18px] sm:text-[24px] leading-tight text-foreground">Security</h2>
             <p className="font-sans text-[14px] leading-[20px] text-tertiary">
               Keep your account secure by updating your credentials and enabling multi-factor authentication.
             </p>
           </div>
           <div className="col-span-2 flex flex-col gap-6">
             {/* Update Password Card */}
-            <div className="bg-white border border-[#d1d5db] rounded-[12px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] p-[25px] flex flex-col gap-4">
-              <h3 className="font-display font-semibold text-[16px] leading-[24px] text-val-heading">Update Password</h3>
+            <div className="bg-white border border-[#d1d5db] rounded-[12px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] p-4 sm:p-[25px] flex flex-col gap-4">
+              <h3 className="font-display font-semibold text-[15px] sm:text-[18px] text-val-heading">Update Password</h3>
               <div className="flex flex-col gap-4">
                 <PasswordField label="Current Password" required value={currentPassword} onChange={setCurrentPassword} />
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 xs:grid-cols-2 gap-3 sm:gap-4">
                   <PasswordField label="New Password" required value={newPassword} onChange={setNewPassword} />
                   <PasswordField label="Confirm New Password" required value={confirmPassword} onChange={setConfirmPassword} />
                 </div>
@@ -131,8 +131,8 @@ export function SettingsPage({ data }: { data: SettingsPageData }) {
             </div>
 
             {/* MFA Card */}
-            <div className="bg-white border border-[#d1d5db] rounded-[12px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] p-[25px] flex flex-col gap-4">
-              <h3 className="font-display font-semibold text-[16px] leading-[24px] text-val-heading">Multi-Factor Authentication</h3>
+            <div className="bg-white border border-[#d1d5db] rounded-[12px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] p-4 sm:p-[25px] flex flex-col gap-4">
+              <h3 className="font-display font-semibold text-[15px] sm:text-[18px] text-val-heading">Multi-Factor Authentication</h3>
               <div className="flex flex-col gap-3">
                 {/* Authenticator App — enabled */}
                 <div className="bg-[#ecfdf5] border border-[#a7f3d0] rounded-[12px] p-[17px] flex items-center justify-between transition-colors duration-150 hover:bg-[#d1fae5]">
@@ -171,11 +171,11 @@ export function SettingsPage({ data }: { data: SettingsPageData }) {
 
         {/* Notifications Section */}
         <section
-          className="grid grid-cols-3 gap-8 pb-8 border-b border-[#e8eaed]"
+          className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-8 pb-6 sm:pb-8 border-b border-[#e8eaed]"
           style={sectionStyle(3)}
         >
           <div className="flex flex-col gap-2">
-            <h2 className="font-display font-bold text-[20px] leading-[28px] text-foreground">Notifications</h2>
+            <h2 className="font-display font-bold text-[18px] sm:text-[24px] leading-tight text-foreground">Notifications</h2>
             <p className="font-sans text-[14px] leading-[20px] text-tertiary">
               Choose how you want to be notified about activity in your portfolio.
             </p>
@@ -183,10 +183,10 @@ export function SettingsPage({ data }: { data: SettingsPageData }) {
           <div className="col-span-2 bg-white border border-[#d1d5db] rounded-[12px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] overflow-hidden">
             {/* Table Header */}
             <div className="bg-[#f5f6f7] border-b border-[#d1d5db] grid grid-cols-12 px-6 py-3">
-              <div className="col-span-6 font-sans font-semibold text-[12px] leading-[16px] tracking-[0.6px] uppercase text-tertiary">Event Activity</div>
-              <div className="col-span-2 font-sans font-semibold text-[12px] leading-[16px] tracking-[0.6px] uppercase text-tertiary text-center">Email</div>
-              <div className="col-span-2 font-sans font-semibold text-[12px] leading-[16px] tracking-[0.6px] uppercase text-tertiary text-center">Slack</div>
-              <div className="col-span-2 font-sans font-semibold text-[12px] leading-[16px] tracking-[0.6px] uppercase text-tertiary text-center">SMS</div>
+              <div className="col-span-6 font-sans font-semibold text-[11px] leading-[16px] tracking-[0.05em] uppercase text-slate-500">Event Activity</div>
+              <div className="col-span-2 font-sans font-semibold text-[11px] leading-[16px] tracking-[0.05em] uppercase text-slate-500 text-center">Email</div>
+              <div className="col-span-2 font-sans font-semibold text-[11px] leading-[16px] tracking-[0.05em] uppercase text-slate-500 text-center">Slack</div>
+              <div className="col-span-2 font-sans font-semibold text-[11px] leading-[16px] tracking-[0.05em] uppercase text-slate-500 text-center">SMS</div>
             </div>
             {/* Table Rows */}
             {data.notificationRows.map((row, i) => (
@@ -197,7 +197,7 @@ export function SettingsPage({ data }: { data: SettingsPageData }) {
                 } ${flashRow === row.key ? "bg-blue-50" : "hover:bg-[#fafbff]"}`}
               >
                 <div className="col-span-6">
-                  <p className="font-sans font-medium text-[14px] leading-[20px] text-foreground">{row.label}</p>
+                  <p className="font-sans font-medium text-[14px] sm:text-[15px] leading-[20px] text-foreground">{row.label}</p>
                   <p className="font-sans text-[12px] leading-[16px] text-tertiary">{row.description}</p>
                 </div>
                 {(["email", "slack", "sms"] as const).map((channel) => (
@@ -216,16 +216,16 @@ export function SettingsPage({ data }: { data: SettingsPageData }) {
 
         {/* Preferences Section */}
         <section
-          className="grid grid-cols-3 gap-8 pb-8 border-b border-[#e8eaed]"
+          className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-8 pb-6 sm:pb-8 border-b border-[#e8eaed]"
           style={sectionStyle(4)}
         >
           <div className="flex flex-col gap-2">
-            <h2 className="font-display font-bold text-[20px] leading-[28px] text-foreground">Preferences</h2>
+            <h2 className="font-display font-bold text-[18px] sm:text-[24px] leading-tight text-foreground">Preferences</h2>
             <p className="font-sans text-[14px] leading-[20px] text-tertiary">
               Customize your interface experience and regional settings.
             </p>
           </div>
-          <div className="col-span-2 bg-white border border-[#d1d5db] rounded-[12px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] p-[25px]">
+          <div className="col-span-2 bg-white border border-[#d1d5db] rounded-[12px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] p-4 sm:p-[25px]">
             <div className="grid grid-cols-2 gap-6">
               <SelectField
                 label="Default Dashboard View"
@@ -262,19 +262,19 @@ export function SettingsPage({ data }: { data: SettingsPageData }) {
 
         {/* Data & Privacy Section */}
         <section
-          className="grid grid-cols-3 gap-8 pb-8 border-b border-[#e8eaed]"
+          className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-8 pb-6 sm:pb-8 border-b border-[#e8eaed]"
           style={sectionStyle(5)}
         >
           <div className="flex flex-col gap-2">
-            <h2 className="font-display font-bold text-[20px] leading-[28px] text-foreground">Data &amp; Privacy</h2>
+            <h2 className="font-display font-bold text-[18px] sm:text-[24px] leading-tight text-foreground">Data &amp; Privacy</h2>
             <p className="font-sans text-[14px] leading-[20px] text-tertiary">
               Manage your data exports and historical activity logs.
             </p>
           </div>
-          <div className="col-span-2 bg-white border border-[#d1d5db] rounded-[12px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] p-[25px]">
+          <div className="col-span-2 bg-white border border-[#d1d5db] rounded-[12px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] p-4 sm:p-[25px]">
             <div className="flex items-center justify-between">
               <div className="flex flex-col gap-1">
-                <h3 className="font-display font-semibold text-[16px] leading-[24px] text-val-heading">Export Activity Log</h3>
+                <h3 className="font-display font-semibold text-[15px] sm:text-[18px] text-val-heading">Export Activity Log</h3>
                 <p className="font-sans text-[14px] leading-[20px] text-tertiary">
                   Download a full history of your account actions in CSV format.
                 </p>
@@ -289,19 +289,19 @@ export function SettingsPage({ data }: { data: SettingsPageData }) {
 
         {/* Danger Zone Section */}
         <section
-          className="grid grid-cols-3 gap-8 pb-12"
+          className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-8 pb-8 sm:pb-12"
           style={sectionStyle(6)}
         >
           <div className="flex flex-col gap-2">
-            <h2 className="font-display font-bold text-[20px] leading-[28px] text-[#e11d48]">Danger Zone</h2>
+            <h2 className="font-display font-bold text-[18px] sm:text-[24px] leading-tight text-[#e11d48]">Danger Zone</h2>
             <p className="font-sans text-[14px] leading-[20px] text-tertiary">
               Irreversible actions regarding your account and stored data.
             </p>
           </div>
-          <div className="col-span-2 bg-[#fff1f2] border border-[#fecdd3] rounded-[12px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] p-[25px]">
+          <div className="col-span-2 bg-[#fff1f2] border border-[#fecdd3] rounded-[12px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] p-4 sm:p-[25px]">
             <div className="flex items-center justify-between">
               <div className="flex flex-col gap-1">
-                <h3 className="font-display font-semibold text-[16px] leading-[24px] text-[#881337]">Delete Account</h3>
+                <h3 className="font-display font-semibold text-[15px] sm:text-[18px] text-[#881337]">Delete Account</h3>
                 <p className="font-sans text-[14px] leading-[20px] text-[#9f1239]/75">
                   Once you delete your account, there is no going back. Please be certain.
                 </p>

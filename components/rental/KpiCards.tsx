@@ -73,13 +73,12 @@ export function SlotNumber({ value }: { value: string }) {
 /*  KpiCards Component                                                        */
 /* -------------------------------------------------------------------------- */
 
-const sparklineHeights = [40, 55, 45, 70, 85, 96];
-
 const DOT_SEVERITY_COLORS = ["bg-red-700", "bg-orange-400", "bg-slate-200"] as const;
 
 type KpiCardsProps = {
   grossIncome: string;
   incomeTrend: string;
+  incomeHistory: number[];
   occupancyPct: number;
   vacancyCost: string;
   collectionRate: string;
@@ -87,7 +86,7 @@ type KpiCardsProps = {
   maintenanceTotal: string;
 };
 
-export function KpiCards({ grossIncome, incomeTrend, occupancyPct, vacancyCost, collectionRate, maintenanceItems, maintenanceTotal }: KpiCardsProps) {
+export function KpiCards({ grossIncome, incomeTrend, incomeHistory, occupancyPct, vacancyCost, collectionRate, maintenanceItems, maintenanceTotal }: KpiCardsProps) {
   const trendUp = incomeTrend.startsWith("+");
   const dots = DOT_SEVERITY_COLORS.map((color, i) => ({
     color,
@@ -95,20 +94,20 @@ export function KpiCards({ grossIncome, incomeTrend, occupancyPct, vacancyCost, 
   }));
 
   return (
-    <section className="grid grid-cols-12 gap-6">
+    <section className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6">
       {/* Hero Income Card */}
       <div
-        className="rental-hero col-span-7 relative overflow-hidden rounded-lg bg-blue-600 p-8 shadow-xl"
+        className="rental-hero lg:col-span-7 relative overflow-hidden rounded-lg bg-blue-600 p-5 sm:p-8 shadow-xl"
       >
         <div className="absolute -right-16 -top-16 h-64 w-64 rounded-xl bg-blue-500 opacity-20 blur-[32px]" />
 
         <div className="relative flex flex-col justify-between h-full">
           <div className="flex flex-col gap-2">
-            <span className="text-xs font-medium uppercase tracking-widest text-blue-200">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-blue-200">
               Monthly Gross Income
             </span>
             <div className="flex items-center gap-3">
-              <span className="text-[60px] font-extrabold leading-none tracking-tight text-blue-50">
+              <span className="text-[40px] sm:text-[60px] font-extrabold leading-none tracking-tight text-blue-50">
                 <SlotNumber value={grossIncome} />
               </span>
               {incomeTrend && (
@@ -127,12 +126,12 @@ export function KpiCards({ grossIncome, incomeTrend, occupancyPct, vacancyCost, 
           </div>
 
           <div className="mt-8 flex h-24 items-end gap-1">
-            {sparklineHeights.map((h, i) => (
+            {incomeHistory.map((h, i) => (
               <div
                 key={i}
                 className={cn(
                   "rental-sparkline-bar flex-1 rounded-t-sm",
-                  i === sparklineHeights.length - 1
+                  i === incomeHistory.length - 1
                     ? "bg-white"
                     : "bg-blue-400/30"
                 )}
@@ -147,15 +146,15 @@ export function KpiCards({ grossIncome, incomeTrend, occupancyPct, vacancyCost, 
       </div>
 
       {/* KPI 2x2 Grid */}
-      <div className="col-span-5 grid grid-cols-2 overflow-hidden rounded-lg border border-slate-200">
+      <div className="lg:col-span-5 grid grid-cols-2 overflow-hidden rounded-lg border border-slate-200">
 
         {/* Occupancy */}
         <div
           className="anim-enter flex flex-col justify-center bg-white px-6 py-7"
           style={{ animationDelay: "200ms" }}
         >
-          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Occupancy</span>
-          <span className="mt-1 text-3xl font-extrabold text-slate-900">{occupancyPct}%</span>
+          <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">Occupancy</span>
+          <span className="mt-1 text-[22px] sm:text-[26px] font-bold text-val-heading leading-none tabular-nums">{occupancyPct}%</span>
           <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
             <div
               className="rental-bar h-full rounded-full bg-blue-700"
@@ -169,9 +168,9 @@ export function KpiCards({ grossIncome, incomeTrend, occupancyPct, vacancyCost, 
           className="anim-enter flex flex-col justify-center bg-white px-6 py-7 border-l border-slate-200"
           style={{ animationDelay: "300ms" }}
         >
-          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Vacancy Loss</span>
-          <span className="mt-1 text-3xl font-extrabold text-slate-900">{vacancyCost}</span>
-          <span className="mt-1 text-[10px] font-medium text-red-700">/ mo est.</span>
+          <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">Vacancy Loss</span>
+          <span className="mt-1 text-[22px] sm:text-[26px] font-bold text-val-heading leading-none tabular-nums">{vacancyCost}</span>
+          <span className="mt-1 text-[12px] text-slate-400">/ mo est.</span>
         </div>
 
         {/* Collection Rate — Q3.P: Paid Rent $ this month / expected Rent $ this month */}
@@ -179,9 +178,9 @@ export function KpiCards({ grossIncome, incomeTrend, occupancyPct, vacancyCost, 
           className="anim-enter flex flex-col justify-center bg-white px-6 py-7 border-t border-slate-200"
           style={{ animationDelay: "400ms" }}
         >
-          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Collection</span>
-          <span className="mt-1 text-3xl font-extrabold text-slate-900">{collectionRate}</span>
-          <span className="mt-1 text-[10px] font-medium text-green-600">of expected rent received</span>
+          <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">Collection</span>
+          <span className="mt-1 text-[22px] sm:text-[26px] font-bold text-val-heading leading-none tabular-nums">{collectionRate}</span>
+          <span className="mt-1 text-[12px] text-slate-400">of expected rent received</span>
         </div>
 
         {/* Maintenance */}
@@ -189,8 +188,8 @@ export function KpiCards({ grossIncome, incomeTrend, occupancyPct, vacancyCost, 
           className="anim-enter flex flex-col justify-center bg-white px-6 py-7 border-l border-t border-slate-200"
           style={{ animationDelay: "500ms" }}
         >
-          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Maintenance</span>
-          <span className="mt-1 text-3xl font-extrabold text-slate-900">{maintenanceTotal}</span>
+          <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">Maintenance</span>
+          <span className="mt-1 text-[22px] sm:text-[26px] font-bold text-val-heading leading-none tabular-nums">{maintenanceTotal}</span>
           <div className="mt-2 flex gap-1">
             {dots.map((d, j) => (
               <div

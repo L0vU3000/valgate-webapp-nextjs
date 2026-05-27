@@ -52,7 +52,7 @@ export function AdvisorModal({ onSetupWithAdvisor, onSetupOwn }: AdvisorModalPro
         onClick={(e) => e.stopPropagation()}
       >
         {/* Dark header */}
-        <div className="bg-[#0d1117] px-8 pt-8 pb-8">
+        <div className="bg-[#0d1117] px-6 sm:px-8 pt-6 sm:pt-8 pb-6 sm:pb-8">
           {/* Breadcrumb */}
           <div className="flex items-center gap-1.5 mb-6">
             <span className="text-xs font-semibold tracking-widest uppercase text-blue-400">Valgate</span>
@@ -81,14 +81,14 @@ export function AdvisorModal({ onSetupWithAdvisor, onSetupOwn }: AdvisorModalPro
           {/* Headline */}
           <h2
             id="advisor-modal-title"
-            className="text-[32px] font-extrabold text-white tracking-[-0.03em] leading-[1.1]"
+            className="text-[26px] sm:text-[32px] font-extrabold text-white tracking-[-0.03em] leading-[1.1]"
           >
             Let an expert guide<br />your setup.
           </h2>
         </div>
 
         {/* Body */}
-        <div className="flex flex-col px-8 pt-7 pb-8">
+        <div className="flex flex-col px-6 sm:px-8 pt-6 sm:pt-7 pb-6 sm:pb-8">
           <p className="text-sm text-slate-500 leading-relaxed mb-7">
             Valgate Advisors can walk you through creating your listing, optimizing
             pricing, and preparing for your first guests—completely free.

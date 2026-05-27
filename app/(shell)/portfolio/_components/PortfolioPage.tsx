@@ -121,12 +121,12 @@ export function PortfolioPage({ data }: { data: PortfolioPageData }) {
       <AppHeader />
 
       {/* Main content */}
-      <div className="flex-1 overflow-auto scrollbar-none px-8 pb-8">
+      <div className="flex-1 overflow-auto scrollbar-none px-4 sm:px-8 pb-6 sm:pb-8">
         <div className="max-w-[1200px] mx-auto flex flex-col gap-5 pt-6">
 
           {/* Page Header */}
           <div
-            className="flex items-start justify-between transition-all duration-500"
+            className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between transition-all duration-500"
             style={{
               opacity: mounted ? 1 : 0,
               transform: mounted ? "translateY(0)" : "translateY(-8px)",
@@ -134,15 +134,16 @@ export function PortfolioPage({ data }: { data: PortfolioPageData }) {
           >
             <div>
               <div className="flex items-center gap-2 mb-3">
-                <span className="text-xs font-semibold tracking-widest uppercase text-[--val-primary-dark]">Valgate</span>
-                <span className="text-xs text-slate-300">/</span>
-                <span className="text-xs font-semibold tracking-widest uppercase text-slate-400">Portfolio</span>
+                <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-[--val-primary-dark]">Valgate</span>
+                <span className="text-[11px] text-slate-300">/</span>
+                <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-400">Portfolio</span>
               </div>
-              <h1 className="text-4xl font-extrabold text-val-heading tracking-tight leading-10">Portfolio</h1>
-              <p className="text-slate-500 text-base mt-2">
+              <h1 className="text-[28px] sm:text-[40px] font-extrabold text-val-heading tracking-tight leading-tight sm:leading-10">Portfolio</h1>
+              <p className="text-[14px] sm:text-[15px] text-slate-500 mt-2">
                 Oversee and manage your complete real estate asset inventory across all regions.
               </p>
             </div>
+            <div className="shrink-0">
             <button
               onClick={() => router.push("/add-property")}
               className="flex items-center gap-2 px-4 py-2 text-white text-[14px] font-semibold rounded shadow-[0_4px_6px_-1px_rgba(0,74,198,0.25),0_2px_4px_-2px_rgba(0,74,198,0.15)] hover:opacity-90 active:scale-[0.97] transition-all duration-150 shrink-0"
@@ -151,10 +152,11 @@ export function PortfolioPage({ data }: { data: PortfolioPageData }) {
               <Plus className="w-3.5 h-3.5" />
               Add Property
             </button>
+            </div>
           </div>
 
           {/* KPI Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <KpiCard index={0} mounted={mounted}>
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Properties</span>
@@ -162,7 +164,7 @@ export function PortfolioPage({ data }: { data: PortfolioPageData }) {
                   <Building2 className="w-3.5 h-3.5 text-blue-600" />
                 </div>
               </div>
-              <p className="text-[24px] font-bold text-val-heading leading-none mt-4">{stats.totalProperties}</p>
+              <p className="text-[22px] sm:text-[26px] font-bold text-val-heading leading-none tabular-nums mt-4">{stats.totalProperties}</p>
               <span className="text-[12px] text-emerald-600 font-semibold mt-2 block">+{kpis.newThisMonth} this month</span>
             </KpiCard>
 
@@ -173,7 +175,7 @@ export function PortfolioPage({ data }: { data: PortfolioPageData }) {
                   <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
                 </div>
               </div>
-              <p className="text-[24px] font-bold text-val-heading leading-none mt-4">{kpis.totalValueFormatted}</p>
+              <p className="text-[22px] sm:text-[26px] font-bold text-val-heading leading-none tabular-nums mt-4">{kpis.totalValueFormatted}</p>
               <span className="text-[12px] text-slate-400 font-medium mt-2 block">Purchase price</span>
             </KpiCard>
 
@@ -184,7 +186,7 @@ export function PortfolioPage({ data }: { data: PortfolioPageData }) {
                   <DollarSign className="w-3.5 h-3.5 text-violet-600" />
                 </div>
               </div>
-              <p className="text-[24px] font-bold text-val-heading leading-none mt-4">{kpis.monthlyExpected}</p>
+              <p className="text-[22px] sm:text-[26px] font-bold text-val-heading leading-none tabular-nums mt-4">{kpis.monthlyExpected}</p>
               <span className="text-[12px] text-emerald-600 font-semibold mt-2 block">
                 {kpis.monthlyCollected} collected
                 <span className="text-slate-400 font-normal ml-1">{kpis.monthLabel}</span>
@@ -198,7 +200,7 @@ export function PortfolioPage({ data }: { data: PortfolioPageData }) {
                   <TrendingUp className="w-3.5 h-3.5 text-amber-600" />
                 </div>
               </div>
-              <p className="text-[24px] font-bold text-val-heading leading-none mt-4">{stats.occupancyRate}%</p>
+              <p className="text-[22px] sm:text-[26px] font-bold text-val-heading leading-none tabular-nums mt-4">{stats.occupancyRate}%</p>
               <div className="mt-3">
                 <AnimatedBar value={stats.occupancyRate} color="bg-amber-400" mounted={mounted} delay={600} />
               </div>
