@@ -56,12 +56,11 @@ my-app/
 ├── types/                        # Global TypeScript types
 ├── config/                       # App-wide constants (site, nav, plans)
 │
-├── convex/                       # Convex backend (queries, mutations, schema)
-│   ├── _generated/
-│   ├── schema.ts
-│   ├── users.ts
-│   ├── posts.ts
-│   └── http.ts
+├── docs/database/                # Postgres DDL prototype (Neon target)
+│   └── prototype/schema.sql
+├── lib/db.ts                     # Neon client (add when wired)
+├── actions/                      # Server Actions — one file per domain
+├── convex/                       # ⚠️ LEGACY — do not extend; migrating to Neon
 │
 ├── middleware.ts
 ├── next.config.ts
@@ -432,22 +431,30 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 ---
 
-## 12. Convex + Clerk Notes
+## 12. Neon + Clerk Notes
 
-- No ORM — Convex is database, backend functions, and real-time layer in one.
-- Prefer Convex `mutations` and `queries` over Server Actions for DB work.
-- Use `useQuery` from `convex/react` in Client Components for live data.
-- Pass Clerk session token to Convex via `ConvexProviderWithClerk`.
-- Use `ctx.auth.getUserIdentity()` inside Convex functions for the authed user.
+- **Database:** Neon PostgreSQL; schema prototype in `docs/database/prototype/schema.sql`.
+- **Auth:** Clerk users + organizations; scope rows by `org_id` from the session, not from client input alone.
+- **Reads:** async Server Components → `lib/data/*` or `lib/db` queries.
+- **Writes:** Server Actions → Zod → `auth()` + org membership check → SQL → `revalidatePath` / `revalidateTag`.
+- **Legacy:** `convex/` is deprecated — do not add Convex queries or `useQuery` for new features.
 
 ```ts
-// convex/posts.ts
-export const createPost = mutation({
-  args: { title: v.string(), body: v.string() },
-  handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthenticated");
-    return ctx.db.insert("posts", { ...args, userId: identity.subject });
-  },
-});
+// actions/property.actions.ts
+"use server";
+
+import { z } from "zod";
+import { auth } from "@clerk/nextjs/server";
+import { db } from "@/lib/db";
+
+const createSchema = z.object({ name: z.string().min(1) });
+
+export async function createProperty(input: unknown) {
+  const { userId, orgId } = await auth();
+  if (!userId || !orgId) throw new Error("Unauthorized");
+
+  const { name } = createSchema.parse(input);
+  // INSERT … WHERE org_id = orgId (resolve Clerk org → orgs.id)
+  await db.property.create({ data: { orgId, name, createdBy: userId } });
+}
 ```

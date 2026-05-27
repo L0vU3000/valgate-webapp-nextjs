@@ -4,9 +4,17 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
+    "dev:mobile": "next dev --turbopack --hostname 0.0.0.0",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "cap:sync": "cap sync",
+    "cap:ios": "cap open ios",
+    "cap:run:ios": "cap run ios",
+    "db:apply": "bash scripts/db/apply-schema.sh",
+    "db:test:sql": "bash scripts/db/run-tests.sh",
+    "db:test:node": "node scripts/db/test-schema.mjs",
+    "db:test": "bash scripts/db/test-schema.sh"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.53",
@@ -14,6 +22,8 @@
     "@aws-sdk/client-s3": "^3.1033.0",
     "@aws-sdk/s3-presigned-post": "^3.1033.0",
     "@aws-sdk/s3-request-presigner": "^3.1033.0",
+    "@capacitor/core": "^8.3.4",
+    "@capacitor/ios": "^8.3.4",
     "@clerk/nextjs": "^7.2.3",
     "@convex-dev/agent": "^0.6.1",
     "@emotion/react": "11.14.0",
@@ -82,6 +92,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.3.4",
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
     "@types/mapbox-gl": "^3.4.1",
@@ -91,6 +102,8 @@
     "agentation": "^3.0.2",
     "eslint": "^9",
     "eslint-config-next": "15.5.15",
+    "pg": "^8.21.0",
+    "postgres-memory-server": "^0.2.2",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

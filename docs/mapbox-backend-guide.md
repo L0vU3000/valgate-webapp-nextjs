@@ -2,57 +2,54 @@
 
 ## Overview
 
-The current implementation uses `lib/mock-data.ts` as the data source. This guide documents how to swap in real Convex-backed data and add server-side geocoding.
+The map UI reads properties through `lib/data/properties.ts` → `lib/mock-data.ts` today. This guide documents how to swap in **Neon-backed** data and add server-side geocoding.
+
+**Do not** wire maps to Convex — `convex/` is legacy. Persist coordinates on property/location tables in Postgres (see [`docs/database/prototype/schema.sql`](./database/prototype/schema.sql)).
 
 ---
 
-## Swapping mock data for Convex
+## Swapping mock data for Neon
 
-The data layer is abstracted through `lib/data/properties.ts` (re-exports the `Property` type and the query abstraction). The swap happens in one place:
+The data layer is abstracted through `lib/data/properties.ts`. The swap happens in one place:
 
 ```ts
 // lib/data/properties.ts — current (mock)
-export { properties, type Property } from "@/lib/mock-data";
+import { properties, type Property } from "@/lib/mock-data";
 
-// lib/data/properties.ts — future (Convex)
-import { fetchQuery } from "convex/nextjs";
-import { api } from "@/convex/_generated/api";
+export type { Property } from "@/lib/mock-data";
 
-export type { Property } from "@/convex/_generated/dataModel";
+export async function getProperties(orgId: string): Promise<Property[]> {
+  return structuredClone(properties);
+}
 
-export async function getProperties() {
-  return fetchQuery(api.properties.list);
+// lib/data/properties.ts — future (Neon)
+import { db } from "@/lib/db";
+import type { Property } from "@/lib/data/property-types";
+
+export async function getProperties(orgId: string): Promise<Property[]> {
+  return db.query(/* SELECT lat, lng, … FROM properties WHERE org_id = $1 */, [orgId]);
 }
 ```
 
-The `Property` interface in `lib/mock-data.ts` uses `lat`/`lng` fields. Your Convex schema should match:
-
-```ts
-// convex/schema.ts
-properties: defineTable({
-  name: v.string(),
-  lat: v.number(),
-  lng: v.number(),
-  // ...other fields
-})
-```
+Store coordinates in Postgres (prototype: `lat` / `lng` on `properties`, or a normalized `property_locations` table when the schema is split). Use **PostGIS** for boundaries/parcels when you move beyond point markers.
 
 ---
 
 ## Server-side geocoding
 
-For geocoding addresses to lat/lng, use a **separate secret token** server-side only. Never expose it to the client.
+Use a **secret token** server-side only. Never expose it to the client.
 
 ```bash
 # .env.local
-MAPBOX_SECRET_TOKEN=sk.xxx   # server-side only — never NEXT_PUBLIC_
-NEXT_PUBLIC_MAPBOX_TOKEN=pk.xxx  # client-side — read-only scopes only
+MAPBOX_SECRET_TOKEN=sk.xxx              # server only
+NEXT_PUBLIC_MAPBOX_TOKEN=pk.xxx         # client — read-only scopes
+DATABASE_URL=postgresql://...         # Neon
 ```
 
-Place geocoding logic in a Server Action:
+Place geocoding in a **Server Action**:
 
 ```ts
-// lib/actions/property.actions.ts
+// actions/property.actions.ts
 "use server";
 
 import { z } from "zod";
@@ -61,35 +58,40 @@ import { auth } from "@clerk/nextjs/server";
 const geocodeSchema = z.object({ address: z.string().min(1) });
 
 export async function geocodeAddress(input: unknown) {
-  const { userId } = auth();
-  if (!userId) throw new Error("Unauthorized");
+  const { userId, orgId } = await auth();
+  if (!userId || !orgId) throw new Error("Unauthorized");
 
   const { address } = geocodeSchema.parse(input);
   const token = process.env.MAPBOX_SECRET_TOKEN;
+  if (!token) throw new Error("Server misconfigured");
 
   const res = await fetch(
     `https://api.mapbox.com/search/geocode/v6/forward?q=${encodeURIComponent(address)}&access_token=${token}`,
-    { next: { revalidate: 86400 } } // cache 24h
+    { next: { revalidate: 86400 } },
   );
 
   if (!res.ok) throw new Error("Geocoding failed");
   const data = await res.json();
   const [lng, lat] = data.features[0]?.geometry.coordinates ?? [];
+  if (lat == null || lng == null) throw new Error("No results");
+
+  // TODO(neon): UPDATE property_locations SET lat, lng WHERE …
   return { lat, lng };
 }
 ```
 
 ---
 
-## How queries.ts abstracts the data source
+## How `queries.ts` abstracts the data source
 
-`app/(shell)/queries.ts` is the only file that imports from `lib/data/properties.ts`. When you switch to Convex, only `queries.ts` and `lib/data/properties.ts` need to change — `MapView`, `HomePage`, and all UI components remain untouched.
+`app/(shell)/queries.ts` imports from `lib/data/properties.ts`. When you switch to Neon, only **`lib/data/properties.ts`** and **`lib/db`** need to change — `MapView`, `HomePage`, and map components stay the same.
 
 ```
-lib/mock-data.ts          ← swap out
-lib/data/properties.ts    ← re-export shim (single change point)
-app/(shell)/queries.ts    ← calls getProperties(), formats PortfolioStats
-components/map/MapView.tsx ← pure UI, receives Property[]
+lib/mock-data.ts              ← remove when Neon seeded
+lib/data/properties.ts        ← single change point (SQL)
+app/(shell)/queries.ts        ← getHomePageData() → getProperties(orgId)
+components/map/MapView.tsx      ← pure UI, receives Property[]
+docs/database/prototype/schema.sql  ← canonical columns
 ```
 
 ---
@@ -100,6 +102,13 @@ components/map/MapView.tsx ← pure UI, receives Property[]
 |---|---|
 | `NEXT_PUBLIC_MAPBOX_TOKEN` | Read-only scopes: `styles:read`, `fonts:read`, `tiles:read` |
 | URL restrictions | Restrict to your app domain(s) in Mapbox Dashboard |
-| `MAPBOX_SECRET_TOKEN` | Server Actions only. Never in any `NEXT_PUBLIC_` var. |
+| `MAPBOX_SECRET_TOKEN` | Server Actions only — never `NEXT_PUBLIC_` |
 | Per-environment tokens | Dev, staging, and prod each use separate tokens |
 | Token rotation | Rotate if accidentally committed or exposed |
+
+---
+
+## Related docs
+
+- [`docs/mock-to-backend-pattern.md`](./mock-to-backend-pattern.md)
+- [`AGENTS.md`](../AGENTS.md) · [`.cursor/rules/neon-database.mdc`](../.cursor/rules/neon-database.mdc)
