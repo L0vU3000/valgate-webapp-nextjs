@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AnimatePresence } from "motion/react";
 import { AppHeader } from "@/components/layout/AppHeader";
 import type { Step } from "./types";
 import { defaultForm, stepLabels } from "./types";
@@ -296,15 +295,18 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
         )}
 
 
-        {/* Advisor modal — shown over Step0 on first visit */}
-        <AnimatePresence>
-          {step === 0 && advisorModalOpen && (
-            <AdvisorModal
-              onSetupWithAdvisor={() => setAdvisorModalOpen(false)}
-              onSetupOwn={() => setAdvisorModalOpen(false)}
-            />
-          )}
-        </AnimatePresence>
+        {/* Advisor modal — shown over Step0 on first visit. On phone it
+            renders as a full-screen bottom sheet via PhoneSheet; on
+            tablet+ it's a centered dialog. Radix handles its own
+            mount/unmount + close animation, so we drop AnimatePresence. */}
+        {step === 0 && (
+          <AdvisorModal
+            open={advisorModalOpen}
+            onOpenChange={setAdvisorModalOpen}
+            onSetupWithAdvisor={() => setAdvisorModalOpen(false)}
+            onSetupOwn={() => setAdvisorModalOpen(false)}
+          />
+        )}
 
         {/* Content */}
         {step === 6 ? (

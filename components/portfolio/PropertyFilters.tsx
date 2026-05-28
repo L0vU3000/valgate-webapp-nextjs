@@ -153,8 +153,12 @@ export function PropertyFilters({
   }
 
   return (
+    // Phone: filter selects wrap to a second row (3 selects + clear button
+    // would otherwise overflow the 390px viewport). Desktop: stays on a
+    // single line. flex-wrap with row-gap-y keeps the FILTER label tucked
+    // against the first select when there's room.
     <div
-      className="flex items-center gap-2 transition-all duration-500"
+      className="flex flex-wrap items-center gap-x-2 gap-y-2 transition-all duration-500"
       style={{
         opacity: mounted ? 1 : 0,
         transform: mounted ? "translateY(0)" : "translateY(-10px)",

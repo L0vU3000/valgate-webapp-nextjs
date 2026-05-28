@@ -1184,7 +1184,9 @@ function FinancialOverviewCard({
         )}
       </div>
 
-      <div className="mx-6 mb-6 grid grid-cols-3 gap-3">
+      {/* Financial summary row — single column on phone (3 stats stack;
+          ~358px wide each), 3-up at tablet+ */}
+      <div className="mx-4 sm:mx-6 mb-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
         <FinancialStatCell
           label="Total rent"
           value={formatCurrencyFull(totalRent)}

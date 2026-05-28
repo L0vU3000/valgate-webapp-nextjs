@@ -6,10 +6,10 @@ import { useForm, type UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { X } from "lucide-react";
 import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  PhoneSheet,
+  PhoneSheetContent,
+  PhoneSheetTitle,
+} from "@/components/ui/phone-sheet";
 import { WizardProgress } from "@/components/feature-unlock/WizardProgress";
 import type { WizardProgressStep } from "@/components/feature-unlock/WizardProgress";
 import { editPropertyAction } from "@/app/(shell)/property/actions";
@@ -527,11 +527,22 @@ export function PropertyProfileWizard({
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-[calc(100%-1rem)] sm:max-w-[860px] p-0 gap-0 overflow-hidden h-dvh sm:h-auto rounded-none sm:rounded-xl">
-        <DialogTitle className="sr-only">Edit property profile</DialogTitle>
+    <PhoneSheet open={open} onOpenChange={handleClose}>
+      {/*
+        Phone: full-screen bottom sheet. PhoneSheet handles the slide-up
+        animation + safe area; the wizard provides its own back/cancel
+        chrome so we hide the default close + grab handle.
+        Desktop: centered dialog at 860px.
+      */}
+      <PhoneSheetContent
+        hideClose
+        showHandle={false}
+        desktopMaxWidth="sm:max-w-[860px]"
+        className="p-0 gap-0 overflow-hidden sm:rounded-xl"
+      >
+        <PhoneSheetTitle className="sr-only">Edit property profile</PhoneSheetTitle>
 
-        <div className="flex h-full sm:min-h-[620px] sm:max-h-[88vh]">
+        <div className="flex min-h-0 flex-1 sm:min-h-[620px] sm:max-h-[88vh]">
           {/* Left rail — hidden on phone, content lifted into right body header */}
           <div
             className="hidden sm:flex w-[216px] shrink-0 flex-col border-r border-slate-200 overflow-y-auto"
@@ -634,7 +645,7 @@ export function PropertyProfileWizard({
             </div>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </PhoneSheetContent>
+    </PhoneSheet>
   );
 }

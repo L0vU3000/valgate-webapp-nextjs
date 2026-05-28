@@ -176,7 +176,7 @@ export function PropertyValuationPage({ property, valuations = [], comparables, 
   return (
     <PropertyLayout activeTab="valuation" property={property}>
       <div className="bg-val-bg-page-alt min-h-full pb-10">
-        <div className="max-w-[1200px] mx-auto px-8 pt-6 flex flex-col gap-5">
+        <div className="max-w-[1200px] mx-auto px-4 sm:px-8 pt-6 flex flex-col gap-5">
 
           {/* Page Header */}
           <div style={fade(mounted, 0, reducedMotion)}>
@@ -207,8 +207,8 @@ export function PropertyValuationPage({ property, valuations = [], comparables, 
             </div>
           </div>
 
-          {/* KPI Row */}
-          <div className="grid grid-cols-3 gap-4">
+          {/* KPI Row — 1 col on phone (3 KPIs stack vertically); 3-up at tablet+. */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <KpiCard
               label="Current Market Value"
               value={currentValueStr}
@@ -250,11 +250,12 @@ export function PropertyValuationPage({ property, valuations = [], comparables, 
             />
           </div>
 
-          {/* Value History + Market Insight */}
-          <div className="grid grid-cols-12 gap-5" style={fade(mounted, 300, reducedMotion)}>
+          {/* Value History + Market Insight — single column on phone,
+              7/5 split on tablet+ */}
+          <div className="grid grid-cols-1 sm:grid-cols-12 gap-5" style={fade(mounted, 300, reducedMotion)}>
 
             {/* Chart */}
-            <div className="col-span-7 bg-white rounded-lg border border-slate-200 p-6 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
+            <div className="sm:col-span-7 bg-white rounded-lg border border-slate-200 p-4 sm:p-6 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
               <div className="flex items-center justify-between mb-1">
                 <h3 className="text-base font-bold text-val-heading">Value History</h3>
                 <button className="px-3 py-1.5 bg-white border border-slate-200 rounded text-[12px] font-semibold text-val-heading hover:bg-slate-50 active:scale-[0.98] transition-all duration-150 flex items-center gap-1.5">
@@ -320,7 +321,7 @@ export function PropertyValuationPage({ property, valuations = [], comparables, 
             </div>
 
             {/* Market Insight */}
-            <div className="col-span-5 bg-white rounded-lg border border-slate-200 p-6 shadow-[0_1px_2px_rgba(0,0,0,0.05)] flex flex-col gap-5">
+            <div className="sm:col-span-5 bg-white rounded-lg border border-slate-200 p-4 sm:p-6 shadow-[0_1px_2px_rgba(0,0,0,0.05)] flex flex-col gap-5">
               <div>
                 <h3 className="text-base font-bold text-val-heading mb-1.5">Market Insight</h3>
                 <div className="flex items-center gap-1.5">
@@ -398,7 +399,10 @@ export function PropertyValuationPage({ property, valuations = [], comparables, 
                   View Full Report
                 </button>
               </div>
-              <table className="w-full">
+              {/* Table wrapper allows horizontal scroll on phone — 5
+                  columns won't fit in 390px without squishing. */}
+              <div className="overflow-x-auto">
+              <table className="w-full min-w-[640px]">
                 <thead>
                   <tr className="bg-slate-50/80 border-b border-slate-200">
                     <th className="px-5 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Property</th>
@@ -455,6 +459,7 @@ export function PropertyValuationPage({ property, valuations = [], comparables, 
                   )}
                 </tbody>
               </table>
+              </div>
               <div className="bg-slate-50/60 border-t border-slate-200 px-5 py-3">
                 <p className="text-[12px] text-slate-500">
                   Average comp price:{" "}
@@ -480,8 +485,8 @@ export function PropertyValuationPage({ property, valuations = [], comparables, 
             </div>
           </div>
 
-          {/* Bottom Row */}
-          <div className="grid grid-cols-3 gap-5" style={fade(mounted, 460, reducedMotion)}>
+          {/* Bottom Row — single column on phone, 3-up on tablet+ */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5" style={fade(mounted, 460, reducedMotion)}>
 
             {/* Investment Performance */}
             <div className="bg-white rounded-lg border border-slate-200 p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)] flex flex-col gap-4">

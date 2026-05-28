@@ -68,7 +68,10 @@ export function Step2BasicInfo({
       </div>
 
       {/* Card */}
-      <div className="flex-1 min-h-0 border border-border rounded-2xl p-6 flex flex-col gap-4 animate-[fade-slide-up_0.45s_cubic-bezier(0.22,1,0.36,1)_60ms_both]">
+      {/* Card padding: tighter on phone (p-4 → 16px) to keep the form
+          inputs at ~324px usable width on iPhone 14 (390px viewport),
+          relaxes back to p-6 (24px) on tablet+ for breathing room. */}
+      <div className="flex-1 min-h-0 border border-border rounded-2xl p-4 sm:p-6 flex flex-col gap-4 animate-[fade-slide-up_0.45s_cubic-bezier(0.22,1,0.36,1)_60ms_both]">
 
         {/* Form legend */}
         <p className="text-[11px] text-[--text-tertiary] flex items-center gap-1 self-end">

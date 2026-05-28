@@ -54,12 +54,17 @@ export function ShellLayout({
           />
         </div>
 
-        {/* Drawer sidebar — phone only, lives inside a Sheet */}
+        {/* Drawer sidebar — phone only, lives inside a Sheet.
+            iPhone 14 (390px) tuning: the Sheet primitive defaults to 85% /
+            max 320px, which leaves ~70px peek on a 390px viewport — fine,
+            but the drawer feels cramped with the avatar row + nav labels.
+            We bump to 88% / max 340px, leaving ~50px peek as the dismissal
+            affordance while giving labels more breathing room. */}
         <Sheet open={navOpen} onOpenChange={setNavOpen}>
           <SheetContent
             side="left"
             hideClose
-            className="p-0 sm:hidden"
+            className="p-0 sm:hidden w-[88%] max-w-[340px]"
             // Radix requires a Title for a11y; visually hidden so the visible
             // header (the Sidebar's own logo block) stays the design source.
           >
