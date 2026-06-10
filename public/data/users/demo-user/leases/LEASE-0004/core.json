@@ -5,8 +5,8 @@
   "unit": "Full Building",
   "stage": "Signed",
   "startDate": 1759449600000,
-  "endDate": 1790985600000,
+  "endDate": 1784937600000,
   "monthlyRent": 2400,
-  "termMonths": 12,
+  "termMonths": 10,
   "renewalStatus": "Auto-renew"
 }

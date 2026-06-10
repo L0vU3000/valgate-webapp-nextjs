@@ -1,0 +1,13 @@
+{
+  "id": "DOC-0024",
+  "propertyId": "PROP-0001",
+  "folderId": "FLDR-0003",
+  "name": "Security_Deposit_Receipt.pdf",
+  "kind": "document",
+  "mimeType": "application/pdf",
+  "extension": "pdf",
+  "sizeBytes": 140000,
+  "storageId": "_storage/PROP-0001/security_deposit_receipt.pdf",
+  "category": "Rental",
+  "uploadedAt": 1756857600000
+}

@@ -1,0 +1,13 @@
+{
+  "id": "DOC-0027",
+  "propertyId": "PROP-0001",
+  "folderId": "FLDR-0002",
+  "name": "Building_Occupancy_Permit.pdf",
+  "kind": "document",
+  "mimeType": "application/pdf",
+  "extension": "pdf",
+  "sizeBytes": 540000,
+  "storageId": "_storage/PROP-0001/building_occupancy_permit.pdf",
+  "category": "Other",
+  "uploadedAt": 1755648000000
+}

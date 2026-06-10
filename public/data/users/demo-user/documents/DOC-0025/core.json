@@ -1,0 +1,13 @@
+{
+  "id": "DOC-0025",
+  "propertyId": "PROP-0001",
+  "folderId": "FLDR-0015",
+  "name": "Beneficiary_Designation.pdf",
+  "kind": "document",
+  "mimeType": "application/pdf",
+  "extension": "pdf",
+  "sizeBytes": 310000,
+  "storageId": "_storage/PROP-0001/beneficiary_designation.pdf",
+  "category": "Estate",
+  "uploadedAt": 1771027200000
+}

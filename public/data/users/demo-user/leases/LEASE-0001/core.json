@@ -5,8 +5,8 @@
   "unit": "Ground Floor",
   "stage": "Signed",
   "startDate": 1756857600000,
-  "endDate": 1788393600000,
+  "endDate": 1782604800000,
   "monthlyRent": 850,
-  "termMonths": 12,
+  "termMonths": 10,
   "renewalStatus": "Auto-renew"
 }
