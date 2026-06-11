@@ -80,7 +80,7 @@ pending → in_progress → complete
 - [x] Re-ground `/pro/clients/[clientId]` on real per-client derivations (remove buildClientOverview hardcoding); wire all 9 components
 - [x] One-click owner statement: income/expenses/NOI/occupancy/work-orders/upcoming-expirations from real data
 **Design + Modals:**
-- [ ] **Owner Report modal/sheet** — well-designed preview of the monthly statement with a polished export/print layout; transition in/out; loading + ready states
+- [x] **Owner Report modal** — branded document-style preview (letterhead, ledger, NOI band, ops tiles, upcoming) with **isolated print/PDF** (styles/print.css prints ONLY the report, not the portfolio page); verified via generated PDF. OwnerStatementCard button repointed from window.print() → "Open report".
 - [x] **Onboard client modal** — multi-select property assignment, disabled-until-valid, success flash (OnboardClientModal)
 - [ ] Standalone **assign/unassign properties modal** for existing clients (onboard covers initial assignment; post-onboard reassignment modal still pending)
 - [ ] Mobbin ref pass: "client portfolio detail", "report export"; `/ui-ux-pro-max` + `/impeccable` pass

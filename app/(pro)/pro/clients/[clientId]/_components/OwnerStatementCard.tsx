@@ -1,7 +1,9 @@
 "use client";
 
-import { Printer } from "lucide-react";
+import { useState } from "react";
+import { FileText } from "lucide-react";
 import { WidgetCard } from "@/app/(pro)/pro/_components/WidgetCard";
+import { OwnerReportModal } from "./OwnerReportModal";
 import { formatCurrencyFull, formatDate } from "@/lib/format";
 import { cn } from "@/components/ui/utils";
 import type { OwnerStatement } from "@/app/(pro)/pro/queries";
@@ -22,6 +24,7 @@ export function OwnerStatementCard({
   clientName: string;
 }) {
   const noiNegative = statement.netOperatingIncome < 0;
+  const [reportOpen, setReportOpen] = useState(false);
 
   return (
     <WidgetCard
@@ -29,11 +32,11 @@ export function OwnerStatementCard({
       headerRight={
         <button
           type="button"
-          onClick={() => window.print()}
+          onClick={() => setReportOpen(true)}
           className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-200 px-3 text-[12.5px] font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800/60"
         >
-          <Printer className="h-3.5 w-3.5" />
-          Print
+          <FileText className="h-3.5 w-3.5" />
+          Open report
         </button>
       }
     >
@@ -178,6 +181,13 @@ export function OwnerStatementCard({
           </ul>
         </div>
       )}
+
+      <OwnerReportModal
+        open={reportOpen}
+        onOpenChange={setReportOpen}
+        statement={statement}
+        clientName={clientName}
+      />
     </WidgetCard>
   );
 }
