@@ -229,6 +229,12 @@ export type RentPageData = {
     monthlyRent: number;
     renewalStatus?: string;
     daysLeft: number;
+    termMonths: number;
+    // The end date a renewal would produce (current end + one full term).
+    // Pre-computed here so the renew modal can show the owner exactly
+    // what they are confirming, using the same math as the renewLease
+    // server action.
+    projectedEndDate: number;
   }>;
   occupancy: { rented: number; vacant: number; occupancyRate: number };
   clients: Array<{ id: string; name: string }>;
@@ -585,6 +591,10 @@ export async function getRentPageData(): Promise<RentPageData> {
         ? ctx.clientById.get(property.clientId)
         : undefined;
       const tenant = l.tenantId ? ctx.tenantById.get(l.tenantId) : undefined;
+      // Same projection the renewLease action applies: advance the end
+      // date by one full lease term (UTC month arithmetic).
+      const projectedEnd = new Date(l.endDate);
+      projectedEnd.setUTCMonth(projectedEnd.getUTCMonth() + l.termMonths);
       return {
         leaseId: l.id,
         propertyId: l.propertyId,
@@ -595,6 +605,8 @@ export async function getRentPageData(): Promise<RentPageData> {
         monthlyRent: l.monthlyRent,
         renewalStatus: l.renewalStatus,
         daysLeft: Math.max(0, Math.ceil((l.endDate - now) / DAY)),
+        termMonths: l.termMonths,
+        projectedEndDate: projectedEnd.getTime(),
       };
     })
     .sort((a, b) => a.endDate - b.endDate);
@@ -765,6 +777,17 @@ function monthLabelUtc(monthStart: number): string {
   });
 }
 
+// Short "Mar 27" label for alert chips. A property can have more than one
+// overdue rent payment at once (e.g. March and June both unpaid), so the
+// chips need the due date to stay distinguishable.
+function shortDateUtc(timestamp: number): string {
+  return new Date(timestamp).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
+
 // Expected rent this month: signed leases still running this month.
 // Same convention as the client side's computeKpis.
 function sumExpectedRent(leases: Lease[], monthStart: number): number {
@@ -882,7 +905,7 @@ function deriveClientAlerts(
         id: `alert-${pay.id}`,
         severity: "urgent",
         category: "payment",
-        label: `Rent overdue — ${propertyName(propertyId)} (${formatCurrencyFull(pay.amount)})`,
+        label: `Rent overdue — ${propertyName(propertyId)} (${formatCurrencyFull(pay.amount)}, due ${shortDateUtc(pay.date)})`,
         clientId: client.id,
         clientName: client.name,
         propertyId,

@@ -3,26 +3,31 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { WidgetCard } from "@/app/(pro)/pro/_components/WidgetCard";
-import { markRentPaid, logRentPayment } from "@/app/(pro)/pro/actions";
+import { markRentPaid } from "@/app/(pro)/pro/actions";
 import { formatCurrencyFull } from "@/lib/format";
 import { cn } from "@/components/ui/utils";
 import { RENT_STATUS_PILL } from "./RentRollTable";
+import { LogPaymentModal } from "./LogPaymentModal";
 import type { RentRollRow } from "@/app/(pro)/pro/queries";
 
 // Overdue & unpaid rent — the collection triage list.
-// "Mark paid" updates the existing Overdue/Pending payment record;
-// "Log payment" creates a Paid record for leases with no record this
-// month. Both write through the real server actions and refresh.
-
-const PAYMENT_METHODS = ["ABA Bank", "Wing", "Wire transfer", "Cash"] as const;
-type PaymentMethod = (typeof PAYMENT_METHODS)[number];
+//
+// Two row actions:
+//   - "Mark paid"   — flips an existing Overdue/Pending record to Paid.
+//                     No input is collected, so it stays a one-click
+//                     inline button with its own loading state.
+//   - "Log payment" — for a lease with no record this month. This one
+//                     collects an amount + method, so it opens the
+//                     LogPaymentModal instead of acting inline.
 
 export function OverdueList({ rows }: { rows: RentRollRow[] }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [busyLeaseId, setBusyLeaseId] = useState<string | null>(null);
-  const [method, setMethod] = useState<PaymentMethod>("ABA Bank");
+
+  // The row whose "Log payment" modal is open (null = closed).
+  const [logRow, setLogRow] = useState<RentRollRow | null>(null);
 
   // Marks an existing Overdue/Pending payment record as Paid.
   function handleMarkPaid(row: RentRollRow) {
@@ -32,25 +37,6 @@ export function OverdueList({ rows }: { rows: RentRollRow[] }) {
     const paymentId = row.paymentId;
     startTransition(async () => {
       const result = await markRentPaid({ paymentId });
-      if (result.ok) {
-        router.refresh();
-      } else {
-        setError(result.error);
-      }
-      setBusyLeaseId(null);
-    });
-  }
-
-  // Creates a Paid rent record for a lease with no record this month.
-  function handleLogPayment(row: RentRollRow) {
-    setError(null);
-    setBusyLeaseId(row.leaseId);
-    startTransition(async () => {
-      const result = await logRentPayment({
-        leaseId: row.leaseId,
-        amount: row.monthlyRent,
-        method,
-      });
       if (result.ok) {
         router.refresh();
       } else {
@@ -75,23 +61,6 @@ export function OverdueList({ rows }: { rows: RentRollRow[] }) {
         </p>
       ) : (
         <>
-          <label className="flex items-center justify-between gap-2 text-[12px] text-slate-500 dark:text-slate-400">
-            Payment method for logged payments
-            <select
-              value={method}
-              onChange={(event) =>
-                setMethod(event.target.value as PaymentMethod)
-              }
-              className="h-7 rounded-md border border-slate-200 bg-white px-2 text-[12px] text-slate-700 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-            >
-              {PAYMENT_METHODS.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
-          </label>
-
           <ul className="flex flex-col">
             {rows.map((row) => (
               <li
@@ -132,13 +101,10 @@ export function OverdueList({ rows }: { rows: RentRollRow[] }) {
                   ) : (
                     <button
                       type="button"
-                      disabled={isPending && busyLeaseId === row.leaseId}
-                      onClick={() => handleLogPayment(row)}
-                      className="h-7 rounded-md border border-slate-200 px-2 text-[11.5px] font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800/60"
+                      onClick={() => setLogRow(row)}
+                      className="h-7 rounded-md border border-slate-200 px-2 text-[11.5px] font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800/60"
                     >
-                      {isPending && busyLeaseId === row.leaseId
-                        ? "Saving…"
-                        : "Log payment"}
+                      Log payment
                     </button>
                   )}
                 </div>
@@ -153,6 +119,8 @@ export function OverdueList({ rows }: { rows: RentRollRow[] }) {
           )}
         </>
       )}
+
+      <LogPaymentModal row={logRow} onClose={() => setLogRow(null)} />
     </WidgetCard>
   );
 }

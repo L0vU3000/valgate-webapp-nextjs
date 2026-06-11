@@ -11,6 +11,7 @@ import {
   YAxis,
 } from "recharts";
 import { WidgetCard } from "@/app/(pro)/pro/_components/WidgetCard";
+import { DrawInBar } from "@/app/(pro)/pro/_components/motion-primitives";
 import { cn } from "@/components/ui/utils";
 import type { ProDashboardData } from "../../queries";
 
@@ -65,12 +66,11 @@ export function FinancialsCard({
             {collectedPct}%
           </span>
         </div>
-        <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-          <div
-            className="h-full bg-emerald-500 rounded-full"
-            style={{ width: `${collectedPct}%` }}
-          />
-        </div>
+        <DrawInBar
+          percent={collectedPct}
+          trackClassName="h-2"
+          fillClassName="bg-emerald-500"
+        />
         {outstanding > 0 && (
           <div className="text-[12.5px] text-amber-700 dark:text-amber-400 font-semibold">
             Outstanding{" "}

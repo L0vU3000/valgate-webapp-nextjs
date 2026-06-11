@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ChevronRight, Plus } from "lucide-react";
 import { KpiMetricStrip } from "@/app/(pro)/pro/_components/KpiMetricStrip";
 import { WorkOrdersTable } from "./WorkOrdersTable";
-import { NewWorkOrderForm } from "./NewWorkOrderForm";
+import { NewWorkOrderModal } from "./NewWorkOrderModal";
 import { VendorsCard } from "./VendorsCard";
 import { formatCurrencyFull } from "@/lib/format";
 import type { WorkOrdersPageData } from "@/app/(pro)/pro/queries";
@@ -64,7 +64,7 @@ export function WorkOrdersPage({ data }: { data: WorkOrdersPageData }) {
           </div>
           <button
             type="button"
-            onClick={() => setCreateOpen((open) => !open)}
+            onClick={() => setCreateOpen(true)}
             className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md bg-blue-600 px-3 text-[13px] font-medium text-white transition-colors hover:bg-blue-700"
           >
             <Plus className="h-4 w-4" />
@@ -72,13 +72,12 @@ export function WorkOrdersPage({ data }: { data: WorkOrdersPageData }) {
           </button>
         </header>
 
-        {createOpen && (
-          <NewWorkOrderForm
-            properties={data.properties}
-            vendors={data.vendors}
-            onDone={() => setCreateOpen(false)}
-          />
-        )}
+        <NewWorkOrderModal
+          open={createOpen}
+          onOpenChange={setCreateOpen}
+          properties={data.properties}
+          vendors={data.vendors}
+        />
 
         <KpiMetricStrip metrics={metrics} ariaLabel="Work order metrics" />
 

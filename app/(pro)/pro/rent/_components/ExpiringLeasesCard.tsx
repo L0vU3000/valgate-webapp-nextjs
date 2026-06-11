@@ -1,38 +1,26 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { WidgetCard } from "@/app/(pro)/pro/_components/WidgetCard";
-import { renewLease } from "@/app/(pro)/pro/actions";
 import { formatCurrencyFull, formatDate } from "@/lib/format";
+import { RenewLeaseModal } from "./RenewLeaseModal";
 import type { RentPageData } from "@/app/(pro)/pro/queries";
 
+type ExpiringLease = RentPageData["expiring"][number];
+
 // Leases expiring within 90 days — the renewal pipeline.
-// "Renew" extends the lease by its own term via the real server action.
+// "Renew" opens a confirmation modal showing the new end date before it
+// extends the lease through the real server action.
 
 export function ExpiringLeasesCard({
   leases,
 }: {
   leases: RentPageData["expiring"];
 }) {
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
-  const [busyLeaseId, setBusyLeaseId] = useState<string | null>(null);
-
-  function handleRenew(leaseId: string) {
-    setError(null);
-    setBusyLeaseId(leaseId);
-    startTransition(async () => {
-      const result = await renewLease({ leaseId });
-      if (result.ok) {
-        router.refresh();
-      } else {
-        setError(result.error);
-      }
-      setBusyLeaseId(null);
-    });
-  }
+  // The lease whose renew-confirmation modal is open (null = closed).
+  const [renewLeaseItem, setRenewLeaseItem] = useState<ExpiringLease | null>(
+    null,
+  );
 
   return (
     <WidgetCard
@@ -66,24 +54,20 @@ export function ExpiringLeasesCard({
               </div>
               <button
                 type="button"
-                disabled={isPending && busyLeaseId === lease.leaseId}
-                onClick={() => handleRenew(lease.leaseId)}
-                className="h-7 shrink-0 rounded-md border border-slate-200 px-2 text-[11.5px] font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800/60"
+                onClick={() => setRenewLeaseItem(lease)}
+                className="h-7 shrink-0 rounded-md border border-slate-200 px-2 text-[11.5px] font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800/60"
               >
-                {isPending && busyLeaseId === lease.leaseId
-                  ? "Renewing…"
-                  : "Renew"}
+                Renew
               </button>
             </li>
           ))}
         </ul>
       )}
 
-      {error && (
-        <p className="text-[12.5px] font-medium text-red-600 dark:text-red-400">
-          {error}
-        </p>
-      )}
+      <RenewLeaseModal
+        lease={renewLeaseItem}
+        onClose={() => setRenewLeaseItem(null)}
+      />
     </WidgetCard>
   );
 }

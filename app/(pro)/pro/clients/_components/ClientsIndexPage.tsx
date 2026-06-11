@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ChevronRight, Plus } from "lucide-react";
 import { ClientsTable } from "@/app/(pro)/pro/dashboard/_components/ClientsTable";
-import { OnboardClientForm } from "./OnboardClientForm";
+import { OnboardClientModal } from "./OnboardClientModal";
 import type { ClientRollup } from "@/app/(pro)/pro/queries";
 
 // Clients index — the full book of business. Reuses the dashboard's
@@ -41,7 +41,7 @@ export function ClientsIndexPage({
           </div>
           <button
             type="button"
-            onClick={() => setOnboardOpen((open) => !open)}
+            onClick={() => setOnboardOpen(true)}
             className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md bg-blue-600 px-3 text-[13px] font-medium text-white transition-colors hover:bg-blue-700"
           >
             <Plus className="h-4 w-4" />
@@ -49,12 +49,11 @@ export function ClientsIndexPage({
           </button>
         </header>
 
-        {onboardOpen && (
-          <OnboardClientForm
-            unassignedProperties={unassignedProperties}
-            onDone={() => setOnboardOpen(false)}
-          />
-        )}
+        <OnboardClientModal
+          open={onboardOpen}
+          onOpenChange={setOnboardOpen}
+          unassignedProperties={unassignedProperties}
+        />
 
         <ClientsTable clients={clients} />
       </div>

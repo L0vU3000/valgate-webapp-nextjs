@@ -2,6 +2,7 @@
 
 import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
 import { cn } from "@/components/ui/utils";
+import { CountUpText } from "./motion-primitives";
 
 // One KPI cell in the strip. The delta row is optional: when a metric
 // has no real prior-period comparison we show a plain sub-label (or
@@ -71,7 +72,7 @@ function KpiCell({
               : "text-[1.75rem] leading-none tabular-nums",
           )}
         >
-          {value}
+          <CountUpText text={value} />
         </p>
       </div>
 

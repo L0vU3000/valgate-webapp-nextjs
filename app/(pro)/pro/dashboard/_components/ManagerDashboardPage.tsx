@@ -11,6 +11,7 @@ import { OccupancyCard } from "./OccupancyCard";
 import { MaintenanceQueueCard } from "./MaintenanceQueueCard";
 import { ComplianceTable } from "./ComplianceTable";
 import { ActivityFeed } from "./ActivityFeed";
+import { SectionEnter } from "@/app/(pro)/pro/_components/motion-primitives";
 import type { ProDashboardData } from "../../queries";
 
 // Top-level composition for the manager dashboard.
@@ -28,15 +29,23 @@ export function ManagerDashboardPage({ data }: { data: ProDashboardData }) {
   return (
     <main className="h-full overflow-y-auto bg-slate-50/50">
       <div className="mx-auto flex max-w-[1440px] flex-col gap-6 px-4 py-6 sm:px-8 sm:py-8">
-        <PageHeader
-          clientCount={data.kpis.clientCount}
-          propertyCount={data.kpis.propertyCount}
-        />
-        <KpiBanner kpis={data.kpis} />
+        <SectionEnter index={0}>
+          <PageHeader
+            clientCount={data.kpis.clientCount}
+            propertyCount={data.kpis.propertyCount}
+          />
+        </SectionEnter>
+        <SectionEnter index={1}>
+          <KpiBanner kpis={data.kpis} />
+        </SectionEnter>
+        {/* AlertsStrip staggers its own chips, so it gets no extra wrapper. */}
         <AlertsStrip alerts={data.alerts} />
 
         {/* 65 / 35 main content split */}
-        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[65fr_35fr]">
+        <SectionEnter
+          index={2}
+          className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[65fr_35fr]"
+        >
           <div className="flex flex-col gap-6">
             <ClientsTable clients={data.clients} />
             <AssetsTable properties={data.properties} />
@@ -50,13 +59,16 @@ export function ManagerDashboardPage({ data }: { data: ProDashboardData }) {
             <OccupancyCard occupancy={data.occupancy} />
             <MaintenanceQueueCard queue={data.workOrders.queue} />
           </div>
-        </div>
+        </SectionEnter>
 
         {/* 50 / 50 bottom row */}
-        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
+        <SectionEnter
+          index={3}
+          className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2"
+        >
           <ComplianceTable compliance={data.compliance} />
           <ActivityFeed activity={data.activity} />
-        </div>
+        </SectionEnter>
       </div>
     </main>
   );

@@ -1,6 +1,5 @@
 "use client";
 
-import { MoreHorizontal } from "lucide-react";
 import { cn } from "@/components/ui/utils";
 
 // Shared chrome for every widget on the manager dashboard.
@@ -10,7 +9,7 @@ import { cn } from "@/components/ui/utils";
 //
 // Props:
 //   title       — the bold label in the top-left of the card header.
-//   headerRight — optional content placed before the kebab menu — e.g.
+//   headerRight — optional content in the top-right of the header — e.g.
 //                 a "View All" link, a search input, filter dropdowns,
 //                 or a small count badge.
 //   children    — the actual widget content (table, chart, list, etc.).
@@ -35,16 +34,9 @@ export function WidgetCard({ title, headerRight, children, className }: Props) {
         <h2 className="text-[15px] font-semibold text-slate-900 dark:text-slate-100">
           {title}
         </h2>
-        <div className="flex items-center gap-2">
-          {headerRight}
-          <button
-            type="button"
-            aria-label="Widget options"
-            className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-500 dark:text-slate-400"
-          >
-            <MoreHorizontal className="w-4 h-4" />
-          </button>
-        </div>
+        {headerRight ? (
+          <div className="flex items-center gap-2">{headerRight}</div>
+        ) : null}
       </header>
       <div className="flex flex-col gap-3">{children}</div>
     </section>
