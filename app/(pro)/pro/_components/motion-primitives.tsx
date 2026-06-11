@@ -171,6 +171,38 @@ export function EnterTr({
 }
 
 // ---------------------------------------------------------------------------
+// EnterLi — list item that fades up into place on mount (the <li> sibling
+// of EnterTr, for list-based widgets like the work-orders queue).
+// ---------------------------------------------------------------------------
+
+export function EnterLi({
+  index,
+  className,
+  children,
+}: {
+  index: number;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const prefersReducedMotion = useReducedMotion();
+
+  return (
+    <motion.li
+      className={className}
+      initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{
+        duration: 0.3,
+        ease: "easeOut",
+        delay: Math.min(index * 0.035, 0.45),
+      }}
+    >
+      {children}
+    </motion.li>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // DrawInBar — horizontal progress/occupancy bar that draws in on mount.
 // ---------------------------------------------------------------------------
 //

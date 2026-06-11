@@ -3,6 +3,8 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { WidgetCard } from "@/app/(pro)/pro/_components/WidgetCard";
+import { EnterLi } from "@/app/(pro)/pro/_components/motion-primitives";
+import { AssignVendorModal } from "./AssignVendorModal";
 import { updateWorkOrder } from "@/app/(pro)/pro/actions";
 import { formatCurrencyFull, formatRelativeTime } from "@/lib/format";
 import { cn } from "@/components/ui/utils";
@@ -48,28 +50,15 @@ export function WorkOrdersTable({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // The work order whose assign-vendor modal is open (null = closed).
+  const [assignRow, setAssignRow] = useState<ProWorkOrderRow | null>(null);
+
   // Advance a work order to the next status.
   function handleStatusChange(id: string, status: MaintenanceStatus) {
     setError(null);
     setBusyId(id);
     startTransition(async () => {
       const result = await updateWorkOrder({ id, status });
-      if (result.ok) {
-        router.refresh();
-      } else {
-        setError(result.error);
-      }
-      setBusyId(null);
-    });
-  }
-
-  // Assign a vendor (Professional) to a work order.
-  function handleAssignVendor(id: string, vendorId: string) {
-    if (vendorId === "") return;
-    setError(null);
-    setBusyId(id);
-    startTransition(async () => {
-      const result = await updateWorkOrder({ id, vendorId });
       if (result.ok) {
         router.refresh();
       } else {
@@ -94,11 +83,12 @@ export function WorkOrdersTable({
             No work orders yet.
           </li>
         )}
-        {rows.map((row) => {
+        {rows.map((row, index) => {
           const busy = isPending && busyId === row.id;
           return (
-            <li
+            <EnterLi
               key={row.id}
+              index={index}
               className="flex flex-col gap-2 border-b border-slate-100 py-3 last:border-0 dark:border-slate-800"
             >
               <div className="flex items-start justify-between gap-3">
@@ -134,38 +124,34 @@ export function WorkOrdersTable({
               </div>
 
               <div className="flex items-center justify-between gap-3 pl-[18px]">
-                <span className="text-[11.5px] text-slate-500 dark:text-slate-400">
+                <span className="flex items-center gap-2 text-[11.5px] text-slate-500 dark:text-slate-400">
                   {row.vendorName ? (
                     <>
-                      Vendor: {row.vendorName}
-                      {row.vendorCategory ? ` (${row.vendorCategory})` : ""}
+                      <span>
+                        Vendor: {row.vendorName}
+                        {row.vendorCategory ? ` (${row.vendorCategory})` : ""}
+                      </span>
+                      {row.status !== "Resolved" && (
+                        <button
+                          type="button"
+                          onClick={() => setAssignRow(row)}
+                          className="text-[11.5px] font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                        >
+                          Change
+                        </button>
+                      )}
                     </>
                   ) : row.status === "Resolved" ? (
                     "—"
                   ) : (
-                    <select
-                      defaultValue=""
-                      disabled={busy}
-                      onChange={(event) =>
-                        handleAssignVendor(row.id, event.target.value)
-                      }
+                    <button
+                      type="button"
+                      onClick={() => setAssignRow(row)}
                       aria-label={`Assign vendor for ${row.title}`}
-                      className="h-7 rounded-md border border-amber-200 bg-amber-50 px-2 text-[11.5px] font-medium text-amber-800 focus:outline-none dark:border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-300"
+                      className="h-7 rounded-md border border-amber-200 bg-amber-50 px-2 text-[11.5px] font-medium text-amber-800 transition-colors hover:bg-amber-100 dark:border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-300"
                     >
-                      <option value="" disabled>
-                        Assign vendor…
-                      </option>
-                      {vendors.map((vendor) => (
-                        <option
-                          key={vendor.id}
-                          value={vendor.id}
-                          disabled={!vendor.available}
-                        >
-                          {vendor.name} — {vendor.category}
-                          {vendor.available ? "" : " (unavailable)"}
-                        </option>
-                      ))}
-                    </select>
+                      Assign vendor…
+                    </button>
                   )}
                 </span>
 
@@ -192,7 +178,7 @@ export function WorkOrdersTable({
                   )}
                 </div>
               </div>
-            </li>
+            </EnterLi>
           );
         })}
       </ul>
@@ -202,6 +188,12 @@ export function WorkOrdersTable({
           {error}
         </p>
       )}
+
+      <AssignVendorModal
+        workOrder={assignRow}
+        vendors={vendors}
+        onClose={() => setAssignRow(null)}
+      />
     </WidgetCard>
   );
 }

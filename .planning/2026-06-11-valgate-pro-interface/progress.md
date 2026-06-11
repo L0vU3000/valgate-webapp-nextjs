@@ -89,3 +89,10 @@
 - NEW `styles/print.css` (imported via styles/index.css) — print isolation: adds `print-owner-report` to <html> on print, then prints ONLY the `[data-owner-report]` document via the visibility technique (works through Radix's portal). Pins it to page top with absolute positioning + @page margins; hides the action bar (data-print-hide) and the floating close button.
 - Two non-obvious fixes found via generated-PDF testing: (1) Tailwind v4 centers the dialog with the individual `translate` CSS property — a plain `translate:none` is dropped by Lightning CSS, so reset `--tw-translate-x/y: 0` instead; (2) shadcn's inline close button has no data-slot, so hide it structurally (`[data-owner-report] > button`).
 - Verified: tsc (pro) clean, eslint clean, build green. Generated the actual print PDF via headless Chromium — confirmed it renders the full report from page top with zero portfolio-page chrome/overlay/buttons.
+
+## Session 2026-06-12 (cont.) — Assign-vendor modal + table row animation
+- NEW `AssignVendorModal.tsx` — rich vendor picker replacing the bare inline <select> in WorkOrdersTable. Cards show name, company · category, star rating, and Available/Busy badge; busy vendors disabled; current vendor + existing cost pre-selected; optional cost estimate captured at dispatch. Writes updateWorkOrder({id, vendorId, cost}). Mobbin ref: Jobber/Contra provider+rating patterns.
+- WorkOrdersTable: inline select → "Assign vendor…" button (unassigned) / "Change" link (assigned, non-resolved) that open the modal; rows now use EnterLi.
+- NEW motion primitive `EnterLi` (the <li> sibling of EnterTr). RentRollTable rows now use EnterTr.
+- Status buttons (Start/Resolve) stay inline — one-click status flips, no input (same rule as Mark paid).
+- Verified: tsc (pro) clean, eslint clean, build green; live screenshot of the assign modal (real vendors, pre-selection, $740 estimate). Note: ERR_CONNECTION_REFUSED in console is the Convex websocket (no local backend) — pre-existing, unrelated.

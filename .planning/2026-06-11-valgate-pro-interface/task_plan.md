@@ -94,9 +94,9 @@ pending → in_progress → complete
 **Design + Modals:**
 - [x] **Log payment modal** (LogPaymentModal — amount+method, server-stamped date) + **renew lease modal** (RenewLeaseModal — current→new end confirmation); loading.tsx added
 - [ ] **Record tenant modal** (no real flow yet — deferred)
-- [ ] Animated rent-roll table (row enter, status-change transition); expected-vs-collected progress with draw-in (DrawInBar exists on dashboard; not yet applied to the rent page table)
+- [x] Animated rent-roll table (row enter via EnterTr)
 - [ ] Mobbin ref pass: "rent collection", "payments table", "invoice/payment modal"; `/ui-ux-pro-max` + `/impeccable` pass
-- **Status:** in_progress — log-payment + renew modals + loading.tsx complete & verified; rent-roll animation + record-tenant modal pending
+- **Status:** in_progress — log-payment + renew modals + loading.tsx + rent-roll row animation complete & verified; record-tenant modal pending
 
 ### Phase 5: Work Orders / Maintenance (new page) — #1 industry pain point
 > Query ready (`getWorkOrdersPageData`). Page + components do not exist yet — build from scratch at full design quality.
@@ -105,10 +105,11 @@ pending → in_progress → complete
 - [x] Assign a work order to a vendor from the existing `Professional` directory; empty states in place (`loading.tsx` still pending — design track)
 **Design + Modals:**
 - [x] **Create work order modal** (NewWorkOrderModal — property/severity/vendor/cost, disabled-until-valid, success flash, full loop verified live); loading.tsx added
-- [ ] Standalone **assign-vendor modal** (vendor picker with rating/availability) + **update-status / attach cost+document** flow — create-modal pre-assigns a vendor; the dedicated post-creation assign/status modal still pending (inline assign/status currently ship in WorkOrdersTable)
+- [x] Standalone **assign-vendor modal** (AssignVendorModal — picker cards with rating/availability/category + cost estimate, pre-selects current vendor); Mobbin ref pass done (Jobber/Contra). Status flips (Start/Resolve) stay inline by design (no input).
+- [ ] **Attach document** flow — no schema field for work-order docs yet (deferred, would be fake)
 - [ ] Kanban/board or priority-grouped layout with status-change animation; count badges with motion
-- [ ] Mobbin ref pass: "work order", "maintenance ticket", "task board", "assign vendor"; `/ui-ux-pro-max` + `/impeccable` pass
-- **Status:** in_progress — create-WO modal + loading.tsx complete & verified; assign-vendor/status modal + board view pending
+- [ ] `/impeccable` polish pass
+- **Status:** in_progress — create-WO modal + assign-vendor modal + loading.tsx + row animation complete & verified; board view + doc-attach pending
 
 ### Phase 6 (fast-follow): Compliance calendar + Properties register
 **Wiring:**

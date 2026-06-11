@@ -1,6 +1,7 @@
 "use client";
 
 import { WidgetCard } from "@/app/(pro)/pro/_components/WidgetCard";
+import { EnterTr } from "@/app/(pro)/pro/_components/motion-primitives";
 import { formatCurrencyFull, formatDate, formatRelativeTime } from "@/lib/format";
 import { cn } from "@/components/ui/utils";
 import type { RentRollRow, RentStatus } from "@/app/(pro)/pro/queries";
@@ -86,9 +87,10 @@ export function RentRollTable({
                 </td>
               </tr>
             )}
-            {rows.map((row) => (
-              <tr
+            {rows.map((row, index) => (
+              <EnterTr
                 key={row.leaseId}
+                index={index}
                 className="border-b border-slate-100 last:border-0 dark:border-slate-800"
               >
                 <td className="py-3 pr-3">
@@ -131,7 +133,7 @@ export function RentRollTable({
                 <td className="py-3 text-[12px] text-slate-500 dark:text-slate-400">
                   {row.lastPaidDate ? formatRelativeTime(row.lastPaidDate) : "—"}
                 </td>
-              </tr>
+              </EnterTr>
             ))}
           </tbody>
         </table>
