@@ -10,7 +10,8 @@
     "seed": "node --conditions=react-server --import tsx scripts/seed.ts",
     "seed:reset": "node --conditions=react-server --import tsx scripts/seed.ts --reset",
     "regen-ai-ref": "node --import tsx scripts/regenerate-ai-data-ref.ts",
-    "backfill:property-coords": "node --import tsx scripts/backfill-property-coords.ts"
+    "backfill:property-coords": "node --import tsx scripts/backfill-property-coords.ts",
+    "seed:pro": "node --conditions=react-server --import tsx scripts/seed-pro.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.78",

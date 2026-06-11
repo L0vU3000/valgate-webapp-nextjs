@@ -3,11 +3,15 @@
 import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
 import { cn } from "@/components/ui/utils";
 
+// One KPI cell in the strip. The delta row is optional: when a metric
+// has no real prior-period comparison we show a plain sub-label (or
+// nothing) instead of inventing a delta.
 export type KpiMetric = {
   value: string;
   label: string;
-  deltaLabel: string;
-  deltaDirection: "up" | "down" | "flat";
+  subLabel?: string;
+  deltaLabel?: string;
+  deltaDirection?: "up" | "down" | "flat";
 };
 
 type Props = {
@@ -33,6 +37,7 @@ export function KpiMetricStrip({ metrics, ariaLabel }: Props) {
 function KpiCell({
   value,
   label,
+  subLabel,
   deltaLabel,
   deltaDirection,
 }: KpiMetric) {
@@ -70,15 +75,23 @@ function KpiCell({
         </p>
       </div>
 
-      <div className="mt-auto flex items-center gap-1.5 border-t border-slate-100 pt-3">
-        <DeltaIcon
-          className={cn("h-3.5 w-3.5 shrink-0", deltaTone)}
-          aria-hidden
-        />
-        <span className="text-[12px] leading-snug text-slate-500">
-          {deltaLabel}
-        </span>
-      </div>
+      {deltaLabel ? (
+        <div className="mt-auto flex items-center gap-1.5 border-t border-slate-100 pt-3">
+          <DeltaIcon
+            className={cn("h-3.5 w-3.5 shrink-0", deltaTone)}
+            aria-hidden
+          />
+          <span className="text-[12px] leading-snug text-slate-500">
+            {deltaLabel}
+          </span>
+        </div>
+      ) : subLabel ? (
+        <div className="mt-auto flex items-center border-t border-slate-100 pt-3">
+          <span className="text-[12px] leading-snug text-slate-500">
+            {subLabel}
+          </span>
+        </div>
+      ) : null}
     </article>
   );
 }

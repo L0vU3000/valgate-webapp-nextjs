@@ -4,9 +4,10 @@
   "name": "Camko City Condo A105",
   "code": "PROP-0018",
   "type": "residential",
-  "status": "Vacant",
+  "status": "Rented",
   "lat": 11.59345,
   "lng": 104.89394,
   "createdAt": 1779356162890,
-  "updatedAt": 1779356162890
+  "updatedAt": 1781118641854,
+  "clientId": "CLI-0006"
 }

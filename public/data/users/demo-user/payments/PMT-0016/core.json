@@ -1,0 +1,9 @@
+{
+  "id": "PMT-0016",
+  "leaseId": "LEASE-0009",
+  "date": 1777680000000,
+  "kind": "Rent",
+  "amount": 300,
+  "method": "Wing",
+  "status": "Paid"
+}

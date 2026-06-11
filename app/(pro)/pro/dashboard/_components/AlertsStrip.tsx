@@ -9,15 +9,15 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/components/ui/utils";
-import { mockAlerts } from "../_data/mock";
-import type { Severity } from "../_data/mock";
+import type { ProAlert, AlertSeverity } from "../../queries";
 
-// Horizontal scrolling strip of alert chips that sits between the KPI banner
-// and the two-column widget grid. Each chip is colour-coded by severity and
-// can be dismissed locally (POC — does not persist).
+// Horizontal scrolling strip of alert chips between the KPI banner and
+// the widget grid. Alerts are derived in the query layer from real
+// records (overdue payments, expiring leases/certifications, open
+// risks, emergency work orders). Dismissal is local UI state only.
 
 const SEVERITY_STYLES: Record<
-  Severity,
+  AlertSeverity,
   { chip: string; icon: LucideIcon; iconColor: string }
 > = {
   urgent: {
@@ -35,22 +35,12 @@ const SEVERITY_STYLES: Record<
     icon: Info,
     iconColor: "text-blue-500 dark:text-blue-400",
   },
-  ok: {
-    chip: "bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-500/15 dark:border-emerald-500/30 dark:text-emerald-300",
-    icon: Info,
-    iconColor: "text-emerald-500 dark:text-emerald-400",
-  },
-  neutral: {
-    chip: "bg-slate-50 border-slate-200 text-slate-700 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300",
-    icon: Info,
-    iconColor: "text-slate-500 dark:text-slate-400",
-  },
 };
 
-export function AlertsStrip() {
+export function AlertsStrip({ alerts }: { alerts: ProAlert[] }) {
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
 
-  const visibleAlerts = mockAlerts.filter((a) => !dismissed.has(a.id));
+  const visibleAlerts = alerts.filter((a) => !dismissed.has(a.id));
 
   if (visibleAlerts.length === 0) {
     return null;

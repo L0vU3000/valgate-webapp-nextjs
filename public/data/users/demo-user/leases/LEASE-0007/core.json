@@ -1,0 +1,12 @@
+{
+  "id": "LEASE-0007",
+  "propertyId": "PROP-0003",
+  "tenantId": "TEN-0007",
+  "unit": "Unit 3B",
+  "stage": "Signed",
+  "startDate": 1767312000000,
+  "endDate": 1798848000000,
+  "monthlyRent": 350,
+  "termMonths": 12,
+  "renewalStatus": "Auto-renew"
+}

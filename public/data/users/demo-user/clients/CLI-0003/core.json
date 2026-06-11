@@ -1,0 +1,15 @@
+{
+  "id": "CLI-0003",
+  "userId": "demo-user",
+  "name": "Tan Holdings Co.",
+  "clientType": "Corporate",
+  "initials": "TH",
+  "avatarBg": "bg-sky-400",
+  "email": "admin@tanholdings.com.kh",
+  "phone": "+855 23 215 778",
+  "preferredContact": "Email",
+  "clientSince": 1637539200000,
+  "managementFeePct": 7.5,
+  "createdAt": 1637539200000,
+  "updatedAt": 1780272000000
+}

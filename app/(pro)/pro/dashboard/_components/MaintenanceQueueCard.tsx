@@ -1,79 +1,94 @@
 "use client";
 
+import Link from "next/link";
 import { Plus } from "lucide-react";
 import { WidgetCard } from "@/app/(pro)/pro/_components/WidgetCard";
-import {
-  mockMaintenance,
-  type WorkOrderPriority,
-  type WorkOrderStatus,
-} from "../_data/mock";
 import { cn } from "@/components/ui/utils";
+import type { ProWorkOrderRow } from "../../queries";
+import type {
+  MaintenanceSeverity,
+  MaintenanceStatus,
+} from "@/lib/data/types/maintenance-item";
 
 // Maintenance Queue — right column, bottom widget.
-// Lists the most urgent open work orders with a priority dot, asset name,
-// client name, status pill, and assigned vendor (or "Unassigned").
+// The unresolved work orders (real MaintenanceItem records, already
+// sorted by severity in the query layer). Shows the top of the queue
+// with severity dot, property, client and vendor assignment.
 
-const PRIORITY_DOT: Record<WorkOrderPriority, string> = {
-  urgent: "bg-red-500",
-  high: "bg-amber-500",
-  normal: "bg-blue-500",
-  low: "bg-slate-400 dark:bg-slate-500",
+const SEVERITY_DOT: Record<MaintenanceSeverity, string> = {
+  Emergency: "bg-red-500",
+  Urgent: "bg-amber-500",
+  Standard: "bg-blue-500",
 };
 
-const PRIORITY_LABEL: Record<WorkOrderPriority, string> = {
-  urgent: "Urgent",
-  high: "High",
-  normal: "Normal",
-  low: "Low",
+const STATUS_LABEL: Record<MaintenanceStatus, string> = {
+  Open: "Open",
+  InProgress: "In Progress",
+  Resolved: "Resolved",
 };
 
-const STATUS_PILL: Record<WorkOrderStatus, string> = {
+const STATUS_PILL: Record<MaintenanceStatus, string> = {
   Open: "bg-red-50 text-red-700 border border-red-200 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/30",
-  "In Progress":
+  InProgress:
     "bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30",
+  Resolved:
+    "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30",
 };
 
-export function MaintenanceQueueCard() {
+const VISIBLE_LIMIT = 6;
+
+export function MaintenanceQueueCard({
+  queue,
+}: {
+  queue: ProWorkOrderRow[];
+}) {
+  const visible = queue.slice(0, VISIBLE_LIMIT);
+
   return (
     <WidgetCard
       title="Open Work Orders"
       headerRight={
         <>
           <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[11.5px] font-medium">
-            12
+            {queue.length}
           </span>
-          <a
-            href="#"
+          <Link
+            href="/pro/work-orders"
             className="text-[12.5px] font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
           >
             View All
-          </a>
+          </Link>
         </>
       }
     >
       <ul className="flex flex-col">
-        {mockMaintenance.map((item) => (
+        {visible.length === 0 && (
+          <li className="py-4 text-center text-[13px] text-slate-500 dark:text-slate-400">
+            No open work orders.
+          </li>
+        )}
+        {visible.map((item) => (
           <li
             key={item.id}
             className="flex items-center justify-between gap-3 py-2.5 border-b border-slate-100 dark:border-slate-800 last:border-0"
           >
             <div className="flex items-start gap-2.5 min-w-0">
               <span
-                aria-label={PRIORITY_LABEL[item.priority]}
+                aria-label={item.severity}
                 className={cn(
                   "mt-1.5 inline-block w-2 h-2 rounded-full shrink-0",
-                  PRIORITY_DOT[item.priority],
+                  SEVERITY_DOT[item.severity],
                 )}
               />
               <div className="flex flex-col leading-tight min-w-0">
                 <span className="text-[13px] font-semibold text-slate-900 dark:text-slate-100 truncate">
-                  {item.assetName}
+                  {item.title}
                 </span>
                 <span className="text-[11.5px] text-slate-500 dark:text-slate-400 truncate">
-                  {item.clientName} ·{" "}
-                  {item.vendor ? (
+                  {item.propertyName} · {item.clientName} ·{" "}
+                  {item.vendorName ? (
                     <span className="text-slate-500 dark:text-slate-400">
-                      {item.vendor}
+                      {item.vendorName}
                     </span>
                   ) : (
                     <span className="italic text-slate-400 dark:text-slate-500">
@@ -89,18 +104,18 @@ export function MaintenanceQueueCard() {
                 STATUS_PILL[item.status],
               )}
             >
-              {item.status}
+              {STATUS_LABEL[item.status]}
             </span>
           </li>
         ))}
       </ul>
-      <button
-        type="button"
+      <Link
+        href="/pro/work-orders"
         className="mt-1 inline-flex items-center justify-center gap-1.5 h-9 w-full rounded-md border border-slate-200 dark:border-slate-700 text-[13px] font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors"
       >
         <Plus className="w-3.5 h-3.5" />
         Create Work Order
-      </button>
+      </Link>
     </WidgetCard>
   );
 }

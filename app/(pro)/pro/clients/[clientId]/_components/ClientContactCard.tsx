@@ -1,55 +1,49 @@
 "use client";
 
-import { ArrowRight, Mail, Phone } from "lucide-react";
+import { Mail, Phone } from "lucide-react";
 import { WidgetCard } from "@/app/(pro)/pro/_components/WidgetCard";
-import type { ClientContact } from "@/app/(pro)/pro/_data/mock";
+import { cn } from "@/components/ui/utils";
+import type { Client } from "@/lib/data/types/client";
 
-type Props = {
-  contact: ClientContact;
-};
+// Client contact card — renders the real Client record's contact
+// fields, each falling back to "—" when not on file.
 
-export function ClientContactCard({ contact }: Props) {
+export function ClientContactCard({ client }: { client: Client }) {
   return (
     <WidgetCard title="Client Contact">
       <div className="flex items-start gap-3">
-        <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[12px] font-semibold text-slate-600">
-          {contact.name
-            .split(" ")
-            .map((part) => part[0])
-            .join("")}
+        <span
+          className={cn(
+            "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[12px] font-semibold",
+            client.avatarBg,
+          )}
+        >
+          {client.initials}
         </span>
         <div className="min-w-0 flex-1">
-          <div className="text-[14px] font-semibold text-slate-900">
-            {contact.name}
+          <div className="text-[14px] font-semibold text-slate-900 dark:text-slate-100">
+            {client.name}
           </div>
-          <div className="mt-2 flex flex-col gap-1.5 text-[12.5px] text-slate-600">
+          <div className="mt-2 flex flex-col gap-1.5 text-[12.5px] text-slate-600 dark:text-slate-300">
             <span className="inline-flex items-center gap-2">
-              <Mail className="h-3.5 w-3.5 text-slate-400" />
-              {contact.email}
+              <Mail className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
+              {client.email ?? "—"}
             </span>
             <span className="inline-flex items-center gap-2">
-              <Phone className="h-3.5 w-3.5 text-slate-400" />
-              {contact.phone}
+              <Phone className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
+              {client.phone ?? "—"}
             </span>
           </div>
-          <div className="mt-2 text-[12px] text-slate-500">
-            Preferred contact: {contact.preferredContact}
+          <div className="mt-2 text-[12px] text-slate-500 dark:text-slate-400">
+            Preferred contact: {client.preferredContact ?? "—"}
           </div>
+          {client.managementFeePct !== undefined && (
+            <div className="text-[12px] text-slate-500 dark:text-slate-400">
+              Management fee: {client.managementFeePct}% of collected rent
+            </div>
+          )}
         </div>
       </div>
-      <button
-        type="button"
-        className="inline-flex h-9 w-full items-center justify-center rounded-md border border-slate-200 text-[13px] font-medium text-slate-700 hover:bg-slate-50"
-      >
-        Message Client
-      </button>
-      <a
-        href="#"
-        className="inline-flex items-center gap-1 text-[12.5px] font-medium text-blue-600 hover:text-blue-700"
-      >
-        View Full Profile
-        <ArrowRight className="h-3.5 w-3.5" />
-      </a>
     </WidgetCard>
   );
 }

@@ -1,0 +1,11 @@
+{
+  "id": "LEASE-0011",
+  "propertyId": "PROP-0017",
+  "tenantId": "TEN-0011",
+  "unit": "Whole villa",
+  "stage": "Signed",
+  "startDate": 1773360000000,
+  "endDate": 1804896000000,
+  "monthlyRent": 4500,
+  "termMonths": 12
+}

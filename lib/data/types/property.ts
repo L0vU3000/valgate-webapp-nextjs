@@ -45,6 +45,9 @@ export const PropertyCoreSchema = z.object({
   createdAt: timestampSchema,
   updatedAt: timestampSchema,
   isArchived: z.boolean().optional(),
+  // Pro overlay: the owner-client this property is managed for.
+  // Optional so single-owner (client-side) data needs no migration.
+  clientId: idSchema.optional(),
   propertyUse: propertyUseSchema.optional(),
   rentalVerified: z.boolean().optional(),
   rentalVerifiedAt: timestampSchema.optional(),

@@ -1,5 +1,5 @@
 import { cn } from "@/components/ui/utils";
-import type { Severity } from "@/app/(pro)/pro/_data/mock";
+import type { Severity } from "./pro-shell-types";
 
 // A small coloured dot used in lists and tables to indicate severity / status.
 //

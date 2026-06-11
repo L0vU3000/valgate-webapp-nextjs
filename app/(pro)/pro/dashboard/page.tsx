@@ -1,13 +1,17 @@
 import { ManagerDashboardPage } from "./_components/ManagerDashboardPage";
+import { getProDashboardData } from "../queries";
 
 // /pro/dashboard — Valgate Professional manager dashboard.
 //
-// The (pro) route group's layout (app/(pro)/layout.tsx) calls notFound()
-// when NODE_ENV === "production" until Pro auth ships. ManagerProShell
-// wraps this segment via app/(pro)/pro/layout.tsx.
-//
-// Server component — renders the client-side dashboard composition.
+// Server component: loads the full dashboard payload (book-level KPIs,
+// per-client rollups, alerts, work orders, compliance, activity — all
+// derived from the shared local-db entities) and hands it to the
+// client-side composition.
 
-export default function Page() {
-  return <ManagerDashboardPage />;
+// Time-relative derivations (alerts, "expires in Nd") must use request time, not build time.
+export const dynamic = "force-dynamic";
+
+export default async function Page() {
+  const data = await getProDashboardData();
+  return <ManagerDashboardPage data={data} />;
 }

@@ -9,12 +9,10 @@ import {
   type ReactNode,
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import {
-  getClientById,
-  mockClients,
-  type Client,
-  type ClientHealth,
-} from "@/app/(pro)/pro/_data/mock";
+import type { ShellClient } from "./pro-shell-types";
+
+// Workspace tab state for the Pro shell. Clients come in via props
+// from the server layout (real Client records) — no mock data.
 
 export type DashboardTab = {
   kind: "dashboard";
@@ -27,7 +25,7 @@ export type ClientTab = {
   name: string;
   initials: string;
   avatarColor: string;
-  health: ClientHealth;
+  health: ShellClient["health"];
 };
 
 export type WorkspaceTab = DashboardTab | ClientTab;
@@ -35,6 +33,7 @@ export type WorkspaceTab = DashboardTab | ClientTab;
 type WorkspaceTabContextValue = {
   openTabs: WorkspaceTab[];
   activeTabId: string;
+  availableClients: ShellClient[];
   openClientTab: (clientId: string) => void;
   closeTab: (tabId: string) => void;
   activateTab: (tabId: string) => void;
@@ -44,7 +43,7 @@ type WorkspaceTabContextValue = {
 
 const WorkspaceTabContext = createContext<WorkspaceTabContextValue | null>(null);
 
-function clientToTab(client: Client): ClientTab {
+function clientToTab(client: ShellClient): ClientTab {
   return {
     kind: "client",
     id: client.id,
@@ -55,29 +54,40 @@ function clientToTab(client: Client): ClientTab {
   };
 }
 
-function buildDefaultTabs(): WorkspaceTab[] {
+// Default workspace: the dashboard plus the manager's top three clients
+// (the list arrives sorted by portfolio value from the server).
+function buildDefaultTabs(clients: ShellClient[]): WorkspaceTab[] {
   const dashboard: DashboardTab = { kind: "dashboard", id: "dashboard" };
-  const clientIds = ["c1", "c2", "c3"];
-  const clientTabs = clientIds
-    .map((id) => getClientById(id))
-    .filter((client): client is Client => client !== undefined)
-    .map(clientToTab);
-
+  const clientTabs = clients.slice(0, 3).map(clientToTab);
   return [dashboard, ...clientTabs];
 }
 
+// Maps the current route to the tab that should appear active.
+// Non-client pro pages (rent, work orders, clients index) highlight
+// no workspace tab.
 function routeToActiveTabId(pathname: string): string {
-  const clientMatch = pathname.match(/\/manager\/clients\/([^/]+)/);
+  const clientMatch = pathname.match(/\/pro\/clients\/([^/]+)/);
   if (clientMatch) {
     return clientMatch[1];
   }
-  return "dashboard";
+  if (pathname === "/pro/dashboard") {
+    return "dashboard";
+  }
+  return "";
 }
 
-export function WorkspaceTabProvider({ children }: { children: ReactNode }) {
+export function WorkspaceTabProvider({
+  clients,
+  children,
+}: {
+  clients: ShellClient[];
+  children: ReactNode;
+}) {
   const router = useRouter();
   const pathname = usePathname();
-  const [openTabs, setOpenTabs] = useState<WorkspaceTab[]>(buildDefaultTabs);
+  const [openTabs, setOpenTabs] = useState<WorkspaceTab[]>(() =>
+    buildDefaultTabs(clients),
+  );
 
   const activeTabId = routeToActiveTabId(pathname);
 
@@ -94,7 +104,7 @@ export function WorkspaceTabProvider({ children }: { children: ReactNode }) {
 
   const openClientTab = useCallback(
     (clientId: string) => {
-      const client = getClientById(clientId);
+      const client = clients.find((c) => c.id === clientId);
       if (!client) {
         return;
       }
@@ -111,7 +121,7 @@ export function WorkspaceTabProvider({ children }: { children: ReactNode }) {
 
       router.push(`/pro/clients/${clientId}`);
     },
-    [router],
+    [clients, router],
   );
 
   const closeTab = useCallback(
@@ -159,6 +169,7 @@ export function WorkspaceTabProvider({ children }: { children: ReactNode }) {
     () => ({
       openTabs,
       activeTabId,
+      availableClients: clients,
       openClientTab,
       closeTab,
       activateTab,
@@ -168,6 +179,7 @@ export function WorkspaceTabProvider({ children }: { children: ReactNode }) {
     [
       openTabs,
       activeTabId,
+      clients,
       openClientTab,
       closeTab,
       activateTab,
@@ -189,8 +201,4 @@ export function useWorkspaceTabs() {
     throw new Error("useWorkspaceTabs must be used within WorkspaceTabProvider");
   }
   return context;
-}
-
-export function getAvailableClientsForPicker() {
-  return mockClients;
 }

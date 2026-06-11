@@ -1,5 +1,6 @@
 import "server-only";
 export * as properties from "./properties";
+export * as clients from "./clients";
 export * as documents from "./documents";
 export * as folders from "./folders";
 export * as tenants from "./tenants";

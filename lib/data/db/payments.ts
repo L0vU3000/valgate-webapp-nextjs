@@ -34,6 +34,22 @@ export async function create(
   return record;
 }
 
+export async function update(
+  userId: string,
+  id: string,
+  patch: Partial<Payment>,
+): Promise<Payment | null> {
+  const current = await get(userId, id);
+  if (!current) return null;
+  const record = PaymentSchema.parse({
+    ...current,
+    ...patch,
+    id: current.id,
+  });
+  await writeRecord(userId, COLLECTION, id, { core: { ...record } });
+  return record;
+}
+
 export async function remove(userId: string, id: string): Promise<void> {
   await deleteRecord(userId, COLLECTION, id);
 }
