@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   Home,
   Users,
+  Building2,
   Banknote,
   ClipboardList,
   Plus,
@@ -21,6 +22,7 @@ import {
 const PRIMARY_NAV = [
   { label: "Home", icon: Home, href: "/pro/dashboard" },
   { label: "Clients", icon: Users, href: "/pro/clients" },
+  { label: "Properties", icon: Building2, href: "/pro/properties" },
   { label: "Rent & Collections", icon: Banknote, href: "/pro/rent" },
   { label: "Work Orders", icon: ClipboardList, href: "/pro/work-orders" },
 ] as const;

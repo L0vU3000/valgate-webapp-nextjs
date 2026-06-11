@@ -16,7 +16,7 @@ import type { PropertyStatus } from "@/lib/data/types/property";
 // status pill, live market value, owning client, and last update.
 // The search box filters client-side over name / address / client.
 
-const TYPE_PILL: Record<ProPropertyRow["type"], string> = {
+export const TYPE_PILL: Record<ProPropertyRow["type"], string> = {
   residential:
     "bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-500/15 dark:text-blue-300 dark:border-blue-500/30",
   commercial:
@@ -34,7 +34,7 @@ const TYPE_PILL: Record<ProPropertyRow["type"], string> = {
     "bg-slate-50 text-slate-700 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
 };
 
-const STATUS_PILL: Record<PropertyStatus, string> = {
+export const STATUS_PILL: Record<PropertyStatus, string> = {
   Rented:
     "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30",
   Vacant:

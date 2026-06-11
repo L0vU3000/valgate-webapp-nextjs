@@ -114,11 +114,11 @@ pending → in_progress → complete
 ### Phase 6 (fast-follow): Compliance calendar + Properties register
 **Wiring:**
 - [ ] Compliance widget/page from Certification + Inspection + SafetyRisk (expiry calendar)
-- [ ] Cross-client Properties register (asset list with filters)
+- [x] **Cross-client Properties register** — new `/pro/properties` route + sidebar nav (Building2). Filterable asset list (search + client/type/status), 5 summary KPIs (incl. avg record-completeness), color-coded Progress bars, animated rows. Query `getProPropertiesData` reuses the shared property-row + value helpers. loading.tsx added.
 **Design:**
-- [ ] Polished calendar/timeline view with expiry-status color system; filter chips with transitions
-- [ ] Mobbin ref pass: "compliance calendar", "asset register / data table with filters"; `/ui-ux-pro-max` + `/impeccable` pass
-- **Status:** pending
+- [ ] Polished calendar/timeline view with expiry-status color system; filter chips with transitions (compliance still pending)
+- [x] Mobbin ref pass for the register (asset list / data table with filters); register table done — `/impeccable` deep pass still pending
+- **Status:** in_progress — Properties register shipped & verified; compliance calendar pending
 
 ## Key Questions (decision gate before Phase 1)
 1. Positioning: asset-manager cockpit (recommended) vs full property-mgmt CRM?

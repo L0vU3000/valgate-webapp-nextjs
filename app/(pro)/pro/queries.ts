@@ -515,6 +515,51 @@ export async function getProDashboardData(): Promise<ProDashboardData> {
   };
 }
 
+// Cross-client Properties register: the full asset list with the small
+// client list needed to power the filter, plus book-level summary stats.
+// Reuses the same property row + value helpers as the dashboard so the
+// numbers match everywhere.
+export type ProPropertiesData = {
+  properties: ProPropertyRow[];
+  clients: Array<{ id: string; name: string }>;
+  summary: {
+    totalCount: number;
+    activeCount: number;
+    totalValueFormatted: string;
+    rented: number;
+    vacant: number;
+  };
+};
+
+export async function getProPropertiesData(): Promise<ProPropertiesData> {
+  const ctx = await loadProContext();
+
+  const properties = ctx.properties
+    .map((p) => buildPropertyRow(p, ctx))
+    .filter((r): r is ProPropertyRow => r !== null)
+    .sort((a, b) => b.value - a.value);
+
+  const activeProperties = ctx.properties.filter(isActiveProperty);
+  const totalValue = sumPropertyValues(activeProperties);
+
+  // Clients that actually own at least one property, for the filter.
+  const clients = ctx.clients
+    .map((client) => ({ id: client.id, name: client.name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  return {
+    properties,
+    clients,
+    summary: {
+      totalCount: properties.length,
+      activeCount: activeProperties.length,
+      totalValueFormatted: formatCurrency(totalValue),
+      rented: activeProperties.filter((p) => p.status === "Rented").length,
+      vacant: activeProperties.filter((p) => p.status === "Vacant").length,
+    },
+  };
+}
+
 export async function getClientPortfolioData(
   clientId: string,
 ): Promise<ClientPortfolioData | null> {

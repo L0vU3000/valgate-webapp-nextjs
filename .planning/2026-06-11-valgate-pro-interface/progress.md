@@ -96,3 +96,10 @@
 - NEW motion primitive `EnterLi` (the <li> sibling of EnterTr). RentRollTable rows now use EnterTr.
 - Status buttons (Start/Resolve) stay inline — one-click status flips, no input (same rule as Mark paid).
 - Verified: tsc (pro) clean, eslint clean, build green; live screenshot of the assign modal (real vendors, pre-selection, $740 estimate). Note: ERR_CONNECTION_REFUSED in console is the Convex websocket (no local backend) — pre-existing, unrelated.
+
+## Session 2026-06-12 (cont.) — Phase 6a: cross-client Properties register
+- NEW route `/pro/properties` (page.tsx force-dynamic + PropertiesRegisterPage + loading.tsx) — the full book of real estate in one filterable list. 6th Pro route.
+- NEW query `getProPropertiesData` in queries.ts — reuses loadProContext + buildPropertyRow + sumPropertyValues so numbers match the dashboard. Returns all properties (sorted by value), client list for the filter, and summary KPIs.
+- Page: 5 summary KPIs (Properties/total + active, Portfolio Value, Rented, Vacant, Avg. Progress = mean record-completeness); filter bar (search + client + type + status, options derived from data so none are empty); table with type/status pills (exported TYPE_PILL/STATUS_PILL from AssetsTable for one source), color-coded Progress DrawInBar (green≥67/amber≥34/red), EnterTr animated rows, row→/property/[id].
+- Sidebar: added "Properties" nav item (Building2) between Clients and Rent.
+- Verified: tsc (pro) clean, eslint clean, build green (route = 10.7 kB). Live: page renders 23 properties + real KPIs ($14.5M, 13 rented, 6 vacant); type filter 23→4 for commercial confirmed. (Console noise = Agentation dev toolbar + Convex ws, both pre-existing/dev-only.)
