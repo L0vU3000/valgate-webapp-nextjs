@@ -132,3 +132,38 @@ The task plan (`.planning/2026-06-11-valgate-pro-interface/task_plan.md`) now ca
 | Output volume | ~30 files written/rewritten, ~3,900 lines of new/changed TS/TSX, 1,240-line mock deleted, 60+ seed JSON records created/updated |
 
 *Honesty note: I can report the workflow numbers exactly (the harness returns them); main-loop token totals are an estimate — check the usage dashboard for the precise figure.*
+
+---
+
+## 9. Update — 2026-06-12 (post-build: compliance, testing, CI, first schema feature)
+
+This report's sections 1–8 describe the original build. Since then (full detail in
+`.planning/2026-06-11-valgate-pro-interface/progress.md` + `task_plan.md` Phase 7):
+
+- **`/pro/compliance`** (7th route) — cert expiry timeline + open safety-risk register +
+  recent-inspection log. New `getCompliancePageData`; surfaced inspections + safetyRisks
+  (previously zero UI); fixed a latent bug (inspections were never added to `ProContext`).
+- **Test suite** — `app/(pro)/pro/queries.test.ts`, **34 Vitest tests** over all 6 page
+  queries, run against the committed seed with a **clock pinned to 2026-06-12** (see
+  `test/helpers.ts`). Golden values + cross-function invariants (the pages must agree with
+  the dashboard, since they share helpers). `npm test`.
+- **CI** — `.github/workflows/ci.yml`, **3 blocking gates** (test · lint · typecheck), all
+  green, Node 24. No `next build` job (Mapbox token + `ignoreBuildErrors` → catches nothing).
+- **Debt cleared:** 7 pre-existing tsc errors → **0**; lint config ignores `public/**` and
+  `npm run lint` is scoped to `app/lib/components` (convex + Figma `imports/` lint debt is
+  **parked, not gated** — documented in the workflow); 12 source lint errors fixed.
+- **Polish:** scale-on-press (`0.97`) on modal + prominent CTA buttons; stray `transition-all`
+  removed. Dense-table-button press + the rest of `/impeccable` still deferred.
+- **First new-schema feature — resolve safety risks:** `SafetyRisk` gained `status`
+  (`Open`/`Resolved`, `.default("Open")` → zero migration) + `resolvedAt`; new
+  `safetyRisksDb.update()` + `resolveSafetyRisk` action + per-row Resolve button. Resolved
+  risks leave the Open Risks KPI and stop raising alerts. This is the template for future
+  vertical slices.
+
+**New trap for future-you:** Zod `.default()` makes a field *optional on input but required on
+the inferred output type* — adding one ripples to every constructor (it surfaced as tsc errors
+in `scripts/fixtures/*`). Expected, and the typecheck gate catches it.
+
+**State:** product is built, tested, CI-guarded, shippable. Remaining work is discretionary —
+the rest of the polish pass, no-schema UI flows (reassign-properties, record-tenant, kanban),
+and schema-gap features needing a product decision (work-order documents, scheduled work orders).

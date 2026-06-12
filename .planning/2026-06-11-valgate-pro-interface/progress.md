@@ -117,3 +117,25 @@
 - Sidebar: added "Compliance" nav item (ShieldCheck), last.
 - Verified: tsc (pro) clean, eslint clean, build green (route = 7.36 kB, dynamic ƒ). Live: timeline buckets correct (Overdue 437d/7d/2d, 31-90d 1, Later 6 with right pills); KPI = Expired 1 · Expiring 2 · Valid 7 · Open risks 7 · Failed 1; 7 risks (High "Outdated wiring" first); 10 inspections (1 Failed visible); client filter → Tan Holdings narrows certs 10→5 / risks 7→3 / inspections 10→5 with the chip pill animating; console clean (Convex-ws + Agentation noise pre-existing).
 - Plan archived to BOTH `.claude/data-audit/docs/plans/Plan-Phase-6b-compliance.md` and `~/.claude/plans/Plan-Phase-6b-compliance.md` per the dual-archive rule.
+
+## Session 2026-06-12 (cont.) — Testing, CI hardening, polish, and the first new-schema feature (Opus 4.8)
+
+### Query-layer test suite (Vitest) — 34 tests
+- NEW tooling: `vitest.config.ts` (node env, tsconfig paths, `server-only` aliased to `test/stubs/server-only.ts`), `test/helpers.ts` (`freezeClock` pins the clock to 2026-06-12 so date-derived counts don't rot overnight), `test` / `test:watch` scripts. Deps: vitest + vite-tsconfig-paths.
+- NEW `app/(pro)/pro/queries.test.ts` — integration tests running the REAL query functions against the committed seed. Two assertion kinds: **golden values** at the pinned date + **invariants that survive seed edits**. The strongest are cross-function: rent / work-orders / client-portfolio money + counts must equal the dashboard's (shared helpers can't fork); status counts sum to totals; sorts monotonic; owner statement foots; no NaN anywhere. Covers all 6 page queries + compliance. One test is an explicit canary for the clock pin.
+
+### CI (`.github/workflows/ci.yml`) — make-green-first, then all gates blocking
+- 3 jobs on push + PR (base `valgate-webapp-nextjs-v1.0.2` / `main`), Node 24 (`actions/*@v5`), `npm ci`. No `next build` job (needs Mapbox token + `ignoreBuildErrors` makes it catch nothing).
+- Shipped typecheck/lint as report-only, then **ratcheted both to required** after clearing the debt. All three (test · lint · typecheck) now BLOCK merge and run green. Actions already enabled on the fork.
+
+### Debt cleared to make the gates green
+- **Lint:** `eslint.config` now ignores `public/**` (the committed minified pdf.js worker was the entire repo-wide explosion); `npm run lint` scoped to `app/lib/components` (the hand-written source — convex ~2000 errors + Figma `imports/` ~230 are parked, not gated, documented in the workflow); fixed the 12 real source errors (7 unescaped JSX entities, 1 prefer-const, 4 explicit-any — 2 were dead casts).
+- **Types:** fixed all 7 pre-existing tsc errors (optional `Property.province`/`.city` handling in PortfolioPage / PropertyOverviewPage / rental.ts; a bad convex `dataModel` import path). Repo at **0 tsc errors**.
+
+### Design polish — scale-on-press calibration slice
+- Added restrained `active:scale-[0.97]` tactile press to the shared modal buttons (`proPrimary`/`proSecondaryButtonClass` → every modal CTA) + the prominent page CTAs (header Create, New Work Order, Onboard/Add Client, Add Property); transitions now list exact properties (`transition-[background-color,transform]`). Fixed the one stray `transition-all` (AssetsTable input). Deliberately NOT applied to dense inline table buttons — taste call left open. (antialiased / tabular-nums / reduced-motion / concentric radii were already correct.)
+
+### First new-schema feature — resolve safety risks (full vertical slice)
+- schema → db update → action → query → UI → seed → tests. `SafetyRisk` gained `status` (Open|Resolved, `.default("Open")` = zero migration) + optional `resolvedAt`. NEW `safetyRisksDb.update()` (module had none) + `resolveSafetyRisk` action (one-click, like Mark paid). "Open Safety Risks" card lists open only, with a Resolve button; resolved risks leave the Open Risks KPI and stop raising client-health alerts; summary gained `resolvedRiskCount`. Seed: RISK-0006 marked Resolved for a visible/testable state. Tests: golden (open 7→6, resolved 1) + exclusion invariant.
+- Verified the **write path live** (resolve → row drops, KPI 6→5 / critical-high 1→0 / resolved 1→2, persists to disk), then restored the test seed to its golden state. tsc 0, lint 0, 34 tests green.
+- Learning logged: the Zod `.default()` gotcha — a defaulted field is optional on input but **required on the inferred output type**, so it surfaced as 3 tsc errors in `scripts/fixtures/safety.ts` (fixed by adding `status` there).

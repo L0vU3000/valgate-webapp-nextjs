@@ -4,14 +4,19 @@
 Rebuild the Valgate Pro interface so a pro-level asset manager can oversee many owner-clients' property portfolios, with every stat grounded in the **same shared schema + derivations as the client side**, made functional via the local-first JSON simulated backend.
 
 ## Current Phase
-Phase 6 — complete (Properties register + Compliance page both shipped 2026-06-12)
-> Phases 0–6 wiring is done (see progress.md): 7 real Pro routes (dashboard, clients,
-> clients/[id], properties, rent, work-orders, compliance), the full modal suite,
-> loading skeletons, and the shared motion vocabulary. The one open follow-up is the
-> deferred `/impeccable` deep-craft pass across the cockpit, pending user sign-off on
-> the established motion language. Remaining unchecked items below are explicitly
-> deferred sub-flows (reassign-properties modal, record-tenant modal, attach-document,
-> kanban board) noted as out-of-scope/no-schema-yet, not active work.
+Phase 7 — complete (quality infrastructure + first new-schema feature, 2026-06-12)
+> Phases 0–6 (build) are done: 7 real Pro routes (dashboard, clients, clients/[id],
+> properties, rent, work-orders, compliance), the full modal suite, loading skeletons,
+> and the shared motion vocabulary. Phase 7 added the safety net + first schema feature
+> (see Phase 7 below and progress.md): a 34-test Vitest query-layer suite, GitHub Actions
+> CI with three blocking gates (test · lint · typecheck) all green, all pre-existing tsc
+> + lint debt cleared, a scale-on-press polish slice, and the resolve-safety-risk feature
+> (the first vertical slice on new schema).
+>
+> Remaining work is all discretionary (see Phase 7 "Open / deferred"): the rest of the
+> `/impeccable` polish pass, no-schema UI flows (reassign-properties, record-tenant,
+> kanban), and schema-gap features that need a product decision first (work-order
+> documents, scheduled work orders). Nothing is required — the product is shippable.
 
 ## Locked Decisions (user greenlit recommendations 2026-06-11)
 1. Positioning: **asset-manager cockpit** (ops surfaced for triage, not tenant-ops CRM)
@@ -122,6 +127,25 @@ pending → in_progress → complete
 - [x] Polished timeline view (4 horizon groups) with expiry-status color system (shared STATUS_PILL); animated client filter chips (motion shared-layout pill, reduced-motion aware) narrowing all three sections.
 - [x] Mobbin ref pass for the register (asset list / data table with filters); register table done — `/impeccable` deep pass still pending
 - **Status:** complete — both Properties register and Compliance page shipped & verified. Design-track net-new items done; `/impeccable` deep polish pass across the Pro cockpit remains the one open follow-up (deferred pending motion-language sign-off).
+
+### Phase 7 (post-build): Quality infrastructure + first new-schema feature — 2026-06-12
+**Testing + CI (the safety net):**
+- [x] **Vitest query-layer suite** (`app/(pro)/pro/queries.test.ts`, 34 tests) — runs the real query functions against the committed seed with a **pinned clock** (`test/helpers.ts`, frozen to 2026-06-12 so date-derived counts don't rot). Golden values + seed-surviving invariants (cross-function consistency with the dashboard, sorts, ledgers foot, no NaN). Covers all 6 page queries + compliance.
+- [x] **GitHub Actions CI** (`.github/workflows/ci.yml`) — make-green-first, then **ratcheted to 3 blocking gates** (test · lint · typecheck), all green. Node 24, `npm ci`, no `next build`.
+- [x] **Cleared all pre-existing debt** to make the gates real: 7 tsc errors → 0; eslint config ignores `public/**`, `npm run lint` scoped to `app/lib/components`, 12 source errors fixed. (Convex ~2000 + Figma `imports/` ~230 lint errors **parked**, not gated — documented in the workflow.)
+
+**Design polish (calibration slice):**
+- [x] Restrained `scale-[0.97]` tactile press on shared modal buttons + prominent page CTAs; removed the one stray `transition-all`. Inline-table-button press left as an open taste call.
+- [ ] Rest of the `/impeccable` pass (headings `text-wrap: balance`, inline-button decision, shadcn base button) — still deferred.
+
+**First new-schema feature — resolve safety risks (full vertical slice):**
+- [x] Schema (`SafetyRisk.status` + `resolvedAt`, `.default("Open")` = zero migration) → `safetyRisksDb.update()` → `resolveSafetyRisk` action → query (open-only card, `resolvedRiskCount`, resolved risks stop alerting) → UI (per-row Resolve button) → seed (RISK-0006 resolved) → tests (golden + invariant). Write path verified live, seed restored.
+
+**Open / deferred (all discretionary, none blocking):**
+- **No-schema UI flows:** reassign-properties modal, record-tenant modal (type + action already exist), work-order kanban board.
+- **Schema-gap features (need a product decision first):** work-order document attachments (MaintenanceItem has no documents field), scheduled work orders (no `scheduledFor`/`Scheduled` status).
+- **Cheap follow-ons:** reopen a resolved risk (status already supports it), renew-certificate action (fields exist).
+- **Status:** complete — product is built, tested, CI-guarded, and the one real product hole (risk lifecycle) is closed. Shippable state.
 
 ## Key Questions (decision gate before Phase 1)
 1. Positioning: asset-manager cockpit (recommended) vs full property-mgmt CRM?
