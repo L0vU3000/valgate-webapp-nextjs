@@ -1,0 +1,80 @@
+name: CI
+
+# Make-green-first CI.
+#
+# This is the first automated gate on the repo, so it is deliberately honest
+# about pre-existing debt:
+#   - `test`      runs the Vitest query-layer suite and BLOCKS merge. It must
+#                 stay green — it is the contract guard for "every number traces
+#                 to a real seed field/derivation".
+#   - `typecheck` and `lint` run as informational reports (continue-on-error),
+#                 because the repo already carries known tsc/lint debt that did
+#                 NOT come from this work. They show the trend without blocking.
+#                 Ratchet each to a required check once its debt is cleared.
+#
+# There is intentionally no `next build` job: a production build needs the
+# Mapbox token and the project sets `ignoreBuildErrors`, so a build job would
+# add cost and CI minutes while catching nothing the checks below don't.
+
+on:
+  push:
+    # Run on every working branch so authors get feedback before opening a PR.
+    branches:
+      - "**"
+  pull_request:
+    # Gate the two long-lived integration branches.
+    branches:
+      - valgate-webapp-nextjs-v1.0.2
+      - main
+
+jobs:
+  test:
+    name: test (required)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          # Match the local toolchain (Node 22).
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      # The seed JSON is committed under public/data, so the query-layer tests
+      # read it in CI with zero extra setup.
+      - name: Run tests
+        run: npm test
+
+  typecheck:
+    name: typecheck (report-only)
+    runs-on: ubuntu-latest
+    # Non-blocking while the 7 known pre-existing tsc errors are outstanding.
+    # Flip to a required check (remove continue-on-error) once they are fixed.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Type-check
+        run: npx tsc --noEmit
+
+  lint:
+    name: lint (report-only)
+    runs-on: ubuntu-latest
+    # Non-blocking while the eslint flat-config gap + known source warnings are
+    # outstanding. Flip to a required check once they are fixed.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Lint
+        run: npm run lint
