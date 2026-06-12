@@ -4,6 +4,9 @@ import {
   getCompliancePageData,
   getProDashboardData,
   getProPropertiesData,
+  getRentPageData,
+  getWorkOrdersPageData,
+  getClientPortfolioData,
 } from "./queries";
 
 // ---------------------------------------------------------------------------
@@ -267,6 +270,256 @@ describe("getProPropertiesData", () => {
     );
     for (const client of data.clients) {
       expect(owningClientNames.has(client.name)).toBe(true);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getRentPageData()
+// ---------------------------------------------------------------------------
+
+describe("getRentPageData", () => {
+  // rentRoll is sorted by this rank (most-urgent first); used to verify order.
+  const rentStatusRank: Record<string, number> = {
+    Overdue: 0,
+    Unpaid: 1,
+    Pending: 2,
+    Paid: 3,
+  };
+
+  it("labels the period as the pinned calendar month", async () => {
+    const data = await getRentPageData();
+    expect(data.monthLabel).toBe("June 2026");
+  });
+
+  it("derives the same money totals as the dashboard", async () => {
+    // expected / collected come from the same sumExpectedRent /
+    // sumCollectedRent helpers the dashboard uses, so the two pages must
+    // never disagree about this month's rent. A drift here means one page
+    // forked the calculation.
+    const [rent, dash] = await Promise.all([
+      getRentPageData(),
+      getProDashboardData(),
+    ]);
+    expect(rent.expected).toBe(dash.financials.expected);
+    expect(rent.collected).toBe(dash.financials.collected);
+    expect(rent.occupancy.rented).toBe(dash.occupancy.rented);
+    expect(rent.occupancy.vacant).toBe(dash.occupancy.vacant);
+  });
+
+  it("keeps outstanding and collection-rate coherent", async () => {
+    const data = await getRentPageData();
+    expect(data.outstanding).toBe(Math.max(0, data.expected - data.collected));
+    expect(data.collectionRate).toBeGreaterThanOrEqual(0);
+    expect(data.collectionRate).toBeLessThanOrEqual(100);
+    if (data.expected > 0) {
+      expect(data.collectionRate).toBe(
+        Math.round((data.collected / data.expected) * 100),
+      );
+    }
+  });
+
+  it("sorts the rent roll most-urgent first", async () => {
+    const data = await getRentPageData();
+    for (let i = 1; i < data.rentRoll.length; i++) {
+      expect(rentStatusRank[data.rentRoll[i].rentStatus]).toBeGreaterThanOrEqual(
+        rentStatusRank[data.rentRoll[i - 1].rentStatus],
+      );
+    }
+  });
+
+  it("derives the overdue list straight from the rent roll", async () => {
+    const data = await getRentPageData();
+    // Every overdue row is an unpaid/overdue row that also appears in the roll.
+    const rollIds = new Set(data.rentRoll.map((r) => r.leaseId));
+    for (const row of data.overdue) {
+      expect(["Overdue", "Unpaid"]).toContain(row.rentStatus);
+      expect(rollIds.has(row.leaseId)).toBe(true);
+    }
+  });
+
+  it("only lists leases expiring within 90 days, soonest first", async () => {
+    const data = await getRentPageData();
+    for (const e of data.expiring) {
+      expect(e.daysLeft).toBeGreaterThanOrEqual(0);
+      expect(e.daysLeft).toBeLessThanOrEqual(90);
+      // The renew preview must advance the end date, never move it backward.
+      expect(e.projectedEndDate).toBeGreaterThan(e.endDate);
+    }
+    for (let i = 1; i < data.expiring.length; i++) {
+      expect(data.expiring[i].endDate).toBeGreaterThanOrEqual(
+        data.expiring[i - 1].endDate,
+      );
+    }
+  });
+
+  it("returns a 6-month cashflow series with no NaN money", async () => {
+    const data = await getRentPageData();
+    expect(data.series).toHaveLength(6);
+    for (const point of data.series) {
+      expectRealNumber(point.collected, `series ${point.month}`);
+      expect(point.collected).toBeGreaterThanOrEqual(0);
+    }
+    for (const key of ["expected", "collected", "outstanding"] as const) {
+      expectRealNumber(data[key], key);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getWorkOrdersPageData()
+// ---------------------------------------------------------------------------
+
+describe("getWorkOrdersPageData", () => {
+  it("agrees with the dashboard on the work-order counts", async () => {
+    const [wo, dash] = await Promise.all([
+      getWorkOrdersPageData(),
+      getProDashboardData(),
+    ]);
+    expect(wo.counts.open).toBe(dash.workOrders.counts.open);
+    expect(wo.counts.inProgress).toBe(dash.workOrders.counts.inProgress);
+    expect(wo.counts.resolved).toBe(dash.workOrders.counts.resolved);
+  });
+
+  it("lists every work order exactly once across the status buckets", async () => {
+    const data = await getWorkOrdersPageData();
+    // Each maintenance item has exactly one status, so the rows must total the
+    // three status counts. A mismatch means a row was dropped (orphaned
+    // property join) or double-counted.
+    const { open, inProgress, resolved } = data.counts;
+    expect(data.rows.length).toBe(open + inProgress + resolved);
+  });
+
+  it("computes totalOpenCost as the sum of unresolved costs", async () => {
+    const data = await getWorkOrdersPageData();
+    const expected = data.rows
+      .filter((r) => r.status !== "Resolved")
+      .reduce((sum, r) => sum + (r.cost ?? 0), 0);
+    expect(data.totalOpenCost).toBe(expected);
+  });
+
+  it("sorts rows by status, then severity, then newest", async () => {
+    const data = await getWorkOrdersPageData();
+    const statusRank: Record<string, number> = {
+      Open: 0,
+      InProgress: 1,
+      Resolved: 2,
+    };
+    const severityRank = (s: string) =>
+      s === "Emergency" ? 0 : s === "Urgent" ? 1 : 2;
+    const key = (r: (typeof data.rows)[number]) => [
+      statusRank[r.status],
+      severityRank(r.severity),
+      -r.createdAt,
+    ];
+    for (let i = 1; i < data.rows.length; i++) {
+      const prev = key(data.rows[i - 1]);
+      const cur = key(data.rows[i]);
+      // Lexicographic non-decreasing.
+      expect(prev[0] <= cur[0]).toBe(true);
+      if (prev[0] === cur[0]) {
+        expect(prev[1] <= cur[1]).toBe(true);
+        if (prev[1] === cur[1]) expect(prev[2] <= cur[2]).toBe(true);
+      }
+    }
+  });
+
+  it("offers only real, dispatchable vendors and named properties", async () => {
+    const data = await getWorkOrdersPageData();
+    for (const v of data.vendors) {
+      expect(v.name.length).toBeGreaterThan(0);
+      expect(typeof v.available).toBe("boolean");
+      expectRealNumber(v.rating, `vendor ${v.id} rating`);
+    }
+    for (const p of data.properties) {
+      expect(p.name.length).toBeGreaterThan(0);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getClientPortfolioData()
+// ---------------------------------------------------------------------------
+
+describe("getClientPortfolioData", () => {
+  // Resolve a real client id from the dashboard rather than hardcoding one, so
+  // the test survives a re-seed that renumbers clients.
+  async function firstClientId(): Promise<string> {
+    const dash = await getProDashboardData();
+    return dash.clients[0].client.id;
+  }
+
+  it("returns null for a client that does not exist", async () => {
+    const data = await getClientPortfolioData("CLI-does-not-exist");
+    expect(data).toBeNull();
+  });
+
+  it("scopes every record to the requested client", async () => {
+    const clientId = await firstClientId();
+    const data = await getClientPortfolioData(clientId);
+    expect(data).not.toBeNull();
+    if (!data) return;
+
+    expect(data.rollup.client.id).toBe(clientId);
+    for (const p of data.properties) expect(p.clientId).toBe(clientId);
+    for (const w of data.workOrders) expect(w.clientId).toBe(clientId);
+    for (const c of data.compliance) expect(c.clientId).toBe(clientId);
+  });
+
+  it("matches the dashboard's rollup for the same client", async () => {
+    const clientId = await firstClientId();
+    const [portfolio, dash] = await Promise.all([
+      getClientPortfolioData(clientId),
+      getProDashboardData(),
+    ]);
+    expect(portfolio).not.toBeNull();
+    if (!portfolio) return;
+
+    const dashRollup = dash.clients.find((c) => c.client.id === clientId);
+    expect(dashRollup).toBeDefined();
+    // Both call buildClientRollup with the same ctx + pinned month, so the
+    // standalone portfolio page and the dashboard card must report identical
+    // headline figures.
+    expect(portfolio.rollup.totalValue).toBe(dashRollup!.totalValue);
+    expect(portfolio.rollup.propertyCount).toBe(dashRollup!.propertyCount);
+    expect(portfolio.rollup.monthlyExpected).toBe(dashRollup!.monthlyExpected);
+    expect(portfolio.rollup.monthlyCollected).toBe(dashRollup!.monthlyCollected);
+  });
+
+  it("builds a balanced owner statement for the previous month", async () => {
+    const clientId = await firstClientId();
+    const data = await getClientPortfolioData(clientId);
+    expect(data).not.toBeNull();
+    if (!data) return;
+
+    const s = data.ownerStatement;
+    // Pinned now is June 2026, so the statement covers the prior full month.
+    expect(s.monthLabel).toBe("May 2026");
+
+    // The ledger must foot: expenses are the sum of their parts, and NOI is
+    // income minus those expenses. These are the lines an owner reads.
+    expect(s.totalExpenses).toBe(
+      s.managementFee + s.taxAccrual + s.insuranceAccrual + s.maintenanceCosts,
+    );
+    expect(s.netOperatingIncome).toBe(
+      s.rentCollected + s.otherIncome - s.totalExpenses,
+    );
+    expect(s.managementFee).toBe(
+      Math.round((s.rentCollected * s.managementFeePct) / 100),
+    );
+    expect(s.occupancyRate).toBeGreaterThanOrEqual(0);
+    expect(s.occupancyRate).toBeLessThanOrEqual(100);
+  });
+
+  it("returns a 6-month financial series with no NaN", async () => {
+    const clientId = await firstClientId();
+    const data = await getClientPortfolioData(clientId);
+    expect(data).not.toBeNull();
+    if (!data) return;
+
+    expect(data.financialSeries).toHaveLength(6);
+    for (const point of data.financialSeries) {
+      expectRealNumber(point.collected, `series ${point.month}`);
     }
   });
 });
