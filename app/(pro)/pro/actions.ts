@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import * as paymentsDb from "@/lib/data/db/payments";
 import * as leasesDb from "@/lib/data/db/leases";
 import * as maintenanceDb from "@/lib/data/db/maintenance-items";
+import * as safetyRisksDb from "@/lib/data/db/safety-risks";
 import * as clientsDb from "@/lib/data/db/clients";
 import * as propertiesDb from "@/lib/data/db/properties";
 import { getCurrentUserId } from "@/lib/data/auth-shim";
@@ -253,6 +254,35 @@ export async function onboardClient(input: {
     }
   }
 
+  revalidatePro();
+  return { ok: true };
+}
+
+// --- Compliance -------------------------------------------------------------
+
+const resolveSafetyRiskSchema = z.object({
+  riskId: z.string().min(1),
+});
+
+// Marks an open safety risk as Resolved and stamps the resolution time.
+// One-way and one-click (no modal), matching "Mark paid" and the work-order
+// status flips — a resolution captures no extra input.
+export async function resolveSafetyRisk(input: {
+  riskId: string;
+}): Promise<ProActionResult> {
+  const parsed = resolveSafetyRiskSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid input." };
+
+  const userId = getCurrentUserId();
+  const updated = await safetyRisksDb.update(userId, parsed.data.riskId, {
+    status: "Resolved",
+    resolvedAt: Date.now(),
+    updatedAt: Date.now(),
+  });
+  if (!updated) {
+    logger.error("resolveSafetyRisk: risk not found", input);
+    return { ok: false, error: "Could not resolve this risk." };
+  }
   revalidatePro();
   return { ok: true };
 }

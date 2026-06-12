@@ -40,6 +40,7 @@ import type { Certification } from "@/lib/data/types/certification";
 import type {
   SafetyRisk,
   SafetyRiskSeverity,
+  SafetyRiskStatus,
 } from "@/lib/data/types/safety-risk";
 import type { Inspection } from "@/lib/data/types/inspection";
 import type { Professional } from "@/lib/data/types/professional";
@@ -588,6 +589,8 @@ export type ProSafetyRiskRow = {
   severity: SafetyRiskSeverity;
   title: string;
   description: string;
+  status: SafetyRiskStatus;
+  resolvedAt?: number;
   createdAt: number;
   propertyName: string;
   clientName: string;
@@ -620,6 +623,7 @@ export type CompliancePageData = {
     expiringCount: number;
     validCount: number;
     openRiskCount: number;
+    resolvedRiskCount: number;
     highRiskCount: number;
     failedInspections: number;
   };
@@ -633,7 +637,7 @@ export async function getCompliancePageData(): Promise<CompliancePageData> {
 
   // Safety risks — join each to its property/client, then sort by severity
   // (Critical first), breaking ties with the most recently raised first.
-  const safetyRisks = ctx.safetyRisks
+  const allSafetyRiskRows = ctx.safetyRisks
     .map((risk) => {
       const property = ctx.propertyById.get(risk.propertyId);
       const client = property?.clientId
@@ -644,6 +648,8 @@ export async function getCompliancePageData(): Promise<CompliancePageData> {
         severity: risk.severity,
         title: risk.title,
         description: risk.description,
+        status: risk.status,
+        resolvedAt: risk.resolvedAt,
         createdAt: risk.createdAt,
         propertyName: property?.name ?? "Unknown property",
         clientName: client?.name ?? "Unassigned",
@@ -655,6 +661,10 @@ export async function getCompliancePageData(): Promise<CompliancePageData> {
         safetyRiskSeverityRank(a.severity) -
           safetyRiskSeverityRank(b.severity) || b.createdAt - a.createdAt,
     );
+
+  // The "Open Safety Risks" card shows only unresolved risks. Resolving one
+  // drops it from this list and from openRiskCount, so the KPI falls.
+  const safetyRisks = allSafetyRiskRows.filter((r) => r.status === "Open");
 
   // Inspections — join each to its property/client, newest inspection first.
   const inspections = ctx.inspections
@@ -704,6 +714,7 @@ export async function getCompliancePageData(): Promise<CompliancePageData> {
         .length,
       validCount: certifications.filter((c) => c.status === "Valid").length,
       openRiskCount: safetyRisks.length,
+      resolvedRiskCount: allSafetyRiskRows.length - safetyRisks.length,
       highRiskCount: safetyRisks.filter(
         (r) => r.severity === "Critical" || r.severity === "High",
       ).length,
@@ -1156,8 +1167,10 @@ function deriveClientAlerts(
     });
   }
 
-  // SafetyRisk.severity — Critical/High open risks (urgent)
+  // SafetyRisk.severity — Critical/High open risks (urgent). Resolved risks
+  // no longer raise an alert.
   for (const risk of safetyRisks) {
+    if (risk.status === "Resolved") continue;
     if (risk.severity !== "Critical" && risk.severity !== "High") continue;
     alerts.push({
       id: `alert-${risk.id}`,

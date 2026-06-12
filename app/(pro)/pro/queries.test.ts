@@ -50,15 +50,28 @@ describe("getCompliancePageData", () => {
   it("returns the golden summary counts at the pinned date", async () => {
     const data = await getCompliancePageData();
 
-    // Live-verified against the rendered /pro/compliance page.
+    // Live-verified against the rendered /pro/compliance page. One Low risk
+    // (RISK-0006) is seeded Resolved, so the open register holds 6 of the 7.
     expect(data.summary).toEqual({
       expiredCount: 1,
       expiringCount: 2,
       validCount: 7,
-      openRiskCount: 7,
+      openRiskCount: 6,
+      resolvedRiskCount: 1,
       highRiskCount: 1,
       failedInspections: 1,
     });
+  });
+
+  it("excludes resolved risks from the open register", async () => {
+    const data = await getCompliancePageData();
+
+    // The card shows only open risks, so a resolved one must not appear...
+    expect(data.safetyRisks.every((r) => r.status === "Open")).toBe(true);
+    expect(data.safetyRisks.some((r) => r.id === "RISK-0006")).toBe(false);
+    // ...and openRiskCount tracks exactly the rows on the card.
+    expect(data.summary.openRiskCount).toBe(data.safetyRisks.length);
+    expect(data.summary.resolvedRiskCount).toBe(1);
   });
 
   it("partitions certifications by STATUS so the KPI strip reconciles", async () => {

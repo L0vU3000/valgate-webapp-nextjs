@@ -65,7 +65,10 @@ export function CompliancePage({ data }: { data: CompliancePageData }) {
     {
       value: String(summary.openRiskCount),
       label: "Open Risks",
-      subLabel: `${summary.highRiskCount} critical/high`,
+      subLabel:
+        summary.resolvedRiskCount > 0
+          ? `${summary.highRiskCount} critical/high · ${summary.resolvedRiskCount} resolved`
+          : `${summary.highRiskCount} critical/high`,
     },
     {
       value: String(summary.failedInspections),

@@ -102,6 +102,7 @@ export const safetyRisks: NewSafetyRisk[] = [
   {
     propertyId: "PROP-0006",
     severity: "High",
+    status: "Open",
     title: "Outdated wiring",
     description: "Knob-and-tube wiring in west wall — needs full replacement before next inspection.",
     createdAt: now,
@@ -110,6 +111,7 @@ export const safetyRisks: NewSafetyRisk[] = [
   {
     propertyId: "PROP-0011",
     severity: "Medium",
+    status: "Open",
     title: "Smoke alarm overdue",
     description: "Two smoke alarms on second floor have not been tested in 14 months.",
     createdAt: now,
@@ -118,6 +120,7 @@ export const safetyRisks: NewSafetyRisk[] = [
   {
     propertyId: "PROP-0001",
     severity: "Low",
+    status: "Open",
     title: "Loose handrail",
     description: "Front porch handrail wobbles — schedule cosmetic repair within the quarter.",
     createdAt: now,
