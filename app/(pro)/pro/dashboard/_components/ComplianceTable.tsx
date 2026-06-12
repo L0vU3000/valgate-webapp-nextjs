@@ -9,7 +9,9 @@ import type { CertificationStatus } from "@/lib/data/types/certification";
 // Real Certification records joined to their property and client,
 // sorted by expiry date in the query layer.
 
-const STATUS_PILL: Record<CertificationStatus, string> = {
+// Cert-status pill colors. Exported so the /pro/compliance timeline shares
+// one source of truth for Valid / Expiring / Expired styling.
+export const STATUS_PILL: Record<CertificationStatus, string> = {
   Valid:
     "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30",
   Expiring:

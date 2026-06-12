@@ -37,7 +37,11 @@ import type {
   MaintenanceStatus,
 } from "@/lib/data/types/maintenance-item";
 import type { Certification } from "@/lib/data/types/certification";
-import type { SafetyRisk } from "@/lib/data/types/safety-risk";
+import type {
+  SafetyRisk,
+  SafetyRiskSeverity,
+} from "@/lib/data/types/safety-risk";
+import type { Inspection } from "@/lib/data/types/inspection";
 import type { Professional } from "@/lib/data/types/professional";
 
 // ---------------------------------------------------------------------------
@@ -136,6 +140,10 @@ export type ProComplianceRow = {
   status: Certification["status"];
   expiresAt: number;
   dueLabel: string;
+  // Whole days until expiry, computed server-side at request time (the
+  // route is force-dynamic). Negative = already overdue. The compliance
+  // timeline buckets on this; the dashboard's ComplianceTable ignores it.
+  daysLeft: number;
   propertyId: string;
   propertyName: string;
   clientId: string;
@@ -330,6 +338,7 @@ type ProContext = {
   maintenance: MaintenanceItem[];
   certifications: Certification[];
   safetyRisks: SafetyRisk[];
+  inspections: Inspection[];
   professionals: Professional[];
   progressByPropertyId: Map<string, number>;
   propertyById: Map<string, Property>;
@@ -418,6 +427,7 @@ async function loadProContext(): Promise<ProContext> {
     maintenance,
     certifications,
     safetyRisks,
+    inspections,
     professionals,
     progressByPropertyId,
     propertyById: new Map(properties.map((p) => [p.id, p])),
@@ -556,6 +566,149 @@ export async function getProPropertiesData(): Promise<ProPropertiesData> {
       totalValueFormatted: formatCurrency(totalValue),
       rented: activeProperties.filter((p) => p.status === "Rented").length,
       vacant: activeProperties.filter((p) => p.status === "Vacant").length,
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Compliance page (/pro/compliance)
+//
+// A read-only oversight surface that brings together three real record
+// types the dashboard touches but never fully shows:
+//   - Certifications — the expiry timeline (already shaped by
+//     buildComplianceRows; we bucket on its server-computed daysLeft).
+//   - SafetyRisks — open risks per property, ranked by severity. Every
+//     listed risk is "open" (the schema has no resolved flag).
+//   - Inspections — the recent inspection log, newest first.
+// ---------------------------------------------------------------------------
+
+// One open safety risk, joined to its property and owning client.
+export type ProSafetyRiskRow = {
+  id: string;
+  severity: SafetyRiskSeverity;
+  title: string;
+  description: string;
+  createdAt: number;
+  propertyName: string;
+  clientName: string;
+  clientId: string;
+};
+
+// One inspection record, joined to its property and owning client. The
+// inspector name is intentionally omitted: inspectorId does not reliably
+// resolve through professionalById, so we keep the join out rather than
+// render a "—" placeholder.
+export type ProInspectionRow = {
+  id: string;
+  type: Inspection["type"];
+  status: Inspection["status"];
+  issues: number;
+  inspectedAt: number;
+  propertyName: string;
+  clientName: string;
+  clientId: string;
+};
+
+export type CompliancePageData = {
+  certifications: ProComplianceRow[];
+  safetyRisks: ProSafetyRiskRow[];
+  inspections: ProInspectionRow[];
+  // The owning clients, for the filter chip row.
+  clients: Array<{ id: string; name: string }>;
+  summary: {
+    expiredCount: number;
+    expiringCount: number;
+    validCount: number;
+    openRiskCount: number;
+    highRiskCount: number;
+    failedInspections: number;
+  };
+};
+
+export async function getCompliancePageData(): Promise<CompliancePageData> {
+  const ctx = await loadProContext();
+
+  // Certifications — already joined + sorted by expiry in buildComplianceRows.
+  const certifications = buildComplianceRows(ctx);
+
+  // Safety risks — join each to its property/client, then sort by severity
+  // (Critical first), breaking ties with the most recently raised first.
+  const safetyRisks = ctx.safetyRisks
+    .map((risk) => {
+      const property = ctx.propertyById.get(risk.propertyId);
+      const client = property?.clientId
+        ? ctx.clientById.get(property.clientId)
+        : undefined;
+      return {
+        id: risk.id,
+        severity: risk.severity,
+        title: risk.title,
+        description: risk.description,
+        createdAt: risk.createdAt,
+        propertyName: property?.name ?? "Unknown property",
+        clientName: client?.name ?? "Unassigned",
+        clientId: client?.id ?? "",
+      };
+    })
+    .sort(
+      (a, b) =>
+        safetyRiskSeverityRank(a.severity) -
+          safetyRiskSeverityRank(b.severity) || b.createdAt - a.createdAt,
+    );
+
+  // Inspections — join each to its property/client, newest inspection first.
+  const inspections = ctx.inspections
+    .map((inspection) => {
+      const property = ctx.propertyById.get(inspection.propertyId);
+      const client = property?.clientId
+        ? ctx.clientById.get(property.clientId)
+        : undefined;
+      return {
+        id: inspection.id,
+        type: inspection.type,
+        status: inspection.status,
+        issues: inspection.issues,
+        inspectedAt: inspection.inspectedAt,
+        propertyName: property?.name ?? "Unknown property",
+        clientName: client?.name ?? "Unassigned",
+        clientId: client?.id ?? "",
+      };
+    })
+    .sort((a, b) => b.inspectedAt - a.inspectedAt);
+
+  // The clients that actually own at least one of these records, so the
+  // filter chips never offer a client with nothing to show.
+  const clientIdsWithRecords = new Set<string>();
+  for (const cert of certifications) clientIdsWithRecords.add(cert.clientId);
+  for (const risk of safetyRisks) clientIdsWithRecords.add(risk.clientId);
+  for (const inspection of inspections) {
+    clientIdsWithRecords.add(inspection.clientId);
+  }
+  const clients = ctx.clients
+    .filter((client) => clientIdsWithRecords.has(client.id))
+    .map((client) => ({ id: client.id, name: client.name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  return {
+    certifications,
+    safetyRisks,
+    inspections,
+    clients,
+    summary: {
+      // The three cert-status counts mirror the colored status pills on the
+      // page and sum to the total, so the KPI strip always reconciles with
+      // what the manager sees in the timeline (a cert flagged "Expiring"
+      // counts here even once its expiry date has slipped past).
+      expiredCount: certifications.filter((c) => c.status === "Expired").length,
+      expiringCount: certifications.filter((c) => c.status === "Expiring")
+        .length,
+      validCount: certifications.filter((c) => c.status === "Valid").length,
+      openRiskCount: safetyRisks.length,
+      highRiskCount: safetyRisks.filter(
+        (r) => r.severity === "Critical" || r.severity === "High",
+      ).length,
+      failedInspections: inspections.filter((i) => i.status === "Failed")
+        .length,
     },
   };
 }
@@ -899,6 +1052,11 @@ function rentStatusRank(s: RentStatus): number {
   return s === "Overdue" ? 0 : s === "Unpaid" ? 1 : s === "Pending" ? 2 : 3;
 }
 
+// Orders safety risks most-severe first for the compliance register.
+function safetyRiskSeverityRank(s: SafetyRiskSeverity): number {
+  return s === "Critical" ? 0 : s === "High" ? 1 : s === "Medium" ? 2 : 3;
+}
+
 function countWorkOrders(maintenance: MaintenanceItem[]): {
   open: number;
   inProgress: number;
@@ -1216,6 +1374,7 @@ function buildComplianceRows(ctx: ProContext): ProComplianceRow[] {
         status: cert.status,
         expiresAt: cert.expiresAt,
         dueLabel,
+        daysLeft: daysDiff,
         propertyId: property.id,
         propertyName: property.name,
         clientId: client?.id ?? "",

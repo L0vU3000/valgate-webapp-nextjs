@@ -7,6 +7,7 @@ import {
   Building2,
   Banknote,
   ClipboardList,
+  ShieldCheck,
   Plus,
 } from "lucide-react";
 import { cn } from "@/components/ui/utils";
@@ -25,6 +26,7 @@ const PRIMARY_NAV = [
   { label: "Properties", icon: Building2, href: "/pro/properties" },
   { label: "Rent & Collections", icon: Banknote, href: "/pro/rent" },
   { label: "Work Orders", icon: ClipboardList, href: "/pro/work-orders" },
+  { label: "Compliance", icon: ShieldCheck, href: "/pro/compliance" },
 ] as const;
 
 // Left sidebar of the Pro shell: navigation, the manager's client book

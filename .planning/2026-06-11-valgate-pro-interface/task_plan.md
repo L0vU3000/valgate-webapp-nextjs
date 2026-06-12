@@ -4,11 +4,14 @@
 Rebuild the Valgate Pro interface so a pro-level asset manager can oversee many owner-clients' property portfolios, with every stat grounded in the **same shared schema + derivations as the client side**, made functional via the local-first JSON simulated backend.
 
 ## Current Phase
-Phase 2 — Manager Dashboard (re-ground on real rollups + design polish)
-> Phases 0 and 1 are complete (see progress.md). The full query layer
-> (`app/(pro)/pro/queries.ts`, 1,387 lines) already returns real, schema-grounded
-> data for every remaining phase. What's left (Phases 2–6) is wiring components to
-> those queries **and** raising every surface to production design quality.
+Phase 6 — complete (Properties register + Compliance page both shipped 2026-06-12)
+> Phases 0–6 wiring is done (see progress.md): 7 real Pro routes (dashboard, clients,
+> clients/[id], properties, rent, work-orders, compliance), the full modal suite,
+> loading skeletons, and the shared motion vocabulary. The one open follow-up is the
+> deferred `/impeccable` deep-craft pass across the cockpit, pending user sign-off on
+> the established motion language. Remaining unchecked items below are explicitly
+> deferred sub-flows (reassign-properties modal, record-tenant modal, attach-document,
+> kanban board) noted as out-of-scope/no-schema-yet, not active work.
 
 ## Locked Decisions (user greenlit recommendations 2026-06-11)
 1. Positioning: **asset-manager cockpit** (ops surfaced for triage, not tenant-ops CRM)
@@ -113,12 +116,12 @@ pending → in_progress → complete
 
 ### Phase 6 (fast-follow): Compliance calendar + Properties register
 **Wiring:**
-- [ ] Compliance widget/page from Certification + Inspection + SafetyRisk (expiry calendar)
+- [x] **Compliance page** from Certification + Inspection + SafetyRisk — new `/pro/compliance` route + sidebar nav (ShieldCheck). Cert expiry timeline (agenda grouped by horizon, not a month grid — most certs are far-future), open safety-risk register, recent-inspection log. Query `getCompliancePageData` reuses loadProContext; surfaces inspections + safetyRisks (previously zero UI) and fixes the missing-inspections-on-ProContext bug. loading.tsx added.
 - [x] **Cross-client Properties register** — new `/pro/properties` route + sidebar nav (Building2). Filterable asset list (search + client/type/status), 5 summary KPIs (incl. avg record-completeness), color-coded Progress bars, animated rows. Query `getProPropertiesData` reuses the shared property-row + value helpers. loading.tsx added.
 **Design:**
-- [ ] Polished calendar/timeline view with expiry-status color system; filter chips with transitions (compliance still pending)
+- [x] Polished timeline view (4 horizon groups) with expiry-status color system (shared STATUS_PILL); animated client filter chips (motion shared-layout pill, reduced-motion aware) narrowing all three sections.
 - [x] Mobbin ref pass for the register (asset list / data table with filters); register table done — `/impeccable` deep pass still pending
-- **Status:** in_progress — Properties register shipped & verified; compliance calendar pending
+- **Status:** complete — both Properties register and Compliance page shipped & verified. Design-track net-new items done; `/impeccable` deep polish pass across the Pro cockpit remains the one open follow-up (deferred pending motion-language sign-off).
 
 ## Key Questions (decision gate before Phase 1)
 1. Positioning: asset-manager cockpit (recommended) vs full property-mgmt CRM?
