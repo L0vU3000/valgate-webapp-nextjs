@@ -105,7 +105,7 @@ export function ProAppHeader({
               type="button"
               aria-expanded={createOpen}
               onClick={() => setCreateOpen((open) => !open)}
-              className="inline-flex h-9 items-center gap-1.5 rounded-md bg-interactive-primary px-3 text-[13px] font-medium text-white transition-colors hover:bg-blue-700"
+              className="inline-flex h-9 items-center gap-1.5 rounded-md bg-interactive-primary px-3 text-[13px] font-medium text-white transition-[background-color,transform] hover:bg-blue-700 active:scale-[0.97]"
             >
               <Plus className="h-4 w-4" />
               Create

@@ -39,11 +39,15 @@ export const proInputClass =
 // Selects share the input look but reserve room for the native chevron.
 export const proSelectClass = cn(proInputClass, "pr-8");
 
+// Buttons get a restrained scale-on-press (0.97 — subtle for a dense pro
+// tool). The transition lists exact properties (never `all`); transform is
+// included so the press eases rather than snaps. disabled buttons opt out via
+// the active: variant only firing on real presses.
 export const proPrimaryButtonClass =
-  "inline-flex h-9 items-center justify-center rounded-md bg-blue-600 px-4 text-[13px] font-medium text-white transition-colors hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 disabled:cursor-not-allowed disabled:opacity-60";
+  "inline-flex h-9 items-center justify-center rounded-md bg-blue-600 px-4 text-[13px] font-medium text-white transition-[background-color,transform] hover:bg-blue-700 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100";
 
 export const proSecondaryButtonClass =
-  "inline-flex h-9 items-center justify-center rounded-md border border-slate-200 px-4 text-[13px] font-medium text-slate-700 transition-colors hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-200 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800/60";
+  "inline-flex h-9 items-center justify-center rounded-md border border-slate-200 px-4 text-[13px] font-medium text-slate-700 transition-[background-color,transform] hover:bg-slate-50 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-200 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800/60";
 
 // ---------------------------------------------------------------------------
 // ProModal — the dialog shell. Controlled via `open` / `onOpenChange`.

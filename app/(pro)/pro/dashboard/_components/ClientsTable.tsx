@@ -53,7 +53,7 @@ export function ClientsTable({ clients }: { clients: ClientRollup[] }) {
           </Link>
           <Link
             href="/pro/clients"
-            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-blue-600 text-white text-[12.5px] font-medium hover:bg-blue-700 transition-colors"
+            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-blue-600 text-white text-[12.5px] font-medium hover:bg-blue-700 transition-[background-color,transform] active:scale-[0.97]"
           >
             <Plus className="w-3.5 h-3.5" />
             Add Client
