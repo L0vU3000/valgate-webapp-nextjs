@@ -334,7 +334,7 @@ export function computeHeatmapData(properties: Property[], leases: Lease[]): Pro
   const bySuburb = new Map<string, Property[]>();
   for (const p of properties) {
     if (p.isArchived) continue;
-    const suburb = p.city || p.province;
+    const suburb = p.city || p.province || "Unknown";
     const arr = bySuburb.get(suburb) ?? [];
     arr.push(p);
     bySuburb.set(suburb, arr);

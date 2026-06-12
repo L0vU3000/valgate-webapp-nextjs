@@ -1,25 +1,22 @@
 name: CI
 
-# Make-green-first CI.
+# CI: three blocking gates.
 #
-# This is the first automated gate on the repo, so it is deliberately honest
-# about pre-existing debt:
-#   - `test`      runs the Vitest query-layer suite and BLOCKS merge. It must
-#                 stay green — it is the contract guard for "every number traces
-#                 to a real seed field/derivation".
-#   - `lint`      BLOCKS merge. `npm run lint` is scoped to the source we hand-
-#                 write (app / lib / components) and is at zero errors. It does
-#                 NOT lint the parked Convex backend or the Figma-generated
-#                 `imports/` tree — those carry their own large debt and are a
-#                 separate cleanup; gating UI work on them would be wrong.
-#   - `typecheck` runs as an informational report (continue-on-error), because
-#                 the repo still carries 7 known pre-existing tsc errors that did
-#                 NOT come from this work. It shows the trend without blocking.
-#                 Ratchet it to required once those are fixed.
+#   - `test`      runs the Vitest query-layer suite. It is the contract guard
+#                 for "every number traces to a real seed field/derivation".
+#   - `lint`      `npm run lint`, scoped to the source we hand-write
+#                 (app / lib / components), at zero errors. It does NOT lint the
+#                 parked Convex backend or the Figma-generated `imports/` tree —
+#                 those carry their own large debt and are a separate cleanup;
+#                 gating UI work on them would be wrong.
+#   - `typecheck` `tsc --noEmit` across the whole repo, at zero errors. (Unlike
+#                 lint this is repo-wide, since a type error anywhere can break a
+#                 build; the 7 pre-existing errors were fixed to get here.)
 #
-# There is intentionally no `next build` job: a production build needs the
-# Mapbox token and the project sets `ignoreBuildErrors`, so a build job would
-# add cost and CI minutes while catching nothing the checks below don't.
+# All three block merge. There is intentionally no `next build` job: a
+# production build needs the Mapbox token and the project sets
+# `ignoreBuildErrors`, so it would add CI minutes while catching nothing the
+# checks below don't.
 
 on:
   push:
@@ -51,11 +48,9 @@ jobs:
         run: npm test
 
   typecheck:
-    name: typecheck (report-only)
+    name: typecheck (required)
     runs-on: ubuntu-latest
-    # Non-blocking while the 7 known pre-existing tsc errors are outstanding.
-    # Flip to a required check (remove continue-on-error) once they are fixed.
-    continue-on-error: true
+    # Blocking: the repo is at zero tsc errors.
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5

@@ -3,7 +3,7 @@ import { mutation, query, action } from "../_generated/server";
 import { components } from "../_generated/api";
 import { createThread } from "@convex-dev/agent";
 import { copilotAgent } from "./copilot";
-import type { Id } from "convex/_generated/dataModel";
+import type { Id } from "../_generated/dataModel";
 
 // Agent-native thread operations using the Convex Agent component
 

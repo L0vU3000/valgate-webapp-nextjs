@@ -541,7 +541,9 @@ export function PropertyOverviewPage({
             <div className="flex items-center gap-4 pb-1 flex-wrap">
               {/* Core identity */}
               <AttributeChip icon={TYPE_ICON[property.type] ?? Building2} label={TYPE_LABEL[property.type] ?? property.type} />
-              <AttributeChip icon={MapPin} label={property.province} />
+              {property.province && (
+                <AttributeChip icon={MapPin} label={property.province} />
+              )}
               {property.totalArea?.trim() && <AttributeChip icon={Maximize2} label={property.totalArea} />}
               {property.yearBuilt?.trim() && <AttributeChip icon={Calendar} label={`Built ${property.yearBuilt}`} />}
               {property.title && property.title !== "—" && (
