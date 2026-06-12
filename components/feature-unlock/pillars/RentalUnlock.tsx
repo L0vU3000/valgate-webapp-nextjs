@@ -218,7 +218,7 @@ function RecentPaymentStep({ form }: { form: UseFormReturn<RentalWizardValues> }
   return (
     <div className="space-y-4">
       <p className="text-[13px] text-slate-500">
-        Optionally record a recent rent payment. Skip if you'd rather add payments later.
+        Optionally record a recent rent payment. Skip if you&apos;d rather add payments later.
       </p>
       <div className="grid grid-cols-2 gap-4">
         <div>

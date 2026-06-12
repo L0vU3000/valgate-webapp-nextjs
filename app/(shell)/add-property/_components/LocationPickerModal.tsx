@@ -46,10 +46,9 @@ export function LocationPickerModal({
   // rAF alone isn't enough — the portal DOM is inserted but layout hasn't run yet.
   // A short setTimeout gives the browser one full layout + paint cycle.
   useEffect(() => {
-    let timerId: ReturnType<typeof setTimeout>;
     let destroyed = false;
 
-    timerId = setTimeout(() => {
+    const timerId = setTimeout(() => {
       if (destroyed || !containerRef.current || mapRef.current) return;
 
       mapboxgl.accessToken = env.NEXT_PUBLIC_MAPBOX_TOKEN;

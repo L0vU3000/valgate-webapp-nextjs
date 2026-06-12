@@ -7,10 +7,15 @@ name: CI
 #   - `test`      runs the Vitest query-layer suite and BLOCKS merge. It must
 #                 stay green — it is the contract guard for "every number traces
 #                 to a real seed field/derivation".
-#   - `typecheck` and `lint` run as informational reports (continue-on-error),
-#                 because the repo already carries known tsc/lint debt that did
-#                 NOT come from this work. They show the trend without blocking.
-#                 Ratchet each to a required check once its debt is cleared.
+#   - `lint`      BLOCKS merge. `npm run lint` is scoped to the source we hand-
+#                 write (app / lib / components) and is at zero errors. It does
+#                 NOT lint the parked Convex backend or the Figma-generated
+#                 `imports/` tree — those carry their own large debt and are a
+#                 separate cleanup; gating UI work on them would be wrong.
+#   - `typecheck` runs as an informational report (continue-on-error), because
+#                 the repo still carries 7 known pre-existing tsc errors that did
+#                 NOT come from this work. It shows the trend without blocking.
+#                 Ratchet it to required once those are fixed.
 #
 # There is intentionally no `next build` job: a production build needs the
 # Mapbox token and the project sets `ignoreBuildErrors`, so a build job would
@@ -32,8 +37,8 @@ jobs:
     name: test (required)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           # Match the local toolchain (Node 22).
           node-version: 22
@@ -52,8 +57,8 @@ jobs:
     # Flip to a required check (remove continue-on-error) once they are fixed.
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -63,14 +68,12 @@ jobs:
         run: npx tsc --noEmit
 
   lint:
-    name: lint (report-only)
+    name: lint (required)
     runs-on: ubuntu-latest
-    # Non-blocking while the eslint flat-config gap + known source warnings are
-    # outstanding. Flip to a required check once they are fixed.
-    continue-on-error: true
+    # Blocking: `npm run lint` is scoped to app/lib/components and is green.
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm

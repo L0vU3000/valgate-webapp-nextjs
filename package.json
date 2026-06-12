@@ -6,7 +6,7 @@
     "dev": "next dev --turbopack -p 3001",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint",
+    "lint": "eslint app lib components",
     "test": "vitest run",
     "test:watch": "vitest",
     "seed": "node --conditions=react-server --import tsx scripts/seed.ts",

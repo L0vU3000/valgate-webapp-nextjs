@@ -18,6 +18,10 @@ const eslintConfig = [
       "out/**",
       "build/**",
       "next-env.d.ts",
+      // Static assets and seed data, not source. Without this, eslint lints
+      // the committed minified pdf.js worker (public/pdf.worker.min.mjs, a
+      // ~960k-char single line) and drowns the report in bundle noise.
+      "public/**",
     ],
   },
 ];

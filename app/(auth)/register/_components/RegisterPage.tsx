@@ -294,7 +294,7 @@ export function RegisterPage() {
 
                 {/* Description */}
                 <div className="text-center text-base leading-[26px] mb-8">
-                  <p className="text-[#434655]">We've sent a verification link to</p>
+                  <p className="text-[#434655]">We&apos;ve sent a verification link to</p>
                   <p>
                     <span className="font-semibold text-val-heading">
                       {email || "alex.doe@example.com"}
@@ -311,7 +311,7 @@ export function RegisterPage() {
                   {/* Resend row */}
                   <div className="w-full bg-val-bg-tint rounded-lg px-6 py-4 flex items-center justify-center gap-3">
                     <span className="text-sm font-medium text-[#434655]">
-                      Didn't receive it?
+                      Didn&apos;t receive it?
                     </span>
                     <button
                       type="button"
