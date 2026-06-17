@@ -1,6 +1,5 @@
 import { z } from "zod";
-import type { ProfessionalCategory } from "@/lib/data/types/professional";
-import type { NewProfessional } from "@/lib/data/db/professionals";
+import type { ProfessionalCategory, NewProfessional } from "@/lib/data/types/professional";
 
 export const PROFESSIONAL_CATEGORIES = [
   "Agent",
@@ -122,7 +121,5 @@ export function formDataToNewProfessional(
     linkedProperties: data.propertyIds.length,
     initials: buildProfessionalInitials(data.name),
     avatarBg: CATEGORY_AVATAR_BG[data.category],
-    createdAt: now,
-    updatedAt: now,
   };
 }

@@ -15,7 +15,7 @@ import { MobileCardTable } from "@/components/property/MobileCardTable";
 import { UnlockButton } from "@/components/feature-unlock/UnlockButton";
 import { RentalUnlockMount } from "@/components/feature-unlock/pillars/RentalUnlock";
 import type { UnlockState } from "@/components/feature-unlock/types";
-import { updateProperty, revokeRentalVerification } from "@/lib/actions/properties.actions";
+import { updateProperty, revokeRentalVerification } from "@/app/actions/properties";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";

@@ -1,0 +1,12 @@
+{
+  "id": "PROP-0022",
+  "userId": "demo-user",
+  "name": "Toul Tom Poung Shophouse",
+  "code": "PROP-0022",
+  "type": "retail",
+  "status": "Sold",
+  "lat": 11.5477,
+  "lng": 104.9155,
+  "createdAt": 1779356162904,
+  "updatedAt": 1779356162904
+}

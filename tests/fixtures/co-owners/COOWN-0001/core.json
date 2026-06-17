@@ -1,0 +1,10 @@
+{
+  "id": "COOWN-0001",
+  "propertyId": "PROP-0001",
+  "name": "David Chen",
+  "role": "Primary",
+  "sharePercent": 60,
+  "email": "david.chen@example.com",
+  "ssnMasked": "••••-••-4521",
+  "taxEntity": "Individual"
+}

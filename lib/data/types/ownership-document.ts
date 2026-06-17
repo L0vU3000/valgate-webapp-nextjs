@@ -15,3 +15,8 @@ export const OwnershipDocumentSchema = z.object({
 });
 
 export type OwnershipDocument = z.infer<typeof OwnershipDocumentSchema>;
+
+export const NewOwnershipDocumentSchema = OwnershipDocumentSchema.omit({ id: true, createdAt: true, updatedAt: true });
+export type NewOwnershipDocument = z.infer<typeof NewOwnershipDocumentSchema>;
+export const OwnershipDocumentPatchSchema = NewOwnershipDocumentSchema.partial();
+export type OwnershipDocumentPatch = z.infer<typeof OwnershipDocumentPatchSchema>;

@@ -1,24 +1,25 @@
 "use server";
 
-import { createSuccessor } from "@/lib/actions/successors.actions";
-import type { ActionResult } from "@/lib/actions/properties.actions";
-import * as db from "@/lib/data/db";
-import type { Successor } from "@/lib/data/types/successor";
-import * as successorDb from "@/lib/data/db/successors";
-import { getCurrentUserId } from "@/lib/data/auth-shim";
+import { createSuccessor } from "@/app/actions/successors";
+import type { ActionResult } from "@/app/actions/_result";
+import { listEstateAssignments, createEstateAssignment } from "@/lib/services/estate-assignments";
+import { listSuccessors } from "@/lib/services/successors";
+import { createEstateActivityEvent } from "@/lib/services/estate-activity-events";
+import type { Successor, NewSuccessor } from "@/lib/data/types/successor";
+import { requireCtx } from "@/lib/auth/ctx";
 import { logger } from "@/lib/logger";
 
 export async function addSuccessorAndAssign(
-  successor: successorDb.NewSuccessor,
+  successor: NewSuccessor,
   propertyIds: string[],
 ): Promise<ActionResult<Successor>> {
-  const userId = getCurrentUserId();
+  const ctx = await requireCtx();
   const uniquePropertyIds = Array.from(new Set(propertyIds)).filter(Boolean);
 
   const [existingAssignments, allSuccessors] = uniquePropertyIds.length
     ? await Promise.all([
-        db.estateAssignments.list(userId),
-        db.successors.list(userId),
+        listEstateAssignments(ctx),
+        listSuccessors(ctx),
       ])
     : [[], []];
 
@@ -50,21 +51,16 @@ export async function addSuccessorAndAssign(
     return { ok: true, data: createdSuccessor };
   }
 
-  const now = Date.now();
   for (const propertyId of uniquePropertyIds) {
-    await db.estateAssignments.create(userId, {
+    await createEstateAssignment(ctx, {
       successorId: createdSuccessor.id,
       propertyId,
-      createdAt: now,
-      updatedAt: now,
     });
-    await db.estateActivityEvents.create(userId, {
+    await createEstateActivityEvent(ctx, {
       kind: "successor.assigned",
       title: "Beneficiary assigned",
       description: `${createdSuccessor.name} was assigned to ${propertyId}.`,
       propertyId,
-      createdAt: now,
-      updatedAt: now,
     });
   }
 

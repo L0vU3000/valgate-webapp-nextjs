@@ -1,6 +1,22 @@
 import "server-only";
-import { getCurrentUserId } from "@/lib/data/auth-shim";
-import * as db from "@/lib/data/db";
+import { requireCtx } from "@/lib/auth/ctx";
+import { listPropertyValuations } from "@/lib/services/property-valuations";
+import { listLeases } from "@/lib/services/leases";
+import { listTenants } from "@/lib/services/tenants";
+import { listPayments } from "@/lib/services/payments";
+import { listExpenses } from "@/lib/services/expenses";
+import { listNotifications } from "@/lib/services/notifications";
+import { listMaintenanceItems } from "@/lib/services/maintenance-items";
+import { listOwnershipRecords } from "@/lib/services/ownership-records";
+import { listCoOwners } from "@/lib/services/co-owners";
+import { listOwnershipDocuments } from "@/lib/services/ownership-documents";
+import { listSafetyRisks } from "@/lib/services/safety-risks";
+import { listInspections } from "@/lib/services/inspections";
+import { listCertifications } from "@/lib/services/certifications";
+import { listEmergencyContacts } from "@/lib/services/emergency-contacts";
+import { listEstateAssignments } from "@/lib/services/estate-assignments";
+import { listDocuments } from "@/lib/services/documents";
+import { getUserProfile } from "@/lib/services/user-profiles";
 import type { PropertyValuation } from "@/lib/data/types/property-valuation";
 import type { Lease } from "@/lib/data/types/lease";
 import type { Tenant } from "@/lib/data/types/tenant";
@@ -47,7 +63,7 @@ function notificationMatchesProperty(notification: Notification, propertyId: str
 }
 
 export async function getOverviewPageData(propertyId: string): Promise<OverviewPageData> {
-  const userId = getCurrentUserId();
+  const authCtx = await requireCtx();
   const [
     allValuations,
     allLeases,
@@ -67,23 +83,23 @@ export async function getOverviewPageData(propertyId: string): Promise<OverviewP
     allDocuments,
     userProfile,
   ] = await Promise.all([
-    db.propertyValuations.list(userId),
-    db.leases.list(userId),
-    db.tenants.list(userId),
-    db.payments.list(userId),
-    db.expenses.list(userId),
-    db.notifications.list(userId),
-    db.maintenanceItems.list(userId),
-    db.ownershipRecords.list(userId),
-    db.coOwners.list(userId),
-    db.ownershipDocuments.list(userId),
-    db.safetyRisks.list(userId),
-    db.inspections.list(userId),
-    db.certifications.list(userId),
-    db.emergencyContacts.list(userId),
-    db.estateAssignments.list(userId),
-    db.documents.list(userId),
-    db.userProfiles.get(userId, userId),
+    listPropertyValuations(authCtx),
+    listLeases(authCtx),
+    listTenants(authCtx),
+    listPayments(authCtx),
+    listExpenses(authCtx),
+    listNotifications(authCtx),
+    listMaintenanceItems(authCtx),
+    listOwnershipRecords(authCtx),
+    listCoOwners(authCtx),
+    listOwnershipDocuments(authCtx),
+    listSafetyRisks(authCtx),
+    listInspections(authCtx),
+    listCertifications(authCtx),
+    listEmergencyContacts(authCtx),
+    listEstateAssignments(authCtx),
+    listDocuments(authCtx),
+    getUserProfile(authCtx, authCtx.userId),
   ]);
   const propLeaseIds = new Set(
     allLeases.filter((l) => l.propertyId === propertyId).map((l) => l.id),

@@ -1,0 +1,10 @@
+{
+  "id": "NPREF-0001",
+  "userId": "demo-user",
+  "eventType": "Maintenance",
+  "email": true,
+  "slack": true,
+  "sms": false,
+  "createdAt": 1775001600000,
+  "updatedAt": 1775001600000
+}

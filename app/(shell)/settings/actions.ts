@@ -1,6 +1,11 @@
 "use server";
-import * as db from "@/lib/data/db";
-import { getCurrentUserId } from "@/lib/data/auth-shim";
+import {
+  listNotificationPreferences,
+  createNotificationPreference,
+  updateNotificationPreference,
+} from "@/lib/services/notification-preferences";
+import { upsertUserProfile } from "@/lib/services/user-profiles";
+import { requireCtx } from "@/lib/auth/ctx";
 import type { NotificationEventType } from "@/lib/data/types/notification-preference";
 
 const VALID_NOTIF_KEYS = ["valuationUpdates", "teamComments", "marketInsights"] as const;
@@ -12,14 +17,13 @@ export async function saveNotificationPreference(
   if (!VALID_NOTIF_KEYS.includes(eventType as typeof VALID_NOTIF_KEYS[number])) {
     return { ok: false, error: "Invalid event type" };
   }
-  const userId = getCurrentUserId();
-  const all = await db.notificationPreferences.list(userId);
+  const ctx = await requireCtx();
+  const all = await listNotificationPreferences(ctx);
   const existing = all.find(p => p.eventType === eventType);
-  const now = Date.now();
   if (existing) {
-    await db.notificationPreferences.update(userId, existing.id, { ...channels, updatedAt: now });
+    await updateNotificationPreference(ctx, existing.id, { ...channels });
   } else {
-    await db.notificationPreferences.create(userId, { eventType: eventType as NotificationEventType, ...channels, createdAt: now, updatedAt: now });
+    await createNotificationPreference(ctx, { eventType: eventType as NotificationEventType, ...channels });
   }
   return { ok: true };
 }
@@ -27,7 +31,7 @@ export async function saveNotificationPreference(
 export async function saveUserPreferences(
   patch: { dashboardView?: string; language?: string; timezone?: string }
 ) {
-  const userId = getCurrentUserId();
-  await db.userProfiles.upsert(userId, patch);
+  const ctx = await requireCtx();
+  await upsertUserProfile(ctx, patch);
   return { ok: true };
 }

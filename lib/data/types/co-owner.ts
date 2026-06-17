@@ -24,3 +24,8 @@ export const CoOwnerSchema = z.object({
 });
 
 export type CoOwner = z.infer<typeof CoOwnerSchema>;
+
+export const NewCoOwnerSchema = CoOwnerSchema.omit({ id: true });
+export type NewCoOwner = z.infer<typeof NewCoOwnerSchema>;
+export const CoOwnerPatchSchema = NewCoOwnerSchema.partial();
+export type CoOwnerPatch = z.infer<typeof CoOwnerPatchSchema>;

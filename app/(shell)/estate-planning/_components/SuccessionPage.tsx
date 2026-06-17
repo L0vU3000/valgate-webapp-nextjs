@@ -20,7 +20,7 @@ import {
 import { UnlockButton } from "@/components/feature-unlock/UnlockButton";
 import { EstateUnlockMount } from "@/components/feature-unlock/pillars/EstateUnlock";
 import type { UnlockState } from "@/components/feature-unlock/types";
-import { revokeEstateVerification } from "@/lib/actions/properties.actions";
+import { revokeEstateVerification } from "@/app/actions/properties";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -390,7 +390,6 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
 
     setAddSubmitting(true);
     try {
-      const now = Date.now();
       const result = await addSuccessorAndAssign(
         {
           name: trimmedName,
@@ -399,8 +398,6 @@ export function SuccessionPage({ data }: { data: EstatePlanningPageData }) {
           role: beneficiaryForm.role,
           share,
           verified: beneficiaryForm.verified,
-          createdAt: now,
-          updatedAt: now,
         },
         selectedAssignmentIds,
       );

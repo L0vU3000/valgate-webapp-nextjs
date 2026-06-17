@@ -45,3 +45,8 @@ export const OwnershipRecordSchema = z.object({
 });
 
 export type OwnershipRecord = z.infer<typeof OwnershipRecordSchema>;
+
+export const NewOwnershipRecordSchema = OwnershipRecordSchema.omit({ id: true, createdAt: true, updatedAt: true });
+export type NewOwnershipRecord = z.infer<typeof NewOwnershipRecordSchema>;
+export const OwnershipRecordPatchSchema = NewOwnershipRecordSchema.partial();
+export type OwnershipRecordPatch = z.infer<typeof OwnershipRecordPatchSchema>;

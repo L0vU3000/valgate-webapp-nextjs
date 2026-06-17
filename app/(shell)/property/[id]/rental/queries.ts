@@ -1,6 +1,12 @@
 import "server-only";
-import { getCurrentUserId } from "@/lib/data/auth-shim";
-import * as db from "@/lib/data/db";
+import { requireCtx } from "@/lib/auth/ctx";
+import { listLeases } from "@/lib/services/leases";
+import { listTenants } from "@/lib/services/tenants";
+import { listPayments } from "@/lib/services/payments";
+import { listExpenses } from "@/lib/services/expenses";
+import { listDocuments } from "@/lib/services/documents";
+import { listFolders } from "@/lib/services/folders";
+import { listMaintenanceItems } from "@/lib/services/maintenance-items";
 import type { Lease } from "@/lib/data/types/lease";
 import type { Tenant } from "@/lib/data/types/tenant";
 import type { Payment } from "@/lib/data/types/payment";
@@ -20,7 +26,7 @@ export type RentalPageData = {
 };
 
 export async function getRentalPageData(propertyId: string): Promise<RentalPageData> {
-  const userId = getCurrentUserId();
+  const authCtx = await requireCtx();
   const [
     allLeases,
     allTenants,
@@ -30,13 +36,13 @@ export async function getRentalPageData(propertyId: string): Promise<RentalPageD
     allFolders,
     allMaintenanceItems,
   ] = await Promise.all([
-    db.leases.list(userId),
-    db.tenants.list(userId),
-    db.payments.list(userId),
-    db.expenses.list(userId),
-    db.documents.list(userId),
-    db.folders.list(userId),
-    db.maintenanceItems.list(userId),
+    listLeases(authCtx),
+    listTenants(authCtx),
+    listPayments(authCtx),
+    listExpenses(authCtx),
+    listDocuments(authCtx),
+    listFolders(authCtx),
+    listMaintenanceItems(authCtx),
   ]);
   const propLeaseIds = new Set(
     allLeases.filter((l) => l.propertyId === propertyId).map((l) => l.id),

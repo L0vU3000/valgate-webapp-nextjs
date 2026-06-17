@@ -17,7 +17,7 @@ import { MobileCardTable } from "@/components/property/MobileCardTable";
 import { UnlockButton } from "@/components/feature-unlock/UnlockButton";
 import { FinancialsUnlockMount } from "@/components/feature-unlock/pillars/FinancialsUnlock";
 import type { UnlockState } from "@/components/feature-unlock/types";
-import { revokeFinancialsVerification } from "@/lib/actions/properties.actions";
+import { revokeFinancialsVerification } from "@/app/actions/properties";
 import { buildPropertyFinancials } from "@/lib/data/derivations/property-financials";
 import {
   DropdownMenu,

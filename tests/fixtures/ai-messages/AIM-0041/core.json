@@ -1,0 +1,7 @@
+{
+  "id": "AIM-0041",
+  "sessionId": "AI-0005",
+  "role": "assistant",
+  "content": "Hi Chan — pulling that up now.\n\nFrom your account I can see these rental documents:\n\n- **PROP-0001** — **Lease_Agreement_2025.pdf** (Rental)  \n  Open document: /data/users/demo-user/_storage/PROP-0001/lease-2025.pdf  \n  Rental page: [Rental page](/property/PROP-0001/rental)\n\n- **PROP-0006** — **Lease_Agreement_2026.pdf** (Rental)  \n  Open document: /data/users/demo-user/_storage/PROP-0006/lease-2026.pdf  \n  Rental page: [Rental page](/property/PROP-0006/rental)\n\nI don’t have tenant names, rent amounts, or payment history in the provided context. To see payments, rent roll, or tenant details, go to the property’s Rental page or [View Portfolio](/portfolio).\n\nWhat would you like me to do next — open a lease, download a file, or pull tenant/payment history for a specific property?",
+  "createdAt": 1779347074883
+}

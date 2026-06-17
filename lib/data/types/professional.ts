@@ -22,3 +22,8 @@ export const ProfessionalSchema = z.object({
 
 export type Professional = z.infer<typeof ProfessionalSchema>;
 export type ProfessionalCategory = Professional["category"];
+
+export const NewProfessionalSchema = ProfessionalSchema.omit({ id: true, userId: true, createdAt: true, updatedAt: true });
+export type NewProfessional = z.infer<typeof NewProfessionalSchema>;
+export const ProfessionalPatchSchema = NewProfessionalSchema.partial();
+export type ProfessionalPatch = z.infer<typeof ProfessionalPatchSchema>;

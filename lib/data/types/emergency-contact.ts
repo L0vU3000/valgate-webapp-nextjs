@@ -12,3 +12,8 @@ export const EmergencyContactSchema = z.object({
 });
 
 export type EmergencyContact = z.infer<typeof EmergencyContactSchema>;
+
+export const NewEmergencyContactSchema = EmergencyContactSchema.omit({ id: true, createdAt: true, updatedAt: true });
+export type NewEmergencyContact = z.infer<typeof NewEmergencyContactSchema>;
+export const EmergencyContactPatchSchema = NewEmergencyContactSchema.partial();
+export type EmergencyContactPatch = z.infer<typeof EmergencyContactPatchSchema>;

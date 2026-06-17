@@ -1,6 +1,6 @@
 import "server-only";
-import * as db from "@/lib/data/db";
-import { getCurrentUserId } from "@/lib/data/auth-shim";
+import { requireCtx } from "@/lib/auth/ctx";
+import { getProfessional } from "@/lib/services/professionals";
 
 export type ProfessionalProfileData = {
   id: string;
@@ -21,8 +21,8 @@ export type ProfessionalProfileData = {
 export async function getProfessionalProfileData(
   id: string,
 ): Promise<ProfessionalProfileData | null> {
-  const userId = getCurrentUserId();
-  const p = await db.professionals.get(userId, id);
+  const authCtx = await requireCtx();
+  const p = await getProfessional(authCtx, id);
   if (!p) return null;
 
   return {

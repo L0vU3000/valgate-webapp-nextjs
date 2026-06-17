@@ -15,3 +15,8 @@ export const NotificationSchema = z.object({
 
 export type Notification = z.infer<typeof NotificationSchema>;
 export type NotificationCategory = Notification["category"];
+
+export const NewNotificationSchema = NotificationSchema.omit({ id: true, userId: true, createdAt: true });
+export type NewNotification = z.infer<typeof NewNotificationSchema>;
+export const NotificationPatchSchema = NewNotificationSchema.partial();
+export type NotificationPatch = z.infer<typeof NotificationPatchSchema>;

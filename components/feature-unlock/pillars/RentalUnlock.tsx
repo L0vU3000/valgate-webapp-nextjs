@@ -7,10 +7,10 @@ import type { UseFormReturn } from "react-hook-form";
 import {
   verifyRental,
   getRentalWizardInitialAction,
-} from "@/lib/actions/properties.actions";
-import { createLease, updateLease } from "@/lib/actions/leases.actions";
-import { createTenant, updateTenant } from "@/lib/actions/tenants.actions";
-import { createPayment } from "@/lib/actions/payments.actions";
+} from "@/app/actions/properties";
+import { createLease, updateLease } from "@/app/actions/leases";
+import { createTenant, updateTenant } from "@/app/actions/tenants";
+import { createPayment } from "@/app/actions/payments";
 
 // ── Schema ────────────────────────────────────────────────────────────────────
 

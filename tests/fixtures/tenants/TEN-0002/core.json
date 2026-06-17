@@ -1,0 +1,10 @@
+{
+  "id": "TEN-0002",
+  "propertyId": "PROP-0010",
+  "name": "Malis Fashion Co.",
+  "unit": "Full Building",
+  "rent": 2200,
+  "status": "Overdue",
+  "email": "malis.fashion@gmail.com",
+  "phone": "+855 12 678 900"
+}

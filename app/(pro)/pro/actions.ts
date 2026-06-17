@@ -2,13 +2,14 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import * as paymentsDb from "@/lib/data/db/payments";
-import * as leasesDb from "@/lib/data/db/leases";
-import * as maintenanceDb from "@/lib/data/db/maintenance-items";
-import * as safetyRisksDb from "@/lib/data/db/safety-risks";
+import { createPayment, updatePayment } from "@/lib/services/payments";
+import { getLease, updateLease } from "@/lib/services/leases";
+import { createMaintenanceItem, updateMaintenanceItem } from "@/lib/services/maintenance-items";
+import { updateSafetyRisk } from "@/lib/services/safety-risks";
 import * as clientsDb from "@/lib/data/db/clients";
-import * as propertiesDb from "@/lib/data/db/properties";
+import { getProperty, updateProperty } from "@/lib/services/properties";
 import { getCurrentUserId } from "@/lib/data/auth-shim";
+import { requireCtx } from "@/lib/auth/ctx";
 import { logger } from "@/lib/logger";
 
 // Pro server actions — the inputs an asset manager gives Valgate.
@@ -38,8 +39,8 @@ export async function markRentPaid(input: {
   const parsed = markRentPaidSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid input." };
 
-  const userId = getCurrentUserId();
-  const updated = await paymentsDb.update(userId, parsed.data.paymentId, {
+  const authCtx = await requireCtx();
+  const updated = await updatePayment(authCtx, parsed.data.paymentId, {
     status: "Paid",
   });
   if (!updated) {
@@ -66,14 +67,14 @@ export async function logRentPayment(input: {
   const parsed = logRentPaymentSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid input." };
 
-  const userId = getCurrentUserId();
-  const lease = await leasesDb.get(userId, parsed.data.leaseId);
+  const authCtx = await requireCtx();
+  const lease = await getLease(authCtx, parsed.data.leaseId);
   if (!lease) {
     logger.error("logRentPayment: lease not found", input);
     return { ok: false, error: "Could not record payment." };
   }
 
-  await paymentsDb.create(userId, {
+  await createPayment(authCtx, {
     leaseId: lease.id,
     date: Date.now(),
     kind: "Rent",
@@ -96,8 +97,8 @@ export async function renewLease(input: {
   const parsed = renewLeaseSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid input." };
 
-  const userId = getCurrentUserId();
-  const lease = await leasesDb.get(userId, parsed.data.leaseId);
+  const authCtx = await requireCtx();
+  const lease = await getLease(authCtx, parsed.data.leaseId);
   if (!lease) {
     logger.error("renewLease: lease not found", input);
     return { ok: false, error: "Could not renew lease." };
@@ -106,7 +107,7 @@ export async function renewLease(input: {
   const end = new Date(lease.endDate);
   end.setUTCMonth(end.getUTCMonth() + lease.termMonths);
 
-  await leasesDb.update(userId, lease.id, {
+  await updateLease(authCtx, lease.id, {
     endDate: end.getTime(),
     renewalStatus: "Renewed",
   });
@@ -134,19 +135,18 @@ export async function createWorkOrder(input: {
   const parsed = createWorkOrderSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid input." };
 
-  const userId = getCurrentUserId();
-  const property = await propertiesDb.get(userId, parsed.data.propertyId);
+  const authCtx = await requireCtx();
+  const property = await getProperty(authCtx, parsed.data.propertyId);
   if (!property) {
     logger.error("createWorkOrder: property not found", input);
     return { ok: false, error: "Could not create work order." };
   }
 
-  await maintenanceDb.create(userId, {
+  await createMaintenanceItem(authCtx, {
     propertyId: parsed.data.propertyId,
     title: parsed.data.title,
     severity: parsed.data.severity,
     status: "Open",
-    createdAt: Date.now(),
     vendorId: parsed.data.vendorId,
     cost: parsed.data.cost,
   });
@@ -170,7 +170,7 @@ export async function updateWorkOrder(input: {
   const parsed = updateWorkOrderSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid input." };
 
-  const userId = getCurrentUserId();
+  const authCtx = await requireCtx();
   const patch: Record<string, unknown> = {};
   if (parsed.data.status !== undefined) patch.status = parsed.data.status;
   if (parsed.data.cost !== undefined) patch.cost = parsed.data.cost;
@@ -178,7 +178,7 @@ export async function updateWorkOrder(input: {
     patch.vendorId = parsed.data.vendorId ?? undefined;
   }
 
-  const updated = await maintenanceDb.update(userId, parsed.data.id, patch);
+  const updated = await updateMaintenanceItem(authCtx, parsed.data.id, patch);
   if (!updated) {
     logger.error("updateWorkOrder: item not found", input);
     return { ok: false, error: "Could not update work order." };
@@ -229,6 +229,7 @@ export async function onboardClient(input: {
   if (!parsed.success) return { ok: false, error: "Invalid input." };
 
   const userId = getCurrentUserId();
+  const authCtx = await requireCtx();
   const existing = await clientsDb.list(userId);
   const now = Date.now();
 
@@ -245,7 +246,7 @@ export async function onboardClient(input: {
   });
 
   for (const propertyId of parsed.data.propertyIds) {
-    const updated = await propertiesDb.update(userId, propertyId, {
+    const updated = await updateProperty(authCtx, propertyId, {
       clientId: client.id,
     });
     if (!updated) {
@@ -273,11 +274,10 @@ export async function resolveSafetyRisk(input: {
   const parsed = resolveSafetyRiskSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid input." };
 
-  const userId = getCurrentUserId();
-  const updated = await safetyRisksDb.update(userId, parsed.data.riskId, {
+  const authCtx = await requireCtx();
+  const updated = await updateSafetyRisk(authCtx, parsed.data.riskId, {
     status: "Resolved",
     resolvedAt: Date.now(),
-    updatedAt: Date.now(),
   });
   if (!updated) {
     logger.error("resolveSafetyRisk: risk not found", input);
@@ -300,6 +300,7 @@ export async function assignProperties(input: {
   if (!parsed.success) return { ok: false, error: "Invalid input." };
 
   const userId = getCurrentUserId();
+  const authCtx = await requireCtx();
   const client = await clientsDb.get(userId, parsed.data.clientId);
   if (!client) {
     logger.error("assignProperties: client not found", input);
@@ -307,7 +308,7 @@ export async function assignProperties(input: {
   }
 
   for (const propertyId of parsed.data.propertyIds) {
-    const updated = await propertiesDb.update(userId, propertyId, {
+    const updated = await updateProperty(authCtx, propertyId, {
       clientId: client.id,
     });
     if (!updated) {

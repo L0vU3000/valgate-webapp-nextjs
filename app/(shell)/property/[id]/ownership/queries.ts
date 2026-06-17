@@ -1,6 +1,11 @@
 import "server-only";
-import { getCurrentUserId } from "@/lib/data/auth-shim";
-import * as db from "@/lib/data/db";
+import { requireCtx } from "@/lib/auth/ctx";
+import { listOwnershipDocuments } from "@/lib/services/ownership-documents";
+import { listOwnershipHistory } from "@/lib/services/ownership-history";
+import { listCoOwners } from "@/lib/services/co-owners";
+import { listLeases } from "@/lib/services/leases";
+import { listOwnershipRecords } from "@/lib/services/ownership-records";
+import { listDocuments } from "@/lib/services/documents";
 import type { OwnershipRecord } from "@/lib/data/types/ownership-record";
 import type { Property } from "@/lib/data/types/property";
 import type { Document as CentralDocument } from "@/lib/data/types/document";
@@ -9,10 +14,10 @@ import { buildPropertyFinancials, type PropertyFinancials } from "@/lib/data/der
 export type { PropertyFinancials };
 
 export type OwnershipPageData = {
-  ownershipDocuments: Awaited<ReturnType<typeof db.ownershipDocuments.list>>;
+  ownershipDocuments: Awaited<ReturnType<typeof listOwnershipDocuments>>;
   verificationDocs: CentralDocument[];
-  ownershipHistory: Awaited<ReturnType<typeof db.ownershipHistory.list>>;
-  coOwners: Awaited<ReturnType<typeof db.coOwners.list>>;
+  ownershipHistory: Awaited<ReturnType<typeof listOwnershipHistory>>;
+  coOwners: Awaited<ReturnType<typeof listCoOwners>>;
   ownershipRecord: OwnershipRecord | null;
   monthlyRentIncome: number;
   propertyFinancials: PropertyFinancials;
@@ -22,7 +27,7 @@ export async function getOwnershipPageData(
   propertyId: string,
   property: Property,
 ): Promise<OwnershipPageData> {
-  const userId = getCurrentUserId();
+  const authCtx = await requireCtx();
   const [
     ownershipDocuments,
     ownershipHistory,
@@ -31,12 +36,12 @@ export async function getOwnershipPageData(
     ownershipRecords,
     allDocs,
   ] = await Promise.all([
-    db.ownershipDocuments.listByProperty(userId, propertyId),
-    db.ownershipHistory.listByProperty(userId, propertyId),
-    db.coOwners.listByProperty(userId, propertyId),
-    db.leases.list(userId),
-    db.ownershipRecords.listByProperty(userId, propertyId),
-    db.documents.list(userId),
+    listOwnershipDocuments(authCtx, propertyId),
+    listOwnershipHistory(authCtx, propertyId),
+    listCoOwners(authCtx, propertyId),
+    listLeases(authCtx),
+    listOwnershipRecords(authCtx, propertyId),
+    listDocuments(authCtx),
   ]);
 
   const ownershipRecord = ownershipRecords[0] ?? null;

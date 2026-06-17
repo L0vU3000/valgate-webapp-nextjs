@@ -12,6 +12,7 @@ import type { Certification } from "@/lib/data/types/certification";
 import type { EmergencyContact } from "@/lib/data/types/emergency-contact";
 import type { EstateAssignment } from "@/lib/data/types/successor-property-assignment";
 import type { Document } from "@/lib/data/types/document";
+import type { PillarVerification, Pillar } from "@/lib/data/types/pillar-verification";
 import type { ProgressCheck, ProgressPillar, ProgressDetails } from "@/lib/data/types/progress";
 
 export type ProgressContext = {
@@ -28,6 +29,7 @@ export type ProgressContext = {
   emergencyContacts: EmergencyContact[];
   successorAssignments: EstateAssignment[];
   documents: Document[];
+  verifications?: PillarVerification[];
 };
 
 function scorePillar(checks: ProgressCheck[]): number {
@@ -66,6 +68,10 @@ export function computeProgressDetails(p: Property, ctx: ProgressContext): Progr
   const inspections      = ctx.inspections.filter((i) => i.propertyId === pid);
   const certifications   = ctx.certifications.filter((c) => c.propertyId === pid);
   const emergencyContacts = ctx.emergencyContacts.filter((e) => e.propertyId === pid);
+
+  const verifiedPillars = new Set(
+    (ctx.verifications ?? []).filter((v) => v.propertyId === pid && v.status === "verified").map((v) => v.pillar),
+  );
 
   const rawPillars: Omit<ProgressPillar, "score" | "contribution">[] = [
     {
@@ -157,7 +163,7 @@ export function computeProgressDetails(p: Property, ctx: ProgressContext): Progr
 
   const pillars: ProgressPillar[] = rawPillars.map((pillar) => {
     const score = scorePillar(pillar.checks);
-    return { ...pillar, score, contribution: Math.round(score * pillar.weight / 100) };
+    return { ...pillar, score, contribution: Math.round(score * pillar.weight / 100), verified: verifiedPillars.has(pillar.key as Pillar) };
   });
 
   const totalScore = Math.round(

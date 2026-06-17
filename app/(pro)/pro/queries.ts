@@ -1,30 +1,31 @@
 import "server-only";
 import * as agentRunsDb from "@/lib/data/db/agent-runs";
-import * as aiMessagesDb from "@/lib/data/db/ai-messages";
+import { getAiMessage } from "@/lib/services/ai-messages";
 import * as clientsDb from "@/lib/data/db/clients";
-import * as propertiesDb from "@/lib/data/db/properties";
-import * as leasesDb from "@/lib/data/db/leases";
-import * as paymentsDb from "@/lib/data/db/payments";
-import * as tenantsDb from "@/lib/data/db/tenants";
-import * as maintenanceDb from "@/lib/data/db/maintenance-items";
-import * as certificationsDb from "@/lib/data/db/certifications";
-import * as inspectionsDb from "@/lib/data/db/inspections";
-import * as safetyRisksDb from "@/lib/data/db/safety-risks";
-import * as valuationsDb from "@/lib/data/db/property-valuations";
-import * as professionalsDb from "@/lib/data/db/professionals";
-import * as ownershipRecordsDb from "@/lib/data/db/ownership-records";
-import * as coOwnersDb from "@/lib/data/db/co-owners";
-import * as ownershipDocumentsDb from "@/lib/data/db/ownership-documents";
-import * as emergencyContactsDb from "@/lib/data/db/emergency-contacts";
-import * as successorAssignmentsDb from "@/lib/data/db/successor-property-assignments";
-import * as documentsDb from "@/lib/data/db/documents";
+import { listProperties } from "@/lib/services/properties";
+import { listLeases } from "@/lib/services/leases";
+import { listPayments } from "@/lib/services/payments";
+import { listTenants } from "@/lib/services/tenants";
+import { listMaintenanceItems } from "@/lib/services/maintenance-items";
+import { listCertifications } from "@/lib/services/certifications";
+import { listInspections } from "@/lib/services/inspections";
+import { listSafetyRisks } from "@/lib/services/safety-risks";
+import { listPropertyValuations } from "@/lib/services/property-valuations";
+import { listProfessionals } from "@/lib/services/professionals";
+import { listOwnershipRecords } from "@/lib/services/ownership-records";
+import { listCoOwners } from "@/lib/services/co-owners";
+import { listOwnershipDocuments } from "@/lib/services/ownership-documents";
+import { listEmergencyContacts } from "@/lib/services/emergency-contacts";
+import { listEstateAssignments } from "@/lib/services/estate-assignments";
+import { listDocuments } from "@/lib/services/documents";
 import { getCurrentUserId } from "@/lib/data/auth-shim";
+import { requireCtx } from "@/lib/auth/ctx";
 import {
   computeProgress,
   type ProgressContext,
 } from "@/lib/data/derivations/progress";
 import { formatCurrency, formatCurrencyFull } from "@/lib/format";
-import * as userProfilesDb from "@/lib/data/db/user-profiles";
+import { getUserProfile } from "@/lib/services/user-profiles";
 import type { Client } from "@/lib/data/types/client";
 import type {
   Property,
@@ -357,6 +358,7 @@ type ProContext = {
 
 async function loadProContext(): Promise<ProContext> {
   const userId = getCurrentUserId();
+  const authCtx = await requireCtx();
 
   const [
     clients,
@@ -378,22 +380,22 @@ async function loadProContext(): Promise<ProContext> {
     documents,
   ] = await Promise.all([
     clientsDb.list(userId),
-    propertiesDb.list(userId),
-    leasesDb.list(userId),
-    paymentsDb.list(userId),
-    tenantsDb.list(userId),
-    maintenanceDb.list(userId),
-    certificationsDb.list(userId),
-    safetyRisksDb.list(userId),
-    professionalsDb.list(userId),
-    valuationsDb.list(userId),
-    inspectionsDb.list(userId),
-    ownershipRecordsDb.list(userId),
-    coOwnersDb.list(userId),
-    ownershipDocumentsDb.list(userId),
-    emergencyContactsDb.list(userId),
-    successorAssignmentsDb.list(userId),
-    documentsDb.list(userId),
+    listProperties(authCtx),
+    listLeases(authCtx),
+    listPayments(authCtx),
+    listTenants(authCtx),
+    listMaintenanceItems(authCtx),
+    listCertifications(authCtx),
+    listSafetyRisks(authCtx),
+    listProfessionals(authCtx),
+    listPropertyValuations(authCtx),
+    listInspections(authCtx),
+    listOwnershipRecords(authCtx),
+    listCoOwners(authCtx),
+    listOwnershipDocuments(authCtx),
+    listEmergencyContacts(authCtx),
+    listEstateAssignments(authCtx),
+    listDocuments(authCtx),
   ]);
 
   // Re-use the client-side Progress derivation as-is.
@@ -910,10 +912,10 @@ export async function getWorkOrdersPageData(): Promise<WorkOrdersPageData> {
 }
 
 export async function getProShellData(): Promise<ProShellData> {
-  const userId = getCurrentUserId();
+  const authCtx = await requireCtx();
   const [ctx, profile] = await Promise.all([
     loadProContext(),
-    userProfilesDb.get(userId, userId),
+    getUserProfile(authCtx, authCtx.userId),
   ]);
   const monthStart = currentMonthStartUtc();
 
@@ -985,6 +987,7 @@ function deriveRunStatus(run: AgentRun, msg: AiMessage | null): AgentRunStatus {
 
 export async function getAgentHubData(): Promise<AgentHubData> {
   const userId = getCurrentUserId();
+  const authCtx = await requireCtx();
   const runs = await agentRunsDb.list(userId);
 
   const enriched = await Promise.all(
@@ -992,7 +995,7 @@ export async function getAgentHubData(): Promise<AgentHubData> {
       if (!run.proposalMessageId) {
         return { ...run, derivedStatus: run.status } as AgentHubRun;
       }
-      const msg = await aiMessagesDb.get(userId, run.proposalMessageId);
+      const msg = await getAiMessage(authCtx, run.proposalMessageId);
       const derivedStatus = deriveRunStatus(run, msg);
       return { ...run, derivedStatus, linkedMessage: msg ?? undefined } as AgentHubRun;
     }),

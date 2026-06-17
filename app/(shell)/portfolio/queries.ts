@@ -1,19 +1,19 @@
 import "server-only";
 import { getProperties } from "@/lib/data/properties";
-import * as paymentsDb from "@/lib/data/db/payments";
-import * as leasesDb from "@/lib/data/db/leases";
-import * as propertyValuationsDb from "@/lib/data/db/property-valuations";
-import * as tenantsDb from "@/lib/data/db/tenants";
-import * as ownershipRecordsDb from "@/lib/data/db/ownership-records";
-import * as coOwnersDb from "@/lib/data/db/co-owners";
-import * as ownershipDocumentsDb from "@/lib/data/db/ownership-documents";
-import * as safetyRisksDb from "@/lib/data/db/safety-risks";
-import * as inspectionsDb from "@/lib/data/db/inspections";
-import * as certificationsDb from "@/lib/data/db/certifications";
-import * as emergencyContactsDb from "@/lib/data/db/emergency-contacts";
-import * as successorAssignmentsDb from "@/lib/data/db/successor-property-assignments";
-import * as documentsDb from "@/lib/data/db/documents";
-import { getCurrentUserId } from "@/lib/data/auth-shim";
+import { requireCtx } from "@/lib/auth/ctx";
+import { listPayments } from "@/lib/services/payments";
+import { listLeases } from "@/lib/services/leases";
+import { listPropertyValuations } from "@/lib/services/property-valuations";
+import { listTenants } from "@/lib/services/tenants";
+import { listOwnershipRecords } from "@/lib/services/ownership-records";
+import { listCoOwners } from "@/lib/services/co-owners";
+import { listOwnershipDocuments } from "@/lib/services/ownership-documents";
+import { listSafetyRisks } from "@/lib/services/safety-risks";
+import { listInspections } from "@/lib/services/inspections";
+import { listCertifications } from "@/lib/services/certifications";
+import { listEmergencyContacts } from "@/lib/services/emergency-contacts";
+import { listEstateAssignments } from "@/lib/services/estate-assignments";
+import { listDocuments } from "@/lib/services/documents";
 import { formatCurrency } from "@/lib/format";
 import {
   computeStats,
@@ -59,7 +59,7 @@ export async function getPortfolioPageData(
   opts: { showArchived?: boolean } = {},
 ): Promise<PortfolioPageData> {
   const { showArchived = false } = opts;
-  const userId = getCurrentUserId();
+  const authCtx = await requireCtx();
 
   const [
     properties,
@@ -78,19 +78,19 @@ export async function getPortfolioPageData(
     documents,
   ] = await Promise.all([
     getProperties(),
-    paymentsDb.list(userId),
-    leasesDb.list(userId),
-    propertyValuationsDb.list(userId),
-    tenantsDb.list(userId),
-    ownershipRecordsDb.list(userId),
-    coOwnersDb.list(userId),
-    ownershipDocumentsDb.list(userId),
-    safetyRisksDb.list(userId),
-    inspectionsDb.list(userId),
-    certificationsDb.list(userId),
-    emergencyContactsDb.list(userId),
-    successorAssignmentsDb.list(userId),
-    documentsDb.list(userId),
+    listPayments(authCtx),
+    listLeases(authCtx),
+    listPropertyValuations(authCtx),
+    listTenants(authCtx),
+    listOwnershipRecords(authCtx),
+    listCoOwners(authCtx),
+    listOwnershipDocuments(authCtx),
+    listSafetyRisks(authCtx),
+    listInspections(authCtx),
+    listCertifications(authCtx),
+    listEmergencyContacts(authCtx),
+    listEstateAssignments(authCtx),
+    listDocuments(authCtx),
   ]);
 
   const ctx: ProgressContext = {

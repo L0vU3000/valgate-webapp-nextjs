@@ -10,3 +10,8 @@ export const PropertyValuationSchema = z.object({
 });
 
 export type PropertyValuation = z.infer<typeof PropertyValuationSchema>;
+
+export const NewPropertyValuationSchema = PropertyValuationSchema.omit({ id: true });
+export type NewPropertyValuation = z.infer<typeof NewPropertyValuationSchema>;
+export const PropertyValuationPatchSchema = NewPropertyValuationSchema.partial();
+export type PropertyValuationPatch = z.infer<typeof PropertyValuationPatchSchema>;

@@ -1,21 +1,25 @@
 import { ShellLayout } from "@/components/layout/ShellLayout";
-import * as propertiesDb from "@/lib/data/db/properties";
-import * as notificationsDb from "@/lib/data/db/notifications";
-import { getCurrentUserId } from "@/lib/data/auth-shim";
+import { requireCtx } from "@/lib/auth/ctx";
+import { listProperties } from "@/lib/services/properties";
+import { listNotifications } from "@/lib/services/notifications";
 import type { PropertyListItem } from "@/lib/data/types/property";
 import { formatCurrency } from "@/lib/format";
 import { AppHeaderProperties } from "@/components/layout/AppHeaderPropertiesContext";
 import { NotificationsProvider } from "@/components/layout/NotificationsContext";
+
+// Every shell route reads per-org data from Neon behind auth (requireCtx) — inherently dynamic,
+// never statically prerenderable. Matches the (pro) pages, which already opt out of static gen.
+export const dynamic = "force-dynamic";
 
 export default async function ShellGroupLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const userId = getCurrentUserId();
+  const authCtx = await requireCtx();
   const [properties, notifications] = await Promise.all([
-    propertiesDb.list(userId),
-    notificationsDb.list(userId),
+    listProperties(authCtx),
+    listNotifications(authCtx),
   ]);
   const slim: PropertyListItem[] = properties.map((p) => ({
     id: p.id,

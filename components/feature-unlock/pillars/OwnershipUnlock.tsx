@@ -13,14 +13,14 @@ import {
   updateOwnershipRecord,
   verifyOwnership,
   getOwnershipWizardInitialAction,
-} from "@/lib/actions/ownership-records.actions";
-import { updateProperty } from "@/lib/actions/properties.actions";
+} from "@/app/actions/ownership-records";
+import { updateProperty } from "@/app/actions/properties";
 import {
   createCoOwner,
   updateCoOwner,
   removeCoOwner,
   listCoOwnersForPropertyAction,
-} from "@/lib/actions/co-owners.actions";
+} from "@/app/actions/co-owners";
 
 // ── Schema ────────────────────────────────────────────────────────────────────
 

@@ -29,3 +29,8 @@ export const DocumentSchema = z.object({
 export type Document = z.infer<typeof DocumentSchema>;
 export type DocumentKind = Document["kind"];
 export type DocumentCategory = NonNullable<Document["category"]>;
+
+export const NewDocumentSchema = DocumentSchema.omit({ id: true });
+export type NewDocument = z.infer<typeof NewDocumentSchema>;
+export const DocumentPatchSchema = NewDocumentSchema.partial();
+export type DocumentPatch = z.infer<typeof DocumentPatchSchema>;

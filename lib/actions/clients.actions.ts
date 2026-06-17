@@ -2,10 +2,11 @@
 
 import { revalidateTag } from "next/cache";
 import * as clientsDb from "@/lib/data/db/clients";
-import * as propertiesDb from "@/lib/data/db/properties";
+import { updateProperty } from "@/lib/services/properties";
 import { getCurrentUserId } from "@/lib/data/auth-shim";
+import { requireCtx } from "@/lib/auth/ctx";
 import type { Client } from "@/lib/data/types/client";
-import type { ActionResult } from "./properties.actions";
+import type { ActionResult } from "@/app/actions/_result";
 
 export async function createClient(
   data: clientsDb.NewClient,
@@ -34,12 +35,13 @@ export async function assignPropertiesToClient(
   propertyIds: string[],
 ): Promise<ActionResult<void>> {
   const userId = getCurrentUserId();
+  const ctx = await requireCtx();
 
   const client = await clientsDb.get(userId, clientId);
   if (!client) return { ok: false, error: "Client not found" };
 
   for (const propertyId of propertyIds) {
-    const updated = await propertiesDb.update(userId, propertyId, {
+    const updated = await updateProperty(ctx, propertyId, {
       clientId,
     });
     if (!updated) return { ok: false, error: "Property not found" };

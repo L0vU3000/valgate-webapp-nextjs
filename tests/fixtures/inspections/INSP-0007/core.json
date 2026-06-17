@@ -1,0 +1,11 @@
+{
+  "id": "INSP-0007",
+  "propertyId": "PROP-0013",
+  "inspectedAt": 1761955200000,
+  "type": "Plumbing",
+  "inspectorId": "PROF-0004",
+  "status": "Failed",
+  "issues": 5,
+  "createdAt": 1775001600000,
+  "updatedAt": 1775001600000
+}

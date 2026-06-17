@@ -14,3 +14,8 @@ export const NotificationPreferenceSchema = z.object({
 
 export type NotificationPreference = z.infer<typeof NotificationPreferenceSchema>;
 export type NotificationEventType = NotificationPreference["eventType"];
+
+export const NewNotificationPreferenceSchema = NotificationPreferenceSchema.omit({ id: true, userId: true, createdAt: true, updatedAt: true });
+export type NewNotificationPreference = z.infer<typeof NewNotificationPreferenceSchema>;
+export const NotificationPreferencePatchSchema = NewNotificationPreferenceSchema.partial();
+export type NotificationPreferencePatch = z.infer<typeof NotificationPreferencePatchSchema>;

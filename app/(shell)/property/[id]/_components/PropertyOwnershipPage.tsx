@@ -15,7 +15,7 @@ import { MobileCardTable } from "@/components/property/MobileCardTable";
 import { UnlockButton } from "@/components/feature-unlock/UnlockButton";
 import { OwnershipUnlockMount } from "@/components/feature-unlock/pillars/OwnershipUnlock";
 import type { UnlockState } from "@/components/feature-unlock/types";
-import { revokeOwnershipVerification } from "@/lib/actions/ownership-records.actions";
+import { revokeOwnershipVerification } from "@/app/actions/ownership-records";
 import {
   DropdownMenu,
   DropdownMenuContent,

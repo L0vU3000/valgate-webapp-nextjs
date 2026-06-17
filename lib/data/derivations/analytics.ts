@@ -83,7 +83,7 @@ function monthsInWindow(window: DateWindow): { start: number; end: number; label
     const start = Date.UTC(year, month, 1);
     const end = Date.UTC(year, month + 1, 1);
     if (start >= window.to) break;
-    out.push({ start, end: Math.min(end, window.to), label: MONTH_LABELS[month] });
+    out.push({ start, end: Math.min(end, window.to), label: MONTH_LABELS[month]! });
     month++; if (month > 11) { month = 0; year++; }
   }
   return out;
@@ -197,8 +197,8 @@ export function computeLeasePipeline(leases: Lease[]): LeasePipelineItem[] {
 
   return buckets.map((b, i) => ({
     range: b.range,
-    units: totals[i],
-    pct: max === 0 ? 0 : Math.round((totals[i] / max) * 100),
+    units: totals[i]!,
+    pct: max === 0 ? 0 : Math.round((totals[i]! / max) * 100),
     color: b.color,
   }));
 }
@@ -221,8 +221,8 @@ export function computeCapitalGrowth(
         (a, b) => a.recordedAt - b.recordedAt,
       );
       if (series.length < 2) return null;
-      const first = series[0].price;
-      const last = series[series.length - 1].price;
+      const first = series[0]!.price;
+      const last = series[series.length - 1]!.price;
       if (first === 0) return null;
       const growthPct = ((last - first) / first) * 100;
       return { name: p.name, growthPct };
@@ -232,7 +232,7 @@ export function computeCapitalGrowth(
     .slice(0, 3);
 
   if (rows.length === 0) return [];
-  const peak = rows[0].growthPct;
+  const peak = rows[0]!.growthPct;
 
   return rows.map((r, i) => ({
     rank: String(i + 1).padStart(2, "0"),

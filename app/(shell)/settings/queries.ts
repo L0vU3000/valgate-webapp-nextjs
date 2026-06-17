@@ -1,6 +1,7 @@
 import "server-only";
-import * as db from "@/lib/data/db";
-import { getCurrentUserId } from "@/lib/data/auth-shim";
+import { requireCtx } from "@/lib/auth/ctx";
+import { listNotificationPreferences } from "@/lib/services/notification-preferences";
+import { getUserProfile } from "@/lib/services/user-profiles";
 import { type UserProfile } from "@/lib/data/types/user-profile";
 
 export type NotificationRow = {
@@ -40,9 +41,9 @@ const HARD_DEFAULTS: Record<string, NotifChannels> = {
 };
 
 export async function getSettingsPageData(): Promise<SettingsPageData> {
-  const userId = getCurrentUserId();
-  const storedPrefs = await db.notificationPreferences.list(userId);
-  const profile = await db.userProfiles.get(userId, userId);
+  const authCtx = await requireCtx();
+  const storedPrefs = await listNotificationPreferences(authCtx);
+  const profile = await getUserProfile(authCtx, authCtx.userId);
 
   const defaultNotifications: Record<string, NotifChannels> = { ...HARD_DEFAULTS };
   for (const pref of storedPrefs) {

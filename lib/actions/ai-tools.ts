@@ -3,7 +3,7 @@ import "server-only";
 import { tool } from "ai";
 import { z } from "zod";
 
-import { getCurrentUserId } from "@/lib/data/auth-shim";
+import { requireCtx } from "@/lib/auth/ctx";
 import { formatCurrency } from "@/lib/format";
 import {
   getProDashboardData,
@@ -12,11 +12,11 @@ import {
   getCompliancePageData,
   getClientPortfolioData,
 } from "@/app/(pro)/pro/queries";
-import * as paymentsDb from "@/lib/data/db/payments";
-import * as leasesDb from "@/lib/data/db/leases";
-import * as maintenanceDb from "@/lib/data/db/maintenance-items";
-import * as safetyRisksDb from "@/lib/data/db/safety-risks";
-import * as propertiesDb from "@/lib/data/db/properties";
+import { getPayment } from "@/lib/services/payments";
+import { getLease } from "@/lib/services/leases";
+import { getMaintenanceItem } from "@/lib/services/maintenance-items";
+import { getSafetyRisk } from "@/lib/services/safety-risks";
+import { getProperty } from "@/lib/services/properties";
 
 // ---------------------------------------------------------------------------
 // READ tools — thin summaries over the Pro query layer so the AI can give
@@ -187,8 +187,8 @@ export const proposeMarkRentPaid = tool({
     paymentId: z.string().describe("The payment ID to mark as Paid, e.g. PMT-0001"),
   }),
   execute: async ({ paymentId }) => {
-    const userId = getCurrentUserId();
-    const payment = await paymentsDb.get(userId, paymentId);
+    const authCtx = await requireCtx();
+    const payment = await getPayment(authCtx, paymentId);
     if (!payment) return { error: `Payment ${paymentId} not found.` };
 
     return {
@@ -213,8 +213,8 @@ export const proposeLogRentPayment = tool({
       .describe("Payment method used"),
   }),
   execute: async ({ leaseId, amount, method }) => {
-    const userId = getCurrentUserId();
-    const lease = await leasesDb.get(userId, leaseId);
+    const authCtx = await requireCtx();
+    const lease = await getLease(authCtx, leaseId);
     if (!lease) return { error: `Lease ${leaseId} not found.` };
 
     return {
@@ -235,8 +235,8 @@ export const proposeRenewLease = tool({
     leaseId: z.string().describe("The lease ID to renew, e.g. LEASE-0001"),
   }),
   execute: async ({ leaseId }) => {
-    const userId = getCurrentUserId();
-    const lease = await leasesDb.get(userId, leaseId);
+    const authCtx = await requireCtx();
+    const lease = await getLease(authCtx, leaseId);
     if (!lease) return { error: `Lease ${leaseId} not found.` };
 
     const end = new Date(lease.endDate);
@@ -267,8 +267,8 @@ export const proposeCreateWorkOrder = tool({
     cost: z.number().nonnegative().optional().describe("Estimated cost in local currency"),
   }),
   execute: async ({ propertyId, title, severity, vendorId, cost }) => {
-    const userId = getCurrentUserId();
-    const property = await propertiesDb.get(userId, propertyId);
+    const authCtx = await requireCtx();
+    const property = await getProperty(authCtx, propertyId);
     if (!property) return { error: `Property ${propertyId} not found.` };
 
     const costLabel = cost != null ? ` — estimated ${formatCurrency(cost)}` : "";
@@ -296,8 +296,8 @@ export const proposeUpdateWorkOrder = tool({
     cost: z.number().nonnegative().optional().describe("Updated cost estimate"),
   }),
   execute: async ({ id, status, vendorId, cost }) => {
-    const userId = getCurrentUserId();
-    const item = await maintenanceDb.get(userId, id);
+    const authCtx = await requireCtx();
+    const item = await getMaintenanceItem(authCtx, id);
     if (!item) return { error: `Work order ${id} not found.` };
 
     const changes: string[] = [];
@@ -323,8 +323,8 @@ export const proposeResolveSafetyRisk = tool({
     riskId: z.string().describe("The safety risk ID, e.g. RISK-0001"),
   }),
   execute: async ({ riskId }) => {
-    const userId = getCurrentUserId();
-    const risk = await safetyRisksDb.get(userId, riskId);
+    const authCtx = await requireCtx();
+    const risk = await getSafetyRisk(authCtx, riskId);
     if (!risk) return { error: `Safety risk ${riskId} not found.` };
 
     return {
@@ -346,12 +346,12 @@ export const proposeAssignProperties = tool({
     propertyIds: z.array(z.string()).min(1).describe("List of property IDs to assign"),
   }),
   execute: async ({ clientId, propertyIds }) => {
-    const userId = getCurrentUserId();
+    const authCtx = await requireCtx();
 
     // Capture pre-image: original clientId for each property (for rollback)
     const preImage: Record<string, { clientId: string | undefined }> = {};
     for (const propertyId of propertyIds) {
-      const property = await propertiesDb.get(userId, propertyId);
+      const property = await getProperty(authCtx, propertyId);
       if (property) {
         preImage[propertyId] = { clientId: property.clientId };
       }

@@ -4,9 +4,8 @@ import { idSchema, propertyIdSchema, timestampSchema } from "./_common";
 export const SafetyRiskSeveritySchema = z.enum(["Critical", "High", "Medium", "Low"]);
 export type SafetyRiskSeverity = z.infer<typeof SafetyRiskSeveritySchema>;
 
-// A risk is "Open" until a manager resolves it. `.default("Open")` means the
-// existing seed records (written before this field existed) parse as Open
-// with no migration — the field is simply absent on disk and filled in on read.
+// A risk is "Open" until a manager resolves it. `.default("Open")` lets seed
+// records written before this field existed parse as Open with no migration.
 export const SafetyRiskStatusSchema = z.enum(["Open", "Resolved"]);
 export type SafetyRiskStatus = z.infer<typeof SafetyRiskStatusSchema>;
 
@@ -24,3 +23,8 @@ export const SafetyRiskSchema = z.object({
 });
 
 export type SafetyRisk = z.infer<typeof SafetyRiskSchema>;
+
+export const NewSafetyRiskSchema = SafetyRiskSchema.omit({ id: true, createdAt: true, updatedAt: true });
+export type NewSafetyRisk = z.infer<typeof NewSafetyRiskSchema>;
+export const SafetyRiskPatchSchema = NewSafetyRiskSchema.partial();
+export type SafetyRiskPatch = z.infer<typeof SafetyRiskPatchSchema>;

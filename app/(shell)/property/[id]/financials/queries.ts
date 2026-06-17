@@ -1,10 +1,10 @@
 import "server-only";
-import { getCurrentUserId } from "@/lib/data/auth-shim";
-import * as db from "@/lib/data/db";
+import { requireCtx } from "@/lib/auth/ctx";
+import { listPropertyValuations } from "@/lib/services/property-valuations";
 
 export async function getFinancialsPageData(propertyId: string) {
-  const userId = getCurrentUserId();
-  const all = await db.propertyValuations.list(userId);
+  const authCtx = await requireCtx();
+  const all = await listPropertyValuations(authCtx);
   return {
     valuations: all.filter((x) => x.propertyId === propertyId),
   };

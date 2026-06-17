@@ -12,3 +12,8 @@ export const OwnershipHistorySchema = z.object({
 });
 
 export type OwnershipHistory = z.infer<typeof OwnershipHistorySchema>;
+
+export const NewOwnershipHistorySchema = OwnershipHistorySchema.omit({ id: true, createdAt: true, updatedAt: true });
+export type NewOwnershipHistory = z.infer<typeof NewOwnershipHistorySchema>;
+export const OwnershipHistoryPatchSchema = NewOwnershipHistorySchema.partial();
+export type OwnershipHistoryPatch = z.infer<typeof OwnershipHistoryPatchSchema>;

@@ -45,10 +45,10 @@ export const PropertyCoreSchema = z.object({
   createdAt: timestampSchema,
   updatedAt: timestampSchema,
   isArchived: z.boolean().optional(),
+  propertyUse: propertyUseSchema.optional(),
   // Pro overlay: the owner-client this property is managed for.
   // Optional so single-owner (client-side) data needs no migration.
   clientId: idSchema.optional(),
-  propertyUse: propertyUseSchema.optional(),
   rentalVerified: z.boolean().optional(),
   rentalVerifiedAt: timestampSchema.optional(),
   rentalEvidenceDocIds: z.array(idSchema).optional(),
@@ -130,3 +130,14 @@ export type PropertyListItem = z.infer<typeof PropertyListItemSchema> & {
 };
 
 export type { ProgressDetails };
+
+export const NewPropertySchema = PropertySchema.omit({
+  id: true,
+  userId: true,
+  code: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type NewProperty = z.infer<typeof NewPropertySchema>;
+export const PropertyPatchSchema = NewPropertySchema.partial();
+export type PropertyPatch = z.infer<typeof PropertyPatchSchema>;

@@ -24,7 +24,7 @@ import {
 import { WizardProgress } from "@/components/feature-unlock/WizardProgress";
 import type { WizardProgressStep } from "@/components/feature-unlock/WizardProgress";
 import { useAppHeaderProperties } from "@/components/layout/AppHeaderPropertiesContext";
-import { createProfessional } from "@/lib/actions/professionals.actions";
+import { createProfessional } from "@/app/actions/professionals";
 import {
   ADD_PROFESSIONAL_DEFAULTS,
   ADD_PROFESSIONAL_STEPS,

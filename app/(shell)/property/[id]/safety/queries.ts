@@ -1,14 +1,17 @@
 import "server-only";
-import { getCurrentUserId } from "@/lib/data/auth-shim";
-import * as db from "@/lib/data/db";
+import { requireCtx } from "@/lib/auth/ctx";
+import { listInspections } from "@/lib/services/inspections";
+import { listCertifications } from "@/lib/services/certifications";
+import { listSafetyRisks } from "@/lib/services/safety-risks";
+import { listEmergencyContacts } from "@/lib/services/emergency-contacts";
 
 export async function getSafetyPageData(propertyId: string) {
-  const userId = getCurrentUserId();
+  const authCtx = await requireCtx();
   const [allInspections, allCerts, allRisks, allContacts] = await Promise.all([
-    db.inspections.list(userId),
-    db.certifications.list(userId),
-    db.safetyRisks.list(userId),
-    db.emergencyContacts.list(userId),
+    listInspections(authCtx),
+    listCertifications(authCtx),
+    listSafetyRisks(authCtx),
+    listEmergencyContacts(authCtx),
   ]);
   return {
     inspections: allInspections.filter((x) => x.propertyId === propertyId),

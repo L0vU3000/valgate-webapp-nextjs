@@ -11,6 +11,7 @@ export type ProgressPillar = {
   contribution: number;
   href: string;
   checks: ProgressCheck[];
+  verified?: boolean;
 };
 
 export type ProgressDetails = {

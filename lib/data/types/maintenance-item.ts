@@ -20,3 +20,8 @@ export const MaintenanceItemSchema = z.object({
 });
 
 export type MaintenanceItem = z.infer<typeof MaintenanceItemSchema>;
+
+export const NewMaintenanceItemSchema = MaintenanceItemSchema.omit({ id: true, createdAt: true });
+export type NewMaintenanceItem = z.infer<typeof NewMaintenanceItemSchema>;
+export const MaintenanceItemPatchSchema = NewMaintenanceItemSchema.partial();
+export type MaintenanceItemPatch = z.infer<typeof MaintenanceItemPatchSchema>;

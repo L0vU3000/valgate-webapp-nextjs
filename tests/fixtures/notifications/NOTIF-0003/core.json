@@ -1,0 +1,10 @@
+{
+  "id": "NOTIF-0003",
+  "userId": "demo-user",
+  "category": "LEASING",
+  "title": "Land lease offer sent — Chak Angre Plot",
+  "description": "Lease offer queued for Peng Huot Group. Awaiting signature.",
+  "createdAt": 1774940400000,
+  "read": true,
+  "linkTo": "/property/PROP-0015/rental"
+}

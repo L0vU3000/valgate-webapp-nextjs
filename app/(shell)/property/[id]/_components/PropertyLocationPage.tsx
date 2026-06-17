@@ -9,7 +9,7 @@ import { PropertyLayout } from "@/components/property/PropertyLayout";
 import { UnlockButton } from "@/components/feature-unlock/UnlockButton";
 import { LocationUnlockMount } from "@/components/feature-unlock/pillars/LocationUnlock";
 import type { UnlockState } from "@/components/feature-unlock/types";
-import { revokeLocationVerification } from "@/lib/actions/properties.actions";
+import { revokeLocationVerification } from "@/app/actions/properties";
 import { MapControls } from "@/components/map/MapControls";
 import {
   DropdownMenu,

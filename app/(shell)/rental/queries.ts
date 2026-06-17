@@ -1,10 +1,10 @@
 import "server-only";
-import * as leasesDb from "@/lib/data/db/leases";
-import * as paymentsDb from "@/lib/data/db/payments";
-import * as maintenanceDb from "@/lib/data/db/maintenance-items";
-import * as propertiesDb from "@/lib/data/db/properties";
-import * as expensesDb from "@/lib/data/db/expenses";
-import { getCurrentUserId } from "@/lib/data/auth-shim";
+import { requireCtx } from "@/lib/auth/ctx";
+import { listLeases } from "@/lib/services/leases";
+import { listPayments } from "@/lib/services/payments";
+import { listMaintenanceItems } from "@/lib/services/maintenance-items";
+import { listProperties } from "@/lib/services/properties";
+import { listExpenses } from "@/lib/services/expenses";
 import type { PropertyTypeChoice } from "@/lib/data/types/property";
 import {
   computePipeline,
@@ -73,13 +73,13 @@ export type RentalDashboardData = {
 };
 
 export async function getRentalDashboardData(): Promise<RentalDashboardData> {
-  const userId = getCurrentUserId();
+  const authCtx = await requireCtx();
   const [leases, payments, maintenance, properties, expenses] = await Promise.all([
-    leasesDb.list(userId),
-    paymentsDb.list(userId),
-    maintenanceDb.list(userId),
-    propertiesDb.list(userId),
-    expensesDb.list(userId),
+    listLeases(authCtx),
+    listPayments(authCtx),
+    listMaintenanceItems(authCtx),
+    listProperties(authCtx),
+    listExpenses(authCtx),
   ]);
 
   const { amount: grossIncome, trend: incomeTrend } = computeMonthlyGrossIncome(leases);

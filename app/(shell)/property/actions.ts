@@ -1,6 +1,6 @@
 "use server";
-import * as propertiesDb from "@/lib/data/db/properties";
-import { getCurrentUserId } from "@/lib/data/auth-shim";
+import { getProperty, updateProperty } from "@/lib/services/properties";
+import { requireCtx } from "@/lib/auth/ctx";
 import { revalidatePath } from "next/cache";
 import type { PropertyTypeChoice, PropertyStatus } from "@/lib/data/types/property";
 
@@ -55,11 +55,11 @@ export async function editPropertyAction(
   form: EditPropertyForm
 ): Promise<{ ok: boolean; error?: string }> {
   if (!id) return { ok: false, error: "Invalid property ID" };
-  const userId = getCurrentUserId();
-  const existing = await propertiesDb.get(userId, id);
+  const ctx = await requireCtx();
+  const existing = await getProperty(ctx, id);
   if (!existing) return { ok: false, error: "Property not found" };
 
-  await propertiesDb.update(userId, id, {
+  await updateProperty(ctx, id, {
     ...(form.propertyType ? { type: form.propertyType as PropertyTypeChoice } : {}),
     ...(form.status ? { status: form.status as PropertyStatus } : {}),
     ...(form.propertyName ? { name: form.propertyName } : {}),
@@ -86,7 +86,6 @@ export async function editPropertyAction(
     annualInsurance: parseCurrency(form.annualInsurance) ?? existing.annualInsurance,
     ownershipStatus: form.ownershipStatus ?? existing.ownershipStatus,
     buyNumeric: parseCurrency(form.purchasePrice) ?? existing.buyNumeric,
-    updatedAt: Date.now(),
   });
 
   revalidatePath(`/property/${id}`);
@@ -96,10 +95,10 @@ export async function editPropertyAction(
 
 export async function archivePropertyAction(id: string): Promise<{ ok: boolean; error?: string }> {
   if (!id) return { ok: false, error: "Invalid property ID" };
-  const userId = getCurrentUserId();
-  const property = await propertiesDb.get(userId, id);
+  const ctx = await requireCtx();
+  const property = await getProperty(ctx, id);
   if (!property) return { ok: false, error: "Property not found" };
-  await propertiesDb.update(userId, id, { isArchived: true });
+  await updateProperty(ctx, id, { isArchived: true });
   revalidatePath("/portfolio");
   revalidatePath(`/property/${id}`);
   return { ok: true };
@@ -107,10 +106,10 @@ export async function archivePropertyAction(id: string): Promise<{ ok: boolean; 
 
 export async function restorePropertyAction(id: string): Promise<{ ok: boolean; error?: string }> {
   if (!id) return { ok: false, error: "Invalid property ID" };
-  const userId = getCurrentUserId();
-  const property = await propertiesDb.get(userId, id);
+  const ctx = await requireCtx();
+  const property = await getProperty(ctx, id);
   if (!property) return { ok: false, error: "Property not found" };
-  await propertiesDb.update(userId, id, { isArchived: false });
+  await updateProperty(ctx, id, { isArchived: false });
   revalidatePath("/portfolio");
   revalidatePath(`/property/${id}`);
   return { ok: true };

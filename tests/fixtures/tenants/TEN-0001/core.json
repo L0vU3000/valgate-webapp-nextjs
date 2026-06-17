@@ -1,0 +1,10 @@
+{
+  "id": "TEN-0001",
+  "propertyId": "PROP-0001",
+  "name": "Rith Consultancy",
+  "unit": "Ground Floor",
+  "rent": 850,
+  "status": "Paid",
+  "email": "contact@rithconsultancy.com.kh",
+  "phone": "+855 23 456 111"
+}
