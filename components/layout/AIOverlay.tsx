@@ -6,25 +6,16 @@ import { toast } from "sonner";
 import { cn } from "@/components/ui/utils";
 import {
   archiveSession,
-  approveProposedAction,
-  rejectProposedAction,
-  undoApprovedAction,
   createSession,
-  getOverlayBootstrap,
   loadSessionMessages,
   refreshOverlayContext,
-  sendMessage,
-  type AiOverlayBootstrap,
-  type AiOverlayAgentMode,
 } from "@/lib/actions/ai-overlay.actions";
-import type { AiMessage } from "@/lib/data/types/ai-message";
-import type { AiSession } from "@/lib/data/types/ai-session";
-import type { AiOverlayClientContext } from "@/lib/data/derivations/ai-context";
 import type { AiWorkspaceDocument } from "@/lib/data/derivations/ai-context";
 import { AIDocumentModal } from "./ai-overlay/AIDocumentModal";
 import { AISessionSidebar } from "./ai-overlay/AISessionSidebar";
 import { AIChatPane } from "./ai-overlay/AIChatPane";
 import { AIWorkspaceAssets } from "./ai-overlay/AIWorkspaceAssets";
+import { useAgentChat } from "./ai-overlay/useAgentChat";
 
 interface AIOverlayProps {
   open: boolean;
@@ -58,7 +49,9 @@ function routeLabel(pathname: string): string {
 // Proactive opening prompts (spec P1) shown as clickable chips on an empty
 // session — tailored to the route the agent was opened from. These are plain
 // prompts, never invented figures, so nothing here can show a fake number.
-function suggestedPrompts(ctx: AiOverlayClientContext): string[] {
+function suggestedPrompts(ctx: ReturnType<typeof useAgentChat>["context"]): string[] {
+  if (!ctx) return [];
+
   if (ctx.client) {
     const name = ctx.client.name;
     return [
@@ -109,52 +102,16 @@ function suggestedPrompts(ctx: AiOverlayClientContext): string[] {
 }
 
 export function AIOverlay({ open, onClose, pathname, sessionId }: AIOverlayProps) {
-  const [context, setContext] = useState<AiOverlayClientContext | null>(null);
-  const [sessions, setSessions] = useState<AiSession[]>([]);
-  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<AiMessage[]>([]);
-  const [inputValue, setInputValue] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSending, setIsSending] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [agentMode, setAgentMode] = useState<AiOverlayAgentMode>("basic");
+  // ── Chat-core state (extracted to hook, shared with FloatingAgentChat) ─────
+  const chat = useAgentChat(pathname);
+
+  // ── Overlay-local state ───────────────────────────────────────────────────
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>("chat");
   const [bootstrapped, setBootstrapped] = useState(false);
-  const [latestAssistantMsgId, setLatestAssistantMsgId] = useState<string | null>(null);
-  const [approvePendingId, setApprovePendingId] = useState<string | null>(null);
   const [selectedDoc, setSelectedDoc] = useState<AiWorkspaceDocument | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const activeSessionIdRef = useRef<string | null>(null);
-  const pathnameRef = useRef(pathname);
 
-  activeSessionIdRef.current = activeSessionId;
-  pathnameRef.current = pathname;
-
-  const applyBootstrap = useCallback((data: AiOverlayBootstrap) => {
-    setContext(data.context);
-    setSessions(data.sessions);
-    setActiveSessionId(data.activeSessionId);
-    setMessages(data.messages);
-    setAgentMode(data.agentMode);
-    setLoadError(null);
-  }, []);
-
-  const loadBootstrap = useCallback(async (overrideSessionId?: string) => {
-    setIsLoading(true);
-    setLoadError(null);
-    const sid = overrideSessionId ?? activeSessionIdRef.current;
-    const result = await getOverlayBootstrap(pathnameRef.current, sid);
-    setIsLoading(false);
-    if (!result.ok) {
-      setLoadError(result.error);
-      toast.error(result.error);
-      return;
-    }
-    applyBootstrap(result.data);
-    setBootstrapped(true);
-  }, [applyBootstrap]);
-
+  // ── Bootstrap on open ────────────────────────────────────────────────────
   useEffect(() => {
     if (!open) {
       setBootstrapped(false);
@@ -163,17 +120,19 @@ export function AIOverlay({ open, onClose, pathname, sessionId }: AIOverlayProps
     }
     setMobilePanel("chat");
     // Pass sessionId prop so Agent Hub deep-links land on the right thread.
-    void loadBootstrap(sessionId);
+    void chat.loadBootstrap(sessionId).then(() => setBootstrapped(true));
   }, [open, sessionId]);
 
+  // ── Refresh context when pathname changes while open ─────────────────────
   useEffect(() => {
     if (!open || !bootstrapped) return;
     void (async () => {
       const result = await refreshOverlayContext(pathname);
-      if (result.ok) setContext(result.data);
+      if (result.ok) chat.setContext(result.data);
     })();
   }, [pathname, open, bootstrapped]);
 
+  // ── Keyboard + body-scroll lock ──────────────────────────────────────────
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -192,148 +151,61 @@ export function AIOverlay({ open, onClose, pathname, sessionId }: AIOverlayProps
     panelRef.current?.focus();
   }, [open]);
 
-  async function handleSelectSession(sessionId: string) {
-    if (sessionId === activeSessionId) {
+  // ── Session sidebar handlers (AIOverlay-specific, not in the hook) ───────
+  async function handleSelectSession(sid: string) {
+    if (sid === chat.activeSessionId) {
       setMobilePanel("chat");
       return;
     }
-    setIsLoading(true);
-    const result = await loadSessionMessages(sessionId);
-    setIsLoading(false);
+    chat.setIsLoading(true);
+    const result = await loadSessionMessages(sid);
+    chat.setIsLoading(false);
     if (!result.ok) {
       toast.error(result.error);
       return;
     }
-    setActiveSessionId(sessionId);
-    setMessages(result.data);
+    chat.setActiveSessionId(sid);
+    chat.setMessages(result.data);
     setMobilePanel("chat");
   }
 
   async function handleNewSession() {
-    setIsCreating(true);
+    chat.setIsCreating(true);
     const result = await createSession(pathname);
-    setIsCreating(false);
+    chat.setIsCreating(false);
     if (!result.ok) {
       toast.error(result.error);
       return;
     }
-    setSessions((prev) => [result.data.session, ...prev]);
-    setActiveSessionId(result.data.session.id);
-    setMessages(result.data.messages);
+    chat.setSessions((prev) => [result.data.session, ...prev]);
+    chat.setActiveSessionId(result.data.session.id);
+    chat.setMessages(result.data.messages);
     setMobilePanel("chat");
   }
 
-  async function handleArchiveSession(sessionId: string) {
-    const result = await archiveSession(sessionId);
+  async function handleArchiveSession(sid: string) {
+    const result = await archiveSession(sid);
     if (!result.ok) {
       toast.error(result.error);
       return;
     }
-    const remaining = sessions.filter((s) => s.id !== sessionId);
-    setSessions(remaining);
-    if (activeSessionId === sessionId) {
+    const remaining = chat.sessions.filter((s) => s.id !== sid);
+    chat.setSessions(remaining);
+    if (chat.activeSessionId === sid) {
       const nextId = remaining[0]?.id ?? null;
-      setActiveSessionId(nextId);
+      chat.setActiveSessionId(nextId);
       if (nextId) {
         const msgResult = await loadSessionMessages(nextId);
-        if (msgResult.ok) setMessages(msgResult.data);
+        if (msgResult.ok) chat.setMessages(msgResult.data);
       } else {
-        setMessages([]);
+        chat.setMessages([]);
       }
     }
-  }
-
-  async function handleSend() {
-    const content = inputValue.trim();
-    if (!content || isSending) return;
-
-    let sessionId = activeSessionId;
-    if (!sessionId) {
-      setIsCreating(true);
-      const created = await createSession(pathname);
-      setIsCreating(false);
-      if (!created.ok) {
-        toast.error(created.error);
-        return;
-      }
-      sessionId = created.data.session.id;
-      setSessions((prev) => [created.data.session, ...prev]);
-      setActiveSessionId(sessionId);
-      setMessages(created.data.messages);
-    }
-
-    setInputValue("");
-    setIsSending(true);
-
-    const optimisticUser: AiMessage = {
-      id: `temp-${Date.now()}`,
-      sessionId,
-      role: "user",
-      content,
-      createdAt: Date.now(),
-    };
-    setMessages((prev) => [...prev, optimisticUser]);
-
-    const result = await sendMessage({
-      sessionId,
-      content,
-      pathname,
-    });
-
-    setIsSending(false);
-
-    if (!result.ok) {
-      toast.error(result.error);
-      setMessages((prev) => prev.filter((m) => m.id !== optimisticUser.id));
-      setInputValue(content);
-      return;
-    }
-
-    if (result.data.updatedSessionTitle) {
-      setSessions((prev) =>
-        prev.map((s) =>
-          s.id === sessionId ? { ...s, title: result.data.updatedSessionTitle! } : s,
-        ),
-      );
-    }
-
-    const lastAssistant = [...result.data.messages].reverse().find((m) => m.role === "assistant");
-    setLatestAssistantMsgId(lastAssistant?.id ?? null);
-    setMessages(result.data.messages);
-  }
-
-  async function handleApprove(messageId: string) {
-    setApprovePendingId(messageId);
-    const result = await approveProposedAction(messageId);
-    setApprovePendingId(null);
-    if (!result.ok) {
-      toast.error(result.error);
-      return;
-    }
-    setMessages(result.data.messages);
-  }
-
-  async function handleReject(messageId: string) {
-    const result = await rejectProposedAction(messageId);
-    if (!result.ok) {
-      toast.error(result.error);
-      return;
-    }
-    setMessages(result.data.messages);
-  }
-
-  async function handleUndo(messageId: string) {
-    const result = await undoApprovedAction(messageId);
-    if (!result.ok) {
-      toast.error(result.error);
-      return;
-    }
-    setMessages(result.data.messages);
   }
 
   function handleSystemStatus() {
-    const docCount = context?.documents.length ?? 0;
-    const sessionCount = sessions.length;
+    const docCount = chat.context?.documents.length ?? 0;
+    const sessionCount = chat.sessions.length;
     toast.info(
       `Valgate Agent online · ${sessionCount} session${sessionCount === 1 ? "" : "s"} · ${docCount} document${docCount === 1 ? "" : "s"} in scope`,
     );
@@ -341,39 +213,39 @@ export function AIOverlay({ open, onClose, pathname, sessionId }: AIOverlayProps
 
   if (!open) return null;
 
-  const header = context?.header ?? {
+  const header = chat.context?.header ?? {
     title: "Valgate Agent",
     subtitle: null,
     badge: null,
   };
 
   const activeSessionTitle =
-    sessions.find((s) => s.id === activeSessionId)?.title ?? null;
+    chat.sessions.find((s) => s.id === chat.activeSessionId)?.title ?? null;
 
   const isPro = pathname.startsWith("/pro");
 
   // Steps from the most recent assistant message — drive the Activity pane.
-  const latestAssistantSteps = [...messages]
+  const latestAssistantSteps = [...chat.messages]
     .reverse()
     .find((m) => m.role === "assistant" && m.steps && m.steps.length > 0)?.steps;
 
   // What the session is anchored to — the trust-relevant scope (a client, a
   // property, the whole book) plus the page it was opened on.
-  const pinned = context
+  const pinned = chat.context
     ? {
         scope:
-          context.client?.name ??
-          context.property?.name ??
-          (context.pathname.startsWith("/pro")
+          chat.context.client?.name ??
+          chat.context.property?.name ??
+          (chat.context.pathname.startsWith("/pro")
             ? "Book-wide"
-            : context.portfolio
+            : chat.context.portfolio
               ? "Portfolio"
               : "General"),
-        route: routeLabel(context.pathname),
+        route: routeLabel(chat.context.pathname),
       }
     : null;
 
-  const suggestions = context ? suggestedPrompts(context) : [];
+  const suggestions = suggestedPrompts(chat.context);
 
   return (
     <div
@@ -443,15 +315,15 @@ export function AIOverlay({ open, onClose, pathname, sessionId }: AIOverlayProps
               )}
             >
               <AISessionSidebar
-                sessions={sessions}
-                activeSessionId={activeSessionId}
-                isOnline={bootstrapped && !loadError}
+                sessions={chat.sessions}
+                activeSessionId={chat.activeSessionId}
+                isOnline={bootstrapped && !chat.loadError}
                 onSelectSession={handleSelectSession}
                 onNewSession={handleNewSession}
                 onArchiveSession={handleArchiveSession}
                 onClose={onClose}
                 onSystemStatus={handleSystemStatus}
-                isCreating={isCreating}
+                isCreating={chat.isCreating}
               />
             </div>
 
@@ -464,30 +336,30 @@ export function AIOverlay({ open, onClose, pathname, sessionId }: AIOverlayProps
               <AIChatPane
                 header={header}
                 sessionTitle={activeSessionTitle}
-                latestAssistantMsgId={latestAssistantMsgId}
-                messages={messages}
-                userInitials={context?.userInitials ?? "U"}
-                documents={context?.documents ?? []}
+                latestAssistantMsgId={chat.latestAssistantMsgId}
+                messages={chat.messages}
+                userInitials={chat.context?.userInitials ?? "U"}
+                documents={chat.context?.documents ?? []}
                 onOpenDocument={setSelectedDoc}
-                inputValue={inputValue}
-                onInputChange={setInputValue}
-                onSend={handleSend}
-                onRetryLoad={loadError ? loadBootstrap : undefined}
-                isSending={isSending}
-                isLoading={isLoading && messages.length === 0}
-                loadError={loadError}
-                agentMode={agentMode}
+                inputValue={chat.inputValue}
+                onInputChange={chat.setInputValue}
+                onSend={chat.send}
+                onRetryLoad={chat.loadError ? chat.loadBootstrap : undefined}
+                isSending={chat.isSending}
+                isLoading={chat.isLoading && chat.messages.length === 0}
+                loadError={chat.loadError}
+                agentMode={chat.agentMode}
                 isPro={isPro}
                 pinnedContext={pinned}
                 suggestions={suggestions}
-                onApprove={handleApprove}
-                onReject={handleReject}
-                onUndo={handleUndo}
-                approvePendingId={approvePendingId}
+                onApprove={chat.approve}
+                onReject={chat.reject}
+                onUndo={chat.undo}
+                approvePendingId={chat.approvePendingId}
               />
             </div>
 
-            {(context || isLoading) && (
+            {(chat.context || chat.isLoading) && (
               <div
                 className={cn(
                   "min-h-0",
@@ -495,13 +367,13 @@ export function AIOverlay({ open, onClose, pathname, sessionId }: AIOverlayProps
                 )}
               >
                 <AIWorkspaceAssets
-                  documents={context?.documents ?? []}
-                  portfolioBars={context?.portfolioBars ?? []}
-                  yieldHref={context?.yieldHref ?? "/portfolio"}
-                  portfolio={context?.portfolio ?? null}
+                  documents={chat.context?.documents ?? []}
+                  portfolioBars={chat.context?.portfolioBars ?? []}
+                  yieldHref={chat.context?.yieldHref ?? "/portfolio"}
+                  portfolio={chat.context?.portfolio ?? null}
                   onOpenDocument={setSelectedDoc}
                   activitySteps={latestAssistantSteps}
-                  isLoading={isLoading}
+                  isLoading={chat.isLoading}
                 />
               </div>
             )}

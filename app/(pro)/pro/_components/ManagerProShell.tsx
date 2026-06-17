@@ -10,6 +10,7 @@ import { WorkspaceTabProvider } from "./WorkspaceTabProvider";
 import { ProAgentContext } from "./ProAgentContext";
 import { AIOverlay } from "@/components/layout/AIOverlay";
 import { MobileAIFab } from "@/components/layout/MobileAIFab";
+import { FloatingAgentChat, type FloatingOpenTrigger } from "@/components/layout/ai-overlay/FloatingAgentChat";
 import type { ProShellData } from "../queries";
 import type { ShellClient } from "./pro-shell-types";
 
@@ -38,16 +39,32 @@ export function ManagerProShell({
   // `aiSessionId` lets callers (e.g. AgentRunCard) deep-link to a session.
   const [aiOpen, setAiOpen] = useState(false);
   const [aiSessionId, setAiSessionId] = useState<string | undefined>(undefined);
+
+  // Floating docked panel — Agent Hub only (v1). Count increment is the trigger
+  // signal; FloatingAgentChat fires on the change, not a boolean edge.
+  const [floatingTrigger, setFloatingTrigger] = useState<FloatingOpenTrigger>({ count: 0 });
+
   const pathname = usePathname();
+  const isHub = pathname === "/pro/agents";
 
   const openAI = useCallback((sessionId?: string) => {
     setAiSessionId(sessionId);
     setAiOpen(true);
   }, []);
 
+  // On the Agent Hub, opens the floating panel; elsewhere falls through to openAI.
+  const openFloating = useCallback((sessionId?: string) => {
+    if (isHub) {
+      setFloatingTrigger((prev) => ({ count: prev.count + 1, sessionId }));
+    } else {
+      setAiSessionId(sessionId);
+      setAiOpen(true);
+    }
+  }, [isHub]);
+
   return (
     <WorkspaceTabProvider clients={shellClients}>
-      <ProAgentContext.Provider value={{ openAI }}>
+      <ProAgentContext.Provider value={{ openAI, openFloating }}>
       <div className="flex h-screen w-full flex-col overflow-hidden bg-surface-page font-sans">
         <ProAppHeader
           manager={shellData.manager}
@@ -65,8 +82,14 @@ export function ManagerProShell({
           </div>
         </div>
 
-        {/* Phone-only floating trigger; hidden while the overlay is open. */}
-        <MobileAIFab onOpen={() => openAI()} aiOpen={aiOpen} />
+        {/* Phone-only floating trigger; hidden on Agent Hub (FloatingAgentChat
+            provides its own FAB there) and while the overlay is open. */}
+        {!isHub && <MobileAIFab onOpen={() => openAI()} aiOpen={aiOpen} />}
+
+        {/* Docked floating panel — Agent Hub only (v1). */}
+        {isHub && (
+          <FloatingAgentChat pathname={pathname} openTrigger={floatingTrigger} />
+        )}
 
         <AIOverlay
           open={aiOpen}

@@ -26,7 +26,7 @@ function StatusBadge({ status }: { status: AgentHubRun["derivedStatus"] }) {
 }
 
 export function AgentRunCard({ run }: { run: AgentHubRun }) {
-  const { openAI } = useProAgent();
+  const { openFloating } = useProAgent();
   const reduceMotion = useReducedMotion();
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -89,7 +89,7 @@ export function AgentRunCard({ run }: { run: AgentHubRun }) {
         run={run}
         open={modalOpen}
         onOpenChange={setModalOpen}
-        onOpenThread={(sessionId) => openAI(sessionId)}
+        onOpenThread={(sessionId) => openFloating(sessionId)}
       />
     </>
   );
