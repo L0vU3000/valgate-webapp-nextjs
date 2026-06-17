@@ -1,0 +1,13 @@
+{
+  "id": "DOC-0020",
+  "propertyId": "PROP-0001",
+  "folderId": "FLDR-0014",
+  "name": "Mortgage_Agreement_ABA_Bank.pdf",
+  "kind": "document",
+  "mimeType": "application/pdf",
+  "extension": "pdf",
+  "sizeBytes": 1100000,
+  "storageId": "_storage/PROP-0001/mortgage_agreement_aba_bank.pdf",
+  "category": "Financial",
+  "uploadedAt": 1744675200000
+}

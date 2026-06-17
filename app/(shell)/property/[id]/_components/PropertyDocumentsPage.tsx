@@ -1428,7 +1428,10 @@ function ListView({
 
   return (
     <div className="bg-white rounded-lg border border-slate-200 shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden">
-      <table className="w-full">
+      {/* Horizontal scroll on phone — documents table has 5+ columns
+          (Name / Type / Size / Date / Actions) that won't fit at 390px. */}
+      <div className="overflow-x-auto">
+      <table className="w-full min-w-[560px] sm:min-w-0">
         <thead>
           <tr className="bg-slate-50/80 border-b border-slate-200">
             {selectMode && (
@@ -1503,6 +1506,7 @@ function ListView({
           })}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

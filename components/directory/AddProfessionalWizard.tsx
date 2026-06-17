@@ -17,10 +17,10 @@ import {
   X,
 } from "lucide-react";
 import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  PhoneSheet,
+  PhoneSheetContent,
+  PhoneSheetTitle,
+} from "@/components/ui/phone-sheet";
 import { WizardProgress } from "@/components/feature-unlock/WizardProgress";
 import type { WizardProgressStep } from "@/components/feature-unlock/WizardProgress";
 import { useAppHeaderProperties } from "@/components/layout/AppHeaderPropertiesContext";
@@ -749,11 +749,22 @@ export function AddProfessionalWizard({
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-[calc(100%-1rem)] sm:max-w-[min(1040px,calc(100%-2rem))] p-0 gap-0 overflow-hidden rounded-none sm:rounded-2xl border-[var(--val-border-subtle)] h-dvh sm:h-auto">
-        <DialogTitle className="sr-only">Add professional</DialogTitle>
+    <PhoneSheet open={open} onOpenChange={handleClose}>
+      {/*
+        Phone: full-screen bottom sheet — slide-up animation via
+        PhoneSheet. The wizard provides its own back/forward chrome,
+        so we hide the default close button and grab handle.
+        Desktop: centered dialog up to 1040px wide.
+      */}
+      <PhoneSheetContent
+        hideClose
+        showHandle={false}
+        desktopMaxWidth="sm:max-w-[min(1040px,calc(100%-2rem))]"
+        className="p-0 gap-0 overflow-hidden border-[var(--val-border-subtle)] sm:rounded-2xl"
+      >
+        <PhoneSheetTitle className="sr-only">Add professional</PhoneSheetTitle>
 
-        <div className="flex h-full sm:min-h-[640px] sm:max-h-[88vh]">
+        <div className="flex min-h-0 flex-1 sm:min-h-[640px] sm:max-h-[88vh]">
           {/* Left rail — hidden on phone, condensed progress shown in right body */}
           <div className="hidden sm:flex w-[240px] shrink-0 flex-col border-r border-[var(--val-border-subtle)] bg-val-bg-page-alt overflow-y-auto">
             <div className="px-6 pt-8 pb-6 border-b border-[var(--val-border-subtle)]">
@@ -877,7 +888,7 @@ export function AddProfessionalWizard({
             </div>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </PhoneSheetContent>
+    </PhoneSheet>
   );
 }

@@ -520,7 +520,7 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
       {/* Properties table */}
       <div className="bg-surface-base border-t border-border-default shrink-0">
         <div
-          className="flex items-center justify-between px-6 py-2.5 cursor-pointer group hover:bg-surface-tint transition-colors duration-150"
+          className="flex items-center justify-between px-4 sm:px-6 py-2.5 cursor-pointer group hover:bg-surface-tint transition-colors duration-150"
           onClick={() => setTableOpen(!tableOpen)}
         >
           <h2 className="text-[18px] sm:text-[24px] font-bold font-display text-foreground">

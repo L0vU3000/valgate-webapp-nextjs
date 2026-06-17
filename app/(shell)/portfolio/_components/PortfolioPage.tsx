@@ -155,8 +155,10 @@ export function PortfolioPage({ data }: { data: PortfolioPageData }) {
             </div>
           </div>
 
-          {/* KPI Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          {/* KPI Cards — 2 cols on phone (4 cards = 2×2 grid, ~173px per card
+              at 390px viewport), 4 across on lg+. Skipping 1-col stage keeps
+              the dashboard from feeling sparse on iPhone 14. */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <KpiCard index={0} mounted={mounted}>
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Properties</span>

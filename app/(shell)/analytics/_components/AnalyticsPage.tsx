@@ -269,7 +269,7 @@ export function AnalyticsPage({ data, period }: { data: AnalyticsPageData; perio
                 </ResponsiveContainer>
               </div>
               {/* Timeline scrubber */}
-              <div className="bg-slate-50 border-t border-slate-100 px-6 py-4">
+              <div className="bg-slate-50 border-t border-slate-100 px-4 sm:px-6 py-4">
                 <div className="relative h-1.5 bg-slate-200 rounded-full">
                   <div className="absolute inset-y-0 left-1/4 right-1/3 bg-blue-100 border border-blue-200 rounded-full">
                     <div className="absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-white border-2 border-[--val-primary-dark] rounded-full shadow-sm transition-shadow duration-200 hover:shadow-md hover:border-blue-500 cursor-grab" />
@@ -287,7 +287,7 @@ export function AnalyticsPage({ data, period }: { data: AnalyticsPageData; perio
             <div className="lg:col-span-4 flex flex-col gap-4 sm:gap-6">
               {/* Occupancy Sparkline Card */}
               <div
-                className="bg-white border border-slate-100 rounded-lg shadow-sm p-6 transition-shadow duration-300 hover:shadow-md"
+                className="bg-white border border-slate-100 rounded-lg shadow-sm p-4 sm:p-6 transition-shadow duration-300 hover:shadow-md"
                 style={{ animation: `analytics-fade-up 500ms ${EASE_OUT_QUART} 650ms both` }}
               >
                 <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Occupancy Rate</p>
@@ -299,7 +299,7 @@ export function AnalyticsPage({ data, period }: { data: AnalyticsPageData; perio
 
               {/* Lease Expiry Pipeline */}
               <div
-                className="bg-white border border-slate-100 rounded-lg shadow-sm p-6 transition-shadow duration-300 hover:shadow-md"
+                className="bg-white border border-slate-100 rounded-lg shadow-sm p-4 sm:p-6 transition-shadow duration-300 hover:shadow-md"
                 style={{ animation: `analytics-fade-up 500ms ${EASE_OUT_QUART} 750ms both` }}
               >
                 <div className="flex items-center justify-between mb-4">
@@ -332,7 +332,7 @@ export function AnalyticsPage({ data, period }: { data: AnalyticsPageData; perio
 
               {/* Saved Reports */}
               <div
-                className="bg-white border border-slate-100 rounded-lg shadow-sm p-6 transition-shadow duration-300 hover:shadow-md"
+                className="bg-white border border-slate-100 rounded-lg shadow-sm p-4 sm:p-6 transition-shadow duration-300 hover:shadow-md"
                 style={{ animation: `analytics-fade-up 500ms ${EASE_OUT_QUART} 850ms both` }}
               >
                 <h3 className="text-[15px] sm:text-[18px] font-semibold text-slate-400 font-display mb-4">
@@ -370,7 +370,7 @@ export function AnalyticsPage({ data, period }: { data: AnalyticsPageData; perio
           >
             {/* Expense Breakdown Donut */}
             <div
-              className="bg-white border border-slate-100 rounded-lg shadow-sm p-6 transition-shadow duration-300 hover:shadow-md"
+              className="bg-white border border-slate-100 rounded-lg shadow-sm p-4 sm:p-6 transition-shadow duration-300 hover:shadow-md"
               style={bottomRow.visible ? { animation: `analytics-fade-up 500ms ${EASE_OUT_QUART} 0ms both` } : { opacity: 0 }}
             >
               <h3 className="text-[15px] sm:text-[18px] font-semibold text-val-heading font-display mb-6">
@@ -422,7 +422,7 @@ export function AnalyticsPage({ data, period }: { data: AnalyticsPageData; perio
 
             {/* Capital Growth */}
             <div
-              className="bg-white border border-slate-100 rounded-lg shadow-sm p-6 transition-shadow duration-300 hover:shadow-md"
+              className="bg-white border border-slate-100 rounded-lg shadow-sm p-4 sm:p-6 transition-shadow duration-300 hover:shadow-md"
               style={bottomRow.visible ? { animation: `analytics-fade-up 500ms ${EASE_OUT_QUART} 100ms both` } : { opacity: 0 }}
             >
               <h3 className="text-[15px] sm:text-[18px] font-semibold text-val-heading font-display mb-6">
@@ -454,7 +454,7 @@ export function AnalyticsPage({ data, period }: { data: AnalyticsPageData; perio
 
             {/* Maintenance Spend */}
             <div
-              className="bg-white border border-slate-100 rounded-lg shadow-sm p-6 transition-shadow duration-300 hover:shadow-md"
+              className="bg-white border border-slate-100 rounded-lg shadow-sm p-4 sm:p-6 transition-shadow duration-300 hover:shadow-md"
               style={bottomRow.visible ? { animation: `analytics-fade-up 500ms ${EASE_OUT_QUART} 200ms both` } : { opacity: 0 }}
             >
               <h3 className="text-[15px] sm:text-[18px] font-semibold text-val-heading font-display mb-6">

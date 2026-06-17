@@ -3,10 +3,10 @@
   "propertyId": "PROP-0013",
   "tenantId": "TEN-0003",
   "unit": "Full Building",
-  "stage": "Approaching",
+  "stage": "Signed",
   "startDate": 1749081600000,
-  "endDate": 1780617600000,
+  "endDate": 1782777600000,
   "monthlyRent": 1800,
-  "termMonths": 12,
+  "termMonths": 13,
   "renewalStatus": "Under negotiation"
 }

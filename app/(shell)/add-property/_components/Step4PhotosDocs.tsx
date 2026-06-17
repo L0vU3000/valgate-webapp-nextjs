@@ -75,7 +75,7 @@ export function Step4PhotosDocs({ form, setForm }: { form: FormData; setForm: (f
       <div className="flex flex-col gap-12">
         {/* Photos Section */}
         <motion.div
-          className="border border-border rounded-2xl p-6 w-full"
+          className="border border-border rounded-2xl p-4 sm:p-6 w-full"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: easeOut, delay: 0.15 }}
@@ -162,7 +162,7 @@ export function Step4PhotosDocs({ form, setForm }: { form: FormData; setForm: (f
 
         {/* Documents Section */}
         <motion.div
-          className="border border-border rounded-2xl p-6 w-full"
+          className="border border-border rounded-2xl p-4 sm:p-6 w-full"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: easeOut, delay: 0.3 }}
