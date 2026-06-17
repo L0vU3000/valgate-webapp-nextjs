@@ -4,6 +4,8 @@
   "severity": "Low",
   "title": "Overgrown garden",
   "description": "Unoccupied villa — garden overgrowth around perimeter fence should be cleared before rental listing.",
+  "status": "Resolved",
+  "resolvedAt": 1780185600000,
   "createdAt": 1775001600000,
-  "updatedAt": 1775001600000
+  "updatedAt": 1780185600000
 }

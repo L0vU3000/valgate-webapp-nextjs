@@ -1,0 +1,16 @@
+{
+  "id": "RUN-0004",
+  "agentKey": "portfolio-analyst",
+  "title": "Portfolio yield monitor",
+  "task": "Analysing yield trends across active properties",
+  "status": "detected",
+  "finding": "Yield dip flagged on PROP-0003 — below 6-month average",
+  "steps": [
+    { "tool": "getPortfolioSnapshot", "summary": "Loaded portfolio snapshot", "ok": true },
+    { "tool": "computeYield", "summary": "Calculated NOI yield per property", "ok": true },
+    { "tool": "detectAnomalies", "summary": "Flagged yield dip on PROP-0003", "ok": true }
+  ],
+  "lastRunAt": 1781481600000,
+  "createdAt": 1781049600000,
+  "updatedAt": 1781481600000
+}

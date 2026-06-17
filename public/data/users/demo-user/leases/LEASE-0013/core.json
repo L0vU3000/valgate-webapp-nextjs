@@ -1,0 +1,12 @@
+{
+  "id": "LEASE-0013",
+  "propertyId": "PROP-0021",
+  "tenantId": "TEN-0013",
+  "unit": "Street level",
+  "stage": "Signed",
+  "startDate": 1752624000000,
+  "endDate": 1815696000000,
+  "monthlyRent": 1500,
+  "termMonths": 24,
+  "renewalStatus": "Auto-renew"
+}

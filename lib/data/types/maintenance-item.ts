@@ -15,6 +15,8 @@ export const MaintenanceItemSchema = z.object({
   status: MaintenanceStatusSchema,
   createdAt: timestampSchema,
   cost: z.number().nonnegative().optional(),
+  // Pro overlay: assigned vendor from the Professional directory.
+  vendorId: idSchema.optional(),
 });
 
 export type MaintenanceItem = z.infer<typeof MaintenanceItemSchema>;

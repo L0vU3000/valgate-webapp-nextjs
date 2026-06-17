@@ -97,6 +97,7 @@ function splitProperty(p: Property): Record<string, Record<string, unknown>> {
     createdAt: p.createdAt,
     updatedAt: p.updatedAt,
     ...(p.isArchived !== undefined && { isArchived: p.isArchived }),
+    ...(p.clientId !== undefined && { clientId: p.clientId }),
     ...(p.propertyUse !== undefined && { propertyUse: p.propertyUse as PropertyUse }),
     ...(p.rentalVerified !== undefined && { rentalVerified: p.rentalVerified }),
     ...(p.rentalVerifiedAt !== undefined && { rentalVerifiedAt: p.rentalVerifiedAt }),

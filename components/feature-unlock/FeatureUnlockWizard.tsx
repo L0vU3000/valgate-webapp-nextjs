@@ -133,7 +133,11 @@ export function FeatureUnlockWizard<TSchema extends ZodTypeAny>({
   async function handleNext() {
     const currentStep = allSteps[stepIndex];
     if (!currentStep) return;
-    const valid = await form.trigger(currentStep.fields as any);
+    // The step's `fields` are erased to string here; cast to trigger()'s own
+    // FieldPath parameter type rather than `any` so the call stays typed.
+    const valid = await form.trigger(
+      currentStep.fields as Parameters<typeof form.trigger>[0],
+    );
     if (!valid) {
       setError("Some fields on this step are invalid. Check the values above and try again.");
       return;
@@ -482,7 +486,7 @@ export function FeatureUnlockWizard<TSchema extends ZodTypeAny>({
                       </button>
                     </div>
                   )}
-                  {currentStep.render({ form: form as any, values: currentValues, propertyId: activePropertyId })}
+                  {currentStep.render({ form, values: currentValues, propertyId: activePropertyId })}
                 </div>
 
                 {/* Footer */}

@@ -1,0 +1,18 @@
+{
+  "id": "AIM-0079",
+  "sessionId": "AI-0019",
+  "role": "assistant",
+  "content": "Work order MAINT-0003 (air-con unit, upper floor) has been marked as Resolved.",
+  "steps": [
+    { "tool": "listWorkOrders", "summary": "Located MAINT-0003: air-con unit (was InProgress)", "ok": true },
+    { "tool": "updateWorkOrder", "summary": "Status updated to Resolved — work order closed", "ok": true }
+  ],
+  "proposedAction": {
+    "action": "updateWorkOrder",
+    "payload": { "id": "MAINT-0003", "status": "Resolved" },
+    "consequence": "Work order MAINT-0003 will be marked as Resolved.",
+    "preImage": { "status": "InProgress" }
+  },
+  "actionResult": { "ok": true },
+  "createdAt": 1781049602000
+}

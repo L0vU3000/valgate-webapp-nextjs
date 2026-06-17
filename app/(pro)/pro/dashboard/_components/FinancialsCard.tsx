@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import {
   LineChart,
@@ -11,46 +11,35 @@ import {
   YAxis,
 } from "recharts";
 import { WidgetCard } from "@/app/(pro)/pro/_components/WidgetCard";
-import { mockFinancials } from "../_data/mock";
+import { DrawInBar } from "@/app/(pro)/pro/_components/motion-primitives";
 import { cn } from "@/components/ui/utils";
+import type { ProDashboardData } from "../../queries";
 
 // Financials widget — right column.
-// Shows a collected-vs-expected progress bar, the outstanding amount,
-// a small cashflow line chart, and a "View Full Financials" link.
+// Collected-vs-expected for the current month (real Payment and Lease
+// records) plus a 6-month collected-rent trend derived from payments.
 
-const PERIODS = ["Month", "Quarter", "Year"] as const;
-type Period = (typeof PERIODS)[number];
+export function FinancialsCard({
+  financials,
+  monthLabel,
+}: {
+  financials: ProDashboardData["financials"];
+  monthLabel: string;
+}) {
+  const { collected, expected, outstanding, series } = financials;
 
-export function FinancialsCard() {
-  const [period, setPeriod] = useState<Period>("Month");
-
-  const { collected, expected, outstanding, cashflowSeries } = mockFinancials;
-  const collectedPct = Math.round((collected / expected) * 100);
+  // Guard the zero-expected case and clamp at 100% so a strong month
+  // never overflows the bar.
+  const collectedPct =
+    expected === 0 ? 0 : Math.min(100, Math.round((collected / expected) * 100));
 
   return (
     <WidgetCard
       title="Financials"
       headerRight={
-        <div className="inline-flex items-center p-0.5 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
-          {PERIODS.map((p) => {
-            const isActive = p === period;
-            return (
-              <button
-                key={p}
-                type="button"
-                onClick={() => setPeriod(p)}
-                className={cn(
-                  "h-6 px-2.5 rounded text-[11.5px] font-medium transition-colors",
-                  isActive
-                    ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-sm"
-                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200",
-                )}
-              >
-                {p}
-              </button>
-            );
-          })}
-        </div>
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[11.5px] font-medium">
+          {monthLabel}
+        </span>
       }
     >
       <div className="flex flex-col gap-2">
@@ -66,36 +55,46 @@ export function FinancialsCard() {
             </span>{" "}
             expected
           </span>
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300 text-[11px] font-semibold">
+          <span
+            className={cn(
+              "inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold",
+              collectedPct >= 90
+                ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300"
+                : "bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
+            )}
+          >
             {collectedPct}%
           </span>
         </div>
-        <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-          <div
-            className="h-full bg-emerald-500 rounded-full"
-            style={{ width: `${collectedPct}%` }}
-          />
-        </div>
-        <div className="text-[12.5px] text-amber-700 dark:text-amber-400 font-semibold">
-          Outstanding{" "}
-          <span className="tabular-nums">${outstanding.toLocaleString()}</span>
-        </div>
+        <DrawInBar
+          percent={collectedPct}
+          trackClassName="h-2"
+          fillClassName="bg-emerald-500"
+        />
+        {outstanding > 0 && (
+          <div className="text-[12.5px] text-amber-700 dark:text-amber-400 font-semibold">
+            Outstanding{" "}
+            <span className="tabular-nums">
+              ${outstanding.toLocaleString()}
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="h-32 -mx-1">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart
-            data={cashflowSeries}
+            data={series}
             margin={{ top: 8, right: 8, bottom: 4, left: 8 }}
           >
             <XAxis
-              dataKey="week"
+              dataKey="month"
               tick={{ fontSize: 10, fill: "currentColor" }}
               className="text-slate-400 dark:text-slate-500"
               axisLine={false}
               tickLine={false}
             />
-            <YAxis hide domain={["dataMin - 1000", "dataMax + 1000"]} />
+            <YAxis hide domain={[0, "dataMax + 1000"]} />
             <Tooltip
               cursor={{ stroke: "#94a3b8", strokeDasharray: "3 3" }}
               wrapperClassName="!outline-none"
@@ -109,11 +108,14 @@ export function FinancialsCard() {
               }}
               labelStyle={{ color: "rgb(148 163 184)" }}
               itemStyle={{ color: "rgb(241 245 249)" }}
-              formatter={(value: number) => [`$${value.toLocaleString()}`, "Cashflow"]}
+              formatter={(value: number) => [
+                `$${value.toLocaleString()}`,
+                "Collected",
+              ]}
             />
             <Line
               type="monotone"
-              dataKey="value"
+              dataKey="collected"
               stroke="#3b82f6"
               strokeWidth={2}
               dot={{ r: 2.5, stroke: "#3b82f6", fill: "#0f172a", strokeWidth: 1.5 }}
@@ -123,13 +125,13 @@ export function FinancialsCard() {
         </ResponsiveContainer>
       </div>
 
-      <a
-        href="#"
+      <Link
+        href="/pro/rent"
         className="inline-flex items-center gap-1 text-[12.5px] font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
       >
-        View Full Financials
+        View Rent & Collections
         <ArrowRight className="w-3.5 h-3.5" />
-      </a>
+      </Link>
     </WidgetCard>
   );
 }

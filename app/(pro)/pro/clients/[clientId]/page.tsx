@@ -1,9 +1,10 @@
 import { notFound } from "next/navigation";
-import {
-  getClientById,
-  getClientOverview,
-} from "@/app/(pro)/pro/_data/mock";
+import { getClientPortfolioData } from "@/app/(pro)/pro/queries";
 import { ClientPortfolioPage } from "./_components/ClientPortfolioPage";
+
+// /pro/clients/[clientId] — one owner-client's portfolio, scoped from
+// the same shared entities as the dashboard (Property.clientId is the
+// partition key). Includes the monthly owner statement.
 
 type PageProps = {
   params: Promise<{ clientId: string }>;
@@ -11,12 +12,11 @@ type PageProps = {
 
 export default async function Page({ params }: PageProps) {
   const { clientId } = await params;
-  const client = getClientById(clientId);
-  const overview = getClientOverview(clientId);
+  const data = await getClientPortfolioData(clientId);
 
-  if (!client || !overview) {
+  if (!data) {
     notFound();
   }
 
-  return <ClientPortfolioPage client={client} overview={overview} />;
+  return <ClientPortfolioPage data={data} />;
 }

@@ -1,0 +1,15 @@
+{
+  "id": "CLI-0004",
+  "userId": "demo-user",
+  "name": "Sok Chanthou",
+  "clientType": "Individual",
+  "initials": "SC",
+  "avatarBg": "bg-amber-400",
+  "email": "sokchanthou@outlook.com",
+  "phone": "+855 17 556 210",
+  "preferredContact": "Phone",
+  "clientSince": 1707436800000,
+  "managementFeePct": 10,
+  "createdAt": 1707436800000,
+  "updatedAt": 1780272000000
+}

@@ -4,9 +4,10 @@
   "name": "BKK1 Villa No.158",
   "code": "PROP-0017",
   "type": "residential",
-  "status": "Vacant",
+  "status": "Rented",
   "lat": 11.54485,
   "lng": 104.9229,
   "createdAt": 1779356162887,
-  "updatedAt": 1779356162887
+  "updatedAt": 1781118641851,
+  "clientId": "CLI-0001"
 }

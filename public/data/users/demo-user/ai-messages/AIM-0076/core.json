@@ -1,0 +1,18 @@
+{
+  "id": "AIM-0076",
+  "sessionId": "AI-0018",
+  "role": "assistant",
+  "content": "Payment PMT-0022 (£600) has been marked as Paid. The rent roll now reflects this collection.",
+  "steps": [
+    { "tool": "queryPayments", "summary": "Located payment PMT-0022 (£600, LEASE-0012)", "ok": true },
+    { "tool": "markRentPaid", "summary": "Payment status updated to Paid — action complete", "ok": true }
+  ],
+  "proposedAction": {
+    "action": "markRentPaid",
+    "payload": { "paymentId": "PMT-0022" },
+    "consequence": "Payment PMT-0022 (£600 on LEASE-0012) will be marked as Paid.",
+    "preImage": { "status": "Overdue" }
+  },
+  "actionResult": { "ok": true },
+  "createdAt": 1781049602000
+}

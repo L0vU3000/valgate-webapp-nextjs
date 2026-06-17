@@ -308,7 +308,7 @@ function MapPinStep({
       </div>
 
       <p className="text-[11px] text-slate-400">
-        If you updated the address in step 1, use "Adjust pin on map" to move the pin to the correct location.
+        If you updated the address in step 1, use &quot;Adjust pin on map&quot; to move the pin to the correct location.
       </p>
 
       {/* Sub-modal: LocationPickerModal */}

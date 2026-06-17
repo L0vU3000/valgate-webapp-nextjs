@@ -1,5 +1,6 @@
 import "server-only";
 export * as properties from "./properties";
+export * as clients from "./clients";
 export * as documents from "./documents";
 export * as folders from "./folders";
 export * as tenants from "./tenants";
@@ -27,3 +28,4 @@ export * as coOwners from "./co-owners";
 export * as dbdiagramState from "./dbdiagram-state";
 export * as aiSessions from "./ai-sessions";
 export * as aiMessages from "./ai-messages";
+export * as agentRuns from "./agent-runs";

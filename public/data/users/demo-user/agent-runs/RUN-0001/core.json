@@ -1,0 +1,15 @@
+{
+  "id": "RUN-0001",
+  "agentKey": "rent-watch",
+  "title": "Rent collection monitor",
+  "task": "Monitoring 12 tenancies for arrears across the portfolio",
+  "status": "watching",
+  "steps": [
+    { "tool": "queryRentRoll", "summary": "Loaded 12 active leases", "ok": true },
+    { "tool": "checkPayments", "summary": "Scanned June payments — 2 still pending", "ok": true }
+  ],
+  "lastRunAt": 1781481600000,
+  "nextRunAt": 1781568000000,
+  "createdAt": 1781049600000,
+  "updatedAt": 1781481600000
+}

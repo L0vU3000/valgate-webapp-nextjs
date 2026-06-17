@@ -1,7 +1,7 @@
 {
   "id": "AIM-0065",
-  "sessionId": "AI-0011",
+  "sessionId": "AI-0013",
   "role": "assistant",
-  "content": "Hi David — great to see you!\n\nHow can I help you with your portfolio today? (e.g., check occupancy, rent collection, valuations, maintenance, or view a specific property)",
-  "createdAt": 1779950285984
+  "content": "Manager cockpit — your whole book at a glance:\n\n- **21** active properties\n- **62%** occupancy (13 rented, 6 vacant)\n- **$14.07M** total book value\n- **$11K** collected vs **$14K** expected this month (June (UTC))\n\nAsk about overdue rent, open work orders, expiring certificates, or a specific client.",
+  "createdAt": 1781627856243
 }

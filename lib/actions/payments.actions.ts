@@ -14,3 +14,14 @@ export async function createPayment(
   revalidateTag("payments");
   return { ok: true, data: payment };
 }
+
+export async function updatePayment(
+  id: string,
+  patch: Partial<Payment>,
+): Promise<ActionResult<Payment>> {
+  const userId = getCurrentUserId();
+  const updated = await paymentsDb.update(userId, id, patch);
+  if (!updated) return { ok: false, error: "Payment not found" };
+  revalidateTag("payments");
+  return { ok: true, data: updated };
+}

@@ -115,6 +115,14 @@
 
 /* ─── Analytics Page · Entrance Choreography ─── */
 
+/* ─── Agent Hub · Live Pulse Ring ─── */
+
+@keyframes agent-working {
+  0%   { opacity: 0.55; transform: scale(1); }
+  65%  { opacity: 0;    transform: scale(1.7); }
+  100% { opacity: 0;    transform: scale(1.7); }
+}
+
 @keyframes analytics-fade-up {
   from { opacity: 0; transform: translateY(12px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -701,6 +709,14 @@
 @keyframes ai-dot {
   0%, 60%, 100% { transform: translateY(0); opacity: 0.35; }
   30%           { transform: translateY(-4px); opacity: 1; }
+}
+
+@keyframes ai-shake {
+  0%, 100% { transform: translateX(0); }
+  20%      { transform: translateX(-3px); }
+  40%      { transform: translateX(3px); }
+  60%      { transform: translateX(-2px); }
+  80%      { transform: translateX(2px); }
 }
 
 .ai-dot {

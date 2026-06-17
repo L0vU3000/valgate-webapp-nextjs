@@ -1,0 +1,78 @@
+name: CI
+
+# CI: three blocking gates.
+#
+#   - `test`      runs the Vitest query-layer suite. It is the contract guard
+#                 for "every number traces to a real seed field/derivation".
+#   - `lint`      `npm run lint`, scoped to the source we hand-write
+#                 (app / lib / components), at zero errors. It does NOT lint the
+#                 parked Convex backend or the Figma-generated `imports/` tree —
+#                 those carry their own large debt and are a separate cleanup;
+#                 gating UI work on them would be wrong.
+#   - `typecheck` `tsc --noEmit` across the whole repo, at zero errors. (Unlike
+#                 lint this is repo-wide, since a type error anywhere can break a
+#                 build; the 7 pre-existing errors were fixed to get here.)
+#
+# All three block merge. There is intentionally no `next build` job: a
+# production build needs the Mapbox token and the project sets
+# `ignoreBuildErrors`, so it would add CI minutes while catching nothing the
+# checks below don't.
+
+on:
+  push:
+    # Run on every working branch so authors get feedback before opening a PR.
+    branches:
+      - "**"
+  pull_request:
+    # Gate the two long-lived integration branches.
+    branches:
+      - valgate-webapp-nextjs-v1.0.2
+      - main
+
+jobs:
+  test:
+    name: test (required)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          # Match the local toolchain (Node 22).
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      # The seed JSON is committed under public/data, so the query-layer tests
+      # read it in CI with zero extra setup.
+      - name: Run tests
+        run: npm test
+
+  typecheck:
+    name: typecheck (required)
+    runs-on: ubuntu-latest
+    # Blocking: the repo is at zero tsc errors.
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Type-check
+        run: npx tsc --noEmit
+
+  lint:
+    name: lint (required)
+    runs-on: ubuntu-latest
+    # Blocking: `npm run lint` is scoped to app/lib/components and is green.
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Lint
+        run: npm run lint

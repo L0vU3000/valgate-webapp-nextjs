@@ -61,7 +61,7 @@ export function PortfolioPage({ data }: { data: PortfolioPageData }) {
       !q ||
       p.name.toLowerCase().includes(q) ||
       p.code.toLowerCase().includes(q) ||
-      p.province.toLowerCase().includes(q);
+      (p.province ?? "").toLowerCase().includes(q);
     const matchesType = typeFilter === "Property Type" || p.type === typeFilter;
     const matchesStatus = archivedFilter || !statusFilter || p.status === statusFilter;
     const matchesProvince = provinceFilter === "All" || p.province === provinceFilter;
@@ -73,7 +73,7 @@ export function PortfolioPage({ data }: { data: PortfolioPageData }) {
         let av: string | number, bv: string | number
         switch (sortKey) {
           case "name":     av = a.name.toLowerCase();    bv = b.name.toLowerCase();    break
-          case "province": av = a.province.toLowerCase(); bv = b.province.toLowerCase(); break
+          case "province": av = (a.province ?? "").toLowerCase(); bv = (b.province ?? "").toLowerCase(); break
           case "status":   av = a.status;                bv = b.status;                break
           case "size":     av = a.totalArea ? Number(a.totalArea) : -1; bv = b.totalArea ? Number(b.totalArea) : -1; break
           case "buy":      av = a.buyNumeric;            bv = b.buyNumeric;            break

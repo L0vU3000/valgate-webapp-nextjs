@@ -1,0 +1,15 @@
+{
+  "id": "RUN-0002",
+  "agentKey": "compliance-sentinel",
+  "title": "Certificate expiry tracker",
+  "task": "Tracking 8 safety certificates for upcoming expiry",
+  "status": "watching",
+  "steps": [
+    { "tool": "listCertifications", "summary": "Loaded 8 active certificates", "ok": true },
+    { "tool": "checkExpiry", "summary": "2 expiring within 90 days — no action needed yet", "ok": true }
+  ],
+  "lastRunAt": 1781481600000,
+  "nextRunAt": 1781654400000,
+  "createdAt": 1781049600000,
+  "updatedAt": 1781481600000
+}

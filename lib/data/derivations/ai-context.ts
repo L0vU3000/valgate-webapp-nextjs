@@ -8,6 +8,7 @@ import * as propertyValuationsDb from "@/lib/data/db/property-valuations";
 import * as ownershipRecordsDb from "@/lib/data/db/ownership-records";
 import * as maintenanceItemsDb from "@/lib/data/db/maintenance-items";
 import * as propertiesDb from "@/lib/data/db/properties";
+import * as clientsDb from "@/lib/data/db/clients";
 import { getPortfolioSnapshot } from "@/lib/data/derivations/portfolio-snapshot";
 import { getPropertyByIdParam } from "@/lib/data/properties";
 import { getCurrentUserId } from "@/lib/data/auth-shim";
@@ -60,6 +61,15 @@ export type AiOverlayContext = {
     status: string;
     address: string | null;
   } | null;
+  // Set only on Pro routes scoped to a single owner-client
+  // (/pro/clients/[clientId]). The manager-side counterpart to `property`.
+  client: {
+    id: string;
+    name: string;
+    clientType: string;
+    propertyCount: number;
+    managementFeePct: number | null;
+  } | null;
   documents: AiWorkspaceDocument[];
   portfolioBars: AiPortfolioBar[];
   yieldHref: string;
@@ -67,9 +77,17 @@ export type AiOverlayContext = {
 };
 
 const PROPERTY_ROUTE = /^\/property\/([^/]+)/;
+const PRO_CLIENT_ROUTE = /^\/pro\/clients\/([^/]+)/;
 
 export function parsePropertyIdFromPath(pathname: string): string | null {
   const match = pathname.match(PROPERTY_ROUTE);
+  return match?.[1] ?? null;
+}
+
+// Extracts the clientId from /pro/clients/<id>. Returns null for the
+// book-wide /pro/clients list route and every other Pro route.
+export function parseClientIdFromPath(pathname: string): string | null {
+  const match = pathname.match(PRO_CLIENT_ROUTE);
   return match?.[1] ?? null;
 }
 
@@ -109,8 +127,14 @@ function toWorkspaceDocument(doc: Document): AiWorkspaceDocument {
 }
 
 export function buildSessionTitle(context: AiOverlayContext): string {
+  if (context.client) {
+    return `${context.client.name}`;
+  }
   if (context.property) {
     return `${context.property.name}`;
+  }
+  if (context.pathname.startsWith("/pro")) {
+    return "Manager cockpit";
   }
   if (context.portfolio) {
     const n = context.portfolio.propertyCount;
@@ -120,6 +144,31 @@ export function buildSessionTitle(context: AiOverlayContext): string {
 }
 
 export function buildWelcomeMessage(context: AiOverlayContext): string {
+  if (context.client) {
+    const c = context.client;
+    const lines = [
+      `You're managing **${c.name}**'s portfolio (${c.propertyCount} ${c.propertyCount === 1 ? "property" : "properties"}, ${c.clientType}).`,
+      c.managementFeePct != null ? `Management fee: ${c.managementFeePct}%.` : null,
+      "",
+      "Ask about this client's rent collection, work orders, or compliance — or generate their owner statement. Every figure comes from your real book; I won't invent numbers.",
+    ].filter(Boolean);
+    return lines.join("\n");
+  }
+
+  if (context.pathname.startsWith("/pro") && context.portfolio) {
+    const { stats, kpis } = context.portfolio;
+    return [
+      "Manager cockpit — your whole book at a glance:",
+      "",
+      `- **${stats.totalProperties}** active properties`,
+      `- **${stats.occupancyRate}%** occupancy (${stats.rentedCount} rented, ${stats.vacantCount} vacant)`,
+      `- **${kpis.totalValueFormatted}** total book value`,
+      `- **${kpis.monthlyCollected}** collected vs **${kpis.monthlyExpected}** expected this month (${kpis.monthLabel})`,
+      "",
+      "Ask about overdue rent, open work orders, expiring certificates, or a specific client.",
+    ].join("\n");
+  }
+
   if (context.property) {
     const p = context.property;
     const lines = [
@@ -157,6 +206,8 @@ export async function buildAiOverlayContext(
 ): Promise<AiOverlayContext> {
   const userId = getCurrentUserId();
   const propertyId = parsePropertyIdFromPath(pathname);
+  const clientId = parseClientIdFromPath(pathname);
+  const isProRoute = pathname.startsWith("/pro");
 
   // Fetch everything in parallel — the AI needs the full picture regardless of current page
   const [
@@ -169,6 +220,7 @@ export async function buildAiOverlayContext(
     allValuations,
     allOwnershipRecords,
     allMaintenance,
+    allClients,
     pageData,
   ] = await Promise.all([
     userProfilesDb.get(userId, userId),
@@ -180,6 +232,7 @@ export async function buildAiOverlayContext(
     propertyValuationsDb.list(userId),
     ownershipRecordsDb.list(userId),
     maintenanceItemsDb.list(userId),
+    clientsDb.list(userId),
     getPortfolioSnapshot(),
   ]);
 
@@ -206,6 +259,7 @@ export async function buildAiOverlayContext(
   // ── UI context (drives header, sidebar bars, yield link) ─────────────────
   let portfolio: AiOverlayContext["portfolio"] = null;
   let property: AiOverlayContext["property"] = null;
+  let client: AiOverlayContext["client"] = null;
   let portfolioBars: AiPortfolioBar[] = [];
   let yieldHref = "/analytics";
   let header: AiOverlayHeader = {
@@ -271,9 +325,82 @@ export async function buildAiOverlayContext(
     }
   }
 
+  // ── Pro (manager) routes ─────────────────────────────────────────────────
+  // The Pro cockpit is the manager overseeing the whole book. On any /pro
+  // route we surface book-wide context; on /pro/clients/<id> we narrow the
+  // header, the asset bars, and the scoped documents to that one owner-client.
+  if (isProRoute) {
+    yieldHref = "/pro/dashboard";
+
+    const clientRecord = clientId ? await clientsDb.get(userId, clientId) : null;
+
+    if (clientRecord) {
+      const clientProperties = allProperties.filter(
+        (p) => !p.isArchived && p.clientId === clientRecord.id,
+      );
+      client = {
+        id: clientRecord.id,
+        name: clientRecord.name,
+        clientType: clientRecord.clientType,
+        propertyCount: clientProperties.length,
+        managementFeePct: clientRecord.managementFeePct ?? null,
+      };
+      yieldHref = `/pro/clients/${clientRecord.id}`;
+      portfolioBars = clientProperties
+        .filter((p) => p.buyNumeric > 0)
+        .sort((a, b) => b.buyNumeric - a.buyNumeric)
+        .slice(0, 5)
+        .map((p) => ({
+          label: p.name.length > 18 ? `${p.name.slice(0, 16)}…` : p.name,
+          value: p.buyNumeric,
+          propertyId: p.id,
+        }));
+      header = {
+        title: clientRecord.name,
+        subtitle: `${clientProperties.length} ${clientProperties.length === 1 ? "property" : "properties"} · ${clientRecord.clientType}`,
+        badge: "Client",
+      };
+    } else {
+      // Book-wide manager cockpit (dashboard, properties, rent, work-orders,
+      // compliance, clients list). The whole portfolio is the manager's scope.
+      portfolio = {
+        stats: pageData.stats,
+        kpis: pageData.kpis,
+        propertyCount: pageData.properties.length,
+        monthlyExpectedRaw,
+        monthlyCollectedRaw,
+      };
+      portfolioBars = pageData.properties
+        .filter((p) => p.buyNumeric > 0)
+        .sort((a, b) => b.buyNumeric - a.buyNumeric)
+        .slice(0, 5)
+        .map((p) => ({
+          label: p.name.length > 18 ? `${p.name.slice(0, 16)}…` : p.name,
+          value: p.buyNumeric,
+          propertyId: p.id,
+        }));
+      header = {
+        title: "Manager cockpit",
+        subtitle: `${pageData.properties.length} properties · ${pageData.stats.occupancyRate}% occupancy`,
+        badge: "Pro",
+      };
+    }
+  }
+
+  // Documents shown in the assets pane are scoped to the property, the
+  // client's properties, or the whole book — in that order of specificity.
+  const clientPropertyIds = client
+    ? new Set(
+        allProperties
+          .filter((p) => p.clientId === client!.id)
+          .map((p) => p.id),
+      )
+    : null;
   const scopedDocuments = propertyId
     ? allDocuments.filter((d) => d.propertyId === propertyId)
-    : allDocuments;
+    : clientPropertyIds
+      ? allDocuments.filter((d) => clientPropertyIds.has(d.propertyId))
+      : allDocuments;
 
   const documents = scopedDocuments
     .filter((d) => d.kind === "document")
@@ -409,6 +536,31 @@ export async function buildAiOverlayContext(
     lines.push("", "=== DOCUMENTS ===", ...docLines);
   }
 
+  // ── Clients / book of business (Pro) ─────────────────────────────────────
+  // Each Client is an owner the manager reports to; properties belong to a
+  // client via Property.clientId. This section lets the agent answer
+  // cross-client questions and group the book by owner.
+  if (allClients.length > 0) {
+    lines.push("", "=== CLIENTS (BOOK OF BUSINESS) ===");
+    if (client) {
+      lines.push(`Currently focused on client: "${client.name}" (${client.id})`);
+    }
+    for (const c of allClients) {
+      const props = activeProperties.filter((p) => p.clientId === c.id);
+      const propList = props.map((p) => p.id).join(", ") || "—";
+      lines.push(
+        `${c.id}: "${c.name}" (${c.clientType})`,
+        `  managementFee: ${c.managementFeePct != null ? `${c.managementFeePct}%` : "—"} | properties (${props.length}): ${propList}`,
+      );
+    }
+    const unassigned = activeProperties.filter((p) => !p.clientId);
+    if (unassigned.length > 0) {
+      lines.push(
+        `Unassigned properties (${unassigned.length}): ${unassigned.map((p) => p.id).join(", ")}`,
+      );
+    }
+  }
+
   const promptContext = lines.join("\n");
 
   const context: AiOverlayContext = {
@@ -419,6 +571,7 @@ export async function buildAiOverlayContext(
     userName,
     portfolio,
     property,
+    client,
     documents,
     portfolioBars,
     yieldHref,

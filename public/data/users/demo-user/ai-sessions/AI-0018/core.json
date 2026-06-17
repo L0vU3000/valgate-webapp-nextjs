@@ -1,0 +1,8 @@
+{
+  "id": "AI-0018",
+  "title": "PMT-0022 payment confirmed",
+  "contextRoute": "/pro/rent",
+  "status": "active",
+  "createdAt": 1781049600000,
+  "updatedAt": 1781308800000
+}

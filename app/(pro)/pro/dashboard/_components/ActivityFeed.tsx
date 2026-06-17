@@ -5,31 +5,33 @@ import {
   DollarSign,
   Wrench,
   FileText,
-  UserPlus,
   type LucideIcon,
 } from "lucide-react";
 import { WidgetCard } from "@/app/(pro)/pro/_components/WidgetCard";
-import { mockActivity, type ActivityCategory } from "../_data/mock";
+import { formatRelativeTime } from "@/lib/format";
 import { cn } from "@/components/ui/utils";
+import type { ProActivityEvent } from "../../queries";
 
 // Activity Feed — bottom row, right half.
-// Pill-tab filter (All / Financial / Maintenance / Leasing) above a list of
-// activity items, each with a category icon, description, sub-line, and
-// relative timestamp.
+// Real events derived from payments, work orders and leases in the
+// query layer, newest first. The pill tabs filter by category.
 
 const FILTERS = ["All", "Financial", "Maintenance", "Leasing"] as const;
 type Filter = (typeof FILTERS)[number];
 
-// Map each filter tab to the categories it includes. "All" matches everything.
-const FILTER_TO_CATEGORIES: Record<Filter, ActivityCategory[] | "all"> = {
+// Map each filter tab to the categories it includes.
+const FILTER_TO_CATEGORIES: Record<
+  Filter,
+  Array<ProActivityEvent["category"]> | "all"
+> = {
   All: "all",
   Financial: ["payment"],
   Maintenance: ["maintenance"],
-  Leasing: ["lease", "client"],
+  Leasing: ["lease"],
 };
 
 const CATEGORY_STYLE: Record<
-  ActivityCategory,
+  ProActivityEvent["category"],
   { icon: LucideIcon; bg: string; color: string }
 > = {
   payment: {
@@ -47,34 +49,23 @@ const CATEGORY_STYLE: Record<
     bg: "bg-blue-50 dark:bg-blue-500/15",
     color: "text-blue-600 dark:text-blue-400",
   },
-  client: {
-    icon: UserPlus,
-    bg: "bg-violet-50 dark:bg-violet-500/15",
-    color: "text-violet-600 dark:text-violet-400",
-  },
 };
 
-export function ActivityFeed() {
+export function ActivityFeed({
+  activity,
+}: {
+  activity: ProActivityEvent[];
+}) {
   const [filter, setFilter] = useState<Filter>("All");
 
   const filterValue = FILTER_TO_CATEGORIES[filter];
   const visibleItems =
     filterValue === "all"
-      ? mockActivity
-      : mockActivity.filter((item) => filterValue.includes(item.category));
+      ? activity
+      : activity.filter((item) => filterValue.includes(item.category));
 
   return (
-    <WidgetCard
-      title="Activity"
-      headerRight={
-        <a
-          href="#"
-          className="text-[12.5px] font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
-        >
-          View All
-        </a>
-      }
-    >
+    <WidgetCard title="Activity">
       <div className="flex items-center gap-1">
         {FILTERS.map((option) => {
           const isActive = option === filter;
@@ -97,6 +88,11 @@ export function ActivityFeed() {
       </div>
 
       <ul className="flex flex-col">
+        {visibleItems.length === 0 && (
+          <li className="py-4 text-center text-[13px] text-slate-500 dark:text-slate-400">
+            No activity in this category yet.
+          </li>
+        )}
         {visibleItems.map((item) => {
           const style = CATEGORY_STYLE[item.category];
           const Icon = style.icon;
@@ -118,11 +114,11 @@ export function ActivityFeed() {
                   {item.description}
                 </div>
                 <div className="text-[11.5px] text-slate-500 dark:text-slate-400 truncate">
-                  {item.clientName} · {item.assetName}
+                  {item.clientName} · {item.propertyName}
                 </div>
               </div>
               <span className="text-[11.5px] text-slate-400 dark:text-slate-500 shrink-0">
-                {item.timestamp}
+                {formatRelativeTime(item.timestamp)}
               </span>
             </li>
           );

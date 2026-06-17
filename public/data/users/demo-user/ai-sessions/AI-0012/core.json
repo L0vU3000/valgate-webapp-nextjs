@@ -1,8 +1,8 @@
 {
   "id": "AI-0012",
-  "title": "Leases expiring in 60 days",
-  "contextRoute": "/portfolio",
+  "title": "Manager cockpit",
+  "contextRoute": "/pro/dashboard",
   "status": "active",
-  "createdAt": 1780617600000,
-  "updatedAt": 1780617660000
+  "createdAt": 1781627649846,
+  "updatedAt": 1781627649846
 }

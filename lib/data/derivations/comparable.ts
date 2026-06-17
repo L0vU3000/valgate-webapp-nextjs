@@ -65,8 +65,8 @@ export function computeLeaseTableRows(
       const annualExpenses = expenseByProp.get(p.id) ?? 0;
       const noi = avgRent * 12 - annualExpenses;
 
-      const city = (p as any).city ?? (p as any).province ?? "Unknown";
-      const province = (p as any).province ?? "";
+      const city = p.city ?? p.province ?? "Unknown";
+      const province = p.province ?? "";
       const location = province && province !== city ? `${city}, ${province}` : city;
 
       let index: string;

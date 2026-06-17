@@ -3,17 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import { Home, X, Plus, ChevronRight } from "lucide-react";
 import { cn } from "@/components/ui/utils";
-import {
-  useWorkspaceTabs,
-  getAvailableClientsForPicker,
-  type WorkspaceTab,
-} from "./WorkspaceTabProvider";
-import { HEALTH_DOT } from "@/app/(pro)/pro/_data/mock";
+import { useWorkspaceTabs, type WorkspaceTab } from "./WorkspaceTabProvider";
+import { HEALTH_DOT } from "./pro-shell-types";
 
 export function WorkspaceTabBar() {
   const {
     openTabs,
     activeTabId,
+    availableClients,
     activateTab,
     closeTab,
     reorderTabs,
@@ -140,7 +137,7 @@ export function WorkspaceTabBar() {
         </button>
         {pickerOpen && (
           <div className="absolute right-0 top-full z-50 mt-1 w-56 rounded-md border border-border-default bg-surface-base py-1 shadow-lg">
-            {getAvailableClientsForPicker().map((client) => (
+            {availableClients.map((client) => (
               <button
                 key={client.id}
                 type="button"

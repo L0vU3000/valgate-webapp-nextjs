@@ -1,0 +1,15 @@
+{
+  "id": "CLI-0006",
+  "userId": "demo-user",
+  "name": "Rina Pich",
+  "clientType": "Individual",
+  "initials": "RP",
+  "avatarBg": "bg-cyan-400",
+  "email": "rina.pich@gmail.com",
+  "phone": "+855 96 778 034",
+  "preferredContact": "Email",
+  "clientSince": 1744934400000,
+  "managementFeePct": 10,
+  "createdAt": 1744934400000,
+  "updatedAt": 1780272000000
+}

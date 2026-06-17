@@ -1,7 +1,7 @@
 {
   "id": "AIM-0066",
-  "sessionId": "AI-0012",
-  "role": "user",
-  "content": "Which leases expire in the next 60 days?",
-  "createdAt": 1780617600000
+  "sessionId": "AI-0014",
+  "role": "assistant",
+  "content": "You're managing **Vireak Family Office**'s portfolio (4 properties, Corporate).\nManagement fee: 8%.\nAsk about this client's rent collection, work orders, or compliance — or generate their owner statement. Every figure comes from your real book; I won't invent numbers.",
+  "createdAt": 1781627904356
 }

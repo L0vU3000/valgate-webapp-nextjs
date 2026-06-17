@@ -252,7 +252,7 @@ export function LoginPage() {
               data-auth-item
               style={{ "--auth-delay": "280ms" } as React.CSSProperties}
             >
-              Don't have an account?{" "}
+              Don&apos;t have an account?{" "}
               <a
                 href="/register"
                 className="font-semibold text-text-link hover:text-text-link-hover transition-colors"
