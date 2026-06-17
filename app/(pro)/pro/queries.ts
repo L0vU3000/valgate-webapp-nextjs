@@ -1,4 +1,6 @@
 import "server-only";
+import * as agentRunsDb from "@/lib/data/db/agent-runs";
+import * as aiMessagesDb from "@/lib/data/db/ai-messages";
 import * as clientsDb from "@/lib/data/db/clients";
 import * as propertiesDb from "@/lib/data/db/properties";
 import * as leasesDb from "@/lib/data/db/leases";
@@ -44,6 +46,8 @@ import type {
 } from "@/lib/data/types/safety-risk";
 import type { Inspection } from "@/lib/data/types/inspection";
 import type { Professional } from "@/lib/data/types/professional";
+import type { AgentRun, AgentRunStatus } from "@/lib/data/types/agent-run";
+import type { AiMessage } from "@/lib/data/types/ai-message";
 
 // ---------------------------------------------------------------------------
 // Pro query layer.
@@ -954,6 +958,47 @@ export async function getProShellData(): Promise<ProShellData> {
       progress: ctx.progressByPropertyId.get(p.id) ?? 0,
     })),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Agent Hub (/pro/agents)
+// ---------------------------------------------------------------------------
+
+export type AgentHubRun = AgentRun & {
+  derivedStatus: AgentRunStatus;
+  linkedMessage?: AiMessage;
+};
+
+export type AgentHubData = {
+  runs: AgentHubRun[];
+};
+
+// Derives the kanban column for a run from its linked message (if any).
+// Monitor-only runs (no proposalMessageId) use their stored status.
+function deriveRunStatus(run: AgentRun, msg: AiMessage | null): AgentRunStatus {
+  if (!msg) return run.status;
+  if (!msg.actionResult) return "needs-approval";
+  if (msg.actionResult.ok && !msg.actionResult.undone) return "done";
+  // undone, rejected, or errored → back to detected so the finding is visible
+  return "detected";
+}
+
+export async function getAgentHubData(): Promise<AgentHubData> {
+  const userId = getCurrentUserId();
+  const runs = await agentRunsDb.list(userId);
+
+  const enriched = await Promise.all(
+    runs.map(async (run) => {
+      if (!run.proposalMessageId) {
+        return { ...run, derivedStatus: run.status } as AgentHubRun;
+      }
+      const msg = await aiMessagesDb.get(userId, run.proposalMessageId);
+      const derivedStatus = deriveRunStatus(run, msg);
+      return { ...run, derivedStatus, linkedMessage: msg ?? undefined } as AgentHubRun;
+    }),
+  );
+
+  return { runs: enriched };
 }
 
 // ---------------------------------------------------------------------------

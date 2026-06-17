@@ -5,5 +5,5 @@
   "kind": "Rent",
   "amount": 2200,
   "method": "Wing",
-  "status": "Overdue"
+  "status": "Paid"
 }

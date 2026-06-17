@@ -1,0 +1,17 @@
+{
+  "id": "RUN-0007",
+  "agentKey": "rent-watch",
+  "title": "Rent collected — PMT-0022",
+  "task": "Marked rent payment as Paid after manager approval",
+  "status": "done",
+  "finding": "£600 rent payment confirmed — Paid",
+  "steps": [
+    { "tool": "queryPayments", "summary": "Located payment PMT-0022 (£600, LEASE-0012)", "ok": true },
+    { "tool": "markRentPaid", "summary": "Payment marked as Paid — action complete", "ok": true }
+  ],
+  "sessionId": "AI-0018",
+  "proposalMessageId": "AIM-0076",
+  "lastRunAt": 1781308800000,
+  "createdAt": 1781049600000,
+  "updatedAt": 1781308800000
+}

@@ -3,7 +3,10 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { ChevronRight, FileText } from "lucide-react";
+import { motion, useReducedMotion } from "motion/react";
+import { cn } from "@/components/ui/utils";
 import { AIMarkdown } from "./AIMarkdown";
+import { ApprovalGate } from "./ApprovalGate";
 import type { AiMessage } from "@/lib/data/types/ai-message";
 import type { AiWorkspaceDocument } from "@/lib/data/derivations/ai-context";
 import {
@@ -36,6 +39,57 @@ function formatBytes(bytes: number | null): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+export function ToolStepRow({
+  summary,
+  failed,
+  index,
+  reduceMotion,
+  compact = false,
+}: {
+  summary: string;
+  failed: boolean;
+  index: number;
+  reduceMotion: boolean | null;
+  compact?: boolean;
+}) {
+  return (
+    <motion.div
+      initial={reduceMotion ? false : { opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{
+        duration: 0.22,
+        delay: reduceMotion ? 0 : index * 0.05,
+        ease: [0.16, 1, 0.3, 1],
+      }}
+      className={cn(
+        "flex items-start gap-2 rounded-lg border px-3",
+        compact ? "py-2.5" : "py-2",
+        failed
+          ? "animate-[ai-shake_0.4s_ease-out_1] border-red-200 bg-red-50/80 motion-reduce:animate-none dark:border-red-900/50 dark:bg-red-950/40"
+          : "border-interactive-primary/15 bg-interactive-primary/5",
+      )}
+    >
+      <span
+        className={cn(
+          "mt-0.5 size-1.5 shrink-0 rounded-full",
+          failed ? "mt-1 bg-red-500/70" : "bg-interactive-primary/50",
+        )}
+      />
+      <span
+        className={cn(
+          "leading-relaxed",
+          compact ? "text-[11.5px]" : "text-[12px]",
+          failed
+            ? "text-red-800 dark:text-red-200"
+            : "text-interactive-primary/80",
+        )}
+      >
+        {summary}
+      </span>
+    </motion.div>
+  );
 }
 
 // Fast typing reveal — 6 chars per 10ms tick ≈ 600 chars/sec
@@ -77,6 +131,10 @@ type AIMessageBubbleProps = {
   onOpenDocument: (doc: AiWorkspaceDocument) => void;
   index?: number;
   isNew?: boolean;
+  onApprove?: (messageId: string) => void;
+  onReject?: (messageId: string) => void;
+  onUndo?: (messageId: string) => void;
+  approvePendingId?: string | null;
 };
 
 export function AIMessageBubble({
@@ -86,7 +144,12 @@ export function AIMessageBubble({
   onOpenDocument,
   index = 0,
   isNew = false,
+  onApprove,
+  onReject,
+  onUndo,
+  approvePendingId,
 }: AIMessageBubbleProps) {
+  const reduceMotion = useReducedMotion();
   const artifacts =
     message.artifactDocIds
       ?.map((id) => documentsById.get(id))
@@ -122,6 +185,9 @@ export function AIMessageBubble({
     );
   }
 
+  const hasProposedAction = !!message.proposedAction;
+  const isPendingApprove = approvePendingId === message.id;
+
   return (
     <div
       className="flex w-full max-w-[768px] gap-3 animate-[glass-card-in_0.4s_ease-out_both] motion-reduce:animate-none sm:gap-4"
@@ -129,7 +195,23 @@ export function AIMessageBubble({
     >
       <AIAvatar />
       <div className="flex min-w-0 flex-1 flex-col gap-4">
-        <div className="text-[16px] leading-[26px] text-foreground">
+        {/* Agent activity trace — show tool steps if present */}
+        {message.steps && message.steps.length > 0 && (
+          <div className="flex flex-col gap-1.5">
+            {message.steps.map((step, i) => (
+              <ToolStepRow
+                key={i}
+                summary={step.summary}
+                failed={step.ok === false}
+                index={i}
+                reduceMotion={reduceMotion}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Message text */}
+        <div className="min-w-0 break-words text-[16px] leading-[26px] text-foreground">
           {done ? (
             <AIMarkdown content={message.content} />
           ) : (
@@ -139,6 +221,8 @@ export function AIMessageBubble({
             </p>
           )}
         </div>
+
+        {/* Document artifacts */}
         {artifacts.map((doc) => (
           <button
             key={doc!.id}
@@ -169,6 +253,18 @@ export function AIMessageBubble({
             <ChevronRight className="mt-1 size-4.5 shrink-0 text-secondary" />
           </button>
         ))}
+
+        {/* Approval gate — rendered when agent has proposed an action */}
+        {hasProposedAction && (
+          <ApprovalGate
+            action={message.proposedAction!}
+            result={message.actionResult}
+            onApprove={() => onApprove?.(message.id)}
+            onReject={() => onReject?.(message.id)}
+            onUndo={() => onUndo?.(message.id)}
+            isPending={isPendingApprove}
+          />
+        )}
       </div>
     </div>
   );

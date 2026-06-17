@@ -6,6 +6,7 @@ import {
   Users,
   Building2,
   Banknote,
+  Bot,
   ClipboardList,
   ShieldCheck,
   Plus,
@@ -27,6 +28,7 @@ const PRIMARY_NAV = [
   { label: "Rent & Collections", icon: Banknote, href: "/pro/rent" },
   { label: "Work Orders", icon: ClipboardList, href: "/pro/work-orders" },
   { label: "Compliance", icon: ShieldCheck, href: "/pro/compliance" },
+  { label: "Agent Hub", icon: Bot, href: "/pro/agents" },
 ] as const;
 
 // Left sidebar of the Pro shell: navigation, the manager's client book

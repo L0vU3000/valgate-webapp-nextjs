@@ -1,0 +1,17 @@
+{
+  "id": "RUN-0008",
+  "agentKey": "maintenance-coordinator",
+  "title": "Work order resolved — MAINT-0003",
+  "task": "Updated work order status to Resolved after manager approval",
+  "status": "done",
+  "finding": "Air-con work order resolved — MAINT-0003 closed",
+  "steps": [
+    { "tool": "listWorkOrders", "summary": "Located MAINT-0003: air-con unit (InProgress)", "ok": true },
+    { "tool": "updateWorkOrder", "summary": "Status updated to Resolved", "ok": true }
+  ],
+  "sessionId": "AI-0019",
+  "proposalMessageId": "AIM-0079",
+  "lastRunAt": 1781308800000,
+  "createdAt": 1781049600000,
+  "updatedAt": 1781308800000
+}

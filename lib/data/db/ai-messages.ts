@@ -49,6 +49,18 @@ export async function create(
   return record;
 }
 
+export async function update(
+  userId: string,
+  id: string,
+  patch: Partial<Pick<AiMessage, "actionResult" | "steps" | "proposedAction">>,
+): Promise<AiMessage | null> {
+  const current = await get(userId, id);
+  if (!current) return null;
+  const updated = AiMessageSchema.parse({ ...current, ...patch });
+  await writeRecord(userId, COLLECTION, id, { core: { ...updated } });
+  return updated;
+}
+
 export async function removeBySession(
   userId: string,
   sessionId: string,

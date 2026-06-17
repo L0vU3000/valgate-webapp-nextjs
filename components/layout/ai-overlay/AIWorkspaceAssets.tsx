@@ -1,13 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ChevronRight, FileText, TrendingUp, Zap } from "lucide-react";
+import { Activity, ChevronRight, FileText, TrendingUp, Zap } from "lucide-react";
+import { useReducedMotion } from "motion/react";
 import { AIPortfolioSnapshotModal } from "./AIPortfolioSnapshotModal";
 import { AIYieldModal } from "./AIYieldModal";
 import { cn } from "@/components/ui/utils";
 import { formatCurrency } from "@/lib/format";
 import type { AiPortfolioBar, AiWorkspaceDocument } from "@/lib/data/derivations/ai-context";
 import type { PortfolioStats, PortfolioKpis } from "@/lib/data/derivations/portfolio";
+import type { AiMessageStep } from "@/lib/data/types/ai-message";
+import { ToolStepRow } from "./AIMessageBubble";
 import {
   glassDocIcon,
   glassFilterChipInactive,
@@ -15,7 +18,7 @@ import {
   glassYieldIcon,
 } from "./glass-styles";
 
-const FILTERS = ["All", "Documents", "Legal"] as const;
+const FILTERS = ["All", "Activity", "Documents", "Legal"] as const;
 type AssetFilter = (typeof FILTERS)[number];
 
 function formatBytes(bytes: number): string {
@@ -38,6 +41,9 @@ type AIWorkspaceAssetsProps = {
   yieldHref: string;
   portfolio: PortfolioForYield;
   onOpenDocument: (doc: AiWorkspaceDocument) => void;
+  // Steps from the latest assistant message — drives the Activity section.
+  activitySteps?: AiMessageStep[];
+  isLoading?: boolean;
 };
 
 export function AIWorkspaceAssets({
@@ -46,7 +52,10 @@ export function AIWorkspaceAssets({
   yieldHref,
   portfolio,
   onOpenDocument,
+  activitySteps,
+  isLoading = false,
 }: AIWorkspaceAssetsProps) {
+  const reduceMotion = useReducedMotion();
   const [activeFilter, setActiveFilter] = useState<AssetFilter>("All");
   const [yieldModalOpen, setYieldModalOpen] = useState(false);
   const [snapshotModalOpen, setSnapshotModalOpen] = useState(false);
@@ -71,6 +80,7 @@ export function AIWorkspaceAssets({
     return [];
   }, [activeFilter, documents]);
 
+  const showActivity = activeFilter === "All" || activeFilter === "Activity";
   const showTools = activeFilter === "All";
   const showDocs = activeFilter === "All" || activeFilter === "Documents" || activeFilter === "Legal";
 
@@ -107,6 +117,40 @@ export function AIWorkspaceAssets({
       <div className="ai-glass-divider-h mx-5" />
 
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
+        {/* Activity pane — shows tool trace from the latest agent reply */}
+        {showActivity && (
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <Activity className="size-3.5 text-interactive-primary" />
+              <span className="text-[11px] font-semibold uppercase tracking-[0.6px] text-secondary">
+                Agent Activity
+              </span>
+            </div>
+            {isLoading ? (
+              <div className="flex flex-col gap-1.5" aria-busy="true" aria-label="Loading activity">
+                <div className="h-10 animate-pulse rounded-lg bg-white/30 motion-reduce:animate-none" />
+                <div className="h-10 animate-pulse rounded-lg bg-white/30 motion-reduce:animate-none" />
+                <div className="h-10 animate-pulse rounded-lg bg-white/30 motion-reduce:animate-none" />
+              </div>
+            ) : activitySteps && activitySteps.length > 0 ? (
+              <div className="flex flex-col gap-1.5">
+                {activitySteps.map((step, i) => (
+                  <ToolStepRow
+                    key={i}
+                    summary={step.summary}
+                    failed={step.ok === false}
+                    index={i}
+                    reduceMotion={reduceMotion}
+                    compact
+                  />
+                ))}
+              </div>
+            ) : (
+              <p className="px-1 text-[11.5px] text-secondary">No activity yet.</p>
+            )}
+          </div>
+        )}
+
         {showTools && (
           <>
             <button

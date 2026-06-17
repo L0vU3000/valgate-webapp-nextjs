@@ -7,6 +7,7 @@ import {
   getRentPageData,
   getWorkOrdersPageData,
   getClientPortfolioData,
+  getAgentHubData,
 } from "./queries";
 
 // ---------------------------------------------------------------------------
@@ -533,6 +534,68 @@ describe("getClientPortfolioData", () => {
     expect(data.financialSeries).toHaveLength(6);
     for (const point of data.financialSeries) {
       expectRealNumber(point.collected, `series ${point.month}`);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getAgentHubData — column-derivation rule
+//
+// The key invariant: the derivedStatus of a run is determined by the linked
+// message's actionResult, not the run's stored status field. This guards
+// against regressions where the derivation logic breaks and cards land in
+// the wrong kanban column.
+// ---------------------------------------------------------------------------
+
+describe("getAgentHubData — column derivation", () => {
+  beforeEach(freezeClock);
+  afterEach(unfreezeClock);
+
+  it("returns runs for all four columns from seed data", async () => {
+    const { runs } = await getAgentHubData();
+    expect(runs.length).toBeGreaterThanOrEqual(8);
+
+    const byStatus = {
+      watching: runs.filter((r) => r.derivedStatus === "watching"),
+      detected: runs.filter((r) => r.derivedStatus === "detected"),
+      "needs-approval": runs.filter((r) => r.derivedStatus === "needs-approval"),
+      done: runs.filter((r) => r.derivedStatus === "done"),
+    };
+
+    // Seed has 2 watching, 2 detected, 2 needs-approval, 2 done.
+    expect(byStatus.watching.length).toBeGreaterThanOrEqual(2);
+    expect(byStatus.detected.length).toBeGreaterThanOrEqual(2);
+    expect(byStatus["needs-approval"].length).toBeGreaterThanOrEqual(2);
+    expect(byStatus.done.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("needs-approval runs have a linked message with a proposedAction and no actionResult", async () => {
+    const { runs } = await getAgentHubData();
+    const pending = runs.filter((r) => r.derivedStatus === "needs-approval");
+    expect(pending.length).toBeGreaterThan(0);
+    for (const run of pending) {
+      expect(run.linkedMessage).toBeDefined();
+      expect(run.linkedMessage?.proposedAction).toBeDefined();
+      expect(run.linkedMessage?.actionResult).toBeUndefined();
+    }
+  });
+
+  it("done runs have a linked message with actionResult.ok = true and no undone flag", async () => {
+    const { runs } = await getAgentHubData();
+    const done = runs.filter((r) => r.derivedStatus === "done");
+    expect(done.length).toBeGreaterThan(0);
+    for (const run of done) {
+      expect(run.linkedMessage?.actionResult?.ok).toBe(true);
+      expect(run.linkedMessage?.actionResult?.undone).toBeFalsy();
+    }
+  });
+
+  it("monitor-only runs (no proposalMessageId) use their stored status", async () => {
+    const { runs } = await getAgentHubData();
+    const monitorOnly = runs.filter((r) => !r.proposalMessageId);
+    expect(monitorOnly.length).toBeGreaterThan(0);
+    for (const run of monitorOnly) {
+      expect(run.derivedStatus).toBe(run.status);
     }
   });
 });

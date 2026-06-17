@@ -1,0 +1,18 @@
+{
+  "id": "RUN-0006",
+  "agentKey": "compliance-sentinel",
+  "title": "Safety risk resolution — RISK-0001",
+  "task": "Proposing to mark outdated wiring risk as Resolved",
+  "status": "needs-approval",
+  "finding": "High-severity risk: outdated wiring at PROP-0013",
+  "steps": [
+    { "tool": "listSafetyRisks", "summary": "Identified RISK-0001: outdated wiring (High severity)", "ok": true },
+    { "tool": "reviewRiskDetails", "summary": "Risk is open — no prior resolution on record", "ok": true },
+    { "tool": "proposeResolveRisk", "summary": "Proposed marking RISK-0001 as Resolved", "ok": true }
+  ],
+  "sessionId": "AI-0017",
+  "proposalMessageId": "AIM-0073",
+  "lastRunAt": 1781395200000,
+  "createdAt": 1781222400000,
+  "updatedAt": 1781395200000
+}

@@ -1,0 +1,16 @@
+{
+  "id": "RUN-0003",
+  "agentKey": "lease-renewal",
+  "title": "Expiring lease scanner",
+  "task": "Identifying leases expiring within 90 days for renewal action",
+  "status": "detected",
+  "finding": "3 leases expiring within 90 days — renewal decisions pending",
+  "steps": [
+    { "tool": "listLeases", "summary": "Scanned all active leases", "ok": true },
+    { "tool": "checkExpiry", "summary": "Found 3 leases expiring ≤90 days", "ok": true },
+    { "tool": "checkRenewalStatus", "summary": "None have renewal decisions logged", "ok": true }
+  ],
+  "lastRunAt": 1781481600000,
+  "createdAt": 1781049600000,
+  "updatedAt": 1781481600000
+}

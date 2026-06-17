@@ -6,12 +6,16 @@ import { toast } from "sonner";
 import { cn } from "@/components/ui/utils";
 import {
   archiveSession,
+  approveProposedAction,
+  rejectProposedAction,
+  undoApprovedAction,
   createSession,
   getOverlayBootstrap,
   loadSessionMessages,
   refreshOverlayContext,
   sendMessage,
   type AiOverlayBootstrap,
+  type AiOverlayAgentMode,
 } from "@/lib/actions/ai-overlay.actions";
 import type { AiMessage } from "@/lib/data/types/ai-message";
 import type { AiSession } from "@/lib/data/types/ai-session";
@@ -26,11 +30,85 @@ interface AIOverlayProps {
   open: boolean;
   onClose: () => void;
   pathname: string;
+  // When set, the overlay opens directly on this session (e.g. from Agent Hub).
+  sessionId?: string;
 }
 
 type MobilePanel = "sessions" | "chat" | "assets";
 
-export function AIOverlay({ open, onClose, pathname }: AIOverlayProps) {
+// Human label for the pinned-context chip — turns a raw pathname into the
+// page name the manager recognizes from the cockpit nav.
+function routeLabel(pathname: string): string {
+  if (pathname.startsWith("/pro/clients/")) return "Client portfolio";
+  const labels: Record<string, string> = {
+    "/pro/dashboard": "Dashboard",
+    "/pro/clients": "Clients",
+    "/pro/properties": "Properties",
+    "/pro/rent": "Rent & Collections",
+    "/pro/work-orders": "Work Orders",
+    "/pro/compliance": "Compliance",
+    "/portfolio": "Portfolio",
+    "/analytics": "Analytics",
+  };
+  if (labels[pathname]) return labels[pathname];
+  if (pathname.startsWith("/property/")) return "Property";
+  return pathname;
+}
+
+// Proactive opening prompts (spec P1) shown as clickable chips on an empty
+// session — tailored to the route the agent was opened from. These are plain
+// prompts, never invented figures, so nothing here can show a fake number.
+function suggestedPrompts(ctx: AiOverlayClientContext): string[] {
+  if (ctx.client) {
+    const name = ctx.client.name;
+    return [
+      `Generate ${name}'s owner statement for last month`,
+      `Who is overdue on rent for ${name}?`,
+      `Show open work orders for ${name}`,
+      `What's expiring in compliance for ${name}?`,
+    ];
+  }
+
+  if (ctx.pathname.startsWith("/pro")) {
+    const prompts: Record<string, string> = {
+      overdue: "Who is overdue on rent this month?",
+      workOrders: "Show open work orders by priority",
+      expiring: "Which certificates expire in the next 90 days?",
+      reports: "Draft this month's owner reports",
+    };
+    const order = ctx.pathname.startsWith("/pro/rent")
+      ? ["overdue", "expiring", "workOrders", "reports"]
+      : ctx.pathname.startsWith("/pro/work-orders")
+        ? ["workOrders", "overdue", "expiring", "reports"]
+        : ctx.pathname.startsWith("/pro/compliance")
+          ? ["expiring", "workOrders", "overdue", "reports"]
+          : ctx.pathname.startsWith("/pro/clients")
+            ? ["reports", "overdue", "workOrders", "expiring"]
+            : ["overdue", "workOrders", "expiring", "reports"];
+    return order.map((key) => prompts[key]);
+  }
+
+  if (ctx.property) {
+    const name = ctx.property.name;
+    return [
+      `What is ${name} worth now?`,
+      `What's the equity and LTV for ${name}?`,
+      `Show the documents for ${name}`,
+    ];
+  }
+
+  if (ctx.portfolio) {
+    return [
+      "What's my occupancy rate?",
+      "How much rent have I collected this month?",
+      "Which properties need attention?",
+    ];
+  }
+
+  return [];
+}
+
+export function AIOverlay({ open, onClose, pathname, sessionId }: AIOverlayProps) {
   const [context, setContext] = useState<AiOverlayClientContext | null>(null);
   const [sessions, setSessions] = useState<AiSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
@@ -40,9 +118,11 @@ export function AIOverlay({ open, onClose, pathname }: AIOverlayProps) {
   const [isSending, setIsSending] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [agentMode, setAgentMode] = useState<AiOverlayAgentMode>("basic");
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>("chat");
   const [bootstrapped, setBootstrapped] = useState(false);
   const [latestAssistantMsgId, setLatestAssistantMsgId] = useState<string | null>(null);
+  const [approvePendingId, setApprovePendingId] = useState<string | null>(null);
   const [selectedDoc, setSelectedDoc] = useState<AiWorkspaceDocument | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const activeSessionIdRef = useRef<string | null>(null);
@@ -56,13 +136,15 @@ export function AIOverlay({ open, onClose, pathname }: AIOverlayProps) {
     setSessions(data.sessions);
     setActiveSessionId(data.activeSessionId);
     setMessages(data.messages);
+    setAgentMode(data.agentMode);
     setLoadError(null);
   }, []);
 
-  const loadBootstrap = useCallback(async () => {
+  const loadBootstrap = useCallback(async (overrideSessionId?: string) => {
     setIsLoading(true);
     setLoadError(null);
-    const result = await getOverlayBootstrap(pathnameRef.current, activeSessionIdRef.current);
+    const sid = overrideSessionId ?? activeSessionIdRef.current;
+    const result = await getOverlayBootstrap(pathnameRef.current, sid);
     setIsLoading(false);
     if (!result.ok) {
       setLoadError(result.error);
@@ -80,8 +162,9 @@ export function AIOverlay({ open, onClose, pathname }: AIOverlayProps) {
       return;
     }
     setMobilePanel("chat");
-    void loadBootstrap();
-  }, [open, loadBootstrap]);
+    // Pass sessionId prop so Agent Hub deep-links land on the right thread.
+    void loadBootstrap(sessionId);
+  }, [open, sessionId]);
 
   useEffect(() => {
     if (!open || !bootstrapped) return;
@@ -219,6 +302,35 @@ export function AIOverlay({ open, onClose, pathname }: AIOverlayProps) {
     setMessages(result.data.messages);
   }
 
+  async function handleApprove(messageId: string) {
+    setApprovePendingId(messageId);
+    const result = await approveProposedAction(messageId);
+    setApprovePendingId(null);
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+    setMessages(result.data.messages);
+  }
+
+  async function handleReject(messageId: string) {
+    const result = await rejectProposedAction(messageId);
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+    setMessages(result.data.messages);
+  }
+
+  async function handleUndo(messageId: string) {
+    const result = await undoApprovedAction(messageId);
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+    setMessages(result.data.messages);
+  }
+
   function handleSystemStatus() {
     const docCount = context?.documents.length ?? 0;
     const sessionCount = sessions.length;
@@ -237,6 +349,31 @@ export function AIOverlay({ open, onClose, pathname }: AIOverlayProps) {
 
   const activeSessionTitle =
     sessions.find((s) => s.id === activeSessionId)?.title ?? null;
+
+  const isPro = pathname.startsWith("/pro");
+
+  // Steps from the most recent assistant message — drive the Activity pane.
+  const latestAssistantSteps = [...messages]
+    .reverse()
+    .find((m) => m.role === "assistant" && m.steps && m.steps.length > 0)?.steps;
+
+  // What the session is anchored to — the trust-relevant scope (a client, a
+  // property, the whole book) plus the page it was opened on.
+  const pinned = context
+    ? {
+        scope:
+          context.client?.name ??
+          context.property?.name ??
+          (context.pathname.startsWith("/pro")
+            ? "Book-wide"
+            : context.portfolio
+              ? "Portfolio"
+              : "General"),
+        route: routeLabel(context.pathname),
+      }
+    : null;
+
+  const suggestions = context ? suggestedPrompts(context) : [];
 
   return (
     <div
@@ -339,10 +476,18 @@ export function AIOverlay({ open, onClose, pathname }: AIOverlayProps) {
                 isSending={isSending}
                 isLoading={isLoading && messages.length === 0}
                 loadError={loadError}
+                agentMode={agentMode}
+                isPro={isPro}
+                pinnedContext={pinned}
+                suggestions={suggestions}
+                onApprove={handleApprove}
+                onReject={handleReject}
+                onUndo={handleUndo}
+                approvePendingId={approvePendingId}
               />
             </div>
 
-            {context && (
+            {(context || isLoading) && (
               <div
                 className={cn(
                   "min-h-0",
@@ -350,11 +495,13 @@ export function AIOverlay({ open, onClose, pathname }: AIOverlayProps) {
                 )}
               >
                 <AIWorkspaceAssets
-                  documents={context.documents}
-                  portfolioBars={context.portfolioBars}
-                  yieldHref={context.yieldHref}
-                  portfolio={context.portfolio}
+                  documents={context?.documents ?? []}
+                  portfolioBars={context?.portfolioBars ?? []}
+                  yieldHref={context?.yieldHref ?? "/portfolio"}
+                  portfolio={context?.portfolio ?? null}
                   onOpenDocument={setSelectedDoc}
+                  activitySteps={latestAssistantSteps}
+                  isLoading={isLoading}
                 />
               </div>
             )}

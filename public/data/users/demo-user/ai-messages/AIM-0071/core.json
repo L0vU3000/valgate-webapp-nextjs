@@ -1,0 +1,32 @@
+{
+  "id": "AIM-0071",
+  "sessionId": "AI-0016",
+  "role": "assistant",
+  "content": "I found overdue payment PMT-0029 on LEASE-0002 for £2,200. I'd like to mark it as Paid — please confirm to proceed.",
+  "steps": [
+    {
+      "tool": "queryPayments",
+      "summary": "Found overdue payment PMT-0029 (£2,200)",
+      "ok": true
+    },
+    {
+      "tool": "verifyLease",
+      "summary": "LEASE-0002 is active — Signed status confirmed",
+      "ok": true
+    }
+  ],
+  "proposedAction": {
+    "action": "markRentPaid",
+    "payload": {
+      "paymentId": "PMT-0029"
+    },
+    "consequence": "Payment PMT-0029 (£2,200 on LEASE-0002) will be marked as Paid.",
+    "preImage": {
+      "status": "Overdue"
+    }
+  },
+  "actionResult": {
+    "ok": true
+  },
+  "createdAt": 1781222401000
+}

@@ -10,6 +10,7 @@ import {
   Building2,
   UserPlus,
   ClipboardList,
+  Sparkles,
 } from "lucide-react";
 import { CommandPalette } from "@/components/home/CommandPalette";
 import {
@@ -19,6 +20,7 @@ import {
 import { useNotifications } from "@/lib/hooks/use-notifications";
 import type { PropertyListItem } from "@/lib/data/types/property";
 import type { ShellManager } from "./pro-shell-types";
+import { useProAgent } from "./ProAgentContext";
 
 // Top header of the Pro shell: brand, command palette search over the
 // real property book, Create menu (links to the real pages where each
@@ -31,6 +33,7 @@ export function ProAppHeader({
   manager: ShellManager;
   searchProperties: PropertyListItem[];
 }) {
+  const { openAI } = useProAgent();
   const [commandOpen, setCommandOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
@@ -100,6 +103,16 @@ export function ProAppHeader({
         </div>
 
         <div className="flex flex-1 items-center justify-end gap-1">
+          <button
+            type="button"
+            onClick={() => openAI()}
+            aria-label="Ask Valgate Agent"
+            className="group mr-1 hidden h-9 items-center gap-1.5 rounded-md border border-border-default bg-surface-base px-3 text-[13px] font-medium text-foreground transition-[background-color,transform] hover:bg-surface-tint active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-interactive-primary/30 motion-reduce:transition-none sm:inline-flex"
+          >
+            <Sparkles className="h-4 w-4 text-interactive-primary transition-transform duration-200 group-hover:rotate-[8deg] group-hover:scale-110 motion-reduce:transform-none" />
+            Ask Agent
+          </button>
+
           <div ref={createRef} className="relative">
             <button
               type="button"

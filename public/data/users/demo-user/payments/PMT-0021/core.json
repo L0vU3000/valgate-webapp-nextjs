@@ -5,5 +5,5 @@
   "kind": "Rent",
   "amount": 4500,
   "method": "Wire transfer",
-  "status": "Overdue"
+  "status": "Paid"
 }

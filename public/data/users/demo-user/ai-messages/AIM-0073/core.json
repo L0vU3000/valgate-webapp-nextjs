@@ -1,0 +1,17 @@
+{
+  "id": "AIM-0073",
+  "sessionId": "AI-0017",
+  "role": "assistant",
+  "content": "RISK-0001 flags outdated wiring at PROP-0013 (High severity, open). If remediation has been completed, I can mark this as Resolved.",
+  "steps": [
+    { "tool": "listSafetyRisks", "summary": "Identified RISK-0001: outdated wiring (High severity)", "ok": true },
+    { "tool": "reviewRiskDetails", "summary": "Risk is open — no prior resolution on record", "ok": true }
+  ],
+  "proposedAction": {
+    "action": "resolveSafetyRisk",
+    "payload": { "riskId": "RISK-0001" },
+    "consequence": "RISK-0001 (outdated wiring, PROP-0013) will be marked as Resolved.",
+    "preImage": { "status": "Open" }
+  },
+  "createdAt": 1781222401000
+}
