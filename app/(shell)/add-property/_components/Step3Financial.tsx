@@ -128,7 +128,7 @@ export function Step3Financial({
 
       {/* Value card */}
       <div
-        className="flex flex-col gap-4 items-start p-6 rounded-2xl border border-border w-full"
+        className="flex flex-col gap-4 items-start p-4 sm:p-6 rounded-2xl border border-border w-full"
         style={enterStyle(120)}
       >
         {/* Dollar input */}

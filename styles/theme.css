@@ -1216,8 +1216,11 @@
   --font-display: 'Bricolage Grotesque', 'Geist', sans-serif;
   --font-mono:    'JetBrains Mono', 'Fira Code', monospace;
 
-  /* Breakpoints — phone vs Pro Max split sits between base and sm */
-  --breakpoint-xs: 30rem; /* 480px */
+  /* Breakpoints — iPhone 14 logical viewport (390px) and up.
+     Use sparingly: most layouts should rely on the default sm: (640px)
+     threshold. xs: is for the rare phone-specific rule that should NOT
+     apply to iPhone SE (375px). */
+  --breakpoint-xs: 24.375rem; /* 390px — iPhone 14 / 14 Pro */
 }
 
 /* ─── Phone safe-area utilities ─── */
@@ -1258,6 +1261,47 @@
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* ─── Phone touch-target + fluid type opt-in utilities ─── */
+
+/* Apple HIG floor for any interactive element on touch screens. Apply to
+   icon-only buttons, small chips, or anywhere a hit area might fall below
+   44 × 44 CSS px. */
+@utility touch-44 {
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+}
+
+/* Opt-in fluid type for components that hardcode large display text
+   (KPI numbers, hero values, big currency figures). Each clamp shrinks
+   between iPhone 14 (~390px) and sm: (640px), then locks above. */
+@utility text-fluid-display {
+  /* 28px → 40px */
+  font-size: clamp(1.75rem, 1.25rem + 2vw, 2.5rem);
+  line-height: 1.15;
+}
+@utility text-fluid-h1 {
+  /* 22px → 30px */
+  font-size: clamp(1.375rem, 1.125rem + 1vw, 1.875rem);
+  line-height: 1.25;
+}
+@utility text-fluid-h2 {
+  /* 18px → 24px */
+  font-size: clamp(1.125rem, 0.9375rem + 0.75vw, 1.5rem);
+  line-height: 1.3;
+}
+@utility text-fluid-h3 {
+  /* 16px → 20px */
+  font-size: clamp(1rem, 0.875rem + 0.5vw, 1.25rem);
+  line-height: 1.4;
+}
+
+/* Tabular figures for ledgers, KPIs, payment tables — keeps digits the
+   same width so columns don't dance as values update. */
+@utility tabular-num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
 /* ─── DB Diagram · Trace Edge Animation (PK → FK direction) ─── */
 
 @keyframes edge-trace-flow {
@@ -1272,6 +1316,12 @@
 
   body {
     @apply bg-background text-foreground;
+    /* Belt-and-braces: prevent any single rogue element from pushing the
+       page wider than the viewport at 390px (iPhone 14). Catches stray
+       fixed-width tables, long unwrapped strings, etc. while we audit.
+       Use `clip` (not `hidden`) so we don't accidentally turn body into a
+       scroll container and break sticky positioning. iOS Safari 16+. */
+    overflow-x: clip;
   }
 
   html {
@@ -1279,20 +1329,24 @@
     scroll-behavior: smooth;
   }
 
+  /* Headings use clamp() so they shrink gracefully between iPhone 14
+     (~390px viewport) and the sm: breakpoint (640px), then lock to their
+     desktop size above 640px. Prevents 24px h1s from wrapping awkwardly
+     on phone. */
   h1 {
-    font-size: var(--text-2xl);
+    font-size: clamp(1.25rem, 0.875rem + 1.6vw, 1.5rem);
     font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    line-height: 1.4;
   }
 
   h2 {
-    font-size: var(--text-xl);
+    font-size: clamp(1.125rem, 0.9375rem + 0.8vw, 1.25rem);
     font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    line-height: 1.45;
   }
 
   h3 {
-    font-size: var(--text-lg);
+    font-size: clamp(1rem, 0.9375rem + 0.3vw, 1.125rem);
     font-weight: var(--font-weight-medium);
     line-height: 1.5;
   }

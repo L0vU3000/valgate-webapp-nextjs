@@ -145,7 +145,7 @@ export function ProfilePage({ data }: { data: ProfilePageData }) {
           <div className="flex flex-col gap-6">
             {/* Personal Info */}
             <InfoCard title="Personal Info">
-              <div className="grid grid-cols-2 gap-6 p-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 p-4 sm:p-6">
                 <Field 
                   label="First Name" 
                   value={isEditing ? formState.firstName : data.personalInfo[0].value} 
@@ -175,7 +175,7 @@ export function ProfilePage({ data }: { data: ProfilePageData }) {
 
             {/* Contact & Emails */}
             <InfoCard title="Contact & Emails">
-              <div className="grid grid-cols-2 gap-6 p-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 p-4 sm:p-6">
                 <div className="col-span-2">
                   <FieldWithIcon 
                     label="Email Address" 
@@ -204,7 +204,7 @@ export function ProfilePage({ data }: { data: ProfilePageData }) {
 
             {/* Preferences */}
             <InfoCard title="Preferences">
-              <div className="grid grid-cols-3 gap-6 p-6">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 p-4 sm:p-6">
                 <Field 
                   label="Language" 
                   value={isEditing ? formState.language : data.preferences[0].value} 

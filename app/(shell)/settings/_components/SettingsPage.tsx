@@ -226,7 +226,7 @@ export function SettingsPage({ data }: { data: SettingsPageData }) {
             </p>
           </div>
           <div className="col-span-2 bg-white border border-[#d1d5db] rounded-[12px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] p-4 sm:p-[25px]">
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
               <SelectField
                 label="Default Dashboard View"
                 value={dashboardView}

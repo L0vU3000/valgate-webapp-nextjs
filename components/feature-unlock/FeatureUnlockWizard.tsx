@@ -4,10 +4,10 @@ import { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  PhoneSheet,
+  PhoneSheetContent,
+  PhoneSheetTitle,
+} from "@/components/ui/phone-sheet";
 import { X, CheckCircle2, Search } from "lucide-react";
 import { cn } from "@/components/ui/utils";
 import { WizardProgress } from "./WizardProgress";
@@ -271,16 +271,24 @@ export function FeatureUnlockWizard<TSchema extends ZodTypeAny>({
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <PhoneSheet open={open} onOpenChange={handleClose}>
       {/*
-        max-w-[860px]  — wider than 2xl so the loan grid breathes
-        min-h-[660px]  — tall enough for the co-owners step with a few rows
-        max-h-[88vh]   — never taller than the viewport
+        Phone: full-screen bottom sheet via PhoneSheet — slide up from
+        bottom, grab handle hidden (the wizard has its own back/forward
+        chrome and a built-in step bar). The internal flex container
+        fills the sheet height on phone via `flex-1`.
+        Desktop: centered dialog at 860px (wider than 2xl so the loan
+        grid breathes), min 660px tall to fit the co-owners step.
       */}
-      <DialogContent className="max-w-[860px] sm:max-w-[860px] p-0 gap-0 overflow-hidden">
-        <DialogTitle className="sr-only">{config.title}</DialogTitle>
+      <PhoneSheetContent
+        hideClose
+        showHandle={false}
+        desktopMaxWidth="sm:max-w-[860px]"
+        className="p-0 gap-0 overflow-hidden"
+      >
+        <PhoneSheetTitle className="sr-only">{config.title}</PhoneSheetTitle>
 
-        <div className="flex min-h-[660px] max-h-[88vh]">
+        <div className="flex min-h-0 flex-1 sm:min-h-[660px] sm:max-h-[88vh]">
 
           {/* ── Left rail ── */}
           <div
@@ -523,7 +531,7 @@ export function FeatureUnlockWizard<TSchema extends ZodTypeAny>({
             )}
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </PhoneSheetContent>
+    </PhoneSheet>
   );
 }

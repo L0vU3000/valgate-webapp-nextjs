@@ -114,7 +114,7 @@ function ReviewSection({
       animate={{ opacity: 1 }}
       transition={{ duration: 0.38, ease: EASE_OUT, delay: reduced ? 0 : delay }}
       whileHover={reduced ? undefined : { boxShadow: "0 0 0 1.5px rgba(0, 0, 0, 0.18)" }}
-      className="border border-border rounded-2xl p-6 flex flex-col gap-4"
+      className="border border-border rounded-2xl p-4 sm:p-6 flex flex-col gap-4"
     >
       <div className="flex items-start justify-between">
         <div className="flex items-baseline gap-1.5">

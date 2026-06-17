@@ -236,7 +236,7 @@ export function ProfessionalDirectoryPage({ data }: { data: DirectoryPageData })
         <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6 sm:py-8">
           {/* Page Header */}
           <div
-            className="flex items-end justify-between mb-10 animate-[fade-slide-up_0.45s_cubic-bezier(0.22,1,0.36,1)_both]"
+            className="flex items-start justify-between mb-10 animate-[fade-slide-up_0.45s_cubic-bezier(0.22,1,0.36,1)_both]"
           >
             <div>
               <div className="flex items-center gap-2 mb-3">
@@ -255,11 +255,22 @@ export function ProfessionalDirectoryPage({ data }: { data: DirectoryPageData })
                 Manage and connect with your network of property service providers.
               </p>
             </div>
-            <div className="flex items-center gap-3 shrink-0">
-<button
+            <div className="flex items-center gap-3 shrink-0 ml-4">
+              {/* Mobile: icon-only button */}
+              <button
                 type="button"
                 onClick={() => setAddWizardOpen(true)}
-                className="flex items-center gap-2 px-5 py-2.5 rounded text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:opacity-90 active:scale-[0.98]"
+                className="sm:hidden size-10 flex items-center justify-center rounded text-white shadow-sm transition-all duration-150 hover:opacity-90 active:scale-[0.98]"
+                style={{ background: "linear-gradient(168deg, var(--val-primary-dark) 0%, #2563eb 100%)" }}
+                aria-label="Add professional"
+              >
+                <Plus className="size-4" />
+              </button>
+              {/* Desktop: full label button */}
+              <button
+                type="button"
+                onClick={() => setAddWizardOpen(true)}
+                className="hidden sm:flex items-center gap-2 px-5 py-2.5 rounded text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:opacity-90 active:scale-[0.98]"
                 style={{ background: "linear-gradient(168deg, var(--val-primary-dark) 0%, #2563eb 100%)" }}
               >
                 <Plus className="size-3.5" />
@@ -270,9 +281,9 @@ export function ProfessionalDirectoryPage({ data }: { data: DirectoryPageData })
 
           {/* Toolbar */}
           <div
-            className="flex items-center gap-4 mb-4 animate-[fade-slide-up_0.45s_cubic-bezier(0.22,1,0.36,1)_both] [animation-delay:60ms]"
+            className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4 mb-4 animate-[fade-slide-up_0.45s_cubic-bezier(0.22,1,0.36,1)_both] [animation-delay:60ms]"
           >
-            {/* Search */}
+            {/* Search — full width on mobile, flex-1 on desktop */}
             <div className="relative flex-1">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-slate-400 transition-colors peer-focus:text-blue-500" />
               <input
@@ -284,44 +295,47 @@ export function ProfessionalDirectoryPage({ data }: { data: DirectoryPageData })
               />
             </div>
 
-            {/* Grid / List toggle */}
-            <div className="bg-val-bg-tint p-1 rounded flex shrink-0">
-              <button
-                onClick={() => setView("grid")}
-                className={cn(
-                  "px-4 py-2 text-sm font-semibold rounded transition-all duration-150",
-                  view === "grid"
-                    ? "bg-white text-[--val-primary-dark] shadow-sm"
-                    : "text-slate-500 hover:text-slate-700",
-                )}
-              >
-                Grid
-              </button>
-              <button
-                onClick={() => setView("list")}
-                className={cn(
-                  "px-4 py-2 text-sm font-semibold rounded transition-all duration-150",
-                  view === "list"
-                    ? "bg-white text-[--val-primary-dark] shadow-sm"
-                    : "text-slate-500 hover:text-slate-700",
-                )}
-              >
-                List
-              </button>
-            </div>
+            {/* Second row on mobile: view toggle + sort side by side */}
+            <div className="flex items-center gap-3">
+              {/* Grid / List toggle */}
+              <div className="bg-val-bg-tint p-1 rounded flex shrink-0">
+                <button
+                  onClick={() => setView("grid")}
+                  className={cn(
+                    "px-4 py-2 text-sm font-semibold rounded transition-all duration-150",
+                    view === "grid"
+                      ? "bg-white text-[--val-primary-dark] shadow-sm"
+                      : "text-slate-500 hover:text-slate-700",
+                  )}
+                >
+                  Grid
+                </button>
+                <button
+                  onClick={() => setView("list")}
+                  className={cn(
+                    "px-4 py-2 text-sm font-semibold rounded transition-all duration-150",
+                    view === "list"
+                      ? "bg-white text-[--val-primary-dark] shadow-sm"
+                      : "text-slate-500 hover:text-slate-700",
+                  )}
+                >
+                  List
+                </button>
+              </div>
 
-            {/* Sort */}
-            <div className="relative w-48 shrink-0">
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as SortOption)}
-                className="w-full appearance-none bg-val-bg-tint px-4 py-3 pr-8 text-sm font-semibold text-val-heading rounded outline-none cursor-pointer transition-shadow duration-200 focus:ring-2 focus:ring-blue-200"
-              >
-                <option value="Rating">Sort by: Rating</option>
-                <option value="Name">Sort by: Name</option>
-                <option value="Properties">Sort by: Properties</option>
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
+              {/* Sort */}
+              <div className="relative flex-1 sm:flex-none sm:w-48 shrink-0">
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as SortOption)}
+                  className="w-full appearance-none bg-val-bg-tint px-4 py-3 pr-8 text-sm font-semibold text-val-heading rounded outline-none cursor-pointer transition-shadow duration-200 focus:ring-2 focus:ring-blue-200"
+                >
+                  <option value="Rating">Sort by: Rating</option>
+                  <option value="Name">Sort by: Name</option>
+                  <option value="Properties">Sort by: Properties</option>
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none" />
+              </div>
             </div>
           </div>
 

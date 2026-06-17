@@ -440,7 +440,7 @@ export function LocationPickerModal({
             </button>
             <button
               onClick={handleClose}
-              className="sm:hidden w-full text-center text-[14px] text-secondary underline underline-offset-4 hover:text-foreground transition-colors py-2"
+              className="sm:hidden min-h-11 w-full text-center text-[14px] text-secondary underline underline-offset-4 hover:text-foreground transition-colors py-3"
             >
               Cancel
             </button>
