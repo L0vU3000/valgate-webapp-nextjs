@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, ArrowRight, Mail, Check, ArrowLeft, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { useSignUp, useClerk } from "@clerk/nextjs";
+import { useSignUp } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -39,7 +39,6 @@ type FieldErrors = Partial<Record<"fullName" | "email" | "password" | "confirmPa
 export function RegisterPage() {
   const router = useRouter();
   const { signUp } = useSignUp();
-  const { setActive, createOrganization } = useClerk();
 
   const [step, setStep] = useState<"form" | "verify">("form");
   const [fullName, setFullName] = useState("");
@@ -123,10 +122,9 @@ export function RegisterPage() {
         toast.error("Verification isn't complete yet. Please try again.");
         return;
       }
+      // Clerk's "Create first organization automatically" setting creates + activates the user's
+      // org during sign-up, so finalize() lands them in an active org. (No manual createOrganization.)
       await signUp.finalize(); // convert to an active session
-      const first = fullName.trim().split(/\s+/)[0] || "My";
-      const org = await createOrganization({ name: `${first}'s Workspace` });
-      await setActive({ organization: org.id });
       router.push("/");
     } catch (err) {
       toast.error(clerkErrorMessage(err, "Verification failed. Please try again."));
