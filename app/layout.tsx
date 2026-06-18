@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
+import { ClerkProvider } from "@clerk/nextjs";
 import "../styles/index.css";
 import { AgentationProvider } from "./_components/agentation-provider";
 
@@ -30,15 +31,24 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className="antialiased">
-        <Script
-          src="https://mcp.figma.com/mcp/html-to-design/capture.js"
-          strategy="lazyOnload"
-        />
-        {children}
-        <AgentationProvider />
-      </body>
-    </html>
+    // Custom auth pages live at /login and /register (headless Clerk). The fallback redirect URLs
+    // send users to the authed home ("/") after sign-in/up when no explicit redirect is set.
+    <ClerkProvider
+      signInUrl="/login"
+      signUpUrl="/register"
+      signInFallbackRedirectUrl="/"
+      signUpFallbackRedirectUrl="/"
+    >
+      <html lang="en">
+        <body className="antialiased">
+          <Script
+            src="https://mcp.figma.com/mcp/html-to-design/capture.js"
+            strategy="lazyOnload"
+          />
+          {children}
+          <AgentationProvider />
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

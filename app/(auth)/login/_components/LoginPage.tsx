@@ -2,12 +2,15 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
+import { useSignIn } from "@clerk/nextjs";
+import { clerkErrorMessage } from "../../_lib/clerk-errors";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -51,8 +54,13 @@ function GoogleIcon({ className }: { className?: string }) {
   );
 }
 
+// D3: Google sign-in is styled but not yet configured in Clerk — hidden until wired.
+const SHOW_GOOGLE = false;
+
 export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
+  const router = useRouter();
+  const { signIn } = useSignIn();
 
   const form = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
@@ -60,12 +68,23 @@ export function LoginPage() {
     mode: "onBlur",
   });
 
-  async function onSubmit(_values: LoginValues) {
+  async function onSubmit(values: LoginValues) {
     try {
-      // TODO(clerk): replace with await signIn.create({ identifier: _values.email, password: _values.password })
-      toast.error("Auth not yet wired up");
-    } catch {
-      toast.error("Something went wrong. Please try again.");
+      // Future/signals API: password() returns { error } rather than throwing on bad credentials.
+      const { error } = await signIn.password({ identifier: values.email, password: values.password });
+      if (error) {
+        toast.error(clerkErrorMessage(error, "Invalid email or password."));
+        return;
+      }
+      if (signIn.status === "complete") {
+        await signIn.finalize(); // convert to an active session
+        router.push("/");
+      } else {
+        // Any non-complete status here (e.g. MFA) isn't configured in this app.
+        toast.error("Additional verification is required. Please contact support.");
+      }
+    } catch (err) {
+      toast.error(clerkErrorMessage(err, "Invalid email or password."));
     }
   }
 
@@ -107,25 +126,29 @@ export function LoginPage() {
               </p>
             </div>
 
-            <button
-              type="button"
-              data-auth-item
-              style={{ "--auth-delay": "130ms" } as React.CSSProperties}
-              className="auth-google-btn w-full flex items-center justify-center gap-3 h-12 border border-border-default bg-surface-base rounded-xl text-base font-medium text-foreground hover:bg-surface-page"
-            >
-              <GoogleIcon className="size-5 shrink-0" />
-              Continue with Google
-            </button>
+            {SHOW_GOOGLE && (
+              <>
+                <button
+                  type="button"
+                  data-auth-item
+                  style={{ "--auth-delay": "130ms" } as React.CSSProperties}
+                  className="auth-google-btn w-full flex items-center justify-center gap-3 h-12 border border-border-default bg-surface-base rounded-xl text-base font-medium text-foreground hover:bg-surface-page"
+                >
+                  <GoogleIcon className="size-5 shrink-0" />
+                  Continue with Google
+                </button>
 
-            <div
-              className="flex items-center gap-4 my-6"
-              data-auth-item
-              style={{ "--auth-delay": "180ms" } as React.CSSProperties}
-            >
-              <div className="flex-1 h-px bg-border-default" />
-              <span className="text-sm text-muted-foreground">or</span>
-              <div className="flex-1 h-px bg-border-default" />
-            </div>
+                <div
+                  className="flex items-center gap-4 my-6"
+                  data-auth-item
+                  style={{ "--auth-delay": "180ms" } as React.CSSProperties}
+                >
+                  <div className="flex-1 h-px bg-border-default" />
+                  <span className="text-sm text-muted-foreground">or</span>
+                  <div className="flex-1 h-px bg-border-default" />
+                </div>
+              </>
+            )}
 
             <Form {...form}>
               <form
