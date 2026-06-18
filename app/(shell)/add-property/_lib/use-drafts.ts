@@ -21,9 +21,11 @@ interface UseDraftsReturn {
 function stripFileBlobs(form: FormData): FormData {
   // File blobs do not survive JSON.stringify (become {}); strip them explicitly
   // so the persisted shape matches FormData's serializable subset.
-  const { photoFile: _pf, uploadFile: _uf, ...rest } = form;
+  const { photoFile: _pf, uploadFile: _uf, photoFiles: _pfs, documentFiles: _dfs, ...rest } = form;
   void _pf;
   void _uf;
+  void _pfs;
+  void _dfs;
   return rest as FormData;
 }
 

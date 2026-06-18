@@ -11,10 +11,11 @@ export type Ctx = { userId: string; orgId: string; orgRole: "owner" | "admin" | 
 const RANK = { viewer: 0, member: 1, admin: 2, owner: 3 } as const;
 export const roleAtLeast = (r: Ctx["orgRole"], min: keyof typeof RANK): boolean => RANK[r] >= RANK[min];
 
-// D9: writes refuse in DEMO_MODE. Lives here (not ctx.ts) so the service layer never pulls
-// Clerk's server SDK into its dependency graph (C2 — keep services transport-pure).
+// D9: writes refuse in DEMO_MODE so a hosted/shared demo stays read-only. The local-dev escape
+// hatch (DEMO_ALLOW_WRITES=true) re-enables writes against your own dev DB. Lives here (not ctx.ts)
+// so the service layer never pulls Clerk's server SDK into its dependency graph (C2).
 export function assertCanMutate(): void {
-  if (env.DEMO_MODE) throw new Error("Demo is read-only");
+  if (env.DEMO_MODE && !env.DEMO_ALLOW_WRITES) throw new Error("Demo is read-only");
 }
 
 // C6/C7: the single DB→FE conversion point — inverse of seed-neon.ts#toRow.

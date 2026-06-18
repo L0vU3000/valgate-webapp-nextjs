@@ -25,6 +25,13 @@ export async function getUserProfile(ctx: Ctx, id: string): Promise<UserProfile 
   return row ? rowToUserProfile(row) : null;
 }
 
+// The current user's own profile. Keyed by userId (not the UPROF id) — same lookup upsertUserProfile uses.
+export async function getMyUserProfile(ctx: Ctx): Promise<UserProfile | null> {
+  const [row] = await db.select().from(userProfiles)
+    .where(and(eq(userProfiles.orgId, ctx.orgId), eq(userProfiles.userId, ctx.userId))); // C3
+  return row ? rowToUserProfile(row) : null;
+}
+
 export async function upsertUserProfile(ctx: Ctx, patch: UserProfilePatch): Promise<UserProfile> {
   requireMember(ctx);
   const [existingRow] = await db.select().from(userProfiles)

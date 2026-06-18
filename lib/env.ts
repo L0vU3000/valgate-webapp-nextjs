@@ -13,6 +13,10 @@ export const env = createEnv({
     CLERK_WEBHOOK_SIGNING_SECRET: z.string().min(1).optional(),
     // ponytail: string→boolean via enum; "false" is truthy so z.coerce.boolean is safer
     DEMO_MODE: z.coerce.boolean().default(false),
+    // Local-dev escape hatch: allow writes while in DEMO_MODE (against your own dev DB). Default off
+    // keeps any hosted/shared demo read-only. DEMO_MODE is already refused in production (ctx.ts),
+    // so this only ever takes effect locally.
+    DEMO_ALLOW_WRITES: z.coerce.boolean().default(false),
     STORAGE_BUCKET: z.string().min(1).optional(),
     STORAGE_REGION: z.string().min(1).optional(),
     STORAGE_ACCESS_KEY_ID: z.string().min(1).optional(),
@@ -35,6 +39,7 @@ export const env = createEnv({
     CLERK_SECRET_KEY: process.env.CLERK_SECRET_KEY,
     CLERK_WEBHOOK_SIGNING_SECRET: process.env.CLERK_WEBHOOK_SIGNING_SECRET,
     DEMO_MODE: process.env.DEMO_MODE,
+    DEMO_ALLOW_WRITES: process.env.DEMO_ALLOW_WRITES,
     NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
     STORAGE_BUCKET: process.env.STORAGE_BUCKET,
     STORAGE_REGION: process.env.STORAGE_REGION,

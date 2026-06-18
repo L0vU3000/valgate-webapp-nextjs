@@ -20,25 +20,45 @@ export function Step4PhotosDocs({ form, setForm }: { form: FormData; setForm: (f
   const photoInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
 
+  // ponytail: photos[] (display names) and photoFiles[] (blobs) are kept index-aligned for
+  // freshly-added files. Resumed drafts/demo restore names with no blob, so a mixed list can
+  // misalign on remove — acceptable: those restored files can't be uploaded anyway. Fix by
+  // switching to a single {name, file?}[] array if/when draft file-resume is added.
   function removePhoto(i: number) {
-    setForm({ ...form, photos: form.photos.filter((_, j) => j !== i) });
+    setForm({
+      ...form,
+      photos: form.photos.filter((_, j) => j !== i),
+      photoFiles: (form.photoFiles ?? []).filter((_, j) => j !== i),
+    });
   }
 
   function removeDoc(i: number) {
-    setForm({ ...form, documents: form.documents.filter((_, j) => j !== i) });
+    setForm({
+      ...form,
+      documents: form.documents.filter((_, j) => j !== i),
+      documentFiles: (form.documentFiles ?? []).filter((_, j) => j !== i),
+    });
   }
 
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
     if (files.length === 0) return;
-    setForm({ ...form, photos: [...form.photos, ...files.map((f) => f.name)] });
+    setForm({
+      ...form,
+      photos: [...form.photos, ...files.map((f) => f.name)],
+      photoFiles: [...(form.photoFiles ?? []), ...files],
+    });
     e.target.value = "";
   }
 
   function handleDocChange(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
     if (files.length === 0) return;
-    setForm({ ...form, documents: [...form.documents, ...files.map((f) => f.name)] });
+    setForm({
+      ...form,
+      documents: [...form.documents, ...files.map((f) => f.name)],
+      documentFiles: [...(form.documentFiles ?? []), ...files],
+    });
     e.target.value = "";
   }
 

@@ -1,6 +1,6 @@
 import "server-only";
 import { requireCtx } from "@/lib/auth/ctx";
-import { getUserProfile } from "@/lib/services/user-profiles";
+import { getMyUserProfile } from "@/lib/services/user-profiles";
 import { type UserProfile } from "@/lib/data/types/user-profile";
 
 export type ProfileField = {
@@ -27,7 +27,7 @@ export type ProfilePageData = {
 
 export async function getProfilePageData(): Promise<ProfilePageData> {
   const authCtx = await requireCtx();
-  const profile = await getUserProfile(authCtx, authCtx.userId);
+  const profile = await getMyUserProfile(authCtx);
 
   const firstName = profile?.firstName || "—";
   const lastName = profile?.lastName || "—";
