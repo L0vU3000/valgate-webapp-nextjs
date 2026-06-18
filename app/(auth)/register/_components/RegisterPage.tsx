@@ -346,6 +346,11 @@ export function RegisterPage() {
                 </label>
                 {errors.agreed && <p className="-mt-2 text-xs text-red-500">{errors.agreed}</p>}
 
+                {/* Clerk Smart CAPTCHA (bot sign-up protection) renders into this element.
+                    Required for custom/headless sign-up flows — without it Clerk falls back to
+                    Invisible CAPTCHA, which can silently block the sign-up (no verification email). */}
+                <div id="clerk-captcha" />
+
                 <div
                   data-auth-item
                   style={{ "--auth-delay": "300ms" } as React.CSSProperties}
