@@ -11,12 +11,13 @@ export const env = createEnv({
     DATABASE_URL: z.string().url(),
     CLERK_SECRET_KEY: z.string().min(1).optional(),
     CLERK_WEBHOOK_SIGNING_SECRET: z.string().min(1).optional(),
-    // ponytail: string→boolean via enum; "false" is truthy so z.coerce.boolean is safer
-    DEMO_MODE: z.coerce.boolean().default(false),
+    // string→boolean. z.coerce.boolean() is WRONG here: Boolean("false") === true, so DEMO_MODE=false
+    // would parse to true. Parse the literal string instead; empty/unset → undefined → default false.
+    DEMO_MODE: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
     // Local-dev escape hatch: allow writes while in DEMO_MODE (against your own dev DB). Default off
     // keeps any hosted/shared demo read-only. DEMO_MODE is already refused in production (ctx.ts),
     // so this only ever takes effect locally.
-    DEMO_ALLOW_WRITES: z.coerce.boolean().default(false),
+    DEMO_ALLOW_WRITES: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
     STORAGE_BUCKET: z.string().min(1).optional(),
     STORAGE_REGION: z.string().min(1).optional(),
     STORAGE_ACCESS_KEY_ID: z.string().min(1).optional(),
