@@ -4,6 +4,21 @@
 > keys, then a real production launch later with a Clerk **production instance** + custom domain.
 > This lets us test the full serverless stack now without DNS/custom-domain work.
 
+## Which deployment am I on? (environment convention)
+
+Same code (`backend-migration`), two environments distinguished by config:
+
+| First screen you see | Build | Neon branch | Data | Gate |
+|---|---|---|---|---|
+| **Preview Access** (password) | Preview / dev | `ep-tiny-rice` (dev) | seed + test | `SITE_PASSWORD` set (Preview only) |
+| **`/login`** | Production | `ep-aged-cloud` (prod) | real users | no `SITE_PASSWORD` |
+
+Set in Vercel via **per-environment** values: `DATABASE_URL` = dev string on Preview / prod string on
+Production; `SITE_PASSWORD` on Preview only. Production build doesn't exist until `backend-migration`
+is merged to the production branch. Note: with real Clerk auth, a logged-in user only sees **their own
+org's** data — the preview won't *display* the `ORG-0001` seed catalog (that needs demo mode); pointing
+preview at dev is about keeping prod clean.
+
 ## The Clerk dev-vs-production nuance (read first)
 
 Clerk has two instances per app:
