@@ -1,54 +1,77 @@
 # Backend Migration — STATUS & Handoff
 
-> Single entry point for picking this up. Repo: `valgate-webapp-nextjs`, branch `backend-migration`
-> (off `valgate-webapp-nextjs-v1.0.2`). Architecture: Option A "mergeable modules" — the backend's
-> `lib/` + `app/actions/` were copied in; the simulated data layer was deleted. Runs in DEMO_MODE on Neon.
+> Single entry point. Repo: `valgate-webapp-nextjs`, branch `backend-migration` (off
+> `valgate-webapp-nextjs-v1.0.2`). Architecture: Option A "mergeable modules" — backend's `lib/` +
+> `app/actions/` copied in, simulated layer deleted. **Now runs REAL Clerk auth (`DEMO_MODE=false`)
+> and is deployed to a gated Vercel preview.** Everything below is committed + pushed.
 
-## Phase status
-| Phase | What | State |
+## Where we are (one line)
+Migration done → Clerk auth built & working → deployed to a **Vercel preview** (gated, dev branch).
+Remaining = the real production launch (merge to prod branch, Clerk production instance + domain, RLS).
+
+## Go-live checklist
+| # | Item | State |
 |---|---|---|
-| M0–M2 | (backend repo) type union, schema catch-up, gap scoping | ✅ done |
-| M3 | mechanical copy/delete | ✅ done — `docs/migration/verify-m3.sh` PASS |
-| M4 | deps + config reconcile (Next stays 15) | ✅ done — `verify-m4.sh` PASS |
-| M5 | read/write rewrites (438 → 0 tsc errors; build clean) | ✅ done — `verify-m5.sh` PASS |
-| M6 | browser smoke on real Neon | 🟡 in progress |
+| 1 | **Clerk auth** | ✅ done — headless on Clerk **Future/signals API**; login/register(OTP+auto-org)/forgot(reset)/sign-out all work locally + on the preview. See `CLERK-PLAN.md` + memory `project_clerk_future_api`. |
+| 2 | **AWS S3** | ✅ verified — Documents tab + add-property wizard upload to the bucket. |
+| 3 | **Neon prod branch** | ✅ done — `production` (`ep-aged-cloud-aohhlwhs`) migrated + `db:assert` PASS, empty. **Password ROTATED** (old exposed one deleted). |
+| 4 | **Upstash Redis** | 🟡 deleted from preview env to unblock build; add valid **REST** URL/token (`https://…upstash.io`, no quotes) to Vercel **Production** for real rate limiting. Optional (in-memory fallback works). |
+| 5 | **Neon RLS** | ☐ planned (`RLS-PLAN.md`, 7 phases). Now **unblocked** (real Clerk JWTs exist). Do after production launch. |
+| 6 | **Deploy (Vercel)** | 🟡 **preview live & green**; production not deployed yet (see NEXT). |
 
-The three `verify-m*.sh` scripts are the repeatable machine gates. `M6-CHECKLIST.md` is the human smoke;
-`M6-FINDINGS.md` logs the walk-through triage.
+## What this session did
+- Wired **add-property photos/docs → S3** (`AddPropertyFlow` uploads Step-4 staged files after create).
+- Finished **M5/M6 fixes** (`getMyUserProfile`, `DEMO_ALLOW_WRITES`).
+- Created + migrated the **Neon production branch** (item 3).
+- Wrote the **RLS plan** (`RLS-PLAN.md`).
+- Built **Clerk headless auth** end-to-end (item 1). Dashboard config: email verification = **code**,
+  **"Create first organization automatically" = ON** (so register does NOT call `createOrganization`).
+  Fixes found along the way: missing **`#clerk-captcha`** element (bot protection silently blocked the
+  verification email); **`DEMO_MODE` env-parse bug** (`z.coerce.boolean("false")===true` → fixed to
+  enum parse in `lib/env.ts`); **`/profile` falls back to Clerk identity** for new users.
+- **Deployed to a Vercel preview** and wrote `DEPLOY.md`.
+- **Claimed the seed catalog** into a real account so it's viewable under real auth (see below).
+
+## Deployment specifics (read before touching the deploy)
+- **Only deploy the `backend-migration` branch** (Preview). `main` is OLD pre-migration code
+  (`@clerk/nextjs@7.2.3` → npm **ERESOLVE**); its builds fail — **ignore them**. Production launch =
+  merge `backend-migration` → the production branch (brings the fixed deps).
+- **Per-environment Vercel env vars** (this is the convention — also in `DEPLOY.md`):
+  | First screen | Build | `DATABASE_URL` | `SITE_PASSWORD` |
+  |---|---|---|---|
+  | **Preview Access** gate | Preview / dev | **dev** string (`ep-tiny-rice`) | set (Preview only) |
+  | **`/login`** | Production | **prod** string (`ep-aged-cloud`, rotated) | not set |
+- **Env-var gotchas learned:** values must have **no surrounding quotes** (copying from `.env.local`
+  drags quotes in); each var needs the right **Environment scope** (Preview vs Production); a Vercel
+  build **fails at "Collecting page data"** if any required var (esp. `DATABASE_URL`) is missing/malformed
+  — `createEnv` validates at build time.
+- **Clerk keys are DEV** (`pk_test`/`sk_test`) — fine on `*.vercel.app`. Real launch needs a Clerk
+  **production instance** (`pk_live`) + custom domain DNS.
+- **Trigger a preview build** by pushing any commit to `backend-migration` (empty commit works) — the
+  Redeploy button kept selecting `main` deployments.
+
+## Seed data on dev (how a real login sees it)
+The 26 seed properties (+319 related rows) were owned by the **ghost org `ORG-0001`** (`demo@valgate.app`,
+no real Clerk login). Reassigned to real account **`xuvfkg2q@oceansinfinite.addymail.com` (ORG-0009)** via
+`.context/claim-seed.ts <email>` (gitignored, **dev-only**, prod-guarded, one transaction). Re-run with a
+different email to re-claim; `npm run seed:neon` on dev resets. Real auth scopes by org, so seed shows only
+for whoever owns it — there is **no demo-mode on Vercel** (refused in prod builds).
+
+## ▶ NEXT — real production launch (when ready)
+1. **Merge** `backend-migration` → production branch (fixes `main`'s ERESOLVE by bringing new deps).
+2. **Clerk production instance** (`pk_live`/`sk_live`) + custom domain DNS; point Vercel Clerk keys at it.
+3. **Clerk webhook** → add endpoint `https://<domain>/api/webhooks/clerk` (events `user.*`,
+   `organization.*`, `organizationMembership.*`) → put its signing secret in Vercel
+   `CLERK_WEBHOOK_SIGNING_SECRET`. (JIT bootstrap covers first sign-in until then.)
+4. **Upstash** → add valid REST creds to Vercel Production (item 4).
+5. **RLS** → run `RLS-PLAN.md` (now unblocked).
 
 ## Key facts to remember
-- **Next 15** (backend was 16 — never upgrade). `revalidateTag` is single-arg on 15.
-- **DEMO_MODE=true** → `requireCtx()` returns a hardcoded demo ctx (`USR-0001`/`ORG-0001`), no Clerk needed. Refused in production.
-- **DEMO_ALLOW_WRITES=true** (added) → lets writes through the read-only demo guard locally (default off keeps a hosted demo read-only).
-- **Deferred (still simulated, do NOT migrate)**: `clients`, `agent-runs`, `dbdiagram-state` keep `@/lib/data/db/*` + `getCurrentUserId()`. `auth-shim.ts` stays. (Backend for these = B11, later.)
-- `(shell)/layout.tsx` is `force-dynamic` (auth+DB pages can't static-prerender).
-- DB ops: `db:ping` → `db:migrate` → `seed:neon` (needs real `DATABASE_URL` + fixtures in `tests/fixtures/`).
-- M6 fix applied: `getMyUserProfile(ctx)` (profile is keyed by `userId`, not the UPROF `id`) — `/profile` + `/settings`.
+- **Next 15** (never upgrade to 16). `revalidateTag` single-arg.
+- **Clerk = Future/signals API** — `signIn.password/finalize`, `signUp.verifications.*` — NOT classic
+  `create/attemptFirstFactor`. (memory `project_clerk_future_api`.)
+- **Deferred (still simulated)**: `clients`, `agent-runs`, `dbdiagram-state` (`@/lib/data/db/*`).
+- `(shell)/layout.tsx` is `force-dynamic`. DB ops: `db:ping` → `db:migrate` → `seed:neon`.
 
-## ▶ NEXT — do this FIRST (feature: add-property photos/docs → S3)
-The add-property wizard collects photos/docs in `Step4PhotosDocs.tsx` but **never uploads them**:
-`_lib/use-drafts.ts#stripFileBlobs()` strips file blobs before persisting the draft, and the submit path
-(`add-property/actions.ts` + `AddPropertyFlow.tsx`) never calls the S3 upload. The real S3 path
-(`uploadDocument` / `uploadMultipleDocuments` in `app/(shell)/property/[id]/documents/actions.ts`) is only
-wired to the Documents tab + pillar `VerificationStep.tsx`.
-**Task:** after the property is created (we have `propertyId`), take the Step4 staged `File`s from the live
-form state, build a `FormData` (`files`), and call `uploadMultipleDocuments(propertyId, fd)`. Surface
-per-file success/failure. Files only exist in client memory (drafts stripped them), so this runs client-side
-right after the create action returns. Requires S3 env (`STORAGE_*`) to actually land objects
-(key shape: `ORG-0001/DOC-xxxx/<name>`, nested under the `ORG-0001/` prefix).
-
-## Then — deployment provisioning (manual; authoritative list: backend repo `docs/working/go-live-checklist.md`)
-| # | Service | Why | State |
-|---|---|---|---|
-| 1 | **Clerk** (auth) | required to leave demo; flip `DEMO_MODE=false` | ✅ **working locally** — signup→OTP→auto-org→app verified, login + real profile OK. `DEMO_MODE=false`. Built on Clerk **Future/signals API**. Fixes en route: `#clerk-captcha` element (bot protection blocked email), `DEMO_MODE` env parse (`z.coerce.boolean("false")===true` bug), profile falls back to Clerk identity for new users. Dashboard: verification=code, "Create first org automatically"=ON. ▶ remaining: quick sign-out/route-protection/forgot-pw checks; **add webhook endpoint at deploy** (needs real URL). Plan: `docs/migration/CLERK-PLAN.md`. |
-| 2 | **AWS S3** (`STORAGE_*`) | document/photo uploads | ✅ verified — uploads work via Documents tab AND the new add-property wizard path. |
-| 3 | **Neon prod branch** | required to deploy | ✅ done — `production` branch (`ep-aged-cloud-aohhlwhs`) migrated (all 5) + `db:assert` PASS (34 tables); verified empty (no seed). Dev stays `ep-tiny-rice`. |
-| 4 | **Upstash Redis** (`UPSTASH_*`) | real rate limiting on serverless | 🟡 user provisioning manually. Code ready (`lib/ratelimit.ts` auto-upgrades when creds set, no code change). Use **REST** URL/token (not `redis://`); region near Neon `ap-southeast-1`. 2 vars → Vercel at deploy (item 6); not needed locally (in-memory fallback covers dev). |
-| 5 | **Neon RLS** (`DATABASE_AUTHENTICATED_URL`) | defense-in-depth (service layer already scopes by org) | ☐ deferred by design → **plan written: `docs/migration/RLS-PLAN.md`** (7 phases). Blocked on item 1 (needs real Clerk JWT to test; un-testable in DEMO_MODE). Run after Clerk live + first deploy. |
-| 6 | **Deploy** (Vercel) | go live | ☐ set all env vars in host, deploy to staging, smoke-test. ⚠️ **Rotate the Neon prod password first** — the string used for the item-3 migration was pasted in chat (exposed); regenerate it in Neon and put the *fresh* one in Vercel's `DATABASE_URL`. |
-
-## Loose ends (non-blocking)
-- AI-overlay chain migrated mechanically; deep behavioral QA pending.
-- `formatCurrency` display: dashboards may show compact `$1.28M`; whole-dollar = repoint ~3 derivation calls to `formatCurrencyFull` (D3).
-- Pre-existing UX (not migration): profile sub-nav buttons unrouted; add-property Step 5 review sparse; rental payment step re-asks input (see `M6-FINDINGS.md`).
-- **Nothing committed yet** — the whole migration is uncommitted on `backend-migration`. Commit/PR when M6 is green.
+## Docs map
+`STATUS.md` (this) · `CLERK-PLAN.md` · `RLS-PLAN.md` · `DEPLOY.md` · `M6-CHECKLIST.md` · `M6-FINDINGS.md`
