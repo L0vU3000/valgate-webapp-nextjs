@@ -48,11 +48,16 @@ export function ForgotPasswordPage() {
     mode: "onBlur",
   });
 
-  // Step 1: identify the user and email a reset code (Future/signals API).
-  // sendCode() accepts the email directly — no signIn.create() needed in the Signals API.
+  // Step 1: identify the user with create(), then sendCode() sends to the identifier on file.
+  // resetPasswordEmailCode.sendCode() takes no params — the identifier comes from create().
   async function onSubmit(values: ForgotPasswordValues) {
     try {
-      const { error } = await signIn.resetPasswordEmailCode.sendCode({ emailAddress: values.email });
+      const { error: createError } = await signIn.create({ identifier: values.email });
+      if (createError) {
+        toast.error(clerkErrorMessage(createError, "Could not find an account with that email."));
+        return;
+      }
+      const { error } = await signIn.resetPasswordEmailCode.sendCode();
       if (error) {
         toast.error(clerkErrorMessage(error, "Could not start the password reset."));
         return;
