@@ -53,3 +53,6 @@ skills-lock.json
 # clerk configuration (can include secrets)
 /.clerk/
 .gstack/
+
+# graphify knowledge-graph output (local navigation artifact, not a deliverable)
+graphify-out/
