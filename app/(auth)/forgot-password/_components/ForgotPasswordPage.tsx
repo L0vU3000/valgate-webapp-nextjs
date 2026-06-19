@@ -49,10 +49,10 @@ export function ForgotPasswordPage() {
   });
 
   // Step 1: identify the user and email a reset code (Future/signals API).
+  // sendCode() accepts the email directly — no signIn.create() needed in the Signals API.
   async function onSubmit(values: ForgotPasswordValues) {
     try {
-      await signIn.create({ identifier: values.email });
-      const { error } = await signIn.resetPasswordEmailCode.sendCode();
+      const { error } = await signIn.resetPasswordEmailCode.sendCode({ emailAddress: values.email });
       if (error) {
         toast.error(clerkErrorMessage(error, "Could not start the password reset."));
         return;
@@ -93,8 +93,16 @@ export function ForgotPasswordPage() {
         return;
       }
       if (signIn.status === "complete") {
-        await signIn.finalize();
-        router.push("/");
+        await signIn.finalize({
+          navigate: ({ decorateUrl }) => {
+            const url = decorateUrl("/");
+            if (url.startsWith("http")) {
+              window.location.href = url;
+            } else {
+              router.push(url);
+            }
+          },
+        });
       } else {
         setResetError("Could not complete the reset. Please try again.");
       }

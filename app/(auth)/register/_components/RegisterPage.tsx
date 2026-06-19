@@ -124,8 +124,17 @@ export function RegisterPage() {
       }
       // Clerk's "Create first organization automatically" setting creates + activates the user's
       // org during sign-up, so finalize() lands them in an active org. (No manual createOrganization.)
-      await signUp.finalize(); // convert to an active session
-      router.push("/");
+      // navigate callback is required — Clerk needs it to handle Safari ITP cookie redirects.
+      await signUp.finalize({
+        navigate: ({ decorateUrl }) => {
+          const url = decorateUrl("/");
+          if (url.startsWith("http")) {
+            window.location.href = url;
+          } else {
+            router.push(url);
+          }
+        },
+      });
     } catch (err) {
       toast.error(clerkErrorMessage(err, "Verification failed. Please try again."));
     } finally {

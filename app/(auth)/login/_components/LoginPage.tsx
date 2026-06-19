@@ -71,14 +71,25 @@ export function LoginPage() {
   async function onSubmit(values: LoginValues) {
     try {
       // Future/signals API: password() returns { error } rather than throwing on bad credentials.
-      const { error } = await signIn.password({ identifier: values.email, password: values.password });
+      // Note: the Signals API uses `emailAddress`, not `identifier`.
+      const { error } = await signIn.password({ emailAddress: values.email, password: values.password });
       if (error) {
         toast.error(clerkErrorMessage(error, "Invalid email or password."));
         return;
       }
       if (signIn.status === "complete") {
-        await signIn.finalize(); // convert to an active session
-        router.push("/");
+        // finalize() replaces setActive() in the Signals API. The navigate callback is required
+        // for Clerk to handle Safari ITP cookie redirects before landing on the destination.
+        await signIn.finalize({
+          navigate: ({ decorateUrl }) => {
+            const url = decorateUrl("/");
+            if (url.startsWith("http")) {
+              window.location.href = url;
+            } else {
+              router.push(url);
+            }
+          },
+        });
       } else {
         // Any non-complete status here (e.g. MFA) isn't configured in this app.
         toast.error("Additional verification is required. Please contact support.");
