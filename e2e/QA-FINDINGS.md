@@ -2,6 +2,16 @@
 
 _Paused 2026-06-22. Automated Playwright run of the QA checklist (sections B–P) in DEMO_MODE._
 
+## Data ops (live Neon, reversible)
+
+- **Pro client assignment (2026-06-22):** the 26 ORG-0001 seed properties had `client_id = NULL`,
+  leaving the Pro cockpit (`/pro/properties`, `/pro/dashboard`, work-order picker) empty for real data.
+  Assigned 22 of them round-robin across `CLI-0001..CLI-0006`, leaving 4 unassigned so the
+  Onboard-Client "Assign properties" flow still has options. Script + reversal:
+  `node .context/assign-pro-clients.mjs` (revert: `--revert`); prior values backed up to
+  `.context/pro-client-assign-backup.json`. **Durability across a future `seed:neon` is out of scope** —
+  this is a live-DB data op, not re-seedable without also editing `tests/fixtures/properties/*.json`.
+
 ## ⚠️ How to run (important)
 
 ```bash
