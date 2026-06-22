@@ -4,12 +4,15 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack -H 0.0.0.0 -p 3001",
+    "dev:e2e": "DEMO_MODE=true DEMO_ALLOW_WRITES=true NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY= CLERK_SECRET_KEY=sk_test_placeholder SITE_PASSWORD= next dev --turbopack -H 0.0.0.0 -p 3001",
     "dev:tunnel": "npx --yes cloudflared@latest tunnel --url http://127.0.0.1:3001",
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint app lib components",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
     "seed": "node --conditions=react-server --import tsx scripts/seed.ts",
     "seed:reset": "node --conditions=react-server --import tsx scripts/seed.ts --reset",
     "regen-ai-ref": "node --import tsx scripts/regenerate-ai-data-ref.ts",
@@ -106,6 +109,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "^1.61.0",
     "@tailwindcss/postcss": "^4",
     "@types/mapbox-gl": "^3.4.1",
     "@types/node": "^20",

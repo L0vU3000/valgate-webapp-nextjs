@@ -1,0 +1,16 @@
+{
+  "comment": "Dedicated tsconfig for Playwright. The root uses moduleResolution 'bundler', which makes Playwright's loader throw 'context.conditions?.includes is not a function' when a spec imports a conditional-exports package like pg. Classic node resolution avoids it.",
+  "compilerOptions": {
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "target": "es2022",
+    "lib": ["es2022", "dom"],
+    "esModuleInterop": true,
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": false,
+    "resolveJsonModule": true,
+    "types": ["node"]
+  },
+  "include": ["**/*.ts"]
+}

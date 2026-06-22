@@ -13,6 +13,12 @@ export function useDismissable(storageKey: string, { delay = 0 }: { delay?: numb
 
   useEffect(() => {
     const show = () => {
+      // E2E tests set window.__E2E__ before any page script runs. These onboarding
+      // popovers always auto-show in development, which blocks Playwright clicks with
+      // their backdrop. Suppress them under e2e. No-op in production (flag is never set).
+      if (typeof window !== "undefined" && (window as { __E2E__?: boolean }).__E2E__) {
+        return;
+      }
       if (process.env.NODE_ENV === "development") {
         setVisible(true);
       } else if (!localStorage.getItem(storageKey)) {
