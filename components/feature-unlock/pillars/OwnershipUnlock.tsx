@@ -214,6 +214,15 @@ function LoanStep({
   const labelCls =
     "block text-[11px] font-semibold uppercase tracking-widest text-slate-500 mb-1.5";
 
+  // Blank number inputs register as "" — coerce those to undefined so an empty
+  // optional field reads as omitted, not as 0. Without this, "" coerces to 0 and
+  // fails the schema's .positive() check, which silently blocks Continue. Mirrors
+  // optionalNumber() in FinancialsUnlock.tsx.
+  const numOpt = {
+    setValueAs: (value: unknown) =>
+      value === "" || value === null || value === undefined ? undefined : Number(value),
+  };
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
@@ -239,7 +248,7 @@ function LoanStep({
             type="number"
             className={inputCls}
             placeholder="0"
-            {...form.register("loanAmount")}
+            {...form.register("loanAmount", numOpt)}
           />
         </div>
         <div>
@@ -248,7 +257,7 @@ function LoanStep({
             type="number"
             className={inputCls}
             placeholder="30"
-            {...form.register("loanTermYears")}
+            {...form.register("loanTermYears", numOpt)}
           />
         </div>
         <div>
@@ -258,7 +267,7 @@ function LoanStep({
             step="0.01"
             className={inputCls}
             placeholder="6.5"
-            {...form.register("interestRate")}
+            {...form.register("interestRate", numOpt)}
           />
         </div>
         <div>
@@ -283,7 +292,7 @@ function LoanStep({
             type="number"
             className={inputCls}
             placeholder="0"
-            {...form.register("downPayment")}
+            {...form.register("downPayment", numOpt)}
           />
         </div>
         <div>
@@ -292,7 +301,7 @@ function LoanStep({
             type="number"
             className={inputCls}
             placeholder="0"
-            {...form.register("closingCosts")}
+            {...form.register("closingCosts", numOpt)}
           />
         </div>
       </div>

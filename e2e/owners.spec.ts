@@ -59,10 +59,7 @@ test.describe('G — Owners / co-owners', () => {
         // before clicking Continue again so we never click mid-render.
         await dialog.getByRole('button', { name: /continue/i }).click()
         await expect(dialog.getByRole('heading', { name: 'Loan & financing' })).toBeVisible({ timeout: 5_000 })
-        // The Loan step claims "all fields optional", but loanTermYears is
-        // z.coerce.number().positive(): an empty input coerces to 0, which fails
-        // .positive() and blocks Continue. Fill a valid term so the step validates.
-        await dialog.getByPlaceholder('30').fill('30')
+        // Loan fields are all optional — leaving Loan Term empty must not block Continue.
         // Loan → Co-owners.
         await dialog.getByRole('button', { name: /continue/i }).click()
         await expect(dialog.getByRole('heading', { name: 'Co-owners' })).toBeVisible({ timeout: 5_000 })
@@ -120,8 +117,7 @@ test.describe('G — Owners / co-owners', () => {
         await proRata.click()
         await dialog.getByRole('button', { name: /continue/i }).click()
         await expect(dialog.getByRole('heading', { name: 'Loan & financing' })).toBeVisible({ timeout: 5_000 })
-        // loanTermYears is .positive(), so an empty input (coerced to 0) blocks Continue.
-        await dialog.getByPlaceholder('30').fill('30')
+        // Loan fields are all optional — leaving Loan Term empty must not block Continue.
         await dialog.getByRole('button', { name: /continue/i }).click()
         await expect(dialog.getByRole('heading', { name: 'Co-owners' })).toBeVisible({ timeout: 5_000 })
       })
