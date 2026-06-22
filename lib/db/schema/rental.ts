@@ -16,7 +16,7 @@ export const tenants = pgTable("tenants", {
   id: text("id").primaryKey(),
   orgId: text("org_id").notNull().references(() => organizations.id),
   userId: text("user_id").notNull(),
-  propertyId: text("property_id").notNull().references(() => properties.id),
+  propertyId: text("property_id").notNull().references(() => properties.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   unit: text("unit").notNull(),
   rent: numeric("rent", { precision: 14, scale: 2 }).notNull(),
@@ -32,7 +32,7 @@ export const leases = pgTable("leases", {
   id: text("id").primaryKey(),
   orgId: text("org_id").notNull().references(() => organizations.id),
   userId: text("user_id").notNull(),
-  propertyId: text("property_id").notNull().references(() => properties.id),
+  propertyId: text("property_id").notNull().references(() => properties.id, { onDelete: "cascade" }),
   tenantId: text("tenant_id").references(() => tenants.id),
   unit: text("unit").notNull(),
   stage: leaseStageEnum("stage").notNull(),
@@ -52,8 +52,8 @@ export const payments = pgTable("payments", {
   userId: text("user_id").notNull(),
   // Zod PaymentSchema omits propertyId (only leaseId); kept nullable + backfilled from the
   // lease at seed/write time for property-scoped queries (C4: contract is source of truth).
-  propertyId: text("property_id").references(() => properties.id),
-  leaseId: text("lease_id").references(() => leases.id),
+  propertyId: text("property_id").references(() => properties.id, { onDelete: "set null" }),
+  leaseId: text("lease_id").references(() => leases.id, { onDelete: "cascade" }),
   tenantId: text("tenant_id").references(() => tenants.id),
   date: timestamp("date", { withTimezone: true }).notNull(),
   dueDate: timestamp("due_date", { withTimezone: true }),          // D5 / Q3.E
@@ -72,7 +72,7 @@ export const expenses = pgTable("expenses", {
   id: text("id").primaryKey(),
   orgId: text("org_id").notNull().references(() => organizations.id),
   userId: text("user_id").notNull(),
-  propertyId: text("property_id").notNull().references(() => properties.id),
+  propertyId: text("property_id").notNull().references(() => properties.id, { onDelete: "cascade" }),
   date: timestamp("date", { withTimezone: true }).notNull(),
   category: expenseCategoryEnum("category").notNull(),
   amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),

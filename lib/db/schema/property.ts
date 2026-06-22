@@ -85,7 +85,7 @@ export const landParcels = pgTable("land_parcels", {
   id: text("id").primaryKey(),
   orgId: text("org_id").notNull().references(() => organizations.id),
   userId: text("user_id").notNull(),
-  propertyId: text("property_id").notNull().references(() => properties.id),
+  propertyId: text("property_id").notNull().references(() => properties.id, { onDelete: "cascade" }),
   sizeM2: numeric("size_m2").notNull(),
   widthM: numeric("width_m"),
   lengthM: numeric("length_m"),
@@ -104,7 +104,7 @@ export const propertyValuations = pgTable("property_valuations", {
   id: text("id").primaryKey(),
   orgId: text("org_id").notNull().references(() => organizations.id),
   userId: text("user_id").notNull(),
-  propertyId: text("property_id").notNull().references(() => properties.id),
+  propertyId: text("property_id").notNull().references(() => properties.id, { onDelete: "cascade" }),
   month: text("month").notNull(),                               // "Jan 2026" display string
   price: numeric("price", { precision: 14, scale: 2 }).notNull(),
   recordedAt: timestamp("recorded_at", { withTimezone: true }).notNull(),

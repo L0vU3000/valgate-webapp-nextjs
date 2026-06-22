@@ -36,7 +36,7 @@ export const successorPropertyAssignments = pgTable("successor_property_assignme
   orgId: text("org_id").notNull().references(() => organizations.id),
   userId: text("user_id").notNull(),
   successorId: text("successor_id").notNull().references(() => successors.id),
-  propertyId: text("property_id").notNull().references(() => properties.id),
+  propertyId: text("property_id").notNull().references(() => properties.id, { onDelete: "cascade" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
@@ -52,7 +52,7 @@ export const estateActivityEvents = pgTable("estate_activity_events", {
   kind: estateActivityKindEnum("kind").notNull(),
   title: text("title").notNull(),
   description: text("description").notNull(),
-  propertyId: text("property_id").references(() => properties.id),
+  propertyId: text("property_id").references(() => properties.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [

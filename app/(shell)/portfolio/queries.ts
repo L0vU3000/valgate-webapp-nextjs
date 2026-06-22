@@ -1,6 +1,7 @@
 import "server-only";
 import { getProperties } from "@/lib/data/properties";
 import { requireCtx } from "@/lib/auth/ctx";
+import { roleAtLeast } from "@/lib/services/_mapping";
 import { listPayments } from "@/lib/services/payments";
 import { listLeases } from "@/lib/services/leases";
 import { listPropertyValuations } from "@/lib/services/property-valuations";
@@ -34,6 +35,10 @@ export type PortfolioPageData = {
   archivedCount: number;
   soldCount: number;
   showArchived: boolean;
+  // Whether the current user may hard-delete a property (admin/owner only). The server
+  // enforces this independently in deletePropertyAction; this flag just lets the UI hide
+  // the Delete menu item for lower roles so they never see a dead-end action.
+  canDelete: boolean;
 };
 
 function toListItem(p: Property, ctx: ProgressContext): PropertyListItem {
@@ -128,5 +133,6 @@ export async function getPortfolioPageData(
     archivedCount,
     soldCount,
     showArchived,
+    canDelete: roleAtLeast(authCtx.orgRole, "admin"),
   };
 }

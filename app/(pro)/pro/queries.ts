@@ -24,9 +24,9 @@ import {
   computeProgress,
   type ProgressContext,
 } from "@/lib/data/derivations/progress";
-import { formatCurrency, formatCurrencyFull } from "@/lib/format";
+import { formatCurrency, formatCurrencyFull, addUtcMonths } from "@/lib/format";
 import { getUserProfile } from "@/lib/services/user-profiles";
-import type { Client } from "@/lib/data/types/client";
+import type { Client, ClientType } from "@/lib/data/types/client";
 import type {
   Property,
   PropertyStatus,
@@ -398,6 +398,11 @@ async function loadProContext(): Promise<ProContext> {
     listDocuments(authCtx),
   ]);
 
+  // Filter inactive clients so they vanish from rollups, alerts, the client
+  // book, and all derived counts. Absent status field = Active (back-compatible
+  // with existing FS records that predate this field).
+  const activeClients = clients.filter((c) => c.status !== "Inactive");
+
   // Re-use the client-side Progress derivation as-is.
   const progressCtx: ProgressContext = {
     leases,
@@ -426,7 +431,7 @@ async function loadProContext(): Promise<ProContext> {
   }
 
   return {
-    clients,
+    clients: activeClients,
     properties,
     leases,
     payments,
@@ -438,7 +443,7 @@ async function loadProContext(): Promise<ProContext> {
     professionals,
     progressByPropertyId,
     propertyById: new Map(properties.map((p) => [p.id, p])),
-    clientById: new Map(clients.map((c) => [c.id, c])),
+    clientById: new Map(activeClients.map((c) => [c.id, c])),
     leaseById: new Map(leases.map((l) => [l.id, l])),
     tenantById: new Map(tenants.map((t) => [t.id, t])),
     professionalById: new Map(professionals.map((p) => [p.id, p])),
@@ -513,7 +518,7 @@ export async function getProDashboardData(): Promise<ProDashboardData> {
       .filter((r): r is ProPropertyRow => r !== null),
     workOrders: {
       counts: countWorkOrders(ctx.maintenance),
-      queue: workOrderRows.filter((r) => r.status !== "Resolved"),
+      queue: workOrderRows.filter((r) => r.status !== "Resolved" && r.status !== "Cancelled"),
     },
     financials: {
       expected,
@@ -584,8 +589,10 @@ export async function getProPropertiesData(): Promise<ProPropertiesData> {
 // types the dashboard touches but never fully shows:
 //   - Certifications — the expiry timeline (already shaped by
 //     buildComplianceRows; we bucket on its server-computed daysLeft).
-//   - SafetyRisks — open risks per property, ranked by severity. Every
-//     listed risk is "open" (the schema has no resolved flag).
+//   - SafetyRisks — risks per property, ranked by severity. Both open and
+//     resolved risks are returned; the page's "Show resolved" toggle reveals
+//     the resolved ones read-only, and the summary counts the open/resolved
+//     split.
 //   - Inspections — the recent inspection log, newest first.
 // ---------------------------------------------------------------------------
 
@@ -668,9 +675,13 @@ export async function getCompliancePageData(): Promise<CompliancePageData> {
           safetyRiskSeverityRank(b.severity) || b.createdAt - a.createdAt,
     );
 
-  // The "Open Safety Risks" card shows only unresolved risks. Resolving one
-  // drops it from this list and from openRiskCount, so the KPI falls.
-  const safetyRisks = allSafetyRiskRows.filter((r) => r.status === "Open");
+  // We now return BOTH open and resolved risks so the compliance page's
+  // "Show resolved" toggle can reveal the resolved ones (read-only) without a
+  // second round-trip. The card defaults to open-only; the page filters this
+  // list client-side. `openRisks` is kept for the summary counts below so the
+  // KPI strip still reports the open/resolved split correctly.
+  const openRisks = allSafetyRiskRows.filter((r) => r.status === "Open");
+  const safetyRisks = allSafetyRiskRows;
 
   // Inspections — join each to its property/client, newest inspection first.
   const inspections = ctx.inspections
@@ -719,9 +730,9 @@ export async function getCompliancePageData(): Promise<CompliancePageData> {
       expiringCount: certifications.filter((c) => c.status === "Expiring")
         .length,
       validCount: certifications.filter((c) => c.status === "Valid").length,
-      openRiskCount: safetyRisks.length,
-      resolvedRiskCount: allSafetyRiskRows.length - safetyRisks.length,
-      highRiskCount: safetyRisks.filter(
+      openRiskCount: openRisks.length,
+      resolvedRiskCount: allSafetyRiskRows.length - openRisks.length,
+      highRiskCount: openRisks.filter(
         (r) => r.severity === "Critical" || r.severity === "High",
       ).length,
       failedInspections: inspections.filter((i) => i.status === "Failed")
@@ -807,9 +818,9 @@ export async function getRentPageData(): Promise<RentPageData> {
         : undefined;
       const tenant = l.tenantId ? ctx.tenantById.get(l.tenantId) : undefined;
       // Same projection the renewLease action applies: advance the end
-      // date by one full lease term (UTC month arithmetic).
-      const projectedEnd = new Date(l.endDate);
-      projectedEnd.setUTCMonth(projectedEnd.getUTCMonth() + l.termMonths);
+      // date by one full lease term. addUtcMonths clamps the day into the
+      // target month so the preview can't drift from what the action saves.
+      const projectedEndDate = addUtcMonths(l.endDate, l.termMonths);
       return {
         leaseId: l.id,
         propertyId: l.propertyId,
@@ -821,7 +832,7 @@ export async function getRentPageData(): Promise<RentPageData> {
         renewalStatus: l.renewalStatus,
         daysLeft: Math.max(0, Math.ceil((l.endDate - now) / DAY)),
         termMonths: l.termMonths,
-        projectedEndDate: projectedEnd.getTime(),
+        projectedEndDate,
       };
     })
     .sort((a, b) => a.endDate - b.endDate);
@@ -872,11 +883,12 @@ export async function getWorkOrdersPageData(): Promise<WorkOrdersPageData> {
   const urgentOpen = ctx.maintenance.filter(
     (m) =>
       m.status !== "Resolved" &&
+      m.status !== "Cancelled" &&
       (m.severity === "Emergency" || m.severity === "Urgent"),
   ).length;
 
   const totalOpenCost = ctx.maintenance
-    .filter((m) => m.status !== "Resolved")
+    .filter((m) => m.status !== "Resolved" && m.status !== "Cancelled")
     .reduce((sum, m) => sum + (m.cost ?? 0), 0);
 
   // Trade categories that can take a work order.
@@ -911,6 +923,32 @@ export async function getWorkOrdersPageData(): Promise<WorkOrdersPageData> {
   };
 }
 
+// Returns the minimal shape of clients whose status is "Inactive" (archived).
+// Used by the clients index page so managers can see and reactivate archived
+// clients — these are excluded from loadProContext so they won't appear in
+// rollups or the active client list.
+export async function getInactiveClients(): Promise<
+  Array<{
+    id: string;
+    name: string;
+    initials: string;
+    avatarBg: string;
+    clientType: ClientType;
+  }>
+> {
+  const userId = getCurrentUserId();
+  const all = await clientsDb.list(userId);
+  return all
+    .filter((c) => c.status === "Inactive")
+    .map((c) => ({
+      id: c.id,
+      name: c.name,
+      initials: c.initials,
+      avatarBg: c.avatarBg,
+      clientType: c.clientType,
+    }));
+}
+
 export async function getProShellData(): Promise<ProShellData> {
   const authCtx = await requireCtx();
   const [ctx, profile] = await Promise.all([
@@ -939,8 +977,9 @@ export async function getProShellData(): Promise<ProShellData> {
       health: r.health,
       propertyCount: r.propertyCount,
     })),
-    openWorkOrders: ctx.maintenance.filter((m) => m.status !== "Resolved")
-      .length,
+    openWorkOrders: ctx.maintenance.filter(
+      (m) => m.status !== "Resolved" && m.status !== "Cancelled",
+    ).length,
     urgentAlerts: rollups
       .flatMap((r) => r.alerts)
       .filter((a) => a.severity === "urgent").length,
@@ -1104,7 +1143,8 @@ function severityRankMaintenance(s: MaintenanceItem["severity"]): number {
 }
 
 function statusRankMaintenance(s: MaintenanceStatus): number {
-  return s === "Open" ? 0 : s === "InProgress" ? 1 : 2;
+  // Cancelled sorts after Resolved so closed-out orders sink to the bottom.
+  return s === "Open" ? 0 : s === "InProgress" ? 1 : s === "Resolved" ? 2 : 3;
 }
 
 function rentStatusRank(s: RentStatus): number {
@@ -1233,7 +1273,8 @@ function deriveClientAlerts(
 
   // MaintenanceItem — Emergency not resolved (urgent), Urgent open (warning)
   for (const item of maintenance) {
-    if (item.status === "Resolved") continue;
+    // Both terminal states suppress alerts — Cancelled orders are no longer actionable.
+    if (item.status === "Resolved" || item.status === "Cancelled") continue;
     if (item.severity === "Emergency") {
       alerts.push({
         id: `alert-${item.id}`,
@@ -1490,7 +1531,7 @@ function buildActivityFeed(ctx: ProContext, limit: number): ProActivityEvent[] {
     events.push({
       id: `act-${m.id}`,
       category: "maintenance",
-      description: `Work order ${m.status === "Resolved" ? "resolved" : "created"} — ${m.title}`,
+      description: `Work order ${m.status === "Resolved" ? "resolved" : m.status === "Cancelled" ? "cancelled" : "created"} — ${m.title}`,
       clientName,
       propertyName,
       timestamp: m.createdAt,
@@ -1677,7 +1718,7 @@ function buildOwnerStatement(
       inPeriod(m.createdAt),
     ).length,
     workOrdersOpenToday: scoped.maintenance.filter(
-      (m) => m.status !== "Resolved",
+      (m) => m.status !== "Resolved" && m.status !== "Cancelled",
     ).length,
     upcomingLeaseExpirations: scoped.leases
       .filter(

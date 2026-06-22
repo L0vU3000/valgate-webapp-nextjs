@@ -36,10 +36,11 @@ The agent UI **already exists**, but only on the **consumer side**:
   `OPENAI_API_KEY`, falling back to the deterministic keyword rule engine
   `generateDeterministicReply` in `lib/data/derivations/ai-replies.ts`. **There are no slash
   commands** (input is a free `<textarea>`; Attach/Voice buttons are stubbed "coming soon").
-- `convex/copilot/agent.ts` defines the *future* streaming + tool vocabulary
+- `convex/copilot/agent.ts` defines a *future* streaming + tool vocabulary
   (`CopilotEvent` = `token | final | intent | tool_start | tool_result | citations`, plus stub
-  tools `ragSearch`, `vaultNavigator`, `mapboxTool`, `neonSqlRO`) but is **inert scaffolding** —
+  tools `ragSearch`, `vaultNavigator`, `mapboxTool`, `neonSqlRO`) but is **inert legacy scaffolding** —
   not wired to the live overlay.
+  > **Correction (2026-06-19): the app's live backend is Neon + Drizzle, not Convex — see CLAUDE.md.** The `convex/` directory is a legacy/parallel layer the app does not call. Treat the vocabulary below as a *reference shape* to reimplement in the live stack (Vercel AI SDK tools + Server Actions in `app/(pro)/pro/actions.ts` + reads via `lib/services/*`), **not** as a Convex module to build on.
 
 > **Design consequence (drives the whole spec).** v1 is mostly **extend, mount, and gate**, not
 > "build from scratch":
@@ -303,7 +304,9 @@ domain* terms — never raw tokens.
 > (a query, a derivation, or a server action). Logging them in property terms is the core of P3:
 > the manager can audit *exactly* which records were read and which numbers were computed, building
 > trust that the answer isn't hallucinated. The vocabulary mirrors the `CopilotEvent`
-> `tool_start`/`tool_result` events scaffolded in `convex/copilot/agent.ts`.
+> `tool_start`/`tool_result` events scaffolded in the legacy `convex/copilot/agent.ts` (a
+> reference shape only — the live backend is Neon + Drizzle, so reimplement these events in
+> the live stack rather than wiring Convex).
 
 **Edge cases.** (a) A read-only question still produces a trace (transparency isn't only for
 actions). (b) If a derivation returns an empty set ("0 overdue"), the row says so explicitly rather
@@ -484,13 +487,17 @@ user message → sendMessage() → agent routes to specialist
 
 **Flagged wiring gaps (must be decided/built — see §11):**
 - **Streaming.** `ai-overlay.actions.ts` uses `generateText` (request/response). True token streaming
-  needs `streamText` (Vercel AI SDK) or wiring the Convex `copilot/agent.ts` `token`/`final` events.
-  *Why this matters:* without it, "streaming" is a UI illusion (the typing-reveal animates an
-  already-complete reply) — acceptable for v1, but say so.
+  needs `streamText` (Vercel AI SDK) emitting `token`/`final` events from a Server Action / route
+  handler. *Why this matters:* without it, "streaming" is a UI illusion (the typing-reveal animates an
+  already-complete reply) — acceptable for v1, but say so. *(The legacy `convex/copilot/agent.ts`
+  sketches the event shape, but the live backend is Neon + Drizzle — build streaming in the live
+  stack, not Convex.)*
 - **Tool-calling.** Today the model returns prose; routing is a keyword waterfall (`ai-replies.ts`).
   For the agent to *take actions*, the model needs structured **tool calls** mapping to the eight
-  actions. The `CopilotEvent` `tool_start`/`tool_result` scaffold in `convex/copilot/agent.ts` is the
-  intended home for this.
+  Server Actions in `app/(pro)/pro/actions.ts` (which call `lib/services/*` for reads/writes). The
+  `CopilotEvent` `tool_start`/`tool_result` scaffold in the legacy `convex/copilot/agent.ts` is a
+  *reference shape* for the event vocabulary, not the home — implement tool-calling in the live
+  Vercel-AI-SDK + Server-Action path.
 - **Missing actions.** Update-valuation and send-owner-statement have **no server action** yet.
 - **Rollback actions.** No inverse mutations exist (§5.3).
 
@@ -530,13 +537,14 @@ Use the repo's animation stack: **`motion@12.23.24`** (`motion/react`) and the P
 5. **Human-in-the-loop gates.** Approval Gate card + pause/resume + Edit-&-approve (reuse `ProModal`s),
    wired to the eight `app/(pro)/pro/actions.ts` actions.
 6. **Rollback + trust ramp.** Inverse mutations for reversible actions; per-capability ramp (§6.4).
-7. **Streaming (optional within v1).** Swap `generateText` → `streamText` (or Convex `token` events).
-   If deferred, ship the typing-reveal illusion and label it.
+7. **Streaming (optional within v1).** Swap `generateText` → `streamText` (Vercel AI SDK `token`
+   events in the live stack — not Convex). If deferred, ship the typing-reveal illusion and label it.
 
 **Deferred to 🔵 v1.x (named only, not designed here):**
 - 🔵 **Scheduled property actions** — rent reminders, certification-expiry nudges (recurring agent runs).
-- 🔵 **Memory / RAG document grounding** — the `ragSearch` + `copilot_index` path stubbed in
-  `convex/copilot/agent.ts`, so the agent can cite specific `Document`s.
+- 🔵 **Memory / RAG document grounding** — so the agent can cite specific `Document`s. (The
+  `ragSearch` + `copilot_index` path stubbed in the legacy `convex/copilot/agent.ts` is a reference
+  only; build retrieval against the live Neon + Drizzle store — e.g. pgvector — not Convex.)
 
 ### Design-craft loop (Mobbin references + `/impeccable`)
 

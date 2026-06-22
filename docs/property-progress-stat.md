@@ -40,9 +40,9 @@ Each pillar's contribution = `(checks completed / total checks in pillar) × pil
 
 ## Implementation Notes
 
-- `Property.health` in the Convex schema is the target field — comment says "auto-computed by triggers", which is where this logic will live
+- `Property.health` in the Drizzle schema (`lib/db/schema/property.ts`, Neon + Drizzle) is the target field — it is the column the computed score persists to (computed in the service/derivation layer, not a DB trigger)
 - Rename `health` → `progress` across:
-  - `convex/schema/property.ts`
+  - `lib/db/schema/property.ts`
   - `lib/data/types/property.ts`
   - `components/portfolio/PropertyTable.tsx`
   - `lib/data/portfolio.ts` — `avgHealth` → `avgProgress`

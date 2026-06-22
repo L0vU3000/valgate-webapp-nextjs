@@ -34,6 +34,12 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { formatBytes } from "@/lib/format";
 import { DevFileButton } from "@/components/dev/DevFileButton";
 import { createDummyPdf } from "@/lib/dev-tools";
+import { useRouter } from "next/navigation";
+import { ConfirmAction } from "@/components/ui/confirm-action";
+import { toastActionResult } from "@/lib/client/action-result";
+import { deleteDocument, deleteDocuments } from "@/app/actions/documents";
+import { createFolder, deleteFolder, getFolderContents } from "@/app/actions/folders";
+import type { ActionResult } from "@/app/actions/_result";
 
 type ViewMode = "list" | "grid";
 type UploadStatus = "uploading" | "done" | "failed" | "queued";
@@ -77,6 +83,7 @@ const ENTITY_TYPE_CHIP: Record<string, { label: string; cls: string }> = {
 };
 
 type FileEntry = {
+  id: string;
   name: string;
   type: string;
   icon: React.ElementType;
@@ -258,6 +265,7 @@ interface Props {
 }
 
 export function PropertyDocumentsPage({ property, userId, documents: dbDocuments = [], folders: dbFolders = [] }: Props) {
+  const router = useRouter();
   const folderTree = buildFolderTree(dbFolders);
   const rootFolders = dbFolders
     .filter((f) => !f.parentFolderId)
@@ -270,6 +278,10 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
   const [mounted, setMounted] = useState(false);
   const [showAddFolder, setShowAddFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
+  const [creatingFolder, setCreatingFolder] = useState(false);
+  // Per-folder content counts (documents + subfolders), fetched lazily when the user
+  // is about to delete a folder so the confirm dialog can warn them what moves to root.
+  const [folderContents, setFolderContents] = useState<Record<string, { documents: number; subfolders: number }>>({});
   const [locationOpen, setLocationOpen] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<TreeNode>(folderTree[0]);
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(["root"]));
@@ -300,6 +312,7 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
   const files: FileEntry[] = dbDocuments.map((doc) => {
     const { type, icon, iconClass } = getFileIconStyle(doc);
     return {
+      id: doc.id,
       name: doc.name,
       type,
       icon,
@@ -311,23 +324,112 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
       verifiesEntityType: doc.verifies?.entityType,
     };
   });
+  // Quick lookup from a document name back to its id — the file-detail view still keys
+  // off the visible name, but every delete/select path uses the real document id.
+  const nameToId = new Map(files.map((f) => [f.name, f.id]));
+  // Reverse lookup for surfaces that display a selected file's name (e.g. the Move modal).
+  const idToName = new Map(files.map((f) => [f.id, f.name]));
 
-  function toggleSelectFile(name: string) {
+  // The selection set holds document IDS (not names) so deletes hit the right rows even
+  // when two files share a display name.
+  function toggleSelectFile(id: string) {
     setSelectedFiles((prev) => {
       const next = new Set(prev);
-      next.has(name) ? next.delete(name) : next.add(name);
+      next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
   }
 
   function toggleSelectAll(visibleFiles: FileEntry[]) {
-    const allSelected = visibleFiles.every((f) => selectedFiles.has(f.name));
-    setSelectedFiles(allSelected ? new Set() : new Set(visibleFiles.map((f) => f.name)));
+    const allSelected = visibleFiles.every((f) => selectedFiles.has(f.id));
+    setSelectedFiles(allSelected ? new Set() : new Set(visibleFiles.map((f) => f.id)));
   }
 
   function exitSelectMode() {
     setSelectMode(false);
     setSelectedFiles(new Set());
+  }
+
+  // ── Wired mutations ────────────────────────────────────────────────────────
+  // All of these call a Server Action, toast the result, then refresh so the
+  // server-rendered list re-fetches fresh data (no manual local-state surgery).
+
+  // Resolve the selected folder picker value to a real DB folder id (or undefined
+  // when "Documents"/root is chosen — the tree's synthetic root node has id "root").
+  function selectedFolderId(node: TreeNode): string | undefined {
+    return node.id === "root" ? undefined : node.id;
+  }
+
+  // Per-file delete. Deletes one document (row + S3 object) and refreshes.
+  async function handleDeleteDocument(id: string) {
+    const result = await deleteDocument(id);
+    if (result.ok) {
+      // Drop it from any active selection so the bulk bar stays accurate.
+      setSelectedFiles((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      router.refresh();
+    }
+    return result;
+  }
+
+  // Bulk delete. Sends the selected document ids to the batch action, then exits
+  // select mode and refreshes the list.
+  async function handleBulkDelete() {
+    const ids = Array.from(selectedFiles);
+    const result = await deleteDocuments(ids);
+    if (result.ok) {
+      exitSelectMode();
+      router.refresh();
+    }
+    return result;
+  }
+
+  // Lazily fetch + cache how many files/subfolders a folder holds, so the delete dialog
+  // can warn the user. Called on hover/focus of the folder's delete button. No-op if
+  // we already have the counts cached.
+  async function loadFolderContents(id: string) {
+    if (folderContents[id]) return;
+    const result = await getFolderContents(id);
+    if (result.ok) {
+      setFolderContents((prev) => ({ ...prev, [id]: result.data }));
+    }
+  }
+
+  // Per-folder delete. Documents/sub-folders inside move to the root (handled server-side).
+  async function handleDeleteFolder(id: string) {
+    const result = await deleteFolder(id);
+    if (result.ok) {
+      // If we were viewing this folder's files, drop back to "All Documents".
+      setActiveSubfolder((curr) => (folderMap.get(id) === curr ? null : curr));
+      router.refresh();
+    }
+    return result;
+  }
+
+  // Create Folder. Persists the new folder under the chosen location, closes the
+  // modal on success, and refreshes so the new folder tile/tree entry appears.
+  async function handleCreateFolder() {
+    const name = newFolderName.trim();
+    if (!name) return;
+    setCreatingFolder(true);
+    try {
+      const result = await createFolder({
+        propertyId: property.id,
+        name,
+        parentFolderId: selectedFolderId(selectedLocation),
+      });
+      toastActionResult(result, { success: "Folder created" });
+      if (result.ok) {
+        setShowAddFolder(false);
+        setNewFolderName("");
+        router.refresh();
+      }
+    } finally {
+      setCreatingFolder(false);
+    }
   }
 
   useEffect(() => {
@@ -549,27 +651,55 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
                 {rootFolders.map((f, i) => {
                   const isActive = activeSubfolder === f.name;
+                  const contents = folderContents[f.id];
+                  // Build the warning shown in the delete dialog. We fetch the counts when the
+                  // user hovers/focuses the delete button (see onMouseEnter below); until then
+                  // we show a generic "moves to root" message.
+                  const folderDeleteDescription = contents && (contents.documents > 0 || contents.subfolders > 0)
+                    ? `This folder contains ${contents.documents} ${contents.documents === 1 ? "file" : "files"}${contents.subfolders > 0 ? ` and ${contents.subfolders} ${contents.subfolders === 1 ? "subfolder" : "subfolders"}` : ""}. They will move to the root. This can't be undone.`
+                    : "Deleting this folder moves any files inside it to the root. This can't be undone.";
                   return (
-                    <button
+                    <div
                       key={f.id}
-                      onClick={() => setActiveSubfolder(isActive ? null : f.name)}
-                      aria-pressed={isActive}
-                      className={`flex items-center gap-2.5 px-4 py-3.5 rounded-xl border text-left transition-all duration-200 hover:-translate-y-0.5 ${
+                      className={`group relative flex items-center gap-2.5 px-4 py-3.5 rounded-xl border text-left transition-all duration-200 hover:-translate-y-0.5 cursor-pointer ${
                         isActive
                           ? "bg-[--val-bg-tint] border-[--val-primary-dark]/25 shadow-[0px_6px_20px_0px_rgba(18,28,40,0.10)]"
                           : "bg-white border-slate-200 shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)]"
                       }`}
                       style={{ animationDelay: `${i * 40}ms` }}
+                      onClick={() => setActiveSubfolder(isActive ? null : f.name)}
+                      role="button"
+                      aria-pressed={isActive}
+                      tabIndex={0}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setActiveSubfolder(isActive ? null : f.name); } }}
                     >
                       <FolderOpen
                         className={`w-5 h-5 shrink-0 transition-colors duration-200 ${isActive ? "text-[--val-primary-dark]" : "text-slate-400"}`}
                       />
                       <span
-                        className={`text-[13px] font-medium transition-colors duration-200 ${isActive ? "text-[--val-primary-dark]" : "text-[--val-heading]"}`}
+                        className={`flex-1 text-[13px] font-medium truncate transition-colors duration-200 ${isActive ? "text-[--val-primary-dark]" : "text-[--val-heading]"}`}
                       >
                         {f.name}
                       </span>
-                    </button>
+                      <ConfirmAction
+                        tier="confirm"
+                        title={`Delete folder "${f.name}"?`}
+                        description={folderDeleteDescription}
+                        confirmLabel="Delete folder"
+                        successMessage="Folder deleted"
+                        onConfirm={() => handleDeleteFolder(f.id)}
+                      >
+                        <button
+                          aria-label={`Delete folder ${f.name}`}
+                          onMouseEnter={() => { void loadFolderContents(f.id); }}
+                          onFocus={() => { void loadFolderContents(f.id); }}
+                          onClick={(e) => e.stopPropagation()}
+                          className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-slate-300 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-rose-500 hover:bg-rose-50 transition-[opacity,color,background-color] duration-150"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </ConfirmAction>
+                    </div>
                   );
                 })}
               </div>
@@ -659,20 +789,22 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
               ) : viewMode === "list" ? (
                 <ListView
                   files={filteredFiles}
-                  onFileClick={selectMode ? toggleSelectFile : setSelectedFile}
+                  onFileClick={selectMode ? (name) => toggleSelectFile(nameToId.get(name) ?? name) : setSelectedFile}
                   mounted={mounted}
                   selectMode={selectMode}
                   selectedFiles={selectedFiles}
                   onToggleFile={toggleSelectFile}
                   onToggleAll={() => toggleSelectAll(filteredFiles)}
+                  onDeleteFile={handleDeleteDocument}
                 />
               ) : (
                 <GridView
                   files={filteredFiles}
-                  onFileClick={selectMode ? toggleSelectFile : setSelectedFile}
+                  onFileClick={selectMode ? (name) => toggleSelectFile(nameToId.get(name) ?? name) : setSelectedFile}
                   selectMode={selectMode}
                   selectedFiles={selectedFiles}
                   onToggleFile={toggleSelectFile}
+                  onDeleteFile={handleDeleteDocument}
                 />
               )}
           </div>
@@ -704,12 +836,22 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
                 <FolderInput className="w-3.5 h-3.5 text-blue-200" />
                 Move to…
               </button>
-              <button
-                className="flex items-center gap-2 text-[13px] font-semibold text-rose-300 hover:text-rose-200 px-3 py-1.5 rounded-xl hover:bg-white/10 transition-colors duration-150 whitespace-nowrap"
+              <ConfirmAction
+                tier="typed"
+                title={`Delete ${selectedFiles.size} ${selectedFiles.size === 1 ? "file" : "files"}?`}
+                description={`This permanently removes ${selectedFiles.size} ${selectedFiles.size === 1 ? "file" : "files"} and their stored copies. This can't be undone.`}
+                typedConfirmValue="DELETE"
+                confirmLabel={`Delete ${selectedFiles.size} ${selectedFiles.size === 1 ? "file" : "files"}`}
+                successMessage="Files deleted"
+                onConfirm={handleBulkDelete}
               >
-                <Trash2 className="w-3.5 h-3.5" />
-                Delete
-              </button>
+                <button
+                  className="flex items-center gap-2 text-[13px] font-semibold text-rose-300 hover:text-rose-200 px-3 py-1.5 rounded-xl hover:bg-white/10 transition-colors duration-150 whitespace-nowrap"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Delete
+                </button>
+              </ConfirmAction>
             </div>
           )}
         </div>
@@ -755,7 +897,7 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
                   type="text"
                   value={newFolderName}
                   onChange={(e) => setNewFolderName(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter" && newFolderName.trim()) setShowAddFolder(false); if (e.key === "Escape") setShowAddFolder(false); }}
+                  onKeyDown={(e) => { if (e.key === "Enter" && newFolderName.trim() && !creatingFolder) void handleCreateFolder(); if (e.key === "Escape") setShowAddFolder(false); }}
                   placeholder="e.g. Lease Agreements"
                   maxLength={64}
                   className="h-10 w-full bg-[--val-input-surface] border border-slate-200 rounded-lg px-3.5 text-[14px] text-[--val-heading] placeholder:text-slate-400
@@ -867,14 +1009,14 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
                 Cancel
               </button>
               <button
-                disabled={!newFolderName.trim()}
-                onClick={() => setShowAddFolder(false)}
+                disabled={!newFolderName.trim() || creatingFolder}
+                onClick={() => void handleCreateFolder()}
                 className="h-9 px-5 rounded-lg text-[13.5px] font-semibold text-white
                   enabled:hover:opacity-90 active:enabled:scale-[0.96] disabled:opacity-40 disabled:cursor-not-allowed
                   transition-[opacity,transform] duration-150"
                 style={{ background: "var(--val-primary-dark)" }}
               >
-                Create Folder
+                {creatingFolder ? "Creating…" : "Create Folder"}
               </button>
             </div>
           </DialogContent>
@@ -918,10 +1060,10 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
                 Selected Files
               </p>
               <div className="bg-slate-50 border border-slate-100 rounded-lg px-3 py-2.5 max-h-[96px] overflow-y-auto flex flex-col gap-1.5">
-                {Array.from(selectedFiles).map((name) => (
-                  <div key={name} className="flex items-center gap-2 min-w-0">
+                {Array.from(selectedFiles).map((id) => (
+                  <div key={id} className="flex items-center gap-2 min-w-0">
                     <FileText className="w-3.5 h-3.5 shrink-0 text-blue-500" />
-                    <span className="text-[13px] text-[--val-heading] truncate">{name}</span>
+                    <span className="text-[13px] text-[--val-heading] truncate">{idToName.get(id) ?? id}</span>
                   </div>
                 ))}
               </div>
@@ -1414,17 +1556,20 @@ function ListView({
   selectedFiles,
   onToggleFile,
   onToggleAll,
+  onDeleteFile,
 }: {
   files: FileEntry[];
   onFileClick: (name: string) => void;
   mounted: boolean;
   selectMode: boolean;
   selectedFiles: Set<string>;
-  onToggleFile: (name: string) => void;
+  onToggleFile: (id: string) => void;
   onToggleAll: () => void;
+  // Deletes one document by id; returns the action result so we can toast.
+  onDeleteFile: (id: string) => Promise<ActionResult<unknown>>;
 }) {
-  const allSelected = files.length > 0 && files.every((f) => selectedFiles.has(f.name));
-  const someSelected = files.some((f) => selectedFiles.has(f.name)) && !allSelected;
+  const allSelected = files.length > 0 && files.every((f) => selectedFiles.has(f.id));
+  const someSelected = files.some((f) => selectedFiles.has(f.id)) && !allSelected;
 
   return (
     <div className="bg-white rounded-lg border border-slate-200 shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden">
@@ -1451,14 +1596,15 @@ function ListView({
             <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Folder</th>
             <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Size</th>
             <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Modified</th>
+            <th className="px-4 py-3 text-right text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em] w-[64px]"><span className="sr-only">Actions</span></th>
           </tr>
         </thead>
         <tbody>
           {files.map((f, i) => {
-            const isChecked = selectedFiles.has(f.name);
+            const isChecked = selectedFiles.has(f.id);
             return (
               <tr
-                key={f.name}
+                key={f.id}
                 onClick={() => onFileClick(f.name)}
                 onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onFileClick(f.name); } }}
                 tabIndex={0}
@@ -1481,7 +1627,7 @@ function ListView({
                   >
                     <Checkbox
                       checked={isChecked}
-                      onChange={() => onToggleFile(f.name)}
+                      onChange={() => onToggleFile(f.id)}
                     />
                   </td>
                 )}
@@ -1501,6 +1647,23 @@ function ListView({
                 </td>
                 <td className="px-4 py-3.5 text-[14px] text-slate-400">{f.size}</td>
                 <td className="px-4 py-3.5 text-[14px] text-slate-400">{f.date}</td>
+                <td className="px-4 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
+                  <ConfirmAction
+                    tier="confirm"
+                    title={`Delete "${f.name}"?`}
+                    description="This permanently removes the file and its stored copy. This can't be undone."
+                    confirmLabel="Delete"
+                    successMessage="File deleted"
+                    onConfirm={() => onDeleteFile(f.id)}
+                  >
+                    <button
+                      aria-label={`Delete ${f.name}`}
+                      className="inline-flex w-8 h-8 items-center justify-center rounded-lg text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition-[color,background-color] duration-150"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </ConfirmAction>
+                </td>
               </tr>
             );
           })}
@@ -1517,20 +1680,26 @@ function GridView({
   selectMode,
   selectedFiles,
   onToggleFile,
+  onDeleteFile,
 }: {
   files: FileEntry[];
   onFileClick: (name: string) => void;
   selectMode: boolean;
   selectedFiles: Set<string>;
-  onToggleFile: (name: string) => void;
+  onToggleFile: (id: string) => void;
+  onDeleteFile: (id: string) => Promise<ActionResult<unknown>>;
 }) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
       {files.map((f, i) => {
-        const isChecked = selectedFiles.has(f.name);
+        const isChecked = selectedFiles.has(f.id);
         return (
+          <div
+            key={f.id}
+            className="group relative"
+            style={{ '--delay': `${100 + i * 80}ms` } as React.CSSProperties}
+          >
           <button
-            key={f.name}
             type="button"
             onClick={() => onFileClick(f.name)}
             className={`relative bg-white rounded-xl p-4 transition-all duration-200 cursor-pointer text-left w-full
@@ -1539,7 +1708,6 @@ function GridView({
                 ? "shadow-[0_0_0_2px_var(--val-primary-dark),0px_6px_20px_0px_rgba(18,28,40,0.10)] -translate-y-0.5"
                 : "shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)] hover:-translate-y-0.5 hover:shadow-[0px_6px_20px_0px_rgba(18,28,40,0.10)]"
             }`}
-            style={{ '--delay': `${100 + i * 80}ms` } as React.CSSProperties}
           >
             {/* Checkbox overlay */}
             {selectMode && (
@@ -1550,7 +1718,7 @@ function GridView({
               >
                 <Checkbox
                   checked={isChecked}
-                  onChange={() => onToggleFile(f.name)}
+                  onChange={() => onToggleFile(f.id)}
                 />
               </div>
             )}
@@ -1571,6 +1739,27 @@ function GridView({
             <p className="text-[13px] font-medium truncate text-[--val-heading]">{f.name}</p>
             <p className="text-[11px] text-slate-400 mt-0.5">{f.size} · {f.date}</p>
           </button>
+          {/* Per-card delete — hidden in select mode (use the bulk bar instead). */}
+          {!selectMode && (
+            <div className="absolute top-2.5 right-2.5 z-10" onClick={(e) => e.stopPropagation()}>
+              <ConfirmAction
+                tier="confirm"
+                title={`Delete "${f.name}"?`}
+                description="This permanently removes the file and its stored copy. This can't be undone."
+                confirmLabel="Delete"
+                successMessage="File deleted"
+                onConfirm={() => onDeleteFile(f.id)}
+              >
+                <button
+                  aria-label={`Delete ${f.name}`}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/90 text-slate-300 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-rose-500 hover:bg-rose-50 shadow-sm transition-[opacity,color,background-color] duration-150"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </ConfirmAction>
+            </div>
+          )}
+          </div>
         );
       })}
     </div>

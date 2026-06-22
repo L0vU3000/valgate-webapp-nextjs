@@ -14,7 +14,7 @@ export const notifications = pgTable("notifications", {
   id: text("id").primaryKey(),
   orgId: text("org_id").notNull().references(() => organizations.id),
   userId: text("user_id").notNull(),
-  propertyId: text("property_id").references(() => properties.id),  // nullable (generic notifications)
+  propertyId: text("property_id").references(() => properties.id, { onDelete: "set null" }),  // nullable (generic notifications)
   category: notificationCategoryEnum("category").notNull(),
   title: text("title").notNull(),
   description: text("description").notNull(),

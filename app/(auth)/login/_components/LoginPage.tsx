@@ -117,8 +117,15 @@ export function LoginPage() {
         setStep("verify");
         setResendIn(45);
       } else if (signIn!.status === "needs_second_factor") {
-        // User has MFA explicitly enabled — not supported yet.
-        toast.error("Multi-factor authentication is not yet supported. Please contact support.");
+        // The account has an extra authentication factor (e.g. an authenticator
+        // app) explicitly enabled. We do not yet build that second-factor step,
+        // so rather than dead-ending the user on a screen we never render, we
+        // keep them on the password form and tell them clearly what to do next.
+        // (The device-trust email flow above is a separate, supported path —
+        // only an explicitly-enabled MFA factor reaches here.)
+        toast.error(
+          "This account has extra login security enabled, which isn't supported here yet. Reach out to support to sign in.",
+        );
       } else {
         toast.error("Sign-in could not be completed. Please try again.");
       }

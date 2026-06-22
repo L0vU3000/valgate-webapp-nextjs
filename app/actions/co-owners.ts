@@ -10,8 +10,10 @@ import {
   createCoOwner as svcCreateCoOwner,
   updateCoOwner as svcUpdateCoOwner,
   deleteCoOwner as svcDeleteCoOwner,
+  getCoOwner as svcGetCoOwner,
   listCoOwners,
 } from "@/lib/services/co-owners";
+import { logActivity } from "@/lib/services/activity";
 
 export async function createCoOwner(data: unknown): Promise<ActionResult<CoOwner>> {
   const parsed = NewCoOwnerSchema.safeParse(data);
@@ -45,7 +47,26 @@ export async function updateCoOwner(id: string, patch: unknown): Promise<ActionR
 export async function removeCoOwner(id: string): Promise<ActionResult<void>> {
   const ctx = await requireCtx();
   try {
+    // Ownership (IDOR) check: confirm the co-owner exists within the caller's org before
+    // deleting. scopedDelete is already org-scoped, but reading first lets us return a
+    // clean "not found" instead of silently no-op'ing on a cross-org id.
+    const existing = await svcGetCoOwner(ctx, id);
+    if (!existing) return { ok: false, error: "Co-owner not found" };
     await svcDeleteCoOwner(ctx, id);
+    try {
+      await logActivity(ctx, {
+        entity: "coOwner",
+        action: "deleted",
+        entityId: id,
+        summary: `Co-owner ${id} removed`,
+        propertyId: existing.propertyId,
+      });
+    } catch (err) {
+      console.error("removeCoOwner: audit log failed", err);
+    }
+    // Removing a co-owner re-balances the ownership split automatically: the primary
+    // owner's share is derived as 100 − sum(co-owner shares), so dropping a co-owner row
+    // is all the rebalance the UI needs (it recomputes on the refreshed list).
     revalidateFeTag("co-owners");
     return { ok: true, data: undefined };
   } catch (err) {

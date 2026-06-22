@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Search,
@@ -13,13 +14,21 @@ import {
   ChevronDown,
   Star,
   Plus,
+  Pencil,
+  Trash2,
   UsersRound,
   BadgeCheck,
 } from "lucide-react";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { cn } from "@/components/ui/utils";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { AddProfessionalWizard } from "@/components/directory/AddProfessionalWizard";
+import {
+  AddProfessionalWizard,
+  type EditableProfessional,
+} from "@/components/directory/AddProfessionalWizard";
+import { ConfirmAction } from "@/components/ui/confirm-action";
+import { deleteProfessional } from "@/app/actions/professionals";
+import type { ActionResult } from "@/app/actions/_result";
 import type { Category, Professional, DirectoryPageData } from "../queries";
 
 const ITEMS_PER_PAGE = 12;
@@ -58,7 +67,17 @@ function StarRating({ rating, count }: { rating: number; count: number }) {
   );
 }
 
-function ProfessionalCard({ pro, index }: { pro: Professional; index: number }) {
+function ProfessionalCard({
+  pro,
+  index,
+  onEdit,
+  onDelete,
+}: {
+  pro: Professional;
+  index: number;
+  onEdit: (pro: Professional) => void;
+  onDelete: (pro: Professional) => Promise<ActionResult<void>>;
+}) {
   const badgeClass = CATEGORY_BADGE[pro.category];
   const [copied, setCopied] = useState(false);
 
@@ -181,27 +200,88 @@ function ProfessionalCard({ pro, index }: { pro: Professional; index: number }) 
           Linked Properties:{" "}
           <span className="font-semibold text-val-heading">{pro.linkedProperties}</span>
         </span>
-        <Link
-          href={`/directory/${pro.id}`}
-          className="flex items-center gap-0.5 text-[--val-primary-dark] text-xs font-semibold transition-all duration-150 hover:opacity-75 hover:gap-1 active:scale-95"
-        >
-          VIEW PROFILE
-          <ChevronRight className="size-3" />
-        </Link>
+        <div className="flex items-center gap-1">
+          {/* Edit — opens the Add wizard in edit mode, pre-filled with this contact. */}
+          <button
+            type="button"
+            onClick={() => onEdit(pro)}
+            className="size-8 rounded-full flex items-center justify-center text-slate-400 transition-all duration-150 hover:bg-slate-50 hover:text-[--val-primary-dark] active:scale-95"
+            aria-label={`Edit ${pro.name}`}
+            title="Edit"
+          >
+            <Pencil className="size-3.5" />
+          </button>
+          {/* Delete — confirm tier: irreversible removal of one directory entry. */}
+          <ConfirmAction
+            tier="confirm"
+            title={`Remove ${pro.name}?`}
+            description="This removes the contact from your directory. This can't be undone."
+            confirmLabel="Remove"
+            successMessage={`${pro.name} removed`}
+            onConfirm={() => onDelete(pro)}
+          >
+            <button
+              type="button"
+              className="size-8 rounded-full flex items-center justify-center text-slate-400 transition-all duration-150 hover:bg-rose-50 hover:text-rose-500 active:scale-95"
+              aria-label={`Remove ${pro.name}`}
+              title="Remove"
+            >
+              <Trash2 className="size-3.5" />
+            </button>
+          </ConfirmAction>
+          <Link
+            href={`/directory/${pro.id}`}
+            className="flex items-center gap-0.5 text-[--val-primary-dark] text-xs font-semibold transition-all duration-150 hover:opacity-75 hover:gap-1 active:scale-95 ml-1"
+          >
+            VIEW PROFILE
+            <ChevronRight className="size-3" />
+          </Link>
+        </div>
       </div>
     </div>
   );
 }
 
 export function ProfessionalDirectoryPage({ data }: { data: DirectoryPageData }) {
+  const router = useRouter();
   const [activeCategory, setActiveCategory] = useState<Category>("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [view, setView] = useState<"grid" | "list">("grid");
   const [sortBy, setSortBy] = useState<SortOption>("Rating");
   const [currentPage, setCurrentPage] = useState(1);
   const [addWizardOpen, setAddWizardOpen] = useState(false);
+  // When set, the wizard opens in edit mode for this professional.
+  const [editing, setEditing] = useState<EditableProfessional | null>(null);
 
   const { professionals, categories } = data;
+
+  // Open the wizard in edit mode, mapping the directory row to the editable shape.
+  function handleEdit(pro: Professional) {
+    setEditing({
+      id: pro.id,
+      name: pro.name,
+      company: pro.company,
+      category: pro.category,
+      email: pro.email,
+      phone: pro.phone,
+      available: pro.available,
+    });
+    setAddWizardOpen(true);
+  }
+
+  // Delete one directory entry; refresh the list on success so the card disappears.
+  // Returns the raw ActionResult so <ConfirmAction> can toast success/failure.
+  async function handleDelete(pro: Professional) {
+    const result = await deleteProfessional(pro.id);
+    if (result.ok) router.refresh();
+    return result;
+  }
+
+  // Clear edit state whenever the wizard closes so the next "Add" starts blank.
+  function handleWizardOpenChange(open: boolean) {
+    setAddWizardOpen(open);
+    if (!open) setEditing(null);
+  }
 
   const filtered = professionals
     .filter((p) => {
@@ -370,7 +450,13 @@ export function ProfessionalDirectoryPage({ data }: { data: DirectoryPageData })
             )}
           >
             {paginated.map((pro, i) => (
-              <ProfessionalCard key={pro.id} pro={pro} index={i} />
+              <ProfessionalCard
+                key={pro.id}
+                pro={pro}
+                index={i}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+              />
             ))}
             {filtered.length === 0 && (
               <div className="col-span-3 animate-[fade-slide-up_0.3s_cubic-bezier(0.22,1,0.36,1)_both]">
@@ -432,7 +518,8 @@ export function ProfessionalDirectoryPage({ data }: { data: DirectoryPageData })
 
       <AddProfessionalWizard
         open={addWizardOpen}
-        onOpenChange={setAddWizardOpen}
+        onOpenChange={handleWizardOpenChange}
+        professional={editing}
       />
     </div>
   );

@@ -11,3 +11,4 @@ export * from "./people";
 export * from "./notifications";
 export * from "./verification";
 export * from "./ai";
+export * from "./activities";

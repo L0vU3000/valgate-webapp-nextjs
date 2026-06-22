@@ -17,7 +17,7 @@ export const pillarVerifications = pgTable("pillar_verifications", {
   id: text("id").primaryKey(),                        // VRF-0001 (C8)
   orgId: text("org_id").notNull().references(() => organizations.id),  // D14 (C3)
   userId: text("user_id").notNull(),                 // created-by
-  propertyId: text("property_id").notNull().references(() => properties.id),
+  propertyId: text("property_id").notNull().references(() => properties.id, { onDelete: "cascade" }),
   pillar: pillarEnum("pillar").notNull(),
   status: verificationStatusEnum("status").notNull().default("unverified"),
   method: text("method"),                            // document_upload | kyc | manual_review
@@ -33,14 +33,14 @@ export const pillarVerifications = pgTable("pillar_verifications", {
 
 export const verificationEvidence = pgTable("verification_evidence", {
   id: text("id").primaryKey(),                        // VEV-0001
-  verificationId: text("verification_id").notNull().references(() => pillarVerifications.id),
-  documentId: text("document_id").notNull().references(() => documents.id),
+  verificationId: text("verification_id").notNull().references(() => pillarVerifications.id, { onDelete: "cascade" }),
+  documentId: text("document_id").notNull().references(() => documents.id, { onDelete: "cascade" }),
   addedAt: timestamp("added_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const verificationEvents = pgTable("verification_events", {
   id: text("id").primaryKey(),                        // VHE-0001 — append-only audit trail
-  verificationId: text("verification_id").notNull().references(() => pillarVerifications.id),
+  verificationId: text("verification_id").notNull().references(() => pillarVerifications.id, { onDelete: "cascade" }),
   event: text("event").notNull(),                    // submitted|approved|rejected|revoked|expired|resubmitted
   actorId: text("actor_id").notNull(),
   at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),

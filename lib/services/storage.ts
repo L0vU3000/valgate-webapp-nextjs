@@ -1,5 +1,5 @@
 import "server-only"; // C1
-import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { createPresignedPost } from "@aws-sdk/s3-presigned-post";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { env } from "@/lib/env";
@@ -49,4 +49,31 @@ export async function resolveDocumentUrl(storageId: string): Promise<string> {
   if (storageId.startsWith("_storage/")) return `/${storageId}`;
   const { client, bucket } = getS3();
   return getSignedUrl(client, new GetObjectCommand({ Bucket: bucket, Key: storageId }), { expiresIn: 300 });
+}
+
+// Deletes one stored object from the S3 bucket so we don't leave orphaned bytes
+// behind after a document row is removed (this was the P1 storage leak).
+//
+// This is BEST-EFFORT on purpose: the caller (deleteDocument in the service layer)
+// has already removed the database row by the time we get here, so if the S3 delete
+// fails we must NOT throw — that would make the whole delete look like it failed even
+// though the row is gone. Instead we log the failure and move on. The caller is
+// expected to wrap this in a try/catch as a second line of defence.
+//
+// Returns true when the object was deleted (or storage isn't configured / the id is a
+// legacy local-storage id, both of which mean "nothing to delete in S3"), false when an
+// actual S3 delete attempt failed.
+export async function deleteStorageObject(storageId: string): Promise<boolean> {
+  // Legacy/local placeholder ids never lived in S3 — nothing to clean up.
+  if (storageId.startsWith("_storage/")) return true;
+  try {
+    const { client, bucket } = getS3();
+    await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: storageId }));
+    return true;
+  } catch (err) {
+    // Storage may be unconfigured in demo/dev (getS3 throws) or the delete may fail.
+    // Either way, don't blow up the caller — the row is already gone. Log loudly.
+    console.error("deleteStorageObject: failed to remove S3 object", storageId, err);
+    return false;
+  }
 }
