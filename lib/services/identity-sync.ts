@@ -13,6 +13,10 @@ export function normaliseRole(r: string | null | undefined): Ctx["orgRole"] {
   if (r === "org:member") return "member";
   if (r === "admin") return "admin";
   if (r === "viewer") return "viewer";
+  // Clerk custom roles conventionally use the "org:" prefix (e.g. "org:viewer").
+  // Handle both naming styles so the dashboard role key and the app role name
+  // can differ without breaking normalisation.
+  if (r === "org:viewer") return "viewer";
   return "member"; // unknown → member, never throw (D-I)
 }
 

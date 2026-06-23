@@ -46,6 +46,7 @@
 
 import { config } from 'dotenv'
 import { resolve } from 'node:path'
+import { writeFileSync, mkdirSync } from 'node:fs'
 
 // ─── Load env from .env.e2e-auth ──────────────────────────────────────────────
 // dotenv is already a devDependency (package.json). We load .env.local first for
@@ -218,17 +219,18 @@ async function ensureOrg({ name, createdByUserId }) {
 // ─── Membership helpers ────────────────────────────────────────────────────────
 
 /**
- * Adds a user to an organisation with the given role, idempotently.
- * If the user is already a member (any role), reports existing and returns.
+ * Adds a user to an organisation with the given role, or updates their role
+ * if they are already a member with a different role. Fully idempotent.
  *
  * Clerk organisation roles:
  *   org:admin  → normaliseRole → "owner" in the app
  *   org:member → normaliseRole → "member" in the app
+ *   viewer     → normaliseRole → "viewer" in the app
+ *   org:viewer → normaliseRole → "viewer" in the app
  *
- * For the app's "viewer" role (lib/services/identity-sync.ts line 15):
- *   normaliseRole("viewer") → "viewer"
- *   This requires a CUSTOM Clerk org role with the key "viewer" configured
- *   in the Clerk dashboard. Until that exists, use "org:member" as a stand-in.
+ * The "viewer" role requires a CUSTOM Clerk org role created in the dashboard.
+ *   Clerk Dashboard → Organizations → Roles → New role → key: "viewer"
+ *   (or key: "org:viewer" — the app handles both via normaliseRole)
  */
 async function ensureMembership({ orgId, orgName, userId, userEmail, role }) {
   // Fetch the current member list for this org (up to 100 — more than enough for tests).
@@ -242,18 +244,49 @@ async function ensureMembership({ orgId, orgName, userId, userEmail, role }) {
   })
 
   if (existing) {
-    console.log(`    ✓ already member: ${userEmail} in ${orgName} (role: ${existing.role})`)
-    return existing
+    // Member already exists. If the role matches what we want, nothing to do.
+    if (existing.role === role) {
+      console.log(`    ✓ already member: ${userEmail} in ${orgName} (role: ${existing.role})`)
+      return existing
+    }
+
+    // Role differs from what we want — update it so re-running the script
+    // picks up role changes (e.g. upgrading viewer-a from org:member to viewer).
+    console.log(`    ↻ updating role: ${userEmail} in ${orgName} (${existing.role} → ${role})`)
+    return await updateMembershipRole({ orgId, userId, userEmail, orgName, role })
   }
 
-  // Not yet a member — add them.
+  // Not yet a member — add them with the requested role.
   const created = await clerkPost(`/organizations/${orgId}/memberships`, {
     user_id: userId,
-    role: role,  // e.g. "org:admin" or "org:member"
+    role: role,  // e.g. "org:admin", "viewer"
   })
 
   console.log(`    ✅ added member: ${userEmail} → ${orgName} (role: ${role})`)
   return created
+}
+
+/**
+ * Updates an existing organisation membership to a new role via Clerk's PATCH endpoint.
+ * Called by ensureMembership when the stored role differs from the requested role.
+ */
+async function updateMembershipRole({ orgId, userId, userEmail, orgName, role }) {
+  const url = `${CLERK_API_BASE}/organizations/${orgId}/memberships/${userId}`
+  const res = await fetch(url, {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${CLERK_SECRET_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ role }),
+  })
+  if (!res.ok) {
+    const body = await res.text()
+    throw new Error(`Clerk PATCH membership failed (HTTP ${res.status}): ${body}`)
+  }
+  const updated = await res.json()
+  console.log(`    ✅ role updated: ${userEmail} in ${orgName} → ${role}`)
+  return updated
 }
 
 // ─── Main ──────────────────────────────────────────────────────────────────────
@@ -321,7 +354,11 @@ async function main() {
     orgName: 'ORG-A',
     userId: viewerA.id,
     userEmail: 'viewer-a+clerk_test@example.com',
-    role: 'org:member',  // → "member" in app (upgrade to "viewer" in Phase 3)
+    // "org:viewer" is the Clerk API key for the custom "Viewer" role.
+    // Clerk automatically prepends "org:" to all custom role keys in the dashboard,
+    // so a role created with key "viewer" is stored and returned as "org:viewer".
+    // normaliseRole("org:viewer") → "viewer" in the app (lib/services/identity-sync.ts).
+    role: 'org:viewer',
   })
   await ensureMembership({
     orgId: orgB.id,
@@ -340,7 +377,7 @@ async function main() {
   console.log('  Layout:')
   console.log(`    ORG-A (Clerk: ${orgA.id})`)
   console.log('      • owner-a+clerk_test@example.com  — org:admin  → "owner"')
-  console.log('      • viewer-a+clerk_test@example.com — org:member → "member"')
+  console.log('      • viewer-a+clerk_test@example.com — viewer     → "viewer"')
   console.log()
   console.log(`    ORG-B (Clerk: ${orgB.id})`)
   console.log('      • owner-b+clerk_test@example.com  — org:admin  → "owner"')
@@ -350,6 +387,31 @@ async function main() {
   console.log('    NOT created here — the app\'s JIT sync (lib/auth/ctx.ts →')
   console.log('    requireCtx) creates them automatically on first sign-in.')
   console.log('    Trigger JIT by running the auth-setup Playwright project next.')
+  console.log()
+
+  // ── Step 4: Write Clerk org IDs to a fixture file ────────────────────────
+  // The app's JIT sync (lib/auth/ctx.ts) stores the Clerk org ID as the org's
+  // name placeholder (no webhook = no real name). Tests cannot look up orgs by
+  // the human-readable name "ORG-A" — they must query by clerk_org_id instead.
+  // This file gives role-idor.spec.ts the Clerk IDs it needs without hardcoding
+  // them or calling the Clerk API again at test runtime.
+
+  const fixtureDir = resolve(process.cwd(), 'playwright/.clerk')
+  mkdirSync(fixtureDir, { recursive: true })
+
+  const fixtureData = {
+    // Clerk org IDs — use these to look up internal ORG-XXXX IDs via:
+    //   SELECT id FROM organizations WHERE clerk_org_id = $1
+    orgAClerkId: orgA.id,
+    orgBClerkId: orgB.id,
+  }
+
+  writeFileSync(
+    resolve(fixtureDir, 'test-org-ids.json'),
+    JSON.stringify(fixtureData, null, 2),
+  )
+
+  console.log(`  Fixture written → playwright/.clerk/test-org-ids.json`)
   console.log()
 
   console.log('  Next steps:')

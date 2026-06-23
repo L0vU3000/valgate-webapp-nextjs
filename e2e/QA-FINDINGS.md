@@ -101,7 +101,7 @@ assign-vendor/resolve) that skip via their own guards depending on prior state �
 - **Unbuilt at audit time:** D3 (Export CSV), D6 (recent-activity panel).
 - **Seed/chained-state guards:** D1/D4/D5/D7 (no editable field / no verification on a fresh throwaway),
   L1-L3, N1, M2/M4 and O2 (skip when their chained precondition or a client filter isn't present).
-- **Manual (deferred, D1=A):** Section A auth, P-IDOR, P-ROLE — need a Clerk test rig + 2nd org.
+- **Manual (deferred, D1=A):** Section A auth — need real Clerk flows (A1–A7 covered in `e2e/auth/section-a.spec.ts`; A4 MFA still manual). P-IDOR and P-ROLE partially automated in Phase 3 (`e2e/auth/role-idor.spec.ts`): P-ROLE-1 + P-IDOR-1/2/3 green; P-ROLE-2/3 + P-IDOR-4 are `test.fixme` pending two findings (see checklist below).
 
 ## Seed catalog org — RESOLVED (Option A applied)
 
@@ -171,7 +171,7 @@ The specs were authored from a feature-map before running against the live DOM; 
 
 ## Skipped (20) — classified
 
-- **Deferred by design (D1=A):** I1/I2 dashboard undo, P-IDOR, P-ROLE — need a Clerk test rig + 2nd org.
+- **Deferred by design (D1=A):** I1/I2 dashboard undo — no Clerk test rig needed; deferred for unrelated reasons.
 - **Unbuilt features (audit):** D3 Export-CSV, D6 recent-activity-panel — confirm/​remove when built.
 - **Seed-data gaps:** L1/L2/L3 (no overdue/unpaid/expiring leases), N1 (no open safety risks),
   D7 (no verification on PROP-0001), D5 (rental tab edit not wired).
@@ -180,9 +180,28 @@ The specs were authored from a feature-map before running against the live DOM; 
 
 ## Deferred — MANUAL checklist (not automated, per D1=A)
 
-- [ ] **A1–A7** auth flows (login, wrong-pass, new-device, MFA, register-OTP, forgot, gate)
-- [ ] **P-IDOR** org A cannot access org B resources
-- [ ] **P-ROLE** viewer/member: Delete hidden + rejected server-side
+- [ ] **A4** MFA (TOTP / authenticator-app scan — cannot be automated with Playwright)
+- [x] **A1–A3, A5–A7** auth flows — covered by `e2e/auth/section-a.spec.ts` (Phase 2)
+      Run: `PLAYWRIGHT_AUTH=1 npx playwright test e2e/auth/section-a.spec.ts --project=auth`
+- [x] **P-IDOR** org B cannot access org A resources — PARTIALLY covered by Phase 3
+      `e2e/auth/role-idor.spec.ts`. Run:
+      `PATH=~/.nvm/versions/node/v24.17.0/bin:$PATH PLAYWRIGHT_AUTH=1 \`
+      `  npx playwright test e2e/auth/role-idor.spec.ts --project=auth`
+      Prerequisite: custom "viewer" role in Clerk dashboard + re-provision + re-save sessions.
+      - [x] P-IDOR-1/2/3 — owner-b blocked from an ORG-A property by URL, from its
+            documents sub-page, and ORG-A rows absent from owner-b's portfolio list. GREEN.
+      - [ ] P-IDOR-4 (pro client) — `test.fixme`. Targets CLI-0001, which is DEMO data in
+            ORG-0001 (ORG-A has no seeded clients), and the /pro client page renders for
+            owner-b. FINDING: the /pro "manager cockpit" layer's org-scoping is unverified —
+            needs a product decision + a real ORG-A client target before this can prove IDOR.
+- [x] **P-ROLE** viewer: Delete hidden in UI — PARTIALLY covered by Phase 3
+      - [x] P-ROLE-1 — viewer's portfolio row menu has no Delete item (gated via
+            `canDelete = roleAtLeast(orgRole,"admin")` in portfolio/queries.ts). GREEN.
+      - [ ] P-ROLE-2/3 (documents delete) — `test.fixme`. FINDING: PropertyDocumentsPage
+            renders delete controls UNCONDITIONALLY (no role gate), and the throwaway
+            property has no documents, so these would false-green. Server still rejects the
+            action (Phase 1), so it's a defence-in-depth UI gap, not an open hole. To close:
+            add a role gate to PropertyDocumentsPage, then seed a document + un-fixme.
 
 ## Next steps (when resumed)
 
