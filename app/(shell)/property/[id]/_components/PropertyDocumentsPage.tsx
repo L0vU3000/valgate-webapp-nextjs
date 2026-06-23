@@ -262,9 +262,13 @@ interface Props {
   userId: string;
   documents: DbDocument[];
   folders: DbFolder[];
+  // True only for admin/owner (set in documents/queries.ts). Gates whether the
+  // UI shows delete controls. The server enforces this independently; this just
+  // avoids surfacing buttons that would always be rejected for viewer/member.
+  canDelete: boolean;
 }
 
-export function PropertyDocumentsPage({ property, userId, documents: dbDocuments = [], folders: dbFolders = [] }: Props) {
+export function PropertyDocumentsPage({ property, userId, documents: dbDocuments = [], folders: dbFolders = [], canDelete = false }: Props) {
   const router = useRouter();
   const folderTree = buildFolderTree(dbFolders);
   const rootFolders = dbFolders
@@ -681,6 +685,7 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
                       >
                         {f.name}
                       </span>
+                      {canDelete && (
                       <ConfirmAction
                         tier="confirm"
                         title={`Delete folder "${f.name}"?`}
@@ -699,6 +704,7 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </ConfirmAction>
+                      )}
                     </div>
                   );
                 })}
@@ -796,6 +802,7 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
                   onToggleFile={toggleSelectFile}
                   onToggleAll={() => toggleSelectAll(filteredFiles)}
                   onDeleteFile={handleDeleteDocument}
+                  canDelete={canDelete}
                 />
               ) : (
                 <GridView
@@ -805,6 +812,7 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
                   selectedFiles={selectedFiles}
                   onToggleFile={toggleSelectFile}
                   onDeleteFile={handleDeleteDocument}
+                  canDelete={canDelete}
                 />
               )}
           </div>
@@ -836,6 +844,7 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
                 <FolderInput className="w-3.5 h-3.5 text-blue-200" />
                 Move to…
               </button>
+              {canDelete && (
               <ConfirmAction
                 tier="typed"
                 title={`Delete ${selectedFiles.size} ${selectedFiles.size === 1 ? "file" : "files"}?`}
@@ -852,6 +861,7 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
                   Delete
                 </button>
               </ConfirmAction>
+              )}
             </div>
           )}
         </div>
@@ -1557,6 +1567,7 @@ function ListView({
   onToggleFile,
   onToggleAll,
   onDeleteFile,
+  canDelete,
 }: {
   files: FileEntry[];
   onFileClick: (name: string) => void;
@@ -1567,6 +1578,8 @@ function ListView({
   onToggleAll: () => void;
   // Deletes one document by id; returns the action result so we can toast.
   onDeleteFile: (id: string) => Promise<ActionResult<unknown>>;
+  // admin/owner only — when false, the per-row delete button is not rendered.
+  canDelete: boolean;
 }) {
   const allSelected = files.length > 0 && files.every((f) => selectedFiles.has(f.id));
   const someSelected = files.some((f) => selectedFiles.has(f.id)) && !allSelected;
@@ -1648,6 +1661,7 @@ function ListView({
                 <td className="px-4 py-3.5 text-[14px] text-slate-400">{f.size}</td>
                 <td className="px-4 py-3.5 text-[14px] text-slate-400">{f.date}</td>
                 <td className="px-4 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
+                  {canDelete && (
                   <ConfirmAction
                     tier="confirm"
                     title={`Delete "${f.name}"?`}
@@ -1663,6 +1677,7 @@ function ListView({
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </ConfirmAction>
+                  )}
                 </td>
               </tr>
             );
@@ -1681,6 +1696,7 @@ function GridView({
   selectedFiles,
   onToggleFile,
   onDeleteFile,
+  canDelete,
 }: {
   files: FileEntry[];
   onFileClick: (name: string) => void;
@@ -1688,6 +1704,8 @@ function GridView({
   selectedFiles: Set<string>;
   onToggleFile: (id: string) => void;
   onDeleteFile: (id: string) => Promise<ActionResult<unknown>>;
+  // admin/owner only — when false, the per-card delete button is not rendered.
+  canDelete: boolean;
 }) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -1739,8 +1757,8 @@ function GridView({
             <p className="text-[13px] font-medium truncate text-[--val-heading]">{f.name}</p>
             <p className="text-[11px] text-slate-400 mt-0.5">{f.size} · {f.date}</p>
           </button>
-          {/* Per-card delete — hidden in select mode (use the bulk bar instead). */}
-          {!selectMode && (
+          {/* Per-card delete — hidden in select mode (use the bulk bar instead); admin/owner only. */}
+          {canDelete && !selectMode && (
             <div className="absolute top-2.5 right-2.5 z-10" onClick={(e) => e.stopPropagation()}>
               <ConfirmAction
                 tier="confirm"

@@ -230,6 +230,37 @@ export async function createThrowawayPropertyInOrg(
   return { propertyId: propId, name }
 }
 
+/**
+ * Seeds one throwaway document attached to an existing property.
+ *
+ * Used by the P-ROLE document test: a viewer must be able to SEE a document
+ * (so the page isn't empty — which would give a false-green absence check) but
+ * must NOT see any delete control for it.
+ *
+ * Inserts only the NOT-NULL columns the schema requires (id, org_id, user_id,
+ * property_id, name, kind, storage_id, uploaded_at); everything else is nullable.
+ * storage_id points at no real blob — fine, the test never downloads the file.
+ *
+ * No separate cleanup needed: documents.property_id has ON DELETE CASCADE, so
+ * cleanup() removing the parent property also removes this row.
+ */
+export async function createThrowawayDocumentInProperty(args: {
+  orgId: string
+  userId: string
+  propertyId: string
+}): Promise<{ documentId: string; name: string }> {
+  // Deterministic, recognisable values so the test can assert presence by text.
+  const documentId = `E2EDOC-${args.propertyId}`
+  const name = `E2E-${args.propertyId}-file.pdf`
+  await q(
+    `INSERT INTO documents
+       (id, org_id, user_id, property_id, name, kind, storage_id, uploaded_at)
+     VALUES ($1, $2, $3, $4, $5, 'document', 'e2e-test-storage', now())`,
+    [documentId, args.orgId, args.userId, args.propertyId, name],
+  )
+  return { documentId, name }
+}
+
 // ── Cleanup ───────────────────────────────────────────────────────────────────
 
 /**

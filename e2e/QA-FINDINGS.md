@@ -101,7 +101,7 @@ assign-vendor/resolve) that skip via their own guards depending on prior state �
 - **Unbuilt at audit time:** D3 (Export CSV), D6 (recent-activity panel).
 - **Seed/chained-state guards:** D1/D4/D5/D7 (no editable field / no verification on a fresh throwaway),
   L1-L3, N1, M2/M4 and O2 (skip when their chained precondition or a client filter isn't present).
-- **Manual (deferred, D1=A):** Section A auth — need real Clerk flows (A1–A7 covered in `e2e/auth/section-a.spec.ts`; A4 MFA still manual). P-IDOR and P-ROLE partially automated in Phase 3 (`e2e/auth/role-idor.spec.ts`): P-ROLE-1 + P-IDOR-1/2/3 green; P-ROLE-2/3 + P-IDOR-4 are `test.fixme` pending two findings (see checklist below).
+- **Manual (deferred, D1=A):** Section A auth — need real Clerk flows (A1–A7 covered in `e2e/auth/section-a.spec.ts`; A4 MFA still manual). P-IDOR and P-ROLE automated in Phase 3 (`e2e/auth/role-idor.spec.ts`): P-ROLE-1/2 + P-IDOR-1/2/3 green; P-ROLE-3 + P-IDOR-4 are `test.fixme` (P-ROLE-3 gap fixed, verified by construction; P-IDOR-4 needs the /pro org-scoping decision — see checklist).
 
 ## Seed catalog org — RESOLVED (Option A applied)
 
@@ -194,14 +194,18 @@ The specs were authored from a feature-map before running against the live DOM; 
             ORG-0001 (ORG-A has no seeded clients), and the /pro client page renders for
             owner-b. FINDING: the /pro "manager cockpit" layer's org-scoping is unverified —
             needs a product decision + a real ORG-A client target before this can prove IDOR.
-- [x] **P-ROLE** viewer: Delete hidden in UI — PARTIALLY covered by Phase 3
+- [x] **P-ROLE** viewer: Delete hidden in UI — covered by Phase 3
       - [x] P-ROLE-1 — viewer's portfolio row menu has no Delete item (gated via
             `canDelete = roleAtLeast(orgRole,"admin")` in portfolio/queries.ts). GREEN.
-      - [ ] P-ROLE-2/3 (documents delete) — `test.fixme`. FINDING: PropertyDocumentsPage
-            renders delete controls UNCONDITIONALLY (no role gate), and the throwaway
-            property has no documents, so these would false-green. Server still rejects the
-            action (Phase 1), so it's a defence-in-depth UI gap, not an open hole. To close:
-            add a role gate to PropertyDocumentsPage, then seed a document + un-fixme.
+      - [x] P-ROLE-2 — viewer's documents page shows the file but NO delete control.
+            FIXED: `PropertyDocumentsPage` previously rendered delete controls
+            unconditionally; now gated by `canDelete` (documents/queries.ts +
+            PropertyDocumentsPage), threaded into ListView/GridView. The test seeds a
+            real document so the absence check is meaningful (not an empty page). GREEN.
+      - [ ] P-ROLE-3 (bulk delete) — `test.fixme`. Gap is FIXED (the bulk button uses the
+            same `canDelete` flag, verified by construction + P-ROLE-2). Kept fixme only
+            because driving the select-mode flow is brittle — the select toggle has no
+            stable selector. Un-fixme once it gets a stable hook (e.g. an aria-label).
 
 ## Next steps (when resumed)
 

@@ -57,6 +57,7 @@ import {
   lookupOrgByClerkId,
   lookupOwnerUserIdByClerkOrgId,
   createThrowawayPropertyInOrg,
+  createThrowawayDocumentInProperty,
   cleanup,
   type AuthThrowawayIds,
 } from '../helpers/db-auth'
@@ -89,6 +90,11 @@ let orgAProperty: AuthThrowawayIds | undefined
 //   • IDOR list isolation test (owner-b's portfolio must include this, not orgAProperty)
 let orgBProperty: AuthThrowawayIds | undefined
 
+// The name of a document seeded into orgAProperty. Used by P-ROLE-2 so the
+// documents page has a real file present — proving the delete control is absent
+// because of the role gate, not merely because the page is empty.
+let orgADocName: string | undefined
+
 // ── Setup / teardown ──────────────────────────────────────────────────────────
 
 test.beforeAll(async () => {
@@ -109,6 +115,17 @@ test.beforeAll(async () => {
   // or absence by text without fragile CSS selectors.
   orgAProperty = await createThrowawayPropertyInOrg(orgALookup.internalId, orgAOwnerId)
   orgBProperty = await createThrowawayPropertyInOrg(orgBLookup.internalId, orgBOwnerId)
+
+  // Seed one document into ORG-A's property so its documents page is NOT empty.
+  // P-ROLE-2 then proves the delete control is hidden because of the role gate,
+  // not merely because there are no files to delete. Cascade-cleaned with the
+  // property in afterAll (documents.property_id is ON DELETE CASCADE).
+  const orgADoc = await createThrowawayDocumentInProperty({
+    orgId: orgALookup.internalId,
+    userId: orgAOwnerId,
+    propertyId: orgAProperty.propertyId,
+  })
+  orgADocName = orgADoc.name
 })
 
 test.afterAll(async () => {
@@ -170,43 +187,40 @@ test.describe('viewer-a: no destructive controls visible', () => {
   })
 
   // ── P-ROLE-2: Documents page — per-file / per-folder delete buttons ───────
-  // FIXME (tracked, not a flake): this cannot pass-for-the-right-reason today.
-  //   1. PropertyDocumentsPage renders delete controls UNCONDITIONALLY — it has
-  //      no canDelete / role gate (verified: delete buttons at lines ~693/1660/
-  //      1754, no orgRole check). So a viewer DOES see them. The server still
-  //      rejects the action (proven in Phase 1), so this is a defence-in-depth
-  //      UI gap, not an open hole — but the button should not be surfaced.
-  //   2. The throwaway property is seeded with ZERO documents, so the page is
-  //      empty and any delete-button assertion passes trivially regardless of
-  //      role — a false green.
-  //   3. The real per-file aria-label is `Delete ${name}` (NOT "Delete file"),
-  //      so the selector below would never match even with documents present.
-  // To make this real: seed a document into the property, fix the selector to
-  // match `Delete ${name}`, then add a canDelete gate to PropertyDocumentsPage.
-  // Until the app gates delete by role, this test stays fixme so it never
-  // false-greens. See e2e/QA-FINDINGS.md.
-  test.fixme('P-ROLE-2 — documents: per-file delete buttons absent for viewer', async ({ page }) => {
-    // Navigate to the documents tab of the seeded ORG-A property.
-    // viewer-a is in ORG-A so this page should load (not be blocked).
+  // Real test: a document is seeded into orgAProperty (beforeAll), so the page
+  // is NOT empty. We assert the seeded file is visible (precondition — proves
+  // the page rendered) and that NO delete control appears for the viewer. The
+  // delete buttons are now gated by `canDelete` (documents/queries.ts +
+  // PropertyDocumentsPage); the server also rejects the action (Phase 1).
+  test('P-ROLE-2 — documents: per-file delete control absent for viewer', async ({ page }) => {
     await page.goto(`/property/${orgAProperty!.propertyId}/documents`)
+
+    // Precondition: the seeded document must be visible, so the absence check
+    // below is meaningful (an empty page would pass it for the wrong reason).
     await expect(
-      page.locator('[aria-label*="Delete "]'),
-      'P-ROLE-2: per-file and per-folder delete buttons must not appear for a viewer',
+      page.getByText(orgADocName!).first(),
+      `P-ROLE-2 precondition: seeded document "${orgADocName}" must be visible to viewer-a`,
+    ).toBeVisible({ timeout: 10_000 })
+
+    // Every delete affordance uses an aria-label starting "Delete " — per-file
+    // ("Delete <name>") and per-folder ("Delete folder <name>"). None may show
+    // for a viewer.
+    await expect(
+      page.locator('[aria-label^="Delete "]'),
+      'P-ROLE-2: no delete control (file or folder) may appear for a viewer',
     ).toHaveCount(0)
   })
 
   // ── P-ROLE-3: Documents page — bulk-delete button ─────────────────────────
-  // FIXME (tracked): same root cause as P-ROLE-2 — the documents page has no
-  // role gate, and the bulk-delete control only appears after files are
-  // selected. With zero seeded documents the page is empty, so this passes
-  // trivially (false green). Keep fixme until delete is role-gated and a
-  // document is seeded to select. See e2e/QA-FINDINGS.md.
+  // FIXME (tracked — the GAP IS FIXED, this is a test-coverage TODO, not a flake):
+  // the bulk "Delete" button is now gated by the SAME `canDelete` flag as the
+  // per-file control that P-ROLE-2 proves hidden, so it's verified by
+  // construction. A dedicated e2e check would have to drive the multi-step
+  // select-mode flow (the select toggle has no stable selector), which is
+  // brittle for marginal added coverage. Un-fixme once the toggle gets a stable
+  // hook (e.g. an aria-label). See e2e/QA-FINDINGS.md.
   test.fixme('P-ROLE-3 — documents: bulk delete button absent for viewer', async ({ page }) => {
-    // Navigate to the same documents tab.
     await page.goto(`/property/${orgAProperty!.propertyId}/documents`)
-    // The bulk-delete trigger renders text like "Delete 3 files" once the user
-    // selects files and has delete permission.
-    // A viewer must never see this button, regardless of selection state.
     await expect(
       page.getByRole('button', { name: /delete \d+ file/i }),
       'P-ROLE-3: bulk delete button must not appear for a viewer',
