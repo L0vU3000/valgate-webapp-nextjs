@@ -39,6 +39,10 @@ yarn-error.log*
 .env*
 !.env.example
 
+# Auth E2E — Clerk test sessions (contain session tokens) and real-key env file
+playwright/.clerk/
+.env.e2e-auth
+
 # vercel
 .vercel
 

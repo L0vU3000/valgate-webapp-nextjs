@@ -62,4 +62,23 @@ export default async function globalSetup(): Promise<void> {
   }
 
   console.log('✓ E2E harness ready — DB reachable, migrations applied, seed present')
+
+  // When running the auth suite (PLAYWRIGHT_AUTH=1), fetch the Clerk Testing
+  // Token HERE in the global-setup (parent) process — NOT in a per-project
+  // beforeAll. Playwright forks worker processes from this parent AFTER global
+  // setup runs, and Node children inherit the parent's process.env at spawn
+  // time. So setting CLERK_TESTING_TOKEN here makes it available to BOTH the
+  // auth-setup project (clerk.signIn) AND the auth project (real UI sign-up via
+  // setupClerkTestingToken). Doing it in auth.setup.ts's beforeAll only
+  // populated the auth-setup worker; the auth worker had no token, so Clerk's
+  // bot protection silently blocked brand-new sign-ups, which surfaced as
+  // "No sign up attempt was found" in the register flow.
+  if (process.env.PLAYWRIGHT_AUTH) {
+    // Load the auth env so CLERK_SECRET_KEY (sk_test_...) is available to clerkSetup().
+    config({ path: resolve(process.cwd(), '.env.e2e-auth'), override: true })
+    // Dynamic import so the DEMO path never loads @clerk/testing.
+    const { clerkSetup } = await import('@clerk/testing/playwright')
+    await clerkSetup()
+    console.log('✓ Clerk Testing Token fetched in global setup — captcha bypass active for ALL workers')
+  }
 }

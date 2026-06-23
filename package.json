@@ -13,6 +13,8 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
+    "test:e2e:auth": "PLAYWRIGHT_AUTH=1 playwright test --project auth-setup --project auth",
+    "dev:e2e-auth": "node scripts/dev-e2e-auth.mjs",
     "seed": "node --conditions=react-server --import tsx scripts/seed.ts",
     "seed:reset": "node --conditions=react-server --import tsx scripts/seed.ts --reset",
     "regen-ai-ref": "node --import tsx scripts/regenerate-ai-data-ref.ts",
@@ -108,6 +110,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@clerk/testing": "^2.1.5",
     "@eslint/eslintrc": "^3",
     "@playwright/test": "^1.61.0",
     "@tailwindcss/postcss": "^4",
