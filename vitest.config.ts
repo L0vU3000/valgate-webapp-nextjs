@@ -23,5 +23,8 @@ export default defineConfig({
     environment: "node",
     // describe / it / expect / vi available without imports in spec files.
     globals: true,
+    // Loads .env.local before any test module initializes (needed by lib/db/client.ts
+    // which creates the Neon Pool at module-load time using env.DATABASE_URL).
+    setupFiles: ["./test/setup/env.ts"],
   },
 });
