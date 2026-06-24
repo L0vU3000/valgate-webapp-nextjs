@@ -5,6 +5,8 @@ import { properties } from "./property";
 
 export const notificationCategoryEnum = pgEnum("notification_category", [
   "MAINTENANCE", "LEASING", "COMPLIANCE", "PAYMENT", "APPLICATIONS",
+  // Manager ⇄ owner access events (Pro-2.2): request received, access approved.
+  "ACCESS",
 ]);
 export const notificationEventTypeEnum = pgEnum("notification_event_type", [
   "Payment", "Leasing", "Maintenance", "Compliance",

@@ -7,6 +7,7 @@ import { getLease, updateLease } from "@/lib/services/leases";
 import { createMaintenanceItem, updateMaintenanceItem } from "@/lib/services/maintenance-items";
 import { updateSafetyRisk } from "@/lib/services/safety-risks";
 import { getProfessional } from "@/lib/services/professionals";
+import { requestAccess, AccessError } from "@/lib/services/managers";
 import * as clientsDb from "@/lib/data/db/clients";
 import { getProperty, updateProperty } from "@/lib/services/properties";
 import { getCurrentUserId } from "@/lib/data/auth-shim";
@@ -374,6 +375,39 @@ export async function setClientStatus(input: {
   } catch (err) {
     console.error("setClientStatus: audit log failed", err);
   }
+  revalidatePro();
+  return { ok: true };
+}
+
+// --- Managed accounts (Pro-2.2) ---------------------------------------------
+
+const requestAccessSchema = z.object({
+  // The owner-issued invite code. Trimmed + length-bounded; the service does the
+  // real lookup. We don't constrain the character set here (codes are owner-defined).
+  inviteCode: z.string().trim().min(1).max(64),
+  level: z.enum(["view", "full"]),
+});
+
+// A manager requests access to an owner account by invite code. The service
+// (requestAccess) enforces the manager guard, looks up the org, blocks duplicates,
+// and notifies the owner. AccessError messages are written to be shown to the user;
+// any other error is logged and generic-ed so internals never leak (security C5).
+export async function requestAccessAction(input: {
+  inviteCode: string;
+  level: "view" | "full";
+}): Promise<ProActionResult> {
+  const parsed = requestAccessSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Enter an invite code and access level." };
+
+  const authCtx = await requireCtx();
+  try {
+    await requestAccess(authCtx, parsed.data.inviteCode, parsed.data.level);
+  } catch (err) {
+    if (err instanceof AccessError) return { ok: false, error: err.message };
+    logger.error("requestAccessAction: unexpected failure", { error: String(err) });
+    return { ok: false, error: "Could not request access. Please try again." };
+  }
+
   revalidatePro();
   return { ok: true };
 }

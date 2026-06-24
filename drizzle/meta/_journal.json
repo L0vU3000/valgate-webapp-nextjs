@@ -64,6 +64,13 @@
       "when": 1782257812821,
       "tag": "0008_crazy_naoko",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1782288107090,
+      "tag": "0009_lovely_fabian_cortez",
+      "breakpoints": true
     }
   ]
 }
