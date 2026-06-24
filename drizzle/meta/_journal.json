@@ -57,6 +57,13 @@
       "when": 1782105741477,
       "tag": "0007_massive_wallflower",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1782257812821,
+      "tag": "0008_crazy_naoko",
+      "breakpoints": true
     }
   ]
 }

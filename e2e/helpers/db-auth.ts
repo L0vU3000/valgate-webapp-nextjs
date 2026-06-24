@@ -157,6 +157,31 @@ export async function lookupOwnerUserIdByClerkOrgId(clerkOrgId: string): Promise
   return rows[0].user_id
 }
 
+/**
+ * Marks a user as a portfolio Manager (users.is_manager = true), identified by
+ * their primary email — which JIT sync sets to the Clerk email address.
+ *
+ * Pro-2.1 routing flag. auth.setup.ts calls this AFTER the manager has signed in
+ * (so JIT sync already created the user row); the next page load then redirects
+ * them to /pro/dashboard.
+ *
+ * Idempotent — running it twice is a harmless no-op. Throws if the user row is
+ * missing (almost always means the manager was never signed in / JIT'd).
+ */
+export async function setManagerFlag(email: string): Promise<void> {
+  const rows = await q<{ id: string }>(
+    `UPDATE users SET is_manager = true, updated_at = now() WHERE primary_email = $1 RETURNING id`,
+    [email],
+  )
+
+  if (!rows[0]) {
+    throw new Error(
+      `setManagerFlag: no user row for "${email}".\n` +
+      `  Ensure auth.setup.ts signed this user in (JIT sync) before flagging them as a manager.`,
+    )
+  }
+}
+
 // ── Throwaway property creation ───────────────────────────────────────────────
 
 /**

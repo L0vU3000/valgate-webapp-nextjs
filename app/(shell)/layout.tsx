@@ -1,5 +1,7 @@
+import { redirect } from "next/navigation";
 import { ShellLayout } from "@/components/layout/ShellLayout";
 import { requireCtx } from "@/lib/auth/ctx";
+import { getIsManager } from "@/lib/services/managers";
 import { listProperties } from "@/lib/services/properties";
 import { listNotifications } from "@/lib/services/notifications";
 import type { PropertyListItem } from "@/lib/data/types/property";
@@ -17,6 +19,15 @@ export default async function ShellGroupLayout({
   children: React.ReactNode;
 }) {
   const authCtx = await requireCtx();
+
+  // Managers live in the /pro cockpit, not the owner shell. Bounce them there
+  // before doing any owner-data work. Owners (is_manager = false, the default)
+  // fall through untouched, so existing behaviour is unchanged. /pro is a
+  // separate route group, so this never loops back into the shell.
+  if (await getIsManager(authCtx)) {
+    redirect("/pro/dashboard");
+  }
+
   const [properties, notifications] = await Promise.all([
     listProperties(authCtx),
     listNotifications(authCtx),

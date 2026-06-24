@@ -153,7 +153,12 @@ async function main() {
   await db.insert(s.users).values({ id: USER, clerkUserId: "demo-user", primaryEmail: "demo@valgate.app", displayName: "Demo User" }).onConflictDoNothing();
   await db.insert(s.organizationMemberships).values({ id: "MEM-0001", orgId: ORG, userId: USER, role: "owner", status: "active" }).onConflictDoNothing();
 
-  const counters = new Map<string, number>([["ORG", 1], ["USR", 1], ["MEM", 1], ["VRF", 0], ["VEV", 0], ["VHE", 0]]);
+  // ARQ/CRQ back the Pro-2.x access_requests/change_requests ids. nextId() THROWS on an
+  // unseeded collection, so seed them at 0 (→ next=1) even though no rows are loaded yet.
+  const counters = new Map<string, number>([
+    ["ORG", 1], ["USR", 1], ["MEM", 1], ["VRF", 0], ["VEV", 0], ["VHE", 0],
+    ["ARQ", 0], ["CRQ", 0],
+  ]);
   const report: { table: string; loaded: number; expected: number }[] = [];
   const leaseProp = new Map<string, string>();   // leaseId → propertyId (backfill payments)
   let failed = false;

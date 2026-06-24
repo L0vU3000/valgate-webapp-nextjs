@@ -317,6 +317,14 @@ async function main() {
     firstName: 'Owner',
     lastName: 'Beta',
   })
+  // Pro-2.1 — a portfolio Manager. Gets their OWN org (ORG-M) so requireCtx()
+  // resolves on sign-in (the app has no null-org path). The is_manager flag is
+  // flipped in the DB by auth.setup.ts AFTER JIT sync — Clerk has no such field.
+  const managerA = await ensureUser({
+    email: 'manager-a+clerk_test@example.com',
+    firstName: 'Manager',
+    lastName: 'Alpha',
+  })
   console.log()
 
   // ── Step 2: Organisations ─────────────────────────────────────────────────
@@ -327,6 +335,8 @@ async function main() {
   console.log('Step 2 — Organisations')
   const orgA = await ensureOrg({ name: 'ORG-A', createdByUserId: ownerA.id })
   const orgB = await ensureOrg({ name: 'ORG-B', createdByUserId: ownerB.id })
+  // The manager's own home org. Clerk auto-adds managerA as org:admin.
+  const orgM = await ensureOrg({ name: 'ORG-M', createdByUserId: managerA.id })
   console.log()
 
   // ── Step 3: Memberships ───────────────────────────────────────────────────
@@ -367,6 +377,13 @@ async function main() {
     userEmail: 'owner-b+clerk_test@example.com',
     role: 'org:admin',   // → "owner" in app
   })
+  await ensureMembership({
+    orgId: orgM.id,
+    orgName: 'ORG-M',
+    userId: managerA.id,
+    userEmail: 'manager-a+clerk_test@example.com',
+    role: 'org:admin',   // → "owner" of their own org; is_manager flag set in DB later
+  })
   console.log()
 
   // ── Summary ───────────────────────────────────────────────────────────────
@@ -404,6 +421,7 @@ async function main() {
     //   SELECT id FROM organizations WHERE clerk_org_id = $1
     orgAClerkId: orgA.id,
     orgBClerkId: orgB.id,
+    orgMClerkId: orgM.id,   // the manager's home org (Pro-2.1)
   }
 
   writeFileSync(

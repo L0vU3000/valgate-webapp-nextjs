@@ -35,6 +35,7 @@ import { resolve } from 'path'
 import { test as setup, expect } from '@playwright/test'
 import { clerk } from '@clerk/testing/playwright'
 import { setupClerkTesting } from './global.setup'
+import { setManagerFlag } from '../helpers/db-auth'
 
 // Load the auth env so this setup file (which runs in the test runner process,
 // not in the Next.js server) also has CLERK_SECRET_KEY available for clerkSetup().
@@ -67,6 +68,15 @@ const TEST_USERS = [
     emailAddress: 'owner-b+clerk_test@example.com',
     storageFile: 'playwright/.clerk/owner-b.json',
     label: 'owner-b',
+  },
+  {
+    // Pro-2.1 — a portfolio Manager (owner of their own ORG-M). markManager flips
+    // users.is_manager = true in the DB after JIT sync, so the saved session
+    // redirects to /pro/dashboard. Used by the manager-routing spec.
+    emailAddress: 'manager-a+clerk_test@example.com',
+    storageFile: 'playwright/.clerk/manager-a.json',
+    label: 'manager-a',
+    markManager: true,
   },
 ]
 
@@ -124,6 +134,15 @@ for (const user of TEST_USERS) {
     // Later tests load this file to start pre-authenticated.
     await page.context().storageState({ path: user.storageFile })
     console.log(`  ✓ Session saved → ${user.storageFile}`)
+
+    // Pro-2.1 — flip users.is_manager = true now that JIT sync (the goto('/')
+    // above) has created this user's DB row. Clerk has no such field, so this is
+    // a direct DB write. The saved session is unaffected; the NEXT page load is
+    // what redirects the manager to /pro/dashboard.
+    if ('markManager' in user && user.markManager) {
+      await setManagerFlag(user.emailAddress)
+      console.log(`  ✓ Flagged ${user.label} as a manager (is_manager = true)`)
+    }
 
     // TODO (Phase 2/3 — property seeding):
     // After JIT sync, DB rows for the org now exist. We can seed test properties
