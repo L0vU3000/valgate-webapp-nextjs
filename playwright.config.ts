@@ -22,6 +22,10 @@ export default defineConfig({
   // This runs for both the DEMO and auth suites — both use the same dev DB.
   globalSetup: './e2e/global-setup.ts',
 
+  // Runs once after all workers: removes throwaway file-based test clients
+  // (named "E2E …") that specs create, so they don't linger as untracked files.
+  globalTeardown: './e2e/global-teardown.ts',
+
   // D1=A: serial execution. Several specs mutate shared seed PROP-0001 (photos, tabs)
   // and destructive specs race under fullyParallel. workers:1 makes runs deterministic
   // and lets create→act chains use test.describe.serial. Slower, but the source of truth.
