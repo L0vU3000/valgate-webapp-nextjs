@@ -20,6 +20,7 @@ import { listEstateAssignments } from "@/lib/services/estate-assignments";
 import { listDocuments } from "@/lib/services/documents";
 import { getCurrentUserId } from "@/lib/data/auth-shim";
 import { requireCtx } from "@/lib/auth/ctx";
+import { listManagedAccounts } from "@/lib/services/managers";
 import {
   computeProgress,
   type ProgressContext,
@@ -329,6 +330,9 @@ export type ProShellData = {
   manager: { name: string; initials: string };
   // Properties shaped for the command palette (PropertyListItem).
   searchProperties: PropertyListItem[];
+  // Owner accounts the manager has been granted access to — drives AccountSwitcher.
+  // Empty array for non-managers (owners are never managers).
+  managedAccounts: { clerkOrgId: string; name: string; level: "view" | "full" }[];
 };
 
 // ---------------------------------------------------------------------------
@@ -951,9 +955,10 @@ export async function getInactiveClients(): Promise<
 
 export async function getProShellData(): Promise<ProShellData> {
   const authCtx = await requireCtx();
-  const [ctx, profile] = await Promise.all([
+  const [ctx, profile, rawAccounts] = await Promise.all([
     loadProContext(),
     getUserProfile(authCtx, authCtx.userId),
+    listManagedAccounts(authCtx),
   ]);
   const monthStart = currentMonthStartUtc();
 
@@ -997,6 +1002,11 @@ export async function getProShellData(): Promise<ProShellData> {
       buyNumeric: p.buyNumeric,
       isArchived: p.isArchived,
       progress: ctx.progressByPropertyId.get(p.id) ?? 0,
+    })),
+    managedAccounts: rawAccounts.map((a) => ({
+      clerkOrgId: a.clerkOrgId,
+      name: a.name,
+      level: a.level,
     })),
   };
 }

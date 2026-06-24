@@ -1,13 +1,14 @@
 import { redirect } from "next/navigation";
 import { ShellLayout } from "@/components/layout/ShellLayout";
 import { requireCtx } from "@/lib/auth/ctx";
-import { getIsManager } from "@/lib/services/managers";
+import { getIsManager, listManagedAccounts } from "@/lib/services/managers";
 import { listProperties } from "@/lib/services/properties";
 import { listNotifications } from "@/lib/services/notifications";
 import type { PropertyListItem } from "@/lib/data/types/property";
 import { formatCurrency } from "@/lib/format";
 import { AppHeaderProperties } from "@/components/layout/AppHeaderPropertiesContext";
 import { NotificationsProvider } from "@/components/layout/NotificationsContext";
+import { ManagerContextBanner } from "@/components/layout/ManagerContextBanner";
 
 // Every shell route reads per-org data from Neon behind auth (requireCtx) — inherently dynamic,
 // never statically prerenderable. Matches the (pro) pages, which already opt out of static gen.
@@ -20,11 +21,22 @@ export default async function ShellGroupLayout({
 }) {
   const authCtx = await requireCtx();
 
-  // Managers live in the /pro cockpit, not the owner shell. Bounce them there
-  // before doing any owner-data work. Owners (is_manager = false, the default)
-  // fall through untouched, so existing behaviour is unchanged. /pro is a
-  // separate route group, so this never loops back into the shell.
-  if (await getIsManager(authCtx)) {
+  // Fetch manager status + granted accounts in parallel.
+  // listManagedAccounts returns [] for non-managers so it's safe to always call.
+  const [isManager, accounts] = await Promise.all([
+    getIsManager(authCtx),
+    listManagedAccounts(authCtx),
+  ]);
+
+  // Find whether the currently active org is one of the manager's granted owner orgs.
+  // - isManager + activeGranted: manager is viewing an owner portfolio → show banner, render shell.
+  // - isManager + no activeGranted: manager is in their home org → redirect to /pro.
+  // - !isManager: normal owner → fall through, no banner.
+  const activeGranted = isManager
+    ? (accounts.find((a) => a.orgId === authCtx.orgId) ?? null)
+    : null;
+
+  if (isManager && !activeGranted) {
     redirect("/pro/dashboard");
   }
 
@@ -47,10 +59,18 @@ export default async function ShellGroupLayout({
   }));
 
   return (
-    <ShellLayout>
-      <NotificationsProvider notifications={notifications}>
-        <AppHeaderProperties properties={slim}>{children}</AppHeaderProperties>
-      </NotificationsProvider>
-    </ShellLayout>
+    <>
+      {activeGranted && (
+        <ManagerContextBanner
+          orgName={activeGranted.name}
+          grantedClerkOrgIds={accounts.map((a) => a.clerkOrgId)}
+        />
+      )}
+      <ShellLayout>
+        <NotificationsProvider notifications={notifications}>
+          <AppHeaderProperties properties={slim}>{children}</AppHeaderProperties>
+        </NotificationsProvider>
+      </ShellLayout>
+    </>
   );
 }

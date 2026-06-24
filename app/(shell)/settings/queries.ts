@@ -3,6 +3,16 @@ import { requireCtx } from "@/lib/auth/ctx";
 import { listNotificationPreferences } from "@/lib/services/notification-preferences";
 import { getMyUserProfile } from "@/lib/services/user-profiles";
 import { type UserProfile } from "@/lib/data/types/user-profile";
+import { roleAtLeast } from "@/lib/services/_mapping";
+import {
+  getInviteCode,
+  listAccessRequestsForOwner,
+  listManagersForOwner,
+  type PendingRequest,
+  type GrantedManager,
+} from "@/lib/services/managers";
+
+export type { PendingRequest, GrantedManager };
 
 export type NotificationRow = {
   key: string;
@@ -13,6 +23,12 @@ export type NotificationRow = {
 export type NotifChannels = { email: boolean; slack: boolean; sms: boolean };
 
 export type SelectOption = { value: string; label: string };
+
+export type ManagersData = {
+  inviteCode: string | null;
+  pendingRequests: PendingRequest[];
+  managersWithAccess: GrantedManager[];
+};
 
 export type SettingsPageData = {
   profile: Pick<UserProfile, "firstName" | "lastName" | "email" | "jobTitle" | "role" | "phone"> | null;
@@ -26,6 +42,8 @@ export type SettingsPageData = {
     language: string;
     timezone: string;
   };
+  // Only present for org owners/admins. Null for viewers/members.
+  managersData: ManagersData | null;
 };
 
 const NOTIFICATION_ROWS: NotificationRow[] = [
@@ -54,10 +72,23 @@ export async function getSettingsPageData(): Promise<SettingsPageData> {
     };
   }
 
+  // Managers section is only shown to org owners/admins.
+  // Viewers and members get null — the section is hidden entirely.
+  let managersData: ManagersData | null = null;
+  if (roleAtLeast(authCtx.orgRole, "admin")) {
+    const [inviteCode, pendingRequests, managersWithAccess] = await Promise.all([
+      getInviteCode(authCtx).catch(() => null),
+      listAccessRequestsForOwner(authCtx).catch(() => []),
+      listManagersForOwner(authCtx).catch(() => []),
+    ]);
+    managersData = { inviteCode, pendingRequests, managersWithAccess };
+  }
+
   return {
     profile,
     notificationRows: NOTIFICATION_ROWS,
     defaultNotifications,
+    managersData,
     dashboardViewOptions: [
       { value: "portfolio-overview", label: "Portfolio Overview" },
       { value: "analytics", label: "Analytics" },

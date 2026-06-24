@@ -416,6 +416,25 @@ function generateInviteCode(): string {
 }
 
 /**
+ * Returns the owner org's current invite code without generating one if absent.
+ *
+ * Safe to call during render — no writes, no assertCanMutate. Returns null when
+ * the owner has not yet generated a code. Used by the Settings page to display
+ * the current code; code generation is deferred to an explicit action.
+ */
+export async function getInviteCode(ctx: Ctx): Promise<string | null> {
+  requireOwnerAdmin(ctx);
+
+  const [org] = await db
+    .select({ inviteCode: organizations.inviteCode })
+    .from(organizations)
+    .where(eq(organizations.id, ctx.orgId))
+    .limit(1);
+
+  return org?.inviteCode ?? null;
+}
+
+/**
  * Returns the owner org's invite code, generating + persisting one on first use.
  *
  * The code is reusable and stable — a manager presents it via requestAccess. One

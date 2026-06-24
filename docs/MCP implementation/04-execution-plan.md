@@ -60,22 +60,24 @@ back, and the W2 (`server-only`) question is answered in writing.
 
 ## Phase 2 — Read breadth (all entities + resources)
 
-**Goal:** read tools for the major entities + the three derivation-backed resources.
+**Goal:** full read coverage via **resources, not a pile of tools** (`02` §C design law).
 
 **Steps:**
-1. Add `list_*` / `get_*` tools across services (properties, tenants, leases, payments,
-   documents, maintenance-items, ownership-records, etc. — the 35 in `lib/services/`).
-2. Add a small registration helper so each entity is a few lines, not copy-paste bloat
-   (a thin loop over `{ name, service, schema }` — keep it readable, no clever metaprogramming).
-3. Register resources: `valgate://portfolio/snapshot`, `valgate://property/{id}/ai-context`,
-   `valgate://property/{id}/progress` (`02` §D).
-4. Mirror the `ActionResult` error rule: catch, log internally, return a generic string —
-   never raw `err.message`.
+1. Build the `valgate://property/{id}` resource that returns a property with its children
+   **nested** (tenants, leases, payments, documents, …) — one fetch replaces ~10 list-tools.
+2. Register the derivation-backed resources: `valgate://portfolio/snapshot`,
+   `valgate://property/{id}/ai-context`, `valgate://property/{id}/progress` (`02` §D).
+3. Keep the **tool** list tiny — likely just `search_properties` (the entry point that hands
+   the AI an id). Before adding any other read tool, ask "could this be a field on the
+   property resource?" — if yes, it's a resource, not a tool.
+4. Write `.describe()` on every input field; outcome-shaped one-line tool descriptions
+   (use the **`mcp-builder`** skill). Mirror the `ActionResult` error rule: catch, log
+   internally, return a generic string — never raw `err.message`.
 
 **Files touched:** `mcp-server/*` only.
 **Depends on:** Phase 1.
 **Done when:** an AI client can answer "summarise this user's portfolio and flag gaps"
-using only resources + read tools, with no website involved.
+using only resources + the one search tool — and the total tool count fits on one screen.
 
 ---
 
@@ -87,9 +89,11 @@ using only resources + read tools, with no website involved.
 1. Design a minimal token store (table + issuance). Run **`/cso`** on this design first.
 2. Build `ctxFromMcpAuth(token)` reusing `ourOrgId`/`ourUserId`/`normaliseRole`
    (`lib/services/identity-sync.ts`).
-3. Swap `ctxFor()` to read the token from the MCP client's auth, fall back to demo only
+3. **Validate token audience** — scope each token to this MCP server and **reject any token
+   not issued for it** (MCP = OAuth Resource Server; prevents token-passthrough abuse). `02` §B/§G.
+4. Swap `ctxFor()` to read the token from the MCP client's auth, fall back to demo only
    when `DEMO_MODE`.
-4. Test tenant isolation: a token for ORG-A must never see ORG-B data (it can't, because
+5. Test tenant isolation: a token for ORG-A must never see ORG-B data (it can't, because
    org-scope lives in the services — but prove it with a test).
 
 **Files touched:** `mcp-server/*`, new token store (new schema file — **stop and ask
@@ -101,21 +105,27 @@ before touching the DB schema**), the auth seam.
 
 ## Phase 4 — Writes (behind existing guards)
 
-**Goal:** enable create/update/delete tools, safely.
+**Goal:** enable **outcome-oriented** write tools, safely — never a destructive tool
+without an audit trail and a confirmation gate.
 
 **Steps:**
-1. Add `create_*`/`update_*`/`delete_*` tools wrapping the existing service mutations
-   (validation via the existing `New*Schema`/`*PatchSchema`).
+1. Add write tools shaped by *user intent*, not one-per-table (`02` §C). Validate via the
+   existing `New*Schema`/`*PatchSchema`.
 2. Rely entirely on service-layer guards: `assertCanMutate` (demo), `requireMember`/
    `requireAdmin` (role). The tool adds **no** new authz.
-3. Keep deletes admin-only and surface the cascade preview (`countPropertyCascade`,
-   `properties.ts:144`) as a separate read tool the AI must call first.
-4. Run **`/review`** on the full diff.
+3. **Audit every write** — route mutations through the existing `lib/services/activities.ts`
+   so each AI-driven create/update/delete is recorded (who/what/when). Pre-launch gate: no
+   destructive tool ships without this (`02` §G rule 6).
+4. **Destructive ops need a confirmation gate** — `delete_property` is admin-only, requires a
+   prior `preview_property_delete` (cascade blast-radius via `countPropertyCascade`,
+   `properties.ts:144`), and is audited (`02` §G rule 7).
+5. Run **`/review`** and **`/cso`** on the full diff.
 
 **Files touched:** `mcp-server/*` only.
-**Depends on:** Phase 3 (you want real identity before allowing writes).
-**Done when:** an AI client creates/updates a record under a real token, and the same
-operation is correctly refused for a viewer role and in `DEMO_MODE`.
+**Depends on:** Phase 3 (you want real identity + audit before allowing writes).
+**Done when:** an AI client creates/updates a record under a real token, the write lands in
+the activity log, the same op is refused for a viewer role and in `DEMO_MODE`, and a delete
+requires a preview first.
 
 ---
 

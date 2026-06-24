@@ -83,9 +83,11 @@ A small `mcp-server/` process that:
 
 - Authenticates an incoming AI client and turns that into a Valgate `Ctx`
   (the *one* new piece we must build — see readiness doc).
-- Exposes ~15–25 **tools** that are thin wrappers over existing service functions.
-- Exposes a handful of read-only **resources** (a property's full record, a
-  portfolio snapshot) built from existing derivations.
+- Exposes a **deliberately small** set of **tools** (thin wrappers over existing service
+  functions) — fewer, outcome-oriented tools beat a long list the AI mis-picks from.
+- Pushes most *reading* into read-only **resources** (a property's full record with its
+  children nested, a portfolio snapshot) built from existing derivations — this keeps the
+  tool list short *and* the AI's context small.
 - Enforces the same org-scoping, role checks, and demo-mode read-only guard the
   website already enforces — for free, because it calls the same services.
 - Runs locally over **stdio** for a single developer, and/or over **HTTP** for

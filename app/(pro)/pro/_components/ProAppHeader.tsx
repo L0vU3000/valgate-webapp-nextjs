@@ -21,6 +21,7 @@ import { useNotifications } from "@/lib/hooks/use-notifications";
 import type { PropertyListItem } from "@/lib/data/types/property";
 import type { ShellManager } from "./pro-shell-types";
 import { useProAgent } from "./ProAgentContext";
+import { AccountSwitcher } from "./AccountSwitcher";
 
 // Top header of the Pro shell: brand, command palette search over the
 // real property book, Create menu (links to the real pages where each
@@ -29,9 +30,11 @@ import { useProAgent } from "./ProAgentContext";
 export function ProAppHeader({
   manager,
   searchProperties,
+  managedAccounts,
 }: {
   manager: ShellManager;
   searchProperties: PropertyListItem[];
+  managedAccounts: { clerkOrgId: string; name: string; level: "view" | "full" }[];
 }) {
   const { openAI } = useProAgent();
   const [commandOpen, setCommandOpen] = useState(false);
@@ -184,14 +187,7 @@ export function ProAppHeader({
             )}
           </div>
 
-          <div className="ml-1 inline-flex items-center gap-2 rounded-md py-1 pl-1 pr-2">
-            <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-teal-100 text-[11px] font-semibold text-teal-700">
-              {manager.initials}
-            </span>
-            <span className="hidden text-[13px] font-medium text-foreground sm:inline">
-              {manager.name}
-            </span>
-          </div>
+          <AccountSwitcher manager={manager} accounts={managedAccounts} />
         </div>
       </header>
 
