@@ -13,7 +13,7 @@
 //
 // Runs against the DEV Neon branch.  Never touches prod.  Never seed:reset.
 
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 
 // ── Module mocks (hoisted before all imports) ─────────────────────────────────
 

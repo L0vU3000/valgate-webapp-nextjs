@@ -29,8 +29,10 @@ function pool(): any {
 }
 
 async function q<T extends Record<string, unknown>>(sql: string, params: unknown[] = []): Promise<T[]> {
-  const { rows } = await pool().query<T>(sql, params)
-  return rows
+  // pool() is intentionally `any` (lazy CJS require — see note above), so we
+  // can't pass a type argument to .query(); cast the result rows instead.
+  const { rows } = await pool().query(sql, params)
+  return rows as T[]
 }
 
 async function nextId(collection: string): Promise<string> {
