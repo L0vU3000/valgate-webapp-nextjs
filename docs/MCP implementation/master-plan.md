@@ -9,6 +9,45 @@ Shipped in 6 dependency-ordered phases. This is the roll-up of `00`–`04` in th
 
 ---
 
+## What an MCP looks like — in the repo & as output
+
+**In the codebase** — a small folder next to the app:
+
+```
+valgate-webapp-nextjs/
+├── app/              ← Next.js app (unchanged)
+├── lib/services/     ← 35 services (unchanged — the MCP reuses these)
+└── mcp-server/       ← NEW. The entire MCP server.
+    ├── index.ts      ← ~30 lines: starts the server, registers tools
+    ├── ctxFor.ts     ← ~5 lines: the auth seam (who's asking)
+    ├── tools.ts      ← later: the handful of action tools
+    └── resources.ts  ← later: readable data (valgate://property/{id})
+```
+
+Mental model: a *service* is `listProperties(ctx)`. A *tool* is a ~10-line wrapper that exposes it
+to an AI. The MCP server is just a bag of those wrappers plus a `connect()` call — less code than
+one app route.
+
+**As output** — same data, three surfaces:
+
+```jsonc
+// (a) the raw tool result — typed JSON for programs + a text mirror for chat
+{
+  "content": [{ "type": "text", "text": "[ {\"id\":\"PROP-0001\", ...} ]" }],
+  "structuredContent": { "data": [
+    { "id": "PROP-0001", "address": "12 Oak Lane", "status": "active" },
+    { "id": "PROP-0007", "address": "44 River Road", "status": "active" }
+  ]}
+}
+```
+
+- **(b) MCP Inspector** — a Postman-like UI (localhost:6274): click Run on `search_properties`, see real rows. The Phase 1 test surface; no AI needed.
+- **(c) In a Claude chat** — the MCP is invisible plumbing; Claude answers *"44 River Road is missing its gas safety certificate…"* from live data instead of guessing.
+
+Registered via a few lines in Claude Desktop's config (`command: npx`, `args: [tsx, --conditions=react-server, mcp-server/index.ts]`) — Claude launches `index.ts` as a subprocess and talks over stdio.
+
+---
+
 ## The one fact that makes this easy
 
 Valgate's 35 service modules are **transport-pure** (rule C2): every function takes an explicit
