@@ -1,3 +1,10 @@
+// ⚠️ EXCLUDED from `npm test` (see vitest.config.ts `test.exclude`).
+// TODO(M5): rework for Neon. These tests import the real Pro query functions,
+// which now call requireCtx() -> Clerk auth() -> `server-only` and throw at
+// IMPORT time under node/vitest. The file predates the Neon migration (it was
+// written to read file-based seed with no auth). Re-enable once it mocks auth
+// and runs against seeded Neon, then remove the exclude entry.
+
 import { beforeEach, afterEach, describe, it, expect } from "vitest";
 import { freezeClock, unfreezeClock } from "@/test/helpers";
 import {
