@@ -1,6 +1,6 @@
 import "server-only";
-import * as db from "@/lib/data/db";
-import { getCurrentUserId } from "@/lib/data/auth-shim";
+import { requireCtx } from "@/lib/auth/ctx";
+import { listProfessionals } from "@/lib/services/professionals";
 
 export type Category =
   | "All"
@@ -35,8 +35,8 @@ export type DirectoryPageData = {
 };
 
 export async function getDirectoryPageData(): Promise<DirectoryPageData> {
-  const userId = getCurrentUserId();
-  const dbProfessionals = await db.professionals.list(userId);
+  const authCtx = await requireCtx();
+  const dbProfessionals = await listProfessionals(authCtx);
 
   const professionals: Professional[] = dbProfessionals.map((p) => ({
     id: p.id,

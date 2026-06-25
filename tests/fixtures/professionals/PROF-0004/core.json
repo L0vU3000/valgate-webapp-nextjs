@@ -1,0 +1,18 @@
+{
+  "id": "PROF-0004",
+  "userId": "demo-user",
+  "name": "Sarah Mitchell",
+  "company": "Luxe Realty Group",
+  "category": "Agent",
+  "rating": 5,
+  "reviewCount": 124,
+  "linkedProperties": 12,
+  "available": true,
+  "initials": "SM",
+  "avatarBg": "bg-blue-400",
+  "email": "sarah.mitchell@luxerealty.kh",
+  "phone": "+855 23 789 456",
+  "verified": true,
+  "createdAt": 1775001600000,
+  "updatedAt": 1775001600000
+}

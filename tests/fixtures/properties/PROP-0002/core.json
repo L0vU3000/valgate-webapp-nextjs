@@ -1,0 +1,12 @@
+{
+  "id": "PROP-0002",
+  "userId": "demo-user",
+  "name": "Olympic Flat 172AE1",
+  "code": "PROP-0002",
+  "type": "multi-unit",
+  "status": "Vacant",
+  "lat": 11.55976,
+  "lng": 104.90782,
+  "createdAt": 1779356162864,
+  "updatedAt": 1779356162864
+}

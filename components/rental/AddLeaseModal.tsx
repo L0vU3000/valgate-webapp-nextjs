@@ -12,7 +12,7 @@ import {
   PhoneSheetHeader,
   PhoneSheetTitle,
 } from "@/components/ui/phone-sheet";
-import { createLease } from "@/lib/actions/leases.actions";
+import { createLease } from "@/app/actions/leases";
 import type { PropertySummary } from "@/app/(shell)/rental/queries";
 
 /**

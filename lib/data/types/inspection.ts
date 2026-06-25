@@ -19,3 +19,8 @@ export const InspectionSchema = z.object({
 export type Inspection = z.infer<typeof InspectionSchema>;
 export type InspectionType = z.infer<typeof InspectionTypeEnum>;
 export type InspectionStatus = z.infer<typeof InspectionStatusEnum>;
+
+export const NewInspectionSchema = InspectionSchema.omit({ id: true, createdAt: true, updatedAt: true });
+export type NewInspection = z.infer<typeof NewInspectionSchema>;
+export const InspectionPatchSchema = NewInspectionSchema.partial();
+export type InspectionPatch = z.infer<typeof InspectionPatchSchema>;

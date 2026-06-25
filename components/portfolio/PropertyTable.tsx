@@ -1,10 +1,34 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, ChevronsUpDown, Info } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, ChevronsUpDown, Info, MoreHorizontal, Eye, Pencil, Archive, ArchiveRestore, Trash2 } from "lucide-react";
 import { TYPE_ICON, TYPE_COLOR, TYPE_LABEL, typeBadgeClasses, statusBadgeClasses, titleBadgeClasses, progressDotColor } from "../../lib/property-helpers";
 import type { PropertyListItem } from "@/lib/data/types/property";
-import { restorePropertyAction } from "@/app/(shell)/property/actions";
+import {
+  restorePropertyAction,
+  archivePropertyAction,
+  deletePropertyAction,
+  getPropertyCascadeCountsAction,
+} from "@/app/(shell)/property/actions";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { ProgressModal } from "./ProgressModal";
 import { ProgressExplainerModal } from "./ProgressExplainerModal";
@@ -74,6 +98,12 @@ interface PropertyTableProps {
   animationConfig?: TableAnimationConfig;
   showArchived?: boolean;
   showProgressExplainer?: boolean;
+  // Whether the current user may hard-delete (admin/owner). When false, the Delete row-action
+  // is hidden. The server enforces the same rule independently — this is UI affordance only.
+  canDelete?: boolean;
+  // Re-fetch the page's server data after a mutation (archive/restore/delete) so the table
+  // reflects the new state without a full reload. Wired to router.refresh() by the parent.
+  refresh?: () => void;
   sortKey: SortKey | null;
   sortDir: "asc" | "desc";
   onSort: (key: SortKey) => void;
@@ -93,6 +123,8 @@ export function PropertyTable({
   animationConfig,
   showArchived = false,
   showProgressExplainer = true,
+  canDelete = false,
+  refresh,
   sortKey,
   sortDir,
   onSort,
@@ -264,12 +296,16 @@ export function PropertyTable({
                   </div>
                 )}
               </th>
+              {/* Row-actions column — narrow, holds the (…) kebab menu per row. */}
+              <th className="py-4 px-3 w-12">
+                <span className="sr-only">Actions</span>
+              </th>
             </tr>
           </thead>
           <tbody>
             {pageRows.length === 0 ? (
               <tr>
-                <td colSpan={10} className="py-20 text-center">
+                <td colSpan={11} className="py-20 text-center">
                   <p className="text-[14px] text-slate-400">
                     {showArchived ? "No archived properties." : "No properties match your filters."}
                   </p>
@@ -412,6 +448,18 @@ export function PropertyTable({
                         </button>
                       )}
                     </td>
+
+                    {/* Row-actions (…) menu — View / Edit / Archive-or-Restore / Delete.
+                        stopPropagation so opening the menu never triggers the row's navigate. */}
+                    <td className="py-3 px-3 text-right" onClick={(e) => e.stopPropagation()}>
+                      <RowActionsMenu
+                        property={p}
+                        isArchived={rowIsArchived}
+                        canDelete={canDelete}
+                        navigate={navigate}
+                        refresh={refresh}
+                      />
+                    </td>
                   </tr>
                 );
               })
@@ -423,6 +471,222 @@ export function PropertyTable({
       {/* Pagination — shared between mobile and desktop via the helper. */}
       {renderPagination()}
     </div>
+    </>
+  );
+}
+
+/* ── Row-actions (…) menu ──────────────────────────────────────────────────
+   One kebab menu per portfolio row. Items adapt to the row's state:
+     • active row   → View · Edit · Archive · (Delete, admin/owner only)
+     • archived row → View · Edit · Restore · (Delete, admin/owner only)
+   Archive/Restore are reversible, so they use a simple confirm dialog. Delete is a
+   permanent cascade, so it uses a typed-confirm dialog (the user must type the exact
+   property name) and is only offered to admin/owner (canDelete). The server re-checks
+   the role and the typed name regardless, so hiding the item is convenience, not security. */
+function RowActionsMenu({
+  property,
+  isArchived,
+  canDelete,
+  navigate,
+  refresh,
+}: {
+  property: PropertyListItem;
+  isArchived: boolean;
+  canDelete: boolean;
+  navigate: (path: string) => void;
+  refresh?: () => void;
+}) {
+  // Which dialog (if any) is currently open. The dropdown itself closes on select, so the
+  // dialogs live here at the row level rather than inside the menu, where they'd unmount.
+  const [archiveOpen, setArchiveOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  // True while an action's server call is in flight (disables buttons, shows "Working…").
+  const [pending, setPending] = useState(false);
+  // What the user has typed into the delete confirmation box.
+  const [typed, setTyped] = useState("");
+  // Cascade counts for the delete dialog, fetched lazily when it opens. null = still loading.
+  const [counts, setCounts] = useState<{
+    leases: number;
+    payments: number;
+    documents: number;
+    otherTotal: number;
+  } | null>(null);
+
+  // Archive or restore, depending on the row's current state. Both are reversible.
+  async function handleArchiveToggle() {
+    setPending(true);
+    try {
+      const result = isArchived
+        ? await restorePropertyAction(property.id)
+        : await archivePropertyAction(property.id);
+      if (result.ok) {
+        toast.success(isArchived ? "Property restored" : "Property archived");
+        setArchiveOpen(false);
+        refresh?.();
+      } else {
+        toast.error(result.error ?? "Something went wrong");
+      }
+    } finally {
+      setPending(false);
+    }
+  }
+
+  // Open the delete dialog and fetch the cascade counts so the warning is accurate.
+  async function openDeleteDialog() {
+    setTyped("");
+    setCounts(null);
+    setDeleteOpen(true);
+    const result = await getPropertyCascadeCountsAction(property.id);
+    if (result.ok && result.counts) setCounts(result.counts);
+  }
+
+  // Run the hard delete. The button is only enabled once the typed name matches exactly.
+  async function handleDelete() {
+    if (typed.trim() !== property.name.trim() || pending) return;
+    setPending(true);
+    try {
+      const result = await deletePropertyAction(property.id, typed);
+      if (result.ok) {
+        toast.success("Property deleted");
+        setDeleteOpen(false);
+        refresh?.();
+      } else {
+        toast.error(result.error ?? "Could not delete property");
+      }
+    } finally {
+      setPending(false);
+    }
+  }
+
+  // Build a human-readable blast-radius summary for the confirm dialog.
+  // Empty property → single sentence. Property with children → list what will be destroyed.
+  function blastRadiusLine(): string {
+    if (!counts) return "";
+    const parts: string[] = [];
+    if (counts.leases > 0) parts.push(`${counts.leases} lease${counts.leases === 1 ? "" : "s"}`);
+    if (counts.payments > 0) parts.push(`${counts.payments} payment${counts.payments === 1 ? "" : "s"}`);
+    if (counts.documents > 0) parts.push(`${counts.documents} document${counts.documents === 1 ? "" : "s"}`);
+    if (counts.otherTotal > 0) parts.push(`${counts.otherTotal} other record${counts.otherTotal === 1 ? "" : "s"}`);
+    if (parts.length === 0) return "This permanently deletes the property. This cannot be undone.";
+    return `This permanently deletes the property along with ${parts.join(", ")}. This cannot be undone.`;
+  }
+
+  const typedMatches = typed.trim() === property.name.trim();
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          aria-label={`Actions for ${property.name}`}
+          className="inline-flex items-center justify-center w-8 h-8 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+        >
+          <MoreHorizontal className="w-4 h-4" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-44">
+          <DropdownMenuItem onSelect={() => navigate(`/property/${property.id}`)}>
+            <Eye className="w-4 h-4" />
+            View
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => navigate(`/property/${property.id}/edit`)}>
+            <Pencil className="w-4 h-4" />
+            Edit
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => setArchiveOpen(true)}>
+            {isArchived ? (
+              <>
+                <ArchiveRestore className="w-4 h-4" />
+                Restore
+              </>
+            ) : (
+              <>
+                <Archive className="w-4 h-4" />
+                Archive
+              </>
+            )}
+          </DropdownMenuItem>
+          {canDelete && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                variant="destructive"
+                onSelect={() => {
+                  void openDeleteDialog();
+                }}
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {/* Archive / Restore — reversible, so a simple confirm. */}
+      <AlertDialog open={archiveOpen} onOpenChange={(o) => { if (!pending) setArchiveOpen(o); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {isArchived ? `Restore ${property.name}?` : `Archive ${property.name}?`}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {isArchived
+                ? "This property will move back into your active portfolio."
+                : "This property will be hidden from your active portfolio. You can restore it any time."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={pending}
+              onClick={(e) => { e.preventDefault(); void handleArchiveToggle(); }}
+            >
+              {pending ? "Working…" : isArchived ? "Restore" : "Archive"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete — permanent + cascading, so a typed confirm. */}
+      <AlertDialog open={deleteOpen} onOpenChange={(o) => { if (!pending) { setDeleteOpen(o); if (!o) setTyped(""); } }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {property.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {counts == null
+                ? "Checking what would be affected…"
+                : blastRadiusLine()}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          {/* Show the typed-confirm input as soon as counts have loaded. */}
+          {counts != null && (
+            <div className="flex flex-col gap-2">
+              <Label htmlFor={`delete-confirm-${property.id}`}>
+                Type <span className="font-semibold">{property.name}</span> to confirm
+              </Label>
+              <Input
+                id={`delete-confirm-${property.id}`}
+                value={typed}
+                onChange={(e) => setTyped(e.target.value)}
+                autoComplete="off"
+                disabled={pending}
+              />
+            </div>
+          )}
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+            {counts != null && (
+              <AlertDialogAction
+                disabled={!typedMatches || pending}
+                onClick={(e) => { e.preventDefault(); void handleDelete(); }}
+              >
+                {pending ? "Working…" : "Delete property"}
+              </AlertDialogAction>
+            )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

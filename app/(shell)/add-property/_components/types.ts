@@ -43,6 +43,11 @@ export interface FormData {
   annualInsurance: string;
   photos: string[];
   documents: string[];
+  // Display names (photos/documents) are the source of truth for the UI and persist in drafts.
+  // photoFiles/documentFiles hold the actual blobs to upload to S3 on submit; they are appended
+  // in lockstep with the names and stripped before a draft is persisted (blobs don't survive JSON).
+  photoFiles?: File[];
+  documentFiles?: File[];
   photoFile?: File;
   uploadFile?: File;
   photoFileName?: string;

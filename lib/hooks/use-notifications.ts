@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { Notification } from "@/lib/data/types/notification";
-import { markRead, markAllRead as markAllReadAction } from "@/lib/actions/notifications.actions";
+import { markRead, markAllRead as markAllReadAction } from "@/app/actions/notifications";
 
 export function useNotifications(initial: Notification[] = []) {
   const [notifications, setNotifications] = useState<Notification[]>(initial);

@@ -1,0 +1,12 @@
+{
+  "id": "PROP-0011",
+  "userId": "demo-user",
+  "name": "BKK1 Corner Residence No.35",
+  "code": "PROP-0011",
+  "type": "residential",
+  "status": "Owner-Occupied",
+  "lat": 11.553,
+  "lng": 104.924,
+  "createdAt": 1779356162879,
+  "updatedAt": 1779356162879
+}

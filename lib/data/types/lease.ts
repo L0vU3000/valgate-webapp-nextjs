@@ -16,3 +16,8 @@ export const LeaseSchema = z.object({
 
 export type Lease = z.infer<typeof LeaseSchema>;
 export type LeaseStage = Lease["stage"];
+
+export const NewLeaseSchema = LeaseSchema.omit({ id: true });
+export type NewLease = z.infer<typeof NewLeaseSchema>;
+export const LeasePatchSchema = NewLeaseSchema.partial();
+export type LeasePatch = z.infer<typeof LeasePatchSchema>;

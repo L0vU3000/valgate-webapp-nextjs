@@ -15,7 +15,10 @@ import { MobileCardTable } from "@/components/property/MobileCardTable";
 import { UnlockButton } from "@/components/feature-unlock/UnlockButton";
 import { OwnershipUnlockMount } from "@/components/feature-unlock/pillars/OwnershipUnlock";
 import type { UnlockState } from "@/components/feature-unlock/types";
-import { revokeOwnershipVerification } from "@/lib/actions/ownership-records.actions";
+import { revokeOwnershipVerification } from "@/app/actions/ownership-records";
+import { removeCoOwner } from "@/app/actions/co-owners";
+import { ConfirmAction } from "@/components/ui/confirm-action";
+import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -142,6 +145,8 @@ export function PropertyOwnershipPage({
   );
   const [revokeOpen, setRevokeOpen] = useState(false);
   const [revoking, setRevoking] = useState(false);
+  // Tier-3 (typed) gate: the user must type REVOKE before the button enables.
+  const [revokeTyped, setRevokeTyped] = useState("");
   const [demoUploadOpen, setDemoUploadOpen] = useState(false);
   const [demoUploadedDocs, setDemoUploadedDocs] = useState<OwnershipDocument[]>([]);
 
@@ -183,10 +188,13 @@ export function PropertyOwnershipPage({
 
   async function handleRevoke() {
     if (!ownershipRecord) return;
+    // Defence in depth: don't proceed unless the typed gate is satisfied.
+    if (revokeTyped !== "REVOKE") return;
     setRevoking(true);
     const result = await revokeOwnershipVerification(ownershipRecord.id);
     setRevoking(false);
     setRevokeOpen(false);
+    setRevokeTyped("");
     if (result.ok) {
       toast.success("Verification revoked");
       router.refresh();
@@ -508,6 +516,12 @@ export function PropertyOwnershipPage({
                       status={owner.tax1099Status ?? "—"}
                       mounted={mounted}
                       onEdit={openWizard}
+                      onRemove={async () => {
+                        const result = await removeCoOwner(owner.id);
+                        // Refresh so the split re-balances and the card disappears.
+                        if (result.ok) router.refresh();
+                        return result;
+                      }}
                     />
                   ))}
                   {hiddenCount > 0 && (
@@ -906,8 +920,16 @@ export function PropertyOwnershipPage({
         onSuccess={() => router.refresh()}
       />
 
-      {/* Revoke verification confirmation dialog */}
-      <Dialog open={revokeOpen} onOpenChange={setRevokeOpen}>
+      {/* Revoke verification confirmation dialog — Tier 3 (typed). Lists what the
+          verification covers and requires typing REVOKE before the button enables. */}
+      <Dialog
+        open={revokeOpen}
+        onOpenChange={(next) => {
+          if (revoking) return; // don't let the user close mid-action
+          setRevokeOpen(next);
+          if (!next) setRevokeTyped(""); // reset the typed gate on close
+        }}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center mb-1">
@@ -915,21 +937,41 @@ export function PropertyOwnershipPage({
             </div>
             <DialogTitle>Revoke verification?</DialogTitle>
             <DialogDescription>
-              This will remove the Verified status from this ownership record.
-              Your uploaded documents will not be deleted — you can re-verify
-              at any time.
+              Revoking removes the Verified status from this ownership record. Your
+              uploaded documents will not be deleted — you can re-verify at any time.
             </DialogDescription>
           </DialogHeader>
+
+          {/* Scope: what this verification covers / what revoking touches. */}
+          <ul className="text-[13px] text-slate-600 list-disc pl-5 space-y-1">
+            <li>The Verified status on this property&apos;s ownership record</li>
+            <li>The ownership pillar&apos;s contribution to the property&apos;s progress score</li>
+          </ul>
+
+          <div className="flex flex-col gap-2 mt-1">
+            <label htmlFor="revoke-ownership-typed" className="text-[13px] text-slate-600">
+              Type <span className="font-semibold">REVOKE</span> to confirm
+            </label>
+            <Input
+              id="revoke-ownership-typed"
+              value={revokeTyped}
+              onChange={(e) => setRevokeTyped(e.target.value)}
+              autoComplete="off"
+              disabled={revoking}
+            />
+          </div>
+
           <DialogFooter>
             <button
-              onClick={() => setRevokeOpen(false)}
-              className="px-4 py-2 text-sm font-semibold text-val-heading border border-slate-200 rounded hover:bg-slate-50 transition-colors duration-150"
+              onClick={() => { setRevokeOpen(false); setRevokeTyped(""); }}
+              disabled={revoking}
+              className="px-4 py-2 text-sm font-semibold text-val-heading border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-50 transition-colors duration-150"
             >
               Cancel
             </button>
             <button
               onClick={handleRevoke}
-              disabled={revoking}
+              disabled={revoking || revokeTyped !== "REVOKE"}
               className="px-4 py-2 text-sm font-semibold text-white rounded bg-red-500 hover:bg-red-600 disabled:opacity-50 transition-colors duration-150"
             >
               {revoking ? "Revoking…" : "Revoke verification"}
@@ -955,6 +997,7 @@ function OwnerCard({
   status,
   mounted,
   onEdit,
+  onRemove,
 }: {
   initials: string;
   name: string;
@@ -969,6 +1012,10 @@ function OwnerCard({
   status: string;
   mounted: boolean;
   onEdit: () => void;
+  // Removes this co-owner. Returns an ActionResult so <ConfirmAction> can toast the
+  // outcome. After a successful removal the page refreshes and the ownership split
+  // re-balances (the primary owner's share = 100 − remaining co-owner shares).
+  onRemove: () => Promise<import("@/app/actions/_result").ActionResult<void>>;
 }) {
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)] hover:-translate-y-0.5 hover:shadow-[0px_6px_20px_0px_rgba(18,28,40,0.10)] transition-all duration-200">
@@ -1047,7 +1094,7 @@ function OwnerCard({
         </div>
       </div>
 
-      <div className="flex gap-3 mt-4 pt-4 border-t border-slate-100">
+      <div className="flex items-center gap-3 mt-4 pt-4 border-t border-slate-100">
         <button
           onClick={onEdit}
           className="px-4 py-2 bg-white border border-slate-200 rounded text-sm font-semibold text-val-heading hover:bg-slate-50 active:scale-[0.98] transition-all duration-150"
@@ -1057,6 +1104,23 @@ function OwnerCard({
         <button className="text-[--val-primary-dark] text-[14px] font-semibold hover:opacity-75 transition-opacity">
           View Documents
         </button>
+        {/* Remove co-owner (tier="confirm" — irreversible single item). After removal the
+            ownership split re-balances automatically. */}
+        <ConfirmAction
+          tier="confirm"
+          title={`Remove ${name}?`}
+          description="This removes the co-owner and re-balances the ownership split. This can't be undone."
+          confirmLabel="Remove owner"
+          successMessage={`${name} removed`}
+          onConfirm={onRemove}
+        >
+          <button
+            className="ml-auto text-rose-600 text-[14px] font-semibold hover:opacity-75 transition-opacity"
+            aria-label={`Remove ${name}`}
+          >
+            Remove
+          </button>
+        </ConfirmAction>
       </div>
     </div>
   );

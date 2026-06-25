@@ -56,25 +56,29 @@ Keep Pro widgets colocated under `app/(pro)/pro/` until the same component appea
 
 ## Backend boundaries
 
-### Shared schema — `convex/schema/`
+The backend is **Neon (serverless Postgres) + Drizzle ORM**. Schema lives in `lib/db/schema/*`, the DB client in `lib/db/client.ts`, and data access in `lib/services/*` (one module per entity) called from Server Actions in `app/**/*.actions.ts`. (A legacy `convex/` directory still exists in the repo but the app does **not** call it.)
+
+### Shared schema — `lib/db/schema/`
 
 Property, lease, documents, and identity tables are shared. Professional reads the same entities consumer writes.
 
-Key identity primitives ([`convex/schema/identity.ts`](../convex/schema/identity.ts)):
+Key identity primitives (`lib/db/schema/identity.ts`):
 
 - `orgs` — Clerk organizations
 - `users` — Clerk users
-- `org_members` — membership + roles for RLS
+- `org_members` — membership + roles for access control
 
-### Pro-only functions
+### Pro-only access
 
 ```
-convex/
-  queries/pro/     ← aggregate reads across managed client orgs
-  mutations/pro/   ← Pro-only writes (invites, assignments, etc.)
+lib/services/
+  pro/             ← aggregate reads + Pro-only writes (invites, assignments, etc.)
+app/(pro)/pro/
+  queries.ts       ← page queries (aggregate reads across managed client orgs)
+  actions.ts       ← Pro Server Actions (Zod-validated, auth-scoped writes)
 ```
 
-Pro queries are thin wrappers that enforce **"manager org member can access client org X"** using patterns in [`convex/rls.ts`](../convex/rls.ts).
+Pro queries/actions enforce **"manager org member can access client org X"** by scoping every Drizzle query to the authed user/org (Clerk `auth()`), since Neon has no built-in RLS layer wired here.
 
 **Do not fork the schema.** Pro never gets duplicate property tables.
 
@@ -98,7 +102,7 @@ Exact "client" linkage (Clerk org vs portfolio link table) is TBD — identity t
 |------|--------|
 | Rename `(shell)` → `(consumer)` | Deferred |
 | Replace `NODE_ENV` guard with Clerk org-role check | Planned |
-| Wire Pro UI to `convex/queries/pro/` | Planned |
+| Wire Pro UI to `lib/services/pro/` (Neon + Drizzle) | Planned |
 | `pro.valgate.com` subdomain routing | Stub in [`middleware.ts`](../middleware.ts) |
 | Shared `components/domain/` extractions | As needed |
 | Monorepo / separate deploy | Not planned |
@@ -108,4 +112,4 @@ Exact "client" linkage (Clerk org vs portfolio link table) is TBD — identity t
 ## Related docs
 
 - [Next.js architecture reference](./nextjs-architecture.md)
-- [Mock-to-backend pattern](./mock-to-backend-pattern.md) — how to replace Pro mock data with Convex
+- [Mock-to-backend pattern](./mock-to-backend-pattern.md) — how to replace Pro mock data with the real backend (Neon + Drizzle)

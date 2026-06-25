@@ -123,8 +123,8 @@ export function computeArrears(payments: Payment[]): ArrearsBucket[] {
 
   return buckets.map((b, i) => ({
     label: b.label,
-    amount: `$${totals[i].toLocaleString()}`,
-    width: max === 0 ? "0%" : `${Math.round((totals[i] / max) * 100)}%`,
+    amount: `$${totals[i]!.toLocaleString()}`,
+    width: max === 0 ? "0%" : `${Math.round((totals[i]! / max) * 100)}%`,
     color: b.color,
   }));
 }
@@ -257,7 +257,7 @@ export function computeEvictionRisk(payments: Payment[], leases: Lease[]): strin
       .filter((p) => p.leaseId === lease.id && p.kind === "Rent")
       .sort((a, b) => b.date - a.date);
     if (leasePayments.length === 0) continue;
-    const latest = leasePayments[0];
+    const latest = leasePayments[0]!;
     if (latest.status !== "Overdue") continue;
     if (Math.floor((now - latest.date) / DAY_MS) > 60) count++;
   }
@@ -334,7 +334,7 @@ export function computeHeatmapData(properties: Property[], leases: Lease[]): Pro
   const bySuburb = new Map<string, Property[]>();
   for (const p of properties) {
     if (p.isArchived) continue;
-    const suburb = p.city || p.province || "Unknown";
+    const suburb = p.city || p.province || "";
     const arr = bySuburb.get(suburb) ?? [];
     arr.push(p);
     bySuburb.set(suburb, arr);

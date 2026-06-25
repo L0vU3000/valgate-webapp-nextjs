@@ -1,31 +1,33 @@
 import "server-only";
 import * as agentRunsDb from "@/lib/data/db/agent-runs";
-import * as aiMessagesDb from "@/lib/data/db/ai-messages";
+import { getAiMessage } from "@/lib/services/ai-messages";
 import * as clientsDb from "@/lib/data/db/clients";
-import * as propertiesDb from "@/lib/data/db/properties";
-import * as leasesDb from "@/lib/data/db/leases";
-import * as paymentsDb from "@/lib/data/db/payments";
-import * as tenantsDb from "@/lib/data/db/tenants";
-import * as maintenanceDb from "@/lib/data/db/maintenance-items";
-import * as certificationsDb from "@/lib/data/db/certifications";
-import * as inspectionsDb from "@/lib/data/db/inspections";
-import * as safetyRisksDb from "@/lib/data/db/safety-risks";
-import * as valuationsDb from "@/lib/data/db/property-valuations";
-import * as professionalsDb from "@/lib/data/db/professionals";
-import * as ownershipRecordsDb from "@/lib/data/db/ownership-records";
-import * as coOwnersDb from "@/lib/data/db/co-owners";
-import * as ownershipDocumentsDb from "@/lib/data/db/ownership-documents";
-import * as emergencyContactsDb from "@/lib/data/db/emergency-contacts";
-import * as successorAssignmentsDb from "@/lib/data/db/successor-property-assignments";
-import * as documentsDb from "@/lib/data/db/documents";
+import { listProperties } from "@/lib/services/properties";
+import { listLeases } from "@/lib/services/leases";
+import { listPayments } from "@/lib/services/payments";
+import { listTenants } from "@/lib/services/tenants";
+import { listMaintenanceItems } from "@/lib/services/maintenance-items";
+import { listCertifications } from "@/lib/services/certifications";
+import { listInspections } from "@/lib/services/inspections";
+import { listSafetyRisks } from "@/lib/services/safety-risks";
+import { listPropertyValuations } from "@/lib/services/property-valuations";
+import { listProfessionals } from "@/lib/services/professionals";
+import { listOwnershipRecords } from "@/lib/services/ownership-records";
+import { listCoOwners } from "@/lib/services/co-owners";
+import { listOwnershipDocuments } from "@/lib/services/ownership-documents";
+import { listEmergencyContacts } from "@/lib/services/emergency-contacts";
+import { listEstateAssignments } from "@/lib/services/estate-assignments";
+import { listDocuments } from "@/lib/services/documents";
 import { getCurrentUserId } from "@/lib/data/auth-shim";
+import { requireCtx } from "@/lib/auth/ctx";
+import { listManagedAccounts } from "@/lib/services/managers";
 import {
   computeProgress,
   type ProgressContext,
 } from "@/lib/data/derivations/progress";
-import { formatCurrency, formatCurrencyFull } from "@/lib/format";
-import * as userProfilesDb from "@/lib/data/db/user-profiles";
-import type { Client } from "@/lib/data/types/client";
+import { formatCurrency, formatCurrencyFull, addUtcMonths } from "@/lib/format";
+import { getUserProfile } from "@/lib/services/user-profiles";
+import type { Client, ClientType } from "@/lib/data/types/client";
 import type {
   Property,
   PropertyStatus,
@@ -328,6 +330,9 @@ export type ProShellData = {
   manager: { name: string; initials: string };
   // Properties shaped for the command palette (PropertyListItem).
   searchProperties: PropertyListItem[];
+  // Owner accounts the manager has been granted access to — drives AccountSwitcher.
+  // Empty array for non-managers (owners are never managers).
+  managedAccounts: { clerkOrgId: string; name: string; level: "view" | "full" }[];
 };
 
 // ---------------------------------------------------------------------------
@@ -357,6 +362,7 @@ type ProContext = {
 
 async function loadProContext(): Promise<ProContext> {
   const userId = getCurrentUserId();
+  const authCtx = await requireCtx();
 
   const [
     clients,
@@ -378,23 +384,28 @@ async function loadProContext(): Promise<ProContext> {
     documents,
   ] = await Promise.all([
     clientsDb.list(userId),
-    propertiesDb.list(userId),
-    leasesDb.list(userId),
-    paymentsDb.list(userId),
-    tenantsDb.list(userId),
-    maintenanceDb.list(userId),
-    certificationsDb.list(userId),
-    safetyRisksDb.list(userId),
-    professionalsDb.list(userId),
-    valuationsDb.list(userId),
-    inspectionsDb.list(userId),
-    ownershipRecordsDb.list(userId),
-    coOwnersDb.list(userId),
-    ownershipDocumentsDb.list(userId),
-    emergencyContactsDb.list(userId),
-    successorAssignmentsDb.list(userId),
-    documentsDb.list(userId),
+    listProperties(authCtx),
+    listLeases(authCtx),
+    listPayments(authCtx),
+    listTenants(authCtx),
+    listMaintenanceItems(authCtx),
+    listCertifications(authCtx),
+    listSafetyRisks(authCtx),
+    listProfessionals(authCtx),
+    listPropertyValuations(authCtx),
+    listInspections(authCtx),
+    listOwnershipRecords(authCtx),
+    listCoOwners(authCtx),
+    listOwnershipDocuments(authCtx),
+    listEmergencyContacts(authCtx),
+    listEstateAssignments(authCtx),
+    listDocuments(authCtx),
   ]);
+
+  // Filter inactive clients so they vanish from rollups, alerts, the client
+  // book, and all derived counts. Absent status field = Active (back-compatible
+  // with existing FS records that predate this field).
+  const activeClients = clients.filter((c) => c.status !== "Inactive");
 
   // Re-use the client-side Progress derivation as-is.
   const progressCtx: ProgressContext = {
@@ -424,7 +435,7 @@ async function loadProContext(): Promise<ProContext> {
   }
 
   return {
-    clients,
+    clients: activeClients,
     properties,
     leases,
     payments,
@@ -436,7 +447,7 @@ async function loadProContext(): Promise<ProContext> {
     professionals,
     progressByPropertyId,
     propertyById: new Map(properties.map((p) => [p.id, p])),
-    clientById: new Map(clients.map((c) => [c.id, c])),
+    clientById: new Map(activeClients.map((c) => [c.id, c])),
     leaseById: new Map(leases.map((l) => [l.id, l])),
     tenantById: new Map(tenants.map((t) => [t.id, t])),
     professionalById: new Map(professionals.map((p) => [p.id, p])),
@@ -511,7 +522,7 @@ export async function getProDashboardData(): Promise<ProDashboardData> {
       .filter((r): r is ProPropertyRow => r !== null),
     workOrders: {
       counts: countWorkOrders(ctx.maintenance),
-      queue: workOrderRows.filter((r) => r.status !== "Resolved"),
+      queue: workOrderRows.filter((r) => r.status !== "Resolved" && r.status !== "Cancelled"),
     },
     financials: {
       expected,
@@ -582,8 +593,10 @@ export async function getProPropertiesData(): Promise<ProPropertiesData> {
 // types the dashboard touches but never fully shows:
 //   - Certifications — the expiry timeline (already shaped by
 //     buildComplianceRows; we bucket on its server-computed daysLeft).
-//   - SafetyRisks — open risks per property, ranked by severity. Every
-//     listed risk is "open" (the schema has no resolved flag).
+//   - SafetyRisks — risks per property, ranked by severity. Both open and
+//     resolved risks are returned; the page's "Show resolved" toggle reveals
+//     the resolved ones read-only, and the summary counts the open/resolved
+//     split.
 //   - Inspections — the recent inspection log, newest first.
 // ---------------------------------------------------------------------------
 
@@ -666,9 +679,13 @@ export async function getCompliancePageData(): Promise<CompliancePageData> {
           safetyRiskSeverityRank(b.severity) || b.createdAt - a.createdAt,
     );
 
-  // The "Open Safety Risks" card shows only unresolved risks. Resolving one
-  // drops it from this list and from openRiskCount, so the KPI falls.
-  const safetyRisks = allSafetyRiskRows.filter((r) => r.status === "Open");
+  // We now return BOTH open and resolved risks so the compliance page's
+  // "Show resolved" toggle can reveal the resolved ones (read-only) without a
+  // second round-trip. The card defaults to open-only; the page filters this
+  // list client-side. `openRisks` is kept for the summary counts below so the
+  // KPI strip still reports the open/resolved split correctly.
+  const openRisks = allSafetyRiskRows.filter((r) => r.status === "Open");
+  const safetyRisks = allSafetyRiskRows;
 
   // Inspections — join each to its property/client, newest inspection first.
   const inspections = ctx.inspections
@@ -717,9 +734,9 @@ export async function getCompliancePageData(): Promise<CompliancePageData> {
       expiringCount: certifications.filter((c) => c.status === "Expiring")
         .length,
       validCount: certifications.filter((c) => c.status === "Valid").length,
-      openRiskCount: safetyRisks.length,
-      resolvedRiskCount: allSafetyRiskRows.length - safetyRisks.length,
-      highRiskCount: safetyRisks.filter(
+      openRiskCount: openRisks.length,
+      resolvedRiskCount: allSafetyRiskRows.length - openRisks.length,
+      highRiskCount: openRisks.filter(
         (r) => r.severity === "Critical" || r.severity === "High",
       ).length,
       failedInspections: inspections.filter((i) => i.status === "Failed")
@@ -805,9 +822,9 @@ export async function getRentPageData(): Promise<RentPageData> {
         : undefined;
       const tenant = l.tenantId ? ctx.tenantById.get(l.tenantId) : undefined;
       // Same projection the renewLease action applies: advance the end
-      // date by one full lease term (UTC month arithmetic).
-      const projectedEnd = new Date(l.endDate);
-      projectedEnd.setUTCMonth(projectedEnd.getUTCMonth() + l.termMonths);
+      // date by one full lease term. addUtcMonths clamps the day into the
+      // target month so the preview can't drift from what the action saves.
+      const projectedEndDate = addUtcMonths(l.endDate, l.termMonths);
       return {
         leaseId: l.id,
         propertyId: l.propertyId,
@@ -819,7 +836,7 @@ export async function getRentPageData(): Promise<RentPageData> {
         renewalStatus: l.renewalStatus,
         daysLeft: Math.max(0, Math.ceil((l.endDate - now) / DAY)),
         termMonths: l.termMonths,
-        projectedEndDate: projectedEnd.getTime(),
+        projectedEndDate,
       };
     })
     .sort((a, b) => a.endDate - b.endDate);
@@ -870,11 +887,12 @@ export async function getWorkOrdersPageData(): Promise<WorkOrdersPageData> {
   const urgentOpen = ctx.maintenance.filter(
     (m) =>
       m.status !== "Resolved" &&
+      m.status !== "Cancelled" &&
       (m.severity === "Emergency" || m.severity === "Urgent"),
   ).length;
 
   const totalOpenCost = ctx.maintenance
-    .filter((m) => m.status !== "Resolved")
+    .filter((m) => m.status !== "Resolved" && m.status !== "Cancelled")
     .reduce((sum, m) => sum + (m.cost ?? 0), 0);
 
   // Trade categories that can take a work order.
@@ -909,11 +927,38 @@ export async function getWorkOrdersPageData(): Promise<WorkOrdersPageData> {
   };
 }
 
-export async function getProShellData(): Promise<ProShellData> {
+// Returns the minimal shape of clients whose status is "Inactive" (archived).
+// Used by the clients index page so managers can see and reactivate archived
+// clients — these are excluded from loadProContext so they won't appear in
+// rollups or the active client list.
+export async function getInactiveClients(): Promise<
+  Array<{
+    id: string;
+    name: string;
+    initials: string;
+    avatarBg: string;
+    clientType: ClientType;
+  }>
+> {
   const userId = getCurrentUserId();
-  const [ctx, profile] = await Promise.all([
+  const all = await clientsDb.list(userId);
+  return all
+    .filter((c) => c.status === "Inactive")
+    .map((c) => ({
+      id: c.id,
+      name: c.name,
+      initials: c.initials,
+      avatarBg: c.avatarBg,
+      clientType: c.clientType,
+    }));
+}
+
+export async function getProShellData(): Promise<ProShellData> {
+  const authCtx = await requireCtx();
+  const [ctx, profile, rawAccounts] = await Promise.all([
     loadProContext(),
-    userProfilesDb.get(userId, userId),
+    getUserProfile(authCtx, authCtx.userId),
+    listManagedAccounts(authCtx),
   ]);
   const monthStart = currentMonthStartUtc();
 
@@ -937,8 +982,9 @@ export async function getProShellData(): Promise<ProShellData> {
       health: r.health,
       propertyCount: r.propertyCount,
     })),
-    openWorkOrders: ctx.maintenance.filter((m) => m.status !== "Resolved")
-      .length,
+    openWorkOrders: ctx.maintenance.filter(
+      (m) => m.status !== "Resolved" && m.status !== "Cancelled",
+    ).length,
     urgentAlerts: rollups
       .flatMap((r) => r.alerts)
       .filter((a) => a.severity === "urgent").length,
@@ -956,6 +1002,11 @@ export async function getProShellData(): Promise<ProShellData> {
       buyNumeric: p.buyNumeric,
       isArchived: p.isArchived,
       progress: ctx.progressByPropertyId.get(p.id) ?? 0,
+    })),
+    managedAccounts: rawAccounts.map((a) => ({
+      clerkOrgId: a.clerkOrgId,
+      name: a.name,
+      level: a.level,
     })),
   };
 }
@@ -985,6 +1036,7 @@ function deriveRunStatus(run: AgentRun, msg: AiMessage | null): AgentRunStatus {
 
 export async function getAgentHubData(): Promise<AgentHubData> {
   const userId = getCurrentUserId();
+  const authCtx = await requireCtx();
   const runs = await agentRunsDb.list(userId);
 
   const enriched = await Promise.all(
@@ -992,7 +1044,7 @@ export async function getAgentHubData(): Promise<AgentHubData> {
       if (!run.proposalMessageId) {
         return { ...run, derivedStatus: run.status } as AgentHubRun;
       }
-      const msg = await aiMessagesDb.get(userId, run.proposalMessageId);
+      const msg = await getAiMessage(authCtx, run.proposalMessageId);
       const derivedStatus = deriveRunStatus(run, msg);
       return { ...run, derivedStatus, linkedMessage: msg ?? undefined } as AgentHubRun;
     }),
@@ -1101,7 +1153,8 @@ function severityRankMaintenance(s: MaintenanceItem["severity"]): number {
 }
 
 function statusRankMaintenance(s: MaintenanceStatus): number {
-  return s === "Open" ? 0 : s === "InProgress" ? 1 : 2;
+  // Cancelled sorts after Resolved so closed-out orders sink to the bottom.
+  return s === "Open" ? 0 : s === "InProgress" ? 1 : s === "Resolved" ? 2 : 3;
 }
 
 function rentStatusRank(s: RentStatus): number {
@@ -1230,7 +1283,8 @@ function deriveClientAlerts(
 
   // MaintenanceItem — Emergency not resolved (urgent), Urgent open (warning)
   for (const item of maintenance) {
-    if (item.status === "Resolved") continue;
+    // Both terminal states suppress alerts — Cancelled orders are no longer actionable.
+    if (item.status === "Resolved" || item.status === "Cancelled") continue;
     if (item.severity === "Emergency") {
       alerts.push({
         id: `alert-${item.id}`,
@@ -1487,7 +1541,7 @@ function buildActivityFeed(ctx: ProContext, limit: number): ProActivityEvent[] {
     events.push({
       id: `act-${m.id}`,
       category: "maintenance",
-      description: `Work order ${m.status === "Resolved" ? "resolved" : "created"} — ${m.title}`,
+      description: `Work order ${m.status === "Resolved" ? "resolved" : m.status === "Cancelled" ? "cancelled" : "created"} — ${m.title}`,
       clientName,
       propertyName,
       timestamp: m.createdAt,
@@ -1674,7 +1728,7 @@ function buildOwnerStatement(
       inPeriod(m.createdAt),
     ).length,
     workOrdersOpenToday: scoped.maintenance.filter(
-      (m) => m.status !== "Resolved",
+      (m) => m.status !== "Resolved" && m.status !== "Cancelled",
     ).length,
     upcomingLeaseExpirations: scoped.leases
       .filter(

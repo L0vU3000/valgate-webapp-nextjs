@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Archive } from "lucide-react";
 import { WidgetCard } from "@/app/(pro)/pro/_components/WidgetCard";
 import {
   EnterTr,
   DrawInBar,
 } from "@/app/(pro)/pro/_components/motion-primitives";
 import { useWorkspaceTabs } from "@/app/(pro)/pro/_components/WorkspaceTabProvider";
+import { ConfirmAction } from "@/components/ui/confirm-action";
 import {
   HEALTH_DOT,
   type ClientHealth,
@@ -37,7 +38,16 @@ const COLUMNS = [
   { label: "", width: "w-[6%]" },
 ] as const;
 
-export function ClientsTable({ clients }: { clients: ClientRollup[] }) {
+// Optional onArchive prop — when provided, each row shows an Archive button.
+// The dashboard widget omits this prop so archive is only reachable from the
+// dedicated clients index page.
+export function ClientsTable({
+  clients,
+  onArchive,
+}: {
+  clients: ClientRollup[];
+  onArchive?: (clientId: string) => Promise<void>;
+}) {
   const { openClientTab } = useWorkspaceTabs();
 
   return (
@@ -154,7 +164,7 @@ export function ClientsTable({ clients }: { clients: ClientRollup[] }) {
                   {formatRelativeTime(rollup.lastActivityAt)}
                 </td>
                 <td className="py-3">
-                  <div className="flex items-center justify-end">
+                  <div className="flex items-center justify-end gap-1.5">
                     <button
                       type="button"
                       onClick={(event) => {
@@ -165,6 +175,30 @@ export function ClientsTable({ clients }: { clients: ClientRollup[] }) {
                     >
                       View
                     </button>
+                    {onArchive && (
+                      // Archive sets the client Inactive — they vanish from rollups and
+                      // alerts. Confirm tier prevents accidental clicks. Reactivation
+                      // is available on the same page via the "Archived" section below.
+                      <ConfirmAction
+                        tier="confirm"
+                        title={`Archive ${rollup.client.name}?`}
+                        description="This client will be removed from your active book. You can reactivate them at any time."
+                        confirmLabel="Archive"
+                        successMessage={`${rollup.client.name} archived`}
+                        onConfirm={async () => {
+                          await onArchive(rollup.client.id);
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={(e) => e.stopPropagation()}
+                          aria-label={`Archive ${rollup.client.name}`}
+                          className="h-7 w-7 inline-flex items-center justify-center rounded-md border border-slate-200 dark:border-slate-700 text-slate-400 hover:text-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors"
+                        >
+                          <Archive className="h-3.5 w-3.5" />
+                        </button>
+                      </ConfirmAction>
+                    )}
                   </div>
                 </td>
               </EnterTr>

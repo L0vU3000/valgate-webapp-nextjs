@@ -1,0 +1,18 @@
+{
+  "id": "PROF-0009",
+  "userId": "demo-user",
+  "name": "Kem Dara",
+  "company": "Angkor Notary Services",
+  "category": "Notary",
+  "rating": 4.8,
+  "reviewCount": 93,
+  "linkedProperties": 15,
+  "available": true,
+  "initials": "KD",
+  "avatarBg": "bg-violet-400",
+  "email": "kemdara@angkornotary.kh",
+  "phone": "+855 63 456 123",
+  "verified": true,
+  "createdAt": 1775001600000,
+  "updatedAt": 1775001600000
+}

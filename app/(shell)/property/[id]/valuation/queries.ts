@@ -1,6 +1,9 @@
 import "server-only";
-import { getCurrentUserId } from "@/lib/data/auth-shim";
-import * as db from "@/lib/data/db";
+import { requireCtx } from "@/lib/auth/ctx";
+import { listPropertyValuations } from "@/lib/services/property-valuations";
+import { listProperties } from "@/lib/services/properties";
+import { listLeases } from "@/lib/services/leases";
+import { listExpenses } from "@/lib/services/expenses";
 import type { PropertyValuation } from "@/lib/data/types/property-valuation";
 import type { PropertyComparable } from "@/lib/data/types/property-comparable";
 import type { MarketSnapshot } from "@/lib/data/types/market-snapshot";
@@ -21,13 +24,13 @@ export type ValuationPageData = {
 };
 
 export async function getValuationPageData(propertyId: string): Promise<ValuationPageData> {
-  const userId = getCurrentUserId();
+  const authCtx = await requireCtx();
 
   const [allValuations, allProperties, allLeases, allExpenses] = await Promise.all([
-    db.propertyValuations.list(userId),
-    db.properties.list(userId),
-    db.leases.list(userId),
-    db.expenses.list(userId),
+    listPropertyValuations(authCtx),
+    listProperties(authCtx),
+    listLeases(authCtx),
+    listExpenses(authCtx),
   ]);
 
   const valuations = allValuations.filter((v) => v.propertyId === propertyId);

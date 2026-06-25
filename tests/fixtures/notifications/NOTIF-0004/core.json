@@ -1,0 +1,9 @@
+{
+  "id": "NOTIF-0004",
+  "userId": "demo-user",
+  "category": "COMPLIANCE",
+  "title": "Electrical certificate expiring — BKK1 191D",
+  "description": "Electrical compliance certificate expires in 30 days.",
+  "createdAt": 1774774800000,
+  "read": true
+}

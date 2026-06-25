@@ -2,8 +2,8 @@
 
 import type { FormData as WizardForm } from "./_components/types";
 import { fullPropertySchema } from "./_components/schemas";
-import { createProperty } from "@/lib/actions/properties.actions";
-import type { NewProperty } from "@/lib/data/db/properties";
+import { createProperty } from "@/app/actions/properties";
+import type { NewProperty } from "@/lib/data/types/property";
 import type { PropertyTypeChoice } from "@/lib/data/types/property";
 import { logger } from "@/lib/logger";
 

@@ -8,8 +8,8 @@ import {
   updateProperty,
   verifyFinancials,
   getFinancialsWizardInitialAction,
-} from "@/lib/actions/properties.actions";
-import { createPropertyValuation } from "@/lib/actions/property-valuations.actions";
+} from "@/app/actions/properties";
+import { createPropertyValuation } from "@/app/actions/property-valuations";
 
 // ── Schema ────────────────────────────────────────────────────────────────────
 

@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import {
   PhoneSheet,
   PhoneSheetContent,
+  PhoneSheetTitle,
 } from "@/components/ui/phone-sheet";
 
 /**
@@ -59,7 +60,6 @@ export function AdvisorModal({
         // phone the sheet is full-screen and the only rounded corners are
         // the top ones provided by PhoneSheetContent itself.
         className="p-0 bg-white sm:rounded-2xl overflow-hidden"
-        aria-labelledby="advisor-modal-title"
       >
         {/* Top dark brand panel — fills the upper section. On phone this
             sits below the grab handle; on desktop it's the modal's top. */}
@@ -94,14 +94,11 @@ export function AdvisorModal({
           </div>
 
           {/* Headline — fluid: 24px on iPhone 14, scales up to 32px at sm: */}
-          <h2
-            id="advisor-modal-title"
-            className="text-[24px] font-extrabold leading-[1.1] tracking-[-0.03em] text-white sm:text-[32px]"
-          >
+          <PhoneSheetTitle className="text-[24px] font-extrabold leading-[1.1] tracking-[-0.03em] text-white sm:text-[32px]">
             Let an expert guide
             <br />
             your setup.
-          </h2>
+          </PhoneSheetTitle>
         </div>
 
         {/* Body — descriptive copy. flex-1 so on phone the section

@@ -15,3 +15,8 @@ export type Payment = z.infer<typeof PaymentSchema>;
 export type PaymentKind = Payment["kind"];
 export type PaymentStatus = Payment["status"];
 export type PaymentMethod = Payment["method"];
+
+export const NewPaymentSchema = PaymentSchema.omit({ id: true });
+export type NewPayment = z.infer<typeof NewPaymentSchema>;
+export const PaymentPatchSchema = NewPaymentSchema.partial();
+export type PaymentPatch = z.infer<typeof PaymentPatchSchema>;

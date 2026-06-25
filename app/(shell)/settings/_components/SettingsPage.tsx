@@ -6,6 +6,7 @@ import { RequiredMark } from "@/components/ui/required-mark";
 import { AppHeader } from "@/components/layout/AppHeader";
 import type { SettingsPageData, NotifChannels } from "../queries";
 import { saveNotificationPreference, saveUserPreferences } from "../actions";
+import { ManagersSection } from "./ManagersSection";
 
 /* Staggered section entrance — reusable inline style helper */
 function sectionStyle(i: number): React.CSSProperties {
@@ -259,6 +260,11 @@ export function SettingsPage({ data }: { data: SettingsPageData }) {
             </div>
           </div>
         </section>
+
+        {/* Managers Section — owners/admins only */}
+        {data.managersData && (
+          <ManagersSection initialData={data.managersData} />
+        )}
 
         {/* Data & Privacy Section */}
         <section

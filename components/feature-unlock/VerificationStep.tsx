@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { uploadDocument } from "@/lib/actions/documents.actions";
+import { uploadDocument } from "@/app/actions/documents";
 import { X, Upload, CheckCircle2 } from "lucide-react";
 import {
   VerificationOverlay,

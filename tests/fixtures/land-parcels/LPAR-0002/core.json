@@ -1,0 +1,8 @@
+{
+  "id": "LPAR-0002",
+  "propertyId": "PROP-0020",
+  "sizeM2": 1250.75,
+  "slopeAngleDeg": 8,
+  "terrainType": "Rolling",
+  "developmentPotential": ["Residential", "Mixed-use"]
+}

@@ -1,0 +1,11 @@
+{
+  "id": "CERT-0006",
+  "propertyId": "PROP-0012",
+  "name": "Electrical Compliance",
+  "status": "Valid",
+  "issuedAt": 1759881600000,
+  "expiresAt": 1791417600000,
+  "inspectorId": "PROF-0003",
+  "createdAt": 1775001600000,
+  "updatedAt": 1775001600000
+}

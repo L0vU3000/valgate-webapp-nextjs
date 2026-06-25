@@ -2,14 +2,18 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Loader2, Eye, EyeOff } from "lucide-react";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Loader2, Eye, EyeOff, Mail, Check } from "lucide-react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
+import { useSignIn } from "@clerk/nextjs";
+import { clerkErrorMessage } from "../../_lib/clerk-errors";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import {
   Form,
   FormControl,
@@ -51,8 +55,32 @@ function GoogleIcon({ className }: { className?: string }) {
   );
 }
 
+// D3: Google sign-in is styled but not yet configured in Clerk — hidden until wired.
+const SHOW_GOOGLE = false;
+
+async function finalize(signIn: ReturnType<typeof useSignIn>["signIn"], router: ReturnType<typeof useRouter>) {
+  await signIn!.finalize({
+    navigate: ({ decorateUrl }) => {
+      const url = decorateUrl("/");
+      if (url.startsWith("http")) {
+        window.location.href = url;
+      } else {
+        router.push(url);
+      }
+    },
+  });
+}
+
 export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
+  const [step, setStep] = useState<"password" | "verify">("password");
+  const [submittedEmail, setSubmittedEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [verifying, setVerifying] = useState(false);
+  const [resendIn, setResendIn] = useState(0);
+
+  const router = useRouter();
+  const { signIn } = useSignIn();
 
   const form = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
@@ -60,17 +88,201 @@ export function LoginPage() {
     mode: "onBlur",
   });
 
-  async function onSubmit(_values: LoginValues) {
+  // Resend cooldown ticker
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const t = setInterval(() => setResendIn((s) => (s <= 1 ? 0 : s - 1)), 1000);
+    return () => clearInterval(t);
+  }, [resendIn]);
+
+  // Step 1: password auth
+  async function onSubmit(values: LoginValues) {
     try {
-      // TODO(clerk): replace with await signIn.create({ identifier: _values.email, password: _values.password })
-      toast.error("Auth not yet wired up");
-    } catch {
-      toast.error("Something went wrong. Please try again.");
+      const { error } = await signIn!.password({ emailAddress: values.email, password: values.password });
+      if (error) {
+        toast.error(clerkErrorMessage(error, "Invalid email or password."));
+        return;
+      }
+
+      if (signIn!.status === "complete") {
+        await finalize(signIn, router);
+      } else if (signIn!.status === "needs_client_trust") {
+        // Clerk doesn't recognise this device — send a verification code to the email.
+        const { error: sendError } = await signIn!.mfa.sendEmailCode();
+        if (sendError) {
+          toast.error(clerkErrorMessage(sendError, "Could not send the verification code."));
+          return;
+        }
+        setSubmittedEmail(values.email);
+        setStep("verify");
+        setResendIn(45);
+      } else if (signIn!.status === "needs_second_factor") {
+        // The account has an extra authentication factor (e.g. an authenticator
+        // app) explicitly enabled. We do not yet build that second-factor step,
+        // so rather than dead-ending the user on a screen we never render, we
+        // keep them on the password form and tell them clearly what to do next.
+        // (The device-trust email flow above is a separate, supported path —
+        // only an explicitly-enabled MFA factor reaches here.)
+        toast.error(
+          "This account has extra login security enabled, which isn't supported here yet. Reach out to support to sign in.",
+        );
+      } else {
+        toast.error("Sign-in could not be completed. Please try again.");
+      }
+    } catch (err) {
+      toast.error(clerkErrorMessage(err, "Invalid email or password."));
+    }
+  }
+
+  // Step 2: device trust verification via email code
+  async function handleVerify(e: React.FormEvent) {
+    e.preventDefault();
+    if (code.length < 6) return;
+    setVerifying(true);
+    try {
+      const { error } = await signIn!.mfa.verifyEmailCode({ code });
+      if (error) {
+        toast.error(clerkErrorMessage(error, "That code didn't work. Please try again."));
+        return;
+      }
+      if (signIn!.status === "complete") {
+        await finalize(signIn, router);
+      } else {
+        toast.error("Verification could not be completed. Please try again.");
+      }
+    } catch (err) {
+      toast.error(clerkErrorMessage(err, "Verification failed. Please try again."));
+    } finally {
+      setVerifying(false);
+    }
+  }
+
+  async function handleResend() {
+    if (resendIn > 0) return;
+    try {
+      const { error } = await signIn!.mfa.sendEmailCode();
+      if (error) {
+        toast.error(clerkErrorMessage(error, "Could not resend the code."));
+        return;
+      }
+      setResendIn(45);
+      toast.success("We sent a new code.");
+    } catch (err) {
+      toast.error(clerkErrorMessage(err, "Could not resend the code."));
     }
   }
 
   const isSubmitting = form.formState.isSubmitting;
 
+  // ── Step 2: Device verification (needs_client_trust) ──
+  if (step === "verify") {
+    return (
+      <div className="flex flex-col min-h-dvh w-full font-sans bg-[#eef4ff]">
+        <div className="flex flex-1 items-center justify-center px-4 py-6 sm:px-6 sm:py-12 overflow-y-auto">
+          <div className="auth-animate flex flex-col items-center w-full max-w-[480px]">
+
+            <form
+              onSubmit={handleVerify}
+              className="bg-white border border-[#c3c6d7] rounded-xl shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] px-12 py-12 flex flex-col items-center w-full"
+              data-auth-item
+              style={{ "--auth-delay": "0ms" } as React.CSSProperties}
+            >
+              {/* Icon */}
+              <div className="relative size-20 mb-8 shrink-0">
+                <div className="auth-success-icon size-20 rounded-full bg-[#e4efff] flex items-center justify-center">
+                  <Mail className="size-8 text-[--val-primary-dark]" />
+                </div>
+                <div className="auth-success-badge absolute -bottom-1 -right-1 size-8 rounded-full bg-[#10b981] border-4 border-white flex items-center justify-center">
+                  <Check className="size-3 text-white" strokeWidth={3} />
+                </div>
+              </div>
+
+              <h2 className="text-[30px] font-bold text-val-heading font-display leading-[36px] text-center mb-4">
+                Verify your device
+              </h2>
+
+              <div className="text-center text-base leading-[26px] mb-8">
+                <p className="text-[#434655]">Enter the 6-digit code we sent to</p>
+                <p>
+                  <span className="font-semibold text-val-heading">
+                    {submittedEmail}
+                  </span>
+                </p>
+              </div>
+
+              <InputOTP
+                maxLength={6}
+                value={code}
+                onChange={setCode}
+                containerClassName="mb-8"
+                autoFocus
+              >
+                <InputOTPGroup>
+                  <InputOTPSlot index={0} />
+                  <InputOTPSlot index={1} />
+                  <InputOTPSlot index={2} />
+                  <InputOTPSlot index={3} />
+                  <InputOTPSlot index={4} />
+                  <InputOTPSlot index={5} />
+                </InputOTPGroup>
+              </InputOTP>
+
+              <Button
+                type="submit"
+                className="auth-submit-btn w-full h-12 text-base font-semibold rounded-md flex items-center justify-center gap-2 mb-6"
+                disabled={verifying || code.length < 6}
+              >
+                {verifying ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" aria-hidden />
+                    Verifying…
+                  </>
+                ) : (
+                  "Verify & sign in"
+                )}
+              </Button>
+
+              <div className="w-full flex flex-col gap-4">
+                <div className="w-full bg-val-bg-tint rounded-lg px-6 py-4 flex items-center justify-center gap-3">
+                  <span className="text-sm font-medium text-[#434655]">Didn&apos;t receive it?</span>
+                  <button
+                    type="button"
+                    onClick={handleResend}
+                    disabled={resendIn > 0}
+                    className="text-sm font-semibold text-[--val-primary-dark] hover:underline transition-colors duration-150 disabled:text-[#737686] disabled:no-underline disabled:cursor-not-allowed"
+                  >
+                    Resend the email
+                  </button>
+                  {resendIn > 0 && (
+                    <div className="bg-[#d8e3f4] rounded px-2 py-0.5">
+                      <span className="text-xs text-[#737686] font-mono">
+                        0:{String(resendIn).padStart(2, "0")}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="w-full h-px bg-[#c3c6d7]" />
+
+                <div className="flex justify-center">
+                  <button
+                    type="button"
+                    onClick={() => { setStep("password"); setCode(""); }}
+                    className="text-sm font-medium text-[#434655] hover:underline"
+                  >
+                    Back to sign in
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+        <AuthFooter />
+      </div>
+    );
+  }
+
+  // ── Step 1: Password form ──
   return (
     <div className="flex flex-col min-h-dvh w-full font-sans">
 
@@ -107,25 +319,29 @@ export function LoginPage() {
               </p>
             </div>
 
-            <button
-              type="button"
-              data-auth-item
-              style={{ "--auth-delay": "130ms" } as React.CSSProperties}
-              className="auth-google-btn w-full flex items-center justify-center gap-3 h-12 border border-border-default bg-surface-base rounded-xl text-base font-medium text-foreground hover:bg-surface-page"
-            >
-              <GoogleIcon className="size-5 shrink-0" />
-              Continue with Google
-            </button>
+            {SHOW_GOOGLE && (
+              <>
+                <button
+                  type="button"
+                  data-auth-item
+                  style={{ "--auth-delay": "130ms" } as React.CSSProperties}
+                  className="auth-google-btn w-full flex items-center justify-center gap-3 h-12 border border-border-default bg-surface-base rounded-xl text-base font-medium text-foreground hover:bg-surface-page"
+                >
+                  <GoogleIcon className="size-5 shrink-0" />
+                  Continue with Google
+                </button>
 
-            <div
-              className="flex items-center gap-4 my-6"
-              data-auth-item
-              style={{ "--auth-delay": "180ms" } as React.CSSProperties}
-            >
-              <div className="flex-1 h-px bg-border-default" />
-              <span className="text-sm text-muted-foreground">or</span>
-              <div className="flex-1 h-px bg-border-default" />
-            </div>
+                <div
+                  className="flex items-center gap-4 my-6"
+                  data-auth-item
+                  style={{ "--auth-delay": "180ms" } as React.CSSProperties}
+                >
+                  <div className="flex-1 h-px bg-border-default" />
+                  <span className="text-sm text-muted-foreground">or</span>
+                  <div className="flex-1 h-px bg-border-default" />
+                </div>
+              </>
+            )}
 
             <Form {...form}>
               <form

@@ -33,5 +33,5 @@ export default async function Page({
   };
   const progressDetails = computeProgressDetails(property, progressCtx);
 
-  return <PropertyOverviewPage property={property} {...overviewData} userProfile={overviewData.userProfile} progressDetails={progressDetails} />;
+  return <PropertyOverviewPage property={property} {...overviewData} userProfile={overviewData.userProfile} progressDetails={progressDetails} recentActivities={overviewData.recentActivities} />;
 }

@@ -19,3 +19,8 @@ export const CertificationSchema = z.object({
 export type Certification = z.infer<typeof CertificationSchema>;
 export type CertificationName = z.infer<typeof CertificationNameEnum>;
 export type CertificationStatus = z.infer<typeof CertificationStatusEnum>;
+
+export const NewCertificationSchema = CertificationSchema.omit({ id: true, createdAt: true, updatedAt: true });
+export type NewCertification = z.infer<typeof NewCertificationSchema>;
+export const CertificationPatchSchema = NewCertificationSchema.partial();
+export type CertificationPatch = z.infer<typeof CertificationPatchSchema>;

@@ -2,14 +2,17 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Loader2, Mail, ArrowRight, ArrowLeft } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Loader2, Mail, ArrowRight, ArrowLeft, Lock } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
+import { useSignIn } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import {
   Form,
   FormControl,
@@ -18,111 +21,26 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { clerkErrorMessage } from "../../_lib/clerk-errors";
 
 const forgotPasswordSchema = z.object({
   email: z.string().min(1, "Email is required").email("Enter a valid email"),
 });
 type ForgotPasswordValues = z.infer<typeof forgotPasswordSchema>;
 
-function AnimatedCheckmark() {
-  return (
-    <svg
-      width="48"
-      height="48"
-      viewBox="0 0 48 48"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden
-    >
-      <style>{`
-        @keyframes draw-circle {
-          from { stroke-dashoffset: 138; }
-          to { stroke-dashoffset: 0; }
-        }
-        @keyframes draw-check {
-          from { stroke-dashoffset: 30; }
-          to { stroke-dashoffset: 0; }
-        }
-        .circle-path {
-          stroke-dasharray: 138;
-          stroke-dashoffset: 138;
-          animation: draw-circle 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.1s forwards;
-        }
-        .check-path {
-          stroke-dasharray: 30;
-          stroke-dashoffset: 30;
-          animation: draw-check 0.35s cubic-bezier(0.4, 0, 0.2, 1) 0.5s forwards;
-        }
-      `}</style>
-      <circle
-        className="circle-path"
-        cx="24"
-        cy="24"
-        r="22"
-        stroke="#004ac6"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-      <polyline
-        className="check-path"
-        points="14,24 21,31 34,17"
-        stroke="#004ac6"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-interface SuccessCardProps {
-  email: string;
-  onReset: () => void;
-}
-
-function SuccessCard({ email, onReset }: SuccessCardProps) {
-  return (
-    <div
-      key="success"
-      className="w-full bg-white border border-[rgba(195,198,215,0.4)] rounded-lg shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] p-[41px] flex flex-col items-center animate-in fade-in slide-in-from-bottom-2 duration-300 ease-out"
-    >
-      <div className="mb-6">
-        <AnimatedCheckmark />
-      </div>
-
-      <h1 className="text-[30px] font-bold leading-[36px] text-[#121c28] text-center mb-3">
-        Check your inbox
-      </h1>
-
-      <p className="text-base text-[#434655] text-center leading-[26px] max-w-[320px] mb-2">
-        We sent a reset link to <strong className="text-[#121c28]">{email}</strong>. The link expires in 1 hour.
-      </p>
-
-      <button
-        type="button"
-        onClick={onReset}
-        className="group flex items-center gap-1 text-sm text-[#004ac6] hover:text-[#003ba3] transition-colors duration-150 mb-8"
-      >
-        Try a different email
-        <ArrowRight className="size-3 transition-transform duration-200 group-hover:translate-x-0.5" />
-      </button>
-
-      <div className="border-t border-[#d8e3f4] pt-6 w-full flex justify-center">
-        <Link
-          href="/login"
-          className="group flex items-center gap-2 text-sm font-medium text-[#004ac6] hover:text-[#003ba3] transition-colors duration-150"
-        >
-          <ArrowLeft className="size-3 transition-transform duration-200 group-hover:-translate-x-0.5" />
-          Back to login
-        </Link>
-      </div>
-    </div>
-  );
-}
-
 export function ForgotPasswordPage() {
-  const [submitted, setSubmitted] = useState(false);
-  const [submittedEmail, setSubmittedEmail] = useState<string | null>(null);
+  const router = useRouter();
+  const { signIn } = useSignIn();
+
+  const [step, setStep] = useState<"email" | "reset">("email");
+  const [submittedEmail, setSubmittedEmail] = useState("");
+
+  // Reset-step state
+  const [code, setCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [resetting, setResetting] = useState(false);
 
   const form = useForm<ForgotPasswordValues>({
     resolver: zodResolver(forgotPasswordSchema),
@@ -130,21 +48,74 @@ export function ForgotPasswordPage() {
     mode: "onBlur",
   });
 
-  async function onSubmit(_values: ForgotPasswordValues) {
+  // Step 1: identify the user with create(), then sendCode() sends to the identifier on file.
+  // resetPasswordEmailCode.sendCode() takes no params — the identifier comes from create().
+  async function onSubmit(values: ForgotPasswordValues) {
     try {
-      // TODO(clerk): replace with Clerk forgot password API call
-      setSubmittedEmail(_values.email);
-      setSubmitted(true);
-    } catch {
-      toast.error("Something went wrong. Please try again.");
+      const { error: createError } = await signIn.create({ identifier: values.email });
+      if (createError) {
+        toast.error(clerkErrorMessage(createError, "Could not find an account with that email."));
+        return;
+      }
+      const { error } = await signIn.resetPasswordEmailCode.sendCode();
+      if (error) {
+        toast.error(clerkErrorMessage(error, "Could not start the password reset."));
+        return;
+      }
+      setSubmittedEmail(values.email);
+      setStep("reset");
+    } catch (err) {
+      toast.error(clerkErrorMessage(err, "Could not start the password reset."));
     }
   }
 
-  function handleReset() {
-    const email = submittedEmail ?? "";
-    setSubmitted(false);
-    setSubmittedEmail(null);
-    form.reset({ email });
+  // Step 2: verify the code, set a new password, then sign in.
+  async function handleReset(e: React.FormEvent) {
+    e.preventDefault();
+    setResetError(null);
+    if (code.length < 6) {
+      setResetError("Enter the 6-digit code we emailed you.");
+      return;
+    }
+    if (newPassword.length < 8) {
+      setResetError("Password must be at least 8 characters.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setResetError("Passwords don't match.");
+      return;
+    }
+    setResetting(true);
+    try {
+      const { error: codeError } = await signIn.resetPasswordEmailCode.verifyCode({ code });
+      if (codeError) {
+        setResetError(clerkErrorMessage(codeError, "That code didn't work. Please try again."));
+        return;
+      }
+      const { error: pwError } = await signIn.resetPasswordEmailCode.submitPassword({ password: newPassword });
+      if (pwError) {
+        setResetError(clerkErrorMessage(pwError, "Could not set your new password."));
+        return;
+      }
+      if (signIn.status === "complete") {
+        await signIn.finalize({
+          navigate: ({ decorateUrl }) => {
+            const url = decorateUrl("/");
+            if (url.startsWith("http")) {
+              window.location.href = url;
+            } else {
+              router.push(url);
+            }
+          },
+        });
+      } else {
+        setResetError("Could not complete the reset. Please try again.");
+      }
+    } catch (err) {
+      setResetError(clerkErrorMessage(err, "Could not reset your password. Please try again."));
+    } finally {
+      setResetting(false);
+    }
   }
 
   const isSubmitting = form.formState.isSubmitting;
@@ -166,9 +137,111 @@ export function ForgotPasswordPage() {
             </span>
           </div>
 
-          {submitted && submittedEmail ? (
-            <SuccessCard email={submittedEmail} onReset={handleReset} />
+          {step === "reset" ? (
+            /* Step 2 — code + new password */
+            <form
+              onSubmit={handleReset}
+              className="w-full bg-white border border-[#d8e3f4] rounded-lg shadow-[0px_8px_30px_0px_rgba(0,0,0,0.04)] p-[41px] flex flex-col gap-8"
+              data-auth-item
+              style={{ "--auth-delay": "80ms" } as React.CSSProperties}
+            >
+              <div className="flex flex-col items-center gap-1.5">
+                <h1 className="text-2xl font-semibold text-[#121c28] text-center leading-8">
+                  Reset your password
+                </h1>
+                <p className="text-sm text-[#434655] text-center leading-[1.625] max-w-[320px]">
+                  Enter the 6-digit code we sent to{" "}
+                  <strong className="text-[#121c28]">{submittedEmail}</strong> and choose a new password.
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-5">
+                {/* Code */}
+                <div className="flex flex-col items-center gap-2">
+                  <InputOTP maxLength={6} value={code} onChange={setCode} autoFocus>
+                    <InputOTPGroup>
+                      <InputOTPSlot index={0} />
+                      <InputOTPSlot index={1} />
+                      <InputOTPSlot index={2} />
+                      <InputOTPSlot index={3} />
+                      <InputOTPSlot index={4} />
+                      <InputOTPSlot index={5} />
+                    </InputOTPGroup>
+                  </InputOTP>
+                </div>
+
+                {/* New password */}
+                <div className="flex flex-col gap-2">
+                  <label htmlFor="newPassword" className="text-sm font-medium text-[#121c28]">
+                    New password
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-[#737686] pointer-events-none" />
+                    <Input
+                      id="newPassword"
+                      type="password"
+                      placeholder="••••••••"
+                      autoComplete="new-password"
+                      className="pl-10 bg-[#f8f9ff] border-[#c3c6d7]"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {/* Confirm password */}
+                <div className="flex flex-col gap-2">
+                  <label htmlFor="confirmNewPassword" className="text-sm font-medium text-[#121c28]">
+                    Confirm new password
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-[#737686] pointer-events-none" />
+                    <Input
+                      id="confirmNewPassword"
+                      type="password"
+                      placeholder="••••••••"
+                      autoComplete="new-password"
+                      className="pl-10 bg-[#f8f9ff] border-[#c3c6d7]"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {resetError && <p className="text-xs text-red-500">{resetError}</p>}
+              </div>
+
+              <Button
+                type="submit"
+                className="auth-submit-btn group w-full h-11 bg-[#004ac6] hover:bg-[#003ba3] text-white font-medium text-sm rounded gap-2"
+                disabled={resetting}
+              >
+                {resetting ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" aria-hidden />
+                    Resetting…
+                  </>
+                ) : (
+                  <>
+                    Reset password
+                    <ArrowRight className="size-3 transition-transform duration-200 group-hover:translate-x-0.5" />
+                  </>
+                )}
+              </Button>
+
+              <div className="border-t border-[#d8e3f4] pt-6 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => { setStep("email"); setCode(""); setResetError(null); }}
+                  className="group flex items-center gap-2 text-sm font-medium text-[#004ac6] hover:text-[#003ba3] transition-colors duration-150"
+                >
+                  <ArrowLeft className="size-3 transition-transform duration-200 group-hover:-translate-x-0.5" />
+                  Use a different email
+                </button>
+              </div>
+            </form>
           ) : (
+            /* Step 1 — request the code */
             <div
               className="w-full bg-white border border-[#d8e3f4] rounded-lg shadow-[0px_8px_30px_0px_rgba(0,0,0,0.04)] p-[41px] flex flex-col gap-8"
               data-auth-item
@@ -181,7 +254,7 @@ export function ForgotPasswordPage() {
                   Forgot your password?
                 </h1>
                 <p className="text-sm text-[#434655] text-center leading-[1.625] max-w-[320px]">
-                  Enter your email address and we&apos;ll send you a link to reset your password.
+                  Enter your email address and we&apos;ll send you a code to reset your password.
                 </p>
               </div>
 
@@ -227,7 +300,7 @@ export function ForgotPasswordPage() {
                       </>
                     ) : (
                       <>
-                        Send reset link
+                        Send reset code
                         <ArrowRight className="size-3 transition-transform duration-200 group-hover:translate-x-0.5" />
                       </>
                     )}

@@ -14,3 +14,8 @@ export const TenantSchema = z.object({
 
 export type Tenant = z.infer<typeof TenantSchema>;
 export type TenantStatus = Tenant["status"];
+
+export const NewTenantSchema = TenantSchema.omit({ id: true });
+export type NewTenant = z.infer<typeof NewTenantSchema>;
+export const TenantPatchSchema = NewTenantSchema.partial();
+export type TenantPatch = z.infer<typeof TenantPatchSchema>;

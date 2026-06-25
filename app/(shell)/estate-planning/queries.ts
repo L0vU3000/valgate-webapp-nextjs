@@ -1,6 +1,10 @@
 import "server-only";
-import * as db from "@/lib/data/db";
-import { getCurrentUserId } from "@/lib/data/auth-shim";
+import { requireCtx } from "@/lib/auth/ctx";
+import { listProperties } from "@/lib/services/properties";
+import { listSuccessors } from "@/lib/services/successors";
+import { listDocuments } from "@/lib/services/documents";
+import { listEstateAssignments } from "@/lib/services/estate-assignments";
+import { listEstateActivityEvents } from "@/lib/services/estate-activity-events";
 import { formatBytes } from "@/lib/format";
 
 export type PropertyStatus = "complete" | "pending" | "action" | "draft";
@@ -127,14 +131,14 @@ function deriveStatus(completionPct: number): PropertyStatus {
   return "draft";
 }
 
-function buildAddress(property: Awaited<ReturnType<typeof db.properties.list>>[number]): string {
+function buildAddress(property: Awaited<ReturnType<typeof listProperties>>[number]): string {
   const parts = [property.addressLine, property.city, property.province].filter(Boolean);
   if (parts.length > 0) return parts.join(", ");
   return property.province || "Address unavailable";
 }
 
 function estateDocumentMeta(
-  doc: Awaited<ReturnType<typeof db.documents.list>>[number],
+  doc: Awaited<ReturnType<typeof listDocuments>>[number],
 ): string {
   const ext = doc.extension ? doc.extension.toUpperCase() : "FILE";
   const size = typeof doc.sizeBytes === "number" ? formatBytes(doc.sizeBytes) : "Unknown size";
@@ -142,14 +146,14 @@ function estateDocumentMeta(
 }
 
 export async function getEstatePlanningPageData(): Promise<EstatePlanningPageData> {
-  const userId = getCurrentUserId();
+  const authCtx = await requireCtx();
   const [propertiesRaw, successorsRaw, documentsRaw, assignmentsRaw, activityRaw] =
     await Promise.all([
-      db.properties.list(userId),
-      db.successors.list(userId),
-      db.documents.list(userId),
-      db.estateAssignments.list(userId),
-      db.estateActivityEvents.list(userId),
+      listProperties(authCtx),
+      listSuccessors(authCtx),
+      listDocuments(authCtx),
+      listEstateAssignments(authCtx),
+      listEstateActivityEvents(authCtx),
     ]);
 
   const properties = propertiesRaw

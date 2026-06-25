@@ -1,0 +1,10 @@
+{
+  "id": "ESTAT-0002",
+  "userId": "demo-user",
+  "kind": "document.added",
+  "title": "Estate document uploaded",
+  "description": "Updated will attached to the Boeung Trabek portfolio.",
+  "propertyId": "PROP-0001",
+  "createdAt": 1773100800000,
+  "updatedAt": 1773100800000
+}

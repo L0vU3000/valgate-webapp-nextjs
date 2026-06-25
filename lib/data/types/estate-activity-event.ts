@@ -23,3 +23,8 @@ export const EstateActivityEventSchema = z.object({
 });
 
 export type EstateActivityEvent = z.infer<typeof EstateActivityEventSchema>;
+
+export const NewEstateActivityEventSchema = EstateActivityEventSchema.omit({ id: true, userId: true, createdAt: true, updatedAt: true });
+export type NewEstateActivityEvent = z.infer<typeof NewEstateActivityEventSchema>;
+export const EstateActivityEventPatchSchema = NewEstateActivityEventSchema.partial();
+export type EstateActivityEventPatch = z.infer<typeof EstateActivityEventPatchSchema>;

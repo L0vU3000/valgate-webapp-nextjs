@@ -2,14 +2,25 @@
 
 import { z } from "zod";
 import { getCurrentUserId } from "@/lib/data/auth-shim";
-import * as aiSessionsDb from "@/lib/data/db/ai-sessions";
-import * as aiMessagesDb from "@/lib/data/db/ai-messages";
+import { requireCtx } from "@/lib/auth/ctx";
+import {
+  listAiSessions,
+  getAiSession,
+  createAiSession,
+  updateAiSession,
+} from "@/lib/services/ai-sessions";
+import {
+  listAiMessages,
+  getAiMessage,
+  createAiMessage,
+  updateAiMessage,
+} from "@/lib/services/ai-messages";
 import * as agentRunsDb from "@/lib/data/db/agent-runs";
-import * as paymentsDb from "@/lib/data/db/payments";
-import * as leasesDb from "@/lib/data/db/leases";
-import * as maintenanceDb from "@/lib/data/db/maintenance-items";
-import * as safetyRisksDb from "@/lib/data/db/safety-risks";
-import * as propertiesDb from "@/lib/data/db/properties";
+import { updatePayment } from "@/lib/services/payments";
+import { updateLease } from "@/lib/services/leases";
+import { updateMaintenanceItem } from "@/lib/services/maintenance-items";
+import { updateSafetyRisk } from "@/lib/services/safety-risks";
+import { updateProperty } from "@/lib/services/properties";
 import {
   buildAiOverlayContext,
   buildSessionTitle,
@@ -292,10 +303,12 @@ export async function getOverlayBootstrap(
 ): Promise<ActionResult<AiOverlayBootstrap>> {
   try {
     const parsedPath = pathnameSchema.parse(pathname);
-    const userId = getCurrentUserId();
+    const authCtx = await requireCtx();
     const context = await buildAiOverlayContext(parsedPath);
 
-    let sessions = await aiSessionsDb.listActive(userId);
+    let sessions = (await listAiSessions(authCtx)).filter(
+      (s) => s.status === "active",
+    );
     const surface = surfaceKey(parsedPath);
 
     // If an explicit session is provided and valid, honour it.
@@ -318,13 +331,13 @@ export async function getOverlayBootstrap(
         resolvedSessionId = matchingSession.id;
       } else {
         // No session for this surface — create one with a welcome message.
-        const session = await aiSessionsDb.create(userId, {
+        const session = await createAiSession(authCtx, {
           title: buildSessionTitle(context),
           contextRoute: parsedPath,
           contextPropertyId: context.propertyId ?? undefined,
           status: "active",
         });
-        await aiMessagesDb.create(userId, {
+        await createAiMessage(authCtx, {
           sessionId: session.id,
           role: "assistant",
           content: buildWelcomeMessage(context),
@@ -335,7 +348,7 @@ export async function getOverlayBootstrap(
     }
 
     const messages = resolvedSessionId
-      ? await aiMessagesDb.listBySession(userId, resolvedSessionId)
+      ? await listAiMessages(authCtx, resolvedSessionId)
       : [];
 
     const agentMode: AiOverlayAgentMode = process.env.ANTHROPIC_API_KEY
@@ -380,17 +393,17 @@ export async function createSession(
 ): Promise<ActionResult<{ session: AiSession; messages: AiMessage[] }>> {
   try {
     const parsedPath = pathnameSchema.parse(pathname);
-    const userId = getCurrentUserId();
+    const authCtx = await requireCtx();
     const context = await buildAiOverlayContext(parsedPath);
 
-    const session = await aiSessionsDb.create(userId, {
+    const session = await createAiSession(authCtx, {
       title: title?.trim() || buildSessionTitle(context),
       contextRoute: parsedPath,
       contextPropertyId: context.propertyId ?? undefined,
       status: "active",
     });
 
-    const welcome = await aiMessagesDb.create(userId, {
+    const welcome = await createAiMessage(authCtx, {
       sessionId: session.id,
       role: "assistant",
       content: buildWelcomeMessage(context),
@@ -411,8 +424,8 @@ export async function archiveSession(
 ): Promise<ActionResult<void>> {
   try {
     const id = sessionIdSchema.parse(sessionId);
-    const userId = getCurrentUserId();
-    const updated = await aiSessionsDb.update(userId, id, { status: "archived" });
+    const authCtx = await requireCtx();
+    const updated = await updateAiSession(authCtx, id, { status: "archived" });
     if (!updated) return { ok: false, error: "Session not found." };
     return { ok: true, data: undefined };
   } catch (err) {
@@ -426,12 +439,12 @@ export async function loadSessionMessages(
 ): Promise<ActionResult<AiMessage[]>> {
   try {
     const id = sessionIdSchema.parse(sessionId);
-    const userId = getCurrentUserId();
-    const session = await aiSessionsDb.get(userId, id);
+    const authCtx = await requireCtx();
+    const session = await getAiSession(authCtx, id);
     if (!session || session.status !== "active") {
       return { ok: false, error: "Session not found." };
     }
-    const messages = await aiMessagesDb.listBySession(userId, id);
+    const messages = await listAiMessages(authCtx, id);
     return stripUndefined({ ok: true as const, data: messages });
   } catch (err) {
     console.error("[ai-overlay] loadSessionMessages error:", err);
@@ -448,28 +461,28 @@ export async function sendMessage(input: {
     const sessionId = sessionIdSchema.parse(input.sessionId);
     const content = contentSchema.parse(input.content.trim());
     const pathname = pathnameSchema.parse(input.pathname);
+    const authCtx = await requireCtx();
     const userId = getCurrentUserId();
 
-    const session = await aiSessionsDb.get(userId, sessionId);
+    const session = await getAiSession(authCtx, sessionId);
     if (!session || session.status !== "active") {
       return { ok: false, error: "Session not found." };
     }
 
     const context = await buildAiOverlayContext(pathname);
-    const history = await aiMessagesDb.listBySession(userId, sessionId);
+    const history = await listAiMessages(authCtx, sessionId);
 
     // If this is the first user message, set the session title from the message content.
     const isFirstUserMessage = !history.some((m) => m.role === "user");
     let updatedSessionTitle: string | undefined;
     if (isFirstUserMessage) {
       updatedSessionTitle = await generateSessionTitle(content);
-      await aiSessionsDb.update(userId, sessionId, {
+      await updateAiSession(authCtx, sessionId, {
         title: updatedSessionTitle,
-        updatedAt: Date.now(),
       });
     }
 
-    await aiMessagesDb.create(userId, {
+    await createAiMessage(authCtx, {
       sessionId,
       role: "user",
       content,
@@ -477,7 +490,7 @@ export async function sendMessage(input: {
 
     const reply = await generateAssistantReply(content, context, history);
 
-    const assistantMessage = await aiMessagesDb.create(userId, {
+    const assistantMessage = await createAiMessage(authCtx, {
       sessionId,
       role: "assistant",
       content: reply.content,
@@ -506,10 +519,11 @@ export async function sendMessage(input: {
     }
 
     if (!updatedSessionTitle) {
-      await aiSessionsDb.update(userId, sessionId, { updatedAt: Date.now() });
+      // updateAiSession always bumps updatedAt server-side; empty patch = touch.
+      await updateAiSession(authCtx, sessionId, {});
     }
 
-    const messages = await aiMessagesDb.listBySession(userId, sessionId);
+    const messages = await listAiMessages(authCtx, sessionId);
     return stripUndefined({ ok: true as const, data: { messages, updatedSessionTitle } });
   } catch (err) {
     console.error("[ai-overlay] sendMessage error:", err);
@@ -530,9 +544,9 @@ export async function approveProposedAction(
 ): Promise<ActionResult<{ messages: AiMessage[] }>> {
   try {
     const id = messageIdSchema.parse(messageId);
-    const userId = getCurrentUserId();
+    const authCtx = await requireCtx();
 
-    const message = await aiMessagesDb.get(userId, id);
+    const message = await getAiMessage(authCtx, id);
     if (!message || !message.proposedAction) {
       return { ok: false, error: "Message or proposed action not found." };
     }
@@ -568,15 +582,15 @@ export async function approveProposedAction(
         return { ok: false, error: `Unknown action: ${action}` };
     }
 
-    await aiMessagesDb.update(userId, id, {
+    await updateAiMessage(authCtx, id, {
       actionResult: actionResult.ok
         ? { ok: true }
         : { ok: false, error: actionResult.error },
     });
 
-    const session = await aiSessionsDb.get(userId, message.sessionId);
+    const session = await getAiSession(authCtx, message.sessionId);
     if (!session) return { ok: false, error: "Session not found." };
-    const messages = await aiMessagesDb.listBySession(userId, message.sessionId);
+    const messages = await listAiMessages(authCtx, message.sessionId);
     return stripUndefined({ ok: true as const, data: { messages } });
   } catch (err) {
     console.error("[ai-overlay] approveProposedAction error:", err);
@@ -589,18 +603,18 @@ export async function rejectProposedAction(
 ): Promise<ActionResult<{ messages: AiMessage[] }>> {
   try {
     const id = messageIdSchema.parse(messageId);
-    const userId = getCurrentUserId();
+    const authCtx = await requireCtx();
 
-    const message = await aiMessagesDb.get(userId, id);
+    const message = await getAiMessage(authCtx, id);
     if (!message || !message.proposedAction) {
       return { ok: false, error: "Message or proposed action not found." };
     }
 
-    await aiMessagesDb.update(userId, id, {
+    await updateAiMessage(authCtx, id, {
       actionResult: { ok: false, error: "Rejected" },
     });
 
-    const messages = await aiMessagesDb.listBySession(userId, message.sessionId);
+    const messages = await listAiMessages(authCtx, message.sessionId);
     return stripUndefined({ ok: true as const, data: { messages } });
   } catch (err) {
     console.error("[ai-overlay] rejectProposedAction error:", err);
@@ -617,9 +631,9 @@ export async function undoApprovedAction(
 ): Promise<ActionResult<{ messages: AiMessage[] }>> {
   try {
     const id = messageIdSchema.parse(messageId);
-    const userId = getCurrentUserId();
+    const authCtx = await requireCtx();
 
-    const message = await aiMessagesDb.get(userId, id);
+    const message = await getAiMessage(authCtx, id);
     if (!message || !message.proposedAction || !message.actionResult?.ok) {
       return { ok: false, error: "No successful action to undo." };
     }
@@ -632,7 +646,7 @@ export async function undoApprovedAction(
         // Restore the prior payment status.
         const pi = preImage as { status: string } | null;
         const paymentId = (payload as { paymentId: string }).paymentId;
-        await paymentsDb.update(userId, paymentId, {
+        await updatePayment(authCtx, paymentId, {
           status: (pi?.status ?? "Pending") as "Paid" | "Pending" | "Overdue",
         });
         break;
@@ -645,7 +659,7 @@ export async function undoApprovedAction(
       case "renewLease": {
         const pi = preImage as { endDate: number; renewalStatus?: string } | null;
         const leaseId = (payload as { leaseId: string }).leaseId;
-        await leasesDb.update(userId, leaseId, {
+        await updateLease(authCtx, leaseId, {
           endDate: pi?.endDate ?? 0,
           renewalStatus: pi?.renewalStatus as "Renewed" | "NotRenewed" | undefined,
         });
@@ -659,7 +673,7 @@ export async function undoApprovedAction(
       case "updateWorkOrder": {
         const pi = preImage as { status?: string; vendorId?: string; cost?: number } | null;
         const woId = (payload as { id: string }).id;
-        await maintenanceDb.update(userId, woId, {
+        await updateMaintenanceItem(authCtx, woId, {
           status: (pi?.status ?? "Open") as "Open" | "InProgress" | "Resolved",
           vendorId: pi?.vendorId,
           cost: pi?.cost,
@@ -669,10 +683,9 @@ export async function undoApprovedAction(
       case "resolveSafetyRisk": {
         const pi = preImage as { status: string; resolvedAt?: number } | null;
         const riskId = (payload as { riskId: string }).riskId;
-        await safetyRisksDb.update(userId, riskId, {
+        await updateSafetyRisk(authCtx, riskId, {
           status: (pi?.status ?? "Open") as "Open" | "Resolved",
           resolvedAt: undefined,
-          updatedAt: Date.now(),
         });
         break;
       }
@@ -680,7 +693,7 @@ export async function undoApprovedAction(
         const pi = preImage as Record<string, { clientId?: string }> | null;
         if (pi) {
           for (const [propertyId, state] of Object.entries(pi)) {
-            await propertiesDb.update(userId, propertyId, {
+            await updateProperty(authCtx, propertyId, {
               clientId: state.clientId,
             });
           }
@@ -691,11 +704,11 @@ export async function undoApprovedAction(
         return { ok: false, error: `Undo not supported for action: ${action}` };
     }
 
-    await aiMessagesDb.update(userId, id, {
+    await updateAiMessage(authCtx, id, {
       actionResult: { ok: true, undone: true },
     });
 
-    const messages = await aiMessagesDb.listBySession(userId, message.sessionId);
+    const messages = await listAiMessages(authCtx, message.sessionId);
     return stripUndefined({ ok: true as const, data: { messages } });
   } catch (err) {
     console.error("[ai-overlay] undoApprovedAction error:", err);

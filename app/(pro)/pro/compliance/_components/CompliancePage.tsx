@@ -28,6 +28,9 @@ export function CompliancePage({ data }: { data: CompliancePageData }) {
   const prefersReducedMotion = useReducedMotion();
 
   const [activeClientId, setActiveClientId] = useState<string>(ALL_CLIENTS);
+  // Task 7 — when off (default) only open risks show; when on, resolved risks
+  // are also shown (read-only) so they stay reviewable.
+  const [showResolved, setShowResolved] = useState(false);
 
   const visibleCertifications = useMemo(() => {
     if (activeClientId === ALL_CLIENTS) return certifications;
@@ -35,9 +38,14 @@ export function CompliancePage({ data }: { data: CompliancePageData }) {
   }, [certifications, activeClientId]);
 
   const visibleRisks = useMemo(() => {
-    if (activeClientId === ALL_CLIENTS) return safetyRisks;
-    return safetyRisks.filter((risk) => risk.clientId === activeClientId);
-  }, [safetyRisks, activeClientId]);
+    return safetyRisks.filter((risk) => {
+      const clientMatches =
+        activeClientId === ALL_CLIENTS || risk.clientId === activeClientId;
+      // Hide resolved risks unless the toggle is on.
+      const statusMatches = showResolved || risk.status === "Open";
+      return clientMatches && statusMatches;
+    });
+  }, [safetyRisks, activeClientId, showResolved]);
 
   const visibleInspections = useMemo(() => {
     if (activeClientId === ALL_CLIENTS) return inspections;
@@ -150,7 +158,37 @@ export function CompliancePage({ data }: { data: CompliancePageData }) {
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.85fr_1fr]">
             <CertTimeline certifications={visibleCertifications} />
             <div className="flex flex-col gap-6">
-              <SafetyRisksCard risks={visibleRisks} />
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-end">
+                  {/* "Show resolved" toggle. Disabled when there are no
+                      resolved risks at all, so it never offers an empty view. */}
+                  <label
+                    className={cn(
+                      "inline-flex items-center gap-2 text-[12px] font-medium text-slate-600 dark:text-slate-300",
+                      summary.resolvedRiskCount === 0 &&
+                        "cursor-not-allowed opacity-50",
+                    )}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={showResolved}
+                      disabled={summary.resolvedRiskCount === 0}
+                      onChange={(e) => setShowResolved(e.target.checked)}
+                      className="h-3.5 w-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 dark:border-slate-600"
+                    />
+                    Show resolved ({summary.resolvedRiskCount})
+                  </label>
+                </div>
+                <SafetyRisksCard
+                  risks={visibleRisks}
+                  title={showResolved ? "Safety Risks" : "Open Safety Risks"}
+                  emptyMessage={
+                    showResolved
+                      ? "No safety risks on record."
+                      : "No open safety risks."
+                  }
+                />
+              </div>
               <InspectionsCard inspections={visibleInspections} />
             </div>
           </div>

@@ -1,17 +1,18 @@
 import "server-only";
-import * as documentsDb from "@/lib/data/db/documents";
-import * as userProfilesDb from "@/lib/data/db/user-profiles";
-import * as leasesDb from "@/lib/data/db/leases";
-import * as tenantsDb from "@/lib/data/db/tenants";
-import * as paymentsDb from "@/lib/data/db/payments";
-import * as propertyValuationsDb from "@/lib/data/db/property-valuations";
-import * as ownershipRecordsDb from "@/lib/data/db/ownership-records";
-import * as maintenanceItemsDb from "@/lib/data/db/maintenance-items";
-import * as propertiesDb from "@/lib/data/db/properties";
+import { listDocuments } from "@/lib/services/documents";
+import { getUserProfile } from "@/lib/services/user-profiles";
+import { listLeases } from "@/lib/services/leases";
+import { listTenants } from "@/lib/services/tenants";
+import { listPayments } from "@/lib/services/payments";
+import { listPropertyValuations } from "@/lib/services/property-valuations";
+import { listOwnershipRecords } from "@/lib/services/ownership-records";
+import { listMaintenanceItems } from "@/lib/services/maintenance-items";
+import { listProperties } from "@/lib/services/properties";
 import * as clientsDb from "@/lib/data/db/clients";
 import { getPortfolioSnapshot } from "@/lib/data/derivations/portfolio-snapshot";
 import { getPropertyByIdParam } from "@/lib/data/properties";
 import { getCurrentUserId } from "@/lib/data/auth-shim";
+import { requireCtx } from "@/lib/auth/ctx";
 import { formatCurrency } from "@/lib/format";
 import type { Document, DocumentCategory } from "@/lib/data/types/document";
 import type { PortfolioStats, PortfolioKpis } from "@/lib/data/derivations/portfolio";
@@ -204,6 +205,7 @@ export function buildWelcomeMessage(context: AiOverlayContext): string {
 export async function buildAiOverlayContext(
   pathname: string,
 ): Promise<AiOverlayContext> {
+  const authCtx = await requireCtx();
   const userId = getCurrentUserId();
   const propertyId = parsePropertyIdFromPath(pathname);
   const clientId = parseClientIdFromPath(pathname);
@@ -223,15 +225,15 @@ export async function buildAiOverlayContext(
     allClients,
     pageData,
   ] = await Promise.all([
-    userProfilesDb.get(userId, userId),
-    propertiesDb.list(userId),
-    documentsDb.list(userId),
-    leasesDb.list(userId),
-    tenantsDb.list(userId),
-    paymentsDb.list(userId),
-    propertyValuationsDb.list(userId),
-    ownershipRecordsDb.list(userId),
-    maintenanceItemsDb.list(userId),
+    getUserProfile(authCtx, authCtx.userId),
+    listProperties(authCtx),
+    listDocuments(authCtx),
+    listLeases(authCtx),
+    listTenants(authCtx),
+    listPayments(authCtx),
+    listPropertyValuations(authCtx),
+    listOwnershipRecords(authCtx),
+    listMaintenanceItems(authCtx),
     clientsDb.list(userId),
     getPortfolioSnapshot(),
   ]);

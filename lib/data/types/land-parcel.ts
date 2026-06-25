@@ -19,3 +19,8 @@ export const LandParcelSchema = z.object({
 });
 
 export type LandParcel = z.infer<typeof LandParcelSchema>;
+
+export const NewLandParcelSchema = LandParcelSchema.omit({ id: true });
+export type NewLandParcel = z.infer<typeof NewLandParcelSchema>;
+export const LandParcelPatchSchema = NewLandParcelSchema.partial();
+export type LandParcelPatch = z.infer<typeof LandParcelPatchSchema>;

@@ -10,3 +10,8 @@ export const FolderSchema = z.object({
 });
 
 export type Folder = z.infer<typeof FolderSchema>;
+
+export const NewFolderSchema = FolderSchema.omit({ id: true, createdAt: true });
+export type NewFolder = z.infer<typeof NewFolderSchema>;
+export const FolderPatchSchema = NewFolderSchema.partial();
+export type FolderPatch = z.infer<typeof FolderPatchSchema>;

@@ -10,3 +10,8 @@ export const EstateAssignmentSchema = z.object({
 });
 
 export type EstateAssignment = z.infer<typeof EstateAssignmentSchema>;
+
+export const NewEstateAssignmentSchema = EstateAssignmentSchema.omit({ id: true, createdAt: true, updatedAt: true });
+export type NewEstateAssignment = z.infer<typeof NewEstateAssignmentSchema>;
+export const EstateAssignmentPatchSchema = NewEstateAssignmentSchema.partial();
+export type EstateAssignmentPatch = z.infer<typeof EstateAssignmentPatchSchema>;

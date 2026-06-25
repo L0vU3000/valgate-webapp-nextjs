@@ -23,3 +23,8 @@ export const UserProfileSchema = z.object({
 });
 
 export type UserProfile = z.infer<typeof UserProfileSchema>;
+
+export const NewUserProfileSchema = UserProfileSchema.omit({ id: true, userId: true, createdAt: true, updatedAt: true });
+export type NewUserProfile = z.infer<typeof NewUserProfileSchema>;
+export const UserProfilePatchSchema = NewUserProfileSchema.partial();
+export type UserProfilePatch = z.infer<typeof UserProfilePatchSchema>;

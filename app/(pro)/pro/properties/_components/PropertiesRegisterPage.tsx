@@ -213,7 +213,14 @@ export function PropertiesRegisterPage({
                       colSpan={COLUMNS.length}
                       className="py-8 text-center text-[13px] text-slate-500 dark:text-slate-400"
                     >
-                      No properties match these filters.
+                      {/*
+                        Distinguish "your book is empty" from "your filters
+                        excluded everything", so an empty result never reads as
+                        a bug when the cause is just an active filter.
+                      */}
+                      {properties.length === 0
+                        ? "No properties under management yet."
+                        : "No properties match these filters."}
                     </td>
                   </tr>
                 )}
@@ -287,6 +294,21 @@ export function PropertiesRegisterPage({
               </tbody>
             </table>
           </div>
+
+          {/*
+            Result count. The register loads and renders EVERY property the
+            manager owns — there is no row cap and nothing is silently
+            truncated. This line always states the exact count so the user can
+            trust the list is complete, and it reads "X of Y" whenever a filter
+            is narrowing the full set.
+          */}
+          {properties.length > 0 && (
+            <div className="mt-3 border-t border-slate-100 pt-3 text-[12px] text-slate-500 dark:border-slate-800 dark:text-slate-400">
+              {visible.length === properties.length
+                ? `Showing all ${properties.length} ${properties.length === 1 ? "property" : "properties"}`
+                : `Showing ${visible.length} of ${properties.length} properties`}
+            </div>
+          )}
         </WidgetCard>
       </div>
     </main>

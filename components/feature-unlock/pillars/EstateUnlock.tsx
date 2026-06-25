@@ -10,13 +10,13 @@ import type { UseFormReturn } from "react-hook-form";
 import {
   verifyEstate,
   getEstateWizardInitialAction,
-} from "@/lib/actions/properties.actions";
+} from "@/app/actions/properties";
 import {
   assignSuccessorToProperty,
   removeAssignment,
   listAssignmentsForPropertyAction,
-} from "@/lib/actions/estate-assignments.actions";
-import { createSuccessor, updateSuccessor } from "@/lib/actions/successors.actions";
+} from "@/app/actions/estate-assignments";
+import { createSuccessor, updateSuccessor } from "@/app/actions/successors";
 import type { SuccessorRelation } from "@/lib/data/types/successor";
 
 const beneficiaryRowSchema = z.object({

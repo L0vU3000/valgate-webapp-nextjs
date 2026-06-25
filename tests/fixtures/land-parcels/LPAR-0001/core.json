@@ -1,0 +1,10 @@
+{
+  "id": "LPAR-0001",
+  "propertyId": "PROP-0001",
+  "sizeM2": 450,
+  "widthM": 15,
+  "lengthM": 30,
+  "zoningCode": "C-2",
+  "terrainType": "Flat",
+  "elevationM": 12.5
+}

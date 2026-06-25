@@ -1,31 +1,8 @@
 import "server-only";
-export * as properties from "./properties";
+
+// M3 (backend migration): the simulated data layer was deleted for the ~28 backend-covered
+// domains. Only the three deferred gap-domains stay simulated (no backend until B11) and keep
+// their barrel exports. See docs/migration/00-PLAN.md.
 export * as clients from "./clients";
-export * as documents from "./documents";
-export * as folders from "./folders";
-export * as tenants from "./tenants";
-export * as leases from "./leases";
-export * as payments from "./payments";
-export * as expenses from "./expenses";
-export * as maintenanceItems from "./maintenance-items";
-export * as notifications from "./notifications";
-export * as propertyValuations from "./property-valuations";
-export * as userProfiles from "./user-profiles";
-export * as inspections from "./inspections";
-export * as certifications from "./certifications";
-export * as emergencyContacts from "./emergency-contacts";
-export * as safetyRisks from "./safety-risks";
-export * as ownershipDocuments from "./ownership-documents";
-export * as ownershipRecords from "./ownership-records";
-export * as ownershipHistory from "./ownership-history";
-export * as successors from "./successors";
-export * as estateAssignments from "./successor-property-assignments";
-export * as estateActivityEvents from "./estate-activity-events";
-export * as professionals from "./professionals";
-export * as notificationPreferences from "./notification-preferences";
-export * as landParcels from "./land-parcels";
-export * as coOwners from "./co-owners";
-export * as dbdiagramState from "./dbdiagram-state";
-export * as aiSessions from "./ai-sessions";
-export * as aiMessages from "./ai-messages";
 export * as agentRuns from "./agent-runs";
+export * as dbdiagramState from "./dbdiagram-state";

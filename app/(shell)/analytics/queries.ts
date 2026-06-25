@@ -1,11 +1,11 @@
 import "server-only";
 import { getProperties } from "@/lib/data/properties";
-import * as paymentsDb from "@/lib/data/db/payments";
-import * as leasesDb from "@/lib/data/db/leases";
-import * as maintenanceDb from "@/lib/data/db/maintenance-items";
-import * as valuationsDb from "@/lib/data/db/property-valuations";
-import * as expensesDb from "@/lib/data/db/expenses";
-import { getCurrentUserId } from "@/lib/data/auth-shim";
+import { requireCtx } from "@/lib/auth/ctx";
+import { listPayments } from "@/lib/services/payments";
+import { listLeases } from "@/lib/services/leases";
+import { listMaintenanceItems } from "@/lib/services/maintenance-items";
+import { listPropertyValuations } from "@/lib/services/property-valuations";
+import { listExpenses } from "@/lib/services/expenses";
 import {
   computeRevenueSeries,
   computeKpiCards,
@@ -46,16 +46,16 @@ export type AnalyticsPageData = {
 };
 
 export async function getAnalyticsPageData(period = "12M"): Promise<AnalyticsPageData> {
-  const userId = getCurrentUserId();
+  const authCtx = await requireCtx();
   const window = periodToWindow(period);
   const [properties, payments, leases, maintenance, valuations, expenses] =
     await Promise.all([
       getProperties(),
-      paymentsDb.list(userId),
-      leasesDb.list(userId),
-      maintenanceDb.list(userId),
-      valuationsDb.list(userId),
-      expensesDb.list(userId),
+      listPayments(authCtx),
+      listLeases(authCtx),
+      listMaintenanceItems(authCtx),
+      listPropertyValuations(authCtx),
+      listExpenses(authCtx),
     ]);
 
   const { items: expenseBreakdown, total: expenseBreakdownTotal } =

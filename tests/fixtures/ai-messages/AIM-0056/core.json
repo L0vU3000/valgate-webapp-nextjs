@@ -1,0 +1,7 @@
+{
+  "id": "AIM-0056",
+  "sessionId": "AI-0010",
+  "role": "assistant",
+  "content": "Good question — here are the top results based on the data in your portfolio:\n\n- **Most expensive by latest market valuation:**  \n  **PROP-0001 — Land near river** (123 Riverside Road, Phnom Penh) — **$1.45M** (valuation: May 2026)  \n  [View Property](/property/PROP-0001)\n\n- **Most expensive by purchase price (full portfolio):**  \n  **PROP-0011 — BKK1 Prime Land** (Phnom Penh) — **$1.45M** (purchase price)  \n  [View Property](/property/PROP-0011)\n\nNote: many properties do not have current market valuations in the system. Would you like me to:\n- rank all properties by value using purchase price where market value is missing, or\n- estimate current values for unvalued properties?",
+  "createdAt": 1779349341772
+}

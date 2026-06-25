@@ -9,7 +9,7 @@ import {
   updateProperty,
   verifyLocation,
   getLocationWizardInitialAction,
-} from "@/lib/actions/properties.actions";
+} from "@/app/actions/properties";
 import {
   propertyTypeChoiceSchema,
   propertyTitleSchema,

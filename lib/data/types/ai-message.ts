@@ -34,6 +34,7 @@ export const AiMessageSchema = z.object({
   role: AiMessageRoleSchema,
   content: z.string(),
   artifactDocIds: z.array(z.string()).optional(),
+  // Pro agent overlay (persistence deferred to B11).
   steps: z.array(AiMessageStepSchema).optional(),
   proposedAction: AiProposedActionSchema.optional(),
   actionResult: AiActionResultSchema.optional(),
@@ -45,3 +46,8 @@ export type AiMessageRole = z.infer<typeof AiMessageRoleSchema>;
 export type AiMessageStep = z.infer<typeof AiMessageStepSchema>;
 export type AiProposedAction = z.infer<typeof AiProposedActionSchema>;
 export type AiActionResult = z.infer<typeof AiActionResultSchema>;
+
+export const NewAiMessageSchema = AiMessageSchema.omit({ id: true, createdAt: true });
+export type NewAiMessage = z.infer<typeof NewAiMessageSchema>;
+export const AiMessagePatchSchema = NewAiMessageSchema.partial();
+export type AiMessagePatch = z.infer<typeof AiMessagePatchSchema>;

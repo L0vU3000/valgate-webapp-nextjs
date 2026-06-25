@@ -1,0 +1,18 @@
+{
+  "id": "PROF-0005",
+  "userId": "demo-user",
+  "name": "Noun Sreymom",
+  "company": "Cambodia Property Inspections",
+  "category": "Inspector",
+  "rating": 5,
+  "reviewCount": 39,
+  "linkedProperties": 31,
+  "available": true,
+  "initials": "NS",
+  "avatarBg": "bg-rose-400",
+  "email": "sreymom@cpinspections.kh",
+  "phone": "+855 11 987 654",
+  "verified": true,
+  "createdAt": 1775001600000,
+  "updatedAt": 1775001600000
+}

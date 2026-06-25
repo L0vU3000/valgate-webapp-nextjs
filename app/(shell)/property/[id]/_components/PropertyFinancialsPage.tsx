@@ -17,7 +17,7 @@ import { MobileCardTable } from "@/components/property/MobileCardTable";
 import { UnlockButton } from "@/components/feature-unlock/UnlockButton";
 import { FinancialsUnlockMount } from "@/components/feature-unlock/pillars/FinancialsUnlock";
 import type { UnlockState } from "@/components/feature-unlock/types";
-import { revokeFinancialsVerification } from "@/lib/actions/properties.actions";
+import { revokeFinancialsVerification } from "@/app/actions/properties";
 import { buildPropertyFinancials } from "@/lib/data/derivations/property-financials";
 import {
   DropdownMenu,
@@ -34,6 +34,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { Input } from "@/components/ui/input";
 
 const comparables = [
   { address: "1847 Oak Street", dist: "0.3 mi", sold: "Feb 2026", type: "House", builtYear: "'18", beds: "3", baths: "2", sqft: "1,850", price: "$492,000", psqft: "$266" },
@@ -142,6 +143,8 @@ export function PropertyFinancialsPage({ property, valuations = [] }: Props) {
   const [wizardStartAt, setWizardStartAt] = useState<"data" | "verification">("data");
   const [revokeOpen, setRevokeOpen] = useState(false);
   const [revoking, setRevoking] = useState(false);
+  // Tier-3 (typed) gate: the user must type REVOKE before the button enables.
+  const [revokeTyped, setRevokeTyped] = useState("");
 
   const sorted = [...valuations].sort((a, b) => a.recordedAt - b.recordedAt);
   const latest = sorted.at(-1) ?? null;
@@ -219,10 +222,13 @@ export function PropertyFinancialsPage({ property, valuations = [] }: Props) {
   const active = mounted && !reducedMotion;
 
   async function handleRevoke() {
+    // Defence in depth: don't proceed unless the typed gate is satisfied.
+    if (revokeTyped !== "REVOKE") return;
     setRevoking(true);
     const result = await revokeFinancialsVerification(property.id);
     setRevoking(false);
     setRevokeOpen(false);
+    setRevokeTyped("");
     if (result.ok) {
       toast.success("Verification revoked. Financial data is preserved.");
     } else {
@@ -862,8 +868,16 @@ export function PropertyFinancialsPage({ property, valuations = [] }: Props) {
         startAt={wizardStartAt}
       />
 
-      {/* Revoke confirmation dialog */}
-      <Dialog open={revokeOpen} onOpenChange={setRevokeOpen}>
+      {/* Revoke confirmation dialog — Tier 3 (typed). Lists what the verification covers
+          and requires typing REVOKE before the destructive button enables. */}
+      <Dialog
+        open={revokeOpen}
+        onOpenChange={(next) => {
+          if (revoking) return; // don't let the user close mid-action
+          setRevokeOpen(next);
+          if (!next) setRevokeTyped(""); // reset the typed gate on close
+        }}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center mb-1">
@@ -871,19 +885,41 @@ export function PropertyFinancialsPage({ property, valuations = [] }: Props) {
             </div>
             <DialogTitle>Revoke financials verification?</DialogTitle>
             <DialogDescription>
-              The verified status will be cleared and linked documents will be unlinked. Your financial data is preserved and can be re-verified at any time.
+              Revoking will clear the verified status and unlink its supporting documents.
+              Your financial data is preserved and can be re-verified at any time.
             </DialogDescription>
           </DialogHeader>
+
+          {/* Scope: what this verification covers / what revoking touches. */}
+          <ul className="text-[13px] text-slate-600 list-disc pl-5 space-y-1">
+            <li>The Valgate Verified badge on this property&apos;s financials</li>
+            <li>The link between the financials pillar and its evidence documents</li>
+          </ul>
+
+          <div className="flex flex-col gap-2 mt-1">
+            <label htmlFor="revoke-financials-typed" className="text-[13px] text-slate-600">
+              Type <span className="font-semibold">REVOKE</span> to confirm
+            </label>
+            <Input
+              id="revoke-financials-typed"
+              value={revokeTyped}
+              onChange={(e) => setRevokeTyped(e.target.value)}
+              autoComplete="off"
+              disabled={revoking}
+            />
+          </div>
+
           <DialogFooter>
             <button
-              onClick={() => setRevokeOpen(false)}
-              className="px-4 py-2 text-sm font-semibold text-val-heading border border-slate-200 rounded hover:bg-slate-50 transition-colors duration-150"
+              onClick={() => { setRevokeOpen(false); setRevokeTyped(""); }}
+              disabled={revoking}
+              className="px-4 py-2 text-sm font-semibold text-val-heading border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-50 transition-colors duration-150"
             >
               Cancel
             </button>
             <button
               onClick={handleRevoke}
-              disabled={revoking}
+              disabled={revoking || revokeTyped !== "REVOKE"}
               className="px-4 py-2 text-sm font-semibold text-white rounded bg-red-500 hover:bg-red-600 disabled:opacity-50 transition-colors duration-150"
             >
               {revoking ? "Revoking…" : "Revoke verification"}

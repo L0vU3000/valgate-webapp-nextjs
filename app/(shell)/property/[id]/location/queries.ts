@@ -1,6 +1,7 @@
 import "server-only";
-import { getCurrentUserId } from "@/lib/data/auth-shim";
-import * as db from "@/lib/data/db";
+import { requireCtx } from "@/lib/auth/ctx";
+import { listLandParcels } from "@/lib/services/land-parcels";
+import { listProperties } from "@/lib/services/properties";
 import type { LandParcel } from "@/lib/data/types/land-parcel";
 import type { PropertyComparable } from "@/lib/data/types/property-comparable";
 import type { MarketSnapshot } from "@/lib/data/types/market-snapshot";
@@ -16,11 +17,11 @@ export type LocationPageData = {
 };
 
 export async function getLocationPageData(propertyId: string): Promise<LocationPageData> {
-  const userId = getCurrentUserId();
+  const authCtx = await requireCtx();
 
   const [allLandParcels, allProperties] = await Promise.all([
-    db.landParcels.list(userId),
-    db.properties.list(userId),
+    listLandParcels(authCtx),
+    listProperties(authCtx),
   ]);
 
   const landParcels = allLandParcels.filter((x) => x.propertyId === propertyId);

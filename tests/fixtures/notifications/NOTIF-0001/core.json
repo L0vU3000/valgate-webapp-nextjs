@@ -1,0 +1,10 @@
+{
+  "id": "NOTIF-0001",
+  "userId": "demo-user",
+  "category": "MAINTENANCE",
+  "title": "Burst pipe at Boeung Trabek Building",
+  "description": "Emergency plumber dispatched. Ground floor water mains shut off.",
+  "createdAt": 1775032200000,
+  "read": false,
+  "linkTo": "/property/PROP-0001/safety"
+}

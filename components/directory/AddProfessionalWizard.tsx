@@ -24,7 +24,7 @@ import {
 import { WizardProgress } from "@/components/feature-unlock/WizardProgress";
 import type { WizardProgressStep } from "@/components/feature-unlock/WizardProgress";
 import { useAppHeaderProperties } from "@/components/layout/AppHeaderPropertiesContext";
-import { createProfessional } from "@/lib/actions/professionals.actions";
+import { createProfessional, updateProfessional } from "@/app/actions/professionals";
 import {
   ADD_PROFESSIONAL_DEFAULTS,
   ADD_PROFESSIONAL_STEPS,
@@ -56,9 +56,27 @@ const GRADIENT_STYLE = {
   boxShadow: "0 4px 6px -1px rgba(0,74,198,0.20)",
 };
 
+// The subset of a directory professional this wizard can edit. When provided,
+// the wizard runs in "edit" mode: it pre-fills the form, updates instead of
+// creating, and shows edit-oriented labels. `linkedProperties` is only a count
+// in the directory data (not a list of ids), so the property-linking step
+// starts empty in edit mode — the user re-picks links if they want to change
+// them, and the saved count reflects whatever is selected on save.
+export interface EditableProfessional {
+  id: string;
+  name: string;
+  company: string;
+  category: ProfessionalCategory;
+  email?: string;
+  phone?: string;
+  available: boolean;
+}
+
 interface AddProfessionalWizardProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  // When set, the wizard edits this professional instead of creating a new one.
+  professional?: EditableProfessional | null;
 }
 
 function ProfessionalPreviewCard({
@@ -649,8 +667,10 @@ function ReviewStep({
 export function AddProfessionalWizard({
   open,
   onOpenChange,
+  professional = null,
 }: AddProfessionalWizardProps) {
   const router = useRouter();
+  const isEditing = professional != null;
   const [stepIndex, setStepIndex] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -662,11 +682,26 @@ export function AddProfessionalWizard({
 
   useEffect(() => {
     if (!open) return;
-    form.reset(ADD_PROFESSIONAL_DEFAULTS);
+    // In edit mode pre-fill the form from the existing professional; otherwise
+    // start blank. Property links can't be pre-filled (we only know the count),
+    // so they always start empty.
+    form.reset(
+      professional
+        ? {
+            name: professional.name,
+            company: professional.company,
+            category: professional.category,
+            email: professional.email ?? "",
+            phone: professional.phone ?? "",
+            available: professional.available,
+            propertyIds: [],
+          }
+        : ADD_PROFESSIONAL_DEFAULTS,
+    );
     setStepIndex(0);
     setError(null);
     setSubmitting(false);
-  }, [open, form]);
+  }, [open, form, professional]);
 
   const currentStep = ADD_PROFESSIONAL_STEPS[stepIndex];
   const isFirstStep = stepIndex === 0;
@@ -721,11 +756,19 @@ export function AddProfessionalWizard({
     }
 
     const payload = formDataToNewProfessional(form.getValues());
-    const result = await createProfessional(payload);
+    // Edit mode patches the existing record; create mode inserts a new one.
+    // Both go through the org-scoped, Zod-validated server actions.
+    const result = isEditing
+      ? await updateProfessional(professional.id, payload)
+      : await createProfessional(payload);
     setSubmitting(false);
 
     if (result.ok) {
-      toast.success(`${payload.name} added to your directory`);
+      toast.success(
+        isEditing
+          ? `${payload.name} updated`
+          : `${payload.name} added to your directory`,
+      );
       onOpenChange(false);
       router.refresh();
       return;
@@ -777,10 +820,12 @@ export function AddProfessionalWizard({
                 </p>
               </div>
               <h2 className="text-[17px] font-bold text-val-heading leading-snug tracking-tight">
-                Add professional
+                {isEditing ? "Edit professional" : "Add professional"}
               </h2>
               <p className="text-[12px] text-slate-500 mt-2 leading-relaxed">
-                Build your trusted network of property service providers.
+                {isEditing
+                  ? "Update this contact's details in your directory."
+                  : "Build your trusted network of property service providers."}
               </p>
             </div>
 
@@ -880,7 +925,7 @@ export function AddProfessionalWizard({
                     Saving…
                   </>
                 ) : isLastStep ? (
-                  "Add to directory"
+                  isEditing ? "Save changes" : "Add to directory"
                 ) : (
                   "Continue"
                 )}

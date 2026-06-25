@@ -2,39 +2,52 @@
 
 ## Overview
 
-The current implementation uses `lib/mock-data.ts` as the data source. This guide documents how to swap in real Convex-backed data and add server-side geocoding.
+The current implementation uses `lib/mock-data.ts` as the data source. This guide documents how to swap in real backed data (Neon serverless Postgres + Drizzle ORM) and add server-side geocoding.
 
 ---
 
-## Swapping mock data for Convex
+## Swapping mock data for the real backend (Neon + Drizzle)
 
-The data layer is abstracted through `lib/data/properties.ts` (re-exports the `Property` type and the query abstraction). The swap happens in one place:
+The data layer is abstracted through `lib/data/properties.ts` (re-exports the `Property` type and the query abstraction). The swap happens in one place — point it at the property service (`lib/services/properties.ts`, which runs Drizzle queries on Neon):
 
 ```ts
 // lib/data/properties.ts — current (mock)
 export { properties, type Property } from "@/lib/mock-data";
 
-// lib/data/properties.ts — future (Convex)
-import { fetchQuery } from "convex/nextjs";
-import { api } from "@/convex/_generated/api";
+// lib/data/properties.ts — future (Neon + Drizzle via the service layer)
+import { listProperties } from "@/lib/services/properties";
+import type { Property } from "@/lib/db/schema/properties";
 
-export type { Property } from "@/convex/_generated/dataModel";
+export type { Property };
 
 export async function getProperties() {
-  return fetchQuery(api.properties.list);
+  return listProperties();
 }
 ```
 
-The `Property` interface in `lib/mock-data.ts` uses `lat`/`lng` fields. Your Convex schema should match:
+```ts
+// lib/services/properties.ts — data access for the property entity
+import { db } from "@/lib/db/client";
+import { properties } from "@/lib/db/schema/properties";
+
+export async function listProperties() {
+  return db.select().from(properties);
+}
+```
+
+The `Property` interface in `lib/mock-data.ts` uses `lat`/`lng` fields. Your Drizzle schema should match:
 
 ```ts
-// convex/schema.ts
-properties: defineTable({
-  name: v.string(),
-  lat: v.number(),
-  lng: v.number(),
+// lib/db/schema/properties.ts
+import { pgTable, text, doublePrecision } from "drizzle-orm/pg-core";
+
+export const properties = pgTable("properties", {
+  id:   text("id").primaryKey(),
+  name: text("name").notNull(),
+  lat:  doublePrecision("lat").notNull(),
+  lng:  doublePrecision("lng").notNull(),
   // ...other fields
-})
+});
 ```
 
 ---
@@ -83,7 +96,7 @@ export async function geocodeAddress(input: unknown) {
 
 ## How queries.ts abstracts the data source
 
-`app/(shell)/queries.ts` is the only file that imports from `lib/data/properties.ts`. When you switch to Convex, only `queries.ts` and `lib/data/properties.ts` need to change — `MapView`, `HomePage`, and all UI components remain untouched.
+`app/(shell)/queries.ts` is the only file that imports from `lib/data/properties.ts`. When you switch to the real backend (Neon + Drizzle), only `lib/data/properties.ts` (and the new `lib/services/properties.ts` it calls) need to change — `queries.ts`, `MapView`, `HomePage`, and all UI components remain untouched.
 
 ```
 lib/mock-data.ts          ← swap out

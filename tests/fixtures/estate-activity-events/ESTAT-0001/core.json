@@ -1,0 +1,10 @@
+{
+  "id": "ESTAT-0001",
+  "userId": "demo-user",
+  "kind": "successor.created",
+  "title": "Successor added",
+  "description": "Jennifer Lee registered as primary successor.",
+  "propertyId": "PROP-0001",
+  "createdAt": 1743465600000,
+  "updatedAt": 1743465600000
+}

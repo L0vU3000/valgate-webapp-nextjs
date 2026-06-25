@@ -15,3 +15,8 @@ export const AiSessionSchema = z.object({
 
 export type AiSession = z.infer<typeof AiSessionSchema>;
 export type AiSessionStatus = z.infer<typeof AiSessionStatusSchema>;
+
+export const NewAiSessionSchema = AiSessionSchema.omit({ id: true, createdAt: true, updatedAt: true });
+export type NewAiSession = z.infer<typeof NewAiSessionSchema>;
+export const AiSessionPatchSchema = NewAiSessionSchema.partial();
+export type AiSessionPatch = z.infer<typeof AiSessionPatchSchema>;

@@ -1,6 +1,6 @@
 import "server-only";
-import * as propertiesDb from "@/lib/data/db/properties";
-import { getCurrentUserId } from "@/lib/data/auth-shim";
+import { requireCtx } from "@/lib/auth/ctx";
+import { listProperties, getProperty } from "@/lib/services/properties";
 
 export type {
   Property,
@@ -10,11 +10,13 @@ export type {
 import type { Property } from "@/lib/data/types/property";
 
 export async function getProperties(): Promise<Property[]> {
-  return propertiesDb.list(getCurrentUserId());
+  const ctx = await requireCtx();
+  return listProperties(ctx);
 }
 
 export async function getPropertyByIdParam(
   id: string,
 ): Promise<Property | null> {
-  return propertiesDb.get(getCurrentUserId(), id);
+  const ctx = await requireCtx();
+  return getProperty(ctx, id);
 }

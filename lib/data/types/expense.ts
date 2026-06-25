@@ -12,3 +12,8 @@ export const ExpenseSchema = z.object({
 
 export type Expense = z.infer<typeof ExpenseSchema>;
 export type ExpenseCategory = Expense["category"];
+
+export const NewExpenseSchema = ExpenseSchema.omit({ id: true });
+export type NewExpense = z.infer<typeof NewExpenseSchema>;
+export const ExpensePatchSchema = NewExpenseSchema.partial();
+export type ExpensePatch = z.infer<typeof ExpensePatchSchema>;

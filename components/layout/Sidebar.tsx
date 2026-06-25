@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { useUser, useOrganization, useClerk } from "@clerk/nextjs";
 import {
   ChevronLeft,
   ChevronRight,
@@ -15,8 +16,16 @@ import {
   Key,
   Sparkles,
   BookUser,
+  LogOut,
 } from "lucide-react";
 import { cn } from "../ui/utils";
+
+// Maps a Clerk org role ("org:admin") to a friendly label ("Admin").
+function roleLabel(role: string | null | undefined): string {
+  if (!role) return "";
+  const bare = role.replace(/^org:/, "");
+  return bare.charAt(0).toUpperCase() + bare.slice(1);
+}
 
 const sidebarNavItems = [
   { label: "Home", path: "/", icon: Home },
@@ -54,6 +63,15 @@ export function Sidebar({
   const [expanded, setExpanded] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
+  const { user } = useUser();
+  const { membership } = useOrganization();
+  const { signOut } = useClerk();
+
+  const displayName = user?.fullName || user?.primaryEmailAddress?.emailAddress || "Account";
+  const initials =
+    ((user?.firstName?.[0] ?? "") + (user?.lastName?.[0] ?? "")).toUpperCase() ||
+    displayName.charAt(0).toUpperCase();
+  const roleText = roleLabel(membership?.role);
 
   const isDrawer = variant === "drawer";
   // Drawer is always fully expanded; rail keeps the collapse toggle.
@@ -222,19 +240,30 @@ export function Sidebar({
             !isExpanded && "justify-center px-0",
             pathname === "/profile" && "bg-surface-tint",
           )}
-          title={!isExpanded ? "Profile" : undefined}
+          title={!isExpanded ? displayName : undefined}
         >
           <div className="w-8 h-8 rounded-full bg-interactive-primary flex items-center justify-center shrink-0">
-            <span className="text-xs font-medium text-white">JD</span>
+            <span className="text-xs font-medium text-white">{initials}</span>
           </div>
           {isExpanded && (
             <div className="min-w-0 text-left">
               <p className="text-sm font-medium text-foreground truncate">
-                John Doe
+                {displayName}
               </p>
-              <p className="text-xs text-secondary truncate">Owner</p>
+              {roleText && <p className="text-xs text-secondary truncate">{roleText}</p>}
             </div>
           )}
+        </button>
+        <button
+          onClick={() => signOut({ redirectUrl: "/login" })}
+          className={cn(
+            "flex h-11 items-center gap-3 rounded-xl px-3 text-sm text-secondary hover:bg-surface-tint hover:text-foreground transition-colors",
+            !isExpanded && "justify-center px-0",
+          )}
+          title={!isExpanded ? "Sign out" : undefined}
+        >
+          <LogOut className="size-5 shrink-0" />
+          {isExpanded && <span>Sign out</span>}
         </button>
       </div>
     </div>

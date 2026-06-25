@@ -1,0 +1,9 @@
+{
+  "id": "ESTAT-0003",
+  "userId": "demo-user",
+  "kind": "estate.reviewed",
+  "title": "Annual estate review completed",
+  "description": "All successor assignments verified for 2026.",
+  "createdAt": 1775001600000,
+  "updatedAt": 1775001600000
+}

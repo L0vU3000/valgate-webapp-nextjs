@@ -1,0 +1,1 @@
+ALTER TABLE "ownership_documents" DROP CONSTRAINT "ownership_documents_ownership_record_id_ownership_records_id_fk";

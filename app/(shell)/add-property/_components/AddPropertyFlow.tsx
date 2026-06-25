@@ -9,6 +9,7 @@ import type { FormData } from "./types";
 import type { PropertyDraftSummary } from "@/lib/data/add-property-page";
 import { useDrafts } from "../_lib/use-drafts";
 import { submitPropertyAction } from "../actions";
+import { uploadMultipleDocuments } from "@/app/(shell)/property/[id]/documents/actions";
 import { Step0NewOrDraft } from "./Step0NewOrDraft";
 import { Step1PropertyType } from "./Step1PropertyType";
 import { Step2BasicInfo } from "./Step2BasicInfo";
@@ -42,6 +43,9 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
   const [form, setForm] = useState<FormData>(defaultForm);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // Non-fatal notice shown on the success screen when some staged files didn't make it to storage
+  // (e.g. S3 not configured). The property itself was still created.
+  const [uploadNotice, setUploadNotice] = useState<string | null>(null);
   const [stepErrors, setStepErrors] = useState<Record<string, string> | null>(null);
   const latestFormRef = useRef<FormData>(defaultForm);
   const successScrollRef = useRef<HTMLDivElement>(null);
@@ -233,22 +237,54 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
   async function handleSubmit() {
     setSubmitting(true);
     setSubmitError(null);
+    setUploadNotice(null);
     try {
-      const result = await submitPropertyAction(form);
-      if (result.ok) {
-        if (result.propertyCode) {
-          setForm((f) => ({ ...f, confirmedCode: result.propertyCode! }));
-        }
-        clearActive();
-        setStep(6);
-      } else {
+      // Create the property first. Don't ship the staged blobs to this action — they're
+      // uploaded separately below, once we have the new property's id. (zod strips them anyway.)
+      const result = await submitPropertyAction({
+        ...form,
+        photoFiles: undefined,
+        documentFiles: undefined,
+      });
+      if (!result.ok) {
         setSubmitError(result.error ?? "Something went wrong. Please try again.");
+        return;
       }
+
+      // Property exists now → push the photos/documents staged in Step 4 up to S3.
+      if (result.propertyId) {
+        const notice = await uploadStagedFiles(result.propertyId, form);
+        if (notice) setUploadNotice(notice);
+      }
+
+      if (result.propertyCode) {
+        setForm((f) => ({ ...f, confirmedCode: result.propertyCode! }));
+      }
+      clearActive();
+      setStep(6);
     } catch {
       setSubmitError("Something went wrong. Please try again.");
     } finally {
       setSubmitting(false);
     }
+  }
+
+  // Uploads the staged Step-4 files to object storage and returns a human notice if any failed,
+  // or null when everything (or nothing) uploaded cleanly. Failures are non-fatal: the property
+  // was already created, so we just tell the user which files didn't attach.
+  async function uploadStagedFiles(propertyId: string, f: FormData): Promise<string | null> {
+    const files = [...(f.photoFiles ?? []), ...(f.documentFiles ?? [])];
+    if (files.length === 0) return null;
+
+    const fd = new globalThis.FormData();
+    for (const file of files) {
+      fd.append("files", file);
+    }
+
+    const results = await uploadMultipleDocuments(propertyId, fd);
+    const failed = results.filter((r) => !r.result.ok).map((r) => r.name);
+    if (failed.length === 0) return null;
+    return `Property saved, but ${failed.length} file${failed.length === 1 ? "" : "s"} couldn't be uploaded: ${failed.join(", ")}.`;
   }
 
   const progressPercent = step === 0 ? 0 : (step / 6) * 100;
@@ -311,6 +347,13 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
         {/* Content */}
         {step === 6 ? (
           <div ref={successScrollRef} className="flex-1 overflow-auto">
+            {uploadNotice && (
+              <div className="max-w-[1160px] mx-auto px-4 sm:px-8 pt-4">
+                <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  {uploadNotice}
+                </div>
+              </div>
+            )}
             <Step6Success form={form} />
           </div>
         ) : (

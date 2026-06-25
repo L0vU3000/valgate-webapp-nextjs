@@ -15,13 +15,14 @@ import { MobileCardTable } from "@/components/property/MobileCardTable";
 import { UnlockButton } from "@/components/feature-unlock/UnlockButton";
 import { RentalUnlockMount } from "@/components/feature-unlock/pillars/RentalUnlock";
 import type { UnlockState } from "@/components/feature-unlock/types";
-import { updateProperty, revokeRentalVerification } from "@/lib/actions/properties.actions";
+import { updateProperty, revokeRentalVerification } from "@/app/actions/properties";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -88,6 +89,8 @@ export function PropertyRentalPage({
   const [wizardStartAt, setWizardStartAt] = useState<"data" | "verification">("data");
   const [revokeOpen, setRevokeOpen] = useState(false);
   const [revoking, setRevoking] = useState(false);
+  // Tier-3 (typed) gate: the user must type REVOKE before the button enables.
+  const [revokeTyped, setRevokeTyped] = useState("");
   const [markingInvestment, setMarkingInvestment] = useState(false);
   const [investmentConfirmOpen, setInvestmentConfirmOpen] = useState(false);
 
@@ -980,8 +983,16 @@ export function PropertyRentalPage({
       onSuccess={() => router.refresh()}
     />
 
-    {/* Revoke verification dialog */}
-    <Dialog open={revokeOpen} onOpenChange={setRevokeOpen}>
+    {/* Revoke verification dialog — Tier 3 (typed). Lists what the verification covers
+        and requires typing REVOKE before the button enables. */}
+    <Dialog
+      open={revokeOpen}
+      onOpenChange={(next) => {
+        if (revoking) return; // don't let the user close mid-action
+        setRevokeOpen(next);
+        if (!next) setRevokeTyped(""); // reset the typed gate on close
+      }}
+    >
       <DialogContent className="max-w-md">
         <DialogHeader>
           <div className="w-10 h-10 rounded-full bg-rose-50 flex items-center justify-center mb-1">
@@ -989,23 +1000,46 @@ export function PropertyRentalPage({
           </div>
           <DialogTitle>Revoke rental verification?</DialogTitle>
           <DialogDescription>
-            This will remove the Valgate Verified badge from this property&apos;s rental data. The linked document will remain in your files but will no longer count as rental evidence.
+            Revoking removes the Valgate Verified badge from this property&apos;s rental data. The linked document remains in your files but will no longer count as rental evidence.
           </DialogDescription>
         </DialogHeader>
+
+        {/* Scope: what this verification covers / what revoking touches. */}
+        <ul className="text-[13px] text-slate-600 list-disc pl-5 space-y-1">
+          <li>The Valgate Verified badge on this property&apos;s rental data</li>
+          <li>The link between the rental pillar and its evidence document</li>
+        </ul>
+
+        <div className="flex flex-col gap-2 mt-1">
+          <label htmlFor="revoke-rental-typed" className="text-[13px] text-slate-600">
+            Type <span className="font-semibold">REVOKE</span> to confirm
+          </label>
+          <Input
+            id="revoke-rental-typed"
+            value={revokeTyped}
+            onChange={(e) => setRevokeTyped(e.target.value)}
+            autoComplete="off"
+            disabled={revoking}
+          />
+        </div>
+
         <DialogFooter>
           <button
-            onClick={() => setRevokeOpen(false)}
-            className="px-4 py-2 text-sm font-semibold text-val-heading border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors duration-150"
+            onClick={() => { setRevokeOpen(false); setRevokeTyped(""); }}
+            disabled={revoking}
+            className="px-4 py-2 text-sm font-semibold text-val-heading border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 transition-colors duration-150"
           >
             Cancel
           </button>
           <button
-            disabled={revoking}
+            disabled={revoking || revokeTyped !== "REVOKE"}
             onClick={async () => {
+              if (revokeTyped !== "REVOKE") return;
               setRevoking(true);
               const result = await revokeRentalVerification(property.id);
               setRevoking(false);
               setRevokeOpen(false);
+              setRevokeTyped("");
               if (result.ok) {
                 toast.success("Rental verification revoked");
                 router.refresh();

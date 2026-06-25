@@ -1,7 +1,7 @@
 "use server";
 
-import { uploadDocument } from "@/lib/actions/documents.actions";
-import type { ActionResult } from "@/lib/actions/properties.actions";
+import { uploadDocument } from "@/app/actions/documents";
+import type { ActionResult } from "@/app/actions/_result";
 import type { Document } from "@/lib/data/types/document";
 
 export type UploadResult = { name: string; result: ActionResult<Document> };

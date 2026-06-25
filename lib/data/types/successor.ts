@@ -18,3 +18,8 @@ export const SuccessorSchema = z.object({
 
 export type Successor = z.infer<typeof SuccessorSchema>;
 export type SuccessorRelation = Successor["relation"];
+
+export const NewSuccessorSchema = SuccessorSchema.omit({ id: true, userId: true, createdAt: true, updatedAt: true });
+export type NewSuccessor = z.infer<typeof NewSuccessorSchema>;
+export const SuccessorPatchSchema = NewSuccessorSchema.partial();
+export type SuccessorPatch = z.infer<typeof SuccessorPatchSchema>;
