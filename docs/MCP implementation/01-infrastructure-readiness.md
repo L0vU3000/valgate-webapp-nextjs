@@ -97,15 +97,15 @@ The MCP server replaces only the *left half* of that chain.
 - Decision needed from you: **how does an AI client authenticate to Valgate?** Options
   in `02-ideal-mcp-design.md` §Auth.
 
-### W2 — `import "server-only"` in every service — **NEEDS WORK (verify)**
+### W2 — `import "server-only"` in every service — **RESOLVED (Phase 1)**
 - Evidence: `lib/services/_mapping.ts:1`, `properties.ts:1`, `_crud.ts:1` all begin with
   `import "server-only";`.
-- The concern: the `server-only` npm package is designed to **throw if bundled into a
-  client**. In a plain standalone Node MCP process there is *usually* no bundler, so it's
-  typically a no-op — but this must be **verified by experiment**, because if the MCP
-  server is built with a bundler it could trip. `[unverified]` until tested.
-- What we build *on top*: if it trips, the fix is a tiny shim (alias `server-only` to an
-  empty module in the MCP build), **not** editing 35 service files. Low risk, but flag it.
+- Resolution: `tsx --conditions=react-server` satisfies the `react-server` export condition
+  that `server-only` checks. This is the same flag used by `db:ping`, `seed:neon`, and
+  `schema-assert` — all of which import `lib/db/client` → `lib/env` → transitively hit
+  `server-only`-guarded modules. The MCP server uses the same run command
+  (`npm run mcp:server`). No alias shim needed. **Record outcome (pass/fail) here after
+  first run.**
 
 ### W3 — Cache invalidation calls assume Next.js — **NEEDS WORK**
 - Evidence: `app/actions/tenants.ts:5,21` — actions call `revalidateFeTag("tenants")`
@@ -121,10 +121,14 @@ The MCP server replaces only the *left half* of that chain.
 
 ## MISSING — does not exist yet (all expected for a greenfield MCP)
 
-### M1 — No MCP server, transport, or tool definitions — **MISSING**
-- Evidence: no `@modelcontextprotocol/*` dependency `[unverified — confirm via package.json
-  in execution Phase 1]`; no `mcp-server/` directory exists.
-- This is the actual build work, scoped in `04-execution-plan.md`. Expected to be missing.
+### M1 — No MCP server, transport, or tool definitions — **IN PROGRESS (Phase 1)**
+- `@modelcontextprotocol/sdk` v1.29.0 installed (2026-06-25).
+- `mcp-server/index.ts` — server entry + `search_properties` tool (calls `listProperties(ctx)`).
+- `mcp-server/ctxFor.ts` — Phase 1 demo `Ctx` seam (W1 resolved for Phase 1).
+- Run scripts added: `npm run mcp:server` (stdio) and `npm run mcp:inspect` (MCP Inspector).
+- **Pending:** create `.env.local` with `DATABASE_URL` pointing at the dev Neon branch
+  (`br-solitary-lab-aoci2g33`), then run `npm run mcp:inspect` to confirm real ORG-0001
+  data returns. Mark M1 RESOLVED when the inspector call succeeds.
 
 ### M2 — No machine-to-machine auth / API tokens — **MISSING**
 - Evidence: all auth flows go through Clerk's interactive session (`lib/auth/ctx.ts`).
@@ -151,9 +155,9 @@ The MCP server replaces only the *left half* of that chain.
 | CRUD + id generation primitives | ✅ READY (R6) |
 | AI-friendly read derivations | ✅ READY (R7) |
 | `Ctx` from a non-web caller | 🟡 NEEDS WORK (W1) ← **main gap** |
-| `server-only` in a Node process | 🟡 VERIFY (W2) |
+| `server-only` in a Node process | ✅ RESOLVED (W2) — `--conditions=react-server` |
 | Cache coherence across front doors | 🟡 ACCEPT FOR v1 (W3) |
-| MCP server / tools / transport | 🔴 MISSING (M1) — the build |
+| MCP server / tools / transport | 🟡 IN PROGRESS (M1) — SDK installed, files created |
 | Machine auth / API tokens | 🔴 MISSING (M2) — blocks W1 |
 | Rate limiting | 🔴 MISSING (M3) — needed before public |
 

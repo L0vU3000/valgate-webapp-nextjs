@@ -26,7 +26,9 @@
     "db:check": "drizzle-kit check",
     "db:ping": "tsx --conditions=react-server --env-file=.env.local scripts/db-ping.ts",
     "db:assert": "tsx --conditions=react-server --env-file=.env.local scripts/schema-assert.ts",
-    "seed:neon": "tsx --conditions=react-server --env-file=.env.local scripts/seed-neon.ts"
+    "seed:neon": "tsx --conditions=react-server --env-file=.env.local scripts/seed-neon.ts",
+    "mcp:server": "tsx --conditions=react-server --env-file=.env.local mcp-server/index.ts",
+    "mcp:inspect": "npx @modelcontextprotocol/inspector tsx --conditions=react-server --env-file=.env.local mcp-server/index.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.78",
@@ -41,6 +43,7 @@
     "@emotion/react": "11.14.0",
     "@emotion/styled": "11.14.1",
     "@hookform/resolvers": "^5.2.2",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@mui/icons-material": "7.3.5",
     "@mui/material": "7.3.5",
     "@neondatabase/serverless": "^1.1.0",
