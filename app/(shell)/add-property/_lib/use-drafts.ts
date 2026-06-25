@@ -26,7 +26,18 @@ function stripFileBlobs(form: FormData): FormData {
   void _uf;
   void _pfs;
   void _dfs;
-  return rest as FormData;
+  // The actual files only live in memory and are never persisted (records are
+  // created on submit, not on add). So we must NOT persist the display names
+  // either — otherwise a refresh restores orphaned name-only entries that show
+  // as grey, un-previewable ghost tiles. Clearing them means uploads reset on
+  // refresh, which is the intended behaviour.
+  return {
+    ...rest,
+    photos: [],
+    documents: [],
+    photoFileName: "",
+    uploadFileName: "",
+  } as FormData;
 }
 
 function serializeDraft(r: DraftRecord): DraftRecord {

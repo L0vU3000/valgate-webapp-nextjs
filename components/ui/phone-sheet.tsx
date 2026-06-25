@@ -60,7 +60,7 @@ function PhoneSheetOverlay({
     <DialogPrimitive.Overlay
       data-slot="phone-sheet-overlay"
       className={cn(
-        "fixed inset-0 z-50 bg-black/40 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+        "fixed inset-0 z-50 bg-black/40 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-300 ease-out",
         className,
       )}
       {...props}
@@ -103,12 +103,13 @@ function PhoneSheetContent({
           // Base (phone): bottom sheet, full screen, slide up
           "fixed z-50 flex flex-col bg-surface-base shadow-xl outline-none",
           "inset-x-0 bottom-0 h-dvh w-full rounded-t-3xl border-t border-border-subtle",
-          "data-[state=open]:animate-in data-[state=closed]:animate-out duration-300",
+          "data-[state=open]:animate-in data-[state=closed]:animate-out duration-300 ease-out",
           "data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom",
           // sm+ (desktop): centered dialog, zoom + fade in
           "sm:inset-auto sm:top-1/2 sm:left-1/2 sm:h-auto sm:max-h-[85vh] sm:w-[calc(100%-2rem)] sm:-translate-x-1/2 sm:-translate-y-1/2",
           "sm:rounded-xl sm:border",
           "sm:data-[state=open]:slide-in-from-bottom-0 sm:data-[state=closed]:slide-out-to-bottom-0",
+          "sm:data-[state=open]:fade-in-0 sm:data-[state=closed]:fade-out-0",
           "sm:data-[state=open]:zoom-in-95 sm:data-[state=closed]:zoom-out-95",
           desktopMaxWidth,
           className,

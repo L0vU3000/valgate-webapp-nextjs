@@ -44,7 +44,7 @@ export function StepIntro({ onStart }: { onStart: () => void }) {
       </button>
 
       {/* Left / hero — white panel on desktop, full-width on phone */}
-      <div className="flex flex-1 flex-col overflow-hidden bg-white lg:items-end lg:justify-end">
+      <div className="flex flex-1 flex-col overflow-hidden bg-white lg:items-center lg:justify-center">
         <div className="flex w-full max-w-[600px] shrink-0 flex-1 flex-col overflow-y-auto px-4 pt-safe sm:px-8 lg:flex-none lg:overflow-visible lg:px-12 lg:py-10">
           {/* Eyebrow / breadcrumb */}
           <div className="mt-4 mb-4 flex items-center gap-2 lg:mt-0">
