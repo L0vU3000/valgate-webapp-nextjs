@@ -269,12 +269,13 @@ function FeaturePill({
 
 // ─── Property card image ──────────────────────────────────────────────────────
 
-function PropertyCardImage({ propertyType, photos }: { propertyType: string; photos: string[] }) {
-  if (photos && photos.length > 0) {
+// coverUrl is a short-lived signed S3 URL resolved before submission (passed in as a prop).
+function PropertyCardImage({ propertyType, coverUrl }: { propertyType: string; coverUrl?: string }) {
+  if (coverUrl) {
     return (
       <>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={photos[0]} alt="" className="absolute inset-0 w-full h-full object-cover" />
+        <img src={coverUrl} alt="" className="w-full h-auto block" />
         <CardShimmer />
       </>
     );
@@ -382,7 +383,9 @@ const PROPERTY_TYPE_LABELS: Record<string, string> = {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-export function Step6Success({ form }: { form: FormData }) {
+// coverUrl is resolved by AddPropertyFlow before submit (while the draft file row still exists).
+// It is passed in so Step 6 never has to fetch it — the row is deleted during submission.
+export function Step6Success({ form, coverUrl }: { form: FormData; coverUrl?: string }) {
   const router = useRouter();
   const reduced = useReducedMotion();
   const [mapLoaded, setMapLoaded] = useState(false);
@@ -546,8 +549,8 @@ export function Step6Success({ form }: { form: FormData }) {
           >
             <div className="bg-white rounded-[20px] overflow-hidden shadow-[0px_0px_0px_1px_rgba(0,0,0,0.02),0px_2px_6px_0px_rgba(0,0,0,0.04),0px_4px_8px_0px_rgba(0,0,0,0.1)] pb-7">
               {/* Image */}
-              <div className="relative h-48 overflow-hidden">
-                <PropertyCardImage propertyType={form.propertyType} photos={form.photos} />
+              <div className={`relative h-48 overflow-hidden${coverUrl ? " flex items-center" : ""}`}>
+                <PropertyCardImage propertyType={form.propertyType} coverUrl={coverUrl} />
                 <div className="absolute top-4 left-4 flex gap-2 z-20">
                   <div className="backdrop-blur-[2px] bg-[rgba(255,255,255,0.9)] flex items-center gap-1.5 px-3 py-[5.5px] rounded-[14px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)]">
                     <div className="size-2 rounded-full shrink-0" style={{ backgroundColor: ownership.color }} />
