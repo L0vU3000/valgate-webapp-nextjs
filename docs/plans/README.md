@@ -29,12 +29,11 @@ chat** — especially for visual plans. Standard flow:
 |---|---|---|---|---|
 | `plan-67c3cb0d0a124317` | Documents — Sort & Filter the files list | review (approved, ready) | [documents-sort-filter.md](./documents-sort-filter.md) | [open](https://plan.agent-native.com/plans/plan-67c3cb0d0a124317) |
 | `plan-49495c6076174abb` | Folder Rename & Delete — wire the missing CRUD | complete (shipped) | [folder-rename-delete.md](./folder-rename-delete.md) | [open](https://plan.agent-native.com/plans/plan-49495c6076174abb) |
-| `plan-e843871968a64a74` | Revamp the Document detail view | review | _hosted only — not yet mirrored_ | [open](https://plan.agent-native.com/plans/plan-e843871968a64a74) |
+| `plan-e843871968a64a74` | Revamp the Document detail view (Phase 1) | in_progress (Phase 1 shipped) | [document-detail-revamp.md](./document-detail-revamp.md) | [open](https://plan.agent-native.com/plans/plan-e843871968a64a74) |
+| `plan-17ebdccb34444429` | Phase 2 — Real AI document summaries | approved (locked, ready) | [ai-document-summaries.md](./ai-document-summaries.md) | [open](https://plan.agent-native.com/plans/plan-17ebdccb34444429) |
 
 > The Plan MCP tools return only a link (or truncated text) for plans not authored in
-> the current session, so full local mirrors are written **at authoring time**. The
-> Document-detail plan was authored in another session — reopen it (or ask me from a
-> chat that has it) to mirror it here in full.
+> the current session, so full local mirrors are written **at authoring time**.
 
 ## How to back up a plan to this folder
 
