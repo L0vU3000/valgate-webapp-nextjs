@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "mcp__plan__(create-ui-plan|create-visual-plan|create-prototype-plan|create-plan-design|update-visual-plan)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/plan-mirror-reminder.sh\""
+          }
+        ]
+      }
+    ]
+  }
+}
