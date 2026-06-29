@@ -2,7 +2,7 @@
 
 - **Plan ID:** `plan-e40b6ac387ea480f`
 - **Hosted:** https://plan.agent-native.com/plans/plan-e40b6ac387ea480f
-- **Status:** in_progress — first cut (leases) shipped & verified live; root cause confirmed = Data Cache evictions. Rollout to remaining 16 wrappers pending.
+- **Status:** complete — all 17 wrappers (leases + 16) converted to readThrough; bustCache wired into every mutating action; tsc 0 errors, vitest 83/83. Shipped 2026-06-29.
 - **Part of:** the 4-phase client performance plan. Phases 1–3 shipped. This is Phase 4.
 
 ---
