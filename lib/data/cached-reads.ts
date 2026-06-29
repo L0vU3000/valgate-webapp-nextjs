@@ -185,12 +185,11 @@ export function cachedListOwnershipRecords(
 }
 
 // Tag: co-owners
+// Uses readThrough (Upstash) instead of unstable_cache for this entity.
+// Upstash is the single cache of record — do not double-wrap with unstable_cache.
+// The paired bust call is in app/actions/co-owners.ts beside every revalidateFeTag("co-owners").
 export function cachedListCoOwners(ctx: Ctx, propertyId?: string): Promise<CoOwner[]> {
-  return unstable_cache(
-    async () => listCoOwners(ctx, propertyId),
-    ["co-owners", ctx.orgId, propertyKey(propertyId)],
-    { tags: ["co-owners"] },
-  )();
+  return readThrough("co-owners", ctx.orgId, propertyId, () => listCoOwners(ctx, propertyId));
 }
 
 // Tag: ownership-documents
