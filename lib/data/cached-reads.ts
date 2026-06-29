@@ -1,5 +1,6 @@
 import "server-only";
 import { unstable_cache } from "next/cache";
+import { redis } from "@/lib/cache/redis";
 import { listLeases } from "@/lib/services/leases";
 import { listTenants } from "@/lib/services/tenants";
 import { listPayments } from "@/lib/services/payments";
@@ -42,13 +43,71 @@ function propertyKey(propertyId?: string): string {
   return propertyId ?? "__all__";
 }
 
+// Read-through cache helper backed by Upstash Redis.
+//
+// Checks Upstash for a cached result first. On a miss it runs the provided query
+// function (a raw service call — not unstable_cache), stores the result in Upstash
+// with a 1h safety-net TTL, and registers the Redis key in a per-tag tracking set
+// so bustCache can find and delete it on the next mutation.
+//
+// The cache key format is: read:<tag>:<orgId>:<propertyId|__all__>
+// This matches the tenant-scoped tagging strategy used by Phase 3 (unstable_cache).
+//
+// When redis is null (env vars unset), falls through to the raw query with no caching.
+// This means entities moved to readThrough lose their unstable_cache layer in dev —
+// that is intentional; Upstash is the single cache of record for these entities.
+//
+// What can go wrong: if the Upstash get/set fails the error is caught and the query
+// runs against Neon directly so the UI still loads. A set failure means the next read
+// is also a miss (no stale data risk, just extra Neon load until the key is written).
+async function readThrough<T>(
+  tag: string,
+  orgId: string,
+  propertyId: string | undefined,
+  query: () => Promise<T>,
+): Promise<T> {
+  if (!redis) {
+    // No Upstash configured — go straight to the database.
+    return query();
+  }
+
+  const key = `read:${tag}:${orgId}:${propertyId ?? "__all__"}`;
+
+  try {
+    // Attempt to read from Upstash. Redis.get returns null on a cache miss.
+    const hit = await redis.get<T>(key);
+    if (hit !== null && hit !== undefined) {
+      return hit;
+    }
+  } catch (err) {
+    // Upstash unreachable — log and fall through to the database.
+    console.error(`readThrough("${key}") get failed, falling back to DB:`, err);
+    return query();
+  }
+
+  // Cache miss — fetch fresh data from the database.
+  const fresh = await query();
+
+  try {
+    // Store the result with a 1h TTL. If we never get a bust, data self-heals.
+    await redis.set(key, fresh, { ex: 3600 });
+    // Register this key in the tag's tracking set so bustCache can delete it later.
+    await redis.sadd(`tagkeys:${tag}`, key);
+  } catch (err) {
+    // Failed to write to Upstash — log but return the fresh data we already have.
+    // The next request will be another miss and retry the write.
+    console.error(`readThrough("${key}") set failed — caching skipped this request:`, err);
+  }
+
+  return fresh;
+}
+
 // Tag: leases
+// Uses readThrough (Upstash) instead of unstable_cache for this entity.
+// Upstash is the single cache of record — do not double-wrap with unstable_cache.
+// The paired bust call is in app/actions/leases.ts beside every revalidateFeTag("leases").
 export function cachedListLeases(ctx: Ctx, propertyId?: string): Promise<Lease[]> {
-  return unstable_cache(
-    async () => listLeases(ctx, propertyId),
-    ["leases", ctx.orgId, propertyKey(propertyId)],
-    { tags: ["leases"] },
-  )();
+  return readThrough("leases", ctx.orgId, propertyId, () => listLeases(ctx, propertyId));
 }
 
 // Tag: tenants
