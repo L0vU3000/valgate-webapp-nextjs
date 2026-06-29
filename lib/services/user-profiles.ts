@@ -1,4 +1,5 @@
 import "server-only"; // C1
+import { cache } from "react";
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { userProfiles } from "@/lib/db/schema";
@@ -19,11 +20,13 @@ export async function listUserProfiles(ctx: Ctx): Promise<UserProfile[]> {
   return rows.map(rowToUserProfile);
 }
 
-export async function getUserProfile(ctx: Ctx, id: string): Promise<UserProfile | null> {
-  const [row] = await db.select().from(userProfiles)
-    .where(and(eq(userProfiles.orgId, ctx.orgId), eq(userProfiles.id, id))); // C3
-  return row ? rowToUserProfile(row) : null;
-}
+export const getUserProfile = cache(
+  async (ctx: Ctx, id: string): Promise<UserProfile | null> => {
+    const [row] = await db.select().from(userProfiles)
+      .where(and(eq(userProfiles.orgId, ctx.orgId), eq(userProfiles.id, id))); // C3
+    return row ? rowToUserProfile(row) : null;
+  },
+);
 
 // The current user's own profile. Keyed by userId (not the UPROF id) — same lookup upsertUserProfile uses.
 export async function getMyUserProfile(ctx: Ctx): Promise<UserProfile | null> {

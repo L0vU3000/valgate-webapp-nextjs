@@ -31,6 +31,9 @@ chat** — especially for visual plans. Standard flow:
 | `plan-49495c6076174abb` | Folder Rename & Delete — wire the missing CRUD | complete (shipped) | [folder-rename-delete.md](./folder-rename-delete.md) | [open](https://plan.agent-native.com/plans/plan-49495c6076174abb) |
 | `plan-e843871968a64a74` | Revamp the Document detail view (Phase 1) | in_progress (Phase 1 shipped) | [document-detail-revamp.md](./document-detail-revamp.md) | [open](https://plan.agent-native.com/plans/plan-e843871968a64a74) |
 | `plan-17ebdccb34444429` | Phase 2 — Real AI document summaries | approved (locked, ready) | [ai-document-summaries.md](./ai-document-summaries.md) | [open](https://plan.agent-native.com/plans/plan-17ebdccb34444429) |
+| `plan-4ca4bf0139004604` | Phase 1 — Push Filtering into the Database (client perf) | complete (shipped) | [client-perf-phase1-db-filtering.md](./client-perf-phase1-db-filtering.md) | [open](https://plan.agent-native.com/plans/plan-4ca4bf0139004604) |
+| `plan-c6176354a2424ac5` | Phase 2 — Request-Dedup with React cache() (client perf) | complete (shipped) | [client-perf-phase2-react-cache.md](./client-perf-phase2-react-cache.md) | [open](https://plan.agent-native.com/plans/plan-c6176354a2424ac5) |
+| `plan-f95de0eb04df4a79` | Phase 3 — Cross-Request Cache with unstable_cache + Tags (client perf) | review (locked, open questions) | [client-perf-phase3-unstable-cache.md](./client-perf-phase3-unstable-cache.md) | [open](https://plan.agent-native.com/plans/plan-f95de0eb04df4a79) |
 
 > The Plan MCP tools return only a link (or truncated text) for plans not authored in
 > the current session, so full local mirrors are written **at authoring time**.

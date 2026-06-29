@@ -1,4 +1,5 @@
 import "server-only"; // C1
+import { cache } from "react";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
@@ -11,7 +12,7 @@ import type { Ctx } from "@/lib/services/_mapping";
 
 const DEMO_CTX: Ctx = { userId: "USR-0001", orgId: "ORG-0001", orgRole: "owner" };
 
-export async function requireCtx(): Promise<Ctx> {
+async function resolveCtx(): Promise<Ctx> {
   if (env.DEMO_MODE) {
     // DEMO_CTX grants unauthenticated ORG-0001 owner access — refuse it anywhere real auth could
     // exist: production, or a real Clerk key configured (DEMO_MODE left on by mistake). (M1, D9)
@@ -51,6 +52,9 @@ export async function requireCtx(): Promise<Ctx> {
     orgRole: normaliseRole(orgRole),
   };
 }
+
+// Memoized per server request: Clerk auth() + identity-sync DB checks run once per request instead of 3+; each new request gets a fresh memo (no cross-user leak).
+export const requireCtx = cache(resolveCtx);
 
 // Edge-level role gate (guide §5). Distinct from _crud's service-level requireMember.
 const RANK = { viewer: 0, member: 1, admin: 2, owner: 3 } as const;

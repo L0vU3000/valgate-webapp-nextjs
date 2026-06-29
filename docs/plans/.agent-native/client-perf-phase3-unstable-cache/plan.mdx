@@ -1,0 +1,183 @@
+---
+title: "Phase 3 — Cross-Request Cache with unstable_cache + Tags"
+brief: "Client perf phase 3: wire Next.js unstable_cache to existing revalidateFeTag tags so repeat navigations skip Neon round-trips until a mutation invalidates."
+kind: "plan"
+localOnly: true
+status: "review"
+---
+
+# Phase 3 — Cross-Request Cache with unstable_cache + Tags
+
+**Part of:** the 4-phase client performance plan. Phase 1 (DB filtering) and Phase 2 (React `cache()` per-request dedup) are shipped. This is Phase 3. Phase 4 (Redis) stays deferred until measured.
+
+## Objective
+
+Phase 1 made each query **smaller**. Phase 2 stopped the app from running the **same** query multiple times **inside one page load**. Phase 3 stops re-fetching unchanged data **across page loads and navigations** until something actually mutates.
+
+Open `/property/PROP-0001/overview`, click Rental, click back to Overview — today every tab change re-runs every `list*` Drizzle query against Neon even though nothing changed. `unstable_cache` from `next/cache` stores the result **server-side** keyed by org + entity + optional property filter, and the **write path already emits invalidation tags** via `revalidateFeTag()` in `app/actions/*.ts`. The read path just never consumed them — Phase 3 connects the two halves.
+
+<Callout id="decisions-locked" tone="decision">
+
+**DECISIONS LOCKED**
+
+1. **Mechanism = `unstable_cache` only.** No Redis (Phase 4), no blanket `"use cache"` route segments in the first cut. Next 15.5.15 already ships `unstable_cache` + `revalidateTag`.
+2. **Scope = property-tab reads first.** Wire cached wrappers for the entity lists property loaders call (`overview`, `rental`, `financials`, …). Portfolio, analytics, Pro cockpit, and `getProgressContext()` are a fast-follow — not bundled into cut 1.
+3. **Auth stays per-request.** `requireCtx()` keeps React `cache()` only — **never** `unstable_cache`. Clerk `auth()` must run every request; only org-scoped **data reads** are cross-request cached.
+4. **Tag contract = existing flat tags.** Reads and writes both use the strings already in `app/actions/*` (`"leases"`, `"properties"`, `"documents"`, …). Cache **keys** include `orgId` (+ `propertyId` when filtered) so entries never cross tenants; flat tags mean coarse invalidation (any org's lease write busts all orgs' lease cache — acceptable v1 tradeoff, no action-file churn).
+5. **Split ship.** (a) `lib/data/cached-reads.ts` helper + `getProperties` / `getPropertyByIdParam` cross-request layer, prove hit on second navigation; (b) swap property-tab `queries.ts` list calls to cached wrappers; (c) fast-follow portfolio + `property/actions.ts` tag alignment.
+6. **Do not wrap `list*` services in React `cache()`.** Phase 2 locked that deferral; Phase 3 uses `unstable_cache` at the data-helper layer instead.
+
+</Callout>
+
+## Grounded finding — write side is ready, read side is not
+
+| Layer | Today | Phase 3 change |
+|---|---|---|
+| Mutations | 22 action files call `revalidateFeTag("…")` after Drizzle writes | unchanged — tags already correct |
+| Property shell actions | `app/(shell)/property/actions.ts` uses **`revalidatePath` only** | fast-follow: add `revalidateFeTag("properties")` so `unstable_cache` entries invalidate (path revalidation does **not** bust tag cache) |
+| Reads | Property `queries.ts` call `listLeases(ctx, propertyId)` etc. directly — **zero** `unstable_cache` in repo | new cached wrappers in `lib/data/cached-reads.ts` |
+| Per-request dedup | Phase 2: `requireCtx`, `getProperties`, `getPropertyByIdParam`, `getUserProfile` wrapped in React `cache()` | keep — composes with `unstable_cache` (request memo → cross-request memo) |
+
+<Diagram id="cache-layers" caption="Two cache layers compose — different lifetimes, same call sites.">
+
+```html
+<div class="diagram-panel" data-rough>
+  <div class="diagram-card">
+    <div class="diagram-pill">Request A — first visit</div>
+    <div class="diagram-node">Page loader</div>
+    <div class="diagram-muted">↓ React cache() — miss → runs once per request</div>
+    <div class="diagram-node">cachedListLeases(orgId, propertyId)</div>
+    <div class="diagram-muted">↓ unstable_cache — miss → Neon query</div>
+    <div class="diagram-box">Store + tag "leases"</div>
+  </div>
+  <div class="diagram-card">
+    <div class="diagram-pill">Request B — same user, tab switch (no write)</div>
+    <div class="diagram-node">Page loader</div>
+    <div class="diagram-muted">↓ React cache() — fresh request, miss</div>
+    <div class="diagram-node">cachedListLeases(orgId, propertyId)</div>
+    <div class="diagram-muted">↓ unstable_cache — HIT → no Neon</div>
+    <div class="diagram-box">Return stored rows</div>
+  </div>
+  <div class="diagram-card">
+    <div class="diagram-pill">After createLease action</div>
+    <div class="diagram-node">revalidateFeTag("leases")</div>
+    <div class="diagram-muted">→ next read misses cache, re-queries Neon</div>
+  </div>
+</div>
+```
+
+```css
+.diagram-panel { display: flex; flex-direction: column; gap: 16px; }
+.diagram-card { border: 1px solid var(--wf-border); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 6px; }
+.diagram-node { font-weight: 600; }
+.diagram-muted { font-size: 0.85em; opacity: 0.75; }
+.diagram-pill { display: inline-block; padding: 2px 8px; border-radius: 999px; background: var(--wf-accent-soft); font-size: 0.8em; margin-bottom: 4px; }
+.diagram-box { padding: 8px; border-radius: 6px; background: var(--wf-surface-2); }
+```
+
+</Diagram>
+
+## Tag inventory (already on writes — reads must match)
+
+<Table id="tag-inventory" columns={["Tag", "Action file(s)", "Property loader consumer"]} rows={[
+  ["properties", "properties.ts, property-photos.ts, clients.actions.ts", "layout getPropertyByIdParam, portfolio"],
+  ["leases", "leases.ts", "overview, rental, progress-context (defer)"],
+  ["tenants", "tenants.ts", "overview, rental"],
+  ["payments", "payments.ts", "overview, rental, financials"],
+  ["expenses", "— (no action yet)", "rental, financials — tag when actions land"],
+  ["documents", "documents.ts, folders.ts, property-drafts.ts", "overview, rental, documents tab"],
+  ["folders", "folders.ts", "rental, documents"],
+  ["maintenance-items", "maintenance-items.ts", "overview, rental"],
+  ["property-valuations", "property-valuations.ts", "overview, valuation"],
+  ["ownership-records", "ownership-records.ts", "overview, ownership"],
+  ["co-owners", "co-owners.ts", "overview, ownership"],
+  ["ownership-documents", "ownership-documents.ts", "overview, ownership"],
+  ["safety-risks", "—", "overview, safety — verify action coverage"],
+  ["inspections", "inspections.ts", "overview, safety"],
+  ["certifications", "certifications.ts", "overview, safety"],
+  ["emergency-contacts", "emergency-contacts.ts", "overview, safety"],
+  ["estate-assignments", "estate-assignments.ts", "overview, ownership"],
+  ["user-profiles", "user-profiles.ts", "overview getUserProfile"],
+  ["notifications", "notifications.ts", "overview (JS-filtered — cache org list, filter in loader)"],
+]} density="compact" />
+
+## Core new module — `lib/data/cached-reads.ts`
+
+One helper per entity the property tabs load. Each wraps the existing `list*` service (Phase 1 filtered signatures unchanged). Primitive cache keys only — **never** a `Ctx` object reference.
+
+<Code id="cached-reads-stub" filename="lib/data/cached-reads.ts" language="ts" code={"import \"server-only\";\nimport { unstable_cache } from \"next/cache\";\nimport { listLeases } from \"@/lib/services/leases\";\nimport type { Ctx } from \"@/lib/services/_mapping\";\nimport type { Lease } from \"@/lib/data/types/lease\";\n\n/** Cross-request cached leases for one org, optionally filtered to one property. Invalidated by revalidateFeTag(\"leases\"). */\nexport function cachedListLeases(\n  ctx: Ctx,\n  propertyId?: string,\n): Promise<Lease[]> {\n  return unstable_cache(\n    async () => listLeases(ctx, propertyId),\n    [\"leases\", ctx.orgId, propertyId ?? \"__all__\"],\n    { tags: [\"leases\"] },\n  )();\n}\n\n// …one export per entity row in the tag inventory…\n"} />
+
+Loader swap (example — rental tab):
+
+<Diff id="rental-queries-diff" filename="app/(shell)/property/[id]/rental/queries.ts" language="ts" before={"import { listLeases } from \"@/lib/services/leases\";\n// …\nlistLeases(authCtx, propertyId),"} after={"import { cachedListLeases } from \"@/lib/data/cached-reads\";\n// …\ncachedListLeases(authCtx, propertyId),"} />
+
+Cross-request layer on the Phase 2 property helpers (`lib/data/properties.ts`):
+
+<Code id="properties-unstable" filename="lib/data/properties.ts" language="ts" code={"import { unstable_cache } from \"next/cache\";\nimport { cache } from \"react\";\n\nasync function resolveProperties(): Promise<Property[]> {\n  const ctx = await requireCtx();\n  return unstable_cache(\n    async () => listProperties(ctx),\n    [\"properties\", ctx.orgId],\n    { tags: [\"properties\"] },\n  )();\n}\n\nexport const getProperties = cache(resolveProperties);\n// same pattern for getPropertyByIdParam — key includes property id\n"} />
+
+## Why it's safe
+
+- **No cross-user leak:** `unstable_cache` keys always include `ctx.orgId` (and `propertyId` when scoped). Tags are global but entries are keyed per org — org A cannot read org B's cached rows.
+- **Auth every request:** `requireCtx()` is not cached cross-request; only data fetches after auth succeed.
+- **Stale-after-write:** every shipped mutation action already calls `revalidateFeTag` for its entity — once reads use matching tags, writes bust cache automatically.
+- **Composes with Phase 2:** React `cache()` dedupes within a request; `unstable_cache` dedupes across requests. Same function names at call sites for loaders; only import path changes from `listX` → `cachedListX`.
+- **Notifications exception preserved:** cache the org-wide `listNotifications` result; keep `notificationMatchesProperty()` JS filter in the loader (Phase 1 locked exception).
+
+## Steps
+
+<Checklist id="steps" items={[
+  { id: "s1", label: "Add `lib/data/cached-reads.ts` with one `cachedList*` wrapper per entity in the tag inventory (copy `listLeases` pattern; one-line comment per export naming its tag)." },
+  { id: "s2", label: "Cut 1 — add `unstable_cache` inside `getProperties` / `getPropertyByIdParam` (`lib/data/properties.ts`). Prove: load overview twice (or overview → rental → overview); second load skips Neon property fetch (temp log or query counter)." },
+  { id: "s3", label: "Cut 2 — swap all 8 property-tab `queries.ts` files to import from `cached-reads` instead of `lib/services/*` directly." },
+  { id: "s4", label: "Cut 3 (fast-follow) — portfolio + analytics loaders; add `revalidateFeTag(\"properties\")` to `app/(shell)/property/actions.ts` alongside existing `revalidatePath` calls." },
+  { id: "s5", label: "Leave `getProgressContext()` uncached in cut 1–2 (loads 13 unfiltered org lists — needs its own invalidation design)." },
+  { id: "s6", label: "`npx tsc --noEmit` green; `npm run test` stays 83/83; manual: mutate a lease → rental tab shows new row without hard refresh." },
+]} />
+
+<FileTree id="files-touched" title="Files touched" entries={[
+  { path: "lib/data/cached-reads.ts", change: "added", note: "cachedList* wrappers — one per entity tag" },
+  { path: "lib/data/properties.ts", change: "modified", note: "unstable_cache layer under existing React cache()" },
+  { path: "app/(shell)/property/[id]/*/queries.ts", change: "modified", note: "8 files — swap list* → cachedList*" },
+  { path: "app/(shell)/property/actions.ts", change: "modified", note: "fast-follow — add revalidateFeTag(\"properties\")" },
+  { path: "app/(shell)/portfolio/queries.ts", change: "modified", note: "fast-follow" },
+  { path: "app/(shell)/analytics/queries.ts", change: "modified", note: "fast-follow" },
+]} />
+
+## Verification
+
+<Checklist id="verification" items={[
+  { id: "v1", label: "Cache hit proof: temp log inside one `cachedList*` body → logs once across two overview loads in the same session (remove after)." },
+  { id: "v2", label: "Invalidation proof: create/update/delete via existing Server Action → tab reflects change on next navigation (no stale lease list)." },
+  { id: "v3", label: "Tenant isolation: two demo orgs (or DEMO vs Clerk) — each sees only its own data after cache warm." },
+  { id: "v4", label: "`npx tsc --noEmit` + `npm run test` (83/83)." },
+  { id: "v5", label: "Parity: every property tab renders identical numbers/lists before/after — caching changes when queries run, never what they return." },
+]} />
+
+## Explicitly deferred
+
+Redis / edge cache (Phase 4, only if measured) · org-scoped tags (`leases:${orgId}`) for finer invalidation · `getProgressContext()` cross-request cache · `"use cache"` route segments · skeletons/`loading.tsx` (separate track) · caching `requireCtx` cross-request.
+
+### Open Questions
+
+<QuestionForm id="open-questions" submitLabel="Lock answers" questions={[
+  {
+    id: "q-progress",
+    title: "Include getProgressContext() in cut 2 or defer to cut 3?",
+    mode: "single",
+    recommendedOptionId: "defer",
+    options: [
+      { id: "defer", label: "Defer (recommended) — it loads 13 unfiltered org lists; needs a composite invalidation tag or short TTL; property tabs already benefit without it." },
+      { id: "cut2", label: "Include in cut 2 — cache with tag bundle [leases, tenants, …] and accept coarse bust-on-any-entity-write." },
+    ],
+  },
+  {
+    id: "q-safety-expenses",
+    title: "Entities without revalidateFeTag actions yet (expenses, safety-risks) — cache anyway?",
+    mode: "single",
+    recommendedOptionId: "cache-with-todo",
+    options: [
+      { id: "cache-with-todo", label: "Cache with tags + add matching revalidateFeTag when actions ship (recommended) — tag string reserved now, no reads hit cache until first write path exists." },
+      { id: "skip-until-action", label: "Skip caching those entities until a mutation action emits the tag." },
+    ],
+  },
+]} />

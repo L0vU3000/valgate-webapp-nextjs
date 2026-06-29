@@ -1,8 +1,7 @@
 import "server-only";
 import { requireCtx } from "@/lib/auth/ctx";
 import { roleAtLeast } from "@/lib/services/_mapping";
-import { listDocuments } from "@/lib/services/documents";
-import { listFolders } from "@/lib/services/folders";
+import { cachedListDocuments, cachedListFolders } from "@/lib/data/cached-reads";
 import { resolveDocumentUrl } from "@/lib/services/storage";
 
 const IMAGE_EXTENSIONS = new Set(["jpg", "jpeg", "png", "gif", "webp", "svg"]);
@@ -12,14 +11,16 @@ function isImageDoc(doc: { kind: string; name: string; extension?: string }): bo
   return doc.kind === "photo" || IMAGE_EXTENSIONS.has(ext);
 }
 
+// Both list calls pass propertyId so the WHERE clause filters at the DB level.
+// The imageDocs filter is not a propertyId filter — it checks doc.kind/extension to
+// identify images so their signed thumbnail URLs can be pre-resolved for the grid view.
 export async function getDocumentsPageData(propertyId: string) {
   const authCtx = await requireCtx();
-  const [allDocs, allFolders] = await Promise.all([
-    listDocuments(authCtx),
-    listFolders(authCtx),
+  const [docs, folders] = await Promise.all([
+    cachedListDocuments(authCtx, propertyId),
+    cachedListFolders(authCtx, propertyId),
   ]);
 
-  const docs = allDocs.filter((x) => x.propertyId === propertyId);
   const imageDocs = docs.filter(isImageDoc);
 
   // Resolve signed URLs for image documents only — used as grid thumbnails.
@@ -41,7 +42,7 @@ export async function getDocumentsPageData(propertyId: string) {
     // — defence in depth, not the enforcement itself.
     canDelete: roleAtLeast(authCtx.orgRole, "admin"),
     documents: docs,
-    folders: allFolders.filter((x) => x.propertyId === propertyId),
+    folders,
     docThumbUrls,
   };
 }
