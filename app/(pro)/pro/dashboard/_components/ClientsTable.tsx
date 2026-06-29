@@ -11,6 +11,7 @@ import { useWorkspaceTabs } from "@/app/(pro)/pro/_components/WorkspaceTabProvid
 import { ConfirmAction } from "@/components/ui/confirm-action";
 import {
   HEALTH_DOT,
+  OWN_PORTFOLIO_ID,
   type ClientHealth,
 } from "@/app/(pro)/pro/_components/pro-shell-types";
 import { formatRelativeTime } from "@/lib/format";
@@ -121,7 +122,9 @@ export function ClientsTable({
                         {rollup.client.name}
                       </span>
                       <span className="text-[11.5px] text-slate-500 dark:text-slate-400">
-                        {rollup.client.clientType}
+                        {rollup.client.id === OWN_PORTFOLIO_ID
+                          ? "Properties you own directly"
+                          : rollup.client.clientType}
                       </span>
                     </div>
                   </div>
@@ -175,7 +178,7 @@ export function ClientsTable({
                     >
                       View
                     </button>
-                    {onArchive && (
+                    {onArchive && rollup.client.id !== OWN_PORTFOLIO_ID && (
                       // Archive sets the client Inactive — they vanish from rollups and
                       // alerts. Confirm tier prevents accidental clicks. Reactivation
                       // is available on the same page via the "Archived" section below.

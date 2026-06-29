@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation";
 import { ShellLayout } from "@/components/layout/ShellLayout";
 import { requireCtx } from "@/lib/auth/ctx";
 import { getIsManager, listManagedAccounts } from "@/lib/services/managers";
@@ -29,16 +28,15 @@ export default async function ShellGroupLayout({
   ]);
 
   // Find whether the currently active org is one of the manager's granted owner orgs.
-  // - isManager + activeGranted: manager is viewing an owner portfolio → show banner, render shell.
-  // - isManager + no activeGranted: manager is in their home org → redirect to /pro.
+  // - isManager + activeGranted: manager is viewing an owner portfolio → show banner.
+  // - isManager + no activeGranted: manager is in their home org — fall through (no redirect).
+  //   The /launch decider sends managers to /pro/dashboard on first login; the shell
+  //   is still reachable from the "My portfolio" pill in the header for managers who
+  //   have their own portfolio or who toggled back.
   // - !isManager: normal owner → fall through, no banner.
   const activeGranted = isManager
     ? (accounts.find((a) => a.orgId === authCtx.orgId) ?? null)
     : null;
-
-  if (isManager && !activeGranted) {
-    redirect("/pro/dashboard");
-  }
 
   const [properties, notifications] = await Promise.all([
     listProperties(authCtx),
@@ -68,7 +66,7 @@ export default async function ShellGroupLayout({
       )}
       <ShellLayout>
         <NotificationsProvider notifications={notifications}>
-          <AppHeaderProperties properties={slim}>{children}</AppHeaderProperties>
+          <AppHeaderProperties properties={slim} isManager={isManager}>{children}</AppHeaderProperties>
         </NotificationsProvider>
       </ShellLayout>
     </>

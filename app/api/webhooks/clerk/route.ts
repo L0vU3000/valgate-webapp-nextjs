@@ -34,11 +34,16 @@ export async function POST(req: NextRequest) {
     case "user.updated": {
       const emails = (d.email_addresses as Array<{ id: string; email_address: string }>) ?? [];
       const primary = emails.find((e) => e.id === d.primary_email_address_id) ?? emails[0];
+      // unsafe_metadata is the webhook field name for what the frontend sets as unsafeMetadata.
+      const unsafeMeta = (d.unsafe_metadata as Record<string, unknown> | null) ?? {};
       await upsertUser({
         id: d.id as string,
         primaryEmail: primary?.email_address ?? `${d.id}@unknown.clerk`,
         displayName: [d.first_name, d.last_name].filter(Boolean).join(" ") || null,
         avatarUrl: (d.image_url as string | null) ?? null,
+        // Only honoured on first INSERT (sticky in upsertUser). The webhook is the
+        // authoritative first writer; subsequent replays leave is_manager unchanged.
+        isManager: unsafeMeta.accountType === "manager",
       });
       break;
     }

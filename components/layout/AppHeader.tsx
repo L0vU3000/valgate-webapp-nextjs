@@ -8,7 +8,8 @@ import { NotificationsPanel, type NotificationsPanelHandle } from "@/components/
 import { useNotifications } from "@/lib/hooks/use-notifications";
 import { useInitialNotifications } from "@/components/layout/NotificationsContext";
 import type { PropertyListItem } from "@/lib/data/types/property";
-import { useAppHeaderProperties } from "./AppHeaderPropertiesContext";
+import { useAppHeaderProperties, useIsManager } from "./AppHeaderPropertiesContext";
+import Link from "next/link";
 
 export function AppHeader({
   properties: propertiesProp,
@@ -17,6 +18,8 @@ export function AppHeader({
 } = {}) {
   const propertiesFromContext = useAppHeaderProperties();
   const properties = propertiesProp ?? propertiesFromContext;
+  // Manager-only: show the Pro ⇄ My portfolio pill. Owners never see it.
+  const isManager = useIsManager();
   const [commandOpen, setCommandOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const bellRef = useRef<HTMLButtonElement>(null);
@@ -61,6 +64,15 @@ export function AppHeader({
 
         {/* Right actions */}
         <div className="flex items-center gap-1 flex-1 justify-end">
+          {/* Manager-only pill: switch to the Pro cockpit. Hidden for owners. */}
+          {isManager && (
+            <Link
+              href="/pro/dashboard"
+              className="hidden sm:inline-flex items-center h-8 px-3 rounded-full border border-[#c3c6d7] bg-white text-[12.5px] font-medium text-[#2563eb] hover:bg-[#e4efff] hover:border-[#2563eb] transition-colors duration-150 mr-1"
+            >
+              Pro →
+            </Link>
+          )}
           <div className="relative">
             <button
               ref={bellRef}

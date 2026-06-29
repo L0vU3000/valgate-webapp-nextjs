@@ -5,7 +5,7 @@ import { Check, Smartphone, Download } from "lucide-react";
 import { RequiredMark } from "@/components/ui/required-mark";
 import { AppHeader } from "@/components/layout/AppHeader";
 import type { SettingsPageData, NotifChannels } from "../queries";
-import { saveNotificationPreference, saveUserPreferences } from "../actions";
+import { saveNotificationPreference, saveUserPreferences, setManagerMode } from "../actions";
 import { ManagersSection } from "./ManagersSection";
 
 /* Staggered section entrance — reusable inline style helper */
@@ -30,6 +30,9 @@ export function SettingsPage({ data }: { data: SettingsPageData }) {
   const [dashboardView, setDashboardView] = useState(data.defaults.dashboardView);
   const [language, setLanguage] = useState(data.defaults.language);
   const [timezone, setTimezone] = useState(data.defaults.timezone);
+  // Optimistic local state for the manager mode toggle — avoids a full round-trip
+  // before the UI reflects the change.
+  const [isManager, setIsManager] = useState(data.isManager);
 
   const toggleNotif = (key: string, channel: keyof NotifChannels) => {
     setNotifications((prev) => {
@@ -226,7 +229,7 @@ export function SettingsPage({ data }: { data: SettingsPageData }) {
               Customize your interface experience and regional settings.
             </p>
           </div>
-          <div className="col-span-2 bg-white border border-[#d1d5db] rounded-[12px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] p-4 sm:p-[25px]">
+          <div className="col-span-2 bg-white border border-[#d1d5db] rounded-[12px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] p-4 sm:p-[25px] flex flex-col gap-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
               <SelectField
                 label="Default Dashboard View"
@@ -256,6 +259,47 @@ export function SettingsPage({ data }: { data: SettingsPageData }) {
                   }}
                   options={data.timezoneOptions}
                 />
+              </div>
+            </div>
+
+            {/* Property manager mode toggle */}
+            <div className="border-t border-[#e8eaed] pt-5">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex flex-col gap-1">
+                  <p className="font-sans font-medium text-[14px] leading-[20px] text-foreground">
+                    Property manager mode
+                  </p>
+                  <p className="font-sans text-[13px] leading-[18px] text-tertiary">
+                    Enable to access the Pro cockpit and manage portfolios on behalf of owners.
+                    Turning this on adds a Pro ⇄ My portfolio switch in the header.
+                  </p>
+                </div>
+                {/* Toggle switch — optimistic: flips immediately, fires the action in the background */}
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={isManager}
+                  aria-label="Property manager mode"
+                  onClick={() => {
+                    const next = !isManager;
+                    setIsManager(next);
+                    startTransition(() =>
+                      void setManagerMode(next).then((result) => {
+                        // Roll back the optimistic update if the action failed.
+                        if (!result.ok) setIsManager(!next);
+                      }),
+                    );
+                  }}
+                  className={`relative inline-flex h-[24px] w-[44px] shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563eb] focus-visible:ring-offset-2 ${
+                    isManager ? "bg-[#2563eb]" : "bg-[#d1d5db]"
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-[20px] w-[20px] rounded-full bg-white shadow-sm ring-0 transition-transform duration-200 ${
+                      isManager ? "translate-x-[20px]" : "translate-x-0"
+                    }`}
+                  />
+                </button>
               </div>
             </div>
           </div>

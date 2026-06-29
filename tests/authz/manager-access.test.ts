@@ -49,6 +49,7 @@ import {
   denyAccessRequest,
   listManagedAccounts,
 } from "@/lib/services/managers";
+import { setUserIsManager } from "@/lib/services/identity-sync";
 import type { Ctx } from "@/lib/services/_mapping";
 
 // ── Raw pg pool for seeding / asserting (independent of the service layer) ─────
@@ -244,5 +245,51 @@ describe("denyAccessRequest", () => {
 
     expect(await requestStatus(requestId)).toBe("denied");
     expect(await activeMembershipCount(ownerOrgId, managerBId)).toBe(0);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 5. setUserIsManager — only mutates the target row, never a bystander's
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// This proves the IDOR safety contract: the DB function operates only on the
+// row whose clerk_user_id matches the argument, leaving all other rows unchanged.
+// The action layer (setManagerMode) enforces that the argument is always the
+// authenticated caller's own Clerk id — tested separately via the action pattern.
+
+async function getIsManagerRaw(clerkUserId: string): Promise<boolean | null> {
+  const rows = await q<{ is_manager: boolean }>(
+    `SELECT is_manager FROM users WHERE clerk_user_id = $1 LIMIT 1`,
+    [clerkUserId],
+  );
+  return rows[0]?.is_manager ?? null;
+}
+
+describe("setUserIsManager — row isolation", () => {
+  // Use the two throwaway manager users already seeded in beforeAll.
+  // Both were inserted with is_manager = true; reset A to false for a clean
+  // before-state so the toggle assertions are unambiguous.
+  it("sets the target user's is_manager without touching any other row", async () => {
+    const clerkUserAId = `user_e2e_a_${suffix}`;
+    const clerkUserBId = `user_e2e_b_${suffix}`;
+
+    // Confirm both start as managers (set in beforeAll seed).
+    expect(await getIsManagerRaw(clerkUserAId)).toBe(true);
+    expect(await getIsManagerRaw(clerkUserBId)).toBe(true);
+
+    // Flip only user A to false — user B must stay true.
+    await setUserIsManager(clerkUserAId, false);
+    expect(await getIsManagerRaw(clerkUserAId)).toBe(false);
+    expect(await getIsManagerRaw(clerkUserBId)).toBe(true);
+
+    // Flip A back to true — user B must remain unchanged.
+    await setUserIsManager(clerkUserAId, true);
+    expect(await getIsManagerRaw(clerkUserAId)).toBe(true);
+    expect(await getIsManagerRaw(clerkUserBId)).toBe(true);
+  });
+
+  it("silently no-ops for an unknown clerk_user_id (does not throw)", async () => {
+    // A missing row is a safe no-op — the flag just stays at its existing value.
+    await expect(setUserIsManager("user_nonexistent_clerk_id", true)).resolves.toBeUndefined();
   });
 });
