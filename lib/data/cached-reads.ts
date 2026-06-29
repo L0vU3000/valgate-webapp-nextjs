@@ -152,15 +152,14 @@ export function cachedListFolders(ctx: Ctx, propertyId?: string): Promise<Folder
 }
 
 // Tag: maintenance-items
+// Uses readThrough (Upstash) instead of unstable_cache for this entity.
+// Upstash is the single cache of record — do not double-wrap with unstable_cache.
+// The paired bust call is in app/actions/maintenance-items.ts beside every revalidateFeTag("maintenance-items").
 export function cachedListMaintenanceItems(
   ctx: Ctx,
   propertyId?: string,
 ): Promise<MaintenanceItem[]> {
-  return unstable_cache(
-    async () => listMaintenanceItems(ctx, propertyId),
-    ["maintenance-items", ctx.orgId, propertyKey(propertyId)],
-    { tags: ["maintenance-items"] },
-  )();
+  return readThrough("maintenance-items", ctx.orgId, propertyId, () => listMaintenanceItems(ctx, propertyId));
 }
 
 // Tag: property-valuations
