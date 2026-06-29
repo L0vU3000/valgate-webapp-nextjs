@@ -17,6 +17,8 @@ import { listEmergencyContacts } from "@/lib/services/emergency-contacts";
 import { listEstateAssignments } from "@/lib/services/estate-assignments";
 import { listDocuments } from "@/lib/services/documents";
 import { getUserProfile } from "@/lib/services/user-profiles";
+import { listActivities } from "@/lib/services/activities";
+import type { Activity } from "@/lib/data/types/activity";
 import type { PropertyValuation } from "@/lib/data/types/property-valuation";
 import type { Lease } from "@/lib/data/types/lease";
 import type { Tenant } from "@/lib/data/types/tenant";
@@ -53,6 +55,7 @@ export type OverviewPageData = {
   emergencyContacts: EmergencyContact[];
   estateAssignments: EstateAssignment[];
   documents: Document[];
+  recentActivities: Activity[];
 };
 
 function notificationMatchesProperty(notification: Notification, propertyId: string): boolean {
@@ -82,6 +85,7 @@ export async function getOverviewPageData(propertyId: string): Promise<OverviewP
     allEstateAssignments,
     allDocuments,
     userProfile,
+    recentActivities,
   ] = await Promise.all([
     listPropertyValuations(authCtx),
     listLeases(authCtx),
@@ -100,6 +104,7 @@ export async function getOverviewPageData(propertyId: string): Promise<OverviewP
     listEstateAssignments(authCtx),
     listDocuments(authCtx),
     getUserProfile(authCtx, authCtx.userId),
+    listActivities(authCtx, propertyId, 10),
   ]);
   const propLeaseIds = new Set(
     allLeases.filter((l) => l.propertyId === propertyId).map((l) => l.id),
@@ -122,5 +127,7 @@ export async function getOverviewPageData(propertyId: string): Promise<OverviewP
     estateAssignments: allEstateAssignments.filter((a) => a.propertyId === propertyId),
     documents: allDocuments.filter((d) => d.propertyId === propertyId),
     userProfile: userProfile ?? null,
+    // Already filtered to this property by listActivities(authCtx, propertyId, 10).
+    recentActivities,
   };
 }

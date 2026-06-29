@@ -4,7 +4,7 @@
 import "server-only";
 import { readdirSync, readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { getTableColumns, getTableName, sql } from "drizzle-orm";
+import { getTableColumns, getTableName, sql, eq } from "drizzle-orm";
 import type { PgTable } from "drizzle-orm/pg-core";
 import type { ZodTypeAny } from "zod";
 import { assertSafeDatabaseUrl } from "@/lib/db/assert-safe-database-url";
@@ -43,6 +43,11 @@ import { AiMessageSchema } from "@/lib/data/types/ai-message";
 const ORG = "ORG-0001";
 const USER = "USR-0001";
 const FIXTURES = join(process.cwd(), "tests", "fixtures");
+
+// Allow real Clerk IDs so the seed data is tied to a real account (not just DEMO_MODE).
+// Set SEED_CLERK_USER_ID and SEED_CLERK_ORG_ID in .env.local to wire seed data to your account.
+const SEED_CLERK_USER_ID = process.env.SEED_CLERK_USER_ID ?? "demo-user";
+const SEED_CLERK_ORG_ID  = process.env.SEED_CLERK_ORG_ID  ?? "demo-org";
 
 type Entry = { dir: string; table: PgTable; schema: ZodTypeAny; files?: string[]; selfFk?: string };
 
@@ -149,11 +154,28 @@ async function main() {
   if (doReset) await reset();
 
   // Trio (D14)
-  await db.insert(s.organizations).values({ id: ORG, clerkOrgId: "demo-org", name: "Demo Workspace", slug: "demo" }).onConflictDoNothing();
-  await db.insert(s.users).values({ id: USER, clerkUserId: "demo-user", primaryEmail: "demo@valgate.app", displayName: "Demo User" }).onConflictDoNothing();
+  // Remove any JIT-created rows for these Clerk IDs (created on first login before seeding).
+  // They're orphan rows — no domain data hangs off them yet. The seed rows (ORG-0001/USR-0001)
+  // are the canonical home for all seed data, so we repoint them instead.
+  await db.execute(sql`DELETE FROM organization_memberships WHERE org_id IN (SELECT id FROM organizations WHERE clerk_org_id = ${SEED_CLERK_ORG_ID} AND id != ${ORG})`);
+  await db.execute(sql`DELETE FROM organizations WHERE clerk_org_id = ${SEED_CLERK_ORG_ID} AND id != ${ORG}`);
+  await db.execute(sql`DELETE FROM organization_memberships WHERE user_id IN (SELECT id FROM users WHERE clerk_user_id = ${SEED_CLERK_USER_ID} AND id != ${USER})`);
+  await db.execute(sql`DELETE FROM users WHERE clerk_user_id = ${SEED_CLERK_USER_ID} AND id != ${USER}`);
+  // Now safely insert seed rows and repoint their Clerk IDs.
+  await db.insert(s.organizations).values({ id: ORG, clerkOrgId: SEED_CLERK_ORG_ID, name: "Demo Workspace", slug: "demo" }).onConflictDoNothing();
+  await db.update(s.organizations).set({ clerkOrgId: SEED_CLERK_ORG_ID }).where(eq(s.organizations.id, ORG));
+  await db.insert(s.users).values({ id: USER, clerkUserId: SEED_CLERK_USER_ID, primaryEmail: "demo@valgate.app", displayName: "Demo User" }).onConflictDoNothing();
+  await db.update(s.users).set({ clerkUserId: SEED_CLERK_USER_ID }).where(eq(s.users.id, USER));
   await db.insert(s.organizationMemberships).values({ id: "MEM-0001", orgId: ORG, userId: USER, role: "owner", status: "active" }).onConflictDoNothing();
 
-  const counters = new Map<string, number>([["ORG", 1], ["USR", 1], ["MEM", 1], ["VRF", 0], ["VEV", 0], ["VHE", 0]]);
+  // Pre-seed counters for collections whose fixture ids don't follow PREFIX-0000 (e.g. "demo-user")
+  // or that have no fixtures yet. nextId() auto-initialises missing rows now, but keeping these
+  // here ensures local seeds stay deterministic.
+  // ARQ/CRQ: Pro-2.x access/change requests. UPROF: demo fixture uses "demo-user" id (no suffix).
+  const counters = new Map<string, number>([
+    ["ORG", 1], ["USR", 1], ["MEM", 1], ["VRF", 0], ["VEV", 0], ["VHE", 0],
+    ["ARQ", 0], ["CRQ", 0], ["UPROF", 0],
+  ]);
   const report: { table: string; loaded: number; expected: number }[] = [];
   const leaseProp = new Map<string, string>();   // leaseId → propertyId (backfill payments)
   let failed = false;

@@ -14,13 +14,13 @@ export const certificationStatusEnum = pgEnum("certification_status", ["Valid", 
 export const safetyRiskSeverityEnum = pgEnum("safety_risk_severity", ["Critical", "High", "Medium", "Low"]);
 export const safetyRiskStatusEnum = pgEnum("safety_risk_status", ["Open", "Resolved"]);
 export const maintenanceSeverityEnum = pgEnum("maintenance_severity", ["Emergency", "Urgent", "Standard"]);
-export const maintenanceStatusEnum = pgEnum("maintenance_status", ["Open", "InProgress", "Resolved"]);
+export const maintenanceStatusEnum = pgEnum("maintenance_status", ["Open", "InProgress", "Resolved", "Cancelled"]);
 
 export const inspections = pgTable("inspections", {
   id: text("id").primaryKey(),
   orgId: text("org_id").notNull().references(() => organizations.id),
   userId: text("user_id").notNull(),
-  propertyId: text("property_id").notNull().references(() => properties.id),
+  propertyId: text("property_id").notNull().references(() => properties.id, { onDelete: "cascade" }),
   inspectedAt: timestamp("inspected_at", { withTimezone: true }).notNull(),
   type: inspectionTypeEnum("type").notNull(),
   inspectorId: text("inspector_id").notNull(),
@@ -37,7 +37,7 @@ export const certifications = pgTable("certifications", {
   id: text("id").primaryKey(),
   orgId: text("org_id").notNull().references(() => organizations.id),
   userId: text("user_id").notNull(),
-  propertyId: text("property_id").notNull().references(() => properties.id),
+  propertyId: text("property_id").notNull().references(() => properties.id, { onDelete: "cascade" }),
   name: certificationNameEnum("name").notNull(),
   status: certificationStatusEnum("status").notNull(),
   issuedAt: timestamp("issued_at", { withTimezone: true }).notNull(),
@@ -54,7 +54,7 @@ export const safetyRisks = pgTable("safety_risks", {
   id: text("id").primaryKey(),
   orgId: text("org_id").notNull().references(() => organizations.id),
   userId: text("user_id").notNull(),
-  propertyId: text("property_id").notNull().references(() => properties.id),
+  propertyId: text("property_id").notNull().references(() => properties.id, { onDelete: "cascade" }),
   severity: safetyRiskSeverityEnum("severity").notNull(),
   title: text("title").notNull(),
   description: text("description").notNull(),
@@ -71,7 +71,7 @@ export const emergencyContacts = pgTable("emergency_contacts", {
   id: text("id").primaryKey(),
   orgId: text("org_id").notNull().references(() => organizations.id),
   userId: text("user_id").notNull(),
-  propertyId: text("property_id").notNull().references(() => properties.id),
+  propertyId: text("property_id").notNull().references(() => properties.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   phone: text("phone").notNull(),
   sub: text("sub"),
@@ -86,7 +86,7 @@ export const maintenanceItems = pgTable("maintenance_items", {
   id: text("id").primaryKey(),
   orgId: text("org_id").notNull().references(() => organizations.id),
   userId: text("user_id").notNull(),
-  propertyId: text("property_id").notNull().references(() => properties.id),
+  propertyId: text("property_id").notNull().references(() => properties.id, { onDelete: "cascade" }),
   severity: maintenanceSeverityEnum("severity").notNull(),
   title: text("title").notNull(),
   status: maintenanceStatusEnum("status").notNull(),

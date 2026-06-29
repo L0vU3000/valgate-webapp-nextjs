@@ -1,5 +1,6 @@
 {
-  "id": "4215d58a-05c5-4b64-a774-bedbb280601b",
+  "id": "24f584b2-7a7e-416f-a996-fd0a6040676c",
+
   "prevId": "22316569-386e-48a9-a3ab-48c8dd2add4f",
   "version": "7",
   "dialect": "postgresql",
@@ -2002,6 +2003,7 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+<<<<<<< HEAD
     "public.property_draft_files": {
       "name": "property_draft_files",
       "schema": "",
@@ -2228,6 +2230,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+=======
+>>>>>>> origin/valgate-webapp-nextjs-v1.0.2
     "public.expenses": {
       "name": "expenses",
       "schema": "",
@@ -5274,7 +5278,12 @@
       "values": [
         "Open",
         "InProgress",
+<<<<<<< HEAD
         "Resolved"
+=======
+        "Resolved",
+        "Cancelled"
+>>>>>>> origin/valgate-webapp-nextjs-v1.0.2
       ]
     },
     "public.safety_risk_severity": {

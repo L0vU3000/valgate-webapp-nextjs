@@ -43,24 +43,24 @@ my-app/
 │       └── footer.tsx
 │
 ├── lib/
-│   ├── db.ts                     # DB client
+│   ├── db/
+│   │   ├── client.ts             # Neon serverless Postgres client (Drizzle)
+│   │   └── schema/               # Drizzle table schemas (one file per entity)
+│   ├── services/                 # Data access — one module per entity (Drizzle queries)
 │   ├── auth.ts                   # Auth config
 │   ├── validations.ts            # Shared Zod schemas
 │   ├── rate-limit.ts             # Rate limiting (Upstash Redis)
 │   └── utils.ts                  # cn(), formatDate(), etc.
 │
 ├── hooks/                        # Client-side custom hooks
-├── actions/                      # Server Actions — one file per domain
-├── services/                     # External API / data-fetching logic
+├── actions/                      # Server Actions — one file per domain (call lib/services/*)
 ├── types/                        # Global TypeScript types
 ├── config/                       # App-wide constants (site, nav, plans)
 │
-├── convex/                       # Convex backend (queries, mutations, schema)
-│   ├── _generated/
-│   ├── schema.ts
-│   ├── users.ts
-│   ├── posts.ts
-│   └── http.ts
+│  # Backend: Neon (serverless Postgres) + Drizzle ORM.
+│  # Data access lives in lib/services/* (one module per entity), called from
+│  # Server Actions in app/**/*.actions.ts. Scripts: db:generate / db:migrate /
+│  # db:ping / seed:neon. (A legacy convex/ dir still exists but the app does NOT call it.)
 │
 ├── middleware.ts
 ├── next.config.ts
@@ -99,11 +99,15 @@ export default async function DashboardPage() {
 Fetch directly in Server Components using `async/await`. Use `unstable_cache` for deduplication and tag-based revalidation. Prefer parallel fetching with `Promise.all`.
 
 ```ts
-// lib/queries/posts.ts
+// lib/services/posts.ts — data access, one module per entity (Drizzle on Neon)
 import { unstable_cache } from "next/cache";
+import { eq } from "drizzle-orm";
+import { db } from "@/lib/db/client";
+import { posts } from "@/lib/db/schema/posts";
 
 export const getPosts = unstable_cache(
-  async (userId: string) => db.post.findMany({ where: { userId } }),
+  async (userId: string) =>
+    db.select().from(posts).where(eq(posts.userId, userId)),
   ["user-posts"],
   { revalidate: 60, tags: ["posts"] }
 );
@@ -142,15 +146,29 @@ Passes updated data as props to Client Component
 // actions/post.actions.ts
 "use server";
 
+import { createPost as createPostService } from "@/lib/services/posts";
+
 const Schema = z.object({ title: z.string().min(1).max(200).trim() });
 
 export async function createPost(formData: FormData) {
   const parsed = Schema.safeParse({ title: formData.get("title") });
   if (!parsed.success) return { success: false, error: parsed.error.flatten() };
 
-  await db.post.create({ data: parsed.data });
+  // DB write lives in the service layer (Drizzle); the action validates + revalidates.
+  await createPostService(parsed.data);
   revalidateTag("posts"); // busts the cache → triggers Server Component re-fetch
   return { success: true };
+}
+```
+
+```ts
+// lib/services/posts.ts — the Drizzle write the action calls
+import { db } from "@/lib/db/client";
+import { posts } from "@/lib/db/schema/posts";
+
+export async function createPost(data: { title: string }) {
+  const [row] = await db.insert(posts).values(data).returning();
+  return row;
 }
 ```
 
@@ -158,8 +176,11 @@ export async function createPost(formData: FormData) {
 
 ```tsx
 // app/dashboard/page.tsx
+import { db } from "@/lib/db/client";
+import { posts as postsTable } from "@/lib/db/schema/posts";
+
 const getPosts = unstable_cache(
-  async () => db.post.findMany(),
+  async () => db.select().from(postsTable),
   ["all-posts"],
   { tags: ["posts"] } // matches revalidateTag("posts") above
 );
@@ -210,11 +231,12 @@ The server is your trust boundary. Everything crossing client → server is untr
 
 ```ts
 // ❌ Raw FormData is unvalidated user input
-await db.post.create({ data: { title: formData.get("title") as string } });
+await db.insert(posts).values({ title: formData.get("title") as string });
 
 // ✅ Parse through Zod first
 const parsed = Schema.safeParse({ title: formData.get("title") });
 if (!parsed.success) return { success: false, error: parsed.error.flatten() };
+await db.insert(posts).values(parsed.data);
 ```
 
 **Authenticate AND authorize on every mutation.**
@@ -226,14 +248,14 @@ export async function deletePost(postId: string) {
   const session = await getServerSession();
   if (!session?.user) return { success: false, error: "Unauthenticated" };
 
-  const post = await db.post.findUnique({ where: { id: postId } });
+  const [post] = await db.select().from(posts).where(eq(posts.id, postId));
 
   // IDOR defense — always verify ownership before mutating
   if (post?.userId !== session.user.id) {
     return { success: false, error: "Forbidden" };
   }
 
-  await db.post.delete({ where: { id: postId } });
+  await db.delete(posts).where(eq(posts.id, postId));
   return { success: true };
 }
 ```
@@ -272,14 +294,14 @@ export async function login(formData: FormData) {
 
 ```tsx
 // ❌ passwordHash, internalRole, etc. end up in the HTML payload
-const user = await db.user.findUnique({ where: { id } });
+const [user] = await db.select().from(users).where(eq(users.id, id));
 return <ProfileCard user={user} />;
 
-// ✅ Send only what the component renders
-const user = await db.user.findUnique({
-  where: { id },
-  select: { name: true, email: true, avatarUrl: true },
-});
+// ✅ Select only the columns the component renders
+const [user] = await db
+  .select({ name: users.name, email: users.email, avatarUrl: users.avatarUrl })
+  .from(users)
+  .where(eq(users.id, id));
 return <ProfileCard user={user} />;
 ```
 
@@ -431,22 +453,44 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 ---
 
-## 12. Convex + Clerk Notes
+## 12. Neon + Drizzle + Clerk Notes
 
-- No ORM — Convex is database, backend functions, and real-time layer in one.
-- Prefer Convex `mutations` and `queries` over Server Actions for DB work.
-- Use `useQuery` from `convex/react` in Client Components for live data.
-- Pass Clerk session token to Convex via `ConvexProviderWithClerk`.
-- Use `ctx.auth.getUserIdentity()` inside Convex functions for the authed user.
+The live backend is **Neon (serverless Postgres) + Drizzle ORM**. Data access lives in
+`lib/services/*` (one module per entity) and is called from Server Actions in
+`app/**/*.actions.ts`. (A legacy `convex/` directory still exists in the repo but the app
+does **not** call it.)
+
+- **DB client:** `lib/db/client.ts` wires Drizzle to the Neon serverless driver
+  (`@neondatabase/serverless`).
+- **Schema:** Drizzle table definitions live in `lib/db/schema/*` (one file per entity).
+- **Data access:** put queries/writes in `lib/services/*`, never inline DB calls in components.
+- **Auth:** use Clerk's `auth()` from `@clerk/nextjs/server` inside Server Actions / Server
+  Components to get the authed user, then scope every query by that user id.
+- **Scripts:** `db:generate` (generate SQL migrations from schema), `db:migrate` (apply them),
+  `db:ping` (connectivity check), `seed:neon` (seed data).
 
 ```ts
-// convex/posts.ts
-export const createPost = mutation({
-  args: { title: v.string(), body: v.string() },
-  handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Unauthenticated");
-    return ctx.db.insert("posts", { ...args, userId: identity.subject });
-  },
-});
+// lib/services/posts.ts — data access for the post entity
+import { eq } from "drizzle-orm";
+import { db } from "@/lib/db/client";
+import { posts } from "@/lib/db/schema/posts";
+
+export async function createPost(input: { title: string; body: string; userId: string }) {
+  const [row] = await db.insert(posts).values(input).returning();
+  return row;
+}
+```
+
+```ts
+// actions/post.actions.ts — Server Action authenticates, then calls the service
+"use server";
+
+import { auth } from "@clerk/nextjs/server";
+import { createPost as createPostService } from "@/lib/services/posts";
+
+export async function createPost(args: { title: string; body: string }) {
+  const { userId } = await auth();
+  if (!userId) throw new Error("Unauthenticated");
+  return createPostService({ ...args, userId });
+}
 ```

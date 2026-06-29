@@ -39,7 +39,16 @@ async function siteGate(request: NextRequest): Promise<NextResponse | null> {
 // DEMO_MODE-aware. clerkMiddleware() throws at request time without a publishable key, and
 // requireCtx() skips Clerk entirely in DEMO_MODE — so when no Clerk key is configured we run the
 // site-gate alone. When a key is present, the site-gate runs first, then Clerk auth applies.
-const hasClerk = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
+//
+// WHY CLERK_SECRET_KEY instead of NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:
+// Turbopack can compile NEXT_PUBLIC_* values into the Edge middleware bundle at startup
+// by reading .env.local from disk, bypassing any process.env override set by the launch
+// script (e.g. dev:e2e-auth). CLERK_SECRET_KEY is a server-only var read from live
+// process.env, so it correctly reflects the runtime mode.
+// DEMO_MODE: sk_test_placeholder → hasClerk=false. Real Clerk: sk_test_/sk_live_ → true.
+const hasClerk =
+  Boolean(process.env.CLERK_SECRET_KEY) &&
+  process.env.CLERK_SECRET_KEY !== "sk_test_placeholder";
 
 // Routes reachable WITHOUT being signed in: the auth pages, the Clerk webhook, the site-gate, and
 // Clerk's own frontend API routes. Everything else requires a session (auth.protect → /login).

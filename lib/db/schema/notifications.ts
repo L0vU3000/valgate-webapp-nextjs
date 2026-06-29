@@ -5,6 +5,8 @@ import { properties } from "./property";
 
 export const notificationCategoryEnum = pgEnum("notification_category", [
   "MAINTENANCE", "LEASING", "COMPLIANCE", "PAYMENT", "APPLICATIONS",
+  // Manager ⇄ owner access events (Pro-2.2): request received, access approved.
+  "ACCESS",
 ]);
 export const notificationEventTypeEnum = pgEnum("notification_event_type", [
   "Payment", "Leasing", "Maintenance", "Compliance",
@@ -14,7 +16,7 @@ export const notifications = pgTable("notifications", {
   id: text("id").primaryKey(),
   orgId: text("org_id").notNull().references(() => organizations.id),
   userId: text("user_id").notNull(),
-  propertyId: text("property_id").references(() => properties.id),  // nullable (generic notifications)
+  propertyId: text("property_id").references(() => properties.id, { onDelete: "set null" }),  // nullable (generic notifications)
   category: notificationCategoryEnum("category").notNull(),
   title: text("title").notNull(),
   description: text("description").notNull(),

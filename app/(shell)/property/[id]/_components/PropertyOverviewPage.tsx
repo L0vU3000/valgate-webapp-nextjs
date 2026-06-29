@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import {
-  FileText, Wrench, Receipt, Bell,
+  FileText, Wrench, Bell,
   MoreHorizontal, Download, Pencil,
   DollarSign, AlertTriangle, Clock,
   Building2, Maximize2, Calendar, MapPin,
@@ -14,6 +14,9 @@ import {
 } from "lucide-react";
 import { ProgressExplainerModal } from "@/components/portfolio/ProgressExplainerModal";
 import { ProgressModal } from "@/components/portfolio/ProgressModal";
+import { ConfirmAction } from "@/components/ui/confirm-action";
+import { X } from "lucide-react";
+import { toast } from "sonner";
 import type { PropertyListItem } from "@/lib/data/types/property";
 import {
   BarChart, Bar, ResponsiveContainer, Tooltip, XAxis,
@@ -31,20 +34,12 @@ import type { CoOwner } from "@/lib/data/types/co-owner";
 import type { OwnershipRecord } from "@/lib/data/types/ownership-record";
 import type { UserProfile } from "@/lib/data/types/user-profile";
 import { formatCurrency, formatCurrencyFull, formatRelativeTime } from "@/lib/format";
+import type { Activity } from "@/lib/data/types/activity";
 import { TYPE_LABEL, TYPE_ICON } from "@/lib/property-helpers";
 import { PropertyLayout } from "@/components/property/PropertyLayout";
 import { usePropertyShell } from "@/components/property/PropertyShellContext";
 import { StackedCardTable } from "@/components/ui/stacked-card-table";
-
-/* ─── Constants ──────────────────────────────────────────────────────────── */
-
-const quickActions = [
-  { icon: FileText, label: "New Lease" },
-  { icon: Wrench, label: "Work Order" },
-  { icon: Receipt, label: "Invoice" },
-  { icon: Bell, label: "Notify All" },
-];
-
+import { PropertyPhotoManager } from "./PropertyPhotoManager";
 
 /* ─── Helper types ────────────────────────────────────────────────────────── */
 
@@ -186,6 +181,29 @@ function pillarBarClass(score: number): string {
   return "bg-slate-100";
 }
 
+// Build a CSV from data already loaded on this page and trigger a browser
+// download. No server round-trip — every value here is already a prop/derived
+// figure rendered on the overview, so this is a cheap, fully-client export.
+function exportPropertyCsv(
+  rows: Array<[string, string | number]>,
+  filename: string,
+): void {
+  // Quote every field and escape embedded quotes so commas/newlines are safe.
+  const escape = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
+  const csv = [["Field", "Value"], ...rows]
+    .map((row) => row.map(escape).join(","))
+    .join("\r\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
 /* ─── Sub-components ──────────────────────────────────────────────────────── */
 
 function AttributeChip({ icon: Icon, label }: { icon: LucideIcon; label: string }) {
@@ -277,6 +295,7 @@ export function PropertyOverviewPage({
   coOwners = [],
   userProfile,
   progressDetails,
+  recentActivities = [],
 }: {
   property: Property;
   valuations: PropertyValuation[];
@@ -290,12 +309,19 @@ export function PropertyOverviewPage({
   coOwners: CoOwner[];
   userProfile?: UserProfile | null;
   progressDetails?: ProgressDetails;
+  recentActivities?: Activity[];
 }) {
   const [mounted, setMounted] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
   const [mapStyle, setMapStyle] = useState<"light" | "satellite">("light");
   const [progressExplainerOpen, setProgressExplainerOpen] = useState(false);
   const [progressModalProperty, setProgressModalProperty] = useState<PropertyListItem | null>(null);
+  // Alerts are derived client-side from leases + notifications (see "Alerts"
+  // below), so dismissing one is purely local UI state — there is no alerts
+  // table to persist a dismissal to. We track dismissed alert ids here so a
+  // dismiss (and its undo) just shows/hides the row. NOTE: this resets on
+  // reload by design until a real alerts/notifications-read backend exists.
+  const [dismissedAlertIds, setDismissedAlertIds] = useState<Set<string | number>>(new Set());
   const shell = usePropertyShell();
 
   useEffect(() => {
@@ -361,6 +387,37 @@ export function PropertyOverviewPage({
     actionLabel: `View ${n.title}`,
   }));
   const alerts = [...leaseAlerts, ...notificationAlerts];
+  // Hide any alert the user has dismissed this session.
+  const visibleAlerts = alerts.filter((a) => !dismissedAlertIds.has(a.id));
+
+  // Dismiss one alert (reversible via the undo toast).
+  function dismissAlert(id: string | number) {
+    setDismissedAlertIds((prev) => new Set(prev).add(id));
+  }
+  // Restore a single dismissed alert (used by the per-item Undo).
+  function restoreAlert(id: string | number) {
+    setDismissedAlertIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  }
+  // Dismiss every currently-visible alert at once; undo restores them all.
+  function dismissAllAlerts() {
+    const ids = visibleAlerts.map((a) => a.id);
+    setDismissedAlertIds((prev) => {
+      const next = new Set(prev);
+      ids.forEach((id) => next.add(id));
+      return next;
+    });
+  }
+  function restoreAlerts(ids: Array<string | number>) {
+    setDismissedAlertIds((prev) => {
+      const next = new Set(prev);
+      ids.forEach((id) => next.delete(id));
+      return next;
+    });
+  }
 
   /* ── Ownership ── */
   const ownershipRecord = ownershipRecords[0] ?? null;
@@ -426,6 +483,30 @@ export function PropertyOverviewPage({
       duration: 900,
     },
   ];
+
+  // Export the headline figures already shown on this page as a CSV. Everything
+  // here is derived above from the page's own props, so the export is instant
+  // and offline — no extra fetch or server action needed.
+  function handleExportData() {
+    const rows: Array<[string, string | number]> = [
+      ["Property", property.name],
+      ["Code", property.code],
+      ["Type", TYPE_LABEL[property.type] ?? property.type],
+      ["Status", property.status],
+      ["Province", property.province ?? ""],
+      ["Purchase Price", property.buyNumeric ?? ""],
+      ["Current Valuation", latestValuation ? latestValuation.price : ""],
+      ["Monthly Income", monthlyIncome],
+      ["Income Status", incomeStatus],
+      ["YTD Income", grossIncome],
+      ["YTD Expenses", totalExpenses],
+      ["Net Operating Income", noi],
+      ["Active Leases", activeLeases.length],
+      ["Progress Score", progressDetails ? `${progressDetails.score}%` : ""],
+    ];
+    exportPropertyCsv(rows, `${property.code || "property"}-overview.csv`);
+    toast.success("Property data exported");
+  }
 
   const countUpActive = mounted && !reducedMotion;
   const ease = "cubic-bezier(0.22,1,0.36,1)";
@@ -523,6 +604,8 @@ export function PropertyOverviewPage({
                 Edit profile
               </button>
               <button
+                type="button"
+                onClick={handleExportData}
                 className="text-white text-[13px] font-semibold px-4 py-2 rounded flex items-center gap-2 shadow-[0_4px_6px_-1px_rgba(0,74,198,0.3)] hover:opacity-90 active:scale-[0.97] transition-[opacity,transform] duration-150"
                 style={{ background: "linear-gradient(168deg, var(--val-primary-dark) 0%, #2563eb 100%)" }}
               >
@@ -925,7 +1008,7 @@ export function PropertyOverviewPage({
               )}
 
               {/* Alerts panel */}
-              {alerts.length > 0 && (
+              {visibleAlerts.length > 0 && (
                 <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
                   <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50/80 border-b border-slate-200">
                     <div className="flex items-center gap-2">
@@ -934,14 +1017,28 @@ export function PropertyOverviewPage({
                         <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-400" />
                       </span>
                       <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">
-                        {alerts.length} action{alerts.length !== 1 ? "s" : ""} pending
+                        {visibleAlerts.length} action{visibleAlerts.length !== 1 ? "s" : ""} pending
                       </span>
                     </div>
-                    <button className="text-slate-400 text-[12px] font-medium hover:text-slate-600 transition-colors" aria-label="Dismiss all alerts">
-                      Dismiss all
-                    </button>
+                    {/* Dismiss all — reversible: undo restores every alert just hidden. */}
+                    <ConfirmAction
+                      tier="undo"
+                      successMessage="All alerts dismissed"
+                      onConfirm={() => {
+                        dismissAllAlerts();
+                        return undefined;
+                      }}
+                      onUndo={() => restoreAlerts(alerts.map((a) => a.id))}
+                    >
+                      <button
+                        className="text-slate-400 text-[12px] font-medium hover:text-slate-600 transition-colors"
+                        aria-label="Dismiss all alerts"
+                      >
+                        Dismiss all
+                      </button>
+                    </ConfirmAction>
                   </div>
-                  {alerts.map((a, i) => {
+                  {visibleAlerts.map((a, i) => {
                     const category = "category" in a ? (a as { category?: string }).category : undefined;
                     const { borderClass, iconBg, iconFg, label, Icon: AlertIcon } = getAlertStyle(a.type, category);
                     return (
@@ -962,28 +1059,38 @@ export function PropertyOverviewPage({
                         >
                           {a.action}
                         </button>
+                        {/* Per-item dismiss — undo tier: hides this alert immediately
+                            and offers Undo to bring it back. */}
+                        <ConfirmAction
+                          tier="undo"
+                          successMessage="Alert dismissed"
+                          onConfirm={() => {
+                            dismissAlert(a.id);
+                            return undefined;
+                          }}
+                          onUndo={() => restoreAlert(a.id)}
+                        >
+                          <button
+                            aria-label={`Dismiss: ${a.body}`}
+                            className="shrink-0 size-6 rounded-full flex items-center justify-center text-slate-300 hover:text-slate-500 hover:bg-slate-100 transition-colors mt-0.5"
+                            title="Dismiss"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </ConfirmAction>
                       </div>
                     );
                   })}
                 </div>
               )}
 
-              {/* Quick Actions */}
-              <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)] flex flex-col gap-3">
-                <h3 className="text-val-heading text-[15px] font-semibold">Quick Actions</h3>
-                <div className="grid grid-cols-2 gap-2">
-                  {quickActions.map(({ icon: Icon, label }) => (
-                    <button
-                      key={label}
-                      className="bg-val-bg-tint rounded-lg py-3.5 flex flex-col items-center gap-1.5 hover:bg-blue-100 hover:scale-[1.03] hover:shadow-sm active:scale-[0.97] transition-[background-color,transform,box-shadow] duration-150"
-                    >
-                      <Icon className="w-4 h-4 text-[--val-primary-dark]" />
-                      <span className="text-[11px] font-semibold text-val-heading">{label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
+              {/* Quick Actions (New Lease / Work Order / Invoice / Notify All) were
+                  removed in the Phase-5 stub cleanup: none had a backend handler,
+                  so they were visible no-ops. Re-introduce per-action once the
+                  corresponding create flows exist (lease/work-order/invoice). */}
 
+              {/* Photo manager — add / delete / set-cover on this property's photos */}
+              <PropertyPhotoManager propertyId={property.id} />
 
             </div>
           </div>
@@ -1088,6 +1195,39 @@ export function PropertyOverviewPage({
             </div>
           )}
 
+        </div>
+      </div>
+
+      {/* ─── Recent activity panel ────────────────────────────────── */}
+      <div className="px-4 sm:px-6 pb-10 max-w-7xl mx-auto w-full">
+        <div className="rounded-xl border border-slate-100 bg-white shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+            <h3 className="text-[13px] font-semibold text-slate-700">Recent activity</h3>
+            {recentActivities.length > 0 && (
+              <span className="text-[11px] text-slate-400">Showing latest {recentActivities.length}</span>
+            )}
+          </div>
+          {recentActivities.length === 0 ? (
+            <div className="px-5 py-10 flex flex-col items-center gap-2 text-center">
+              <span className="text-2xl select-none">📋</span>
+              <p className="text-[13px] font-medium text-slate-500">No activity yet</p>
+              <p className="text-[12px] text-slate-400">Actions like archiving, adding photos, or updating records will appear here.</p>
+            </div>
+          ) : (
+            <ul className="divide-y divide-slate-50">
+              {recentActivities.map((event) => (
+                <li key={event.id} className="px-5 py-3 flex items-start gap-3">
+                  <span className="mt-0.5 flex-shrink-0 w-1.5 h-1.5 rounded-full bg-slate-300 mt-2" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[12px] text-slate-700 truncate">{event.description}</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      {event.entity} · {formatRelativeTime(event.createdAt)}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
 

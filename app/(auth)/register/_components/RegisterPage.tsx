@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, ArrowRight, Mail, Check, ArrowLeft, Loader2 } from "lucide-react";
+import { Eye, EyeOff, ArrowRight, Mail, Check, ArrowLeft, Loader2, Building2, Briefcase } from "lucide-react";
 import { toast } from "sonner";
 import { useSignUp } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,10 @@ function getPasswordStrength(password: string): {
 
 const STRENGTH_COLORS = ["", "bg-red-400", "bg-amber-400", "bg-blue-500", "bg-green-500"];
 
+// The two roles a new user can pick at sign-up. Stored in Clerk unsafeMetadata
+// on first creation; the webhook copies it to users.is_manager in Neon.
+type AccountType = "owner" | "manager";
+
 type FieldErrors = Partial<Record<"fullName" | "email" | "password" | "confirmPassword" | "agreed", string>>;
 
 export function RegisterPage() {
@@ -41,6 +45,8 @@ export function RegisterPage() {
   const { signUp } = useSignUp();
 
   const [step, setStep] = useState<"form" | "verify">("form");
+  // Owner is the default — the vast majority of sign-ups are property owners.
+  const [accountType, setAccountType] = useState<AccountType>("owner");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -88,6 +94,8 @@ export function RegisterPage() {
         firstName: parts[0],
         lastName: parts.slice(1).join(" ") || undefined,
         legalAccepted: agreed,
+        // accountType is copied to users.is_manager by the webhook when the user is created.
+        unsafeMetadata: { accountType },
       });
       if (error) {
         toast.error(clerkErrorMessage(error, "Could not create your account. Please try again."));
@@ -124,8 +132,18 @@ export function RegisterPage() {
       }
       // Clerk's "Create first organization automatically" setting creates + activates the user's
       // org during sign-up, so finalize() lands them in an active org. (No manual createOrganization.)
-      await signUp.finalize(); // convert to an active session
-      router.push("/");
+      // navigate callback is required — Clerk needs it to handle Safari ITP cookie redirects.
+      // /launch reads is_manager and redirects each account type to the right landing page.
+      await signUp.finalize({
+        navigate: ({ decorateUrl }) => {
+          const url = decorateUrl("/launch");
+          if (url.startsWith("http")) {
+            window.location.href = url;
+          } else {
+            router.push(url);
+          }
+        },
+      });
     } catch (err) {
       toast.error(clerkErrorMessage(err, "Verification failed. Please try again."));
     } finally {
@@ -189,6 +207,66 @@ export function RegisterPage() {
               </div>
 
               <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
+
+                {/* ── Account type picker — owner (default) or manager ── */}
+                <div
+                  className="flex flex-col gap-2"
+                  data-auth-item
+                  style={{ "--auth-delay": "60ms" } as React.CSSProperties}
+                >
+                  <Label className="text-sm font-medium text-text-secondary">
+                    I am a…
+                  </Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Owner card */}
+                    <button
+                      type="button"
+                      onClick={() => setAccountType("owner")}
+                      aria-pressed={accountType === "owner"}
+                      className={`flex flex-col items-start gap-2 rounded-xl border-2 px-4 py-3.5 text-left transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[--val-primary-dark] ${
+                        accountType === "owner"
+                          ? "border-[--val-primary-dark] bg-[#e4efff]"
+                          : "border-[#c3c6d7] bg-white hover:border-[#a5b0cc]"
+                      }`}
+                    >
+                      <Building2
+                        className={`size-5 ${accountType === "owner" ? "text-[--val-primary-dark]" : "text-[#737686]"}`}
+                      />
+                      <div>
+                        <p className={`text-sm font-semibold leading-tight ${accountType === "owner" ? "text-[--val-primary-dark]" : "text-foreground"}`}>
+                          Property Owner
+                        </p>
+                        <p className="text-[11px] leading-[15px] text-[#737686] mt-0.5">
+                          I own properties
+                        </p>
+                      </div>
+                    </button>
+
+                    {/* Manager card */}
+                    <button
+                      type="button"
+                      onClick={() => setAccountType("manager")}
+                      aria-pressed={accountType === "manager"}
+                      className={`flex flex-col items-start gap-2 rounded-xl border-2 px-4 py-3.5 text-left transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[--val-primary-dark] ${
+                        accountType === "manager"
+                          ? "border-[--val-primary-dark] bg-[#e4efff]"
+                          : "border-[#c3c6d7] bg-white hover:border-[#a5b0cc]"
+                      }`}
+                    >
+                      <Briefcase
+                        className={`size-5 ${accountType === "manager" ? "text-[--val-primary-dark]" : "text-[#737686]"}`}
+                      />
+                      <div>
+                        <p className={`text-sm font-semibold leading-tight ${accountType === "manager" ? "text-[--val-primary-dark]" : "text-foreground"}`}>
+                          Portfolio Manager
+                        </p>
+                        <p className="text-[11px] leading-[15px] text-[#737686] mt-0.5">
+                          I manage for others
+                        </p>
+                      </div>
+                    </button>
+                  </div>
+                </div>
 
                 <div
                   className="flex flex-col gap-2"

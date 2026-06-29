@@ -10,9 +10,11 @@ import {
   createDocument as svcCreateDocument,
   updateDocument as svcUpdateDocument,
   deleteDocument as svcDeleteDocument,
+  deleteDocuments as svcDeleteDocuments,
   getDocument as svcGetDocument,
 } from "@/lib/services/documents";
 import { presignUpload, resolveDocumentUrl } from "@/lib/services/storage";
+import { logActivity } from "@/lib/services/activity";
 
 const UploadMetaSchema = z.object({
   name: z.string().min(1),
@@ -52,12 +54,49 @@ export async function updateDocument(id: string, patch: unknown): Promise<Action
 export async function deleteDocument(id: string): Promise<ActionResult<void>> {
   const ctx = await requireCtx();
   try {
-    await svcDeleteDocument(ctx, id);
+    // Service deletes the row + the S3 object, and returns the removed doc (or null).
+    const removed = await svcDeleteDocument(ctx, id);
+    if (!removed) return { ok: false, error: "Document not found" };
+    // Audit: document removal IS a supported activity kind (document.removed).
+    await logActivity(ctx, {
+      entity: "document",
+      action: "removed",
+      entityId: removed.id,
+      summary: `Deleted document "${removed.name}"`,
+      propertyId: removed.propertyId,
+    });
     revalidateFeTag("documents");
     return { ok: true, data: undefined };
   } catch (err) {
     console.error("deleteDocument", err);
     return { ok: false, error: "Could not delete document" };
+  }
+}
+
+// Bulk delete used by the documents page's multi-select "Delete" affordance.
+// Validates the id list, deletes each (org-scoped + admin-gated + S3 cleanup), writes one
+// activity row per removed file, then returns how many were actually deleted so the UI can
+// report it. A partial failure inside the batch is swallowed per-id by the service.
+export async function deleteDocuments(ids: unknown): Promise<ActionResult<{ deleted: number }>> {
+  const parsed = z.array(z.string().min(1)).min(1).safeParse(ids);
+  if (!parsed.success) return { ok: false, error: "Invalid document selection" };
+  const ctx = await requireCtx();
+  try {
+    const removed = await svcDeleteDocuments(ctx, parsed.data);
+    for (const doc of removed) {
+      await logActivity(ctx, {
+        entity: "document",
+        action: "removed",
+        entityId: doc.id,
+        summary: `Deleted document "${doc.name}"`,
+        propertyId: doc.propertyId,
+      });
+    }
+    revalidateFeTag("documents");
+    return { ok: true, data: { deleted: removed.length } };
+  } catch (err) {
+    console.error("deleteDocuments", err);
+    return { ok: false, error: "Could not delete documents" };
   }
 }
 

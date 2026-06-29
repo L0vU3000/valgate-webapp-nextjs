@@ -13,6 +13,10 @@ export function normaliseRole(r: string | null | undefined): Ctx["orgRole"] {
   if (r === "org:member") return "member";
   if (r === "admin") return "admin";
   if (r === "viewer") return "viewer";
+  // Clerk custom roles conventionally use the "org:" prefix (e.g. "org:viewer").
+  // Handle both naming styles so the dashboard role key and the app role name
+  // can differ without breaking normalisation.
+  if (r === "org:viewer") return "viewer";
   return "member"; // unknown → member, never throw (D-I)
 }
 
@@ -30,6 +34,10 @@ export async function upsertUser(data: {
   primaryEmail: string;
   displayName?: string | null;
   avatarUrl?: string | null;
+  // Optional: only honoured on first INSERT. Once set (true or false), subsequent
+  // upserts leave is_manager alone so the user can toggle it from Settings without
+  // it being overwritten by a later webhook replay.
+  isManager?: boolean;
 }): Promise<void> {
   await db.insert(users)
     .values({
@@ -38,9 +46,13 @@ export async function upsertUser(data: {
       primaryEmail: data.primaryEmail,
       displayName: data.displayName ?? null,
       avatarUrl: data.avatarUrl ?? null,
+      isManager: data.isManager ?? false,
     })
     .onConflictDoUpdate({
       target: users.clerkUserId,
+      // is_manager is intentionally omitted here — first-write wins (sticky).
+      // The user's Settings toggle or a deliberate admin change are the only
+      // things that should flip it after the account is created.
       set: {
         primaryEmail: data.primaryEmail,
         displayName: data.displayName ?? null,
@@ -48,6 +60,23 @@ export async function upsertUser(data: {
         updatedAt: new Date(),
       },
     });
+}
+
+/**
+ * Updates is_manager for the given Clerk user id.
+ *
+ * Called ONLY by the setManagerMode server action, which resolves the Clerk
+ * user id from auth() — never from untrusted input — so the caller can only
+ * update their own row (IDOR protection lives in the action layer).
+ *
+ * What could go wrong: if the user row doesn't exist yet (missed create event),
+ * the update silently no-ops rather than throwing — the flag just stays false,
+ * which is the safe default.
+ */
+export async function setUserIsManager(clerkUserId: string, isManager: boolean): Promise<void> {
+  await db.update(users)
+    .set({ isManager, updatedAt: new Date() })
+    .where(eq(users.clerkUserId, clerkUserId));
 }
 
 export async function upsertMembership(data: {

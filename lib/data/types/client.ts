@@ -22,6 +22,8 @@ export const ClientSchema = z.object({
   preferredContact: z.enum(["Email", "Phone"]).optional(),
   clientSince: timestampSchema,
   managementFeePct: z.number().min(0).max(100).optional(),
+  // Optional status field — absent means Active (back-compatible with existing FS records).
+  status: z.enum(["Active", "Inactive"]).optional(),
   createdAt: timestampSchema,
   updatedAt: timestampSchema,
 });

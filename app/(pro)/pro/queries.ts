@@ -20,13 +20,15 @@ import { listEstateAssignments } from "@/lib/services/estate-assignments";
 import { listDocuments } from "@/lib/services/documents";
 import { getCurrentUserId } from "@/lib/data/auth-shim";
 import { requireCtx } from "@/lib/auth/ctx";
+import { listManagedAccounts, getIsManager } from "@/lib/services/managers";
+import { OWN_PORTFOLIO_ID } from "@/app/(pro)/pro/_components/pro-shell-types";
 import {
   computeProgress,
   type ProgressContext,
 } from "@/lib/data/derivations/progress";
-import { formatCurrency, formatCurrencyFull } from "@/lib/format";
+import { formatCurrency, formatCurrencyFull, addUtcMonths } from "@/lib/format";
 import { getUserProfile } from "@/lib/services/user-profiles";
-import type { Client } from "@/lib/data/types/client";
+import type { Client, ClientType } from "@/lib/data/types/client";
 import type {
   Property,
   PropertyStatus,
@@ -88,6 +90,9 @@ export type ProAlert = {
 };
 
 export type ClientHealth = "healthy" | "needs-attention" | "critical";
+
+// Re-exported so server-side callers can still import from here.
+export { OWN_PORTFOLIO_ID };
 
 export type ClientRollup = {
   client: Client;
@@ -329,6 +334,11 @@ export type ProShellData = {
   manager: { name: string; initials: string };
   // Properties shaped for the command palette (PropertyListItem).
   searchProperties: PropertyListItem[];
+  // Owner accounts the manager has been granted access to — drives AccountSwitcher.
+  // Empty array for non-managers (owners are never managers).
+  managedAccounts: { clerkOrgId: string; name: string; level: "view" | "full" }[];
+  // Whether the user has manager mode on — drives the My portfolio ⇄ Pro pill in the header.
+  isManager: boolean;
 };
 
 // ---------------------------------------------------------------------------
@@ -398,6 +408,11 @@ async function loadProContext(): Promise<ProContext> {
     listDocuments(authCtx),
   ]);
 
+  // Filter inactive clients so they vanish from rollups, alerts, the client
+  // book, and all derived counts. Absent status field = Active (back-compatible
+  // with existing FS records that predate this field).
+  const activeClients = clients.filter((c) => c.status !== "Inactive");
+
   // Re-use the client-side Progress derivation as-is.
   const progressCtx: ProgressContext = {
     leases,
@@ -426,7 +441,7 @@ async function loadProContext(): Promise<ProContext> {
   }
 
   return {
-    clients,
+    clients: activeClients,
     properties,
     leases,
     payments,
@@ -438,7 +453,7 @@ async function loadProContext(): Promise<ProContext> {
     professionals,
     progressByPropertyId,
     propertyById: new Map(properties.map((p) => [p.id, p])),
-    clientById: new Map(clients.map((c) => [c.id, c])),
+    clientById: new Map(activeClients.map((c) => [c.id, c])),
     leaseById: new Map(leases.map((l) => [l.id, l])),
     tenantById: new Map(tenants.map((t) => [t.id, t])),
     professionalById: new Map(professionals.map((p) => [p.id, p])),
@@ -457,6 +472,13 @@ export async function getProDashboardData(): Promise<ProDashboardData> {
   const rollups = ctx.clients
     .map((client) => buildClientRollup(client, ctx, monthStart))
     .sort((a, b) => b.totalValue - a.totalValue);
+
+  // Prepend the manager's own book (his directly-held properties) so it shows
+  // first in the clients table and its alerts flow into the dashboard feed.
+  const ownRollup = buildOwnPortfolioRollup(ctx, monthStart);
+  if (ownRollup) {
+    rollups.unshift(ownRollup);
+  }
 
   const allAlerts = rollups
     .flatMap((r) => r.alerts)
@@ -513,7 +535,7 @@ export async function getProDashboardData(): Promise<ProDashboardData> {
       .filter((r): r is ProPropertyRow => r !== null),
     workOrders: {
       counts: countWorkOrders(ctx.maintenance),
-      queue: workOrderRows.filter((r) => r.status !== "Resolved"),
+      queue: workOrderRows.filter((r) => r.status !== "Resolved" && r.status !== "Cancelled"),
     },
     financials: {
       expected,
@@ -584,8 +606,10 @@ export async function getProPropertiesData(): Promise<ProPropertiesData> {
 // types the dashboard touches but never fully shows:
 //   - Certifications — the expiry timeline (already shaped by
 //     buildComplianceRows; we bucket on its server-computed daysLeft).
-//   - SafetyRisks — open risks per property, ranked by severity. Every
-//     listed risk is "open" (the schema has no resolved flag).
+//   - SafetyRisks — risks per property, ranked by severity. Both open and
+//     resolved risks are returned; the page's "Show resolved" toggle reveals
+//     the resolved ones read-only, and the summary counts the open/resolved
+//     split.
 //   - Inspections — the recent inspection log, newest first.
 // ---------------------------------------------------------------------------
 
@@ -668,9 +692,13 @@ export async function getCompliancePageData(): Promise<CompliancePageData> {
           safetyRiskSeverityRank(b.severity) || b.createdAt - a.createdAt,
     );
 
-  // The "Open Safety Risks" card shows only unresolved risks. Resolving one
-  // drops it from this list and from openRiskCount, so the KPI falls.
-  const safetyRisks = allSafetyRiskRows.filter((r) => r.status === "Open");
+  // We now return BOTH open and resolved risks so the compliance page's
+  // "Show resolved" toggle can reveal the resolved ones (read-only) without a
+  // second round-trip. The card defaults to open-only; the page filters this
+  // list client-side. `openRisks` is kept for the summary counts below so the
+  // KPI strip still reports the open/resolved split correctly.
+  const openRisks = allSafetyRiskRows.filter((r) => r.status === "Open");
+  const safetyRisks = allSafetyRiskRows;
 
   // Inspections — join each to its property/client, newest inspection first.
   const inspections = ctx.inspections
@@ -719,9 +747,9 @@ export async function getCompliancePageData(): Promise<CompliancePageData> {
       expiringCount: certifications.filter((c) => c.status === "Expiring")
         .length,
       validCount: certifications.filter((c) => c.status === "Valid").length,
-      openRiskCount: safetyRisks.length,
-      resolvedRiskCount: allSafetyRiskRows.length - safetyRisks.length,
-      highRiskCount: safetyRisks.filter(
+      openRiskCount: openRisks.length,
+      resolvedRiskCount: allSafetyRiskRows.length - openRisks.length,
+      highRiskCount: openRisks.filter(
         (r) => r.severity === "Critical" || r.severity === "High",
       ).length,
       failedInspections: inspections.filter((i) => i.status === "Failed")
@@ -734,14 +762,35 @@ export async function getClientPortfolioData(
   clientId: string,
 ): Promise<ClientPortfolioData | null> {
   const ctx = await loadProContext();
-  const client = ctx.clientById.get(clientId);
-  if (!client) return null;
-
   const monthStart = currentMonthStartUtc();
-  const rollup = buildClientRollup(client, ctx, monthStart);
+
+  // Resolve which properties this view owns. The synthetic own-portfolio id
+  // maps to the manager's unassigned properties; every other id is a persisted
+  // client matched on Property.clientId.
+  let client: Client;
+  let belongsToView: (p: Property) => boolean;
+
+  if (clientId === OWN_PORTFOLIO_ID) {
+    const ownRollup = buildOwnPortfolioRollup(ctx, monthStart);
+    if (!ownRollup) return null;
+    client = ownRollup.client;
+    belongsToView = (p) => !p.clientId;
+  } else {
+    const found = ctx.clientById.get(clientId);
+    if (!found) return null;
+    client = found;
+    belongsToView = (p) => p.clientId === clientId;
+  }
+
+  const rollup = buildRollupFromProperties(
+    client,
+    ctx.properties.filter(belongsToView),
+    ctx,
+    monthStart,
+  );
 
   const clientPropertyIds = new Set(
-    ctx.properties.filter((p) => p.clientId === clientId).map((p) => p.id),
+    ctx.properties.filter(belongsToView).map((p) => p.id),
   );
 
   const scoped: ProContext = {
@@ -807,9 +856,9 @@ export async function getRentPageData(): Promise<RentPageData> {
         : undefined;
       const tenant = l.tenantId ? ctx.tenantById.get(l.tenantId) : undefined;
       // Same projection the renewLease action applies: advance the end
-      // date by one full lease term (UTC month arithmetic).
-      const projectedEnd = new Date(l.endDate);
-      projectedEnd.setUTCMonth(projectedEnd.getUTCMonth() + l.termMonths);
+      // date by one full lease term. addUtcMonths clamps the day into the
+      // target month so the preview can't drift from what the action saves.
+      const projectedEndDate = addUtcMonths(l.endDate, l.termMonths);
       return {
         leaseId: l.id,
         propertyId: l.propertyId,
@@ -821,7 +870,7 @@ export async function getRentPageData(): Promise<RentPageData> {
         renewalStatus: l.renewalStatus,
         daysLeft: Math.max(0, Math.ceil((l.endDate - now) / DAY)),
         termMonths: l.termMonths,
-        projectedEndDate: projectedEnd.getTime(),
+        projectedEndDate,
       };
     })
     .sort((a, b) => a.endDate - b.endDate);
@@ -872,11 +921,12 @@ export async function getWorkOrdersPageData(): Promise<WorkOrdersPageData> {
   const urgentOpen = ctx.maintenance.filter(
     (m) =>
       m.status !== "Resolved" &&
+      m.status !== "Cancelled" &&
       (m.severity === "Emergency" || m.severity === "Urgent"),
   ).length;
 
   const totalOpenCost = ctx.maintenance
-    .filter((m) => m.status !== "Resolved")
+    .filter((m) => m.status !== "Resolved" && m.status !== "Cancelled")
     .reduce((sum, m) => sum + (m.cost ?? 0), 0);
 
   // Trade categories that can take a work order.
@@ -911,17 +961,52 @@ export async function getWorkOrdersPageData(): Promise<WorkOrdersPageData> {
   };
 }
 
+// Returns the minimal shape of clients whose status is "Inactive" (archived).
+// Used by the clients index page so managers can see and reactivate archived
+// clients — these are excluded from loadProContext so they won't appear in
+// rollups or the active client list.
+export async function getInactiveClients(): Promise<
+  Array<{
+    id: string;
+    name: string;
+    initials: string;
+    avatarBg: string;
+    clientType: ClientType;
+  }>
+> {
+  const userId = getCurrentUserId();
+  const all = await clientsDb.list(userId);
+  return all
+    .filter((c) => c.status === "Inactive")
+    .map((c) => ({
+      id: c.id,
+      name: c.name,
+      initials: c.initials,
+      avatarBg: c.avatarBg,
+      clientType: c.clientType,
+    }));
+}
+
 export async function getProShellData(): Promise<ProShellData> {
   const authCtx = await requireCtx();
-  const [ctx, profile] = await Promise.all([
+  const [ctx, profile, rawAccounts, isManager] = await Promise.all([
     loadProContext(),
     getUserProfile(authCtx, authCtx.userId),
+    listManagedAccounts(authCtx),
+    getIsManager(authCtx),
   ]);
   const monthStart = currentMonthStartUtc();
 
   const rollups = ctx.clients
     .map((client) => buildClientRollup(client, ctx, monthStart))
     .sort((a, b) => b.totalValue - a.totalValue);
+
+  // Include the own-portfolio rollup so the workspace tab provider can open it
+  // as a tab and the sidebar lists it next to the managed clients.
+  const ownRollup = buildOwnPortfolioRollup(ctx, monthStart);
+  if (ownRollup) {
+    rollups.unshift(ownRollup);
+  }
 
   const managerName = profile
     ? `${profile.firstName} ${profile.lastName}`.trim()
@@ -939,8 +1024,9 @@ export async function getProShellData(): Promise<ProShellData> {
       health: r.health,
       propertyCount: r.propertyCount,
     })),
-    openWorkOrders: ctx.maintenance.filter((m) => m.status !== "Resolved")
-      .length,
+    openWorkOrders: ctx.maintenance.filter(
+      (m) => m.status !== "Resolved" && m.status !== "Cancelled",
+    ).length,
     urgentAlerts: rollups
       .flatMap((r) => r.alerts)
       .filter((a) => a.severity === "urgent").length,
@@ -959,6 +1045,12 @@ export async function getProShellData(): Promise<ProShellData> {
       isArchived: p.isArchived,
       progress: ctx.progressByPropertyId.get(p.id) ?? 0,
     })),
+    managedAccounts: rawAccounts.map((a) => ({
+      clerkOrgId: a.clerkOrgId,
+      name: a.name,
+      level: a.level,
+    })),
+    isManager,
   };
 }
 
@@ -1104,7 +1196,8 @@ function severityRankMaintenance(s: MaintenanceItem["severity"]): number {
 }
 
 function statusRankMaintenance(s: MaintenanceStatus): number {
-  return s === "Open" ? 0 : s === "InProgress" ? 1 : 2;
+  // Cancelled sorts after Resolved so closed-out orders sink to the bottom.
+  return s === "Open" ? 0 : s === "InProgress" ? 1 : s === "Resolved" ? 2 : 3;
 }
 
 function rentStatusRank(s: RentStatus): number {
@@ -1233,7 +1326,8 @@ function deriveClientAlerts(
 
   // MaintenanceItem — Emergency not resolved (urgent), Urgent open (warning)
   for (const item of maintenance) {
-    if (item.status === "Resolved") continue;
+    // Both terminal states suppress alerts — Cancelled orders are no longer actionable.
+    if (item.status === "Resolved" || item.status === "Cancelled") continue;
     if (item.severity === "Emergency") {
       alerts.push({
         id: `alert-${item.id}`,
@@ -1279,6 +1373,46 @@ function buildClientRollup(
   monthStart: number,
 ): ClientRollup {
   const properties = ctx.properties.filter((p) => p.clientId === client.id);
+  return buildRollupFromProperties(client, properties, ctx, monthStart);
+}
+
+// Build the synthetic "My Portfolio" rollup from the properties the manager
+// owns directly (no clientId). Returns null when he has no such properties,
+// so the card only appears when there is something real to show.
+function buildOwnPortfolioRollup(
+  ctx: ProContext,
+  monthStart: number,
+): ClientRollup | null {
+  const ownProperties = ctx.properties.filter((p) => !p.clientId);
+  if (ownProperties.length === 0) {
+    return null;
+  }
+
+  // A stand-in Client for the manager's own book. It is never persisted —
+  // it only carries the labels the rollup and the clients table need to render.
+  const selfClient: Client = {
+    id: OWN_PORTFOLIO_ID,
+    userId: getCurrentUserId(),
+    name: "My Portfolio",
+    clientType: "Individual",
+    initials: "ME",
+    avatarBg: "bg-blue-600",
+    clientSince: 0,
+    createdAt: 0,
+    updatedAt: 0,
+  };
+
+  return buildRollupFromProperties(selfClient, ownProperties, ctx, monthStart);
+}
+
+// Core rollup math, shared by real managed clients and the synthetic
+// own-portfolio rollup. `properties` is the already-scoped property list.
+function buildRollupFromProperties(
+  client: Client,
+  properties: Property[],
+  ctx: ProContext,
+  monthStart: number,
+): ClientRollup {
   const active = properties.filter(isActiveProperty);
   const propertyIds = new Set(properties.map((p) => p.id));
 
@@ -1490,7 +1624,7 @@ function buildActivityFeed(ctx: ProContext, limit: number): ProActivityEvent[] {
     events.push({
       id: `act-${m.id}`,
       category: "maintenance",
-      description: `Work order ${m.status === "Resolved" ? "resolved" : "created"} — ${m.title}`,
+      description: `Work order ${m.status === "Resolved" ? "resolved" : m.status === "Cancelled" ? "cancelled" : "created"} — ${m.title}`,
       clientName,
       propertyName,
       timestamp: m.createdAt,
@@ -1677,7 +1811,7 @@ function buildOwnerStatement(
       inPeriod(m.createdAt),
     ).length,
     workOrdersOpenToday: scoped.maintenance.filter(
-      (m) => m.status !== "Resolved",
+      (m) => m.status !== "Resolved" && m.status !== "Cancelled",
     ).length,
     upcomingLeaseExpirations: scoped.leases
       .filter(

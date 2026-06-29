@@ -28,3 +28,7 @@ export const HEALTH_DOT: Record<ClientHealth, string> = {
   "needs-attention": "bg-amber-500",
   critical: "bg-red-500",
 };
+
+// Sentinel client id for the manager's own book — exposed here so client
+// components can reference it without importing the server-only queries module.
+export const OWN_PORTFOLIO_ID = "own-portfolio";

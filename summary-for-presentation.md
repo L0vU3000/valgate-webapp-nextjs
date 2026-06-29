@@ -197,7 +197,7 @@ A fully modern, cutting-edge stack.
 | **Framework** | Next.js 15.5 + React 19 | App Router, Server Components by default |
 | **Styling** | Tailwind CSS 4 + shadcn/ui (Radix UI) | 30+ Radix primitives, custom theme |
 | **Auth** | Clerk 7.2 | Users + organizations, RBAC ready |
-| **Backend** | Convex 1.35 (+ FS demo layer) | Reactive queries; local FS for dev/demo |
+| **Backend** | Neon (serverless Postgres) + Drizzle ORM (+ FS demo layer) | Typed SQL via `lib/services/*` from Server Actions; local FS for dev/demo |
 | **Validation** | Zod 4.3 + React Hook Form 7.55 | Single source of truth for types + validation |
 | **AI** | AI-SDK (Anthropic + OpenAI) | Streaming, tool use, prompt caching |
 | **Charts** | Recharts 2.15 | Responsive analytics |
@@ -283,7 +283,7 @@ A fully modern, cutting-edge stack.
 | 8.7 | `/` (home / landing) audit | 1 week |
 | 8.8 | `/add-property` full 7-step wizard wiring | 1–2 weeks |
 | 6.x cleanup | Remove `Property.health`, add Monthly Income status badge | ~2 hours |
-| **9** | **Backend migration: FS → Convex / Neon, Clerk RBAC, MFA, encryption key mgmt** | **Largest effort** |
+| **9** | **Backend migration: FS → Neon + Drizzle, Clerk RBAC, MFA, encryption key mgmt** | **Largest effort** |
 
 ---
 
@@ -316,8 +316,8 @@ The **feature unlock wizard** is the monetization primitive — verification gat
 The summary above covers the core narrative. Other angles worth pulling from the codebase if your audience wants a deeper cut:
 
 ### Technical depth angles
-- **Security architecture deep-dive** — envelope encryption flow, IDOR prevention rules, RLS design in `convex/rls.ts`, Clerk org boundary enforcement, document access logs
-- **Local-DB pattern** — why `public/data/users/demo-user/` exists, how it shadows Convex, what the migration to real Convex queries looks like
+- **Security architecture deep-dive** — envelope encryption flow, IDOR prevention rules, auth-scoped Drizzle queries in `lib/services/*`, Clerk org boundary enforcement, document access logs
+- **Local-DB pattern** — why `public/data/users/demo-user/` exists, how it shadows the DB, what the migration to real Neon + Drizzle queries looks like
 - **Derivation engine** — the at-query-time KPI computation strategy and its trade-offs vs. stored aggregates
 - **OCR & document pipeline** — the uploaded → ocr_done → committed lifecycle, S3 + KMS integration
 - **AI copilot architecture** — RAG indexing, tool call surface, per-org thread isolation, encrypted message storage

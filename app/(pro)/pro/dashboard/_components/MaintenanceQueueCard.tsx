@@ -25,6 +25,7 @@ const STATUS_LABEL: Record<MaintenanceStatus, string> = {
   Open: "Open",
   InProgress: "In Progress",
   Resolved: "Resolved",
+  Cancelled: "Cancelled",
 };
 
 const STATUS_PILL: Record<MaintenanceStatus, string> = {
@@ -33,6 +34,8 @@ const STATUS_PILL: Record<MaintenanceStatus, string> = {
     "bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30",
   Resolved:
     "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30",
+  Cancelled:
+    "bg-slate-100 text-slate-500 border border-slate-200 dark:bg-slate-700/40 dark:text-slate-400 dark:border-slate-600/40",
 };
 
 const VISIBLE_LIMIT = 6;

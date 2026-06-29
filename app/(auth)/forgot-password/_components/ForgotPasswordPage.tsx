@@ -48,10 +48,15 @@ export function ForgotPasswordPage() {
     mode: "onBlur",
   });
 
-  // Step 1: identify the user and email a reset code (Future/signals API).
+  // Step 1: identify the user with create(), then sendCode() sends to the identifier on file.
+  // resetPasswordEmailCode.sendCode() takes no params — the identifier comes from create().
   async function onSubmit(values: ForgotPasswordValues) {
     try {
-      await signIn.create({ identifier: values.email });
+      const { error: createError } = await signIn.create({ identifier: values.email });
+      if (createError) {
+        toast.error(clerkErrorMessage(createError, "Could not find an account with that email."));
+        return;
+      }
       const { error } = await signIn.resetPasswordEmailCode.sendCode();
       if (error) {
         toast.error(clerkErrorMessage(error, "Could not start the password reset."));
@@ -93,8 +98,16 @@ export function ForgotPasswordPage() {
         return;
       }
       if (signIn.status === "complete") {
-        await signIn.finalize();
-        router.push("/");
+        await signIn.finalize({
+          navigate: ({ decorateUrl }) => {
+            const url = decorateUrl("/");
+            if (url.startsWith("http")) {
+              window.location.href = url;
+            } else {
+              router.push(url);
+            }
+          },
+        });
       } else {
         setResetError("Could not complete the reset. Please try again.");
       }

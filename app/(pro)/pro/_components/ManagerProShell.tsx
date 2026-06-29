@@ -69,6 +69,8 @@ export function ManagerProShell({
         <ProAppHeader
           manager={shellData.manager}
           searchProperties={shellData.searchProperties}
+          managedAccounts={shellData.managedAccounts}
+          isManager={shellData.isManager}
         />
         <WorkspaceTabBar />
         <div className="flex min-h-0 flex-1">

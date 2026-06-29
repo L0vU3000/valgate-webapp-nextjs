@@ -1,6 +1,6 @@
 // Clerk Organizations mirror (D14). Clerk is source of truth; these tables mirror it
 // into Postgres so domain rows can FK to org_id and joins/RLS work. Shapes = plan §7.0.
-import { pgTable, text, jsonb, timestamp, pgEnum, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, jsonb, boolean, timestamp, pgEnum, index, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const orgRoleEnum = pgEnum("org_role", ["owner", "admin", "member", "viewer"]);
 export const membershipStatusEnum = pgEnum("membership_status", ["active", "invited", "suspended", "removed"]);
@@ -10,6 +10,9 @@ export const organizations = pgTable("organizations", {
   clerkOrgId: text("clerk_org_id").notNull(),        // org_… (external id)
   slug: text("slug"),
   name: text("name").notNull(),
+  // Owner-issued code a manager presents to request access to this org (Pro-2.x).
+  // Nullable: an owner only has one once they choose to invite a manager.
+  inviteCode: text("invite_code"),
   metadata: jsonb("metadata"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -24,6 +27,9 @@ export const users = pgTable("users", {
   primaryEmail: text("primary_email").notNull(),
   displayName: text("display_name"),
   avatarUrl: text("avatar_url"),
+  // Self-serve flag marking this user as a portfolio Manager (Pro-2.x). Managers
+  // land in the /pro cockpit; owners (the default, false) are unaffected.
+  isManager: boolean("is_manager").notNull().default(false),
   lastActiveAt: timestamp("last_active_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

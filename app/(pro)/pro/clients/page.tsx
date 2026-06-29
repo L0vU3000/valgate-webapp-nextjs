@@ -1,4 +1,4 @@
-import { getProDashboardData } from "../queries";
+import { getProDashboardData, getInactiveClients } from "../queries";
 import { ClientsIndexPage } from "./_components/ClientsIndexPage";
 
 // /pro/clients — the manager's book of business: every client with
@@ -9,10 +9,15 @@ import { ClientsIndexPage } from "./_components/ClientsIndexPage";
 export const dynamic = "force-dynamic";
 
 export default async function Page() {
-  const data = await getProDashboardData();
+  // Load active client rollups and inactive clients in parallel — they come
+  // from different paths (loadProContext filters to active; getInactiveClients
+  // reads the raw list and filters to inactive only).
+  const [data, inactiveClients] = await Promise.all([
+    getProDashboardData(),
+    getInactiveClients(),
+  ]);
 
-  // Properties not yet assigned to any client are offered during
-  // onboarding.
+  // Properties not yet assigned to any client are offered during onboarding.
   const unassignedProperties = data.properties
     .filter((p) => p.clientId === "")
     .map((p) => ({ id: p.id, name: p.name }));
@@ -20,6 +25,7 @@ export default async function Page() {
   return (
     <ClientsIndexPage
       clients={data.clients}
+      inactiveClients={inactiveClients}
       unassignedProperties={unassignedProperties}
     />
   );

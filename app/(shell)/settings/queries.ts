@@ -3,6 +3,17 @@ import { requireCtx } from "@/lib/auth/ctx";
 import { listNotificationPreferences } from "@/lib/services/notification-preferences";
 import { getMyUserProfile } from "@/lib/services/user-profiles";
 import { type UserProfile } from "@/lib/data/types/user-profile";
+import { roleAtLeast } from "@/lib/services/_mapping";
+import {
+  getInviteCode,
+  getIsManager,
+  listAccessRequestsForOwner,
+  listManagersForOwner,
+  type PendingRequest,
+  type GrantedManager,
+} from "@/lib/services/managers";
+
+export type { PendingRequest, GrantedManager };
 
 export type NotificationRow = {
   key: string;
@@ -13,6 +24,12 @@ export type NotificationRow = {
 export type NotifChannels = { email: boolean; slack: boolean; sms: boolean };
 
 export type SelectOption = { value: string; label: string };
+
+export type ManagersData = {
+  inviteCode: string | null;
+  pendingRequests: PendingRequest[];
+  managersWithAccess: GrantedManager[];
+};
 
 export type SettingsPageData = {
   profile: Pick<UserProfile, "firstName" | "lastName" | "email" | "jobTitle" | "role" | "phone"> | null;
@@ -26,6 +43,10 @@ export type SettingsPageData = {
     language: string;
     timezone: string;
   };
+  // Whether this user has the manager mode flag enabled — drives the toggle in Preferences.
+  isManager: boolean;
+  // Only present for org owners/admins. Null for viewers/members.
+  managersData: ManagersData | null;
 };
 
 const NOTIFICATION_ROWS: NotificationRow[] = [
@@ -42,8 +63,11 @@ const HARD_DEFAULTS: Record<string, NotifChannels> = {
 
 export async function getSettingsPageData(): Promise<SettingsPageData> {
   const authCtx = await requireCtx();
-  const storedPrefs = await listNotificationPreferences(authCtx);
-  const profile = await getMyUserProfile(authCtx);
+  const [storedPrefs, profile, isManager] = await Promise.all([
+    listNotificationPreferences(authCtx),
+    getMyUserProfile(authCtx),
+    getIsManager(authCtx),
+  ]);
 
   const defaultNotifications: Record<string, NotifChannels> = { ...HARD_DEFAULTS };
   for (const pref of storedPrefs) {
@@ -54,10 +78,24 @@ export async function getSettingsPageData(): Promise<SettingsPageData> {
     };
   }
 
+  // Managers section is only shown to org owners/admins.
+  // Viewers and members get null — the section is hidden entirely.
+  let managersData: ManagersData | null = null;
+  if (roleAtLeast(authCtx.orgRole, "admin")) {
+    const [inviteCode, pendingRequests, managersWithAccess] = await Promise.all([
+      getInviteCode(authCtx).catch(() => null),
+      listAccessRequestsForOwner(authCtx).catch(() => []),
+      listManagersForOwner(authCtx).catch(() => []),
+    ]);
+    managersData = { inviteCode, pendingRequests, managersWithAccess };
+  }
+
   return {
     profile,
     notificationRows: NOTIFICATION_ROWS,
     defaultNotifications,
+    isManager,
+    managersData,
     dashboardViewOptions: [
       { value: "portfolio-overview", label: "Portfolio Overview" },
       { value: "analytics", label: "Analytics" },

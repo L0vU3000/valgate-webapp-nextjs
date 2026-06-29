@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ConfirmAction } from "@/components/ui/confirm-action";
 import {
   Camera,
   Upload,
@@ -89,7 +90,6 @@ export function Step0NewOrDraft({
   const router = useRouter();
   const photoInputRef = useRef<HTMLInputElement>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   function handleManual() {
     setForm({ ...form, method: "manual" });
@@ -118,11 +118,6 @@ export function Step0NewOrDraft({
     }
     setForm({ ...form, method: "upload", uploadFile: file, uploadFileName: file.name });
     onContinue();
-  }
-
-  function confirmDelete(id: string) {
-    onDeleteDraft(id);
-    setPendingDeleteId(null);
   }
 
   const methods = [
@@ -288,15 +283,11 @@ export function Step0NewOrDraft({
             {localDrafts.map((d, i) => (
               <DraftItem
                 key={d.id}
-                id={d.id}
                 title={d.title}
                 propertyType={d.form.propertyType}
                 timestamp={formatRelativeTime(d.updatedAt)}
                 onResume={() => onResumeDraft(d.id)}
-                onRequestDelete={() => setPendingDeleteId(d.id)}
-                onConfirmDelete={() => confirmDelete(d.id)}
-                onCancelDelete={() => setPendingDeleteId(null)}
-                isConfirming={pendingDeleteId === d.id}
+                onConfirmDelete={() => onDeleteDraft(d.id)}
                 showDivider={i < localDrafts.length - 1 || serverOnlyDrafts.length > 0}
                 index={i}
               />
@@ -445,100 +436,25 @@ function MethodCard({
 }
 
 function DraftItem({
-  id,
   title,
   propertyType,
   timestamp,
   onResume,
-  onRequestDelete,
   onConfirmDelete,
-  onCancelDelete,
-  isConfirming,
   showDivider,
   index,
 }: {
-  id: string;
   title: string;
   propertyType?: string;
   timestamp: string;
   onResume: () => void;
-  onRequestDelete: () => void;
+  // Removes the draft from localStorage. Wrapped in a confirm dialog below.
   onConfirmDelete: () => void;
-  onCancelDelete: () => void;
-  isConfirming: boolean;
   showDivider: boolean;
   index: number;
 }) {
   const TypeIcon = propertyType ? PROPERTY_TYPE_ICONS[propertyType] : null;
   const animDelay = `${index * 55}ms`;
-
-  if (isConfirming) {
-    return (
-      <li
-        style={{
-          padding: "12px 20px",
-          borderBottom: showDivider ? `1px solid ${DS.border}` : "none",
-          background: DS.dangerTint,
-          display: "flex",
-          alignItems: "center",
-          gap: 12,
-          transition: "background 0.2s ease",
-        }}
-      >
-        <span
-          style={{ fontSize: 13, color: DS.textSecondary, flex: 1, lineHeight: 1.4 }}
-          className="truncate"
-        >
-          Delete &ldquo;{title}&rdquo;? This can&apos;t be undone.
-        </span>
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={onCancelDelete}
-            style={{
-              fontSize: 13,
-              fontWeight: 500,
-              color: DS.textSecondary,
-              padding: "5px 12px",
-              borderRadius: 8,
-              background: DS.surfaceBase,
-              boxShadow: DS.cardShadow,
-              cursor: "pointer",
-              fontFamily: DS.font,
-              transition: "transform 0.15s cubic-bezier(0.16, 1, 0.3, 1)",
-            }}
-            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.transform = "scale(1.04)")}
-            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.transform = "scale(1)")}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onConfirmDelete}
-            style={{
-              fontSize: 13,
-              fontWeight: 600,
-              color: DS.surfaceBase,
-              padding: "5px 12px",
-              borderRadius: 8,
-              background: DS.danger,
-              cursor: "pointer",
-              fontFamily: DS.font,
-              transition: "transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), background 0.15s ease",
-            }}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLElement).style.transform = "scale(1.04)";
-              (e.currentTarget as HTMLElement).style.background = "#BE123C";
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLElement).style.transform = "scale(1)";
-              (e.currentTarget as HTMLElement).style.background = DS.danger;
-            }}
-          >
-            Delete
-          </button>
-        </div>
-      </li>
-    );
-  }
 
   return (
     <li
@@ -579,36 +495,45 @@ function DraftItem({
       <span style={{ fontSize: 12, color: DS.textDisabled, flexShrink: 0, marginRight: 12 }}>
         {timestamp}
       </span>
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onRequestDelete();
-        }}
-        className="flex items-center justify-center shrink-0"
-        style={{
-          width: 40,
-          height: 40,
-          borderRadius: "50%",
-          color: DS.textDisabled,
-          background: "transparent",
-          transition: "background 0.15s ease, color 0.15s ease, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
-          cursor: "pointer",
-          fontFamily: DS.font,
-        }}
-        onMouseEnter={(e) => {
-          (e.currentTarget as HTMLElement).style.background = DS.dangerTint;
-          (e.currentTarget as HTMLElement).style.color = DS.danger;
-          (e.currentTarget as HTMLElement).style.transform = "scale(1.1)";
-        }}
-        onMouseLeave={(e) => {
-          (e.currentTarget as HTMLElement).style.background = "transparent";
-          (e.currentTarget as HTMLElement).style.color = DS.textDisabled;
-          (e.currentTarget as HTMLElement).style.transform = "scale(1)";
-        }}
-        aria-label="Delete draft"
+      {/* Confirm tier: deleting a draft is irreversible (it lives only in this
+          browser's localStorage, so there's nothing to restore). The dialog
+          stops a row-click from resuming the draft, then removes it on confirm. */}
+      <ConfirmAction
+        tier="confirm"
+        title={`Delete "${title}"?`}
+        description="This removes the saved draft from this browser. This can't be undone."
+        confirmLabel="Delete draft"
+        successMessage="Draft deleted"
+        onConfirm={onConfirmDelete}
       >
-        <Trash2 style={{ width: 15, height: 15 }} />
-      </button>
+        <button
+          onClick={(e) => e.stopPropagation()}
+          className="flex items-center justify-center shrink-0"
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: "50%",
+            color: DS.textDisabled,
+            background: "transparent",
+            transition: "background 0.15s ease, color 0.15s ease, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
+            cursor: "pointer",
+            fontFamily: DS.font,
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLElement).style.background = DS.dangerTint;
+            (e.currentTarget as HTMLElement).style.color = DS.danger;
+            (e.currentTarget as HTMLElement).style.transform = "scale(1.1)";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLElement).style.background = "transparent";
+            (e.currentTarget as HTMLElement).style.color = DS.textDisabled;
+            (e.currentTarget as HTMLElement).style.transform = "scale(1)";
+          }}
+          aria-label="Delete draft"
+        >
+          <Trash2 style={{ width: 15, height: 15 }} />
+        </button>
+      </ConfirmAction>
     </li>
   );
 }

@@ -27,6 +27,8 @@ The 1,240-line mock file that previously powered the Pro UI is **deleted**. Zero
 
 The client side is *one owner managing their own properties*. Pro is *one manager overseeing many owners' properties*. Pro is therefore a **multi-owner overlay on the exact same schema**: a thin new `Client` entity + an optional `clientId` on `Property` partitions the existing 23 seed properties across 6 owner-clients, and every Pro statistic is an existing per-property derivation **grouped by client and rolled up**. When the real backend (Convex) lands, only the db layer swaps — `Client` maps onto Convex's already-drafted `owner` + `property_owner_membership`.
 
+> **Correction (2026-06-19): the app's live backend is Neon + Drizzle, not Convex — see CLAUDE.md.** The Convex plan described above reflects the assumption at build time (2026-06-11). The backend was subsequently built on Neon + Drizzle: `Client` maps onto tables in `lib/db/schema/*`, and the db layer is `lib/services/*` called from Server Actions.
+
 ### File map (what's where)
 
 | Layer | Files |
@@ -114,6 +116,7 @@ The client side is *one owner managing their own properties*. Pro is *one manage
 - `seed:pro` is idempotent (aborts if clients exist) — safe to re-run.
 - `payments.update` exists now; if you add more mutating Pro flows, follow the same pattern (update record, don't append duplicates).
 - All Pro mutations revalidate via `revalidatePath("/pro", "layout")` — coarse but correct for the JSON db; replace with `revalidateTag` granularity during the Convex migration.
+  > **Correction (2026-06-19): the app's live backend is Neon + Drizzle, not Convex — see CLAUDE.md.** The "Convex migration" referenced here was the plan at build time; the `revalidateTag` granularity upgrade applies to the Neon + Drizzle backend that was actually built.
 
 ## 7. What's next (queued in the plan)
 

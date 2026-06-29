@@ -1,9 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef, Fragment, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import { createFolder, updateFolder, deleteFolder } from "@/app/actions/folders";
-import { getDocumentFileUrl } from "../documents/actions";
 import type { Property } from "@/lib/data/types/property";
 import type { Document as DbDocument } from "@/lib/data/types/document";
 import type { Folder as DbFolder } from "@/lib/data/types/folder";
@@ -29,32 +26,24 @@ import {
   FolderInput,
   ChevronUp,
   Plus,
-  MoreVertical,
-  ArrowUpDown,
-  SlidersHorizontal,
 } from "lucide-react";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { DocumentDetailView } from "@/components/property/DocumentDetailView";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuCheckboxItem,
-} from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { formatBytes } from "@/lib/format";
 import { DevFileButton } from "@/components/dev/DevFileButton";
 import { createDummyPdf } from "@/lib/dev-tools";
+import { useRouter } from "next/navigation";
+import { ConfirmAction } from "@/components/ui/confirm-action";
+import { toastActionResult } from "@/lib/client/action-result";
+import { deleteDocument, deleteDocuments } from "@/app/actions/documents";
+import { createFolder, deleteFolder, getFolderContents } from "@/app/actions/folders";
+import type { ActionResult } from "@/app/actions/_result";
 
 type ViewMode = "list" | "grid";
 type UploadStatus = "uploading" | "done" | "failed" | "queued";
 type UploadTab = "all" | "uploading" | "failed" | "done";
-// The sort order the user has chosen for the files list.
-// "date-newest" is the default — most recently uploaded files appear first.
-type SortOption = "date-newest" | "date-oldest" | "name-asc" | "name-desc" | "size-largest" | "size-smallest";
 
 type UploadItem = {
   id: string;
@@ -69,34 +58,6 @@ function formatFileSize(bytes: number): string {
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
-
-// Human-readable labels for each sort option, used in the sort dropdown button.
-const SORT_LABELS: Record<SortOption, string> = {
-  "date-newest":   "Date added — newest",
-  "date-oldest":   "Date added — oldest",
-  "name-asc":      "Name (A – Z)",
-  "name-desc":     "Name (Z – A)",
-  "size-largest":  "File size — largest",
-  "size-smallest": "File size — smallest",
-};
-
-// Human-readable labels for each file type, used in the filter dropdown and active-filter chips.
-const FILE_TYPE_LABELS: Record<string, string> = {
-  "pdf":         "PDF",
-  "image":       "Image",
-  "spreadsheet": "Spreadsheet",
-  "doc":         "Document",
-};
-
-// Human-readable labels for document categories (verifiesEntityType).
-// Used in the filter dropdown and in active-filter chip labels.
-const CATEGORY_LABELS: Record<string, string> = {
-  "ownership-record":  "Verifies Ownership",
-  "financials":        "Verifies Financials",
-  "location-identity": "Verifies Location",
-  "rental":            "Verifies Rental",
-  "estate-plan":       "Verifies Estate",
-};
 
 const ENTITY_TYPE_CHIP: Record<string, { label: string; cls: string }> = {
   "ownership-record": {
@@ -132,24 +93,16 @@ type FileEntry = {
   folder: string;
   size: string;
   date: string;
-  // Raw values kept alongside the formatted display strings so we can sort
-  // reliably without trying to parse human-readable strings like "2.4 MB".
-  rawDate: Date;
-  rawSizeBytes: number;
   verifiesEntityType?: string;
 };
 
 function getFileIconStyle(doc: DbDocument): { type: string; icon: React.ElementType; iconClass: string } {
-  // Derive extension from stored field, falling back to the filename itself.
-  const ext = (doc.extension ?? doc.name.split(".").pop() ?? "").toLowerCase();
+  const ext = doc.extension?.toLowerCase();
   if (doc.kind === "photo" || ext === "jpg" || ext === "jpeg" || ext === "png" || ext === "gif" || ext === "webp" || ext === "svg") {
     return { type: "image", icon: Image, iconClass: "text-emerald-600" };
   }
   if (ext === "xlsx" || ext === "xls" || ext === "csv") {
-    return { type: "spreadsheet", icon: FileSpreadsheet, iconClass: "text-emerald-700" };
-  }
-  if (ext === "pdf") {
-    return { type: "pdf", icon: FileText, iconClass: "text-rose-500" };
+    return { type: "spreadsheet", icon: FileSpreadsheet, iconClass: "text-rose-600" };
   }
   return { type: "doc", icon: FileText, iconClass: "text-blue-600" };
 }
@@ -321,74 +274,27 @@ interface Props {
   userId: string;
   documents: DbDocument[];
   folders: DbFolder[];
-  docThumbUrls?: Record<string, string>;
-  // Server-computed: whether the current user may delete folders (admin+).
-  canDeleteFolders?: boolean;
+  // True only for admin/owner (set in documents/queries.ts). Gates whether the
+  // UI shows delete controls. The server enforces this independently; this just
+  // avoids surfacing buttons that would always be rejected for viewer/member.
+  canDelete: boolean;
 }
 
-export function PropertyDocumentsPage({ property, userId, documents: dbDocuments = [], folders: dbFolders = [], docThumbUrls = {}, canDeleteFolders = false }: Props) {
+export function PropertyDocumentsPage({ property, userId, documents: dbDocuments = [], folders: dbFolders = [], canDelete = false }: Props) {
+  const router = useRouter();
   const folderTree = buildFolderTree(dbFolders);
 
-  const router = useRouter();
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [activeFolder, setActiveFolder] = useState("All Documents");
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
-  // Stores the id of the document currently open in the detail view (null = browse view).
-  const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
-  // The signed URL for the open document's file. Null while fetching or if fetch failed.
-  const [fileUrl, setFileUrl] = useState<string | null>(null);
-
-  // Derive the full document object from the selected id.
-  // Looks up from already-loaded dbDocuments — no extra network request.
-  const selectedDocument = selectedDocumentId
-    ? (dbDocuments.find((d) => d.id === selectedDocumentId) ?? null)
-    : null;
-
-  /**
-   * Opens the document detail view for the given document id.
-   *
-   * Flow:
-   * 1. Set the selected document id so the detail view renders immediately (with a skeleton).
-   * 2. Clear the previous file URL so DocumentPreviewPane shows its loading skeleton.
-   * 3. Call the getDocumentFileUrl server action to get a fresh signed URL.
-   * 4. On success: set the URL so the preview pane renders the file.
-   * 5. On failure: fileUrl stays null and the preview pane keeps showing the skeleton.
-   *    The toolbar Download/Open buttons are hidden when fileUrl is null, so the user
-   *    isn't offered dead-end actions. This is acceptable for Phase 1.
-   */
-  async function openDocument(docId: string) {
-    setSelectedDocumentId(docId);
-    setFileUrl(null);
-    try {
-      const result = await getDocumentFileUrl(docId);
-      if (result.ok) {
-        setFileUrl(result.data);
-      }
-      // If the action returns ok: false, fileUrl stays null — skeleton stays visible.
-    } catch (error) {
-      // Unexpected client-side error (e.g. network failure) — log it, don't crash the UI.
-      console.error("[openDocument] unexpected error:", error);
-    }
-  }
+  const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const [showAddFolder, setShowAddFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
-  const [isCreating, setIsCreating] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
-
-  // Rename folder modal state. `renameTarget` is the folder being renamed
-  // (or null when the modal is closed); `renameValue` is the editable name.
-  const [renameTarget, setRenameTarget] = useState<DbFolder | null>(null);
-  const [renameValue, setRenameValue] = useState("");
-  const [isRenaming, setIsRenaming] = useState(false);
-  const [renameError, setRenameError] = useState<string | null>(null);
-
-  // Delete folder dialog state. `deleteTarget` is the folder being deleted
-  // (or null when the dialog is closed).
-  const [deleteTarget, setDeleteTarget] = useState<DbFolder | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-
+  const [creatingFolder, setCreatingFolder] = useState(false);
+  // Per-folder content counts (documents + subfolders), fetched lazily when the user
+  // is about to delete a folder so the confirm dialog can warn them what moves to root.
+  const [folderContents, setFolderContents] = useState<Record<string, { documents: number; subfolders: number }>>({});
   const [locationOpen, setLocationOpen] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<TreeNode>(folderTree[0]);
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(["root"]));
@@ -415,159 +321,6 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
   const [uploadTab, setUploadTab] = useState<UploadTab>("all");
   const [panelMinimized, setPanelMinimized] = useState(false);
 
-  // ─── Sort & Filter state ────────────────────────────────────────────────────
-  // All three are local React state — no URL persistence, no server round-trips.
-
-  // The active sort order. Default is newest-first (most recently uploaded at top).
-  const [sortBy, setSortBy] = useState<SortOption>("date-newest");
-
-  // Set of file type keys the user wants to see (e.g. "pdf", "image").
-  // An empty Set means "show all types" — nothing filtered.
-  const [activeFileTypes, setActiveFileTypes] = useState<Set<string>>(new Set());
-
-  // Set of verifiesEntityType keys the user wants to see (e.g. "financials").
-  // An empty Set means "show all categories" — nothing filtered.
-  const [activeCategories, setActiveCategories] = useState<Set<string>>(new Set());
-
-  /**
-   * Creates a new folder by calling the `createFolder` server action.
-   *
-   * Flow:
-   *  1. Bail out early if the name is blank or a create is already in flight
-   *     (prevents accidental double-submits from fast Enter presses / clicks).
-   *  2. Flip into the "creating" state and clear any previous error message.
-   *  3. Work out where the folder should live: the "root" tree node means the
-   *     top level, which the server expects as `parentFolderId: undefined`.
-   *     Any other node id is a real parent folder we nest under.
-   *  4. Call the server action. It returns an ActionResult, which is either
-   *     `{ ok: true, data }` on success or `{ ok: false, error }` on failure.
-   *  5. On success: close the modal, reset the name field, and call
-   *     `router.refresh()`. The refresh is REQUIRED — the documents page is a
-   *     plain server fetch (not cached under the "folders" tag), so the
-   *     action's revalidate does not repaint this page; only refresh() does.
-   *  6. On failure: show the generic error string the action returns and keep
-   *     the modal open so the user can fix the name and retry. We never surface
-   *     raw error objects to the user.
-   *  7. The `finally` block always clears the "creating" state, even if the
-   *     action throws unexpectedly, so the button never gets stuck disabled.
-   */
-  async function handleCreateFolder() {
-    const trimmedName = newFolderName.trim();
-    if (trimmedName === "" || isCreating) {
-      return;
-    }
-
-    setIsCreating(true);
-    setCreateError(null);
-
-    try {
-      // "root" is the synthetic top-level node — it has no real parent folder.
-      const parentFolderId =
-        selectedLocation.id === "root" ? undefined : selectedLocation.id;
-
-      const result = await createFolder({
-        propertyId: property.id,
-        name: trimmedName,
-        parentFolderId,
-      });
-
-      if (result.ok) {
-        setShowAddFolder(false);
-        setNewFolderName("");
-        // Re-fetch the server component data so the new folder shows up.
-        router.refresh();
-      } else {
-        setCreateError(result.error);
-      }
-    } finally {
-      setIsCreating(false);
-    }
-  }
-
-  /**
-   * Renames a folder by calling the `updateFolder` server action.
-   *
-   * Mirrors handleCreateFolder: guard against empty/in-flight, flip the
-   * loading flag, clear any prior error, call the action, then either close
-   * + refresh on success or show a generic inline error on failure. The
-   * `finally` always clears the loading flag so the Save button never sticks.
-   *
-   * `updateFolder` takes (id, patch). FolderPatchSchema is partial, so sending
-   * just `{ name }` is valid — we only ever change the name here.
-   */
-  async function handleRenameFolder() {
-    const trimmed = renameValue.trim();
-    if (trimmed === "" || isRenaming || !renameTarget) {
-      return;
-    }
-
-    setIsRenaming(true);
-    setRenameError(null);
-
-    try {
-      const result = await updateFolder(renameTarget.id, { name: trimmed });
-
-      if (result.ok) {
-        setRenameTarget(null);
-        // Re-fetch the (uncached) server data so the new name shows up.
-        router.refresh();
-      } else {
-        setRenameError(result.error);
-      }
-    } finally {
-      setIsRenaming(false);
-    }
-  }
-
-  /**
-   * Deletes a folder by calling the `deleteFolder` server action.
-   *
-   * Only ever runs against an EMPTY folder: the Delete dialog shows the
-   * "blocked" state (no destructive button) when the folder still has files
-   * or subfolders, so the action is never called for a non-empty folder.
-   * On success we close the dialog and refresh; on failure we surface the
-   * generic error string and keep the dialog open.
-   */
-  async function handleDeleteFolder() {
-    if (!deleteTarget || isDeleting) {
-      return;
-    }
-
-    setIsDeleting(true);
-    setDeleteError(null);
-
-    try {
-      const result = await deleteFolder(deleteTarget.id);
-
-      if (result.ok) {
-        setDeleteTarget(null);
-        router.refresh();
-      } else {
-        setDeleteError(result.error);
-      }
-    } finally {
-      setIsDeleting(false);
-    }
-  }
-
-  /**
-   * Counts what a folder contains, using props we already have on the client.
-   * There is no DB onDelete cascade, so deleting a folder that still holds
-   * files or subfolders would throw a foreign-key error — we use this to block
-   * that case in the Delete dialog before ever calling the action.
-   */
-  function folderContents(folderId: string) {
-    const fileCount = dbDocuments.filter((d) => d.folderId === folderId).length;
-    const subfolderCount = dbFolders.filter(
-      (f) => f.parentFolderId === folderId
-    ).length;
-    return {
-      fileCount,
-      subfolderCount,
-      isEmpty: fileCount + subfolderCount === 0,
-    };
-  }
-
   const folderMap = new Map(dbFolders.map((f) => [f.id, f.name]));
   const files: FileEntry[] = dbDocuments.map((doc) => {
     const { type, icon, iconClass } = getFileIconStyle(doc);
@@ -577,19 +330,19 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
       type,
       icon,
       iconClass,
-      thumb: docThumbUrls[doc.id] ?? null,
+      thumb: null,
       folderId: doc.folderId,
       folder: doc.folderId ? (folderMap.get(doc.folderId) ?? "—") : "—",
       size: doc.sizeBytes ? formatBytes(doc.sizeBytes) : "—",
       date: new Date(doc.uploadedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-      // Store raw values for sorting — formatted strings like "2.4 MB" can't be compared reliably.
-      rawDate: new Date(doc.uploadedAt),
-      rawSizeBytes: doc.sizeBytes ?? 0,
       verifiesEntityType: doc.verifies?.entityType,
     };
   });
+  // Quick lookup from a document name back to its id — the file-detail view still keys
+  // off the visible name, but every delete/select path uses the real document id.
+  const nameToId = new Map(files.map((f) => [f.name, f.id]));
 
-  // Folders visible at the current navigation level (children of activeFolderId, or root-level folders).
+  // Folders visible at the current navigation level (children of activeFolderId, or root-level).
   const visibleFolders = dbFolders
     .filter((f) => (f.parentFolderId ?? null) === activeFolderId)
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -597,23 +350,109 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
   // Breadcrumb path from root to the currently open folder.
   const currentFolderPath = activeFolderId ? getFolderPath(dbFolders, activeFolderId) : [];
   const currentFolderName = currentFolderPath.at(-1)?.name ?? null;
+  // Reverse lookup for surfaces that display a selected file's name (e.g. the Move modal).
+  const idToName = new Map(files.map((f) => [f.id, f.name]));
 
-  function toggleSelectFile(name: string) {
+  // The selection set holds document IDS (not names) so deletes hit the right rows even
+  // when two files share a display name.
+  function toggleSelectFile(id: string) {
     setSelectedFiles((prev) => {
       const next = new Set(prev);
-      next.has(name) ? next.delete(name) : next.add(name);
+      next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
   }
 
   function toggleSelectAll(visibleFiles: FileEntry[]) {
-    const allSelected = visibleFiles.every((f) => selectedFiles.has(f.name));
-    setSelectedFiles(allSelected ? new Set() : new Set(visibleFiles.map((f) => f.name)));
+    const allSelected = visibleFiles.every((f) => selectedFiles.has(f.id));
+    setSelectedFiles(allSelected ? new Set() : new Set(visibleFiles.map((f) => f.id)));
   }
 
   function exitSelectMode() {
     setSelectMode(false);
     setSelectedFiles(new Set());
+  }
+
+  // ── Wired mutations ────────────────────────────────────────────────────────
+  // All of these call a Server Action, toast the result, then refresh so the
+  // server-rendered list re-fetches fresh data (no manual local-state surgery).
+
+  // Resolve the selected folder picker value to a real DB folder id (or undefined
+  // when "Documents"/root is chosen — the tree's synthetic root node has id "root").
+  function selectedFolderId(node: TreeNode): string | undefined {
+    return node.id === "root" ? undefined : node.id;
+  }
+
+  // Per-file delete. Deletes one document (row + S3 object) and refreshes.
+  async function handleDeleteDocument(id: string) {
+    const result = await deleteDocument(id);
+    if (result.ok) {
+      // Drop it from any active selection so the bulk bar stays accurate.
+      setSelectedFiles((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      router.refresh();
+    }
+    return result;
+  }
+
+  // Bulk delete. Sends the selected document ids to the batch action, then exits
+  // select mode and refreshes the list.
+  async function handleBulkDelete() {
+    const ids = Array.from(selectedFiles);
+    const result = await deleteDocuments(ids);
+    if (result.ok) {
+      exitSelectMode();
+      router.refresh();
+    }
+    return result;
+  }
+
+  // Lazily fetch + cache how many files/subfolders a folder holds, so the delete dialog
+  // can warn the user. Called on hover/focus of the folder's delete button. No-op if
+  // we already have the counts cached.
+  async function loadFolderContents(id: string) {
+    if (folderContents[id]) return;
+    const result = await getFolderContents(id);
+    if (result.ok) {
+      setFolderContents((prev) => ({ ...prev, [id]: result.data }));
+    }
+  }
+
+  // Per-folder delete. Documents/sub-folders inside move to the root (handled server-side).
+  async function handleDeleteFolder(id: string) {
+    const result = await deleteFolder(id);
+    if (result.ok) {
+      // If we were viewing this folder's files, drop back to "All Documents".
+      setActiveSubfolder((curr) => (folderMap.get(id) === curr ? null : curr));
+      router.refresh();
+    }
+    return result;
+  }
+
+  // Create Folder. Persists the new folder under the chosen location, closes the
+  // modal on success, and refreshes so the new folder tile/tree entry appears.
+  async function handleCreateFolder() {
+    const name = newFolderName.trim();
+    if (!name) return;
+    setCreatingFolder(true);
+    try {
+      const result = await createFolder({
+        propertyId: property.id,
+        name,
+        parentFolderId: selectedFolderId(selectedLocation),
+      });
+      toastActionResult(result, { success: "Folder created" });
+      if (result.ok) {
+        setShowAddFolder(false);
+        setNewFolderName("");
+        router.refresh();
+      }
+    } finally {
+      setCreatingFolder(false);
+    }
   }
 
   useEffect(() => {
@@ -703,80 +542,9 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
     setPendingFiles([]);
   }, [pendingFiles]);
 
-  // ─── Sort & Filter pipeline ─────────────────────────────────────────────────
-
-  // Step 1 — folder navigation filter.
-  // When the user navigates into a folder (activeFolderId is set), scope the
-  // file list to only files that live directly in that folder.
-  const folderFilteredFiles = activeFolderId !== null
+  const filteredFiles = activeFolderId !== null
     ? files.filter((f) => f.folderId === activeFolderId)
     : files;
-
-  // Step 2 — collect available options for the filter dropdowns.
-  // We derive these from the folder-filtered set so the filter only offers
-  // options that actually exist in the current folder view.
-  const availableFileTypes = Array.from(
-    new Set(folderFilteredFiles.map((f) => f.type))
-  );
-  // Only the entity-type categories that appear in this view (not "__none__").
-  const availableCategoryKeys = Array.from(
-    new Set(
-      folderFilteredFiles
-        .filter((f) => f.verifiesEntityType !== undefined)
-        .map((f) => f.verifiesEntityType!)
-    )
-  );
-  // Whether at least one file in this view carries a document category.
-  // When false, we hide the Category section of the filter dropdown.
-  const hasAnyCategories = availableCategoryKeys.length > 0;
-
-  // Step 3 — file-type filter.
-  // An empty activeFileTypes set means "no filter applied — show everything".
-  const typeFilteredFiles =
-    activeFileTypes.size === 0
-      ? folderFilteredFiles
-      : folderFilteredFiles.filter((f) => activeFileTypes.has(f.type));
-
-  // Step 4 — category filter.
-  // An empty activeCategories set means "no filter applied — show everything".
-  const categoryFilteredFiles =
-    activeCategories.size === 0
-      ? typeFilteredFiles
-      : typeFilteredFiles.filter((f) =>
-          activeCategories.has(f.verifiesEntityType ?? "__none__")
-        );
-
-  // Step 5 — sort.
-  // We spread into a new array so we never mutate the source `files` array,
-  // which other parts of the component (e.g. folder counts) still read.
-  const filteredFiles = [...categoryFilteredFiles].sort((a, b) => {
-    switch (sortBy) {
-      case "date-newest":
-        // Most recently uploaded file first.
-        return b.rawDate.getTime() - a.rawDate.getTime();
-      case "date-oldest":
-        // Oldest upload first.
-        return a.rawDate.getTime() - b.rawDate.getTime();
-      case "name-asc":
-        // A to Z, locale-aware so accented characters sort correctly.
-        return a.name.localeCompare(b.name);
-      case "name-desc":
-        // Z to A.
-        return b.name.localeCompare(a.name);
-      case "size-largest":
-        // Biggest file first.
-        return b.rawSizeBytes - a.rawSizeBytes;
-      case "size-smallest":
-        // Smallest file first.
-        return a.rawSizeBytes - b.rawSizeBytes;
-      default:
-        return 0;
-    }
-  });
-
-  // Total number of active filter dimensions. Used to show the count badge on
-  // the Filter button and to decide whether to render the active-filter chips.
-  const totalActiveFilters = activeFileTypes.size + activeCategories.size;
 
   function fade(delay: number) {
     return {
@@ -787,60 +555,70 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
   }
 
   // File detail view — sidebar + detail panel side by side
-  if (selectedDocument) {
+  if (selectedFile) {
     return (
       <PropertyLayout activeTab="documents" property={property}>
         <div className="min-h-full bg-val-bg-page-alt flex">
-          {/* Sidebar: file list for the active folder.
-              Hidden on mobile — folder navigation happens from the main browse view. */}
-          <aside className="hidden sm:flex w-[200px] shrink-0 border-r border-slate-200/60 flex-col">
-            <div className="px-5 pt-7 pb-3">
+          {/* Sidebar: folder tree shown only on file pages.
+              Hidden on mobile so the detail panel takes the full viewport
+              width — folder navigation happens from the main browse view. */}
+          <aside className="hidden sm:flex w-[180px] shrink-0 border-r border-slate-200/60 flex-col">
+            <div className="px-5 pt-7 pb-4">
               <span className="text-[10px] font-semibold tracking-[0.12em] uppercase text-slate-400">
-                In this folder
+                Folders
               </span>
             </div>
-            <nav className="flex flex-col px-3 flex-1 overflow-y-auto">
-              {/* All Documents: closes the detail view and returns to the browse view */}
+            <nav className="flex flex-col px-3 flex-1">
+              {/* Root: All Documents */}
               <button
-                onClick={() => { setSelectedDocumentId(null); setFileUrl(null); }}
-                className="flex items-center gap-2.5 w-full px-2 py-2 rounded-lg text-[13px] mb-1 font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100/60 transition-all duration-200"
+                onClick={() => { setActiveFolder("All Documents"); setActiveFolderId(null); }}
+                className={`flex items-center gap-2.5 w-full px-2 py-2 rounded-lg text-[13px] mb-0.5 transition-all duration-200 ${
+                  activeFolder === "All Documents"
+                    ? "font-semibold text-[--val-primary-dark]"
+                    : "font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100/60"
+                }`}
+                style={activeFolder === "All Documents" ? { background: "rgba(0,74,198,0.07)" } : {}}
               >
-                <FolderOpen className="w-4 h-4 shrink-0 text-slate-400" />
+                <FolderOpen
+                  className={`w-4 h-4 shrink-0 ${activeFolder === "All Documents" ? "text-[--val-primary-dark]" : "text-slate-400"}`}
+                />
                 All Documents
               </button>
 
-              {/* Files in the same folder as the selected document.
-                  If selectedDocument.folderId is undefined, shows root-level documents. */}
-              {dbDocuments
-                .filter((d) => d.folderId === selectedDocument.folderId)
-                .map((doc) => {
-                  const { icon: DocIcon, iconClass } = getFileIconStyle(doc);
-                  const isActive = doc.id === selectedDocument.id;
-                  return (
-                    <button
-                      key={doc.id}
-                      onClick={() => openDocument(doc.id)}
-                      className={`flex items-center gap-2.5 w-full px-2 py-1.5 rounded-lg text-left text-[13px] mb-0.5 transition-all duration-200 ${
-                        isActive
-                          ? "font-semibold text-[--val-primary-dark]"
-                          : "font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100/60"
-                      }`}
-                      style={isActive ? { background: "rgba(0,74,198,0.07)" } : {}}
-                    >
-                      <DocIcon
-                        className={`w-4 h-4 shrink-0 ${isActive ? "text-[--val-primary-dark]" : iconClass}`}
-                      />
-                      <span className="truncate">{doc.name}</span>
-                    </button>
-                  );
-                })}
+              {/* Tree children with vertical connecting line */}
+              {dbFolders.filter((f) => !f.parentFolderId).length > 0 && (
+              <div className="flex pl-[10px]">
+                <div className="w-px bg-slate-200 mx-[9px] self-stretch" />
+                <div className="flex flex-col gap-0.5 flex-1">
+                  {dbFolders.filter((f) => !f.parentFolderId).slice(0, 3).map((f) => {
+                    const isActive = activeFolder === f.name;
+                    return (
+                      <button
+                        key={f.id}
+                        onClick={() => { setActiveFolder(f.name); setActiveFolderId(null); }}
+                        className={`flex items-center gap-2.5 w-full px-2 py-1.5 rounded-lg text-[13px] transition-all duration-200 ${
+                          isActive
+                            ? "font-semibold text-[--val-primary-dark]"
+                            : "font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100/60"
+                        }`}
+                        style={isActive ? { background: "rgba(0,74,198,0.07)" } : {}}
+                      >
+                        <FolderOpen
+                          className={`w-4 h-4 shrink-0 ${isActive ? "text-[--val-primary-dark]" : "text-slate-400"}`}
+                        />
+                        {f.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              )}
             </nav>
           </aside>
 
           <DocumentDetailView
-            document={selectedDocument}
-            fileUrl={fileUrl}
-            onBack={() => { setSelectedDocumentId(null); setFileUrl(null); }}
+            documentName={selectedFile}
+            onBack={() => setSelectedFile(null)}
           />
         </div>
       </PropertyLayout>
@@ -876,7 +654,7 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
           {/* Folder tiles with breadcrumb navigation */}
           <div style={fade(80)}>
               <div className="flex items-center justify-between mb-4">
-                {/* Breadcrumb: clicking "Folders" resets to root; clicking a folder name navigates to it */}
+                {/* Breadcrumb: clicking "Folders" resets to root; deeper segments navigate to that level */}
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <button
                     onClick={() => setActiveFolderId(null)}
@@ -902,12 +680,10 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
                 </div>
                 <button
                   onClick={() => {
-                    // Default to the current folder when creating a subfolder
                     const defaultNode = activeFolderId
                       ? (findPath(folderTree, activeFolderId)?.at(-1) ?? folderTree[0])
                       : folderTree[0];
                     setNewFolderName("");
-                    setCreateError(null);
                     setSelectedLocation(defaultNode);
                     setLocationOpen(false);
                     setShowAddFolder(true);
@@ -919,8 +695,6 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
                 </button>
               </div>
               {visibleFolders.length === 0 ? (
-                // Only show the "no folders" empty state at root level.
-                // Inside a folder it's fine to have no subfolders — just hide the grid.
                 activeFolderId === null ? (
                   <EmptyState
                     className="py-10"
@@ -932,63 +706,50 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
               ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
                 {visibleFolders.map((f, i) => {
+                  const contents = folderContents[f.id];
                   const hasSubfolders = dbFolders.some((sub) => sub.parentFolderId === f.id);
+                  const folderDeleteDescription = contents && (contents.documents > 0 || contents.subfolders > 0)
+                    ? `This folder contains ${contents.documents} ${contents.documents === 1 ? "file" : "files"}${contents.subfolders > 0 ? ` and ${contents.subfolders} ${contents.subfolders === 1 ? "subfolder" : "subfolders"}` : ""}. They will move to the root. This can't be undone.`
+                    : "Deleting this folder moves any files inside it to the root. This can't be undone.";
                   return (
-                    // Card is a wrapper <div>: the body button navigates into the folder
-                    // and the ⋯ menu is a sibling button (never nested inside another button).
                     <div
                       key={f.id}
-                      className="group flex items-center gap-2 pl-4 pr-2 py-3.5 rounded-xl border transition-all duration-200 hover:-translate-y-0.5 bg-white border-slate-200 shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)]"
+                      className="group relative flex items-center gap-2.5 px-4 py-3.5 rounded-xl border text-left transition-all duration-200 hover:-translate-y-0.5 cursor-pointer bg-white border-slate-200 shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)]"
                       style={{ animationDelay: `${i * 40}ms` }}
+                      onClick={() => setActiveFolderId(f.id)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setActiveFolderId(f.id); } }}
                     >
-                      <button
-                        onClick={() => setActiveFolderId(f.id)}
-                        className="flex items-center gap-2.5 flex-1 min-w-0 text-left"
+                      <FolderOpen className="w-5 h-5 shrink-0 text-slate-400 group-hover:text-[--val-primary-dark] transition-colors duration-200" />
+                      <div className="flex-1 min-w-0">
+                        <span className="text-[13px] font-medium truncate block text-[--val-heading] group-hover:text-[--val-primary-dark] transition-colors duration-200">
+                          {f.name}
+                        </span>
+                        {hasSubfolders && (
+                          <span className="text-[10px] text-slate-400 leading-tight">Has subfolders</span>
+                        )}
+                      </div>
+                      {canDelete && (
+                      <ConfirmAction
+                        tier="confirm"
+                        title={`Delete folder "${f.name}"?`}
+                        description={folderDeleteDescription}
+                        confirmLabel="Delete folder"
+                        successMessage="Folder deleted"
+                        onConfirm={() => handleDeleteFolder(f.id)}
                       >
-                        <FolderOpen className="w-5 h-5 shrink-0 text-slate-400 transition-colors duration-200 group-hover:text-[--val-primary-dark]" />
-                        <div className="flex-1 min-w-0">
-                          <span className="text-[13px] font-medium truncate block text-[--val-heading] transition-colors duration-200 group-hover:text-[--val-primary-dark]">
-                            {f.name}
-                          </span>
-                          {hasSubfolders && (
-                            <span className="text-[10px] text-slate-400 leading-tight">Has subfolders</span>
-                          )}
-                        </div>
-                      </button>
-
-                      {/* Per-folder actions. The ⋯ is hidden until card hover/focus on desktop. */}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button
-                            aria-label={`Actions for ${f.name}`}
-                            onClick={(e) => e.stopPropagation()}
-                            className="shrink-0 w-7 h-7 flex items-center justify-center rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100
-                              opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100 data-[state=open]:opacity-100
-                              transition-[opacity,color,background-color] duration-150"
-                          >
-                            <MoreVertical className="w-4 h-4" />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-40">
-                          <DropdownMenuItem
-                            onSelect={() => { setRenameValue(f.name); setRenameError(null); setRenameTarget(f); }}
-                          >
-                            Rename
-                          </DropdownMenuItem>
-                          {/* Delete is admin-only — rendered last, separated, and rose. */}
-                          {canDeleteFolders && (
-                            <>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                className="text-rose-600 focus:text-rose-600"
-                                onSelect={() => { setDeleteError(null); setDeleteTarget(f); }}
-                              >
-                                Delete
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                        <button
+                          aria-label={`Delete folder ${f.name}`}
+                          onMouseEnter={() => { void loadFolderContents(f.id); }}
+                          onFocus={() => { void loadFolderContents(f.id); }}
+                          onClick={(e) => e.stopPropagation()}
+                          className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-slate-300 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-rose-500 hover:bg-rose-50 transition-[opacity,color,background-color] duration-150"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </ConfirmAction>
+                      )}
                     </div>
                   );
                 })}
@@ -1031,180 +792,6 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
                   </button>
                 </div>
                 <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
-
-                  {/* ── Sort dropdown ──────────────────────────────────────────
-                      Shows the current sort order and lets the user change it.
-                      The button turns brand-blue when the sort is anything other
-                      than the default (date-newest) to signal a non-default state.
-                      The active option inside the dropdown gets a blue check mark. */}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        className={`h-7 px-3 rounded border text-[12px] font-semibold flex items-center gap-1.5
-                          transition-all duration-150 active:scale-[0.97] ${
-                          sortBy !== "date-newest"
-                            ? "border-[--val-primary-dark] bg-[--val-bg-tint] text-[--val-primary-dark]"
-                            : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50"
-                        }`}
-                      >
-                        <ArrowUpDown className="w-3 h-3" />
-                        Sort
-                        {/* Dot indicator: visible only when sort is non-default */}
-                        {sortBy !== "date-newest" && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-[--val-primary-dark] shrink-0" />
-                        )}
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-52">
-                      {(
-                        [
-                          "date-newest",
-                          "date-oldest",
-                          "name-asc",
-                          "name-desc",
-                          "size-largest",
-                          "size-smallest",
-                        ] as SortOption[]
-                      ).map((option) => (
-                        <DropdownMenuItem
-                          key={option}
-                          onSelect={() => setSortBy(option)}
-                          className={`flex items-center justify-between ${
-                            sortBy === option ? "text-[--val-primary-dark]" : ""
-                          }`}
-                        >
-                          {SORT_LABELS[option]}
-                          {/* Blue check next to the currently-active sort option */}
-                          {sortBy === option && (
-                            <Check className="w-3.5 h-3.5 text-[--val-primary-dark] shrink-0 ml-2" />
-                          )}
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-
-                  {/* ── Filter dropdown ────────────────────────────────────────
-                      Two sections: File Type and Category (category only shown
-                      when at least one document in the current view has a category).
-                      The button shows a blue badge with the active-filter count
-                      when any filter is applied. Uses DropdownMenuCheckboxItem
-                      so each option toggles independently without closing the menu. */}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        className={`h-7 px-3 rounded border text-[12px] font-semibold flex items-center gap-1.5
-                          transition-all duration-150 active:scale-[0.97] ${
-                          totalActiveFilters > 0
-                            ? "border-[--val-primary-dark] bg-[--val-bg-tint] text-[--val-primary-dark]"
-                            : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50"
-                        }`}
-                      >
-                        <SlidersHorizontal className="w-3 h-3" />
-                        Filter
-                        {/* Blue count badge — visible only when filters are active */}
-                        {totalActiveFilters > 0 && (
-                          <span className="inline-flex items-center justify-center w-4 h-4 text-[10px] font-bold rounded-full bg-[--val-primary-dark] text-white shrink-0">
-                            {totalActiveFilters}
-                          </span>
-                        )}
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-52">
-
-                      {/* File Type section — always shown when there are files */}
-                      {availableFileTypes.length > 0 && (
-                        <>
-                          <div className="px-2 py-1.5">
-                            <span className="text-[10px] font-semibold uppercase tracking-[0.07em] text-slate-400">
-                              File Type
-                            </span>
-                          </div>
-                          {availableFileTypes.map((fileType) => (
-                            // DropdownMenuCheckboxItem keeps the menu open on click
-                            // so users can tick multiple options in one interaction.
-                            <DropdownMenuCheckboxItem
-                              key={fileType}
-                              checked={activeFileTypes.has(fileType)}
-                              onCheckedChange={(checked) => {
-                                // Toggle this file type in/out of the active set.
-                                setActiveFileTypes((prev) => {
-                                  const next = new Set(prev);
-                                  if (checked) {
-                                    next.add(fileType);
-                                  } else {
-                                    next.delete(fileType);
-                                  }
-                                  return next;
-                                });
-                              }}
-                            >
-                              {FILE_TYPE_LABELS[fileType] ?? fileType}
-                            </DropdownMenuCheckboxItem>
-                          ))}
-                        </>
-                      )}
-
-                      {/* Category section — only shown when at least one document
-                          in the current folder view has a verifiesEntityType.
-                          If every document is uncategorized this section is hidden. */}
-                      {hasAnyCategories && (
-                        <>
-                          {availableFileTypes.length > 0 && <DropdownMenuSeparator />}
-                          <div className="px-2 py-1.5">
-                            <span className="text-[10px] font-semibold uppercase tracking-[0.07em] text-slate-400">
-                              Category
-                            </span>
-                          </div>
-                          {availableCategoryKeys.map((catKey) => (
-                            <DropdownMenuCheckboxItem
-                              key={catKey}
-                              checked={activeCategories.has(catKey)}
-                              onCheckedChange={(checked) => {
-                                // Toggle this category in/out of the active set.
-                                setActiveCategories((prev) => {
-                                  const next = new Set(prev);
-                                  if (checked) {
-                                    next.add(catKey);
-                                  } else {
-                                    next.delete(catKey);
-                                  }
-                                  return next;
-                                });
-                              }}
-                            >
-                              {CATEGORY_LABELS[catKey] ?? catKey}
-                            </DropdownMenuCheckboxItem>
-                          ))}
-                        </>
-                      )}
-
-                      {/* Fallback: no filterable content in this view */}
-                      {availableFileTypes.length === 0 && !hasAnyCategories && (
-                        <div className="px-3 py-3 text-[12px] text-slate-400 text-center">
-                          No filter options available
-                        </div>
-                      )}
-
-                      {/* Clear all — only shown when something is active */}
-                      {totalActiveFilters > 0 && (
-                        <>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onSelect={() => {
-                              // Reset both filter dimensions at once.
-                              setActiveFileTypes(new Set());
-                              setActiveCategories(new Set());
-                            }}
-                            className="text-rose-600 focus:text-rose-600"
-                          >
-                            Clear all filters
-                          </DropdownMenuItem>
-                        </>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-
-                  {/* ── View toggle ─────────────────────────────────────────── */}
                   <div className="bg-val-bg-tint p-1 rounded flex">
                     <button
                       onClick={() => setViewMode("list")}
@@ -1243,114 +830,34 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
                 </div>
               </div>
 
-              {/* ── Active filter chips ───────────────────────────────────────
-                  A row of removable chips appears only when at least one filter
-                  is active. Each chip shows what's being filtered and has an ×
-                  button to remove that individual filter. "Clear all" appears
-                  when two or more filters are on, to clear the whole set at once.
-                  Brand-blue tint matches the Filter button active state. */}
-              {totalActiveFilters > 0 && (
-                <div className="flex items-center gap-2 flex-wrap -mt-1">
-                  {/* One chip per active file-type filter */}
-                  {Array.from(activeFileTypes).map((fileType) => (
-                    <span
-                      key={fileType}
-                      className="inline-flex items-center gap-1.5 h-6 pl-2.5 pr-1.5 rounded-full text-[11px] font-semibold
-                        bg-[--val-bg-tint] text-[--val-primary-dark] border border-[--val-primary-dark]/20"
-                    >
-                      {FILE_TYPE_LABELS[fileType] ?? fileType}
-                      <button
-                        onClick={() => {
-                          // Remove only this file type from the active set.
-                          setActiveFileTypes((prev) => {
-                            const next = new Set(prev);
-                            next.delete(fileType);
-                            return next;
-                          });
-                        }}
-                        aria-label={`Remove ${FILE_TYPE_LABELS[fileType] ?? fileType} filter`}
-                        className="w-3.5 h-3.5 flex items-center justify-center rounded-full hover:bg-[--val-primary-dark]/10 transition-colors duration-100"
-                      >
-                        <X className="w-2.5 h-2.5" />
-                      </button>
-                    </span>
-                  ))}
-                  {/* One chip per active category filter */}
-                  {Array.from(activeCategories).map((catKey) => (
-                    <span
-                      key={catKey}
-                      className="inline-flex items-center gap-1.5 h-6 pl-2.5 pr-1.5 rounded-full text-[11px] font-semibold
-                        bg-[--val-bg-tint] text-[--val-primary-dark] border border-[--val-primary-dark]/20"
-                    >
-                      {CATEGORY_LABELS[catKey] ?? catKey}
-                      <button
-                        onClick={() => {
-                          // Remove only this category from the active set.
-                          setActiveCategories((prev) => {
-                            const next = new Set(prev);
-                            next.delete(catKey);
-                            return next;
-                          });
-                        }}
-                        aria-label={`Remove ${CATEGORY_LABELS[catKey] ?? catKey} filter`}
-                        className="w-3.5 h-3.5 flex items-center justify-center rounded-full hover:bg-[--val-primary-dark]/10 transition-colors duration-100"
-                      >
-                        <X className="w-2.5 h-2.5" />
-                      </button>
-                    </span>
-                  ))}
-                  {/* Clear all — only worthwhile when more than one filter is active */}
-                  {totalActiveFilters >= 2 && (
-                    <button
-                      onClick={() => {
-                        // Reset both filter dimensions at once.
-                        setActiveFileTypes(new Set());
-                        setActiveCategories(new Set());
-                      }}
-                      className="h-6 px-2 text-[11px] font-medium text-slate-400 hover:text-slate-600 transition-colors duration-150"
-                    >
-                      Clear all
-                    </button>
-                  )}
-                </div>
-              )}
-
               {filteredFiles.length === 0 ? (
                 <EmptyState
                   className="py-16"
                   icon={<FolderOpen className="size-6" />}
-                  title={
-                    // When filters are active and produce no results, tell the user
-                    // to adjust their filters rather than suggesting they upload.
-                    totalActiveFilters > 0
-                      ? "No files match your filters"
-                      : currentFolderName
-                      ? `No files in ${currentFolderName}`
-                      : "No documents yet"
-                  }
-                  description={
-                    totalActiveFilters > 0
-                      ? "Try adjusting or clearing your filters."
-                      : "Upload a document to get started."
-                  }
+                  title={currentFolderName ? `No files in ${currentFolderName}` : "No documents yet"}
+                  description="Upload a document to get started."
                 />
               ) : viewMode === "list" ? (
                 <ListView
                   files={filteredFiles}
-                  onOpen={openDocument}
+                  onFileClick={selectMode ? (name) => toggleSelectFile(nameToId.get(name) ?? name) : setSelectedFile}
                   mounted={mounted}
                   selectMode={selectMode}
                   selectedFiles={selectedFiles}
                   onToggleFile={toggleSelectFile}
                   onToggleAll={() => toggleSelectAll(filteredFiles)}
+                  onDeleteFile={handleDeleteDocument}
+                  canDelete={canDelete}
                 />
               ) : (
                 <GridView
                   files={filteredFiles}
-                  onOpen={openDocument}
+                  onFileClick={selectMode ? (name) => toggleSelectFile(nameToId.get(name) ?? name) : setSelectedFile}
                   selectMode={selectMode}
                   selectedFiles={selectedFiles}
                   onToggleFile={toggleSelectFile}
+                  onDeleteFile={handleDeleteDocument}
+                  canDelete={canDelete}
                 />
               )}
           </div>
@@ -1382,12 +889,24 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
                 <FolderInput className="w-3.5 h-3.5 text-blue-200" />
                 Move to…
               </button>
-              <button
-                className="flex items-center gap-2 text-[13px] font-semibold text-rose-300 hover:text-rose-200 px-3 py-1.5 rounded-xl hover:bg-white/10 transition-colors duration-150 whitespace-nowrap"
+              {canDelete && (
+              <ConfirmAction
+                tier="typed"
+                title={`Delete ${selectedFiles.size} ${selectedFiles.size === 1 ? "file" : "files"}?`}
+                description={`This permanently removes ${selectedFiles.size} ${selectedFiles.size === 1 ? "file" : "files"} and their stored copies. This can't be undone.`}
+                typedConfirmValue="DELETE"
+                confirmLabel={`Delete ${selectedFiles.size} ${selectedFiles.size === 1 ? "file" : "files"}`}
+                successMessage="Files deleted"
+                onConfirm={handleBulkDelete}
               >
-                <Trash2 className="w-3.5 h-3.5" />
-                Delete
-              </button>
+                <button
+                  className="flex items-center gap-2 text-[13px] font-semibold text-rose-300 hover:text-rose-200 px-3 py-1.5 rounded-xl hover:bg-white/10 transition-colors duration-150 whitespace-nowrap"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Delete
+                </button>
+              </ConfirmAction>
+              )}
             </div>
           )}
         </div>
@@ -1433,7 +952,7 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
                   type="text"
                   value={newFolderName}
                   onChange={(e) => setNewFolderName(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter" && newFolderName.trim()) handleCreateFolder(); if (e.key === "Escape") setShowAddFolder(false); }}
+                  onKeyDown={(e) => { if (e.key === "Enter" && newFolderName.trim() && !creatingFolder) void handleCreateFolder(); if (e.key === "Escape") setShowAddFolder(false); }}
                   placeholder="e.g. Lease Agreements"
                   maxLength={64}
                   className="h-10 w-full bg-[--val-input-surface] border border-slate-200 rounded-lg px-3.5 text-[14px] text-[--val-heading] placeholder:text-slate-400
@@ -1530,13 +1049,6 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
                   )}
                 </div>
               </div>
-
-              {/* Error message — shown when the create action fails; modal stays open. */}
-              {createError && (
-                <p className="text-[12.5px] text-rose-600">
-                  {createError}
-                </p>
-              )}
             </div>
 
             {/* Footer */}
@@ -1552,203 +1064,18 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
                 Cancel
               </button>
               <button
-                disabled={!newFolderName.trim() || isCreating}
-                onClick={handleCreateFolder}
+                disabled={!newFolderName.trim() || creatingFolder}
+                onClick={() => void handleCreateFolder()}
                 className="h-9 px-5 rounded-lg text-[13.5px] font-semibold text-white
                   enabled:hover:opacity-90 active:enabled:scale-[0.96] disabled:opacity-40 disabled:cursor-not-allowed
                   transition-[opacity,transform] duration-150"
                 style={{ background: "var(--val-primary-dark)" }}
               >
-                {isCreating ? "Creating…" : "Create Folder"}
+                {creatingFolder ? "Creating…" : "Create Folder"}
               </button>
             </div>
           </DialogContent>
         </Dialog>
-
-      {/* Rename Folder Modal — reuses the New Folder chrome. */}
-      <Dialog open={renameTarget !== null} onOpenChange={(open) => { if (!open) setRenameTarget(null); }}>
-        <DialogContent
-          className="bg-white rounded-2xl w-[440px] max-w-[calc(100vw-32px)] p-0 border-0 gap-0 flex flex-col [&>button:last-child]:hidden"
-          style={{ boxShadow: "0 24px 48px -8px rgba(18,28,40,0.22), 0 0 0 1px rgba(18,28,40,0.06)" }}
-        >
-          {/* Header */}
-          <div
-            className="flex items-center justify-between px-6 py-4 border-b border-slate-100"
-            style={{ animation: "fade-slide-up 0.22s cubic-bezier(0.16,1,0.3,1) 30ms both" }}
-          >
-            <DialogTitle asChild>
-              <span className="text-[15px] font-semibold tracking-[-0.01em] text-[--val-heading] text-balance">Rename Folder</span>
-            </DialogTitle>
-            <button
-              onClick={() => setRenameTarget(null)}
-              className="w-10 h-10 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-[color,background-color] duration-150"
-              aria-label="Close"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          {/* Body */}
-          <div
-            className="flex flex-col gap-5 px-6 py-5 relative z-[1]"
-            style={{ animation: "fade-slide-up 0.22s cubic-bezier(0.16,1,0.3,1) 70ms both" }}
-          >
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[11px] font-semibold uppercase tracking-[0.07em] text-slate-400">
-                Folder Name
-              </label>
-              <input
-                autoFocus
-                type="text"
-                value={renameValue}
-                onChange={(e) => setRenameValue(e.target.value)}
-                onFocus={(e) => e.target.select()}
-                onKeyDown={(e) => { if (e.key === "Enter" && renameValue.trim()) handleRenameFolder(); if (e.key === "Escape") setRenameTarget(null); }}
-                placeholder="e.g. Lease Agreements"
-                maxLength={64}
-                className="h-10 w-full bg-[--val-input-surface] border border-slate-200 rounded-lg px-3.5 text-[14px] text-[--val-heading] placeholder:text-slate-400
-                  focus:outline-none focus:border-[--val-primary-dark] focus:bg-white focus:shadow-[0_0_0_3px_rgba(37,99,235,0.10)] transition-[border-color,background-color,box-shadow] duration-150"
-              />
-              <p className="text-[12px] text-slate-400">Renames this folder for everyone on the property.</p>
-            </div>
-
-            {/* Error message — shown when the rename action fails; modal stays open. */}
-            {renameError && (
-              <p className="text-[12.5px] text-rose-600">
-                {renameError}
-              </p>
-            )}
-          </div>
-
-          {/* Footer */}
-          <div
-            className="flex items-center justify-end gap-2.5 px-6 py-4 border-t border-slate-100"
-            style={{ animation: "fade-slide-up 0.22s cubic-bezier(0.16,1,0.3,1) 110ms both" }}
-          >
-            <button
-              onClick={() => setRenameTarget(null)}
-              className="h-9 px-4 rounded-lg text-[13.5px] font-medium text-slate-600 border border-slate-200
-                hover:bg-slate-50 hover:border-slate-300 active:scale-[0.96] transition-[color,background-color,border-color,transform] duration-150"
-            >
-              Cancel
-            </button>
-            <button
-              disabled={!renameValue.trim() || renameValue.trim() === renameTarget?.name || isRenaming}
-              onClick={handleRenameFolder}
-              className="h-9 px-5 rounded-lg text-[13.5px] font-semibold text-white
-                enabled:hover:opacity-90 active:enabled:scale-[0.96] disabled:opacity-40 disabled:cursor-not-allowed
-                transition-[opacity,transform] duration-150"
-              style={{ background: "var(--val-primary-dark)" }}
-            >
-              {isRenaming ? "Saving…" : "Save"}
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Folder Modal — one dialog, two states (confirm vs blocked). */}
-      <Dialog open={deleteTarget !== null} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
-        <DialogContent
-          className="bg-white rounded-2xl w-[440px] max-w-[calc(100vw-32px)] p-0 border-0 gap-0 flex flex-col [&>button:last-child]:hidden"
-          style={{ boxShadow: "0 24px 48px -8px rgba(18,28,40,0.22), 0 0 0 1px rgba(18,28,40,0.06)" }}
-        >
-          {(() => {
-            // Decide which state to show from what the folder currently holds.
-            const contents = deleteTarget
-              ? folderContents(deleteTarget.id)
-              : { fileCount: 0, subfolderCount: 0, isEmpty: true };
-            const parts: string[] = [];
-            if (contents.fileCount > 0) parts.push(`${contents.fileCount} ${contents.fileCount === 1 ? "file" : "files"}`);
-            if (contents.subfolderCount > 0) parts.push(`${contents.subfolderCount} ${contents.subfolderCount === 1 ? "subfolder" : "subfolders"}`);
-
-            return (
-              <>
-                {/* Header */}
-                <div
-                  className="flex items-center justify-between px-6 py-4 border-b border-slate-100"
-                  style={{ animation: "fade-slide-up 0.22s cubic-bezier(0.16,1,0.3,1) 30ms both" }}
-                >
-                  <DialogTitle asChild>
-                    <span className="text-[15px] font-semibold tracking-[-0.01em] text-[--val-heading] text-balance">
-                      Delete “{deleteTarget?.name}”?
-                    </span>
-                  </DialogTitle>
-                  <button
-                    onClick={() => setDeleteTarget(null)}
-                    className="w-10 h-10 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-[color,background-color] duration-150"
-                    aria-label="Close"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-
-                {/* Body */}
-                <div
-                  className="flex flex-col gap-3 px-6 py-5"
-                  style={{ animation: "fade-slide-up 0.22s cubic-bezier(0.16,1,0.3,1) 70ms both" }}
-                >
-                  {contents.isEmpty ? (
-                    <>
-                      <p className="text-[14px] text-[--val-heading]">This folder is empty and will be permanently removed.</p>
-                      <p className="text-[13px] text-slate-400">This can’t be undone.</p>
-                    </>
-                  ) : (
-                    <>
-                      <div className="rounded-lg border border-rose-200 bg-rose-50/60 px-3.5 py-3">
-                        <p className="text-[13.5px] text-[--val-heading]">This folder still holds {parts.join(" and ")}.</p>
-                      </div>
-                      <p className="text-[13px] text-slate-400">Move or delete its contents first, then you can delete the folder.</p>
-                    </>
-                  )}
-
-                  {/* Error message — shown when the delete action fails; modal stays open. */}
-                  {deleteError && (
-                    <p className="text-[12.5px] text-rose-600">
-                      {deleteError}
-                    </p>
-                  )}
-                </div>
-
-                {/* Footer */}
-                <div
-                  className="flex items-center justify-end gap-2.5 px-6 py-4 border-t border-slate-100"
-                  style={{ animation: "fade-slide-up 0.22s cubic-bezier(0.16,1,0.3,1) 110ms both" }}
-                >
-                  {contents.isEmpty ? (
-                    <>
-                      <button
-                        onClick={() => setDeleteTarget(null)}
-                        className="h-9 px-4 rounded-lg text-[13.5px] font-medium text-slate-600 border border-slate-200
-                          hover:bg-slate-50 hover:border-slate-300 active:scale-[0.96] transition-[color,background-color,border-color,transform] duration-150"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        disabled={isDeleting}
-                        onClick={handleDeleteFolder}
-                        className="h-9 px-5 rounded-lg text-[13.5px] font-semibold text-white bg-rose-600
-                          enabled:hover:bg-rose-700 active:enabled:scale-[0.96] disabled:opacity-40 disabled:cursor-not-allowed
-                          transition-[background-color,transform] duration-150"
-                      >
-                        {isDeleting ? "Deleting…" : "Delete folder"}
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      onClick={() => setDeleteTarget(null)}
-                      className="h-9 px-4 rounded-lg text-[13.5px] font-medium text-slate-600 border border-slate-200
-                        hover:bg-slate-50 hover:border-slate-300 active:scale-[0.96] transition-[color,background-color,border-color,transform] duration-150"
-                    >
-                      Got it
-                    </button>
-                  )}
-                </div>
-              </>
-            );
-          })()}
-        </DialogContent>
-      </Dialog>
-
       {/* Move To Modal */}
       <Dialog open={showMoveModal} onOpenChange={setShowMoveModal}>
         <DialogContent
@@ -1788,10 +1115,10 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
                 Selected Files
               </p>
               <div className="bg-slate-50 border border-slate-100 rounded-lg px-3 py-2.5 max-h-[96px] overflow-y-auto flex flex-col gap-1.5">
-                {Array.from(selectedFiles).map((name) => (
-                  <div key={name} className="flex items-center gap-2 min-w-0">
+                {Array.from(selectedFiles).map((id) => (
+                  <div key={id} className="flex items-center gap-2 min-w-0">
                     <FileText className="w-3.5 h-3.5 shrink-0 text-blue-500" />
-                    <span className="text-[13px] text-[--val-heading] truncate">{name}</span>
+                    <span className="text-[13px] text-[--val-heading] truncate">{idToName.get(id) ?? id}</span>
                   </div>
                 ))}
               </div>
@@ -2278,24 +1605,29 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
 
 function ListView({
   files,
-  onOpen,
+  onFileClick,
   mounted,
   selectMode,
   selectedFiles,
   onToggleFile,
   onToggleAll,
+  onDeleteFile,
+  canDelete,
 }: {
   files: FileEntry[];
-  // Called with the document id when a row is clicked outside of select mode.
-  onOpen: (docId: string) => void;
+  onFileClick: (name: string) => void;
   mounted: boolean;
   selectMode: boolean;
   selectedFiles: Set<string>;
-  onToggleFile: (name: string) => void;
+  onToggleFile: (id: string) => void;
   onToggleAll: () => void;
+  // Deletes one document by id; returns the action result so we can toast.
+  onDeleteFile: (id: string) => Promise<ActionResult<unknown>>;
+  // admin/owner only — when false, the per-row delete button is not rendered.
+  canDelete: boolean;
 }) {
-  const allSelected = files.length > 0 && files.every((f) => selectedFiles.has(f.name));
-  const someSelected = files.some((f) => selectedFiles.has(f.name)) && !allSelected;
+  const allSelected = files.length > 0 && files.every((f) => selectedFiles.has(f.id));
+  const someSelected = files.some((f) => selectedFiles.has(f.id)) && !allSelected;
 
   return (
     <div className="bg-white rounded-lg border border-slate-200 shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden">
@@ -2322,16 +1654,17 @@ function ListView({
             <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Folder</th>
             <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Size</th>
             <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Modified</th>
+            <th className="px-4 py-3 text-right text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em] w-[64px]"><span className="sr-only">Actions</span></th>
           </tr>
         </thead>
         <tbody>
           {files.map((f, i) => {
-            const isChecked = selectedFiles.has(f.name);
+            const isChecked = selectedFiles.has(f.id);
             return (
               <tr
-                key={f.name}
-                onClick={() => selectMode ? onToggleFile(f.name) : onOpen(f.id)}
-                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectMode ? onToggleFile(f.name) : onOpen(f.id); } }}
+                key={f.id}
+                onClick={() => onFileClick(f.name)}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onFileClick(f.name); } }}
                 tabIndex={0}
                 className={`border-t border-slate-100 cursor-pointer transition-colors duration-100 focus-visible:outline-none focus-visible:bg-blue-50/60 ${
                   isChecked && selectMode ? "bg-blue-50/50" : "hover:bg-blue-50/30"
@@ -2352,7 +1685,7 @@ function ListView({
                   >
                     <Checkbox
                       checked={isChecked}
-                      onChange={() => onToggleFile(f.name)}
+                      onChange={() => onToggleFile(f.id)}
                     />
                   </td>
                 )}
@@ -2372,6 +1705,25 @@ function ListView({
                 </td>
                 <td className="px-4 py-3.5 text-[14px] text-slate-400">{f.size}</td>
                 <td className="px-4 py-3.5 text-[14px] text-slate-400">{f.date}</td>
+                <td className="px-4 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
+                  {canDelete && (
+                  <ConfirmAction
+                    tier="confirm"
+                    title={`Delete "${f.name}"?`}
+                    description="This permanently removes the file and its stored copy. This can't be undone."
+                    confirmLabel="Delete"
+                    successMessage="File deleted"
+                    onConfirm={() => onDeleteFile(f.id)}
+                  >
+                    <button
+                      aria-label={`Delete ${f.name}`}
+                      className="inline-flex w-8 h-8 items-center justify-center rounded-lg text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition-[color,background-color] duration-150"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </ConfirmAction>
+                  )}
+                </td>
               </tr>
             );
           })}
@@ -2384,34 +1736,41 @@ function ListView({
 
 function GridView({
   files,
-  onOpen,
+  onFileClick,
   selectMode,
   selectedFiles,
   onToggleFile,
+  onDeleteFile,
+  canDelete,
 }: {
   files: FileEntry[];
-  // Called with the document id when a card is clicked outside of select mode.
-  onOpen: (docId: string) => void;
+  onFileClick: (name: string) => void;
   selectMode: boolean;
   selectedFiles: Set<string>;
-  onToggleFile: (name: string) => void;
+  onToggleFile: (id: string) => void;
+  onDeleteFile: (id: string) => Promise<ActionResult<unknown>>;
+  // admin/owner only — when false, the per-card delete button is not rendered.
+  canDelete: boolean;
 }) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
       {files.map((f, i) => {
-        const isChecked = selectedFiles.has(f.name);
+        const isChecked = selectedFiles.has(f.id);
         return (
+          <div
+            key={f.id}
+            className="group relative"
+            style={{ '--delay': `${100 + i * 80}ms` } as React.CSSProperties}
+          >
           <button
-            key={f.name}
             type="button"
-            onClick={() => selectMode ? onToggleFile(f.name) : onOpen(f.id)}
+            onClick={() => onFileClick(f.name)}
             className={`relative bg-white rounded-xl p-4 transition-all duration-200 cursor-pointer text-left w-full
               animate-[fade-slide-up_0.45s_cubic-bezier(0.22,1,0.36,1)_both] [animation-delay:var(--delay)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[--val-primary-dark]/40 ${
               isChecked && selectMode
                 ? "shadow-[0_0_0_2px_var(--val-primary-dark),0px_6px_20px_0px_rgba(18,28,40,0.10)] -translate-y-0.5"
                 : "shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)] hover:-translate-y-0.5 hover:shadow-[0px_6px_20px_0px_rgba(18,28,40,0.10)]"
             }`}
-            style={{ '--delay': `${100 + i * 80}ms` } as React.CSSProperties}
           >
             {/* Checkbox overlay */}
             {selectMode && (
@@ -2422,7 +1781,7 @@ function GridView({
               >
                 <Checkbox
                   checked={isChecked}
-                  onChange={() => onToggleFile(f.name)}
+                  onChange={() => onToggleFile(f.id)}
                 />
               </div>
             )}
@@ -2443,6 +1802,27 @@ function GridView({
             <p className="text-[13px] font-medium truncate text-[--val-heading]">{f.name}</p>
             <p className="text-[11px] text-slate-400 mt-0.5">{f.size} · {f.date}</p>
           </button>
+          {/* Per-card delete — hidden in select mode (use the bulk bar instead); admin/owner only. */}
+          {canDelete && !selectMode && (
+            <div className="absolute top-2.5 right-2.5 z-10" onClick={(e) => e.stopPropagation()}>
+              <ConfirmAction
+                tier="confirm"
+                title={`Delete "${f.name}"?`}
+                description="This permanently removes the file and its stored copy. This can't be undone."
+                confirmLabel="Delete"
+                successMessage="File deleted"
+                onConfirm={() => onDeleteFile(f.id)}
+              >
+                <button
+                  aria-label={`Delete ${f.name}`}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/90 text-slate-300 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-rose-500 hover:bg-rose-50 shadow-sm transition-[opacity,color,background-color] duration-150"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </ConfirmAction>
+            </div>
+          )}
+          </div>
         );
       })}
     </div>

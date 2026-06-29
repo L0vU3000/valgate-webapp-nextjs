@@ -35,7 +35,7 @@ const provinces = ["All", ...CAMBODIA_PROVINCES];
 
 
 export function PortfolioPage({ data }: { data: PortfolioPageData }) {
-  const { properties: activeProperties, archivedProperties, stats, kpis, archivedCount, soldCount, showArchived } = data;
+  const { properties: activeProperties, archivedProperties, stats, kpis, archivedCount, soldCount, showArchived, canDelete } = data;
 
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("Property Type");
@@ -238,6 +238,8 @@ export function PortfolioPage({ data }: { data: PortfolioPageData }) {
             onClearFilters={clearAllFilters}
             animationConfig={PORTFOLIO_TABLE_ANIMATION}
             showArchived={false}
+            canDelete={canDelete}
+            refresh={() => router.refresh()}
             sortKey={sortKey}
             sortDir={sortDir}
             onSort={handleSort}

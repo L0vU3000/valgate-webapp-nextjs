@@ -2,7 +2,7 @@
 
 *Last updated: April 2026*
 
-A standard method for building UI features with mock data that can be swapped to a real backend (Convex) with minimal code change.
+A standard method for building UI features with mock data that can be swapped to the real backend — **Neon (serverless Postgres) + Drizzle ORM** — with minimal code change. Data access lives in `lib/services/*` (one module per entity) and is called from Server Actions in `app/**/*.actions.ts`.
 
 The notifications feature is the reference implementation.
 
@@ -71,7 +71,7 @@ export const MOCK_NOTIFICATIONS: Notification[] = [
 
 This is the swap point — the only file that changes when the backend is ready.
 
-Today it returns `useState` + mock data. When Convex is wired, the `useState` lines become `useQuery` and `useMutation` calls. The rest of the app doesn't change.
+Today it returns `useState` + mock data. When the Neon + Drizzle backend is wired, the mutation callbacks call **Server Actions** (which call `lib/services/*`), and the initial list is fetched server-side and passed in as a prop. The rest of the app doesn't change.
 
 **Rules:**
 - Mark `"use client"` — hooks are always client-side
@@ -86,21 +86,21 @@ Today it returns `useState` + mock data. When Convex is wired, the `useState` li
 import { useState } from "react";
 import { MOCK_NOTIFICATIONS, type Notification } from "@/lib/data/notifications";
 
-// TODO(backend): Replace useState + MOCK_NOTIFICATIONS with:
-//   const notifications = useQuery(api.notifications.list);
-//   const markAllReadMutation = useMutation(api.notifications.markAllRead);
-//   const markAsReadMutation  = useMutation(api.notifications.markAsRead);
+// TODO(backend): seed initial state from a Server Component prop (server-fetched
+//   via lib/services/notifications.ts), and call Server Actions in the callbacks:
+//   await markAllReadAction();
+//   await markAsReadAction(id);
 
-export function useNotifications() {
-  const [notifications, setNotifications] = useState<Notification[]>(MOCK_NOTIFICATIONS);
+export function useNotifications(initial: Notification[] = MOCK_NOTIFICATIONS) {
+  const [notifications, setNotifications] = useState<Notification[]>(initial);
 
   function markAllRead() {
-    // TODO(backend): markAllReadMutation()
+    // TODO(backend): await markAllReadAction()
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
   }
 
   function markAsRead(id: string) {
-    // TODO(backend): markAsReadMutation({ id })
+    // TODO(backend): await markAsReadAction(id)
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, read: true } : n))
     );
@@ -110,29 +110,90 @@ export function useNotifications() {
 }
 ```
 
-**When wiring Convex**, the replacement looks like:
+**When wiring the backend**, the replacement looks like:
 
 ```ts
 // lib/hooks/use-notifications.ts (after backend)
 "use client";
 
-import { useQuery, useMutation } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { useState } from "react";
+import type { Notification } from "@/lib/data/notifications";
+import { markAllReadAction, markAsReadAction } from "@/app/notifications/notifications.actions";
 
-export function useNotifications() {
-  const notifications = useQuery(api.notifications.list) ?? [];
-  const markAllReadMutation = useMutation(api.notifications.markAllRead);
-  const markAsReadMutation  = useMutation(api.notifications.markAsRead);
+// `initial` comes from a Server Component that fetched via lib/services/notifications.ts.
+export function useNotifications(initial: Notification[]) {
+  const [notifications, setNotifications] = useState<Notification[]>(initial);
 
-  return {
-    notifications,
-    markAllRead: () => markAllReadMutation(),
-    markAsRead:  (id: string) => markAsReadMutation({ id }),
-  };
+  async function markAllRead() {
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true }))); // optimistic
+    await markAllReadAction();
+  }
+
+  async function markAsRead(id: string) {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+    );
+    await markAsReadAction(id);
+  }
+
+  return { notifications, markAllRead, markAsRead };
 }
 ```
 
 The component and its consumers are untouched.
+
+The Server Actions the hook calls are thin — authenticate, validate, then delegate to the service:
+
+```ts
+// app/notifications/notifications.actions.ts
+"use server";
+
+import { auth } from "@clerk/nextjs/server";
+import { revalidateTag } from "next/cache";
+import { notificationsService } from "@/lib/services/notifications";
+
+export async function markAllReadAction() {
+  const { userId } = await auth();
+  if (!userId) throw new Error("Unauthenticated");
+  await notificationsService.markAllRead(userId);
+  revalidateTag("notifications");
+}
+
+export async function markAsReadAction(id: string) {
+  const { userId } = await auth();
+  if (!userId) throw new Error("Unauthenticated");
+  await notificationsService.markAsRead(userId, id); // service enforces ownership
+  revalidateTag("notifications");
+}
+```
+
+```ts
+// lib/services/notifications.ts — all Drizzle access for this entity lives here
+import { and, eq } from "drizzle-orm";
+import { db } from "@/lib/db/client";
+import { notifications } from "@/lib/db/schema/notifications";
+
+export const notificationsService = {
+  async listForUser(userId: string) {
+    return db.select().from(notifications).where(eq(notifications.userId, userId));
+  },
+
+  async markAllRead(userId: string) {
+    await db
+      .update(notifications)
+      .set({ read: true })
+      .where(eq(notifications.userId, userId));
+  },
+
+  async markAsRead(userId: string, id: string) {
+    // ownership check folded into the WHERE — IDOR defense
+    await db
+      .update(notifications)
+      .set({ read: true })
+      .where(and(eq(notifications.id, id), eq(notifications.userId, userId)));
+  },
+};
+```
 
 ### 3. Display Formatting (`lib/format.ts`)
 
@@ -191,21 +252,30 @@ const { notifications, markAllRead } = useNotifications();
 
 ---
 
-## Convex Schema
+## Drizzle Schema
 
-When the backend is ready, add the table to `convex/schema.ts`:
+When the backend is ready, add the table to `lib/db/schema/notifications.ts`:
 
 ```ts
-notifications: defineTable({
-  userId:      v.string(),   // Clerk userId — always filter by this
-  category:    v.union(v.literal("MAINTENANCE"), v.literal("LEASING"), ...),
-  title:       v.string(),
-  description: v.string(),
-  createdAt:   v.number(),   // Date.now()
-  read:        v.boolean(),
-  linkTo:      v.optional(v.string()),
-}).index("by_user", ["userId"]),
+import { pgTable, text, bigint, boolean, index } from "drizzle-orm/pg-core";
+
+export const notifications = pgTable(
+  "notifications",
+  {
+    id:          text("id").primaryKey(),
+    userId:      text("user_id").notNull(),       // Clerk userId — always filter by this
+    category:    text("category").notNull(),      // "MAINTENANCE" | "LEASING" | ...
+    title:       text("title").notNull(),
+    description: text("description").notNull(),
+    createdAt:   bigint("created_at", { mode: "number" }).notNull(), // Date.now()
+    read:        boolean("read").notNull().default(false),
+    linkTo:      text("link_to"),                 // nullable
+  },
+  (t) => ({ byUser: index("notifications_by_user").on(t.userId) })
+);
 ```
+
+Run `npm run db:generate` then `npm run db:migrate` to create the table in Neon.
 
 ---
 
@@ -213,9 +283,11 @@ notifications: defineTable({
 
 | File | Change |
 |---|---|
-| `lib/hooks/use-notifications.ts` | Swap `useState` → `useQuery` + `useMutation` |
-| `convex/notifications.ts` | New file — Convex query + mutation functions |
-| `convex/schema.ts` | Add `notifications` table |
+| `lib/hooks/use-notifications.ts` | Take `initial` from a prop; mutation callbacks call Server Actions |
+| `app/notifications/notifications.actions.ts` | New file — Server Actions (auth + Zod, then call the service) |
+| `lib/services/notifications.ts` | New file — Drizzle reads/writes (one module per entity) |
+| `lib/db/schema/notifications.ts` | New file — Drizzle table definition |
+| Server Component (e.g. page/layout) | Fetch the initial list via the service, pass as a prop |
 | `lib/data/notifications.ts` | Remove `MOCK_NOTIFICATIONS` array, keep types |
 | Everything else | No change |
 

@@ -6,6 +6,8 @@ import { WidgetCard } from "@/app/(pro)/pro/_components/WidgetCard";
 import { EnterLi } from "@/app/(pro)/pro/_components/motion-primitives";
 import { AssignVendorModal } from "./AssignVendorModal";
 import { updateWorkOrder } from "@/app/(pro)/pro/actions";
+import { ConfirmAction } from "@/components/ui/confirm-action";
+import { toActionResult } from "@/lib/client/action-result";
 import { formatCurrencyFull, formatRelativeTime } from "@/lib/format";
 import { cn } from "@/components/ui/utils";
 import type { ProWorkOrderRow, WorkOrdersPageData } from "@/app/(pro)/pro/queries";
@@ -28,6 +30,8 @@ const STATUS_LABEL: Record<MaintenanceStatus, string> = {
   Open: "Open",
   InProgress: "In Progress",
   Resolved: "Resolved",
+  // "Cancelled" is a terminal state — work order was withdrawn before completion.
+  Cancelled: "Cancelled",
 };
 
 const STATUS_PILL: Record<MaintenanceStatus, string> = {
@@ -36,6 +40,9 @@ const STATUS_PILL: Record<MaintenanceStatus, string> = {
     "bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30",
   Resolved:
     "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/30",
+  // Muted slate pill — cancelled is closed but not successful.
+  Cancelled:
+    "bg-slate-100 text-slate-500 border border-slate-200 dark:bg-slate-700/40 dark:text-slate-400 dark:border-slate-600/40",
 };
 
 export function WorkOrdersTable({
@@ -131,7 +138,7 @@ export function WorkOrdersTable({
                         Vendor: {row.vendorName}
                         {row.vendorCategory ? ` (${row.vendorCategory})` : ""}
                       </span>
-                      {row.status !== "Resolved" && (
+                      {row.status !== "Resolved" && row.status !== "Cancelled" && (
                         <button
                           type="button"
                           onClick={() => setAssignRow(row)}
@@ -141,7 +148,7 @@ export function WorkOrdersTable({
                         </button>
                       )}
                     </>
-                  ) : row.status === "Resolved" ? (
+                  ) : row.status === "Resolved" || row.status === "Cancelled" ? (
                     "—"
                   ) : (
                     <button
@@ -167,14 +174,59 @@ export function WorkOrdersTable({
                     </button>
                   )}
                   {row.status === "InProgress" && (
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => handleStatusChange(row.id, "Resolved")}
-                      className="h-7 rounded-md border border-emerald-200 bg-emerald-50 px-2 text-[11.5px] font-medium text-emerald-700 transition-colors hover:bg-emerald-100 disabled:opacity-60 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300"
+                    // Resolving a work order is a one-way close, so it goes
+                    // through the Phase 4 "confirm" tier: a Cancel/Confirm
+                    // dialog before the status flips. router.refresh() runs on
+                    // success so the row re-derives from the server.
+                    <ConfirmAction
+                      tier="confirm"
+                      title="Mark this work order resolved?"
+                      description={`"${row.title}" will be closed and moved out of the active queue.`}
+                      confirmLabel="Resolve"
+                      successMessage="Work order resolved"
+                      onConfirm={async () => {
+                        const res = await updateWorkOrder({
+                          id: row.id,
+                          status: "Resolved",
+                        });
+                        if (res.ok) router.refresh();
+                        return toActionResult(res);
+                      }}
                     >
-                      {busy ? "Saving…" : "Resolve"}
-                    </button>
+                      <button
+                        type="button"
+                        className="h-7 rounded-md border border-emerald-200 bg-emerald-50 px-2 text-[11.5px] font-medium text-emerald-700 transition-colors hover:bg-emerald-100 disabled:opacity-60 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300"
+                      >
+                        Resolve
+                      </button>
+                    </ConfirmAction>
+                  )}
+                  {(row.status === "Open" || row.status === "InProgress") && (
+                    // Cancel is a terminal withdrawal — the work order won't be done.
+                    // Confirm tier prevents accidental clicks; Cancelled rows drop out of
+                    // the active queue, alerts, and cost rollups on the next refresh.
+                    <ConfirmAction
+                      tier="confirm"
+                      title="Cancel this work order?"
+                      description={`"${row.title}" will be marked Cancelled and removed from the active queue.`}
+                      confirmLabel="Cancel order"
+                      successMessage="Work order cancelled"
+                      onConfirm={async () => {
+                        const res = await updateWorkOrder({
+                          id: row.id,
+                          status: "Cancelled",
+                        });
+                        if (res.ok) router.refresh();
+                        return toActionResult(res);
+                      }}
+                    >
+                      <button
+                        type="button"
+                        className="h-7 rounded-md border border-slate-200 px-2 text-[11.5px] font-medium text-slate-500 transition-colors hover:bg-slate-100 disabled:opacity-60 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800/60"
+                      >
+                        Cancel
+                      </button>
+                    </ConfirmAction>
                   )}
                 </div>
               </div>

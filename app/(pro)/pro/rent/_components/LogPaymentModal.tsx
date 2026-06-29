@@ -20,6 +20,12 @@ import type { RentRollRow } from "@/app/(pro)/pro/queries";
 // monthly rent (the manager can adjust for a partial payment). Method is
 // the only other input — the server stamps the date, so we don't show a
 // fake date field that wouldn't map to a real schema value.
+//
+// Phase 4 (task 2) — CONFIRM-BEFORE-SUBMIT was chosen over a post-submit
+// Tier-1 undo: logging a payment CREATES a new record (it doesn't flip an
+// existing one), and there is no "delete payment" action to undo it cleanly,
+// so a money entry is safer to confirm up front. Pressing "Record payment"
+// reveals a "Record $X for [property]?" summary; the manager confirms there.
 
 const PAYMENT_METHODS = ["ABA Bank", "Wing", "Wire transfer", "Cash"] as const;
 type PaymentMethod = (typeof PAYMENT_METHODS)[number];
@@ -42,6 +48,9 @@ export function LogPaymentModal({
   const [snapshot, setSnapshot] = useState<RentRollRow | null>(null);
   const [amount, setAmount] = useState("");
   const [method, setMethod] = useState<PaymentMethod>("ABA Bank");
+  // Once true, the modal shows the "Record $X for [property]?" summary instead
+  // of the form, so the manager confirms the money entry before it's written.
+  const [confirming, setConfirming] = useState(false);
 
   // When a new row opens, refill the form from that lease.
   useEffect(() => {
@@ -50,13 +59,22 @@ export function LogPaymentModal({
       setAmount(String(row.monthlyRent));
       setError(null);
       setShowSuccess(false);
+      setConfirming(false);
     }
   }, [row]);
 
   const open = row !== null;
 
-  function handleSubmit(event: React.FormEvent) {
+  // Step 1: validate locally, then switch to the confirm summary.
+  function handleReview(event: React.FormEvent) {
     event.preventDefault();
+    if (!snapshot) return;
+    setError(null);
+    setConfirming(true);
+  }
+
+  // Step 2: the manager confirmed — write the payment for real.
+  function handleConfirm() {
     if (!snapshot) return;
     setError(null);
 
@@ -73,6 +91,8 @@ export function LogPaymentModal({
         router.refresh();
         setShowSuccess(true);
       } else {
+        // Drop back to the form so the manager can fix and retry.
+        setConfirming(false);
         setError(result.error);
       }
     });
@@ -99,8 +119,50 @@ export function LogPaymentModal({
           message={`Payment of ${formatCurrencyFull(Number(amount))} recorded`}
           onComplete={onClose}
         />
+      ) : confirming ? (
+        // Confirm summary — the manager double-checks the money before it's
+        // written. "Back" returns to the form; "Confirm & record" submits.
+        <div className="flex flex-col gap-4">
+          <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-3 text-[13px] dark:border-slate-700 dark:bg-slate-800/50">
+            <p className="text-slate-700 dark:text-slate-200">
+              Record{" "}
+              <span className="font-semibold tabular-nums text-slate-900 dark:text-slate-100">
+                {formatCurrencyFull(Number(amount))}
+              </span>{" "}
+              via <span className="font-medium">{method}</span> for{" "}
+              <span className="font-semibold text-slate-900 dark:text-slate-100">
+                {snapshot.propertyName}
+              </span>
+              ?
+            </p>
+            <p className="mt-1 text-[12px] text-slate-500 dark:text-slate-400">
+              {snapshot.tenantName} · {snapshot.clientName}
+            </p>
+          </div>
+
+          <ProFormError message={error} />
+
+          <div className="flex items-center justify-end gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => setConfirming(false)}
+              disabled={isPending}
+              className="h-9 rounded-md border border-slate-200 px-3 text-[13px] font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800/60"
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirm}
+              disabled={isPending}
+              className="h-9 rounded-md bg-emerald-600 px-3 text-[13px] font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-60"
+            >
+              {isPending ? "Recording…" : "Confirm & record"}
+            </button>
+          </div>
+        </div>
       ) : (
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <form onSubmit={handleReview} className="flex flex-col gap-4">
           {/* Read-only context so the manager knows exactly what they're
               logging against — none of this is editable input. */}
           <div className="rounded-md border border-slate-100 bg-slate-50/70 px-3 py-2.5 text-[12.5px] dark:border-slate-800 dark:bg-slate-800/40">
@@ -152,7 +214,7 @@ export function LogPaymentModal({
 
           <ProModalActions
             onCancel={onClose}
-            submitLabel="Record payment"
+            submitLabel="Review payment"
             pendingLabel="Recording…"
             isPending={isPending}
             submitDisabled={!amountIsValid}

@@ -10,7 +10,7 @@
 |---|---|
 | Styling | Tailwind CSS + shadcn/ui |
 | Auth | Clerk |
-| Database | decide later |
+| Database | Neon (serverless Postgres) + Drizzle ORM |
 | Validation | Zod |
 | Forms | React Hook Form + Zod |
 | Email | Resend |
@@ -26,7 +26,7 @@
 - **Fetch in Server Components** — never `useEffect` for initial data loads.
 - **One action file per domain** — `post.actions.ts`, `user.actions.ts`, etc.
 - **Always `await params`** — it's a Promise in Next.js 15.
-- **Convex mutations/queries over Server Actions** for anything touching the DB.
+- **Server Actions → `lib/services/*` (Drizzle) for anything touching the DB.** One service module per entity; actions call services, services own the Drizzle queries.
 
 ---
 
@@ -59,7 +59,7 @@ Client Component ← Server Component re-fetches fresh data
 
 All UI work in this project must be fully wired — no mocks, no stubs, no placeholder values.
 
-- **Real entities**: every component binds to actual typed data from the local-db / Convex layer
+- **Real entities**: every component binds to actual typed data from the Neon (Drizzle) services layer (`lib/services/*`)
 - **Real fields**: no hardcoded strings or dummy numbers in place of real schema fields
 - **Real calculations**: all stats, scores, and derived values use live computation logic (e.g. progress pillars, KPIs)
 - **Seed data**: the local-db (`public/data/users/demo-user/`) is the source of truth for dev/demo; expand seed data when a new feature needs meaningful display values
@@ -85,10 +85,25 @@ All UI work in this project must be fully wired — no mocks, no stubs, no place
 | Secrets passed as props to Client | Use server-side, pass only the result |
 | No rate limiting on auth actions | Rate limit login, signup, sensitive mutations |
 
-<!-- convex-ai-start -->
-This project uses [Convex](https://convex.dev) as its backend.
+## Backend (Neon + Drizzle)
 
-When working on Convex code, **always read `convex/_generated/ai/guidelines.md` first** for important guidelines on how to correctly use Convex APIs and patterns. The file contains rules that override what you may have learned about Convex from training data.
+This project uses **Neon (serverless Postgres)** with **Drizzle ORM** as its backend.
 
-Convex agent skills for common tasks can be installed by running `npx convex ai-files install`.
-<!-- convex-ai-end -->
+- Schema lives in `lib/db/schema/*`; the DB client is `lib/db/client.ts`.
+- Data access goes through `lib/services/*` (one module per entity), called from Server Actions in `app/**/*.actions.ts`. Never query the DB directly from a component or route handler.
+- Migrations: `npm run db:generate` (create) → `npm run db:migrate` (apply). Check connection with `npm run db:ping`.
+- Seeding: `npm run seed:neon`. **Never run `seed:reset`** — it destroys the evolved seed data.
+- `DATABASE_URL` points at the Neon branch; it is a secret (server-only, never `NEXT_PUBLIC_`).
+
+> The `convex/` directory is a legacy/parallel layer that the app does **not** call. Do not
+> add new backend code there or follow Convex patterns — use Neon + Drizzle services.
+
+## graphify
+
+This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+
+Rules:
+- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
+- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
+- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
+- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).

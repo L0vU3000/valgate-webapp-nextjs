@@ -34,10 +34,12 @@ export async function getDocumentsPageData(propertyId: string) {
 
   return {
     userId: authCtx.userId,
-    // Server-computed capability: only admins (and above) may delete folders.
-    // The client receives just this boolean — no role logic ships to the
-    // browser, and the deleteFolder action remains the real enforcement point.
-    canDeleteFolders: roleAtLeast(authCtx.orgRole, "admin"),
+    // Whether this user may delete documents/folders. Mirrors the portfolio's
+    // gate: only admin/owner can delete. The server already rejects deletes from
+    // lower roles (scopedDelete requires admin, proven in tests/authz), so this
+    // flag exists purely to HIDE the delete controls in the UI for viewer/member
+    // — defence in depth, not the enforcement itself.
+    canDelete: roleAtLeast(authCtx.orgRole, "admin"),
     documents: docs,
     folders: allFolders.filter((x) => x.propertyId === propertyId),
     docThumbUrls,

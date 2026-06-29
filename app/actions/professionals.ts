@@ -11,6 +11,7 @@ import {
   updateProfessional as svcUpdateProfessional,
   deleteProfessional as svcDeleteProfessional,
 } from "@/lib/services/professionals";
+import { logActivity } from "@/lib/services/activity";
 
 export async function createProfessional(data: unknown): Promise<ActionResult<Professional>> {
   const parsed = NewProfessionalSchema.safeParse(data);
@@ -45,6 +46,16 @@ export async function deleteProfessional(id: string): Promise<ActionResult<void>
   const ctx = await requireCtx();
   try {
     await svcDeleteProfessional(ctx, id);
+    try {
+      await logActivity(ctx, {
+        entity: "professional",
+        action: "deleted",
+        entityId: id,
+        summary: `Professional ${id} deleted from directory`,
+      });
+    } catch (err) {
+      console.error("deleteProfessional: audit log failed", err);
+    }
     revalidateFeTag("professionals");
     return { ok: true, data: undefined };
   } catch (err) {

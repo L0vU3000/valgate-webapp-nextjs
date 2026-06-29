@@ -18,6 +18,13 @@ name: CI
 # `ignoreBuildErrors`, so it would add CI minutes while catching nothing the
 # checks below don't.
 
+# The test job hits the shared Neon DEV branch, and global-setup/teardown delete
+# E2E% rows at the start of a run. Two concurrent runs on the same ref could wipe
+# each other's in-flight rows, so serialise per-ref (newest wins).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     # Run on every working branch so authors get feedback before opening a PR.
@@ -46,6 +53,14 @@ jobs:
       # read it in CI with zero extra setup.
       - name: Run tests
         run: npm test
+        env:
+          # Neon DEV branch — same connection string as local .env.local. Required
+          # by lib/env.ts at import time AND used by the tests/authz integration suite.
+          # Add it in: repo Settings -> Secrets and variables -> Actions -> DATABASE_URL.
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          # Required by lib/env.ts (min length 1). Node-env tests never render a map,
+          # so a dummy value is fine; NEXT_PUBLIC_* is public anyway.
+          NEXT_PUBLIC_MAPBOX_TOKEN: ci-mapbox-token-not-used
 
   typecheck:
     name: typecheck (required)
