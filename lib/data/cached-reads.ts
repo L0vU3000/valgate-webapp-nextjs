@@ -127,12 +127,11 @@ export function cachedListPayments(ctx: Ctx, propertyId?: string): Promise<Payme
 }
 
 // Tag: expenses
+// Uses readThrough (Upstash) instead of unstable_cache for this entity.
+// Upstash is the single cache of record — do not double-wrap with unstable_cache.
+// The cache self-heals at 1h TTL — no mutation action exists for this entity.
 export function cachedListExpenses(ctx: Ctx, propertyId?: string): Promise<Expense[]> {
-  return unstable_cache(
-    async () => listExpenses(ctx, propertyId),
-    ["expenses", ctx.orgId, propertyKey(propertyId)],
-    { tags: ["expenses"] },
-  )();
+  return readThrough("expenses", ctx.orgId, propertyId, () => listExpenses(ctx, propertyId));
 }
 
 // Tag: documents
