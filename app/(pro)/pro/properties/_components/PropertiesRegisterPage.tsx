@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Search } from "lucide-react";
+import { ChevronRight, Search, Plus, CheckSquare, ChevronDown, Upload } from "lucide-react";
 import { WidgetCard } from "@/app/(pro)/pro/_components/WidgetCard";
 import { KpiMetricStrip } from "@/app/(pro)/pro/_components/KpiMetricStrip";
 import {
@@ -16,6 +16,16 @@ import {
 import { formatRelativeTime } from "@/lib/format";
 import { cn } from "@/components/ui/utils";
 import type { ProPropertiesData } from "@/app/(pro)/pro/queries";
+import { AddPropertyFlowPro } from "@/app/(pro)/pro/_components/AddPropertyFlowPro";
+import { BulkAssignModal } from "./BulkAssignModal";
+import { CsvImportModal } from "./CsvImportModal";
+import { proPrimaryButtonClass } from "@/app/(pro)/pro/_components/pro-modal";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 // The cross-client Properties register — the manager's whole book of
 // real estate in one filterable list. Every row is a real Property;
@@ -23,7 +33,8 @@ import type { ProPropertiesData } from "@/app/(pro)/pro/queries";
 // server-derived rows, and the summary KPIs come from the query layer.
 
 const COLUMNS = [
-  { label: "Property", width: "w-[30%]" },
+  { label: "", width: "w-[3%]" },
+  { label: "Property", width: "w-[27%]" },
   { label: "Type", width: "w-[12%]" },
   { label: "Client", width: "w-[16%]" },
   { label: "Status", width: "w-[12%]" },
@@ -41,6 +52,10 @@ export function PropertiesRegisterPage({
   const { properties, clients, summary } = data;
 
   const [search, setSearch] = useState("");
+  const [addFlowOpen, setAddFlowOpen] = useState(false);
+  const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
+  const [csvImportOpen, setCsvImportOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [clientId, setClientId] = useState("all");
   const [type, setType] = useState("all");
   const [status, setStatus] = useState("all");
@@ -137,6 +152,28 @@ export function PropertiesRegisterPage({
           title="All Properties"
           headerRight={
             <div className="flex flex-wrap items-center gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className={cn(proPrimaryButtonClass, "gap-1.5")}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Add Property
+                    <ChevronDown className="h-3 w-3" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onSelect={() => setAddFlowOpen(true)}>
+                    <Plus className="h-4 w-4" />
+                    Single property
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setCsvImportOpen(true)}>
+                    <Upload className="h-4 w-4" />
+                    Import from CSV
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
                 <input
@@ -186,6 +223,26 @@ export function PropertiesRegisterPage({
                   </option>
                 ))}
               </select>
+              {selectedIds.size > 0 && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="inline-flex h-8 items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 text-[12px] font-medium text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                    >
+                      <CheckSquare className="h-3.5 w-3.5" />
+                      {selectedIds.size} selected
+                      <ChevronDown className="h-3 w-3 text-slate-400" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-44">
+                    <DropdownMenuItem onSelect={() => setBulkAssignOpen(true)}>
+                      <CheckSquare className="h-4 w-4" />
+                      Assign to client
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
             </div>
           }
         >
@@ -193,7 +250,25 @@ export function PropertiesRegisterPage({
             <table className="w-full text-left">
               <thead>
                 <tr className="border-b border-slate-200 dark:border-slate-800">
-                  {COLUMNS.map((col) => (
+                  <th className="py-2 pr-3 w-[3%]">
+                    <input
+                      ref={(el) => {
+                        if (el) el.indeterminate = selectedIds.size > 0 && selectedIds.size < visible.length;
+                      }}
+                      type="checkbox"
+                      checked={visible.length > 0 && selectedIds.size === visible.length}
+                      onChange={() => {
+                        if (selectedIds.size === visible.length) {
+                          setSelectedIds(new Set());
+                        } else {
+                          setSelectedIds(new Set(visible.map((p) => p.id)));
+                        }
+                      }}
+                      className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                      aria-label="Select all properties"
+                    />
+                  </th>
+                  {COLUMNS.slice(1).map((col) => (
                     <th
                       key={col.label}
                       className={cn(
@@ -228,10 +303,30 @@ export function PropertiesRegisterPage({
                   <EnterTr
                     key={property.id}
                     index={index}
-                    onClick={() => router.push(`/property/${property.id}`)}
-                    className="cursor-pointer border-b border-slate-100 transition-colors last:border-0 hover:bg-slate-50/60 active:bg-slate-100/70 dark:border-slate-800 dark:hover:bg-slate-800/40 dark:active:bg-slate-800/70"
+                    className="border-b border-slate-100 transition-colors last:border-0 hover:bg-slate-50/60 active:bg-slate-100/70 dark:border-slate-800 dark:hover:bg-slate-800/40 dark:active:bg-slate-800/70"
                   >
-                    <td className="py-3 pr-3">
+                    <td className="py-3 pr-3 w-[3%]">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(property.id)}
+                        onChange={() => {
+                          const next = new Set(selectedIds);
+                          if (next.has(property.id)) {
+                            next.delete(property.id);
+                          } else {
+                            next.add(property.id);
+                          }
+                          setSelectedIds(next);
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                        aria-label={`Select ${property.name}`}
+                      />
+                    </td>
+                    <td
+                      className="py-3 pr-3 cursor-pointer"
+                      onClick={() => router.push(`/property/${property.id}`)}
+                    >
                       <div className="flex flex-col leading-tight">
                         <span className="text-[13px] font-semibold text-slate-900 dark:text-slate-100">
                           {property.name}
@@ -311,6 +406,34 @@ export function PropertiesRegisterPage({
           )}
         </WidgetCard>
       </div>
+
+      <AddPropertyFlowPro
+        clients={clients}
+        open={addFlowOpen}
+        onOpenChange={setAddFlowOpen}
+      />
+
+      <CsvImportModal
+        open={csvImportOpen}
+        onOpenChange={setCsvImportOpen}
+        clients={clients}
+        onComplete={() => router.refresh()}
+      />
+
+      <BulkAssignModal
+        open={bulkAssignOpen}
+        onOpenChange={(open) => {
+          setBulkAssignOpen(open);
+          if (!open) setSelectedIds(new Set());
+        }}
+        selectedPropertyIds={Array.from(selectedIds)}
+        clients={clients}
+        onComplete={() => {
+          setSelectedIds(new Set());
+          setBulkAssignOpen(false);
+          router.refresh();
+        }}
+      />
     </main>
   );
 }

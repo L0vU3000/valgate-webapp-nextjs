@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { step2Schema, step3Schema } from "@/app/(shell)/add-property/_components/schemas";
+import { step2Schema, step3Schema } from "@/app/_shared/add-property/schemas";
 import type { Property } from "@/lib/data/types/property";
 
 export const EDITABLE_STATUSES = ["Rented", "Vacant", "For Sale", "Sold"] as const;

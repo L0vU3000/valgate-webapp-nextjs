@@ -78,7 +78,6 @@ function ReviewMap({ center }: { center?: [number, number] }) {
         onLoad={() => setLoaded(true)}
         onError={() => setLoaded(true)}
       />
-      {/* Loading overlay — matches Step2 pattern */}
       <div
         className={cn(
           "absolute inset-0 z-10 flex flex-col items-center justify-center bg-background gap-3 transition-opacity duration-500",
@@ -152,9 +151,6 @@ export function Step5Review({
 }) {
   const reduced = useReducedMotion();
 
-  // Fetch signed URLs for up to 4 staged photos so the review grid shows real thumbnails.
-  // form.photos only has file names; the actual URLs must be resolved server-side via the
-  // DRFF id, the same way Step 4 does on resume.
   const [photoUrls, setPhotoUrls] = useState<Record<number, string>>({});
   useEffect(() => {
     const refs = form.stagedPhotos?.slice(0, 4) ?? [];
@@ -192,7 +188,6 @@ export function Step5Review({
 
   return (
     <div className="flex flex-col gap-10 items-start pb-8 w-full max-w-[600px] mx-auto">
-      {/* Heading */}
       <motion.div
         initial={reduced ? false : { opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -207,10 +202,8 @@ export function Step5Review({
         </p>
       </motion.div>
 
-      {/* Cards */}
       <div className="flex flex-col gap-6 w-full">
 
-        {/* 1. Property Type */}
         <ReviewSection title="Property Type" onEdit={() => goToStep(1)} delay={0.07}>
           <div className="flex items-center gap-3">
             <div
@@ -226,7 +219,6 @@ export function Step5Review({
           </div>
         </ReviewSection>
 
-        {/* 2. Name & Location */}
         <ReviewSection title="Name & Location" onEdit={() => goToStep(2)} delay={0.14}>
           <div className="flex flex-col gap-0.5">
             <p className="text-[16px] font-medium text-[#1a1c1c] leading-6">
@@ -239,11 +231,9 @@ export function Step5Review({
               {cityLine && <p>{cityLine}</p>}
             </div>
           </div>
-          {/* Map */}
           <ReviewMap center={form.mapCenter} />
         </ReviewSection>
 
-        {/* 3. Status & Ownership */}
         <ReviewSection title="Status & Ownership" onEdit={() => goToStep(3)} delay={0.21}>
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
@@ -281,7 +271,6 @@ export function Step5Review({
           </div>
         </ReviewSection>
 
-        {/* 4. Financial Details */}
         <ReviewSection title="Financial Details" onEdit={() => goToStep(3)} delay={0.28}>
           <div className="grid grid-cols-2 gap-6">
             <div className="flex flex-col gap-1">
@@ -316,7 +305,6 @@ export function Step5Review({
           </div>
         </ReviewSection>
 
-        {/* 5. Photos */}
         {form.photos.length > 0 && (
           <ReviewSection
             title="Photos"
@@ -367,7 +355,6 @@ export function Step5Review({
           </ReviewSection>
         )}
 
-        {/* 6. Documents */}
         {form.documents.length > 0 && (
           <ReviewSection title="Documents" onEdit={() => goToStep(4)} delay={0.42}>
             <div className="flex flex-col gap-3">

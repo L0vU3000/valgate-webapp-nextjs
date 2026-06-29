@@ -17,6 +17,7 @@ import {
   Sparkles,
   BookUser,
   LogOut,
+  Briefcase,
 } from "lucide-react";
 import { cn } from "../ui/utils";
 
@@ -34,6 +35,7 @@ const sidebarNavItems = [
   { label: "Rental", path: "/rental", icon: Key },
   { label: "Analytics", path: "/analytics", icon: BarChart2 },
   { label: "Estate Planning", path: "/estate-planning", icon: Landmark },
+  { label: "Pro", path: "/pro/dashboard", icon: Briefcase },
   { label: "Settings", path: "/settings", icon: Settings },
 ] as const;
 
@@ -157,6 +159,7 @@ export function Sidebar({
       <nav className="flex flex-col gap-1 px-2 py-3 flex-1 overflow-y-auto">
         {sidebarNavItems.map((item) => {
           const Icon = item.icon;
+          const isPro = item.label === "Pro";
           const isActive =
             item.path === "/"
               ? pathname === "/"
@@ -167,9 +170,23 @@ export function Sidebar({
               onClick={() => handleNavigate(item.path)}
               className={cn(
                 "flex items-center gap-3 h-11 px-3 rounded-xl text-sm transition-colors",
-                isActive
-                  ? "bg-surface-tint text-foreground font-medium"
-                  : "text-secondary hover:bg-surface-tint hover:text-foreground",
+                isPro
+                  ? isExpanded
+                    ? cn(
+                        "border font-medium text-[#2563eb]",
+                        isActive
+                          ? "border-[#2563eb] bg-[#e4efff]"
+                          : "border-[#c3c6d7] bg-surface-base hover:bg-[#e4efff] hover:border-[#2563eb]",
+                      )
+                    : cn(
+                        "font-medium text-[#2563eb]",
+                        isActive ? "bg-[#e4efff]" : "hover:bg-[#e4efff]",
+                      )
+                  : cn(
+                      isActive
+                        ? "bg-surface-tint text-foreground font-medium"
+                        : "text-secondary hover:bg-surface-tint hover:text-foreground",
+                    ),
                 !isExpanded && "justify-center px-0",
               )}
               title={!isExpanded ? item.label : undefined}

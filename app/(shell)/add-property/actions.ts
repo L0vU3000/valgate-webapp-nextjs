@@ -1,7 +1,7 @@
 "use server";
 
-import type { FormData as WizardForm } from "./_components/types";
-import { fullPropertySchema } from "./_components/schemas";
+import type { FormData as WizardForm } from "@/app/_shared/add-property/types";
+import { fullPropertySchema } from "@/app/_shared/add-property/schemas";
 import { createProperty } from "@/app/actions/properties";
 import { convertDraftToDocumentsAction } from "@/app/actions/property-drafts";
 import type { NewProperty } from "@/lib/data/types/property";

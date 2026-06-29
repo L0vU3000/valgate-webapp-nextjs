@@ -92,6 +92,20 @@
       "when": 1782669560346,
       "tag": "0012_chief_mongu",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1782715197169,
+      "tag": "0013_heavy_sentinel",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1782719650708,
+      "tag": "0014_flowery_garia",
+      "breakpoints": true
     }
   ]
 }

@@ -1,0 +1,300 @@
+<DesignBoard>
+  <Section label="Pro Properties Register">
+    <Artboard id="board-register-before" label="Current — no portfolio-scoped add or bulk actions" x={0} y={0}>
+      <Screen surface="browser" html={`<div style="display:flex;flex-direction:column;gap:0;height:100%;overflow:hidden">
+  <div style="display:flex;align-items:center;padding:16px 20px 12px">
+    <h1 style="margin:0">Properties</h1>
+    <div style="flex:1"></div>
+  </div>
+  <div style="display:flex;gap:14px;padding:0 20px 12px;border-bottom:1.4px solid var(--wf-line)">
+    <span class="wf-muted">260 properties</span>
+    <span style="color:var(--wf-ok)">€14.2M value</span>
+    <span class="wf-muted">182 rented</span>
+    <span class="wf-muted">44 vacant</span>
+    <span class="wf-muted">72% avg progress</span>
+  </div>
+  <div style="display:flex;gap:10px;align-items:center;padding:12px 20px">
+    <div style="flex:1;display:flex;align-items:center;gap:8px;padding:6px 10px;border:1.4px solid var(--wf-line);border-radius:var(--wf-radius)"><span data-icon="search"></span><span class="wf-muted">Search properties...</span></div>
+    <span class="wf-pill">All clients</span>
+    <span class="wf-pill">All types</span>
+    <span class="wf-pill">All statuses</span>
+  </div>
+  <div class="wf-card" style="margin:0 20px;padding:0;overflow:hidden">
+    <div style="display:flex;padding:8px 10px;border-bottom:1.4px solid var(--wf-line);font-size:12px;color:var(--wf-muted)">
+      <div style="flex:2">Property</div><div style="flex:1">Type</div><div style="flex:1">Client</div><div style="flex:1">Status</div><div style="flex:0.8">Progress</div><div style="flex:1">Value</div><div style="flex:0.8">Updated</div>
+    </div>
+    <div style="display:flex;align-items:center;padding:8px 10px;border-bottom:1px solid var(--wf-line)">
+      <div style="flex:2"><strong>Villa Serenity</strong><br/><small>Phnom Penh, Chamkarmon</small></div>
+      <div style="flex:1"><span class="wf-pill">Residential</span></div>
+      <div style="flex:1">Sophia Lim</div>
+      <div style="flex:1"><span class="wf-pill accent">Rented</span></div>
+      <div style="flex:0.8"><small>85%</small></div>
+      <div style="flex:1">€890K</div>
+      <div style="flex:0.8"><small>2d ago</small></div>
+    </div>
+    <div style="display:flex;align-items:center;padding:8px 10px;border-bottom:1px solid var(--wf-line)">
+      <div style="flex:2"><strong>Riverside Tower #12</strong><br/><small>Siem Reap, Svay Dangkum</small></div>
+      <div style="flex:1"><span class="wf-pill">Commercial</span></div>
+      <div style="flex:1"><small class="wf-muted">—</small></div>
+      <div style="flex:1"><span class="wf-pill">Vacant</span></div>
+      <div style="flex:0.8"><small>40%</small></div>
+      <div style="flex:1">€1.2M</div>
+      <div style="flex:0.8"><small>5d ago</small></div>
+    </div>
+    <div style="display:flex;align-items:center;padding:8px 10px">
+      <div style="flex:2"><strong>Borey Angkor #7</strong><br/><small>Phnom Penh, Sen Sok</small></div>
+      <div style="flex:1"><span class="wf-pill">Land</span></div>
+      <div style="flex:1">David Tan</div>
+      <div style="flex:1"><span class="wf-pill">For Sale</span></div>
+      <div style="flex:0.8"><small>60%</small></div>
+      <div style="flex:1">€320K</div>
+      <div style="flex:0.8"><small>1w ago</small></div>
+    </div>
+  </div>
+</div>`} />
+    </Artboard>
+
+    <Artboard id="board-register-after" label="After — Add Property, checkbox select, Bulk Actions dropdown" x={0} y={520}>
+      <Screen surface="browser" html={`<div style="display:flex;flex-direction:column;gap:0;height:100%;overflow:hidden">
+  <div style="display:flex;align-items:center;padding:16px 20px 12px">
+    <h1 style="margin:0">Properties</h1>
+    <div style="flex:1"></div>
+    <button class="primary" style="display:flex;align-items:center;gap:6px"><span data-icon="plus"></span>Add Property</button>
+  </div>
+  <div style="display:flex;gap:14px;padding:0 20px 12px;border-bottom:1.4px solid var(--wf-line)">
+    <span class="wf-muted">260 properties</span>
+    <span style="color:var(--wf-ok)">€14.2M value</span>
+    <span class="wf-muted">182 rented</span>
+    <span class="wf-muted">44 vacant</span>
+    <span class="wf-muted">72% avg progress</span>
+  </div>
+  <div style="display:flex;gap:10px;align-items:center;padding:12px 20px;justify-content:space-between">
+    <div style="display:flex;gap:10px;align-items:center">
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border:1.4px solid var(--wf-line);border-radius:var(--wf-radius)"><span data-icon="search"></span><span class="wf-muted">Search properties...</span></div>
+      <span class="wf-pill">All clients</span>
+      <span class="wf-pill">All types</span>
+      <span class="wf-pill">All statuses</span>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <span class="wf-muted">3 selected</span>
+      <span style="display:flex;align-items:center;gap:4px;padding:5px 10px;border:1.4px solid var(--wf-line);border-radius:var(--wf-radius)">Bulk Actions <span data-icon="chevronDown"></span></span>
+    </div>
+  </div>
+  <div class="wf-card" style="margin:0 20px;padding:0;overflow:hidden">
+    <div style="display:flex;padding:8px 10px;border-bottom:1.4px solid var(--wf-line);font-size:12px;color:var(--wf-muted)">
+      <div style="width:28px"></div><div style="flex:2">Property</div><div style="flex:1">Type</div><div style="flex:1">Client</div><div style="flex:1">Status</div><div style="flex:0.8">Progress</div><div style="flex:1">Value</div><div style="flex:0.8">Updated</div>
+    </div>
+    <div style="display:flex;align-items:center;padding:8px 10px;border-bottom:1px solid var(--wf-line);background:var(--wf-accent-soft)">
+      <div style="width:28px"><input type="checkbox" checked /></div>
+      <div style="flex:2"><strong>Villa Serenity</strong><br/><small>Phnom Penh, Chamkarmon</small></div>
+      <div style="flex:1"><span class="wf-pill">Residential</span></div>
+      <div style="flex:1">Sophia Lim</div>
+      <div style="flex:1"><span class="wf-pill accent">Rented</span></div>
+      <div style="flex:0.8"><small>85%</small></div>
+      <div style="flex:1">€890K</div>
+      <div style="flex:0.8"><small>2d ago</small></div>
+    </div>
+    <div style="display:flex;align-items:center;padding:8px 10px;border-bottom:1px solid var(--wf-line)">
+      <div style="width:28px"><input type="checkbox" /></div>
+      <div style="flex:2"><strong>Riverside Tower #12</strong><br/><small>Siem Reap, Svay Dangkum</small></div>
+      <div style="flex:1"><span class="wf-pill">Commercial</span></div>
+      <div style="flex:1"><small class="wf-muted">—</small></div>
+      <div style="flex:1"><span class="wf-pill">Vacant</span></div>
+      <div style="flex:0.8"><small>40%</small></div>
+      <div style="flex:1">€1.2M</div>
+      <div style="flex:0.8"><small>5d ago</small></div>
+    </div>
+    <div style="display:flex;align-items:center;padding:8px 10px;background:var(--wf-accent-soft)">
+      <div style="width:28px"><input type="checkbox" checked /></div>
+      <div style="flex:2"><strong>Borey Angkor #7</strong><br/><small>Phnom Penh, Sen Sok</small></div>
+      <div style="flex:1"><span class="wf-pill">Land</span></div>
+      <div style="flex:1">David Tan</div>
+      <div style="flex:1"><span class="wf-pill">For Sale</span></div>
+      <div style="flex:0.8"><small>60%</small></div>
+      <div style="flex:1">€320K</div>
+      <div style="flex:0.8"><small>1w ago</small></div>
+    </div>
+  </div>
+</div>`} />
+    </Artboard>
+
+    <Annotation targetId="board-register-after" placement="right">
+**New controls**
+- "Add Property" button at top right opens a portfolio selector, then launches the full wizard against that org
+- Checkbox column enables multi-select (max 50)
+- "Bulk Actions" dropdown appears when ≥1 row is selected, disabled until then
+    </Annotation>
+  </Section>
+
+  <Section label="Add Property Wizard (Pro context)">
+    <Artboard id="board-portfolio-selector" label="Portfolio selector — launched from 'Add Property'" x={960} y={0}>
+      <Screen surface="panel" html={`<div style="display:flex;flex-direction:column;gap:0;height:100%">
+  <div style="padding:16px 16px 12px;border-bottom:1.4px solid var(--wf-line);display:flex;align-items:center;justify-content:space-between">
+    <strong>Add Property</strong>
+    <span data-icon="x"></span>
+  </div>
+  <div style="padding:12px 16px;display:flex;flex-direction:column;gap:10px">
+    <p class="wf-muted">Select the client portfolio to add properties to.</p>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <label style="font-size:13px;font-weight:600">Portfolio</label>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border:1.4px solid var(--wf-line);border-radius:var(--wf-radius)">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="width:28px;height:28px;border-radius:999px;background:var(--wf-accent-soft);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600">SL</div>
+          <div><strong>Sophia Lim</strong><br/><small class="wf-muted">3 properties · Invited Jun 12</small></div>
+        </div>
+        <span data-icon="chevronDown"></span>
+      </div>
+    </div>
+  </div>
+  <div style="padding:12px 16px;border-top:1.4px solid var(--wf-line);display:flex;justify-content:flex-end">
+    <button class="primary">Start</button>
+  </div>
+</div>`} />
+    </Artboard>
+
+    <Artboard id="board-wizard-step1" label="Step 1 — Property Type (with portfolio badge)" x={960} y={340}>
+      <Screen surface="desktop" html={`<div style="display:flex;flex-direction:column;height:100%">
+  <div style="display:flex;align-items:center;padding:16px 20px;border-bottom:1.4px solid var(--wf-line)">
+    <div style="display:flex;align-items:center;gap:8px">
+      <span data-icon="arrowLeft"></span>
+      <strong>Add Property</strong>
+    </div>
+    <div style="flex:1"></div>
+    <span class="wf-pill" style="background:var(--wf-accent-soft)">Portfolio: Sophia Lim</span>
+  </div>
+  <div style="padding:12px 20px;border-bottom:1.4px solid var(--wf-line);display:flex;gap:6px">
+    <span class="wf-pill accent">1. Type</span>
+    <span class="wf-pill">2. Details</span>
+    <span class="wf-pill">3. Financials</span>
+    <span class="wf-pill">4. Photos</span>
+    <span class="wf-pill">5. Review</span>
+  </div>
+  <div style="flex:1;padding:24px 20px;display:flex;flex-direction:column;gap:16px">
+    <h2>What type of property?</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="wf-card" style="padding:12px;display:flex;align-items:center;gap:10px;border:2px solid var(--wf-accent)"><span data-icon="chevronRight"></span><strong>Residential</strong></div>
+      <div class="wf-card" style="padding:12px;display:flex;align-items:center;gap:10px"><span data-icon="chevronRight"></span><strong>Commercial</strong></div>
+      <div class="wf-card" style="padding:12px;display:flex;align-items:center;gap:10px"><span data-icon="chevronRight"></span><strong>Land</strong></div>
+      <div class="wf-card" style="padding:12px;display:flex;align-items:center;gap:10px"><span data-icon="chevronRight"></span><strong>Multi-unit</strong></div>
+      <div class="wf-card" style="padding:12px;display:flex;align-items:center;gap:10px"><span data-icon="chevronRight"></span><strong>Retail</strong></div>
+      <div class="wf-card" style="padding:12px;display:flex;align-items:center;gap:10px"><span data-icon="chevronRight"></span><strong>Industrial</strong></div>
+      <div class="wf-card" style="padding:12px;display:flex;align-items:center;gap:10px"><span data-icon="chevronRight"></span><strong>Construction</strong></div>
+      <div class="wf-card" style="padding:12px;display:flex;align-items:center;gap:10px"><span data-icon="chevronRight"></span><strong>Other</strong></div>
+    </div>
+  </div>
+  <div style="padding:12px 20px;border-top:1.4px solid var(--wf-line);display:flex;justify-content:space-between">
+    <button>Save as Draft</button>
+    <button class="primary">Continue</button>
+  </div>
+</div>`} />
+    </Artboard>
+
+    <Annotation targetId="board-wizard-step1" placement="right">
+**Wizard reuse**
+Same 5-step wizard as `app/(shell)/add-property/`, co-located as shared components.
+The portfolio badge at top-right shows the target org.
+Backend writes use `createPropertyForOrg(targetOrgId, ...)` instead of `createProperty()`.
+    </Annotation>
+  </Section>
+
+  <Section label="Bulk Assign">
+    <Artboard id="board-bulk-assign" label="Bulk Assign — select client, confirm assignment" x={960} y={800}>
+      <Screen surface="panel" html={`<div style="display:flex;flex-direction:column;gap:0;height:100%">
+  <div style="padding:16px 16px 12px;border-bottom:1.4px solid var(--wf-line);display:flex;align-items:center;justify-content:space-between">
+    <strong>Assign 3 Properties</strong>
+    <span data-icon="x"></span>
+  </div>
+  <div style="flex:1;padding:16px;display:flex;flex-direction:column;gap:14px;overflow-y:auto">
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <label style="font-size:13px;font-weight:600">Assign to client</label>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border:1.4px solid var(--wf-line);border-radius:var(--wf-radius)">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="width:28px;height:28px;border-radius:999px;background:var(--wf-accent-soft);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600">DT</div>
+          <div><strong>David Tan</strong><br/><small class="wf-muted">8 properties</small></div>
+        </div>
+        <span data-icon="chevronDown"></span>
+      </div>
+    </div>
+    <p class="wf-muted">Selected properties will be added to this client's portfolio:</p>
+    <div class="wf-card" style="padding:0">
+      <div style="padding:8px 10px;border-bottom:1px solid var(--wf-line);display:flex;align-items:center;gap:8px">
+        <span data-icon="check"></span><strong>Villa Serenity</strong><span class="wf-muted">€890K</span>
+      </div>
+      <div style="padding:8px 10px;border-bottom:1px solid var(--wf-line);display:flex;align-items:center;gap:8px">
+        <span data-icon="check"></span><strong>Borey Angkor #7</strong><span class="wf-muted">€320K</span>
+      </div>
+      <div style="padding:8px 10px;display:flex;align-items:center;gap:8px">
+        <span data-icon="check"></span><strong>Kampot Riverview</strong><span class="wf-muted">€450K</span>
+      </div>
+    </div>
+  </div>
+  <div style="padding:12px 16px;border-top:1.4px solid var(--wf-line);display:flex;justify-content:flex-end;gap:8px">
+    <button>Cancel</button>
+    <button class="primary">Assign all</button>
+  </div>
+</div>`} />
+    </Artboard>
+
+    <Annotation targetId="board-bulk-assign" placement="bottom">
+**Bulk assign**
+Service: `bulkAssignProperties(targetUserId, targetOrgId, propertyIds[])` in a single `db.transaction`.
+Client dropdown shows all managed clients.
+Already-assigned properties are filtered out or shown with a warning.
+    </Annotation>
+  </Section>
+
+  <Section label="CSV Import">
+    <Artboard id="board-csv-import" label="CSV Import — upload, preview, map columns, import" x={0} y={1000}>
+      <Screen surface="desktop" html={`<div style="display:flex;flex-direction:column;height:100%">
+  <div style="display:flex;align-items:center;padding:16px 20px;border-bottom:1.4px solid var(--wf-line)">
+    <div style="display:flex;align-items:center;gap:8px">
+      <span data-icon="arrowLeft"></span>
+      <strong>Import Properties from CSV</strong>
+    </div>
+    <div style="flex:1"></div>
+    <span class="wf-pill" style="background:var(--wf-accent-soft)">Portfolio: David Tan</span>
+  </div>
+  <div style="flex:1;padding:24px 20px;display:flex;flex-direction:column;gap:16px;overflow-y:auto">
+    <div class="wf-card" style="padding:32px;display:flex;flex-direction:column;align-items:center;gap:10px;border:1.4px dashed var(--wf-line);border-radius:var(--wf-radius)">
+      <span data-icon="plus" style="font-size:24px"></span>
+      <strong>Drop CSV file or click to upload</strong>
+      <small class="wf-muted">.csv, max 5 MB</small>
+    </div>
+    <p class="wf-muted">Preview (first 5 of 42 rows):</p>
+    <div style="overflow-x:auto;border:1.4px solid var(--wf-line);border-radius:var(--wf-radius)">
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead><tr style="border-bottom:1.4px solid var(--wf-line)">
+          <th style="padding:6px 10px;text-align:left;white-space:nowrap">Name &#9660;</th>
+          <th style="padding:6px 10px;text-align:left;white-space:nowrap">Type &#9660;</th>
+          <th style="padding:6px 10px;text-align:left;white-space:nowrap">City &#9660;</th>
+          <th style="padding:6px 10px;text-align:left;white-space:nowrap">Value &#9660;</th>
+          <th style="padding:6px 10px;text-align:left;white-space:nowrap">Status &#9660;</th>
+        </tr></thead>
+        <tbody>
+          <tr style="border-bottom:1px solid var(--wf-line)"><td style="padding:6px 10px">Villa Sokha</td><td style="padding:6px 10px">Residential</td><td style="padding:6px 10px">Sihanoukville</td><td style="padding:6px 10px">€1.4M</td><td style="padding:6px 10px">Vacant</td></tr>
+          <tr style="border-bottom:1px solid var(--wf-line)"><td style="padding:6px 10px">Borey Sunrise #3</td><td style="padding:6px 10px">Land</td><td style="padding:6px 10px">Kampot</td><td style="padding:6px 10px">€180K</td><td style="padding:6px 10px">For Sale</td></tr>
+          <tr style="border-bottom:1px solid var(--wf-line)"><td style="padding:6px 10px">Market Square Retail</td><td style="padding:6px 10px">Retail</td><td style="padding:6px 10px">Battambang</td><td style="padding:6px 10px">€2.1M</td><td style="padding:6px 10px">Rented</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="wf-muted">Column mapping: each CSV column auto-matched to a property field. Use dropdowns to remap.</p>
+  </div>
+  <div style="padding:12px 20px;border-top:1.4px solid var(--wf-line);display:flex;justify-content:space-between">
+    <button>Cancel</button>
+    <div style="display:flex;gap:8px">
+      <button>Download template</button>
+      <button class="primary">Import 42 properties</button>
+    </div>
+  </div>
+</div>`} />
+    </Artboard>
+
+    <Annotation targetId="board-csv-import" placement="right">
+**CSV import flow**
+- Parse with `papaparse` (client-side preview, server-side validation)
+- Column headers auto-mapped to property fields by name match
+- Dropdown per column to remap or mark as "Skip"
+- Single `importPropertiesFromCsv(csvText, targetOrgId)` action creates all rows in one transaction
+    </Annotation>
+  </Section>
+</DesignBoard>

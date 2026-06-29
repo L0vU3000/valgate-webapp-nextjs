@@ -4,10 +4,11 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronRight, Plus, RotateCcw } from "lucide-react";
 import { ClientsTable } from "@/app/(pro)/pro/dashboard/_components/ClientsTable";
-import { OnboardClientModal } from "./OnboardClientModal";
+import { OnboardClientWizard } from "./OnboardClientWizard";
+import { PendingHandoffsSection } from "./PendingHandoffsSection";
 import { ConfirmAction } from "@/components/ui/confirm-action";
 import { setClientStatus } from "@/app/(pro)/pro/actions";
-import type { ClientRollup } from "@/app/(pro)/pro/queries";
+import type { ClientRollup, HandoffRow } from "@/app/(pro)/pro/queries";
 import { cn } from "@/components/ui/utils";
 
 // Clients index — the full book of business. Reuses the dashboard's
@@ -18,6 +19,7 @@ export function ClientsIndexPage({
   clients,
   inactiveClients,
   unassignedProperties,
+  handoffs = [],
 }: {
   clients: ClientRollup[];
   // Clients whose status is "Inactive" — excluded from rollups but shown
@@ -30,6 +32,7 @@ export function ClientsIndexPage({
     clientType: "Individual" | "Corporate";
   }>;
   unassignedProperties: Array<{ id: string; name: string }>;
+  handoffs?: HandoffRow[];
 }) {
   const [onboardOpen, setOnboardOpen] = useState(false);
   const router = useRouter();
@@ -73,11 +76,14 @@ export function ClientsIndexPage({
           </button>
         </header>
 
-        <OnboardClientModal
+        <OnboardClientWizard
           open={onboardOpen}
           onOpenChange={setOnboardOpen}
           unassignedProperties={unassignedProperties}
         />
+
+        {/* Pending invitations — manager-led onboarding handoffs. */}
+        <PendingHandoffsSection handoffs={handoffs} />
 
         {/* Active clients — Archive button is shown because onArchive is provided. */}
         <ClientsTable clients={clients} onArchive={handleArchive} />

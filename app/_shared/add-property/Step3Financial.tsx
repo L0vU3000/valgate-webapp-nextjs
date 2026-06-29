@@ -79,7 +79,6 @@ export function Step3Financial({
   }
 
   function handleManualDateInput(e: React.ChangeEvent<HTMLInputElement>) {
-    // Strip non-digits and auto-insert slashes as MM/DD/YYYY
     const digits = e.target.value.replace(/[^0-9]/g, "");
     let display = digits;
     if (digits.length > 2) display = digits.slice(0, 2) + "/" + digits.slice(2);
@@ -122,7 +121,6 @@ export function Step3Financial({
 
   return (
     <div className="flex flex-col gap-10 items-start pb-8 w-full max-w-[600px] mx-auto">
-      {/* Heading */}
       <div className="flex flex-col gap-[11px] items-center w-full" style={enterStyle(0)}>
         <h2 className="text-[28px] font-bold text-[#1a1c1c] text-center leading-10">
           Status and value
@@ -132,7 +130,6 @@ export function Step3Financial({
         </p>
       </div>
 
-      {/* Property status selector */}
       <div className="flex flex-col gap-3 w-full" style={enterStyle(60)}>
         <span className="text-[14px] text-foreground flex items-center" style={{ fontWeight: 600 }}>
           Property status <OptionalLabel />
@@ -175,7 +172,6 @@ export function Step3Financial({
         </div>
       </div>
 
-      {/* Ownership status selector */}
       <div className="flex flex-col gap-3 w-full" style={enterStyle(120)}>
         <span className="text-[14px] text-foreground flex items-center" style={{ fontWeight: 600 }}>
           Ownership status <OptionalLabel />
@@ -218,12 +214,10 @@ export function Step3Financial({
         </div>
       </div>
 
-      {/* Purchase details card — purchase price + purchase date */}
       <div
         className="flex flex-col gap-4 items-start p-4 sm:p-6 rounded-2xl border border-border w-full"
         style={enterStyle(180)}
       >
-        {/* Purchase price input */}
         <div className="relative w-full group">
           <div className="border border-border rounded-xl pl-[65px] pr-6 py-[22px] hover:border-slate-400 focus-within:border-primary focus-within:shadow-[0_0_0_3px_rgba(37,99,235,0.08)] transition-all duration-200">
             <input
@@ -243,10 +237,8 @@ export function Step3Financial({
           Purchase price <OptionalLabel />
         </span>
 
-        {/* Divider */}
         <div className="w-full h-px bg-border" />
 
-        {/* Purchase date — type or pick */}
         <div className="flex flex-col gap-1.5 w-full">
           <span className="text-[14px] font-semibold text-foreground flex items-center">
             Purchase date <OptionalLabel />

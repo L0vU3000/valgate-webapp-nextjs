@@ -1,4 +1,4 @@
-import type { DraftRecord } from "../_components/types";
+import type { DraftRecord } from "@/app/_shared/add-property/types";
 
 const STORAGE_KEY = "valgate:add-property:drafts:v1";
 

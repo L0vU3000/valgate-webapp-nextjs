@@ -45,10 +45,6 @@ function getDocMeta(filename: string): { bg: string; text: string; label: string
   return { bg: "bg-muted", text: "text-muted-foreground", label: (ext ?? "File").toUpperCase() };
 }
 
-// Uploads a file and records its property_draft_files row via a single server action. The action
-// presigns + pushes the bytes to S3 server-side (no browser→S3 CORS dependency), then stages the
-// row. Throws on failure so the caller can roll back the optimistic UI and surface an error. The
-// server enforces the allowed MIME types (PDF + JPEG/PNG/WebP) and the size cap.
 async function uploadAndStage(
   draftId: string,
   file: File,
@@ -66,44 +62,27 @@ async function uploadAndStage(
   };
 }
 
-// Converts a photo file to a compressed JPEG before upload.
-//
-// Two steps:
-//   1. HEIC/HEIF → JPEG via heic2any (iOS camera roll files). iOS sometimes
-//      reports an empty MIME type for HEIC, so isHeic() checks the extension too.
-//   2. Compress + downscale via browser-image-compression so every photo lands
-//      well under the 10 MB server limit, even if the user picks a raw 20 MB file.
-//
-// Both libraries are dynamically imported so they only load when a photo is actually
-// picked — they're large and would bloat the initial bundle otherwise.
 async function processImageForUpload(file: File): Promise<File> {
   let workingFile: File = file;
   let outputName: string = file.name;
 
-  // Step 1: Convert HEIC/HEIF → JPEG when needed.
   if (isHeic(file)) {
     const heic2any = (await import("heic2any")).default;
     const result = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.9 });
     const blob = Array.isArray(result) ? result[0] : result;
-    // Replace the original .heic / .heif extension with .jpg.
     const nameWithoutExt = file.name.replace(/\.[^.]+$/, "");
     outputName = nameWithoutExt + ".jpg";
     workingFile = new File([blob], outputName, { type: "image/jpeg" });
   }
 
-  // Step 2: Compress and downscale. Output is always JPEG regardless of input format.
   const imageCompression = (await import("browser-image-compression")).default;
   const compressed = await imageCompression(workingFile, {
     maxSizeMB: 2,
     maxWidthOrHeight: 2000,
-    // ponytail: useWebWorker: false — Next.js + Turbopack can't resolve the worker
-    // script URL that browser-image-compression tries to spawn, so the worker throws.
-    // Main-thread compression is fine here; the user expects a brief wait on photo upload.
     useWebWorker: false,
     fileType: "image/jpeg",
   });
 
-  // browser-image-compression assigns its own generated filename — restore the intended name.
   return new File([compressed], outputName, { type: "image/jpeg" });
 }
 
@@ -126,13 +105,10 @@ export function Step4PhotosDocs({
   const [photosDragging, setPhotosDragging] = useState(false);
   const [docsDragging, setDocsDragging] = useState(false);
 
-  // url-by-file-id: a blob: URL while the file is live in this session (instant preview, no flash),
-  // or a short-lived signed S3 URL when the draft is resumed (the blobs are gone after a refresh).
   const [urlById, setUrlById] = useState<Record<string, string>>({});
   const urlByIdRef = useRef<Record<string, string>>({});
   urlByIdRef.current = urlById;
 
-  // Latest form, so async upload callbacks build their setForm() off current state, not a stale closure.
   const formRef = useRef<FormData>(form);
   formRef.current = form;
 
@@ -145,27 +121,21 @@ export function Step4PhotosDocs({
   const stagedPhotos = form.stagedPhotos ?? [];
   const stagedDocuments = form.stagedDocuments ?? [];
 
-  // Staging needs a server-minted draft id. By the time the user reaches Step 4 the draft exists,
-  // but guard anyway so a too-early add fails loudly instead of silently dropping the file.
   const canStage = !!draftId && draftId.startsWith("DRFT-");
 
-  // Revoke only blob: URLs (signed S3 URLs are plain strings — nothing to revoke).
   function revokeIfBlob(url: string | undefined): void {
     if (url && url.startsWith("blob:")) URL.revokeObjectURL(url);
   }
 
-  // On unmount, revoke any live blob URLs so we don't leak object URLs.
   useEffect(() => () => {
     Object.values(urlByIdRef.current).forEach(revokeIfBlob);
   }, []);
 
-  // On resume (or any time a staged ref has no URL yet — e.g. after a refresh), fetch a signed URL
-  // so its preview/thumbnail can render. Skips refs that are still pending or already have a URL.
   useEffect(() => {
     const refs = [...stagedPhotos, ...stagedDocuments];
     refs.forEach(async (ref) => {
       if (ref.pending || urlByIdRef.current[ref.id]) return;
-      if (!ref.id.startsWith("DRFF-")) return; // dev placeholder / temp — no server object
+      if (!ref.id.startsWith("DRFF-")) return;
       const res = await getDraftFileUrlAction(ref.id);
       if (res.ok) {
         setUrlById((prev) => (prev[ref.id] ? prev : { ...prev, [ref.id]: res.data }));
@@ -174,7 +144,6 @@ export function Step4PhotosDocs({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.stagedPhotos, form.stagedDocuments]);
 
-  // Close the document viewer on Escape while it is open.
   useEffect(() => {
     if (docViewerIndex === null) return;
     function handleKey(e: KeyboardEvent) {
@@ -185,7 +154,6 @@ export function Step4PhotosDocs({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [docViewerIndex]);
 
-  // Writes a new photo set, keeping form.photos (display names, used by Step 5) in sync with the refs.
   const commitPhotos = useCallback((refs: StagedFileRef[]) => {
     setForm({ ...formRef.current, stagedPhotos: refs, photos: refs.map((r) => r.name) });
   }, [setForm]);
@@ -194,10 +162,6 @@ export function Step4PhotosDocs({
     setForm({ ...formRef.current, stagedDocuments: refs, documents: refs.map((r) => r.name) });
   }, [setForm]);
 
-  // Adds files to a section: shows each immediately as a pending tile (spinner, no preview yet),
-  // then in the background: processes the file (HEIC conversion + compression for photos, or
-  // size/type validation for documents), builds the blob preview, uploads, and swaps the temp id
-  // for the real DRFF id. A failed upload rolls its tile back and toasts the real reason.
   const addFiles = useCallback(
     (rawFiles: File[], kind: "photo" | "document") => {
       if (!canStage) {
@@ -208,9 +172,6 @@ export function Step4PhotosDocs({
       const currentRefs = () =>
         (kind === "photo" ? formRef.current.stagedPhotos : formRef.current.stagedDocuments) ?? [];
 
-      // Documents: pre-validate type and size before touching the UI so invalid files
-      // are rejected immediately with a clear message. Photos skip this here —
-      // processImageForUpload handles HEIC conversion and compression instead.
       let filesToProcess = rawFiles;
       if (kind === "document") {
         filesToProcess = rawFiles.filter((file) => {
@@ -230,9 +191,6 @@ export function Step4PhotosDocs({
 
       const temps = filesToProcess.map((file) => ({ tempId: crypto.randomUUID(), file }));
 
-      // Optimistic: add pending tiles immediately. We don't set a blob URL yet for photos
-      // because HEIC files can't render in the browser, and we get the correct preview from
-      // the processed JPEG. The blob URL is set below once processing finishes.
       commit([
         ...currentRefs(),
         ...temps.map((t) => ({
@@ -244,24 +202,19 @@ export function Step4PhotosDocs({
         })),
       ]);
 
-      // Background: process → preview → upload → swap per file.
       for (const { tempId, file } of temps) {
         (async () => {
           try {
             let fileToUpload = file;
 
             if (kind === "photo") {
-              // Convert HEIC and compress — returns a JPEG that will always pass the
-              // server's ALLOWED_MIME and MAX_BYTES checks.
               fileToUpload = await processImageForUpload(file);
-              // Now that we have a valid JPEG we can set the blob preview.
               const blobUrl = URL.createObjectURL(fileToUpload);
               setUrlById((prev) => ({ ...prev, [tempId]: blobUrl }));
             }
 
             const ref = await uploadAndStage(draftId!, fileToUpload, kind);
 
-            // Move the blob preview (if any) from the temp id to the real id, then swap the ref.
             setUrlById((prev) => {
               if (!prev[tempId]) return prev;
               const next = { ...prev, [ref.id]: prev[tempId] };
@@ -288,12 +241,10 @@ export function Step4PhotosDocs({
     [canStage, draftId, commitPhotos, commitDocuments],
   );
 
-  // ponytail: photos render directly from stagedPhotos now (single source of truth), so the
-  // name/blob misalignment the old File[] approach risked can't happen.
   function removePhoto(i: number) {
     const ref = stagedPhotos[i];
     if (!ref) return;
-    if (ref.id.startsWith("DRFF-")) void removeDraftFileAction(ref.id); // deletes S3 object + row
+    if (ref.id.startsWith("DRFF-")) void removeDraftFileAction(ref.id);
     setUrlById((prev) => {
       revokeIfBlob(prev[ref.id]);
       const next = { ...prev };
@@ -312,7 +263,7 @@ export function Step4PhotosDocs({
     if (i === 0) return;
     const reordered = [...stagedPhotos];
     reordered.unshift(reordered.splice(i, 1)[0]);
-    commitPhotos(reordered); // URLs are keyed by id, so no URL reshuffle needed
+    commitPhotos(reordered);
     if (lightboxIndex === i) {
       setLightboxIndex(0);
     } else if (lightboxIndex !== null && lightboxIndex < i) {
@@ -320,7 +271,6 @@ export function Step4PhotosDocs({
     }
   }
 
-  // Replace = remove the old staged file, then add the new one through the normal stage path.
   function replacePhoto(i: number) {
     replacePhotoIndexRef.current = i;
     photoReplaceInputRef.current?.click();
@@ -363,7 +313,6 @@ export function Step4PhotosDocs({
     addFiles([file], "document");
   }
 
-  // Opens the in-app viewer for document `i`, resolving a URL (blob if live, else signed) first.
   async function openDocViewer(i: number) {
     const ref = stagedDocuments[i];
     if (!ref || ref.pending) return;
@@ -382,7 +331,6 @@ export function Step4PhotosDocs({
     setDocViewerIndex(i);
   }
 
-  // Closes the viewer. The URL is owned by urlById (not created here), so we don't revoke it.
   function closeDocViewer() {
     setDocViewerUrl(null);
     setDocViewerIndex(null);
@@ -422,7 +370,6 @@ export function Step4PhotosDocs({
   function handlePhotoDrop(e: React.DragEvent) {
     e.preventDefault();
     setPhotosDragging(false);
-    // Accept standard images and HEIC/HEIF files, which may have an empty MIME on some platforms.
     const files = Array.from(e.dataTransfer.files).filter(
       (f) => f.type.startsWith("image/") || isHeic(f),
     );
@@ -457,7 +404,6 @@ export function Step4PhotosDocs({
 
   return (
     <>
-      {/* ─── Photo lightbox (portal to body so overflow-hidden parents don't clip it) ── */}
       {isMounted && createPortal(
         <AnimatePresence>
           {lightboxIndex !== null && stagedPhotos[lightboxIndex] && (
@@ -470,7 +416,6 @@ export function Step4PhotosDocs({
               transition={{ duration: 0.2 }}
               onClick={() => setLightboxIndex(null)}
             >
-              {/* Close */}
               <button
                 type="button"
                 onClick={() => setLightboxIndex(null)}
@@ -479,14 +424,12 @@ export function Step4PhotosDocs({
                 <X className="w-5 h-5 text-white" />
               </button>
 
-              {/* Counter */}
               {totalPhotos > 1 && (
                 <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 bg-black/40 rounded-full px-3 py-1 text-sm text-white/80 tabular-nums pointer-events-none">
                   {lightboxIndex + 1} / {totalPhotos}
                 </div>
               )}
 
-              {/* Prev */}
               {totalPhotos > 1 && (
                 <button
                   type="button"
@@ -497,8 +440,6 @@ export function Step4PhotosDocs({
                 </button>
               )}
 
-              {/* Image — stopPropagation lives on the image itself so clicking the empty
-                  space around it falls through to the backdrop and closes the lightbox. */}
               <AnimatePresence mode="wait">
                 <motion.div
                   key={lightboxIndex}
@@ -525,7 +466,6 @@ export function Step4PhotosDocs({
                 </motion.div>
               </AnimatePresence>
 
-              {/* Next */}
               {totalPhotos > 1 && (
                 <button
                   type="button"
@@ -536,7 +476,6 @@ export function Step4PhotosDocs({
                 </button>
               )}
 
-              {/* File name caption */}
               <p className="absolute bottom-6 left-1/2 -translate-x-1/2 text-white/50 text-xs pointer-events-none">
                 {stagedPhotos[lightboxIndex].name}
               </p>
@@ -546,7 +485,6 @@ export function Step4PhotosDocs({
         document.body
       )}
 
-      {/* ─── Document viewer (portal to body, same shell as the photo lightbox) ── */}
       {isMounted && createPortal(
         <AnimatePresence>
           {docViewerIndex !== null && (
@@ -559,7 +497,6 @@ export function Step4PhotosDocs({
               transition={{ duration: 0.2 }}
               onClick={closeDocViewer}
             >
-              {/* Header: type pill + filename, then Download / Open in new tab / Close. */}
               <div className="flex items-center gap-3 px-5 py-4">
                 <span className="bg-white/15 text-white text-xs font-semibold rounded-full px-2.5 py-1 shrink-0">
                   {getDocMeta(openDocName).label}
@@ -590,7 +527,6 @@ export function Step4PhotosDocs({
                 </button>
               </div>
 
-              {/* Body: inline PDF, or a fallback card for file types the browser can't render. */}
               <div className="flex-1 min-h-0 flex items-center justify-center px-6 pb-8">
                 {openDocIsPdf && docViewerUrl ? (
                   <iframe
@@ -634,9 +570,7 @@ export function Step4PhotosDocs({
         document.body
       )}
 
-      {/* ─── Main content ────────────────────────────────────────────────── */}
       <div className="flex-1 min-h-0 flex flex-col w-full max-w-[760px] mx-auto pb-8">
-        {/* Header */}
         <motion.div
           className="flex flex-col gap-[11px] items-center w-full mb-10 shrink-0"
           initial={{ opacity: 0, y: 14 }}
@@ -657,7 +591,6 @@ export function Step4PhotosDocs({
         </motion.div>
 
         <div className="flex flex-col gap-12">
-          {/* ─── Photos section ─────────────────────────────────────────── */}
           <motion.div
             className={`relative border rounded-2xl p-4 sm:p-6 w-full transition-colors duration-150 ${photosDragging ? "border-primary bg-blue-50/60" : "border-border"}`}
             initial={{ opacity: 0, y: 20 }}
@@ -668,7 +601,6 @@ export function Step4PhotosDocs({
             onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setPhotosDragging(false); }}
             onDrop={handlePhotoDrop}
           >
-            {/* Drop overlay shown when dragging over a filled photo grid */}
             {photosDragging && stagedPhotos.length > 0 && (
               <div className="absolute inset-0 z-10 rounded-2xl bg-blue-50/80 border-2 border-primary border-dashed flex items-center justify-center pointer-events-none">
                 <div className="flex flex-col items-center gap-2">
@@ -692,10 +624,7 @@ export function Step4PhotosDocs({
                 <Plus className="w-3.5 h-3.5" />
                 Add more
               </motion.button>
-              {/* Add input — image/* covers JPEG/PNG/WebP; .heic/.heif added for desktop file pickers
-                  where HEIC files may not match the image/* wildcard. */}
               <input ref={photoInputRef} type="file" accept="image/*,.heic,.heif" multiple className="hidden" onChange={handlePhotoChange} />
-              {/* Replace input — shared, slot index stored in replacePhotoIndexRef */}
               <input ref={photoReplaceInputRef} type="file" accept="image/*,.heic,.heif" className="hidden" onChange={handlePhotoReplace} />
             </div>
 
@@ -711,7 +640,6 @@ export function Step4PhotosDocs({
                       exit={{ opacity: 0, scale: 0.85 }}
                       transition={{ duration: 0.3, ease: easeOut, delay: i * 0.05 }}
                     >
-                      {/* Clickable image — opens lightbox */}
                       <button
                         type="button"
                         onClick={() => setLightboxIndex(i)}
@@ -726,7 +654,6 @@ export function Step4PhotosDocs({
                               draggable={false}
                               className="w-full h-full object-cover"
                             />
-                            {/* Hover scrim + eye icon */}
                             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/25 transition-colors duration-200 flex items-center justify-center">
                               <Eye className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200 drop-shadow" />
                             </div>
@@ -737,7 +664,6 @@ export function Step4PhotosDocs({
                             <span className="text-xs text-muted-foreground/60 truncate w-full text-center">{photo.name}</span>
                           </div>
                         )}
-                        {/* Uploading overlay while the file is staging */}
                         {photo.pending && (
                           <div className="absolute inset-0 bg-black/35 flex items-center justify-center">
                             <Loader2 className="w-6 h-6 text-white animate-spin" />
@@ -745,7 +671,6 @@ export function Step4PhotosDocs({
                         )}
                       </button>
 
-                      {/* Cover badge */}
                       {i === 0 && (
                         <motion.div
                           className="absolute top-2 left-2 bg-white rounded-[14px] px-3 py-1 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] pointer-events-none"
@@ -757,7 +682,6 @@ export function Step4PhotosDocs({
                         </motion.div>
                       )}
 
-                      {/* Action menu — disabled while pending */}
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild disabled={photo.pending}>
                           <motion.button
@@ -822,7 +746,6 @@ export function Step4PhotosDocs({
             )}
           </motion.div>
 
-          {/* ─── Documents section ──────────────────────────────────────── */}
           <motion.div
             className={`relative border rounded-2xl p-4 sm:p-6 w-full transition-colors duration-150 ${docsDragging ? "border-primary bg-blue-50/60" : "border-border"}`}
             initial={{ opacity: 0, y: 20 }}
@@ -833,7 +756,6 @@ export function Step4PhotosDocs({
             onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDocsDragging(false); }}
             onDrop={handleDocDrop}
           >
-            {/* Drop overlay shown when dragging over a filled document list */}
             {docsDragging && stagedDocuments.length > 0 && (
               <div className="absolute inset-0 z-10 rounded-2xl bg-blue-50/80 border-2 border-primary border-dashed flex items-center justify-center pointer-events-none">
                 <div className="flex flex-col items-center gap-2">
@@ -857,9 +779,7 @@ export function Step4PhotosDocs({
                 <Upload className="w-4 h-4" />
                 Upload
               </motion.button>
-              {/* Add input — PDF, Word, Excel (storage's allowed document types) */}
               <input ref={docInputRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx" multiple className="hidden" onChange={handleDocChange} />
-              {/* Replace input — shared, slot index stored in replaceDocIndexRef */}
               <input ref={docReplaceInputRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx" className="hidden" onChange={handleDocReplace} />
             </div>
 
@@ -879,7 +799,6 @@ export function Step4PhotosDocs({
                         transition={{ duration: 0.32, ease: easeOut, delay: i * 0.06 }}
                         whileHover={{ backgroundColor: "rgba(0,0,0,0.015)" }}
                       >
-                        {/* Clickable file info — opens the in-app viewer once the file is staged. */}
                         <button
                           type="button"
                           onClick={() => ready && openDocViewer(i)}
@@ -903,13 +822,11 @@ export function Step4PhotosDocs({
                             <p className="text-base font-medium text-[#1a1c1c] leading-5 truncate">{doc.name}</p>
                             <p className="text-sm text-[#5b5f62] leading-[21px]">{doc.pending ? "Uploading…" : meta.label}</p>
                           </div>
-                          {/* Hover-only eye affordance, shown only when the row is previewable */}
                           {ready && (
                             <Eye className="w-4 h-4 text-[#2563eb] opacity-0 [@media(hover:hover)]:group-hover/doc:opacity-100 transition-opacity shrink-0" />
                           )}
                         </button>
 
-                        {/* Document action menu */}
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild disabled={doc.pending}>
                             <motion.button

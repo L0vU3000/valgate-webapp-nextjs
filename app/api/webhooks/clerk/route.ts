@@ -9,6 +9,7 @@ import {
   deactivateOrg,
   deactivateUser,
 } from "@/lib/services/identity-sync";
+import { handleInvitationAccepted } from "@/lib/services/client-onboarding";
 
 // The ONLY writer of the Clerk→Postgres identity mirror (D14, §4 clerk-organizations.md).
 // verifyWebhook reads CLERK_WEBHOOK_SIGNING_SECRET from env automatically.
@@ -64,6 +65,10 @@ export async function POST(req: NextRequest) {
     }
 
     // M2: org/user deleted in Clerk → deactivate memberships, never hard-delete tenant data.
+    case "organizationInvitation.accepted":
+      await handleInvitationAccepted(d.id as string);
+      break;
+
     case "organization.deleted":
       await deactivateOrg(d.id as string);
       break;

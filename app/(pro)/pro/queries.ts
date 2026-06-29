@@ -1,4 +1,6 @@
 import "server-only";
+import { and, eq, inArray, sql, desc } from "drizzle-orm";
+import { db } from "@/lib/db/client";
 import * as agentRunsDb from "@/lib/data/db/agent-runs";
 import { getAiMessage } from "@/lib/services/ai-messages";
 import * as clientsDb from "@/lib/data/db/clients";
@@ -23,6 +25,9 @@ import {
 import { getFsUserId } from "@/lib/data/auth-shim";
 import { requireCtx } from "@/lib/auth/ctx";
 import { listManagedAccounts, getIsManager } from "@/lib/services/managers";
+import { clientHandoffs } from "@/lib/db/schema";
+import { organizations } from "@/lib/db/schema";
+import { properties } from "@/lib/db/schema";
 import { OWN_PORTFOLIO_ID } from "@/app/(pro)/pro/_components/pro-shell-types";
 import {
   computeProgress,
@@ -1094,6 +1099,89 @@ export async function getAgentHubData(): Promise<AgentHubData> {
   );
 
   return { runs: enriched };
+}
+
+// ---------------------------------------------------------------------------
+// Client portfolios — manager-led onboarding handoffs (client_handoffs)
+// ---------------------------------------------------------------------------
+
+export type ClientPortfolioEntry = {
+  id: string;
+  name: string;
+  orgId: string;
+  userId: string;
+  propertyCount: number;
+};
+
+export type HandoffRow = {
+  id: string;
+  clientName: string;
+  clientEmail: string;
+  status: "pending" | "accepted" | "revoked" | "bounced";
+  role: "view" | "full";
+  managerAccess: "granted" | "removed";
+  invitationUrl: string | null;
+  createdAt: Date;
+};
+
+export async function listClientHandoffs(): Promise<HandoffRow[]> {
+  const authCtx = await requireCtx();
+  const rows = await db
+    .select({
+      id: clientHandoffs.id,
+      clientName: clientHandoffs.clientName,
+      clientEmail: clientHandoffs.clientEmail,
+      status: clientHandoffs.status,
+      role: clientHandoffs.role,
+      managerAccess: clientHandoffs.managerAccess,
+      invitationUrl: clientHandoffs.invitationUrl,
+      createdAt: clientHandoffs.createdAt,
+    })
+    .from(clientHandoffs)
+    .where(eq(clientHandoffs.managerUserId, authCtx.userId))
+    .orderBy(desc(clientHandoffs.createdAt));
+  return rows;
+}
+
+export async function listClientPortfolios(): Promise<ClientPortfolioEntry[]> {
+  const authCtx = await requireCtx();
+  const rows = await db
+    .select({
+      id: clientHandoffs.id,
+      name: clientHandoffs.clientName,
+      orgId: organizations.id,
+      userId: clientHandoffs.managerUserId,
+    })
+    .from(clientHandoffs)
+    .innerJoin(organizations, eq(organizations.id, clientHandoffs.orgId))
+    .where(
+      and(
+        eq(clientHandoffs.managerUserId, authCtx.userId),
+        eq(clientHandoffs.status, "accepted"),
+      ),
+    );
+
+  if (rows.length === 0) return [];
+
+  const orgIds = rows.map((r) => r.orgId);
+  const counts = await db
+    .select({
+      orgId: properties.orgId,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(properties)
+    .where(inArray(properties.orgId, orgIds))
+    .groupBy(properties.orgId);
+
+  const countByOrg = new Map(counts.map((c) => [c.orgId, c.count]));
+
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    orgId: r.orgId,
+    userId: r.userId,
+    propertyCount: countByOrg.get(r.orgId) ?? 0,
+  }));
 }
 
 // ---------------------------------------------------------------------------

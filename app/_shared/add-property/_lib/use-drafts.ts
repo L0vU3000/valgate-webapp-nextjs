@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import type { FormData, Step, DraftRecord } from "../_components/types";
-import { defaultForm } from "../_components/types";
+import type { FormData, Step, DraftRecord } from "@/app/_shared/add-property/types";
+import { defaultForm } from "@/app/_shared/add-property/types";
 import type { PropertyDraft } from "@/lib/services/property-drafts";
 import {
   listPropertyDraftsAction,

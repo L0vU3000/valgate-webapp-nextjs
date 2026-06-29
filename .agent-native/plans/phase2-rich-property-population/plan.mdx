@@ -1,0 +1,241 @@
+## Objective
+
+Enable managers to populate client portfolios with rich property data after Phase 1's org-creation flow. Three capabilities: launch the full add-property wizard against a target portfolio (created in Phase 1), bulk-assign existing properties to clients, and CSV-import property records.
+
+**Done means:** a manager can (a) click "Add Property" on `/pro/properties`, pick a client portfolio, and complete the full 5-step wizard (type → details → financials → photos/docs → review) with photos staged to S3; (b) check multiple properties in the register and bulk-assign them to a client in one action; (c) drag a CSV onto an import screen, preview column mapping, and create all rows. All writes scope to the target org with IDOR guards.
+
+## Scope & non-goals
+
+**In scope:**
+- Portfolio-scoped add-property wizard launched from the Pro properties register
+- Shared wizard step components extracted from `app/(shell)/add-property/` so Pro reuses the same UI
+- Bulk-assign modal: multi-select properties → pick target client → single-transaction write
+- CSV import: client-side preview (papaparse), column-name auto-mapping, server-side bulk create
+- "Bulk Actions" dropdown and checkbox column on the Pro Properties Register
+- Draft persistence reuses `property_drafts` + `property_draft_files` (no schema changes)
+
+**Explicitly out of scope:**
+- Editing properties post-creation (Phase 3 lifecycle)
+- Advanced CSV error recovery — MVP stops on first invalid row with a line-numbered error
+- CSV import of documents/photos — metadata only; media requires the wizard
+- Bulk property deletion or bulk status change (only assign)
+- Cross-portfolio bulk operations — assign to one target client per action
+
+## Architecture decisions
+
+<Callout id="decision-wizard-share" tone="decision">
+
+**Extract shared wizard step components.** The existing 6-step wizard at `app/(shell)/add-property/` moves to `app/_shared/add-property/` as pure UI steps (`Step1PropertyType`, `Step2BasicInfo`, `Step3Financial`, `Step4PhotosDocs`, `Step5Review`). The `AddPropertyFlow` orchestrator stays in each route (shell + pro) to wire the correct server action (`createProperty` for shell, `createPropertyForOrg` for pro). The `useDrafts` hook, `FormData` types, and step schemas are lifted to `app/_shared/add-property/_lib/`. No behavioral changes to the shell wizard.
+
+</Callout>
+
+<Callout id="decision-bulk-assign" tone="decision">
+
+**Bulk assign is a single-action transaction.** `bulkAssignProperties(ctx, targetUserId, targetOrgId, propertyIds[])` runs inside one `db.transaction`. It validates that every `propertyId` belongs to `targetOrgId` (or is unassigned), then sets `property.clientId = targetUserId`. If any property is already assigned to a different client, the action returns a conflict error listing which properties are blocked — the manager can then exclude them and retry.
+
+</Callout>
+
+<Callout id="decision-csv-import" tone="decision">
+
+**CSV is parsed client-side for preview, then re-parsed server-side for import.** `papaparse` runs in the browser to produce the 5-row preview with auto-mapped column headers. The manager reviews the mapping, then sends the raw CSV text + target org ID + column map to `importCsvPropertiesAction`. The server parses again, validates every row against `NewPropertySchema`, and creates all properties via `createPropertyForOrg` in one `db.transaction`. On any validation failure the entire batch rolls back with a line-numbered error message.
+
+</Callout>
+
+## Data model
+
+No new tables. Phase 2 operates entirely on existing schema:
+
+<DataModel id="dm-phase2" entities={[
+  {
+    id: "properties",
+    name: "properties",
+    fields: [
+      { name: "id", type: "text", pk: true },
+      { name: "orgId", type: "text", fk: "organizations.id" },
+      { name: "clientId", type: "text", nullable: true },
+      { name: "name", type: "text" },
+      { name: "type", type: "propertyTypeChoiceEnum" },
+      { name: "status", type: "propertyStatusEnum" },
+      { name: "photoStorageIds", type: "text[]" },
+      { name: "documentStorageIds", type: "text[]" },
+      { name: "buyNumeric", type: "numeric(14,2)" },
+    ],
+  },
+  {
+    id: "organizations",
+    name: "organizations",
+    fields: [
+      { name: "id", type: "text", pk: true },
+      { name: "clerkOrgId", type: "text" },
+      { name: "name", type: "text" },
+    ],
+  },
+  {
+    id: "users",
+    name: "users",
+    fields: [
+      { name: "id", type: "text", pk: true },
+      { name: "displayName", type: "text" },
+      { name: "isManager", type: "boolean" },
+    ],
+  },
+  {
+    id: "property_drafts",
+    name: "property_drafts",
+    fields: [
+      { name: "id", type: "text", pk: true },
+      { name: "orgId", type: "text", fk: "organizations.id" },
+      { name: "userId", type: "text" },
+      { name: "step", type: "integer" },
+      { name: "form", type: "jsonb" },
+    ],
+  },
+]} relations={[
+  { from: "properties", to: "organizations", kind: "n-1" },
+  { from: "properties", to: "users", kind: "n-1" },
+  { from: "property_drafts", to: "organizations", kind: "n-1" },
+]} />
+
+## File map
+
+<FileTree id="filemap-phase2" title="Files touched" entries={[
+  { path: "app/_shared/add-property/_components/Step1PropertyType.tsx", change: "moved", note: "Extracted from app/(shell)/add-property/ — shared step component" },
+  { path: "app/_shared/add-property/_components/Step2BasicInfo.tsx", change: "moved", note: "Shared step component" },
+  { path: "app/_shared/add-property/_components/Step3Financial.tsx", change: "moved", note: "Shared step component" },
+  { path: "app/_shared/add-property/_components/Step4PhotosDocs.tsx", change: "moved", note: "Shared step component (largest: 977 lines)" },
+  { path: "app/_shared/add-property/_components/Step5Review.tsx", change: "moved", note: "Shared step component" },
+  { path: "app/_shared/add-property/_components/FlowFooter.tsx", change: "moved", note: "Shared footer (Back/Draft/Continue/Submit)" },
+  { path: "app/_shared/add-property/_lib/use-drafts.ts", change: "moved", note: "Draft persistence hook" },
+  { path: "app/_shared/add-property/_lib/types.ts", change: "moved", note: "FormData, Step, StagedFileRef types" },
+  { path: "app/_shared/add-property/_lib/schemas.ts", change: "moved", note: "Per-step Zod schemas" },
+  { path: "app/(shell)/add-property/_components/AddPropertyFlow.tsx", change: "modified", note: "Re-imports from shared; unchanged logic" },
+  { path: "app/(pro)/pro/_components/AddPropertyFlowPro.tsx", change: "added", note: "Pro orchestrator — uses createPropertyForOrg action, portfolio selector" },
+  { path: "app/(pro)/pro/_components/PortfolioSelectorModal.tsx", change: "added", note: "ProModal — pick target client/portfolio before wizard" },
+  { path: "app/(pro)/pro/properties/_components/BulkAssignModal.tsx", change: "added", note: "ProModal — select client, confirm assignment" },
+  { path: "app/(pro)/pro/properties/_components/CsvImportPage.tsx", change: "added", note: "Upload → preview → column-mapping → import" },
+  { path: "app/(pro)/pro/properties/_components/PropertiesRegisterPage.tsx", change: "modified", note: "Add checkbox column, 'Add Property' button, 'Bulk Actions' dropdown" },
+  { path: "lib/services/properties.ts", change: "modified", note: "Add bulkAssignProperties + importCsvProperties" },
+  { path: "app/(pro)/pro/actions.ts", change: "modified", note: "Add assignPropertiesAction + importCsvPropertiesAction" },
+  { path: "app/actions/properties.ts", change: "modified", note: "Add createPropertyForOrg action (Phase 1 already added service; expose as action)" },
+  { path: "app/(pro)/pro/queries.ts", change: "modified", note: "Add listClientPortfolios for portfolio-selector dropdown" },
+  { path: "package.json", change: "modified", note: "Add papaparse + @types/papaparse" },
+]} />
+
+## Implementation steps
+
+### Step 1: Extract shared wizard components
+
+Move the 5 step components, `FlowFooter`, and the `_lib/` directory from `app/(shell)/add-property/` to `app/_shared/add-property/`. Update all imports in the shell `AddPropertyFlow.tsx`. Verify the shell wizard still works identically (same 6-step flow, draft persistence, photo/docs upload).
+
+### Step 2: Pro wizard orchestrator + portfolio selector
+
+Create `PortfolioSelectorModal.tsx` — a ProModal that lists managed clients (from `client_handoffs` with `status = 'accepted'` + Phase 1 onboarded clients). Selecting a client passes `{ targetOrgId, targetUserId, clientName }` to `AddPropertyFlowPro.tsx`.
+
+Create `AddPropertyFlowPro.tsx` — mirrors the shell's `AddPropertyFlow` but:
+- Passes `targetOrgId` to step components (no behavioral change — just displayed as a badge)
+- On submit, calls `createPropertyForOrg(targetOrgId, form)` instead of `createProperty(form)`
+- Drafts are scoped to `targetOrgId` (the draft hook already accepts an org scope)
+- Post-success, revalidates the Pro layout and returns to the properties register
+
+<Callout id="risk-draft-scope" tone="risk">
+
+**Risk:** Drafts are currently scoped to `orgId + userId`. In the Pro context, the manager's active org is the manager's own org, not the client's portfolio org. The draft service needs to accept an explicit `orgId` override so drafts live on the client's org. This is a one-line change to `upsertPropertyDraftAction` and `listPropertyDraftsAction`.
+
+</Callout>
+
+### Step 3: Bulk-assign
+
+1. Add a checkbox column to `PropertiesRegisterPage.tsx` with a "select all" toggle in the header
+2. Show "Bulk Actions" dropdown when ≥1 row is selected, disabled otherwise
+3. Dropdown items: "Assign to Client" (Phase 2), "Export CSV" (Phase 3 placeholder, disabled)
+4. `BulkAssignModal.tsx`: client dropdown (filtered to manager's clients), list of selected properties, confirm button
+5. Server action `assignPropertiesAction(propertyIds, targetClientId)`: resolves target client's `userId` and `orgId`, calls `bulkAssignProperties(ctx, targetUserId, targetOrgId, propertyIds)`
+6. Service validates org membership, checks for already-assigned conflicts, runs single `db.transaction`
+
+### Step 4: CSV import
+
+1. Install `papaparse` + `@types/papaparse`
+2. `CsvImportPage.tsx`: 
+   - Drag-drop upload zone (10 MB max)
+   - Client-side parse → preview table (first 5 rows)
+   - Auto-map columns by header name → property field (e.g. "Name" → `name`, "Type" → `type`)
+   - Dropdown per column to remap or select "Skip"
+   - "Download template" button generates a CSV with all property column headers
+3. On "Import N properties": send raw CSV text + column map + targetOrgId to `importCsvPropertiesAction`
+4. Server action: re-parse CSV, validate each row against `NewPropertySchema`, create via `createPropertyForOrg` in one `db.transaction`
+5. On success: revalidate Pro cache, redirect to properties register, show count in a toast
+6. On failure: return `{ ok: false, error: "Row 7: Invalid property type 'residentail' (did you mean 'residential'?)" }`
+
+### Step 5: Wire Pro Properties Register
+
+Add to `PropertiesRegisterPage.tsx`:
+- "Add Property" primary button → opens `PortfolioSelectorModal` → on select, navigates to wizard
+- Checkbox column (max 50 selections)
+- "Bulk Actions" dropdown → "Assign to Client" opens `BulkAssignModal`
+
+## Verification
+
+<Checklist id="verify-phase2" items={[
+  { id: "v-shared-wizard", label: "Shell add-property wizard works unchanged after extraction to _shared/", checked: false },
+  { id: "v-pro-wizard", label: "Pro wizard creates properties on target client org (not manager's org)", checked: false },
+  { id: "v-pro-draft", label: "Pro wizard drafts persist to target client org; resume works across sessions", checked: false },
+  { id: "v-pro-photos", label: "Pro wizard photo/document upload stages to S3 under target org prefix", checked: false },
+  { id: "v-bulk-select", label: "Checkbox selection enables Bulk Actions; unchecking all disables it", checked: false },
+  { id: "v-bulk-assign", label: "Bulk assign sets clientId on all selected properties; revalidation updates the register", checked: false },
+  { id: "v-bulk-conflict", label: "Bulk assign returns conflict error when properties are already assigned to a different client", checked: false },
+  { id: "v-csv-preview", label: "CSV upload shows first-5-row preview with auto-mapped columns", checked: false },
+  { id: "v-csv-import", label: "CSV import creates N properties on target org in one transaction; success count matches", checked: false },
+  { id: "v-csv-error", label: "CSV import rolls back on bad row with line-numbered error; no orphaned properties", checked: false },
+  { id: "v-idor", label: "IDOR: manager cannot assign properties to an org they don't administer; cannot create for non-administered org", checked: false },
+  { id: "v-typecheck", label: "TypeScript, lint, and db:generate clean", checked: false },
+]} />
+
+### Open Questions
+
+<QuestionForm id="oq-phase2" questions={[
+  {
+    id: "oq-wizard-surface",
+    title: "Where should the Pro add-property wizard render?",
+    subtitle: "The canvas shows it as a full-page flow. Alternative: render inside a ProModal overlay on the properties register.",
+    mode: "single",
+    options: [
+      { id: "full-page", label: "Full-page flow with back navigation", detail: "Matches the shell wizard. Navigates away from the register. Better for long forms with photo uploads.", recommended: true },
+      { id: "modal-overlay", label: "Large ProModal overlay", detail: "Keeps context of the register. Constrained height makes photos/docs step awkward." },
+    ],
+    required: true,
+  },
+  {
+    id: "oq-bulk-select-limit",
+    title: "Max properties for bulk select?",
+    subtitle: "Balance between useful batching and manageable UI/transaction size.",
+    mode: "single",
+    options: [
+      { id: "limit-50", label: "50", detail: "Conservative — keeps the modal readable and transaction fast.", recommended: true },
+      { id: "limit-100", label: "100", detail: "More flexible but heavier transaction and modal rendering." },
+      { id: "limit-unlimited", label: "No limit", detail: "Risks very long transactions and poor UX with hundreds of rows." },
+    ],
+    required: true,
+  },
+  {
+    id: "oq-csv-mapping",
+    title: "Column mapping strategy for CSV import?",
+    subtitle: "How should CSV column headers be matched to property fields?",
+    mode: "single",
+    options: [
+      { id: "auto-only", label: "Auto-match by header name + manual dropdown remap", detail: "Heuristic match (case-insensitive, common aliases like 'Price'→'value'). Manager can override each column.", recommended: true },
+      { id: "drag-drop", label: "Drag-and-drop column mapping", detail: "More visual but higher implementation cost for marginal UX gain." },
+    ],
+    required: true,
+  },
+  {
+    id: "oq-csv-missing",
+    title: "What to do when columns are missing?",
+    subtitle: "CSV import will not have every field filled. How should the server handle missing columns?",
+    mode: "single",
+    options: [
+      { id: "require-fallback", label: "Require defaults for required fields, skip optional", detail: "Missing 'name' → error. Missing 'bedrooms' → null. Missing 'status' → default to 'Vacant'. Apply after column mapping step.", recommended: true },
+      { id: "error-on-missing", label: "Error on any missing required field", detail: "Stricter but forces the manager to have complete data." },
+    ],
+    required: true,
+  },
+]} submitLabel="Submit answers" />

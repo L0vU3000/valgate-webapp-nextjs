@@ -8,8 +8,16 @@ import { createMaintenanceItem, updateMaintenanceItem } from "@/lib/services/mai
 import { updateSafetyRisk } from "@/lib/services/safety-risks";
 import { getProfessional } from "@/lib/services/professionals";
 import { requestAccess, AccessError } from "@/lib/services/managers";
+import {
+  onboardClientPortfolio,
+  revokeClientInvitation,
+  resendClientInvitation,
+  removeManagerAccess,
+  recordInvitationLinkCopy,
+} from "@/lib/services/client-onboarding";
 import * as clientsDb from "@/lib/data/db/clients";
-import { getProperty, updateProperty } from "@/lib/services/properties";
+import { getProperty, updateProperty, createProperty as svcCreateProperty, bulkAssignProperties as svcBulkAssign } from "@/lib/services/properties";
+import { propertyTypeChoiceSchema, propertyStatusSchema, propertyTitleSchema } from "@/lib/data/types/property";
 import { getCurrentUserId } from "@/lib/data/auth-shim";
 import { requireCtx } from "@/lib/auth/ctx";
 import { logger } from "@/lib/logger";
@@ -21,7 +29,7 @@ import { logActivity } from "@/lib/services/activity";
 // (details are logged server-side only).
 
 export type ProActionResult =
-  | { ok: true }
+  | { ok: true; count?: number; invitationUrl?: string }
   | { ok: false; error: string };
 
 // Refresh every pro route after a mutation — the dashboard, client pages,
@@ -470,16 +478,182 @@ export async function assignProperties(input: {
     return { ok: false, error: "Could not assign properties." };
   }
 
-  for (const propertyId of parsed.data.propertyIds) {
-    const updated = await updateProperty(authCtx, propertyId, {
-      clientId: client.id,
-    });
-    if (!updated) {
-      logger.error("assignProperties: property not found", { propertyId });
-      return { ok: false, error: "Could not assign properties." };
-    }
+  const result = await svcBulkAssign(authCtx, client.id, authCtx.orgId, parsed.data.propertyIds);
+  if (result.conflicts.length > 0) {
+    logger.warn("assignProperties: conflicts", { conflicts: result.conflicts });
   }
 
   revalidatePro();
   return { ok: true };
+}
+
+const csvPropertySchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  type: propertyTypeChoiceSchema,
+  status: propertyStatusSchema,
+  totalArea: z.string().min(1, "Total area is required"),
+  title: propertyTitleSchema,
+  buyNumeric: z.coerce.number().nonnegative("Buy numeric must be >= 0").default(0),
+  lat: z.coerce.number().default(0),
+  lng: z.coerce.number().default(0),
+  addressLine: z.string().optional().default(""),
+  city: z.string().optional().default(""),
+  zip: z.string().optional().default(""),
+  country: z.string().optional().default(""),
+  province: z.string().optional().default(""),
+  yearBuilt: z.string().optional().default(""),
+  bedrooms: z.string().optional().default(""),
+  bathrooms: z.string().optional().default(""),
+  parkingSpaces: z.string().optional().default(""),
+  purchasePrice: z.string().optional().default(""),
+  currentMarketValue: z.coerce.number().optional().default(0),
+});
+
+const importCsvSchema = z.object({
+  clientId: z.string().min(1),
+  rows: z.array(csvPropertySchema).min(1),
+});
+
+export async function importCsvProperties(input: {
+  clientId: string;
+  rows: unknown[];
+}): Promise<ProActionResult> {
+  const parsed = importCsvSchema.safeParse(input);
+  if (!parsed.success) {
+    const issues = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
+    return { ok: false, error: `Invalid CSV data: ${issues}` };
+  }
+
+  const authCtx = await requireCtx();
+  let createdCount = 0;
+
+  for (const row of parsed.data.rows) {
+    const result = await svcCreateProperty(authCtx, row);
+    if (!result) {
+      return { ok: false, error: `Failed to create property: ${row.name}` };
+    }
+    await updateProperty(authCtx, result.id, { clientId: parsed.data.clientId });
+    createdCount++;
+  }
+
+  revalidatePro();
+  return { ok: true, count: createdCount };
+}
+
+// --- Manager-led client onboarding (Phase 1 / Phase 3) ------------------------
+
+// A property the manager sketches in the onboarding wizard. Lightweight by
+// design — name, a coarse type label, and an optional value. The service maps
+// the type label to the internal enum and fills the remaining schema defaults.
+const propertyStubSchema = z.object({
+  name: z.string().min(1),
+  type: z.string().min(1),
+  value: z.number().positive().optional(),
+});
+
+const onboardClientPortfolioSchema = z.object({
+  name: z.string().min(2),
+  clientEmail: z.string().email(),
+  role: z.enum(["view", "full"]),
+  locale: z.enum(["en", "km"]).optional(),
+  // New properties to create in the client's portfolio org.
+  propertyStubs: z.array(propertyStubSchema).default([]),
+  // Existing unassigned property ids to earmark for the client.
+  assignPropertyIds: z.array(z.string().min(1)).default([]),
+});
+
+export async function onboardClientPortfolioAction(input: {
+  name: string;
+  clientEmail: string;
+  role: "view" | "full";
+  locale?: "en" | "km";
+  propertyStubs?: Array<{ name: string; type: string; value?: number }>;
+  assignPropertyIds?: string[];
+}): Promise<ProActionResult> {
+  const parsed = onboardClientPortfolioSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid input." };
+  const authCtx = await requireCtx();
+  try {
+    const result = await onboardClientPortfolio(authCtx, parsed.data);
+    revalidatePath("/pro/clients");
+    return {
+      ok: true,
+      count: result.propertyCount,
+      invitationUrl: result.invitationUrl ?? undefined,
+    };
+  } catch (err) {
+    logger.error("onboardClientPortfolioAction: failed", { error: String(err) });
+    return { ok: false, error: "Could not send invitation. Please try again." };
+  }
+}
+
+const handoffIdSchema = z.object({
+  handoffId: z.string().min(1),
+});
+
+export async function revokeClientInvitationAction(input: {
+  handoffId: string;
+}): Promise<ProActionResult> {
+  const parsed = handoffIdSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid input." };
+  const authCtx = await requireCtx();
+  try {
+    await revokeClientInvitation(authCtx, parsed.data.handoffId);
+  } catch (err) {
+    if (err instanceof AccessError) return { ok: false, error: err.message };
+    logger.error("revokeClientInvitationAction: failed", { error: String(err) });
+    return { ok: false, error: "Could not revoke invitation." };
+  }
+  revalidatePath("/pro/clients");
+  return { ok: true };
+}
+
+export async function resendClientInvitationAction(input: {
+  handoffId: string;
+}): Promise<ProActionResult> {
+  const parsed = handoffIdSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid input." };
+  const authCtx = await requireCtx();
+  try {
+    const result = await resendClientInvitation(authCtx, parsed.data.handoffId);
+    revalidatePath("/pro/clients");
+    return { ok: true, invitationUrl: result.invitationUrl ?? undefined };
+  } catch (err) {
+    if (err instanceof AccessError) return { ok: false, error: err.message };
+    logger.error("resendClientInvitationAction: failed", { error: String(err) });
+    return { ok: false, error: "Could not resend invitation." };
+  }
+}
+
+export async function removeManagerAccessAction(input: {
+  handoffId: string;
+}): Promise<ProActionResult> {
+  const parsed = handoffIdSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid input." };
+  const authCtx = await requireCtx();
+  try {
+    await removeManagerAccess(authCtx, parsed.data.handoffId);
+  } catch (err) {
+    if (err instanceof AccessError) return { ok: false, error: err.message };
+    logger.error("removeManagerAccessAction: failed", { error: String(err) });
+    return { ok: false, error: "Could not remove access." };
+  }
+  revalidatePath("/pro/clients");
+  return { ok: true };
+}
+
+export async function copyInvitationLinkAction(input: {
+  handoffId: string;
+}): Promise<ProActionResult> {
+  const parsed = handoffIdSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid input." };
+  const authCtx = await requireCtx();
+  try {
+    const result = await recordInvitationLinkCopy(authCtx, parsed.data.handoffId);
+    return { ok: true, invitationUrl: result.invitationUrl ?? undefined };
+  } catch (err) {
+    if (err instanceof AccessError) return { ok: false, error: err.message };
+    logger.error("copyInvitationLinkAction: failed", { error: String(err) });
+    return { ok: false, error: "Could not copy invitation link." };
+  }
 }

@@ -56,3 +56,35 @@ export const changeRequests = pgTable("change_requests", {
   index("ix_change_req_owner").on(t.ownerOrgId),
   index("ix_change_req_status").on(t.status),
 ]);
+
+// Manager-led client onboarding (Phase 1): reverse handoff record. Tracks a manager-created
+// portfolio org + client invitation lifecycle. Org membership is the access truth — this table
+// is NOT an access_requests row and does NOT grant permissions on its own.
+export const managerAccessEnum = pgEnum("manager_access", ["granted", "removed"]);
+
+export const handoffStatusEnum = pgEnum("handoff_status", [
+  "pending",
+  "accepted",
+  "revoked",
+  "bounced",
+]);
+
+export const clientHandoffs = pgTable("client_handoffs", {
+  id: text("id").primaryKey(),                                          // CHO-0001
+  managerUserId: text("manager_user_id").notNull().references(() => users.id),
+  orgId: text("org_id").notNull().references(() => organizations.id),
+  clientName: text("client_name").notNull(),
+  clientEmail: text("client_email").notNull(),
+  clerkInvitationId: text("clerk_invitation_id"),                       // null when "create without inviting"
+  status: handoffStatusEnum("status").notNull().default("pending"),
+  role: accessLevelEnum("role").notNull().default("full"),
+  // Phase 3 — post-acceptance lifecycle
+  managerAccess: managerAccessEnum("manager_access").notNull().default("granted"),
+  invitationUrl: text("invitation_url"),
+  invitationLastCopiedAt: timestamp("invitation_last_copied_at", { withTimezone: true }),
+  locale: text("locale").notNull().default("en"),                      // "en" | "km"
+  bouncedAt: timestamp("bounced_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});

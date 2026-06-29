@@ -71,7 +71,6 @@ export function Step1PropertyType({ form, setForm, goNext }: { form: FormData; s
 
   return (
     <div className="flex flex-col gap-10 items-start pb-8 w-full max-w-[860px] mx-auto">
-      {/* Heading */}
       <div className="anim-enter flex flex-col gap-[11px] items-center w-full">
         <h2 className="text-[28px] font-bold text-[#1a1c1c] text-center leading-10">
           What type of property are you adding?
@@ -81,7 +80,6 @@ export function Step1PropertyType({ form, setForm, goNext }: { form: FormData; s
         </p>
       </div>
 
-      {/* Grid */}
       <div className="grid grid-cols-4 gap-4 w-full">
         {propertyTypes.map((t, i) => {
           const selected = form.propertyType === t.key;

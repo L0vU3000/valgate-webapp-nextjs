@@ -6,23 +6,21 @@ import dynamic from "next/dynamic";
 import { CAMBODIA_PROVINCES } from "@/lib/constants/cambodia-provinces";
 import { cn } from "@/components/ui/utils";
 import { RequiredMark, OptionalLabel } from "@/components/ui/required-mark";
-import { useGeocode } from "../_lib/use-geocode";
+import { useGeocode } from "@/app/_shared/add-property/_lib/use-geocode";
 import type { FormData } from "./types";
 
 const PropertyLocationMap = dynamic(
-  () => import("./PropertyLocationMap").then((m) => ({ default: m.PropertyLocationMap })),
+  () => import("@/app/(shell)/add-property/_components/PropertyLocationMap").then((m) => ({ default: m.PropertyLocationMap })),
   { ssr: false },
 );
 
 const LocationPickerModal = dynamic(
-  () => import("./LocationPickerModal").then((m) => ({ default: m.LocationPickerModal })),
+  () => import("@/app/(shell)/add-property/_components/LocationPickerModal").then((m) => ({ default: m.LocationPickerModal })),
   { ssr: false },
 );
 
-const DEFAULT_CENTER: [number, number] = [104.9282, 11.5564]; // Phnom Penh
+const DEFAULT_CENTER: [number, number] = [104.9282, 11.5564];
 
-// text-base (16px) on phone defeats iOS zoom-on-focus; sm:text-[14px] preserves
-// the denser desktop look. min-h-11 = 44px touch target.
 const INPUT =
   "w-full min-h-11 border border-border rounded-xl px-4 py-2.5 text-base sm:text-[14px] text-foreground bg-background placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:shadow-[0_0_0_3px_color-mix(in_oklch,var(--primary)_8%,transparent)] transition-[border-color,box-shadow] duration-200";
 
@@ -57,7 +55,6 @@ export function Step2BasicInfo({
 
   return (
     <div className="flex-1 min-h-0 flex flex-col max-w-[560px] w-full mx-auto">
-      {/* Heading */}
       <div className="shrink-0 mb-4 animate-[fade-slide-up_0.45s_cubic-bezier(0.22,1,0.36,1)_both]">
         <h2 className="text-[28px] font-bold text-[#1a1c1c] text-center leading-10">
           Confirm property location
@@ -67,19 +64,13 @@ export function Step2BasicInfo({
         </p>
       </div>
 
-      {/* Card */}
-      {/* Card padding: tighter on phone (p-4 → 16px) to keep the form
-          inputs at ~324px usable width on iPhone 14 (390px viewport),
-          relaxes back to p-6 (24px) on tablet+ for breathing room. */}
       <div className="flex-1 min-h-0 border border-border rounded-2xl p-4 sm:p-6 flex flex-col gap-4 animate-[fade-slide-up_0.45s_cubic-bezier(0.22,1,0.36,1)_60ms_both]">
 
-        {/* Form legend */}
         <p className="text-[11px] text-[--text-tertiary] flex items-center gap-1 self-end">
           <RequiredMark />
           <span>Required fields</span>
         </p>
 
-        {/* Property Name — required */}
         <div className="shrink-0 flex flex-col gap-1.5">
           <label className="text-[14px] text-foreground flex items-center" style={{ fontWeight: 600 }}>
             Property Name <RequiredMark />
@@ -97,7 +88,6 @@ export function Step2BasicInfo({
           )}
         </div>
 
-        {/* Total Area — optional */}
         <div className="shrink-0 flex flex-col gap-1.5">
           <label className="text-[14px] text-foreground flex items-center" style={{ fontWeight: 600 }}>
             Total Area <span className="text-muted-foreground font-normal ml-1">(m²)</span>
@@ -116,7 +106,6 @@ export function Step2BasicInfo({
           )}
         </div>
 
-        {/* Address — optional */}
         <div className="shrink-0 flex flex-col gap-1.5">
           <div className="flex items-center justify-between">
             <label className="text-[14px] text-foreground flex items-center" style={{ fontWeight: 600 }}>
@@ -196,7 +185,6 @@ export function Step2BasicInfo({
           )}
         </div>
 
-        {/* Lower region: manual fields OR map */}
         {showManualAddress ? (
           <div key="manual" className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2 pr-0.5 animate-[fade-slide-up_0.35s_cubic-bezier(0.22,1,0.36,1)_both]">
             <input type="text" value={form.addressLine} onChange={(e) => update("addressLine", e.target.value)}
@@ -243,7 +231,6 @@ export function Step2BasicInfo({
                 className="absolute inset-0"
               />
 
-              {/* Map loading overlay */}
               <div
                 className={cn(
                   "absolute inset-0 z-50 flex flex-col items-center justify-center bg-background gap-3 transition-opacity duration-500",
@@ -264,7 +251,6 @@ export function Step2BasicInfo({
                 </div>
               </div>
 
-              {/* Floating hint */}
               {mapLoaded && (
               <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2 px-4 py-2 rounded-full border border-border/60 backdrop-blur-md bg-background/90 shadow-sm pointer-events-none animate-[fade-slide-down_0.4s_cubic-bezier(0.22,1,0.36,1)_both]">
                 <span className="text-[12px] font-semibold text-foreground whitespace-nowrap">
@@ -273,7 +259,6 @@ export function Step2BasicInfo({
               </div>
               )}
 
-              {/* Expand button */}
               {mapLoaded && (
               <button
                 onClick={() => setShowModal(true)}
@@ -285,7 +270,6 @@ export function Step2BasicInfo({
               )}
             </div>
 
-            {/* Location pin status banner */}
             {isPinned ? (
               <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-[13px] text-green-700 shrink-0 animate-[fade-slide-up_0.3s_cubic-bezier(0.22,1,0.36,1)_both]">
                 <CheckCircle2 className="w-4 h-4 shrink-0" />
@@ -301,7 +285,6 @@ export function Step2BasicInfo({
         )}
       </div>
 
-      {/* Modal — rendered outside card so it can portal to body */}
       {showModal && (
         <LocationPickerModal
           center={mapCenter}

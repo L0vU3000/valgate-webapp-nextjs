@@ -1,4 +1,4 @@
-import { getProDashboardData, getInactiveClients } from "../queries";
+import { getProDashboardData, getInactiveClients, listClientHandoffs } from "../queries";
 import { ClientsIndexPage } from "./_components/ClientsIndexPage";
 
 // /pro/clients — the manager's book of business: every client with
@@ -12,9 +12,10 @@ export default async function Page() {
   // Load active client rollups and inactive clients in parallel — they come
   // from different paths (loadProContext filters to active; getInactiveClients
   // reads the raw list and filters to inactive only).
-  const [data, inactiveClients] = await Promise.all([
+  const [data, inactiveClients, handoffs] = await Promise.all([
     getProDashboardData(),
     getInactiveClients(),
+    listClientHandoffs(),
   ]);
 
   // Properties not yet assigned to any client are offered during onboarding.
@@ -27,6 +28,7 @@ export default async function Page() {
       clients={data.clients}
       inactiveClients={inactiveClients}
       unassignedProperties={unassignedProperties}
+      handoffs={handoffs}
     />
   );
 }

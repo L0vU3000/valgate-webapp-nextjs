@@ -28,11 +28,8 @@ export function FlowFooter({
   const onPrimary = isFinalStep ? onSubmit : onContinue;
 
   return (
-    // Phone: sticky pb-safe so primary CTA clears the home indicator.
-    // Tablet+: keep today's flow-style footer (not sticky) for max content space.
     <div className="sticky bottom-0 sm:static z-10 bg-white/95 backdrop-blur sm:backdrop-blur-0 sm:bg-white border-t border-border px-4 sm:px-8 pt-3 pb-safe sm:py-4 shrink-0">
       <div className="max-w-[1160px] mx-auto flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        {/* Error — full width on phone, inline on tablet+ */}
         {error && (
           <p
             role="alert"
@@ -42,7 +39,6 @@ export function FlowFooter({
           </p>
         )}
 
-        {/* Save as Draft — text link on phone (above CTAs), button on tablet+ */}
         <button
           onClick={onSaveDraft}
           className="hidden sm:inline-flex border border-border rounded-lg px-4 py-2 text-[14px] text-foreground hover:bg-accent/50"
@@ -56,16 +52,13 @@ export function FlowFooter({
           Save as Draft
         </button>
 
-        {/* Back + Primary CTA cluster */}
         <div className="flex items-center gap-3">
-          {/* Tablet+ error inline */}
           {error && (
             <p role="alert" className="hidden sm:block text-[13px] text-destructive">
               {error}
             </p>
           )}
 
-          {/* Phone: 44px circular back. Tablet+: text button. */}
           <button
             onClick={onBack}
             aria-label="Go back"
@@ -80,7 +73,6 @@ export function FlowFooter({
             Go Back
           </button>
 
-          {/* Primary: full-width pill on phone, fixed-width on tablet+ */}
           <button
             onClick={onPrimary}
             disabled={submitting}
