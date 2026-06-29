@@ -20,7 +20,7 @@ import {
   cachedListProperties,
   cachedListProfessionals,
 } from "@/lib/data/cached-reads";
-import { getCurrentUserId } from "@/lib/data/auth-shim";
+import { getFsUserId } from "@/lib/data/auth-shim";
 import { requireCtx } from "@/lib/auth/ctx";
 import { listManagedAccounts, getIsManager } from "@/lib/services/managers";
 import { OWN_PORTFOLIO_ID } from "@/app/(pro)/pro/_components/pro-shell-types";
@@ -369,8 +369,8 @@ type ProContext = {
 };
 
 async function loadProContext(): Promise<ProContext> {
-  const userId = getCurrentUserId();
   const authCtx = await requireCtx();
+  const fsUserId = getFsUserId(authCtx.userId);
 
   const [
     clients,
@@ -391,7 +391,7 @@ async function loadProContext(): Promise<ProContext> {
     successorAssignments,
     documents,
   ] = await Promise.all([
-    clientsDb.list(userId),
+    clientsDb.list(fsUserId),
     cachedListProperties(authCtx),
     cachedListLeases(authCtx),
     cachedListPayments(authCtx),
@@ -468,6 +468,7 @@ async function loadProContext(): Promise<ProContext> {
 // ---------------------------------------------------------------------------
 
 export async function getProDashboardData(): Promise<ProDashboardData> {
+  const authCtx = await requireCtx();
   const ctx = await loadProContext();
   const monthStart = currentMonthStartUtc();
 
@@ -477,10 +478,9 @@ export async function getProDashboardData(): Promise<ProDashboardData> {
 
   // Prepend the manager's own book (his directly-held properties) so it shows
   // first in the clients table and its alerts flow into the dashboard feed.
-  const ownRollup = buildOwnPortfolioRollup(ctx, monthStart);
-  if (ownRollup) {
-    rollups.unshift(ownRollup);
-  }
+  // Always included — new users see an empty "My Portfolio" card.
+  const ownRollup = buildOwnPortfolioRollup(ctx, monthStart, authCtx.userId);
+  rollups.unshift(ownRollup);
 
   const allAlerts = rollups
     .flatMap((r) => r.alerts)
@@ -773,8 +773,8 @@ export async function getClientPortfolioData(
   let belongsToView: (p: Property) => boolean;
 
   if (clientId === OWN_PORTFOLIO_ID) {
-    const ownRollup = buildOwnPortfolioRollup(ctx, monthStart);
-    if (!ownRollup) return null;
+    const authCtx = await requireCtx();
+    const ownRollup = buildOwnPortfolioRollup(ctx, monthStart, authCtx.userId);
     client = ownRollup.client;
     belongsToView = (p) => !p.clientId;
   } else {
@@ -976,8 +976,8 @@ export async function getInactiveClients(): Promise<
     clientType: ClientType;
   }>
 > {
-  const userId = getCurrentUserId();
-  const all = await clientsDb.list(userId);
+  const authCtx = await requireCtx();
+  const all = await clientsDb.list(getFsUserId(authCtx.userId));
   return all
     .filter((c) => c.status === "Inactive")
     .map((c) => ({
@@ -1005,10 +1005,9 @@ export async function getProShellData(): Promise<ProShellData> {
 
   // Include the own-portfolio rollup so the workspace tab provider can open it
   // as a tab and the sidebar lists it next to the managed clients.
-  const ownRollup = buildOwnPortfolioRollup(ctx, monthStart);
-  if (ownRollup) {
-    rollups.unshift(ownRollup);
-  }
+  // Always included — new users see an empty "My Portfolio" card.
+  const ownRollup = buildOwnPortfolioRollup(ctx, monthStart, authCtx.userId);
+  rollups.unshift(ownRollup);
 
   const managerName = profile
     ? `${profile.firstName} ${profile.lastName}`.trim()
@@ -1080,9 +1079,8 @@ function deriveRunStatus(run: AgentRun, msg: AiMessage | null): AgentRunStatus {
 }
 
 export async function getAgentHubData(): Promise<AgentHubData> {
-  const userId = getCurrentUserId();
   const authCtx = await requireCtx();
-  const runs = await agentRunsDb.list(userId);
+  const runs = await agentRunsDb.list(getFsUserId(authCtx.userId));
 
   const enriched = await Promise.all(
     runs.map(async (run) => {
@@ -1379,22 +1377,20 @@ function buildClientRollup(
 }
 
 // Build the synthetic "My Portfolio" rollup from the properties the manager
-// owns directly (no clientId). Returns null when he has no such properties,
-// so the card only appears when there is something real to show.
+// owns directly (no clientId). Always returns a rollup — new users with 0
+// properties see an empty card rather than no card at all.
 function buildOwnPortfolioRollup(
   ctx: ProContext,
   monthStart: number,
-): ClientRollup | null {
+  userId: string,
+): ClientRollup {
   const ownProperties = ctx.properties.filter((p) => !p.clientId);
-  if (ownProperties.length === 0) {
-    return null;
-  }
 
   // A stand-in Client for the manager's own book. It is never persisted —
   // it only carries the labels the rollup and the clients table need to render.
   const selfClient: Client = {
     id: OWN_PORTFOLIO_ID,
-    userId: getCurrentUserId(),
+    userId,
     name: "My Portfolio",
     clientType: "Individual",
     initials: "ME",
