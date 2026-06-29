@@ -15,6 +15,7 @@ import {
 import { submitVerification, revokeVerification } from "@/lib/services/verification";
 import { verifyLimiter, allowed } from "@/lib/ratelimit";
 import { log } from "@/lib/log";
+import { bustCache } from "@/lib/cache/bust";
 
 export async function createOwnershipRecord(data: unknown): Promise<ActionResult<OwnershipRecord>> {
   const parsed = NewOwnershipRecordSchema.safeParse(data);
@@ -23,6 +24,7 @@ export async function createOwnershipRecord(data: unknown): Promise<ActionResult
   try {
     const result = await svcCreateOwnershipRecord(ctx, parsed.data);
     revalidateFeTag("ownership-records");
+    await bustCache("ownership-records");
     return { ok: true, data: result };
   } catch (err) {
     console.error("createOwnershipRecord", err);
@@ -38,6 +40,7 @@ export async function updateOwnershipRecord(id: string, patch: unknown): Promise
     const result = await svcUpdateOwnershipRecord(ctx, id, parsed.data);
     if (!result) return { ok: false, error: "Ownership record not found" };
     revalidateFeTag("ownership-records");
+    await bustCache("ownership-records");
     return { ok: true, data: result };
   } catch (err) {
     console.error("updateOwnershipRecord", err);
@@ -50,6 +53,7 @@ export async function deleteOwnershipRecord(id: string): Promise<ActionResult<vo
   try {
     await svcDeleteOwnershipRecord(ctx, id);
     revalidateFeTag("ownership-records");
+    await bustCache("ownership-records");
     return { ok: true, data: undefined };
   } catch (err) {
     console.error("deleteOwnershipRecord", err);
@@ -72,6 +76,7 @@ export async function verifyOwnership(id: string, evidenceDocIds: string[]): Pro
     if (!rec) return { ok: false, error: "Ownership record not found" };
     await submitVerification(ctx, rec.propertyId, "ownership", evidenceDocIds, id);
     revalidateFeTag("ownership-records");
+    await bustCache("ownership-records");
     const updated = await svcGetOwnershipRecord(ctx, id);
     if (!updated) return { ok: false, error: "Ownership record not found" };
     return { ok: true, data: updated };
@@ -92,6 +97,7 @@ export async function revokeOwnershipVerification(id: string): Promise<ActionRes
     if (!rec) return { ok: false, error: "Ownership record not found" };
     await revokeVerification(ctx, rec.propertyId, "ownership", id);
     revalidateFeTag("ownership-records");
+    await bustCache("ownership-records");
     const updated = await svcGetOwnershipRecord(ctx, id);
     if (!updated) return { ok: false, error: "Ownership record not found" };
     return { ok: true, data: updated };

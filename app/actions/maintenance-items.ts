@@ -11,6 +11,7 @@ import {
   updateMaintenanceItem as svcUpdateMaintenanceItem,
   deleteMaintenanceItem as svcDeleteMaintenanceItem,
 } from "@/lib/services/maintenance-items";
+import { bustCache } from "@/lib/cache/bust";
 
 export async function createMaintenanceItem(data: unknown): Promise<ActionResult<MaintenanceItem>> {
   const parsed = NewMaintenanceItemSchema.safeParse(data);
@@ -19,6 +20,7 @@ export async function createMaintenanceItem(data: unknown): Promise<ActionResult
   try {
     const result = await svcCreateMaintenanceItem(ctx, parsed.data);
     revalidateFeTag("maintenance-items");
+    await bustCache("maintenance-items");
     return { ok: true, data: result };
   } catch (err) {
     console.error("createMaintenanceItem", err);
@@ -34,6 +36,7 @@ export async function updateMaintenanceItem(id: string, patch: unknown): Promise
     const result = await svcUpdateMaintenanceItem(ctx, id, parsed.data);
     if (!result) return { ok: false, error: "Maintenance item not found" };
     revalidateFeTag("maintenance-items");
+    await bustCache("maintenance-items");
     return { ok: true, data: result };
   } catch (err) {
     console.error("updateMaintenanceItem", err);
@@ -46,6 +49,7 @@ export async function deleteMaintenanceItem(id: string): Promise<ActionResult<vo
   try {
     await svcDeleteMaintenanceItem(ctx, id);
     revalidateFeTag("maintenance-items");
+    await bustCache("maintenance-items");
     return { ok: true, data: undefined };
   } catch (err) {
     console.error("deleteMaintenanceItem", err);

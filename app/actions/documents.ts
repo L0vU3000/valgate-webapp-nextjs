@@ -15,6 +15,7 @@ import {
 } from "@/lib/services/documents";
 import { presignUpload, resolveDocumentUrl } from "@/lib/services/storage";
 import { logActivity } from "@/lib/services/activity";
+import { bustCache } from "@/lib/cache/bust";
 
 const UploadMetaSchema = z.object({
   name: z.string().min(1),
@@ -29,6 +30,7 @@ export async function createDocument(data: unknown): Promise<ActionResult<Docume
   try {
     const result = await svcCreateDocument(ctx, parsed.data);
     revalidateFeTag("documents");
+    await bustCache("documents");
     return { ok: true, data: result };
   } catch (err) {
     console.error("createDocument", err);
@@ -44,6 +46,7 @@ export async function updateDocument(id: string, patch: unknown): Promise<Action
     const result = await svcUpdateDocument(ctx, id, parsed.data);
     if (!result) return { ok: false, error: "Document not found" };
     revalidateFeTag("documents");
+    await bustCache("documents");
     return { ok: true, data: result };
   } catch (err) {
     console.error("updateDocument", err);
@@ -66,6 +69,7 @@ export async function deleteDocument(id: string): Promise<ActionResult<void>> {
       propertyId: removed.propertyId,
     });
     revalidateFeTag("documents");
+    await bustCache("documents");
     return { ok: true, data: undefined };
   } catch (err) {
     console.error("deleteDocument", err);
@@ -93,6 +97,7 @@ export async function deleteDocuments(ids: unknown): Promise<ActionResult<{ dele
       });
     }
     revalidateFeTag("documents");
+    await bustCache("documents");
     return { ok: true, data: { deleted: removed.length } };
   } catch (err) {
     console.error("deleteDocuments", err);
@@ -166,6 +171,7 @@ export async function uploadDocument(
       uploadedAt: Date.now(),
     });
     revalidateFeTag("documents");
+    await bustCache("documents");
     return { ok: true, data: created };
   } catch (err) {
     console.error("uploadDocument", err);

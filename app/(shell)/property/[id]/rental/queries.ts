@@ -1,12 +1,14 @@
 import "server-only";
 import { requireCtx } from "@/lib/auth/ctx";
-import { listLeases } from "@/lib/services/leases";
-import { listTenants } from "@/lib/services/tenants";
-import { listPayments } from "@/lib/services/payments";
-import { listExpenses } from "@/lib/services/expenses";
-import { listDocuments } from "@/lib/services/documents";
-import { listFolders } from "@/lib/services/folders";
-import { listMaintenanceItems } from "@/lib/services/maintenance-items";
+import {
+  cachedListLeases,
+  cachedListTenants,
+  cachedListPayments,
+  cachedListExpenses,
+  cachedListDocuments,
+  cachedListFolders,
+  cachedListMaintenanceItems,
+} from "@/lib/data/cached-reads";
 import type { Lease } from "@/lib/data/types/lease";
 import type { Tenant } from "@/lib/data/types/tenant";
 import type { Payment } from "@/lib/data/types/payment";
@@ -27,33 +29,34 @@ export type RentalPageData = {
 
 export async function getRentalPageData(propertyId: string): Promise<RentalPageData> {
   const authCtx = await requireCtx();
+
+  // All list calls pass propertyId so the WHERE clause filters at the DB level.
+  // Payments are filtered by payments.property_id directly (Option B from the plan).
   const [
-    allLeases,
-    allTenants,
-    allPayments,
-    allExpenses,
-    allDocuments,
-    allFolders,
-    allMaintenanceItems,
+    leases,
+    tenants,
+    payments,
+    expenses,
+    documents,
+    folders,
+    maintenanceItems,
   ] = await Promise.all([
-    listLeases(authCtx),
-    listTenants(authCtx),
-    listPayments(authCtx),
-    listExpenses(authCtx),
-    listDocuments(authCtx),
-    listFolders(authCtx),
-    listMaintenanceItems(authCtx),
+    cachedListLeases(authCtx, propertyId),
+    cachedListTenants(authCtx, propertyId),
+    cachedListPayments(authCtx, propertyId),
+    cachedListExpenses(authCtx, propertyId),
+    cachedListDocuments(authCtx, propertyId),
+    cachedListFolders(authCtx, propertyId),
+    cachedListMaintenanceItems(authCtx, propertyId),
   ]);
-  const propLeaseIds = new Set(
-    allLeases.filter((l) => l.propertyId === propertyId).map((l) => l.id),
-  );
+
   return {
-    leases: allLeases.filter((l) => l.propertyId === propertyId),
-    tenants: allTenants.filter((t) => t.propertyId === propertyId),
-    payments: allPayments.filter((p) => p.leaseId != null && propLeaseIds.has(p.leaseId)),
-    expenses: allExpenses.filter((e) => e.propertyId === propertyId),
-    documents: allDocuments.filter((d) => d.propertyId === propertyId),
-    folders: allFolders.filter((f) => f.propertyId === propertyId),
-    maintenanceItems: allMaintenanceItems.filter((m) => m.propertyId === propertyId),
+    leases,
+    tenants,
+    payments,
+    expenses,
+    documents,
+    folders,
+    maintenanceItems,
   };
 }

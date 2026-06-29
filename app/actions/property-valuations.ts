@@ -11,6 +11,7 @@ import {
   updatePropertyValuation as svcUpdatePropertyValuation,
   deletePropertyValuation as svcDeletePropertyValuation,
 } from "@/lib/services/property-valuations";
+import { bustCache } from "@/lib/cache/bust";
 
 export async function createPropertyValuation(data: unknown): Promise<ActionResult<PropertyValuation>> {
   const parsed = NewPropertyValuationSchema.safeParse(data);
@@ -19,6 +20,7 @@ export async function createPropertyValuation(data: unknown): Promise<ActionResu
   try {
     const result = await svcCreatePropertyValuation(ctx, parsed.data);
     revalidateFeTag("property-valuations");
+    await bustCache("property-valuations");
     return { ok: true, data: result };
   } catch (err) {
     console.error("createPropertyValuation", err);
@@ -34,6 +36,7 @@ export async function updatePropertyValuation(id: string, patch: unknown): Promi
     const result = await svcUpdatePropertyValuation(ctx, id, parsed.data);
     if (!result) return { ok: false, error: "Property valuation not found" };
     revalidateFeTag("property-valuations");
+    await bustCache("property-valuations");
     return { ok: true, data: result };
   } catch (err) {
     console.error("updatePropertyValuation", err);
@@ -46,6 +49,7 @@ export async function deletePropertyValuation(id: string): Promise<ActionResult<
   try {
     await svcDeletePropertyValuation(ctx, id);
     revalidateFeTag("property-valuations");
+    await bustCache("property-valuations");
     return { ok: true, data: undefined };
   } catch (err) {
     console.error("deletePropertyValuation", err);

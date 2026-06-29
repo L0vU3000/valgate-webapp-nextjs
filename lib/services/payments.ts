@@ -10,10 +10,14 @@ import { scopedInsert, scopedUpdate, scopedDelete, requireMember } from "@/lib/s
 const rowToPayment = (r: typeof payments.$inferSelect): Payment =>
   PaymentSchema.parse(toDomain(payments, r)); // C6/C7 (propertyId/tenantId/dueDate stripped by parse)
 
-export async function listPayments(ctx: Ctx, leaseId?: string): Promise<Payment[]> {
+// Lists payments for the org. When propertyId is given, the WHERE clause adds a filter on
+// the payments.property_id column so only payments for that specific property come back.
+// The property_id column is populated at create time and backfilled for older rows by
+// scripts/backfill-payments-property-id.ts — safe to filter without a JOIN.
+export async function listPayments(ctx: Ctx, propertyId?: string): Promise<Payment[]> {
   const rows = await db.select().from(payments)
-    .where(leaseId
-      ? and(eq(payments.orgId, ctx.orgId), eq(payments.leaseId, leaseId))
+    .where(propertyId
+      ? and(eq(payments.orgId, ctx.orgId), eq(payments.propertyId, propertyId))
       : eq(payments.orgId, ctx.orgId)) // C3
     .orderBy(asc(payments.date), asc(payments.id))
     .limit(500)

@@ -14,6 +14,7 @@ import {
   listCoOwners,
 } from "@/lib/services/co-owners";
 import { logActivity } from "@/lib/services/activity";
+import { bustCache } from "@/lib/cache/bust";
 
 export async function createCoOwner(data: unknown): Promise<ActionResult<CoOwner>> {
   const parsed = NewCoOwnerSchema.safeParse(data);
@@ -22,6 +23,7 @@ export async function createCoOwner(data: unknown): Promise<ActionResult<CoOwner
   try {
     const result = await svcCreateCoOwner(ctx, parsed.data);
     revalidateFeTag("co-owners");
+    await bustCache("co-owners");
     return { ok: true, data: result };
   } catch (err) {
     console.error("createCoOwner", err);
@@ -37,6 +39,7 @@ export async function updateCoOwner(id: string, patch: unknown): Promise<ActionR
     const result = await svcUpdateCoOwner(ctx, id, parsed.data);
     if (!result) return { ok: false, error: "Co-owner not found" };
     revalidateFeTag("co-owners");
+    await bustCache("co-owners");
     return { ok: true, data: result };
   } catch (err) {
     console.error("updateCoOwner", err);
@@ -68,6 +71,7 @@ export async function removeCoOwner(id: string): Promise<ActionResult<void>> {
     // owner's share is derived as 100 − sum(co-owner shares), so dropping a co-owner row
     // is all the rebalance the UI needs (it recomputes on the refreshed list).
     revalidateFeTag("co-owners");
+    await bustCache("co-owners");
     return { ok: true, data: undefined };
   } catch (err) {
     console.error("removeCoOwner", err);

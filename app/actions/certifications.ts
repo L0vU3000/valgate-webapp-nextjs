@@ -11,6 +11,7 @@ import {
   updateCertification as svcUpdateCertification,
   deleteCertification as svcDeleteCertification,
 } from "@/lib/services/certifications";
+import { bustCache } from "@/lib/cache/bust";
 
 export async function createCertification(data: unknown): Promise<ActionResult<Certification>> {
   const parsed = NewCertificationSchema.safeParse(data);
@@ -19,6 +20,7 @@ export async function createCertification(data: unknown): Promise<ActionResult<C
   try {
     const result = await svcCreateCertification(ctx, parsed.data);
     revalidateFeTag("certifications");
+    await bustCache("certifications");
     return { ok: true, data: result };
   } catch (err) {
     console.error("createCertification", err);
@@ -34,6 +36,7 @@ export async function updateCertification(id: string, patch: unknown): Promise<A
     const result = await svcUpdateCertification(ctx, id, parsed.data);
     if (!result) return { ok: false, error: "Certification not found" };
     revalidateFeTag("certifications");
+    await bustCache("certifications");
     return { ok: true, data: result };
   } catch (err) {
     console.error("updateCertification", err);
@@ -46,6 +49,7 @@ export async function deleteCertification(id: string): Promise<ActionResult<void
   try {
     await svcDeleteCertification(ctx, id);
     revalidateFeTag("certifications");
+    await bustCache("certifications");
     return { ok: true, data: undefined };
   } catch (err) {
     console.error("deleteCertification", err);

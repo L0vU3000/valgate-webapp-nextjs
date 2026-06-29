@@ -13,6 +13,7 @@ import {
 } from "@/lib/services/estate-assignments";
 import { getSuccessor as svcGetSuccessor } from "@/lib/services/successors";
 import { createEstateActivityEvent } from "@/lib/services/estate-activity-events";
+import { bustCache } from "@/lib/cache/bust";
 
 export async function assignSuccessorToProperty(
   successorId: string,
@@ -31,6 +32,7 @@ export async function assignSuccessorToProperty(
       propertyId,
     });
     revalidateFeTag("estate-assignments");
+    await bustCache("estate-assignments");
     revalidateFeTag("successors");
     return { ok: true, data: result };
   } catch (err) {
@@ -58,6 +60,7 @@ export async function removeAssignment(assignmentId: string): Promise<ActionResu
       propertyId: assignment.propertyId,
     });
     revalidateFeTag("estate-assignments");
+    await bustCache("estate-assignments");
     revalidateFeTag("successors");
     return { ok: true, data: undefined };
   } catch (err) {

@@ -4,6 +4,7 @@
 import { requireCtx } from "@/lib/auth/ctx";
 import type { ActionResult } from "@/app/actions/_result";
 import { revalidateFeTag, NOT_IMPLEMENTED_UNTIL_B6 } from "@/app/actions/_result";
+import { bustCache } from "@/lib/cache/bust";
 import { NewLeaseSchema, LeasePatchSchema } from "@/lib/data/types/lease";
 import type { Lease } from "@/lib/data/types/lease";
 import {
@@ -19,6 +20,7 @@ export async function createLease(data: unknown): Promise<ActionResult<Lease>> {
   try {
     const result = await svcCreateLease(ctx, parsed.data);
     revalidateFeTag("leases");
+    await bustCache("leases");
     return { ok: true, data: result };
   } catch (err) {
     console.error("createLease", err);
@@ -34,6 +36,7 @@ export async function updateLease(id: string, patch: unknown): Promise<ActionRes
     const result = await svcUpdateLease(ctx, id, parsed.data);
     if (!result) return { ok: false, error: "Lease not found" };
     revalidateFeTag("leases");
+    await bustCache("leases");
     return { ok: true, data: result };
   } catch (err) {
     console.error("updateLease", err);
@@ -46,6 +49,7 @@ export async function deleteLease(id: string): Promise<ActionResult<void>> {
   try {
     await svcDeleteLease(ctx, id);
     revalidateFeTag("leases");
+    await bustCache("leases");
     return { ok: true, data: undefined };
   } catch (err) {
     console.error("deleteLease", err);

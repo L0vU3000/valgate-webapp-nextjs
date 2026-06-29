@@ -1,4 +1,6 @@
 import "server-only";
+import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import { requireCtx } from "@/lib/auth/ctx";
 import { listProperties, getProperty } from "@/lib/services/properties";
 
@@ -9,14 +11,24 @@ export type {
 } from "@/lib/data/types/property";
 import type { Property } from "@/lib/data/types/property";
 
-export async function getProperties(): Promise<Property[]> {
+async function resolveProperties(): Promise<Property[]> {
   const ctx = await requireCtx();
-  return listProperties(ctx);
+  return unstable_cache(
+    async () => listProperties(ctx),
+    ["properties", ctx.orgId],
+    { tags: ["properties"] },
+  )();
 }
 
-export async function getPropertyByIdParam(
-  id: string,
-): Promise<Property | null> {
+export const getProperties = cache(resolveProperties);
+
+async function resolvePropertyById(id: string): Promise<Property | null> {
   const ctx = await requireCtx();
-  return getProperty(ctx, id);
+  return unstable_cache(
+    async () => getProperty(ctx, id),
+    ["properties", ctx.orgId, id],
+    { tags: ["properties"] },
+  )();
 }
+
+export const getPropertyByIdParam = cache(resolvePropertyById);

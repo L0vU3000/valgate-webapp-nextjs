@@ -11,6 +11,7 @@ import {
   updateEmergencyContact as svcUpdateEmergencyContact,
   deleteEmergencyContact as svcDeleteEmergencyContact,
 } from "@/lib/services/emergency-contacts";
+import { bustCache } from "@/lib/cache/bust";
 
 export async function createEmergencyContact(data: unknown): Promise<ActionResult<EmergencyContact>> {
   const parsed = NewEmergencyContactSchema.safeParse(data);
@@ -19,6 +20,7 @@ export async function createEmergencyContact(data: unknown): Promise<ActionResul
   try {
     const result = await svcCreateEmergencyContact(ctx, parsed.data);
     revalidateFeTag("emergency-contacts");
+    await bustCache("emergency-contacts");
     return { ok: true, data: result };
   } catch (err) {
     console.error("createEmergencyContact", err);
@@ -34,6 +36,7 @@ export async function updateEmergencyContact(id: string, patch: unknown): Promis
     const result = await svcUpdateEmergencyContact(ctx, id, parsed.data);
     if (!result) return { ok: false, error: "Emergency contact not found" };
     revalidateFeTag("emergency-contacts");
+    await bustCache("emergency-contacts");
     return { ok: true, data: result };
   } catch (err) {
     console.error("updateEmergencyContact", err);
@@ -46,6 +49,7 @@ export async function deleteEmergencyContact(id: string): Promise<ActionResult<v
   try {
     await svcDeleteEmergencyContact(ctx, id);
     revalidateFeTag("emergency-contacts");
+    await bustCache("emergency-contacts");
     return { ok: true, data: undefined };
   } catch (err) {
     console.error("deleteEmergencyContact", err);

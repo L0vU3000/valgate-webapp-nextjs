@@ -1,22 +1,24 @@
 import "server-only";
 import { requireCtx } from "@/lib/auth/ctx";
-import { listPropertyValuations } from "@/lib/services/property-valuations";
-import { listLeases } from "@/lib/services/leases";
-import { listTenants } from "@/lib/services/tenants";
-import { listPayments } from "@/lib/services/payments";
-import { listExpenses } from "@/lib/services/expenses";
-import { listNotifications } from "@/lib/services/notifications";
-import { listMaintenanceItems } from "@/lib/services/maintenance-items";
-import { listOwnershipRecords } from "@/lib/services/ownership-records";
-import { listCoOwners } from "@/lib/services/co-owners";
-import { listOwnershipDocuments } from "@/lib/services/ownership-documents";
-import { listSafetyRisks } from "@/lib/services/safety-risks";
-import { listInspections } from "@/lib/services/inspections";
-import { listCertifications } from "@/lib/services/certifications";
-import { listEmergencyContacts } from "@/lib/services/emergency-contacts";
-import { listEstateAssignments } from "@/lib/services/estate-assignments";
-import { listDocuments } from "@/lib/services/documents";
-import { getUserProfile } from "@/lib/services/user-profiles";
+import {
+  cachedListPropertyValuations,
+  cachedListLeases,
+  cachedListTenants,
+  cachedListPayments,
+  cachedListExpenses,
+  cachedListNotifications,
+  cachedListMaintenanceItems,
+  cachedListOwnershipRecords,
+  cachedListCoOwners,
+  cachedListOwnershipDocuments,
+  cachedListSafetyRisks,
+  cachedListInspections,
+  cachedListCertifications,
+  cachedListEmergencyContacts,
+  cachedListEstateAssignments,
+  cachedListDocuments,
+  cachedGetUserProfile,
+} from "@/lib/data/cached-reads";
 import { listActivities } from "@/lib/services/activities";
 import type { Activity } from "@/lib/data/types/activity";
 import type { PropertyValuation } from "@/lib/data/types/property-valuation";
@@ -58,6 +60,9 @@ export type OverviewPageData = {
   recentActivities: Activity[];
 };
 
+// Notifications do not have a reliable property_id column — they are matched to a property
+// by inspecting notification.propertyId OR by parsing the linkTo URL path. This JS match
+// is the ONE intentional exception to the "filter in SQL" rule for this loader.
 function notificationMatchesProperty(notification: Notification, propertyId: string): boolean {
   if (notification.propertyId) return notification.propertyId === propertyId;
   if (!notification.linkTo) return false;
@@ -67,65 +72,67 @@ function notificationMatchesProperty(notification: Notification, propertyId: str
 
 export async function getOverviewPageData(propertyId: string): Promise<OverviewPageData> {
   const authCtx = await requireCtx();
+
+  // Every list call passes propertyId so the WHERE clause filters at the DB level.
+  // Only cachedListNotifications is left without propertyId — see notificationMatchesProperty above.
   const [
-    allValuations,
-    allLeases,
-    allTenants,
-    allPayments,
-    allExpenses,
+    valuations,
+    leases,
+    tenants,
+    payments,
+    expenses,
     allNotifications,
-    allMaintenanceItems,
-    allOwnershipRecords,
-    allCoOwners,
-    allOwnershipDocuments,
-    allSafetyRisks,
-    allInspections,
-    allCertifications,
-    allEmergencyContacts,
-    allEstateAssignments,
-    allDocuments,
+    maintenanceItems,
+    ownershipRecords,
+    coOwners,
+    ownershipDocuments,
+    safetyRisks,
+    inspections,
+    certifications,
+    emergencyContacts,
+    estateAssignments,
+    documents,
     userProfile,
     recentActivities,
   ] = await Promise.all([
-    listPropertyValuations(authCtx),
-    listLeases(authCtx),
-    listTenants(authCtx),
-    listPayments(authCtx),
-    listExpenses(authCtx),
-    listNotifications(authCtx),
-    listMaintenanceItems(authCtx),
-    listOwnershipRecords(authCtx),
-    listCoOwners(authCtx),
-    listOwnershipDocuments(authCtx),
-    listSafetyRisks(authCtx),
-    listInspections(authCtx),
-    listCertifications(authCtx),
-    listEmergencyContacts(authCtx),
-    listEstateAssignments(authCtx),
-    listDocuments(authCtx),
-    getUserProfile(authCtx, authCtx.userId),
+    cachedListPropertyValuations(authCtx, propertyId),
+    cachedListLeases(authCtx, propertyId),
+    cachedListTenants(authCtx, propertyId),
+    cachedListPayments(authCtx, propertyId),
+    cachedListExpenses(authCtx, propertyId),
+    cachedListNotifications(authCtx),
+    cachedListMaintenanceItems(authCtx, propertyId),
+    cachedListOwnershipRecords(authCtx, propertyId),
+    cachedListCoOwners(authCtx, propertyId),
+    cachedListOwnershipDocuments(authCtx, propertyId),
+    cachedListSafetyRisks(authCtx, propertyId),
+    cachedListInspections(authCtx, propertyId),
+    cachedListCertifications(authCtx, propertyId),
+    cachedListEmergencyContacts(authCtx, propertyId),
+    cachedListEstateAssignments(authCtx, propertyId),
+    cachedListDocuments(authCtx, propertyId),
+    cachedGetUserProfile(authCtx, authCtx.userId),
     listActivities(authCtx, propertyId, 10),
   ]);
-  const propLeaseIds = new Set(
-    allLeases.filter((l) => l.propertyId === propertyId).map((l) => l.id),
-  );
+
   return {
-    valuations: allValuations.filter((v) => v.propertyId === propertyId),
-    leases: allLeases.filter((l) => l.propertyId === propertyId),
-    tenants: allTenants.filter((t) => t.propertyId === propertyId),
-    payments: allPayments.filter((p) => p.leaseId != null && propLeaseIds.has(p.leaseId)),
-    expenses: allExpenses.filter((e) => e.propertyId === propertyId),
+    valuations,
+    leases,
+    tenants,
+    payments,
+    expenses,
+    // Notifications: DB returns all for the org; JS filters to this property.
     notifications: allNotifications.filter((n) => notificationMatchesProperty(n, propertyId)),
-    maintenanceItems: allMaintenanceItems.filter((m) => m.propertyId === propertyId),
-    ownershipRecords: allOwnershipRecords.filter((r) => r.propertyId === propertyId),
-    coOwners: allCoOwners.filter((c) => c.propertyId === propertyId),
-    ownershipDocuments: allOwnershipDocuments.filter((d) => d.propertyId === propertyId),
-    safetyRisks: allSafetyRisks.filter((r) => r.propertyId === propertyId),
-    inspections: allInspections.filter((i) => i.propertyId === propertyId),
-    certifications: allCertifications.filter((c) => c.propertyId === propertyId),
-    emergencyContacts: allEmergencyContacts.filter((e) => e.propertyId === propertyId),
-    estateAssignments: allEstateAssignments.filter((a) => a.propertyId === propertyId),
-    documents: allDocuments.filter((d) => d.propertyId === propertyId),
+    maintenanceItems,
+    ownershipRecords,
+    coOwners,
+    ownershipDocuments,
+    safetyRisks,
+    inspections,
+    certifications,
+    emergencyContacts,
+    estateAssignments,
+    documents,
     userProfile: userProfile ?? null,
     // Already filtered to this property by listActivities(authCtx, propertyId, 10).
     recentActivities,

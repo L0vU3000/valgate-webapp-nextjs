@@ -1,11 +1,15 @@
 import "server-only";
 import { getProperties } from "@/lib/data/properties";
 import { requireCtx } from "@/lib/auth/ctx";
-import { listPayments } from "@/lib/services/payments";
-import { listLeases } from "@/lib/services/leases";
-import { listMaintenanceItems } from "@/lib/services/maintenance-items";
-import { listPropertyValuations } from "@/lib/services/property-valuations";
-import { listExpenses } from "@/lib/services/expenses";
+// Cut 3: read through the cross-request cache layer (unstable_cache) instead of
+// hitting the services directly. Same org-wide queries, now cached + tag-invalidated.
+import {
+  cachedListPayments,
+  cachedListLeases,
+  cachedListMaintenanceItems,
+  cachedListPropertyValuations,
+  cachedListExpenses,
+} from "@/lib/data/cached-reads";
 import {
   computeRevenueSeries,
   computeKpiCards,
@@ -51,11 +55,11 @@ export async function getAnalyticsPageData(period = "12M"): Promise<AnalyticsPag
   const [properties, payments, leases, maintenance, valuations, expenses] =
     await Promise.all([
       getProperties(),
-      listPayments(authCtx),
-      listLeases(authCtx),
-      listMaintenanceItems(authCtx),
-      listPropertyValuations(authCtx),
-      listExpenses(authCtx),
+      cachedListPayments(authCtx),
+      cachedListLeases(authCtx),
+      cachedListMaintenanceItems(authCtx),
+      cachedListPropertyValuations(authCtx),
+      cachedListExpenses(authCtx),
     ]);
 
   const { items: expenseBreakdown, total: expenseBreakdownTotal } =

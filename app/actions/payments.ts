@@ -7,6 +7,7 @@ import { revalidateFeTag, NOT_IMPLEMENTED_UNTIL_B6 } from "@/app/actions/_result
 import { NewPaymentSchema } from "@/lib/data/types/payment";
 import type { Payment } from "@/lib/data/types/payment";
 import { createPayment as svcCreatePayment } from "@/lib/services/payments";
+import { bustCache } from "@/lib/cache/bust";
 
 export async function createPayment(data: unknown): Promise<ActionResult<Payment>> {
   const parsed = NewPaymentSchema.safeParse(data);
@@ -15,6 +16,7 @@ export async function createPayment(data: unknown): Promise<ActionResult<Payment
   try {
     const result = await svcCreatePayment(ctx, parsed.data);
     revalidateFeTag("payments");
+    await bustCache("payments");
     return { ok: true, data: result };
   } catch (err) {
     console.error("createPayment", err);

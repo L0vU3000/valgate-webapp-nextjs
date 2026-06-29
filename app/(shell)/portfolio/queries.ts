@@ -2,19 +2,23 @@ import "server-only";
 import { getProperties } from "@/lib/data/properties";
 import { requireCtx } from "@/lib/auth/ctx";
 import { roleAtLeast } from "@/lib/services/_mapping";
-import { listPayments } from "@/lib/services/payments";
-import { listLeases } from "@/lib/services/leases";
-import { listPropertyValuations } from "@/lib/services/property-valuations";
-import { listTenants } from "@/lib/services/tenants";
-import { listOwnershipRecords } from "@/lib/services/ownership-records";
-import { listCoOwners } from "@/lib/services/co-owners";
-import { listOwnershipDocuments } from "@/lib/services/ownership-documents";
-import { listSafetyRisks } from "@/lib/services/safety-risks";
-import { listInspections } from "@/lib/services/inspections";
-import { listCertifications } from "@/lib/services/certifications";
-import { listEmergencyContacts } from "@/lib/services/emergency-contacts";
-import { listEstateAssignments } from "@/lib/services/estate-assignments";
-import { listDocuments } from "@/lib/services/documents";
+// Cut 3: read through the cross-request cache layer (unstable_cache) instead of
+// hitting the services directly. Same org-wide queries, now cached + tag-invalidated.
+import {
+  cachedListPayments,
+  cachedListLeases,
+  cachedListPropertyValuations,
+  cachedListTenants,
+  cachedListOwnershipRecords,
+  cachedListCoOwners,
+  cachedListOwnershipDocuments,
+  cachedListSafetyRisks,
+  cachedListInspections,
+  cachedListCertifications,
+  cachedListEmergencyContacts,
+  cachedListEstateAssignments,
+  cachedListDocuments,
+} from "@/lib/data/cached-reads";
 import { formatCurrency } from "@/lib/format";
 import {
   computeStats,
@@ -83,19 +87,19 @@ export async function getPortfolioPageData(
     documents,
   ] = await Promise.all([
     getProperties(),
-    listPayments(authCtx),
-    listLeases(authCtx),
-    listPropertyValuations(authCtx),
-    listTenants(authCtx),
-    listOwnershipRecords(authCtx),
-    listCoOwners(authCtx),
-    listOwnershipDocuments(authCtx),
-    listSafetyRisks(authCtx),
-    listInspections(authCtx),
-    listCertifications(authCtx),
-    listEmergencyContacts(authCtx),
-    listEstateAssignments(authCtx),
-    listDocuments(authCtx),
+    cachedListPayments(authCtx),
+    cachedListLeases(authCtx),
+    cachedListPropertyValuations(authCtx),
+    cachedListTenants(authCtx),
+    cachedListOwnershipRecords(authCtx),
+    cachedListCoOwners(authCtx),
+    cachedListOwnershipDocuments(authCtx),
+    cachedListSafetyRisks(authCtx),
+    cachedListInspections(authCtx),
+    cachedListCertifications(authCtx),
+    cachedListEmergencyContacts(authCtx),
+    cachedListEstateAssignments(authCtx),
+    cachedListDocuments(authCtx),
   ]);
 
   const ctx: ProgressContext = {
