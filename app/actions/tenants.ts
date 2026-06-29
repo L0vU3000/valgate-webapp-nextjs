@@ -11,6 +11,7 @@ import {
   updateTenant as svcUpdateTenant,
   deleteTenant as svcDeleteTenant,
 } from "@/lib/services/tenants";
+import { bustCache } from "@/lib/cache/bust";
 
 export async function createTenant(data: unknown): Promise<ActionResult<Tenant>> {
   const parsed = NewTenantSchema.safeParse(data);
@@ -19,6 +20,7 @@ export async function createTenant(data: unknown): Promise<ActionResult<Tenant>>
   try {
     const result = await svcCreateTenant(ctx, parsed.data);
     revalidateFeTag("tenants");
+    await bustCache("tenants");
     return { ok: true, data: result };
   } catch (err) {
     console.error("createTenant", err);
@@ -34,6 +36,7 @@ export async function updateTenant(id: string, patch: unknown): Promise<ActionRe
     const result = await svcUpdateTenant(ctx, id, parsed.data);
     if (!result) return { ok: false, error: "Tenant not found" };
     revalidateFeTag("tenants");
+    await bustCache("tenants");
     return { ok: true, data: result };
   } catch (err) {
     console.error("updateTenant", err);
@@ -46,6 +49,7 @@ export async function deleteTenant(id: string): Promise<ActionResult<void>> {
   try {
     await svcDeleteTenant(ctx, id);
     revalidateFeTag("tenants");
+    await bustCache("tenants");
     return { ok: true, data: undefined };
   } catch (err) {
     console.error("deleteTenant", err);

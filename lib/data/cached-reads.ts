@@ -111,12 +111,11 @@ export function cachedListLeases(ctx: Ctx, propertyId?: string): Promise<Lease[]
 }
 
 // Tag: tenants
+// Uses readThrough (Upstash) instead of unstable_cache for this entity.
+// Upstash is the single cache of record — do not double-wrap with unstable_cache.
+// The paired bust call is in app/actions/tenants.ts beside every revalidateFeTag("tenants").
 export function cachedListTenants(ctx: Ctx, propertyId?: string): Promise<Tenant[]> {
-  return unstable_cache(
-    async () => listTenants(ctx, propertyId),
-    ["tenants", ctx.orgId, propertyKey(propertyId)],
-    { tags: ["tenants"] },
-  )();
+  return readThrough("tenants", ctx.orgId, propertyId, () => listTenants(ctx, propertyId));
 }
 
 // Tag: payments
