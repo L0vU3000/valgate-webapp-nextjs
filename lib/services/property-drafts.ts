@@ -6,7 +6,9 @@ import { convertRowToDb } from "@/lib/db/column-classifier";
 import { toDomain, type Ctx } from "@/lib/services/_mapping";
 import { scopedInsert, requireMember } from "@/lib/services/_crud";
 import { assertCanMutate } from "@/lib/services/_mapping";
-import { deleteObject } from "@/lib/services/storage";
+// storage.ts exports this as `deleteStorageObject`; aliased to keep the
+// call sites below short and unchanged after the v1.0.2 merge renamed it.
+import { deleteStorageObject as deleteObject } from "@/lib/services/storage";
 import { createDocument as svcCreateDocument } from "@/lib/services/documents";
 import { log } from "@/lib/log";
 
@@ -146,7 +148,7 @@ export async function deletePropertyDraft(ctx: Ctx, id: string): Promise<void> {
   // Look up the child files (scoped to this user's draft) so we have their S3 keys.
   const files = await listDraftFiles(ctx, id);
   for (const file of files) {
-    await deleteObject(file.storageId).catch((err) => {
+    await deleteObject(file.storageId).catch((err: unknown) => {
       console.error("deletePropertyDraft: S3 delete failed (continuing)", { storageId: file.storageId, err });
     });
   }
@@ -317,7 +319,7 @@ export async function sweepExpiredDrafts(olderThanDays = 30): Promise<SweepResul
       .where(eq(propertyDraftFiles.draftId, draft.id));
 
     for (const file of files) {
-      await deleteObject(file.storageId).catch((err) => {
+      await deleteObject(file.storageId).catch((err: unknown) => {
         objectDeleteFailures += 1;
         log.error("sweepExpiredDrafts.s3_delete_failed", err, { draftId: draft.id });
       });

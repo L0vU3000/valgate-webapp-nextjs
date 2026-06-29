@@ -95,7 +95,7 @@ export function DocumentPreviewPane({
           Preview not available
         </p>
         <p className="text-[13px] text-slate-400 mt-1 max-w-[220px] text-center leading-relaxed">
-          This file type can't be previewed in the browser. Download it or open it in a new tab.
+          This file type can&apos;t be previewed in the browser. Download it or open it in a new tab.
         </p>
       </div>
 

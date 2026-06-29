@@ -31,14 +31,14 @@ export default defineConfig({
       // time in node/vitest. Written for the pre-Neon file-seed era; excluded until
       // it's reworked to mock auth and read seeded Neon. Tracked separately.
       "**/queries.test.ts",
+      // Live-DB integration tests run in their own project (vitest.config.db.ts) so this
+      // default suite stays DB-free and green without DATABASE_URL.
+      "**/*.db.test.ts",
     ],
     // describe / it / expect / vi available without imports in spec files.
     globals: true,
-// Loads .env.local before any test module initializes (needed by lib/db/client.ts
+    // Loads .env.local before any test module initializes (needed by lib/db/client.ts
     // which creates the Neon Pool at module-load time using env.DATABASE_URL).
     setupFiles: ["./test/setup/env.ts"],
-    // Live-DB integration tests run in their own project (vitest.config.db.ts) so this
-    // default suite stays DB-free and green without DATABASE_URL.
-    exclude: [...configDefaults.exclude, "**/*.db.test.ts"],
   },
 });

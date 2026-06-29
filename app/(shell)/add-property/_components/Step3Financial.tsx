@@ -80,7 +80,7 @@ export function Step3Financial({
 
   function handleManualDateInput(e: React.ChangeEvent<HTMLInputElement>) {
     // Strip non-digits and auto-insert slashes as MM/DD/YYYY
-    let digits = e.target.value.replace(/[^0-9]/g, "");
+    const digits = e.target.value.replace(/[^0-9]/g, "");
     let display = digits;
     if (digits.length > 2) display = digits.slice(0, 2) + "/" + digits.slice(2);
     if (digits.length > 4) display = display.slice(0, 5) + "/" + digits.slice(4);
