@@ -163,15 +163,14 @@ export function cachedListMaintenanceItems(
 }
 
 // Tag: property-valuations
+// Uses readThrough (Upstash) instead of unstable_cache for this entity.
+// Upstash is the single cache of record — do not double-wrap with unstable_cache.
+// The paired bust call is in app/actions/property-valuations.ts beside every revalidateFeTag("property-valuations").
 export function cachedListPropertyValuations(
   ctx: Ctx,
   propertyId?: string,
 ): Promise<PropertyValuation[]> {
-  return unstable_cache(
-    async () => listPropertyValuations(ctx, propertyId),
-    ["property-valuations", ctx.orgId, propertyKey(propertyId)],
-    { tags: ["property-valuations"] },
-  )();
+  return readThrough("property-valuations", ctx.orgId, propertyId, () => listPropertyValuations(ctx, propertyId));
 }
 
 // Tag: ownership-records
