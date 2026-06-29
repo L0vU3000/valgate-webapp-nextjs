@@ -231,15 +231,14 @@ export function cachedListCertifications(
 }
 
 // Tag: emergency-contacts
+// Uses readThrough (Upstash) instead of unstable_cache for this entity.
+// Upstash is the single cache of record — do not double-wrap with unstable_cache.
+// The paired bust call is in app/actions/emergency-contacts.ts beside every revalidateFeTag("emergency-contacts").
 export function cachedListEmergencyContacts(
   ctx: Ctx,
   propertyId?: string,
 ): Promise<EmergencyContact[]> {
-  return unstable_cache(
-    async () => listEmergencyContacts(ctx, propertyId),
-    ["emergency-contacts", ctx.orgId, propertyKey(propertyId)],
-    { tags: ["emergency-contacts"] },
-  )();
+  return readThrough("emergency-contacts", ctx.orgId, propertyId, () => listEmergencyContacts(ctx, propertyId));
 }
 
 // Tag: estate-assignments
