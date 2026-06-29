@@ -11,6 +11,7 @@ import {
   updateOwnershipDocument as svcUpdateOwnershipDocument,
   deleteOwnershipDocument as svcDeleteOwnershipDocument,
 } from "@/lib/services/ownership-documents";
+import { bustCache } from "@/lib/cache/bust";
 
 export async function createOwnershipDocument(data: unknown): Promise<ActionResult<OwnershipDocument>> {
   const parsed = NewOwnershipDocumentSchema.safeParse(data);
@@ -19,6 +20,7 @@ export async function createOwnershipDocument(data: unknown): Promise<ActionResu
   try {
     const result = await svcCreateOwnershipDocument(ctx, parsed.data);
     revalidateFeTag("ownership-documents");
+    await bustCache("ownership-documents");
     return { ok: true, data: result };
   } catch (err) {
     console.error("createOwnershipDocument", err);
@@ -34,6 +36,7 @@ export async function updateOwnershipDocument(id: string, patch: unknown): Promi
     const result = await svcUpdateOwnershipDocument(ctx, id, parsed.data);
     if (!result) return { ok: false, error: "Ownership document not found" };
     revalidateFeTag("ownership-documents");
+    await bustCache("ownership-documents");
     return { ok: true, data: result };
   } catch (err) {
     console.error("updateOwnershipDocument", err);
@@ -46,6 +49,7 @@ export async function deleteOwnershipDocument(id: string): Promise<ActionResult<
   try {
     await svcDeleteOwnershipDocument(ctx, id);
     revalidateFeTag("ownership-documents");
+    await bustCache("ownership-documents");
     return { ok: true, data: undefined };
   } catch (err) {
     console.error("deleteOwnershipDocument", err);
