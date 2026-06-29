@@ -9,6 +9,7 @@ import {
 import { requireCtx, requireRole } from "@/lib/auth/ctx";
 import { logActivity } from "@/lib/services/activity";
 import { revalidatePath } from "next/cache";
+import { revalidateFeTag } from "@/app/actions/_result";
 import type { PropertyTypeChoice, PropertyStatus } from "@/lib/data/types/property";
 
 export type EditPropertyForm = {
@@ -97,6 +98,10 @@ export async function editPropertyAction(
 
   revalidatePath(`/property/${id}`);
   revalidatePath("/portfolio");
+  // Bust the cross-request property cache (getProperties / getPropertyByIdParam are
+  // tagged "properties"). Without this, an edit would re-render the path but still serve
+  // the stale cached property row until the cache entry expired on its own.
+  revalidateFeTag("properties");
   return { ok: true };
 }
 
@@ -119,6 +124,7 @@ export async function archivePropertyAction(id: string): Promise<{ ok: boolean; 
   }
   revalidatePath("/portfolio");
   revalidatePath(`/property/${id}`);
+  revalidateFeTag("properties"); // bust cross-request property cache (see editPropertyAction)
   return { ok: true };
 }
 
@@ -141,6 +147,7 @@ export async function restorePropertyAction(id: string): Promise<{ ok: boolean; 
   }
   revalidatePath("/portfolio");
   revalidatePath(`/property/${id}`);
+  revalidateFeTag("properties"); // bust cross-request property cache (see editPropertyAction)
   return { ok: true };
 }
 
@@ -227,6 +234,7 @@ export async function deletePropertyAction(
     }
 
     revalidatePath("/portfolio");
+    revalidateFeTag("properties"); // bust cross-request property cache (see editPropertyAction)
     return { ok: true };
   } catch (err) {
     console.error("deleteProperty", err);
