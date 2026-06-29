@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Home,
   Building2,
@@ -17,6 +17,7 @@ import { motion, useReducedMotion } from "motion/react";
 import { cn } from "@/components/ui/utils";
 import type { FormData, Step } from "./types";
 import { env } from "@/lib/env";
+import { getDraftFileUrlAction } from "@/app/actions/property-drafts";
 
 const PROPERTY_TYPES: Record<string, { label: string; sub: string; Icon: React.ElementType; gradient: string }> = {
   residential: { label: "Residential House", sub: "Single family detached", Icon: Home, gradient: "linear-gradient(135deg, #ff6b6b 0%, #ff8c42 50%, #ffd23f 100%)" },
@@ -34,6 +35,12 @@ const OWNERSHIP_COLORS: Record<string, string> = {
   mortgaged: "#f59e0b",
   leased: "#3b82f6",
   "under-construction": "#8b5cf6",
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  Rented: "#3b82f6",
+  Vacant: "#9ca3af",
+  "Owner-Occupied": "#22c55e",
 };
 
 function getDocMeta(filename: string): { bg: string; text: string; label: string } {
@@ -69,6 +76,7 @@ function ReviewMap({ center }: { center?: [number, number] }) {
         alt="Property location"
         className="w-full h-full object-cover"
         onLoad={() => setLoaded(true)}
+        onError={() => setLoaded(true)}
       />
       {/* Loading overlay — matches Step2 pattern */}
       <div
@@ -143,6 +151,21 @@ export function Step5Review({
   goToStep: (step: Step) => void;
 }) {
   const reduced = useReducedMotion();
+
+  // Fetch signed URLs for up to 4 staged photos so the review grid shows real thumbnails.
+  // form.photos only has file names; the actual URLs must be resolved server-side via the
+  // DRFF id, the same way Step 4 does on resume.
+  const [photoUrls, setPhotoUrls] = useState<Record<number, string>>({});
+  useEffect(() => {
+    const refs = form.stagedPhotos?.slice(0, 4) ?? [];
+    refs.forEach(async (ref, i) => {
+      if (!ref.id.startsWith("DRFF-")) return;
+      const res = await getDraftFileUrlAction(ref.id);
+      if (res.ok) setPhotoUrls((prev) => ({ ...prev, [i]: res.data }));
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const typeConfig = PROPERTY_TYPES[form.propertyType] ?? PROPERTY_TYPES.other;
   const { Icon: TypeIcon } = typeConfig;
 
@@ -150,6 +173,17 @@ export function Step5Review({
   const ownershipLabel = form.ownershipStatus
     ? form.ownershipStatus.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
     : "—";
+
+  const statusDotColor = STATUS_COLORS[form.status] ?? "#9ca3af";
+  const statusLabel = form.status || "—";
+
+  function formatDate(dateStr: string) {
+    if (!dateStr) return "—";
+    const [year, month, day] = dateStr.split("-");
+    if (!year || !month || !day) return dateStr;
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    return `${months[Number(month) - 1]} ${Number(day)}, ${year}`;
+  }
 
   const addressLines = [form.addressLine, form.addressLine2].filter(Boolean);
   const cityLine = [form.city, form.province, form.zip].filter(Boolean).join(", ");
@@ -213,6 +247,22 @@ export function Step5Review({
         <ReviewSection title="Status & Ownership" onEdit={() => goToStep(3)} delay={0.21}>
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
+              <p className="text-[14px] text-[#5b5f62] leading-5">Property Status</p>
+              {form.status ? (
+                <div className="flex items-center gap-2 bg-muted rounded-full px-3 py-1 w-fit">
+                  <div
+                    className="size-2 rounded-full shrink-0"
+                    style={{ backgroundColor: statusDotColor }}
+                  />
+                  <p className="text-[14px] font-medium text-[#1a1c1c] leading-5 whitespace-nowrap">
+                    {statusLabel}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-[14px] font-medium text-[#1a1c1c] leading-5">—</p>
+              )}
+            </div>
+            <div className="flex flex-col gap-1.5">
               <p className="text-[14px] text-[#5b5f62] leading-5">Ownership Status</p>
               {form.ownershipStatus ? (
                 <div className="flex items-center gap-2 bg-muted rounded-full px-3 py-1 w-fit">
@@ -228,12 +278,6 @@ export function Step5Review({
                 <p className="text-[14px] font-medium text-[#1a1c1c] leading-5">—</p>
               )}
             </div>
-            <div className="flex flex-col gap-1.5">
-              <p className="text-[14px] text-[#5b5f62] leading-5">Purchase Date</p>
-              <p className="text-[14px] font-medium text-[#1a1c1c] leading-5">
-                {form.purchaseDate || "—"}
-              </p>
-            </div>
           </div>
         </ReviewSection>
 
@@ -247,9 +291,9 @@ export function Step5Review({
               </p>
             </div>
             <div className="flex flex-col gap-1">
-              <p className="text-[14px] text-[#5b5f62] leading-5">Market Value</p>
-              <p className="text-[20px] font-bold text-[#1a1c1c] leading-7">
-                {formatCurrency(form.currentMarketValue)}
+              <p className="text-[14px] text-[#5b5f62] leading-5">Purchase Date</p>
+              <p className="text-[16px] font-semibold text-[#1a1c1c] leading-7">
+                {formatDate(form.purchaseDate)}
               </p>
             </div>
             {form.interestRate && (
@@ -292,8 +336,19 @@ export function Step5Review({
                     transition={{ duration: 0.18, ease: EASE_OUT }}
                     className="relative overflow-hidden rounded-xl shadow-[0px_0px_0px_1px_rgba(0,0,0,0.02),0px_2px_6px_0px_rgba(0,0,0,0.04),0px_4px_8px_0px_rgba(0,0,0,0.1)]"
                   >
-                    <div className="h-[100px] bg-muted flex items-center justify-center px-2">
-                      <Camera className="w-5 h-5 text-muted-foreground/50 shrink-0" />
+                    <div className="h-[100px] bg-muted relative overflow-hidden">
+                      {photoUrls[i] ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={photoUrls[i]}
+                          alt={photo}
+                          className="absolute inset-0 w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <Camera className="w-5 h-5 text-muted-foreground/50 shrink-0" />
+                        </div>
+                      )}
                     </div>
                     {i === 0 && (
                       <div className="absolute top-2 left-2 bg-white rounded-[14px] px-2.5 py-0.5 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)]">

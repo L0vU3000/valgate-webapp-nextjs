@@ -2,6 +2,7 @@
 
 import { useRef, useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
+import { toast } from "sonner";
 import {
   Plus,
   Upload,
@@ -16,10 +17,16 @@ import {
   RefreshCw,
   Star,
   Download,
+  Loader2,
 } from "lucide-react";
 import { createPortal } from "react-dom";
-import type { FormData } from "./types";
-import { DevFileButton } from "@/components/dev/DevFileButton";
+import type { FormData, StagedFileRef } from "./types";
+import {
+  uploadDraftFileAction,
+  removeDraftFileAction,
+  getDraftFileUrlAction,
+} from "@/app/actions/property-drafts";
+import { MAX_BYTES, ALLOWED_DOC_EXT, isHeic } from "@/lib/upload-constants";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,10 +45,79 @@ function getDocMeta(filename: string): { bg: string; text: string; label: string
   return { bg: "bg-muted", text: "text-muted-foreground", label: (ext ?? "File").toUpperCase() };
 }
 
-export function Step4PhotosDocs({ form, setForm }: { form: FormData; setForm: (f: FormData) => void }) {
+// Uploads a file and records its property_draft_files row via a single server action. The action
+// presigns + pushes the bytes to S3 server-side (no browser→S3 CORS dependency), then stages the
+// row. Throws on failure so the caller can roll back the optimistic UI and surface an error. The
+// server enforces the allowed MIME types (PDF + JPEG/PNG/WebP) and the size cap.
+async function uploadAndStage(
+  draftId: string,
+  file: File,
+  kind: "photo" | "document",
+): Promise<StagedFileRef> {
+  const fd = new globalThis.FormData();
+  fd.append("file", file);
+  const res = await uploadDraftFileAction(draftId, kind, fd);
+  if (!res.ok) throw new Error(res.error);
+  return {
+    id: res.data.id,
+    name: res.data.name,
+    mimeType: res.data.mimeType,
+    sizeBytes: res.data.sizeBytes,
+  };
+}
+
+// Converts a photo file to a compressed JPEG before upload.
+//
+// Two steps:
+//   1. HEIC/HEIF → JPEG via heic2any (iOS camera roll files). iOS sometimes
+//      reports an empty MIME type for HEIC, so isHeic() checks the extension too.
+//   2. Compress + downscale via browser-image-compression so every photo lands
+//      well under the 10 MB server limit, even if the user picks a raw 20 MB file.
+//
+// Both libraries are dynamically imported so they only load when a photo is actually
+// picked — they're large and would bloat the initial bundle otherwise.
+async function processImageForUpload(file: File): Promise<File> {
+  let workingFile: File = file;
+  let outputName: string = file.name;
+
+  // Step 1: Convert HEIC/HEIF → JPEG when needed.
+  if (isHeic(file)) {
+    const heic2any = (await import("heic2any")).default;
+    const result = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.9 });
+    const blob = Array.isArray(result) ? result[0] : result;
+    // Replace the original .heic / .heif extension with .jpg.
+    const nameWithoutExt = file.name.replace(/\.[^.]+$/, "");
+    outputName = nameWithoutExt + ".jpg";
+    workingFile = new File([blob], outputName, { type: "image/jpeg" });
+  }
+
+  // Step 2: Compress and downscale. Output is always JPEG regardless of input format.
+  const imageCompression = (await import("browser-image-compression")).default;
+  const compressed = await imageCompression(workingFile, {
+    maxSizeMB: 2,
+    maxWidthOrHeight: 2000,
+    // ponytail: useWebWorker: false — Next.js + Turbopack can't resolve the worker
+    // script URL that browser-image-compression tries to spawn, so the worker throws.
+    // Main-thread compression is fine here; the user expects a brief wait on photo upload.
+    useWebWorker: false,
+    fileType: "image/jpeg",
+  });
+
+  // browser-image-compression assigns its own generated filename — restore the intended name.
+  return new File([compressed], outputName, { type: "image/jpeg" });
+}
+
+export function Step4PhotosDocs({
+  form,
+  setForm,
+  draftId,
+}: {
+  form: FormData;
+  setForm: (f: FormData) => void;
+  draftId: string | null;
+}) {
   const photoInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
-  // Shared replace inputs — one per section. replaceIndex refs track which slot is being replaced.
   const photoReplaceInputRef = useRef<HTMLInputElement>(null);
   const docReplaceInputRef = useRef<HTMLInputElement>(null);
   const replacePhotoIndexRef = useRef<number>(-1);
@@ -49,41 +125,54 @@ export function Step4PhotosDocs({ form, setForm }: { form: FormData; setForm: (f
 
   const [photosDragging, setPhotosDragging] = useState(false);
   const [docsDragging, setDocsDragging] = useState(false);
-  // Preview URLs are created immediately in handlers (not via useEffect) so images show on the
-  // same render as the file being added — no effect-delay grey flash. A ref tracks all live URLs
-  // for the unmount cleanup revocation; individual removes revoke immediately.
-  const [photoPreviewUrls, setPhotoPreviewUrls] = useState<string[]>([]);
-  const previewUrlsRef = useRef<string[]>([]);
-  previewUrlsRef.current = photoPreviewUrls;
-  // null = lightbox closed; number = index of photo currently shown
+
+  // url-by-file-id: a blob: URL while the file is live in this session (instant preview, no flash),
+  // or a short-lived signed S3 URL when the draft is resumed (the blobs are gone after a refresh).
+  const [urlById, setUrlById] = useState<Record<string, string>>({});
+  const urlByIdRef = useRef<Record<string, string>>({});
+  urlByIdRef.current = urlById;
+
+  // Latest form, so async upload callbacks build their setForm() off current state, not a stale closure.
+  const formRef = useRef<FormData>(form);
+  formRef.current = form;
+
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
-  // Document viewer: null = closed; number = index of the document being shown.
   const [docViewerIndex, setDocViewerIndex] = useState<number | null>(null);
-  // The object URL for the document currently in the viewer. Created when the
-  // viewer opens and revoked when it closes, so the blob URL is never leaked.
   const [docViewerUrl, setDocViewerUrl] = useState<string | null>(null);
-  // Convenience values for the open document (empty/false when the viewer is closed).
-  const openDocName = docViewerIndex !== null ? form.documents[docViewerIndex] : "";
-  const openDocIsPdf = openDocName.toLowerCase().endsWith(".pdf");
-  // Track body mount so createPortal works correctly in SSR builds
   const [isMounted, setIsMounted] = useState(false);
   useEffect(() => { setIsMounted(true); }, []);
 
-  useEffect(() => () => { previewUrlsRef.current.forEach(URL.revokeObjectURL); }, []);
+  const stagedPhotos = form.stagedPhotos ?? [];
+  const stagedDocuments = form.stagedDocuments ?? [];
 
-  // Rebuild photo preview URLs on mount. Navigating between wizard steps unmounts
-  // this component, which destroys the local preview-URL state, but the photo blobs
-  // still live in the parent form (form.photoFiles) and survive navigation. Recreate
-  // the object URLs from those blobs so photos keep their previews when you come back.
-  // A real page refresh clears form.photoFiles entirely, so this no-ops and the step
-  // returns empty — the intended "uploads reset on refresh" behaviour.
-  useEffect(() => {
-    const files = form.photoFiles ?? [];
-    if (files.length === 0) return;
-    setPhotoPreviewUrls(files.map((f) => URL.createObjectURL(f)));
-    // Run once on mount; the unmount cleanup above revokes whatever URLs are live.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Staging needs a server-minted draft id. By the time the user reaches Step 4 the draft exists,
+  // but guard anyway so a too-early add fails loudly instead of silently dropping the file.
+  const canStage = !!draftId && draftId.startsWith("DRFT-");
+
+  // Revoke only blob: URLs (signed S3 URLs are plain strings — nothing to revoke).
+  function revokeIfBlob(url: string | undefined): void {
+    if (url && url.startsWith("blob:")) URL.revokeObjectURL(url);
+  }
+
+  // On unmount, revoke any live blob URLs so we don't leak object URLs.
+  useEffect(() => () => {
+    Object.values(urlByIdRef.current).forEach(revokeIfBlob);
   }, []);
+
+  // On resume (or any time a staged ref has no URL yet — e.g. after a refresh), fetch a signed URL
+  // so its preview/thumbnail can render. Skips refs that are still pending or already have a URL.
+  useEffect(() => {
+    const refs = [...stagedPhotos, ...stagedDocuments];
+    refs.forEach(async (ref) => {
+      if (ref.pending || urlByIdRef.current[ref.id]) return;
+      if (!ref.id.startsWith("DRFF-")) return; // dev placeholder / temp — no server object
+      const res = await getDraftFileUrlAction(ref.id);
+      if (res.ok) {
+        setUrlById((prev) => (prev[ref.id] ? prev : { ...prev, [ref.id]: res.data }));
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.stagedPhotos, form.stagedDocuments]);
 
   // Close the document viewer on Escape while it is open.
   useEffect(() => {
@@ -96,37 +185,122 @@ export function Step4PhotosDocs({ form, setForm }: { form: FormData; setForm: (f
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [docViewerIndex]);
 
-  // Append preview URLs for newly added files. Called by both the file-input handler and the drop handler.
-  const addPhotoFiles = useCallback(
-    (files: File[]) => {
-      const newUrls = files.map((f) => URL.createObjectURL(f));
-      setPhotoPreviewUrls((prev) => [...prev, ...newUrls]);
-      setForm({
-        ...form,
-        photos: [...form.photos, ...files.map((f) => f.name)],
-        photoFiles: [...(form.photoFiles ?? []), ...files],
-      });
+  // Writes a new photo set, keeping form.photos (display names, used by Step 5) in sync with the refs.
+  const commitPhotos = useCallback((refs: StagedFileRef[]) => {
+    setForm({ ...formRef.current, stagedPhotos: refs, photos: refs.map((r) => r.name) });
+  }, [setForm]);
+
+  const commitDocuments = useCallback((refs: StagedFileRef[]) => {
+    setForm({ ...formRef.current, stagedDocuments: refs, documents: refs.map((r) => r.name) });
+  }, [setForm]);
+
+  // Adds files to a section: shows each immediately as a pending tile (spinner, no preview yet),
+  // then in the background: processes the file (HEIC conversion + compression for photos, or
+  // size/type validation for documents), builds the blob preview, uploads, and swaps the temp id
+  // for the real DRFF id. A failed upload rolls its tile back and toasts the real reason.
+  const addFiles = useCallback(
+    (rawFiles: File[], kind: "photo" | "document") => {
+      if (!canStage) {
+        toast.error("Couldn't attach files — the draft isn't ready yet. Please try again in a moment.");
+        return;
+      }
+      const commit = kind === "photo" ? commitPhotos : commitDocuments;
+      const currentRefs = () =>
+        (kind === "photo" ? formRef.current.stagedPhotos : formRef.current.stagedDocuments) ?? [];
+
+      // Documents: pre-validate type and size before touching the UI so invalid files
+      // are rejected immediately with a clear message. Photos skip this here —
+      // processImageForUpload handles HEIC conversion and compression instead.
+      let filesToProcess = rawFiles;
+      if (kind === "document") {
+        filesToProcess = rawFiles.filter((file) => {
+          const ext = "." + (file.name.split(".").pop()?.toLowerCase() ?? "");
+          if (!ALLOWED_DOC_EXT.has(ext)) {
+            toast.error(`"${file.name}" isn't a supported file type. Please upload PDF, Word, or Excel files.`);
+            return false;
+          }
+          if (file.size > MAX_BYTES) {
+            toast.error(`"${file.name}" is over the 10 MB limit.`);
+            return false;
+          }
+          return true;
+        });
+        if (filesToProcess.length === 0) return;
+      }
+
+      const temps = filesToProcess.map((file) => ({ tempId: crypto.randomUUID(), file }));
+
+      // Optimistic: add pending tiles immediately. We don't set a blob URL yet for photos
+      // because HEIC files can't render in the browser, and we get the correct preview from
+      // the processed JPEG. The blob URL is set below once processing finishes.
+      commit([
+        ...currentRefs(),
+        ...temps.map((t) => ({
+          id: t.tempId,
+          name: t.file.name,
+          mimeType: t.file.type || null,
+          sizeBytes: t.file.size,
+          pending: true,
+        })),
+      ]);
+
+      // Background: process → preview → upload → swap per file.
+      for (const { tempId, file } of temps) {
+        (async () => {
+          try {
+            let fileToUpload = file;
+
+            if (kind === "photo") {
+              // Convert HEIC and compress — returns a JPEG that will always pass the
+              // server's ALLOWED_MIME and MAX_BYTES checks.
+              fileToUpload = await processImageForUpload(file);
+              // Now that we have a valid JPEG we can set the blob preview.
+              const blobUrl = URL.createObjectURL(fileToUpload);
+              setUrlById((prev) => ({ ...prev, [tempId]: blobUrl }));
+            }
+
+            const ref = await uploadAndStage(draftId!, fileToUpload, kind);
+
+            // Move the blob preview (if any) from the temp id to the real id, then swap the ref.
+            setUrlById((prev) => {
+              if (!prev[tempId]) return prev;
+              const next = { ...prev, [ref.id]: prev[tempId] };
+              delete next[tempId];
+              return next;
+            });
+            commit(currentRefs().map((r) => (r.id === tempId ? ref : r)));
+          } catch (err) {
+            console.error("addFiles: upload failed", err);
+            const reason = err instanceof Error ? err.message : "Unknown error";
+            toast.error(`Couldn't upload ${file.name}. ${reason}`);
+            setUrlById((prev) => {
+              if (!prev[tempId]) return prev;
+              revokeIfBlob(prev[tempId]);
+              const next = { ...prev };
+              delete next[tempId];
+              return next;
+            });
+            commit(currentRefs().filter((r) => r.id !== tempId));
+          }
+        })();
+      }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [form, setForm],
+    [canStage, draftId, commitPhotos, commitDocuments],
   );
 
-  // ponytail: photos[] (display names) and photoFiles[] (blobs) are kept index-aligned for
-  // freshly-added files. Resumed drafts/demo restore names with no blob, so a mixed list can
-  // misalign on remove — acceptable: those restored files can't be uploaded anyway. Fix by
-  // switching to a single {name, file?}[] array if/when draft file-resume is added.
+  // ponytail: photos render directly from stagedPhotos now (single source of truth), so the
+  // name/blob misalignment the old File[] approach risked can't happen.
   function removePhoto(i: number) {
-    setPhotoPreviewUrls((prev) => {
-      const url = prev[i];
-      if (url) URL.revokeObjectURL(url);
-      return prev.filter((_, j) => j !== i);
+    const ref = stagedPhotos[i];
+    if (!ref) return;
+    if (ref.id.startsWith("DRFF-")) void removeDraftFileAction(ref.id); // deletes S3 object + row
+    setUrlById((prev) => {
+      revokeIfBlob(prev[ref.id]);
+      const next = { ...prev };
+      delete next[ref.id];
+      return next;
     });
-    setForm({
-      ...form,
-      photos: form.photos.filter((_, j) => j !== i),
-      photoFiles: (form.photoFiles ?? []).filter((_, j) => j !== i),
-    });
-    // Keep lightbox index consistent after deletion
+    commitPhotos(stagedPhotos.filter((_, j) => j !== i));
     if (lightboxIndex === i) {
       setLightboxIndex(null);
     } else if (lightboxIndex !== null && lightboxIndex > i) {
@@ -136,14 +310,9 @@ export function Step4PhotosDocs({ form, setForm }: { form: FormData; setForm: (f
 
   function setAsCover(i: number) {
     if (i === 0) return;
-    const photos = [...form.photos];
-    const photoFiles = [...(form.photoFiles ?? [])];
-    const urls = [...photoPreviewUrls];
-    photos.unshift(photos.splice(i, 1)[0]);
-    photoFiles.unshift(photoFiles.splice(i, 1)[0]);
-    urls.unshift(urls.splice(i, 1)[0]);
-    setPhotoPreviewUrls(urls);
-    setForm({ ...form, photos, photoFiles });
+    const reordered = [...stagedPhotos];
+    reordered.unshift(reordered.splice(i, 1)[0]);
+    commitPhotos(reordered); // URLs are keyed by id, so no URL reshuffle needed
     if (lightboxIndex === i) {
       setLightboxIndex(0);
     } else if (lightboxIndex !== null && lightboxIndex < i) {
@@ -151,6 +320,7 @@ export function Step4PhotosDocs({ form, setForm }: { form: FormData; setForm: (f
     }
   }
 
+  // Replace = remove the old staged file, then add the new one through the normal stage path.
   function replacePhoto(i: number) {
     replacePhotoIndexRef.current = i;
     photoReplaceInputRef.current?.click();
@@ -158,34 +328,25 @@ export function Step4PhotosDocs({ form, setForm }: { form: FormData; setForm: (f
 
   function handlePhotoReplace(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file) return;
     const idx = replacePhotoIndexRef.current;
-    if (idx < 0) return;
-    const newUrl = URL.createObjectURL(file);
-    setPhotoPreviewUrls((prev) => {
-      const next = [...prev];
-      if (next[idx]) URL.revokeObjectURL(next[idx]);
-      next[idx] = newUrl;
-      return next;
-    });
-    const photos = [...form.photos];
-    photos[idx] = file.name;
-    const photoFiles = [...(form.photoFiles ?? [])];
-    photoFiles[idx] = file;
-    setForm({ ...form, photos, photoFiles });
     e.target.value = "";
+    if (!file || idx < 0) return;
+    removePhoto(idx);
+    addFiles([file], "photo");
   }
 
   function removeDoc(i: number) {
-    // If the document being deleted is the one open in the viewer, close it first.
-    if (docViewerIndex === i) {
-      closeDocViewer();
-    }
-    setForm({
-      ...form,
-      documents: form.documents.filter((_, j) => j !== i),
-      documentFiles: (form.documentFiles ?? []).filter((_, j) => j !== i),
+    if (docViewerIndex === i) closeDocViewer();
+    const ref = stagedDocuments[i];
+    if (!ref) return;
+    if (ref.id.startsWith("DRFF-")) void removeDraftFileAction(ref.id);
+    setUrlById((prev) => {
+      revokeIfBlob(prev[ref.id]);
+      const next = { ...prev };
+      delete next[ref.id];
+      return next;
     });
+    commitDocuments(stagedDocuments.filter((_, j) => j !== i));
   }
 
   function replaceDoc(i: number) {
@@ -195,55 +356,47 @@ export function Step4PhotosDocs({ form, setForm }: { form: FormData; setForm: (f
 
   function handleDocReplace(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file) return;
     const idx = replaceDocIndexRef.current;
-    if (idx < 0) return;
-    const documents = [...form.documents];
-    documents[idx] = file.name;
-    const documentFiles = [...(form.documentFiles ?? [])];
-    documentFiles[idx] = file;
-    setForm({ ...form, documents, documentFiles });
-    // If the replaced document is open in the viewer, reopen it with the new
-    // blob so the iframe refreshes to show the new file.
-    if (docViewerIndex === idx) {
-      if (docViewerUrl) URL.revokeObjectURL(docViewerUrl);
-      const newUrl = URL.createObjectURL(file);
-      setDocViewerUrl(newUrl);
-    }
     e.target.value = "";
+    if (!file || idx < 0) return;
+    removeDoc(idx);
+    addFiles([file], "document");
   }
 
-  // Opens the in-app viewer for document `i`. Does nothing for restored draft
-  // rows that have no uploaded file blob (those can't be previewed).
-  function openDocViewer(i: number) {
-    const file = (form.documentFiles ?? [])[i];
-    if (!file) return;
-    const url = URL.createObjectURL(file);
+  // Opens the in-app viewer for document `i`, resolving a URL (blob if live, else signed) first.
+  async function openDocViewer(i: number) {
+    const ref = stagedDocuments[i];
+    if (!ref || ref.pending) return;
+    let url = urlByIdRef.current[ref.id];
+    if (!url && ref.id.startsWith("DRFF-")) {
+      const res = await getDraftFileUrlAction(ref.id);
+      if (!res.ok) {
+        toast.error("Couldn't open this document.");
+        return;
+      }
+      url = res.data;
+      setUrlById((prev) => ({ ...prev, [ref.id]: res.data }));
+    }
+    if (!url) return;
     setDocViewerUrl(url);
     setDocViewerIndex(i);
   }
 
-  // Closes the viewer and frees the object URL.
+  // Closes the viewer. The URL is owned by urlById (not created here), so we don't revoke it.
   function closeDocViewer() {
-    if (docViewerUrl) URL.revokeObjectURL(docViewerUrl);
     setDocViewerUrl(null);
     setDocViewerIndex(null);
   }
 
-  // The "Preview" menu item and a row click both route here now.
   function previewDoc(i: number) {
-    openDocViewer(i);
+    void openDocViewer(i);
   }
 
-  // Still available as a button inside the viewer for users who want the
-  // browser's own full tab (and the only view path for Word/Excel files).
   function openDocInNewTab() {
     if (!docViewerUrl) return;
     window.open(docViewerUrl, "_blank");
   }
 
-  // Downloads the open document using its object URL. The `download` attribute
-  // names the saved file after the real document name.
   function downloadDoc() {
     if (!docViewerUrl) return;
     const link = document.createElement("a");
@@ -254,55 +407,43 @@ export function Step4PhotosDocs({ form, setForm }: { form: FormData; setForm: (f
 
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
-    if (files.length === 0) return;
-    addPhotoFiles(files);
     e.target.value = "";
+    if (files.length === 0) return;
+    addFiles(files, "photo");
   }
 
   function handleDocChange(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
-    if (files.length === 0) return;
-    setForm({
-      ...form,
-      documents: [...form.documents, ...files.map((f) => f.name)],
-      documentFiles: [...(form.documentFiles ?? []), ...files],
-    });
     e.target.value = "";
+    if (files.length === 0) return;
+    addFiles(files, "document");
   }
 
   function handlePhotoDrop(e: React.DragEvent) {
     e.preventDefault();
     setPhotosDragging(false);
-    const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith("image/"));
+    // Accept standard images and HEIC/HEIF files, which may have an empty MIME on some platforms.
+    const files = Array.from(e.dataTransfer.files).filter(
+      (f) => f.type.startsWith("image/") || isHeic(f),
+    );
     if (files.length === 0) return;
-    addPhotoFiles(files);
+    addFiles(files, "photo");
   }
 
   function handleDocDrop(e: React.DragEvent) {
     e.preventDefault();
     setDocsDragging(false);
-    const allowedExtensions = [".pdf", ".doc", ".docx", ".xls", ".xlsx"];
     const files = Array.from(e.dataTransfer.files).filter((f) => {
-      const extension = "." + f.name.split(".").pop()?.toLowerCase();
-      return allowedExtensions.includes(extension);
+      const ext = "." + (f.name.split(".").pop()?.toLowerCase() ?? "");
+      return ALLOWED_DOC_EXT.has(ext);
     });
     if (files.length === 0) return;
-    setForm({
-      ...form,
-      documents: [...form.documents, ...files.map((f) => f.name)],
-      documentFiles: [...(form.documentFiles ?? []), ...files],
-    });
+    addFiles(files, "document");
   }
 
-  function handleAddDummyPhoto() {
-    setForm({ ...form, photos: [...form.photos, "dummy-photo.jpg"] });
-  }
-
-  function handleAddDummyDoc() {
-    setForm({ ...form, documents: [...form.documents, "dummy-document.pdf"] });
-  }
-
-  const totalPhotos = form.photos.length;
+  const openDocName = docViewerIndex !== null ? stagedDocuments[docViewerIndex]?.name ?? "" : "";
+  const openDocIsPdf = openDocName.toLowerCase().endsWith(".pdf");
+  const totalPhotos = stagedPhotos.length;
 
   function lightboxPrev() {
     if (lightboxIndex === null) return;
@@ -319,7 +460,7 @@ export function Step4PhotosDocs({ form, setForm }: { form: FormData; setForm: (f
       {/* ─── Photo lightbox (portal to body so overflow-hidden parents don't clip it) ── */}
       {isMounted && createPortal(
         <AnimatePresence>
-          {lightboxIndex !== null && (
+          {lightboxIndex !== null && stagedPhotos[lightboxIndex] && (
             <motion.div
               key="lightbox-backdrop"
               className="fixed inset-0 z-[9999] bg-black/85 backdrop-blur-sm flex items-center justify-center"
@@ -367,10 +508,10 @@ export function Step4PhotosDocs({ form, setForm }: { form: FormData; setForm: (f
                   transition={{ duration: 0.18, ease: easeOut }}
                   className="flex items-center justify-center px-16 sm:px-20 w-full h-full"
                 >
-                  {photoPreviewUrls[lightboxIndex] ? (
+                  {urlById[stagedPhotos[lightboxIndex].id] ? (
                     <img
-                      src={photoPreviewUrls[lightboxIndex]}
-                      alt={form.photos[lightboxIndex]}
+                      src={urlById[stagedPhotos[lightboxIndex].id]}
+                      alt={stagedPhotos[lightboxIndex].name}
                       draggable={false}
                       onClick={(e) => e.stopPropagation()}
                       className="max-w-full max-h-[85vh] w-auto h-auto object-contain rounded-xl shadow-2xl"
@@ -378,7 +519,7 @@ export function Step4PhotosDocs({ form, setForm }: { form: FormData; setForm: (f
                   ) : (
                     <div className="w-72 h-72 bg-white/10 rounded-xl flex flex-col items-center justify-center gap-3" onClick={(e) => e.stopPropagation()}>
                       <ImageIcon className="w-12 h-12 text-white/40" />
-                      <p className="text-white/60 text-sm text-center px-4">{form.photos[lightboxIndex]}</p>
+                      <p className="text-white/60 text-sm text-center px-4">{stagedPhotos[lightboxIndex].name}</p>
                     </div>
                   )}
                 </motion.div>
@@ -397,7 +538,7 @@ export function Step4PhotosDocs({ form, setForm }: { form: FormData; setForm: (f
 
               {/* File name caption */}
               <p className="absolute bottom-6 left-1/2 -translate-x-1/2 text-white/50 text-xs pointer-events-none">
-                {form.photos[lightboxIndex]}
+                {stagedPhotos[lightboxIndex].name}
               </p>
             </motion.div>
           )}
@@ -418,10 +559,7 @@ export function Step4PhotosDocs({ form, setForm }: { form: FormData; setForm: (f
               transition={{ duration: 0.2 }}
               onClick={closeDocViewer}
             >
-              {/* Header: type pill + filename, then Download / Open in new tab / Close.
-                  No container stopPropagation — clicking empty header space falls through
-                  to the backdrop and closes. Only the action buttons stop propagation so
-                  they run their action without also closing. */}
+              {/* Header: type pill + filename, then Download / Open in new tab / Close. */}
               <div className="flex items-center gap-3 px-5 py-4">
                 <span className="bg-white/15 text-white text-xs font-semibold rounded-full px-2.5 py-1 shrink-0">
                   {getDocMeta(openDocName).label}
@@ -452,9 +590,7 @@ export function Step4PhotosDocs({ form, setForm }: { form: FormData; setForm: (f
                 </button>
               </div>
 
-              {/* Body: inline PDF, or a fallback card for file types the browser can't render.
-                  stopPropagation lives on the doc itself (iframe / card), so clicking the
-                  empty space around it falls through to the backdrop and closes the viewer. */}
+              {/* Body: inline PDF, or a fallback card for file types the browser can't render. */}
               <div className="flex-1 min-h-0 flex items-center justify-center px-6 pb-8">
                 {openDocIsPdf && docViewerUrl ? (
                   <iframe
@@ -533,7 +669,7 @@ export function Step4PhotosDocs({ form, setForm }: { form: FormData; setForm: (f
             onDrop={handlePhotoDrop}
           >
             {/* Drop overlay shown when dragging over a filled photo grid */}
-            {photosDragging && form.photos.length > 0 && (
+            {photosDragging && stagedPhotos.length > 0 && (
               <div className="absolute inset-0 z-10 rounded-2xl bg-blue-50/80 border-2 border-primary border-dashed flex items-center justify-center pointer-events-none">
                 <div className="flex flex-col items-center gap-2">
                   <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center">
@@ -556,22 +692,19 @@ export function Step4PhotosDocs({ form, setForm }: { form: FormData; setForm: (f
                 <Plus className="w-3.5 h-3.5" />
                 Add more
               </motion.button>
-              {/* Add input */}
-              <input ref={photoInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoChange} />
+              {/* Add input — image/* covers JPEG/PNG/WebP; .heic/.heif added for desktop file pickers
+                  where HEIC files may not match the image/* wildcard. */}
+              <input ref={photoInputRef} type="file" accept="image/*,.heic,.heif" multiple className="hidden" onChange={handlePhotoChange} />
               {/* Replace input — shared, slot index stored in replacePhotoIndexRef */}
-              <input ref={photoReplaceInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoReplace} />
+              <input ref={photoReplaceInputRef} type="file" accept="image/*,.heic,.heif" className="hidden" onChange={handlePhotoReplace} />
             </div>
 
-            <div className="mb-4">
-              <DevFileButton label="Add dummy photo" onClick={handleAddDummyPhoto} />
-            </div>
-
-            {form.photos.length > 0 ? (
+            {stagedPhotos.length > 0 ? (
               <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 gap-3 sm:gap-4">
                 <AnimatePresence>
-                  {form.photos.map((photo, i) => (
+                  {stagedPhotos.map((photo, i) => (
                     <motion.div
-                      key={photo + i}
+                      key={photo.id}
                       className="relative overflow-hidden rounded-xl shadow-[0px_0px_0px_1px_rgba(0,0,0,0.02),0px_2px_6px_0px_rgba(0,0,0,0.04),0px_4px_8px_0px_rgba(0,0,0,0.1)] group"
                       initial={{ opacity: 0, scale: 0.88 }}
                       animate={{ opacity: 1, scale: 1 }}
@@ -583,13 +716,13 @@ export function Step4PhotosDocs({ form, setForm }: { form: FormData; setForm: (f
                         type="button"
                         onClick={() => setLightboxIndex(i)}
                         className="w-full block aspect-square sm:aspect-auto sm:h-[156px] relative overflow-hidden bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                        aria-label={`Preview ${photo}`}
+                        aria-label={`Preview ${photo.name}`}
                       >
-                        {photoPreviewUrls[i] ? (
+                        {urlById[photo.id] ? (
                           <>
                             <img
-                              src={photoPreviewUrls[i]}
-                              alt={photo}
+                              src={urlById[photo.id]}
+                              alt={photo.name}
                               draggable={false}
                               className="w-full h-full object-cover"
                             />
@@ -601,7 +734,13 @@ export function Step4PhotosDocs({ form, setForm }: { form: FormData; setForm: (f
                         ) : (
                           <div className="w-full h-full flex flex-col items-center justify-center gap-1.5 px-3">
                             <ImageIcon className="w-5 h-5 text-muted-foreground/40 shrink-0" />
-                            <span className="text-xs text-muted-foreground/60 truncate w-full text-center">{photo}</span>
+                            <span className="text-xs text-muted-foreground/60 truncate w-full text-center">{photo.name}</span>
+                          </div>
+                        )}
+                        {/* Uploading overlay while the file is staging */}
+                        {photo.pending && (
+                          <div className="absolute inset-0 bg-black/35 flex items-center justify-center">
+                            <Loader2 className="w-6 h-6 text-white animate-spin" />
                           </div>
                         )}
                       </button>
@@ -618,12 +757,12 @@ export function Step4PhotosDocs({ form, setForm }: { form: FormData; setForm: (f
                         </motion.div>
                       )}
 
-                      {/* Action menu — replaces the old X remove button */}
+                      {/* Action menu — disabled while pending */}
                       <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
+                        <DropdownMenuTrigger asChild disabled={photo.pending}>
                           <motion.button
                             type="button"
-                            className="absolute top-2 right-2 bg-white/80 backdrop-blur-sm rounded-full p-1.5 opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 transition-opacity shadow-sm focus-visible:opacity-100"
+                            className="absolute top-2 right-2 bg-white/80 backdrop-blur-sm rounded-full p-1.5 opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 transition-opacity shadow-sm focus-visible:opacity-100 disabled:opacity-40"
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.88 }}
                             transition={{ duration: 0.12 }}
@@ -695,7 +834,7 @@ export function Step4PhotosDocs({ form, setForm }: { form: FormData; setForm: (f
             onDrop={handleDocDrop}
           >
             {/* Drop overlay shown when dragging over a filled document list */}
-            {docsDragging && form.documents.length > 0 && (
+            {docsDragging && stagedDocuments.length > 0 && (
               <div className="absolute inset-0 z-10 rounded-2xl bg-blue-50/80 border-2 border-primary border-dashed flex items-center justify-center pointer-events-none">
                 <div className="flex flex-col items-center gap-2">
                   <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center">
@@ -718,25 +857,21 @@ export function Step4PhotosDocs({ form, setForm }: { form: FormData; setForm: (f
                 <Upload className="w-4 h-4" />
                 Upload
               </motion.button>
-              {/* Add input */}
+              {/* Add input — PDF, Word, Excel (storage's allowed document types) */}
               <input ref={docInputRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx" multiple className="hidden" onChange={handleDocChange} />
               {/* Replace input — shared, slot index stored in replaceDocIndexRef */}
               <input ref={docReplaceInputRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx" className="hidden" onChange={handleDocReplace} />
             </div>
 
-            <div className="mb-4">
-              <DevFileButton label="Add dummy doc" onClick={handleAddDummyDoc} />
-            </div>
-
-            {form.documents.length > 0 ? (
+            {stagedDocuments.length > 0 ? (
               <div className="flex flex-col gap-3">
                 <AnimatePresence>
-                  {form.documents.map((doc, i) => {
-                    const meta = getDocMeta(doc);
-                    const hasBlob = !!(form.documentFiles ?? [])[i];
+                  {stagedDocuments.map((doc, i) => {
+                    const meta = getDocMeta(doc.name);
+                    const ready = !doc.pending;
                     return (
                       <motion.div
-                        key={doc + i}
+                        key={doc.id}
                         className="border border-[#c3c6d7] rounded-xl flex items-center justify-between px-[17px] py-[17px]"
                         initial={{ opacity: 0, x: -14 }}
                         animate={{ opacity: 1, x: 0 }}
@@ -744,14 +879,13 @@ export function Step4PhotosDocs({ form, setForm }: { form: FormData; setForm: (f
                         transition={{ duration: 0.32, ease: easeOut, delay: i * 0.06 }}
                         whileHover={{ backgroundColor: "rgba(0,0,0,0.015)" }}
                       >
-                        {/* Clickable file info — opens the in-app viewer when a blob exists.
-                            Restored-draft rows (no blob) are not clickable. */}
+                        {/* Clickable file info — opens the in-app viewer once the file is staged. */}
                         <button
                           type="button"
-                          onClick={() => hasBlob && openDocViewer(i)}
-                          disabled={!hasBlob}
-                          aria-label={hasBlob ? `Preview ${doc}` : doc}
-                          className={`group/doc flex items-center gap-4 flex-1 min-w-0 text-left ${hasBlob ? "cursor-pointer" : "cursor-default"}`}
+                          onClick={() => ready && openDocViewer(i)}
+                          disabled={!ready}
+                          aria-label={ready ? `Preview ${doc.name}` : doc.name}
+                          className={`group/doc flex items-center gap-4 flex-1 min-w-0 text-left ${ready ? "cursor-pointer" : "cursor-default"}`}
                         >
                           <motion.div
                             className={`${meta.bg} w-10 h-10 rounded-full flex items-center justify-center shrink-0`}
@@ -759,24 +893,28 @@ export function Step4PhotosDocs({ form, setForm }: { form: FormData; setForm: (f
                             animate={{ scale: 1, opacity: 1 }}
                             transition={{ duration: 0.28, ease: easeOut, delay: i * 0.06 + 0.08 }}
                           >
-                            <FileText className={`w-5 h-5 ${meta.text}`} />
+                            {doc.pending ? (
+                              <Loader2 className={`w-5 h-5 ${meta.text} animate-spin`} />
+                            ) : (
+                              <FileText className={`w-5 h-5 ${meta.text}`} />
+                            )}
                           </motion.div>
                           <div className="min-w-0">
-                            <p className="text-base font-medium text-[#1a1c1c] leading-5 truncate">{doc}</p>
-                            <p className="text-sm text-[#5b5f62] leading-[21px]">{meta.label}</p>
+                            <p className="text-base font-medium text-[#1a1c1c] leading-5 truncate">{doc.name}</p>
+                            <p className="text-sm text-[#5b5f62] leading-[21px]">{doc.pending ? "Uploading…" : meta.label}</p>
                           </div>
                           {/* Hover-only eye affordance, shown only when the row is previewable */}
-                          {hasBlob && (
+                          {ready && (
                             <Eye className="w-4 h-4 text-[#2563eb] opacity-0 [@media(hover:hover)]:group-hover/doc:opacity-100 transition-opacity shrink-0" />
                           )}
                         </button>
 
                         {/* Document action menu */}
                         <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
+                          <DropdownMenuTrigger asChild disabled={doc.pending}>
                             <motion.button
                               type="button"
-                              className="rounded-full p-2 hover:bg-muted transition-colors"
+                              className="rounded-full p-2 hover:bg-muted transition-colors disabled:opacity-40"
                               whileHover={{ scale: 1.12 }}
                               whileTap={{ scale: 0.88 }}
                               transition={{ duration: 0.12 }}
@@ -786,7 +924,7 @@ export function Step4PhotosDocs({ form, setForm }: { form: FormData; setForm: (f
                             </motion.button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-40">
-                            {hasBlob && (
+                            {ready && (
                               <DropdownMenuItem onSelect={() => previewDoc(i)}>
                                 <Eye className="w-4 h-4" />
                                 Preview

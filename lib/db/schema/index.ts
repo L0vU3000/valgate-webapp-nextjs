@@ -2,6 +2,7 @@
 export * from "./identity";
 export * from "./counters";
 export * from "./property";
+export * from "./property-drafts";
 export * from "./rental";
 export * from "./documents";
 export * from "./safety";

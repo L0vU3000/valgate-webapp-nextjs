@@ -43,16 +43,30 @@ export interface FormData {
   annualInsurance: string;
   photos: string[];
   documents: string[];
-  // Display names (photos/documents) are the source of truth for the UI and persist in drafts.
-  // photoFiles/documentFiles hold the actual blobs to upload to S3 on submit; they are appended
-  // in lockstep with the names and stripped before a draft is persisted (blobs don't survive JSON).
-  photoFiles?: File[];
-  documentFiles?: File[];
+  // photos[]/documents[] are the display names that drive the Step-4 grid and the Step-5 review.
+  // stagedPhotos[]/stagedDocuments[] hold the server-staged file references (one per name, kept
+  // index-aligned), created by stageDraftFile when a file is added on Step 4. The real bytes live
+  // in S3 as property_draft_files; previews/downloads use short-lived signed URLs (getDraftFileUrl),
+  // never blob: URLs. All four arrays are rebuilt from the draft's files on resume, so none of them
+  // are persisted into the draft form jsonb (they're stripped before save).
+  stagedPhotos?: StagedFileRef[];
+  stagedDocuments?: StagedFileRef[];
   photoFile?: File;
   uploadFile?: File;
   photoFileName?: string;
   uploadFileName?: string;
 }
+
+// A reference to a file staged server-side (a property_draft_files row). `pending` is true only
+// in the brief window between the user adding the file and stageDraftFile confirming the row —
+// it has no server id yet and shows an uploading state.
+export type StagedFileRef = {
+  id: string;                 // DRFF-xxxx once staged; a temporary client id while pending
+  name: string;
+  mimeType: string | null;
+  sizeBytes: number | null;
+  pending?: boolean;
+};
 
 export const defaultForm: FormData = {
   method: "",

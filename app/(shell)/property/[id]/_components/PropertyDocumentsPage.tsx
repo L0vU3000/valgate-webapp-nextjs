@@ -128,6 +128,7 @@ type FileEntry = {
   icon: React.ElementType;
   iconClass: string;
   thumb: string | null;
+  folderId: string | undefined;
   folder: string;
   size: string;
   date: string;
@@ -190,6 +191,17 @@ function buildFolderTree(folders: DbFolder[]): TreeNode[] {
   }
   const rootNodes = makeNodes(undefined);
   return [{ id: "root", label: "Documents", children: rootNodes.length ? rootNodes : undefined }];
+}
+
+function getFolderPath(folders: DbFolder[], targetId: string): DbFolder[] {
+  const map = new Map(folders.map((f) => [f.id, f]));
+  const path: DbFolder[] = [];
+  let current = map.get(targetId);
+  while (current) {
+    path.unshift(current);
+    current = current.parentFolderId ? map.get(current.parentFolderId) : undefined;
+  }
+  return path;
 }
 
 function FolderTreeItem({
@@ -316,14 +328,11 @@ interface Props {
 
 export function PropertyDocumentsPage({ property, userId, documents: dbDocuments = [], folders: dbFolders = [], docThumbUrls = {}, canDeleteFolders = false }: Props) {
   const folderTree = buildFolderTree(dbFolders);
-  const rootFolders = dbFolders
-    .filter((f) => !f.parentFolderId)
-    .sort((a, b) => a.name.localeCompare(b.name));
 
   const router = useRouter();
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [activeFolder, setActiveFolder] = useState("All Documents");
-  const [activeSubfolder, setActiveSubfolder] = useState<string | null>(null);
+  const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
   // Stores the id of the document currently open in the detail view (null = browse view).
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
   // The signed URL for the open document's file. Null while fetching or if fetch failed.
@@ -569,6 +578,7 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
       icon,
       iconClass,
       thumb: docThumbUrls[doc.id] ?? null,
+      folderId: doc.folderId,
       folder: doc.folderId ? (folderMap.get(doc.folderId) ?? "—") : "—",
       size: doc.sizeBytes ? formatBytes(doc.sizeBytes) : "—",
       date: new Date(doc.uploadedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
@@ -578,6 +588,15 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
       verifiesEntityType: doc.verifies?.entityType,
     };
   });
+
+  // Folders visible at the current navigation level (children of activeFolderId, or root-level folders).
+  const visibleFolders = dbFolders
+    .filter((f) => (f.parentFolderId ?? null) === activeFolderId)
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  // Breadcrumb path from root to the currently open folder.
+  const currentFolderPath = activeFolderId ? getFolderPath(dbFolders, activeFolderId) : [];
+  const currentFolderName = currentFolderPath.at(-1)?.name ?? null;
 
   function toggleSelectFile(name: string) {
     setSelectedFiles((prev) => {
@@ -686,11 +705,11 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
 
   // ─── Sort & Filter pipeline ─────────────────────────────────────────────────
 
-  // Step 1 — folder-tile filter.
-  // When the user clicks a folder tile, activeSubfolder is set to that folder's
-  // name and we scope the list to only files that live in that folder.
-  const folderFilteredFiles = activeSubfolder
-    ? files.filter((f) => f.folder === activeSubfolder)
+  // Step 1 — folder navigation filter.
+  // When the user navigates into a folder (activeFolderId is set), scope the
+  // file list to only files that live directly in that folder.
+  const folderFilteredFiles = activeFolderId !== null
+    ? files.filter((f) => f.folderId === activeFolderId)
     : files;
 
   // Step 2 — collect available options for the filter dropdowns.
@@ -854,59 +873,90 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
             </div>
           </div>
 
-          {/* Folder tiles */}
+          {/* Folder tiles with breadcrumb navigation */}
           <div style={fade(80)}>
               <div className="flex items-center justify-between mb-4">
-                <p className="text-base font-bold text-[--val-heading]">Folders</p>
+                {/* Breadcrumb: clicking "Folders" resets to root; clicking a folder name navigates to it */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <button
+                    onClick={() => setActiveFolderId(null)}
+                    className={`text-base font-bold transition-colors duration-150 ${
+                      activeFolderId ? "text-slate-400 hover:text-[--val-heading]" : "text-[--val-heading]"
+                    }`}
+                  >
+                    Folders
+                  </button>
+                  {currentFolderPath.map((folder) => (
+                    <Fragment key={folder.id}>
+                      <ChevronRight className="w-3.5 h-3.5 text-slate-300 shrink-0" />
+                      <button
+                        onClick={() => setActiveFolderId(folder.id)}
+                        className={`text-base font-bold transition-colors duration-150 ${
+                          activeFolderId === folder.id ? "text-[--val-heading]" : "text-slate-400 hover:text-[--val-heading]"
+                        }`}
+                      >
+                        {folder.name}
+                      </button>
+                    </Fragment>
+                  ))}
+                </div>
                 <button
-                  onClick={() => { setNewFolderName(""); setCreateError(null); setSelectedLocation(folderTree[0]); setLocationOpen(false); setShowAddFolder(true); }}
+                  onClick={() => {
+                    // Default to the current folder when creating a subfolder
+                    const defaultNode = activeFolderId
+                      ? (findPath(folderTree, activeFolderId)?.at(-1) ?? folderTree[0])
+                      : folderTree[0];
+                    setNewFolderName("");
+                    setCreateError(null);
+                    setSelectedLocation(defaultNode);
+                    setLocationOpen(false);
+                    setShowAddFolder(true);
+                  }}
                   className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 rounded text-[14px] font-semibold text-[--val-heading] hover:bg-slate-50 active:scale-[0.97] transition-all duration-150"
                 >
                   <FolderPlus className="w-4 h-4 text-[--val-primary-dark]" />
                   Add Folder
                 </button>
               </div>
-              {rootFolders.length === 0 ? (
-                <EmptyState
-                  className="py-10"
-                  icon={<FolderOpen className="size-5" />}
-                  title="No folders yet"
-                  description="Create a folder to organize your documents."
-                />
+              {visibleFolders.length === 0 ? (
+                // Only show the "no folders" empty state at root level.
+                // Inside a folder it's fine to have no subfolders — just hide the grid.
+                activeFolderId === null ? (
+                  <EmptyState
+                    className="py-10"
+                    icon={<FolderOpen className="size-5" />}
+                    title="No folders yet"
+                    description="Create a folder to organize your documents."
+                  />
+                ) : null
               ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                {rootFolders.map((f, i) => {
-                  const isActive = activeSubfolder === f.name;
+                {visibleFolders.map((f, i) => {
+                  const hasSubfolders = dbFolders.some((sub) => sub.parentFolderId === f.id);
                   return (
-                    // Card is now a wrapper <div>: the body button keeps the
-                    // filter-toggle behaviour and the ⋯ menu is a sibling
-                    // button (never nested inside another button).
+                    // Card is a wrapper <div>: the body button navigates into the folder
+                    // and the ⋯ menu is a sibling button (never nested inside another button).
                     <div
                       key={f.id}
-                      className={`group flex items-center gap-2 pl-4 pr-2 py-3.5 rounded-xl border transition-all duration-200 hover:-translate-y-0.5 ${
-                        isActive
-                          ? "bg-[--val-bg-tint] border-[--val-primary-dark]/25 shadow-[0px_6px_20px_0px_rgba(18,28,40,0.10)]"
-                          : "bg-white border-slate-200 shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)]"
-                      }`}
+                      className="group flex items-center gap-2 pl-4 pr-2 py-3.5 rounded-xl border transition-all duration-200 hover:-translate-y-0.5 bg-white border-slate-200 shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)]"
                       style={{ animationDelay: `${i * 40}ms` }}
                     >
                       <button
-                        onClick={() => setActiveSubfolder(isActive ? null : f.name)}
-                        aria-pressed={isActive}
+                        onClick={() => setActiveFolderId(f.id)}
                         className="flex items-center gap-2.5 flex-1 min-w-0 text-left"
                       >
-                        <FolderOpen
-                          className={`w-5 h-5 shrink-0 transition-colors duration-200 ${isActive ? "text-[--val-primary-dark]" : "text-slate-400"}`}
-                        />
-                        <span
-                          className={`text-[13px] font-medium truncate transition-colors duration-200 ${isActive ? "text-[--val-primary-dark]" : "text-[--val-heading]"}`}
-                        >
-                          {f.name}
-                        </span>
+                        <FolderOpen className="w-5 h-5 shrink-0 text-slate-400 transition-colors duration-200 group-hover:text-[--val-primary-dark]" />
+                        <div className="flex-1 min-w-0">
+                          <span className="text-[13px] font-medium truncate block text-[--val-heading] transition-colors duration-200 group-hover:text-[--val-primary-dark]">
+                            {f.name}
+                          </span>
+                          {hasSubfolders && (
+                            <span className="text-[10px] text-slate-400 leading-tight">Has subfolders</span>
+                          )}
+                        </div>
                       </button>
 
-                      {/* Per-folder actions. The ⋯ is hidden until card
-                          hover/focus on desktop and always visible on touch. */}
+                      {/* Per-folder actions. The ⋯ is hidden until card hover/focus on desktop. */}
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <button
@@ -953,7 +1003,7 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div className="flex items-center gap-3">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">
-                    {activeSubfolder ? activeSubfolder : "All Files"}
+                    {currentFolderName ?? "All Files"}
                     <span className="ml-2 text-slate-300 font-normal normal-case tracking-normal">
                       {filteredFiles.length} {filteredFiles.length === 1 ? "file" : "files"}
                     </span>
@@ -1274,8 +1324,8 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
                     // to adjust their filters rather than suggesting they upload.
                     totalActiveFilters > 0
                       ? "No files match your filters"
-                      : activeSubfolder
-                      ? `No files in ${activeSubfolder}`
+                      : currentFolderName
+                      ? `No files in ${currentFolderName}`
                       : "No documents yet"
                   }
                   description={

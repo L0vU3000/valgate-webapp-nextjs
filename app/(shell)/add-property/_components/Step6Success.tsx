@@ -370,6 +370,26 @@ const OWNERSHIP_BADGE: Record<string, { label: string; color: string }> = {
   "under-construction": { label: "Under Construction", color: "#8b5cf6" },
 };
 
+const OWNERSHIP_CHIP_COLORS: Record<string, { bg: string; dot: string; text: string }> = {
+  "fully-owned":        { bg: "bg-emerald-100", dot: "#10b981", text: "text-emerald-800" },
+  mortgaged:            { bg: "bg-amber-100",   dot: "#f59e0b", text: "text-amber-800"   },
+  leased:               { bg: "bg-emerald-100", dot: "#10b981", text: "text-emerald-800" },
+  "under-construction": { bg: "bg-violet-100",  dot: "#8b5cf6", text: "text-violet-800"  },
+};
+const DEFAULT_OWNERSHIP_CHIP = { bg: "bg-emerald-100", dot: "#10b981", text: "text-emerald-800" };
+
+const PROPERTY_TYPE_CHIP_COLORS: Record<string, { bg: string; text: string }> = {
+  residential:       { bg: "bg-orange-100",  text: "text-orange-800"  },
+  commercial:        { bg: "bg-blue-100",    text: "text-blue-800"    },
+  "multi-unit":      { bg: "bg-purple-100",  text: "text-purple-800"  },
+  retail:            { bg: "bg-pink-100",    text: "text-pink-800"    },
+  land:              { bg: "bg-emerald-100", text: "text-emerald-800" },
+  industrial:        { bg: "bg-sky-100",     text: "text-sky-800"     },
+  construction:      { bg: "bg-amber-100",   text: "text-amber-800"   },
+  other:             { bg: "bg-indigo-100",  text: "text-indigo-800"  },
+};
+const DEFAULT_TYPE_CHIP = { bg: "bg-slate-100", text: "text-slate-700" };
+
 const PROPERTY_TYPE_LABELS: Record<string, string> = {
   residential: "Residential",
   commercial: "Commercial",
@@ -398,6 +418,8 @@ export function Step6Success({ form, coverUrl }: { form: FormData; coverUrl?: st
   const animatedId = useTypewriter(`ID: ${propertyCode}`, 1000, reduced, 52, mapLoaded);
   const location = [form.city, form.province].filter(Boolean).join(", ");
   const ownership = OWNERSHIP_BADGE[form.ownershipStatus] ?? { label: "Listed", color: "#10b981" };
+  const ownershipChip = OWNERSHIP_CHIP_COLORS[form.ownershipStatus] ?? DEFAULT_OWNERSHIP_CHIP;
+  const typeChip = PROPERTY_TYPE_CHIP_COLORS[form.propertyType] ?? DEFAULT_TYPE_CHIP;
   const typeLabel = PROPERTY_TYPE_LABELS[form.propertyType] ?? "Property";
   const tooltipText = [propertyName, priceFallback !== "—" ? priceFallback : null]
     .filter(Boolean)
@@ -552,12 +574,12 @@ export function Step6Success({ form, coverUrl }: { form: FormData; coverUrl?: st
               <div className={`relative h-48 overflow-hidden${coverUrl ? " flex items-center" : ""}`}>
                 <PropertyCardImage propertyType={form.propertyType} coverUrl={coverUrl} />
                 <div className="absolute top-4 left-4 flex gap-2 z-20">
-                  <div className="backdrop-blur-[2px] bg-[rgba(255,255,255,0.9)] flex items-center gap-1.5 px-3 py-[5.5px] rounded-[14px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)]">
-                    <div className="size-2 rounded-full shrink-0" style={{ backgroundColor: ownership.color }} />
-                    <span className="text-[12px] font-semibold text-[#1a1c1c] leading-4">{ownership.label}</span>
+                  <div className={`${ownershipChip.bg} flex items-center gap-1.5 px-3 py-[5.5px] rounded-[14px]`}>
+                    <div className="size-2 rounded-full shrink-0" style={{ backgroundColor: ownershipChip.dot }} />
+                    <span className={`text-[12px] font-semibold leading-4 ${ownershipChip.text}`}>{ownership.label}</span>
                   </div>
-                  <div className="backdrop-blur-[2px] bg-[rgba(255,255,255,0.9)] flex items-center px-3 py-[6px] rounded-[14px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)]">
-                    <span className="text-[12px] font-semibold text-[#1a1c1c] leading-4">{typeLabel}</span>
+                  <div className={`${typeChip.bg} flex items-center px-3 py-[6px] rounded-[14px]`}>
+                    <span className={`text-[12px] font-semibold leading-4 ${typeChip.text}`}>{typeLabel}</span>
                   </div>
                 </div>
               </div>

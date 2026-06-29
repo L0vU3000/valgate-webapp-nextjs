@@ -1,4 +1,4 @@
-import { defineConfig } from "vitest/config";
+import { defineConfig, configDefaults } from "vitest/config";
 import tsconfigPaths from "vite-tsconfig-paths";
 import path from "node:path";
 
@@ -23,5 +23,8 @@ export default defineConfig({
     environment: "node",
     // describe / it / expect / vi available without imports in spec files.
     globals: true,
+    // Live-DB integration tests run in their own project (vitest.config.db.ts) so this
+    // default suite stays DB-free and green without DATABASE_URL.
+    exclude: [...configDefaults.exclude, "**/*.db.test.ts"],
   },
 });

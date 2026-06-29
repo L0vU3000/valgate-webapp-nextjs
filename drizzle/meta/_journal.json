@@ -36,6 +36,27 @@
       "when": 1781683642223,
       "tag": "0004_fancy_stark_industries",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1782383295801,
+      "tag": "0005_cool_marauders",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1782383797215,
+      "tag": "0006_regular_gargoyle",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1782669560346,
+      "tag": "0007_chief_mongu",
+      "breakpoints": true
     }
   ]
 }

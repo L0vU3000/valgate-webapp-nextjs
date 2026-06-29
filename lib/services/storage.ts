@@ -1,12 +1,12 @@
 import "server-only"; // C1
-import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { createPresignedPost } from "@aws-sdk/s3-presigned-post";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { env } from "@/lib/env";
 import { nextId, type Ctx } from "@/lib/services/_mapping";
+import { MAX_BYTES, ALLOWED_MIME } from "@/lib/upload-constants";
 
-export const MAX_BYTES = 10 * 1024 * 1024;
-export const ALLOWED_MIME = new Set(["application/pdf", "image/jpeg", "image/png", "image/webp"]);
+export { MAX_BYTES, ALLOWED_MIME };
 
 function assertStorageConfigured(): { bucket: string; region: string; accessKeyId: string; secretAccessKey: string } {
   const { STORAGE_BUCKET: bucket, STORAGE_REGION: region, STORAGE_ACCESS_KEY_ID: accessKeyId, STORAGE_SECRET_ACCESS_KEY: secretAccessKey } = env;
@@ -49,4 +49,17 @@ export async function resolveDocumentUrl(storageId: string): Promise<string> {
   if (storageId.startsWith("_storage/")) return `/${storageId}`;
   const { client, bucket } = getS3();
   return getSignedUrl(client, new GetObjectCommand({ Bucket: bucket, Key: storageId }), { expiresIn: 300 });
+}
+
+// Deletes a single object from S3 by its storage key. Used when a staged draft file is removed
+// or a draft is discarded/expired, so abandoned uploads don't linger in the bucket.
+//
+// What can go wrong: if storage isn't configured, getS3() throws (callers treat that as a soft
+// failure and still remove the DB row). S3 DeleteObject is idempotent — deleting a key that no
+// longer exists succeeds quietly — so a double-delete or a missing object is not an error.
+// The seed's local `_storage/` keys never reach here (they have no S3 object); callers skip them.
+export async function deleteObject(storageId: string): Promise<void> {
+  if (storageId.startsWith("_storage/")) return; // local seed asset — nothing in S3 to delete
+  const { client, bucket } = getS3();
+  await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: storageId }));
 }
