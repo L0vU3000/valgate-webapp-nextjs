@@ -2,7 +2,7 @@
 
 - **Plan ID:** `plan-e40b6ac387ea480f`
 - **Hosted:** https://plan.agent-native.com/plans/plan-e40b6ac387ea480f
-- **Status:** review (decisions locked; one root-cause confirmation open)
+- **Status:** in_progress — first cut (leases) shipped & verified live; root cause confirmed = Data Cache evictions. Rollout to remaining 16 wrappers pending.
 - **Part of:** the 4-phase client performance plan. Phases 1–3 shipped. This is Phase 4.
 
 ---
