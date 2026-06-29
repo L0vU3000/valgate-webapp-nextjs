@@ -13,6 +13,7 @@ import {
   countFolderContents as svcCountFolderContents,
 } from "@/lib/services/folders";
 import { logActivity } from "@/lib/services/activity";
+import { bustCache } from "@/lib/cache/bust";
 
 export async function createFolder(data: unknown): Promise<ActionResult<Folder>> {
   const parsed = NewFolderSchema.safeParse(data);
@@ -76,6 +77,7 @@ export async function deleteFolder(id: string): Promise<ActionResult<void>> {
     revalidateFeTag("folders");
     // Documents may have moved to root, so refresh that list too.
     revalidateFeTag("documents");
+    await bustCache("documents");
     return { ok: true, data: undefined };
   } catch (err) {
     console.error("deleteFolder", err);
