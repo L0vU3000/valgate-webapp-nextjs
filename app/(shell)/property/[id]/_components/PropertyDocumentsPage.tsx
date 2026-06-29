@@ -3,7 +3,10 @@
 import { useState, useEffect, useRef, Fragment, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createFolder, updateFolder, deleteFolder } from "@/app/actions/folders";
+import { deleteDocument, deleteDocuments } from "@/app/actions/documents";
 import { getDocumentFileUrl } from "../documents/actions";
+import { ConfirmAction } from "@/components/ui/confirm-action";
+import type { ActionResult } from "@/app/actions/_result";
 import type { Property } from "@/lib/data/types/property";
 import type { Document as DbDocument } from "@/lib/data/types/document";
 import type { Folder as DbFolder } from "@/lib/data/types/folder";
@@ -601,22 +604,58 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
   const currentFolderPath = activeFolderId ? getFolderPath(dbFolders, activeFolderId) : [];
   const currentFolderName = currentFolderPath.at(-1)?.name ?? null;
 
-  function toggleSelectFile(name: string) {
+  // Selection is keyed by document id (not name): names are not unique — two
+  // files can share a name across folders — so an id key is what the delete
+  // actions need and avoids selecting/deleting the wrong file.
+  function toggleSelectFile(id: string) {
     setSelectedFiles((prev) => {
       const next = new Set(prev);
-      next.has(name) ? next.delete(name) : next.add(name);
+      next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
   }
 
   function toggleSelectAll(visibleFiles: FileEntry[]) {
-    const allSelected = visibleFiles.every((f) => selectedFiles.has(f.name));
-    setSelectedFiles(allSelected ? new Set() : new Set(visibleFiles.map((f) => f.name)));
+    const allSelected = visibleFiles.every((f) => selectedFiles.has(f.id));
+    setSelectedFiles(allSelected ? new Set() : new Set(visibleFiles.map((f) => f.id)));
   }
 
   function exitSelectMode() {
     setSelectMode(false);
     setSelectedFiles(new Set());
+  }
+
+  /**
+   * Delete a single document by id. Called from the per-row/per-card delete
+   * button (wrapped in a ConfirmAction, which shows the confirm dialog and the
+   * success/failure toast for us). We return the ActionResult so ConfirmAction
+   * can toast it, and on success refresh the route so the file disappears.
+   *
+   * The server action is org-scoped and admin-gated independently — this UI
+   * gating is only defence-in-depth.
+   */
+  async function handleDeleteDocument(id: string): Promise<ActionResult<void>> {
+    const result = await deleteDocument(id);
+    if (result.ok) {
+      router.refresh();
+    }
+    return result;
+  }
+
+  /**
+   * Delete every currently selected document in one call. Wired to the bulk
+   * "Delete" button in the selection bar (wrapped in a ConfirmAction "typed"
+   * tier, so the user must type to confirm — bulk delete is high-risk).
+   * On success we clear the selection, leave select mode, and refresh.
+   */
+  async function handleBulkDelete(): Promise<ActionResult<{ deleted: number }>> {
+    const ids = Array.from(selectedFiles);
+    const result = await deleteDocuments(ids);
+    if (result.ok) {
+      exitSelectMode();
+      router.refresh();
+    }
+    return result;
   }
 
   useEffect(() => {
@@ -1346,6 +1385,8 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
                   selectedFiles={selectedFiles}
                   onToggleFile={toggleSelectFile}
                   onToggleAll={() => toggleSelectAll(filteredFiles)}
+                  canDelete={canDelete}
+                  onDeleteFile={handleDeleteDocument}
                 />
               ) : (
                 <GridView
@@ -1354,6 +1395,8 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
                   selectMode={selectMode}
                   selectedFiles={selectedFiles}
                   onToggleFile={toggleSelectFile}
+                  canDelete={canDelete}
+                  onDeleteFile={handleDeleteDocument}
                 />
               )}
           </div>
@@ -1385,14 +1428,26 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
                 <FolderInput className="w-3.5 h-3.5 text-blue-200" />
                 Move to…
               </button>
-              {/* Bulk delete — admin/owner only (defence-in-depth; server enforces too). */}
+              {/* Bulk delete — admin/owner only (defence-in-depth; server enforces too).
+                  "typed" tier: the user must type "delete" before Confirm enables. */}
               {canDelete && (
-              <button
-                className="flex items-center gap-2 text-[13px] font-semibold text-rose-300 hover:text-rose-200 px-3 py-1.5 rounded-xl hover:bg-white/10 transition-colors duration-150 whitespace-nowrap"
+              <ConfirmAction
+                tier="typed"
+                typedConfirmValue="delete"
+                title={`Delete ${selectedFiles.size} ${selectedFiles.size === 1 ? "file" : "files"}?`}
+                description="This permanently removes the selected documents and their files. This can't be undone."
+                confirmLabel="Delete"
+                successMessage="Documents deleted"
+                failureMessage="Could not delete the selected documents"
+                onConfirm={handleBulkDelete}
               >
-                <Trash2 className="w-3.5 h-3.5" />
-                Delete
-              </button>
+                <button
+                  className="flex items-center gap-2 text-[13px] font-semibold text-rose-300 hover:text-rose-200 px-3 py-1.5 rounded-xl hover:bg-white/10 transition-colors duration-150 whitespace-nowrap"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Delete
+                </button>
+              </ConfirmAction>
               )}
             </div>
           )}
@@ -2290,6 +2345,8 @@ function ListView({
   selectedFiles,
   onToggleFile,
   onToggleAll,
+  canDelete,
+  onDeleteFile,
 }: {
   files: FileEntry[];
   // Called with the document id when a row is clicked outside of select mode.
@@ -2297,11 +2354,19 @@ function ListView({
   mounted: boolean;
   selectMode: boolean;
   selectedFiles: Set<string>;
-  onToggleFile: (name: string) => void;
+  // Called with the document id to toggle its selection.
+  onToggleFile: (id: string) => void;
   onToggleAll: () => void;
+  // admin/owner only — when false, the per-row delete button is not rendered.
+  canDelete: boolean;
+  // Deletes one document by id; returns the ActionResult so ConfirmAction can toast.
+  onDeleteFile: (id: string) => Promise<ActionResult<void>>;
 }) {
-  const allSelected = files.length > 0 && files.every((f) => selectedFiles.has(f.name));
-  const someSelected = files.some((f) => selectedFiles.has(f.name)) && !allSelected;
+  const allSelected = files.length > 0 && files.every((f) => selectedFiles.has(f.id));
+  const someSelected = files.some((f) => selectedFiles.has(f.id)) && !allSelected;
+  // The per-row delete column is shown for admins/owners, but hidden in select
+  // mode (the bulk bar handles deletion there) to avoid two delete paths at once.
+  const showRowActions = canDelete && !selectMode;
 
   return (
     <div className="bg-white rounded-lg border border-slate-200 shadow-[0_1px_2px_rgba(0,0,0,0.05)] overflow-hidden">
@@ -2328,16 +2393,17 @@ function ListView({
             <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Folder</th>
             <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Size</th>
             <th className="px-4 py-3 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em]">Modified</th>
+            {showRowActions && <th className="px-4 py-3 w-12" aria-label="Actions" />}
           </tr>
         </thead>
         <tbody>
           {files.map((f, i) => {
-            const isChecked = selectedFiles.has(f.name);
+            const isChecked = selectedFiles.has(f.id);
             return (
               <tr
-                key={f.name}
-                onClick={() => selectMode ? onToggleFile(f.name) : onOpen(f.id)}
-                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectMode ? onToggleFile(f.name) : onOpen(f.id); } }}
+                key={f.id}
+                onClick={() => selectMode ? onToggleFile(f.id) : onOpen(f.id)}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectMode ? onToggleFile(f.id) : onOpen(f.id); } }}
                 tabIndex={0}
                 className={`border-t border-slate-100 cursor-pointer transition-colors duration-100 focus-visible:outline-none focus-visible:bg-blue-50/60 ${
                   isChecked && selectMode ? "bg-blue-50/50" : "hover:bg-blue-50/30"
@@ -2358,7 +2424,7 @@ function ListView({
                   >
                     <Checkbox
                       checked={isChecked}
-                      onChange={() => onToggleFile(f.name)}
+                      onChange={() => onToggleFile(f.id)}
                     />
                   </td>
                 )}
@@ -2378,6 +2444,27 @@ function ListView({
                 </td>
                 <td className="px-4 py-3.5 text-[14px] text-slate-400">{f.size}</td>
                 <td className="px-4 py-3.5 text-[14px] text-slate-400">{f.date}</td>
+                {showRowActions && (
+                  // stopPropagation so clicking delete doesn't also open the document.
+                  <td className="px-4 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
+                    <ConfirmAction
+                      tier="confirm"
+                      title={`Delete "${f.name}"?`}
+                      description="This permanently removes the document and its file. This can't be undone."
+                      confirmLabel="Delete"
+                      successMessage="Document deleted"
+                      failureMessage="Could not delete the document"
+                      onConfirm={() => onDeleteFile(f.id)}
+                    >
+                      <button
+                        aria-label={`Delete ${f.name}`}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors duration-150"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </ConfirmAction>
+                  </td>
+                )}
               </tr>
             );
           })}
@@ -2394,61 +2481,95 @@ function GridView({
   selectMode,
   selectedFiles,
   onToggleFile,
+  canDelete,
+  onDeleteFile,
 }: {
   files: FileEntry[];
   // Called with the document id when a card is clicked outside of select mode.
   onOpen: (docId: string) => void;
   selectMode: boolean;
   selectedFiles: Set<string>;
-  onToggleFile: (name: string) => void;
+  // Called with the document id to toggle its selection.
+  onToggleFile: (id: string) => void;
+  // admin/owner only — when false, the per-card delete button is not rendered.
+  canDelete: boolean;
+  // Deletes one document by id; returns the ActionResult so ConfirmAction can toast.
+  onDeleteFile: (id: string) => Promise<ActionResult<void>>;
 }) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
       {files.map((f, i) => {
-        const isChecked = selectedFiles.has(f.name);
+        const isChecked = selectedFiles.has(f.id);
         return (
-          <button
-            key={f.name}
-            type="button"
-            onClick={() => selectMode ? onToggleFile(f.name) : onOpen(f.id)}
-            className={`relative bg-white rounded-xl p-4 transition-all duration-200 cursor-pointer text-left w-full
-              animate-[fade-slide-up_0.45s_cubic-bezier(0.22,1,0.36,1)_both] [animation-delay:var(--delay)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[--val-primary-dark]/40 ${
-              isChecked && selectMode
-                ? "shadow-[0_0_0_2px_var(--val-primary-dark),0px_6px_20px_0px_rgba(18,28,40,0.10)] -translate-y-0.5"
-                : "shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)] hover:-translate-y-0.5 hover:shadow-[0px_6px_20px_0px_rgba(18,28,40,0.10)]"
-            }`}
+          // Wrapper carries the key + entry animation so the overlay buttons can
+          // be siblings of the card button (a button can't be nested in a button).
+          <div
+            key={f.id}
+            className="relative animate-[fade-slide-up_0.45s_cubic-bezier(0.22,1,0.36,1)_both] [animation-delay:var(--delay)]"
             style={{ '--delay': `${100 + i * 80}ms` } as React.CSSProperties}
           >
+            <button
+              type="button"
+              onClick={() => selectMode ? onToggleFile(f.id) : onOpen(f.id)}
+              className={`relative bg-white rounded-xl p-4 transition-all duration-200 cursor-pointer text-left w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[--val-primary-dark]/40 ${
+                isChecked && selectMode
+                  ? "shadow-[0_0_0_2px_var(--val-primary-dark),0px_6px_20px_0px_rgba(18,28,40,0.10)] -translate-y-0.5"
+                  : "shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)] hover:-translate-y-0.5 hover:shadow-[0px_6px_20px_0px_rgba(18,28,40,0.10)]"
+              }`}
+            >
+              <div className={`w-full aspect-[4/3] bg-slate-50 rounded-lg overflow-hidden mb-3 flex items-center justify-center border transition-colors duration-150 ${
+                isChecked && selectMode ? "border-[--val-primary-dark]/20" : "border-slate-100"
+              }`}>
+                {f.thumb ? (
+                  <ImageWithFallback
+                    src={f.thumb}
+                    alt={f.name}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                ) : (
+                  <f.icon className={`w-10 h-10 ${f.iconClass}`} />
+                )}
+              </div>
+              <p className="text-[13px] font-medium truncate text-[--val-heading]">{f.name}</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">{f.size} · {f.date}</p>
+            </button>
+
             {/* Checkbox overlay */}
             {selectMode && (
               <div
                 className="absolute top-3 left-3 z-10"
                 style={{ animation: `fade-slide-up 0.2s cubic-bezier(0.16,1,0.3,1) ${i * 20}ms both` }}
-                onClick={(e) => e.stopPropagation()}
               >
                 <Checkbox
                   checked={isChecked}
-                  onChange={() => onToggleFile(f.name)}
+                  onChange={() => onToggleFile(f.id)}
                 />
               </div>
             )}
-            <div className={`w-full aspect-[4/3] bg-slate-50 rounded-lg overflow-hidden mb-3 flex items-center justify-center border transition-colors duration-150 ${
-              isChecked && selectMode ? "border-[--val-primary-dark]/20" : "border-slate-100"
-            }`}>
-              {f.thumb ? (
-                <ImageWithFallback
-                  src={f.thumb}
-                  alt={f.name}
-                  className="w-full h-full object-cover"
-                  loading="lazy"
-                />
-              ) : (
-                <f.icon className={`w-10 h-10 ${f.iconClass}`} />
-              )}
-            </div>
-            <p className="text-[13px] font-medium truncate text-[--val-heading]">{f.name}</p>
-            <p className="text-[11px] text-slate-400 mt-0.5">{f.size} · {f.date}</p>
-          </button>
+
+            {/* Per-card delete — admin/owner only, hidden in select mode (bulk bar handles it). */}
+            {canDelete && !selectMode && (
+              <div className="absolute top-2.5 right-2.5 z-10">
+                <ConfirmAction
+                  tier="confirm"
+                  title={`Delete "${f.name}"?`}
+                  description="This permanently removes the document and its file. This can't be undone."
+                  confirmLabel="Delete"
+                  successMessage="Document deleted"
+                  failureMessage="Could not delete the document"
+                  onConfirm={() => onDeleteFile(f.id)}
+                >
+                  <button
+                    aria-label={`Delete ${f.name}`}
+                    className="p-1.5 rounded-lg bg-white/90 backdrop-blur text-slate-400 hover:text-rose-600 hover:bg-rose-50 shadow-sm transition-colors duration-150"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </ConfirmAction>
+              </div>
+            )}
+          </div>
         );
       })}
     </div>
