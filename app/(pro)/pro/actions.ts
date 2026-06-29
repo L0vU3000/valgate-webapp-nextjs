@@ -16,7 +16,7 @@ import {
   recordInvitationLinkCopy,
 } from "@/lib/services/client-onboarding";
 import * as clientsDb from "@/lib/data/db/clients";
-import { getProperty, updateProperty, createProperty as svcCreateProperty, bulkAssignProperties as svcBulkAssign } from "@/lib/services/properties";
+import { getProperty, updateProperty, createProperty as svcCreateProperty, bulkAssignProperties as svcBulkAssign, listPropertyNamesByClientId } from "@/lib/services/properties";
 import { propertyTypeChoiceSchema, propertyStatusSchema, propertyTitleSchema } from "@/lib/data/types/property";
 import { getCurrentUserId } from "@/lib/data/auth-shim";
 import { requireCtx } from "@/lib/auth/ctx";
@@ -29,7 +29,7 @@ import { logActivity } from "@/lib/services/activity";
 // (details are logged server-side only).
 
 export type ProActionResult =
-  | { ok: true; count?: number; invitationUrl?: string }
+  | { ok: true; count?: number; invitationUrl?: string; orgId?: string; skipped?: Array<{ row: number; reason: string }> }
   | { ok: false; error: string };
 
 // Refresh every pro route after a mutation — the dashboard, client pages,
@@ -517,27 +517,62 @@ const importCsvSchema = z.object({
 export async function importCsvProperties(input: {
   clientId: string;
   rows: unknown[];
+  // When true, skip the name-dedup check and import even if a property with
+  // the same name already exists for this client. Useful when the manager
+  // intentionally has two properties with the same name (e.g. two units called
+  // "Apartment A").
+  createAnyway?: boolean;
 }): Promise<ProActionResult> {
-  const parsed = importCsvSchema.safeParse(input);
+  // Validate clientId + rows via Zod. createAnyway is a trusted boolean from
+  // our own UI — no need to put it through the schema.
+  const parsed = importCsvSchema.safeParse({ clientId: input.clientId, rows: input.rows });
   if (!parsed.success) {
     const issues = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
     return { ok: false, error: `Invalid CSV data: ${issues}` };
   }
 
   const authCtx = await requireCtx();
-  let createdCount = 0;
 
-  for (const row of parsed.data.rows) {
-    const result = await svcCreateProperty(authCtx, row);
-    if (!result) {
-      return { ok: false, error: `Failed to create property: ${row.name}` };
+  // Pre-load existing property names for this client so we can detect duplicates
+  // without a DB query per row (avoids N+1). Returns an empty Set when the client
+  // has no properties yet, so first-time imports are unaffected.
+  const existingNames = input.createAnyway
+    ? new Set<string>()
+    : await listPropertyNamesByClientId(authCtx, parsed.data.clientId);
+
+  let createdCount = 0;
+  const skippedRows: Array<{ row: number; reason: string }> = [];
+
+  for (let i = 0; i < parsed.data.rows.length; i++) {
+    const row = parsed.data.rows[i];
+    const rowNumber = i + 1; // 1-based so the UI can say "Row 3: …"
+
+    // Dedupe: skip rows whose name matches an existing property for this client
+    // (case-insensitive). The createAnyway flag bypasses this when the manager
+    // explicitly wants duplicates.
+    if (!input.createAnyway && existingNames.has(row.name.toLowerCase())) {
+      skippedRows.push({ row: rowNumber, reason: "duplicate of an existing property" });
+      continue;
     }
-    await updateProperty(authCtx, result.id, { clientId: parsed.data.clientId });
-    createdCount++;
+
+    // Skip-don't-fail: a single bad row (e.g. invalid type string, DB constraint)
+    // must never abort the whole batch. Log internally; surface a per-row reason.
+    try {
+      const result = await svcCreateProperty(authCtx, row);
+      if (!result) {
+        skippedRows.push({ row: rowNumber, reason: "could not create property" });
+        continue;
+      }
+      await updateProperty(authCtx, result.id, { clientId: parsed.data.clientId });
+      createdCount++;
+    } catch (err) {
+      logger.error("importCsvProperties: row failed", { row: rowNumber, error: String(err) });
+      skippedRows.push({ row: rowNumber, reason: "could not create property" });
+    }
   }
 
   revalidatePro();
-  return { ok: true, count: createdCount };
+  return { ok: true, count: createdCount, skipped: skippedRows };
 }
 
 // --- Manager-led client onboarding (Phase 1 / Phase 3) ------------------------
@@ -580,6 +615,9 @@ export async function onboardClientPortfolioAction(input: {
       ok: true,
       count: result.propertyCount,
       invitationUrl: result.invitationUrl ?? undefined,
+      // D2: returned so the caller (e.g. AddPropertyFlowPro nested wizard) can set
+      // the new org as targetOrgId and resume the property wizard immediately.
+      orgId: result.orgId,
     };
   } catch (err) {
     logger.error("onboardClientPortfolioAction: failed", { error: String(err) });

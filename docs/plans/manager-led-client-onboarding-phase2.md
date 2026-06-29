@@ -134,15 +134,17 @@ Fix mirrors the `createProperty` → `createPropertyForOrg` precedent:
 
 Verified: `tsc --noEmit` + `eslint` clean (the only remaining tsc errors are the pre-existing `PendingHandoffsSection.tsx` ones, untouched).
 
-**P1 — close the dead-ends:**
-3. `PortfolioSelectorModal.tsx` + `AddPropertyFlowPro.tsx` — nested `OnboardClientWizard`, resume with new `targetOrgId` (D2).
-4. `app/(pro)/pro/actions.ts` `importCsvProperties` — return `{ created, skipped[] }`; skip-don't-fail; dedupe-by-name (D4).
-5. `CsvImportModal.tsx` — add Review stage (chips + dedupe choice + report).
+**P1 — close the dead-ends — ✅ DONE (2026-06-29):**
+3. ✅ `AddPropertyFlowPro.tsx` + `OnboardClientWizard.tsx` + `actions.ts` — nested `OnboardClientWizard` (new `onComplete` prop); `onboardClientPortfolioAction` now returns `orgId`; `handleNestedWizardComplete` sets `targetOrgId`, reopens the property wizard, and re-inits the draft (D2).
+4. ✅ `app/(pro)/pro/actions.ts` `importCsvProperties` + `lib/services/properties.ts` — returns `{ count, skipped[] }`; per-row try/catch (skip-don't-fail); dedupe-by-name via new org-scoped `listPropertyNamesByClientId` (no N+1) + `createAnyway` toggle (D4).
+5. ✅ `CsvImportModal.tsx` — Upload→Map→Review→Done rail with valid/skipped chips, dedupe choice, confirm, and post-import report.
 
-**P2 — polish to the Mobbin bar:**
-6. `AddPropertyFlowPro.tsx` — labeled left step rail + helper slot (replace thin progress bar).
-7. `Step4PhotosDocs.tsx` — upload-progress overlay + drag-to-reorder + cover badge.
-8. `BulkAssignModal.tsx` — restyle chips for consistency only.
+**P2 — polish to the Mobbin bar — ✅ DONE (2026-06-29):**
+6. ✅ `AddPropertyFlowPro.tsx` — labeled left step rail + per-step contextual helper (replaced the thin progress bar).
+7. ✅ `Step4PhotosDocs.tsx` — upload-progress overlay + drag-to-reorder grid + cover badge (order persisted as `photoStorageIds` array order — no schema change).
+8. ✅ `BulkAssignModal.tsx` — count chip / chip restyle for consistency.
+
+Verified: `tsc --noEmit` clean (only the pre-existing `PendingHandoffsSection.tsx` errors remain, untouched). P2 visual polish best confirmed by dogfooding the running app.
 
 **Out of scope (Phase 3):** cross-session Drafts inbox (D3-A), property "completeness"
 tracking/nudges (D1-C), CSV upsert/update-existing (D4-C).
@@ -150,5 +152,5 @@ tracking/nudges (D1-C), CSV upsert/update-existing (D4-C).
 ## Open questions for the implementer
 
 1. ~~Does `convertDraftToDocumentsAction` attach to `documents` *and* `photoStorageIds`, or only documents?~~ **RESOLVED (P0):** it turns every staged file (photos included) into a **document row** with a `kind` discriminator — it does **not** populate the property's `photoStorageIds`. Photos appear in the document list, not the property's photo gallery. Surfacing them on the property card is a separate **P2** task if desired.
-2. Where does `targetOrgId` enter the `clients` prop today? Confirm the Properties query populates it for onboarded (handoff) orgs, else create-new resume can't pre-select.
-3. Drag-to-reorder: persist order to `photoStorageIds` array order, or is there a separate sort field? (Affects whether reorder is a real write or display-only.)
+2. ~~Where does `targetOrgId` enter the `clients` prop today?~~ **RESOLVED (P1):** existing FS clients never populate `targetOrgId` — it only comes from the D2 nested-onboard round-trip, which sets it directly from the new org's id. So the create-new path is the source of `targetOrgId`, not the clients query.
+3. ~~Drag-to-reorder: real write or display-only?~~ **RESOLVED (P2):** persisted as `photoStorageIds` array order — no schema change.

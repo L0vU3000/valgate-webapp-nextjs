@@ -177,6 +177,28 @@ export async function bulkAssignProperties(
   return { assigned: toAssign.length, conflicts };
 }
 
+/**
+ * Returns a Set of lowercase property names currently assigned to a specific
+ * client (by clientId) within this org. Used by importCsvProperties to detect
+ * duplicates before inserting a batch — avoids an N+1 check per row.
+ *
+ * Why lowercase: user-entered names may differ only in capitalisation
+ * (e.g. "Sunset Villa" vs "sunset villa"). Lowercasing catches those as dupes.
+ *
+ * What could go wrong: an unknown clientId returns an empty Set so no valid
+ * rows are silently blocked.
+ */
+export async function listPropertyNamesByClientId(
+  ctx: Ctx,
+  clientId: string,
+): Promise<Set<string>> {
+  const rows = await db
+    .select({ name: properties.name })
+    .from(properties)
+    .where(and(eq(properties.orgId, ctx.orgId), eq(properties.clientId, clientId)));
+  return new Set(rows.map((r) => r.name.toLowerCase()));
+}
+
 // The shape returned by countPropertyCascade — used by the delete-confirm dialog to show
 // the user a blast-radius summary ("you are about to destroy N leases, N payments, …").
 export type PropertyCascadeCounts = {

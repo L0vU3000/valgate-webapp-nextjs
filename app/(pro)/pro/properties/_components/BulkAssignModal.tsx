@@ -75,6 +75,13 @@ export function BulkAssignModal({
         />
       ) : (
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          {/* Selection count chip — same pill style as CSV review chips */}
+          <div>
+            <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-[12px] font-medium text-slate-600">
+              {selectedPropertyIds.length} {selectedPropertyIds.length === 1 ? "property" : "properties"} selected
+            </span>
+          </div>
+
           <ProField label="Client portfolio">
             <select
               value={clientId}

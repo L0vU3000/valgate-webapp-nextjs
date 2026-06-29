@@ -82,10 +82,14 @@ export function OnboardClientWizard({
   open,
   onOpenChange,
   unassignedProperties,
+  onComplete,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   unassignedProperties: Array<{ id: string; name: string }>;
+  // D2: when provided, the wizard calls this instead of showing its own success
+  // screen. The parent captures the new org id + client name to continue its flow.
+  onComplete?: (orgId: string, clientName: string) => void;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -200,8 +204,15 @@ export function OnboardClientWizard({
       });
 
       if (result.ok) {
-        router.refresh();
-        setShowSuccess(true);
+        if (onComplete && result.orgId) {
+          // D2 nested mode: the parent (e.g. AddPropertyFlowPro) captures the new
+          // org id + client name and resumes the property wizard immediately.
+          onComplete(result.orgId, state.name.trim() || "New client");
+          handleOpenChange(false);
+        } else {
+          router.refresh();
+          setShowSuccess(true);
+        }
       } else {
         setError(result.error);
       }

@@ -36,7 +36,7 @@ chat** — especially for visual plans. Standard flow:
 | `plan-f95de0eb04df4a79` | Phase 3 — Cross-Request Cache with unstable_cache + Tags (client perf) | complete (Cuts 1–3 shipped; `getProgressContext` deferred) | [client-perf-phase3-unstable-cache.md](./client-perf-phase3-unstable-cache.md) | [open](https://plan.agent-native.com/plans/plan-f95de0eb04df4a79) |
 | `plan-e40b6ac387ea480f` | Phase 4 — Shared Read Cache with Upstash (Vercel-native, client perf) | complete (all 17 wrappers on readThrough; bustCache wired into every mutating action; shipped 2026-06-29) | [client-perf-phase4-redis.md](./client-perf-phase4-redis.md) | [open](https://plan.agent-native.com/plans/plan-e40b6ac387ea480f) |
 | `plan-0ddab424743d45dd` | Manager-led client onboarding — Phase 1 (create-on-behalf + invite) | approved (locked, ready) | [manager-led-client-onboarding-phase1.md](./manager-led-client-onboarding-phase1.md) | [open](https://plan.agent-native.com/plans/plan-0ddab424743d45dd) |
-| `plan-5f2dec9315c9422e` | Manager-led onboarding — Phase 2: Rich property population | review (decisions locked) | [manager-led-client-onboarding-phase2.md](./manager-led-client-onboarding-phase2.md) | [open](https://plan.agent-native.com/plans/plan-5f2dec9315c9422e) |
+| `plan-5f2dec9315c9422e` | Manager-led onboarding — Phase 2: Rich property population | complete (P0–P2 shipped) | [manager-led-client-onboarding-phase2.md](./manager-led-client-onboarding-phase2.md) | [open](https://plan.agent-native.com/plans/plan-5f2dec9315c9422e) |
 
 > The Plan MCP tools return only a link (or truncated text) for plans not authored in
 > the current session, so full local mirrors are written **at authoring time**.

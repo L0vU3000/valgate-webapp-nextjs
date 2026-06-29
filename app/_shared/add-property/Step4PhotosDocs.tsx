@@ -20,6 +20,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { createPortal } from "react-dom";
+import { cn } from "@/components/ui/utils";
 import type { FormData, StagedFileRef } from "./types";
 import {
   uploadDraftFileAction,
@@ -104,6 +105,9 @@ export function Step4PhotosDocs({
 
   const [photosDragging, setPhotosDragging] = useState(false);
   const [docsDragging, setDocsDragging] = useState(false);
+  // Drag-to-reorder photo grid state
+  const [dragPhotoIndex, setDragPhotoIndex] = useState<number | null>(null);
+  const [dragOverPhotoIndex, setDragOverPhotoIndex] = useState<number | null>(null);
 
   const [urlById, setUrlById] = useState<Record<string, string>>({});
   const urlByIdRef = useRef<Record<string, string>>({});
@@ -269,6 +273,16 @@ export function Step4PhotosDocs({
     } else if (lightboxIndex !== null && lightboxIndex < i) {
       setLightboxIndex(lightboxIndex + 1);
     }
+  }
+
+  // Move a photo card from one position to another. Persists order via photoStorageIds
+  // array order (no schema change needed — Q3 resolution).
+  function reorderPhoto(fromIndex: number, toIndex: number) {
+    if (fromIndex === toIndex) return;
+    const reordered = [...stagedPhotos];
+    const [moved] = reordered.splice(fromIndex, 1);
+    reordered.splice(toIndex, 0, moved);
+    commitPhotos(reordered);
   }
 
   function replacePhoto(i: number) {
@@ -628,17 +642,70 @@ export function Step4PhotosDocs({
               <input ref={photoReplaceInputRef} type="file" accept="image/*,.heic,.heif" className="hidden" onChange={handlePhotoReplace} />
             </div>
 
+            {/* Aggregate upload progress — shown while any photo is still uploading */}
+            {stagedPhotos.some((p) => p.pending) && (
+              <div className="mb-4 flex items-center gap-2 text-[13px] text-slate-500">
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-500 shrink-0" />
+                <span>
+                  {stagedPhotos.filter((p) => !p.pending).length} of {stagedPhotos.length} uploaded
+                </span>
+              </div>
+            )}
+
             {stagedPhotos.length > 0 ? (
               <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 gap-3 sm:gap-4">
                 <AnimatePresence>
                   {stagedPhotos.map((photo, i) => (
                     <motion.div
                       key={photo.id}
-                      className="relative overflow-hidden rounded-xl shadow-[0px_0px_0px_1px_rgba(0,0,0,0.02),0px_2px_6px_0px_rgba(0,0,0,0.04),0px_4px_8px_0px_rgba(0,0,0,0.1)] group"
+                      className={cn(
+                        "relative overflow-hidden rounded-xl shadow-[0px_0px_0px_1px_rgba(0,0,0,0.02),0px_2px_6px_0px_rgba(0,0,0,0.04),0px_4px_8px_0px_rgba(0,0,0,0.1)] group",
+                        dragPhotoIndex === i && "opacity-40 scale-95",
+                        dragOverPhotoIndex === i && dragPhotoIndex !== i && "ring-2 ring-blue-500 ring-offset-2",
+                      )}
                       initial={{ opacity: 0, scale: 0.88 }}
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.85 }}
                       transition={{ duration: 0.3, ease: easeOut, delay: i * 0.05 }}
+                      draggable={!photo.pending}
+                      onDragStart={(e) => {
+                        e.stopPropagation();
+                        // motion.div types onDragStart as PointerEvent; cast to access DragEvent
+                        // API. Browser fires a real DragEvent here because draggable is set.
+                        const de = e as unknown as React.DragEvent;
+                        setDragPhotoIndex(i);
+                        de.dataTransfer.effectAllowed = "move";
+                        de.dataTransfer.setData("text/photo-reorder", String(i));
+                      }}
+                      onDragOver={(e) => {
+                        e.stopPropagation();
+                        const de = e as unknown as React.DragEvent;
+                        // Ignore file drops from outside — only respond to card reorder drags.
+                        if (!de.dataTransfer.types.includes("text/photo-reorder")) return;
+                        de.preventDefault();
+                        de.dataTransfer.dropEffect = "move";
+                        setDragOverPhotoIndex(i);
+                      }}
+                      onDragEnter={(e) => { e.stopPropagation(); }}
+                      onDragLeave={(e) => {
+                        e.stopPropagation();
+                        if (!(e.currentTarget as Element).contains(e.relatedTarget as Node))
+                          setDragOverPhotoIndex(null);
+                      }}
+                      onDrop={(e) => {
+                        e.stopPropagation();
+                        const de = e as unknown as React.DragEvent;
+                        de.preventDefault();
+                        const fromIndex = Number(de.dataTransfer.getData("text/photo-reorder"));
+                        if (!isNaN(fromIndex)) reorderPhoto(fromIndex, i);
+                        setDragPhotoIndex(null);
+                        setDragOverPhotoIndex(null);
+                      }}
+                      onDragEnd={(e) => {
+                        e.stopPropagation();
+                        setDragPhotoIndex(null);
+                        setDragOverPhotoIndex(null);
+                      }}
                     >
                       <button
                         type="button"
