@@ -22,6 +22,7 @@ export async function createFolder(data: unknown): Promise<ActionResult<Folder>>
   try {
     const result = await svcCreateFolder(ctx, parsed.data);
     revalidateFeTag("folders");
+    await bustCache("folders");
     return { ok: true, data: result };
   } catch (err) {
     console.error("createFolder", err);
@@ -37,6 +38,7 @@ export async function updateFolder(id: string, patch: unknown): Promise<ActionRe
     const result = await svcUpdateFolder(ctx, id, parsed.data);
     if (!result) return { ok: false, error: "Folder not found" };
     revalidateFeTag("folders");
+    await bustCache("folders");
     return { ok: true, data: result };
   } catch (err) {
     console.error("updateFolder", err);
@@ -75,6 +77,7 @@ export async function deleteFolder(id: string): Promise<ActionResult<void>> {
       console.error("deleteFolder: audit log failed", err);
     }
     revalidateFeTag("folders");
+    await bustCache("folders");
     // Documents may have moved to root, so refresh that list too.
     revalidateFeTag("documents");
     await bustCache("documents");

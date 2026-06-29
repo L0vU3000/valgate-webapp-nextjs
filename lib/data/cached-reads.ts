@@ -144,12 +144,11 @@ export function cachedListDocuments(ctx: Ctx, propertyId?: string): Promise<Docu
 }
 
 // Tag: folders
+// Uses readThrough (Upstash) instead of unstable_cache for this entity.
+// Upstash is the single cache of record — do not double-wrap with unstable_cache.
+// The paired bust call is in app/actions/folders.ts beside every revalidateFeTag("folders").
 export function cachedListFolders(ctx: Ctx, propertyId?: string): Promise<Folder[]> {
-  return unstable_cache(
-    async () => listFolders(ctx, propertyId),
-    ["folders", ctx.orgId, propertyKey(propertyId)],
-    { tags: ["folders"] },
-  )();
+  return readThrough("folders", ctx.orgId, propertyId, () => listFolders(ctx, propertyId));
 }
 
 // Tag: maintenance-items
