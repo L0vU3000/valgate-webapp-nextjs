@@ -11,6 +11,7 @@ import {
   updateInspection as svcUpdateInspection,
   deleteInspection as svcDeleteInspection,
 } from "@/lib/services/inspections";
+import { bustCache } from "@/lib/cache/bust";
 
 export async function createInspection(data: unknown): Promise<ActionResult<Inspection>> {
   const parsed = NewInspectionSchema.safeParse(data);
@@ -19,6 +20,7 @@ export async function createInspection(data: unknown): Promise<ActionResult<Insp
   try {
     const result = await svcCreateInspection(ctx, parsed.data);
     revalidateFeTag("inspections");
+    await bustCache("inspections");
     return { ok: true, data: result };
   } catch (err) {
     console.error("createInspection", err);
@@ -34,6 +36,7 @@ export async function updateInspection(id: string, patch: unknown): Promise<Acti
     const result = await svcUpdateInspection(ctx, id, parsed.data);
     if (!result) return { ok: false, error: "Inspection not found" };
     revalidateFeTag("inspections");
+    await bustCache("inspections");
     return { ok: true, data: result };
   } catch (err) {
     console.error("updateInspection", err);
@@ -46,6 +49,7 @@ export async function deleteInspection(id: string): Promise<ActionResult<void>> 
   try {
     await svcDeleteInspection(ctx, id);
     revalidateFeTag("inspections");
+    await bustCache("inspections");
     return { ok: true, data: undefined };
   } catch (err) {
     console.error("deleteInspection", err);
