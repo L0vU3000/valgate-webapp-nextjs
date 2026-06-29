@@ -204,12 +204,11 @@ export function cachedListOwnershipDocuments(
 }
 
 // Tag: safety-risks
+// Uses readThrough (Upstash) instead of unstable_cache for this entity.
+// Upstash is the single cache of record — do not double-wrap with unstable_cache.
+// The cache self-heals at 1h TTL — no mutation action exists for this entity.
 export function cachedListSafetyRisks(ctx: Ctx, propertyId?: string): Promise<SafetyRisk[]> {
-  return unstable_cache(
-    async () => listSafetyRisks(ctx, propertyId),
-    ["safety-risks", ctx.orgId, propertyKey(propertyId)],
-    { tags: ["safety-risks"] },
-  )();
+  return readThrough("safety-risks", ctx.orgId, propertyId, () => listSafetyRisks(ctx, propertyId));
 }
 
 // Tag: inspections
