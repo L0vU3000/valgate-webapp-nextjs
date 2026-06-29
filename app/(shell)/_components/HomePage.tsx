@@ -229,7 +229,7 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
             and the parent allows overflow-x. On `sm:` and above the row
             returns to a static centered flex layout.
           */}
-          <div className="flex items-center gap-3 w-full sm:w-auto overflow-x-auto scrollbar-none -mx-4 sm:mx-0 px-4 sm:px-0">
+          <div className="flex items-center gap-3 w-full sm:w-auto overflow-x-auto scrollbar-none -mx-4 sm:mx-0 px-4 sm:px-0 py-1">
             {[
               { label: "New Property", icon: Plus, action: () => router.push("/add-property") },
               { label: "Analytics", icon: BarChart2, action: () => router.push("/analytics") },

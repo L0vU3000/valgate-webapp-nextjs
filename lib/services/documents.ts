@@ -69,3 +69,55 @@ export async function deleteDocuments(ctx: Ctx, ids: string[]): Promise<Document
   }
   return removed;
 }
+
+// Sets ONLY the ai_status column on a document (Phase 2 AI summaries).
+// Used to flip to "generating" before the model runs and to "failed" if it throws, so the
+// Summary tab can render a reload-safe state.
+//
+// Org-scoped via scopedUpdate: the WHERE matches ctx.orgId, so a document belonging to another
+// org never matches and the function returns null (no IDOR — the caller treats null as not-found).
+//
+// What can go wrong: scopedUpdate refuses writes in demo mode (assertCanMutate) and for members
+// below "member" rank (requireMember); both throw. A non-existent / cross-org id returns null.
+export async function setDocumentAiStatus(
+  ctx: Ctx,
+  id: string,
+  status: "generating" | "ready" | "failed",
+): Promise<Document | null> {
+  return scopedUpdate(ctx, documents, id, { aiStatus: status }, rowToDocument, false);
+}
+
+// Persists a generated summary onto the document row (Phase 2 AI summaries).
+// Writes the summary text, the extracted key fields, the page count, and the final status in a
+// single update so every later page view just reads the row — the model never runs again.
+//
+// Org-scoped via scopedUpdate (same no-IDOR guarantee as setDocumentAiStatus): a cross-org id
+// returns null. The keyFields array is stored as-is in the jsonb column.
+//
+// What can go wrong: same as above — demo mode and insufficient role throw; a missing / cross-org
+// id returns null. The caller (the summarize route) wraps this in a try/catch that flips ai_status
+// back to "failed" on any error.
+export async function saveDocumentSummary(
+  ctx: Ctx,
+  id: string,
+  data: {
+    summary: string;
+    keyFields: { label: string; value: string }[];
+    pageCount: number;
+    status: "ready";
+  },
+): Promise<Document | null> {
+  return scopedUpdate(
+    ctx,
+    documents,
+    id,
+    {
+      aiSummary: data.summary,
+      aiKeyFields: data.keyFields,
+      pageCount: data.pageCount,
+      aiStatus: data.status,
+    },
+    rowToDocument,
+    false,
+  );
+}

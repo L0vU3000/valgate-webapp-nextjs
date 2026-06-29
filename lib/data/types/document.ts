@@ -24,6 +24,12 @@ export const DocumentSchema = z.object({
     ]),
     entityId: z.string().min(1),
   }).optional(),
+  // AI summary (Phase 2). All optional: a document with no summary yet simply omits these.
+  // The DB columns are nullable; the mapping layer turns null into undefined before this parse.
+  aiStatus: z.enum(["generating", "ready", "failed"]).optional(),
+  aiSummary: z.string().optional(),
+  aiKeyFields: z.array(z.object({ label: z.string(), value: z.string() })).optional(),
+  pageCount: z.number().int().nonnegative().optional(),
 });
 
 export type Document = z.infer<typeof DocumentSchema>;

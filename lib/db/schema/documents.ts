@@ -42,6 +42,11 @@ export const documents = pgTable("documents", {
   uploadedBy: text("uploaded_by"),
   uploadedAt: timestamp("uploaded_at", { withTimezone: true }).notNull(),
   verifies: jsonb("verifies"),                                  // { entityType, entityId } | null
+  // AI summary (Phase 2). All nullable: existing documents keep working with no summary, no backfill.
+  aiStatus: text("ai_status"),                                  // null | "generating" | "ready" | "failed"
+  aiSummary: text("ai_summary"),                                // the generated summary text
+  aiKeyFields: jsonb("ai_key_fields"),                          // [{ label, value }] | null
+  pageCount: bigint("page_count", { mode: "number" }),         // real page count from the model
 }, (t) => [
   index("ix_documents_org").on(t.orgId),
   index("ix_documents_property").on(t.propertyId),

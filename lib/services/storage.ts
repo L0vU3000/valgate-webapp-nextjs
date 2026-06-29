@@ -4,9 +4,9 @@ import { createPresignedPost } from "@aws-sdk/s3-presigned-post";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { env } from "@/lib/env";
 import { nextId, type Ctx } from "@/lib/services/_mapping";
+import { MAX_BYTES, ALLOWED_MIME } from "@/lib/upload-constants";
 
-export const MAX_BYTES = 10 * 1024 * 1024;
-export const ALLOWED_MIME = new Set(["application/pdf", "image/jpeg", "image/png", "image/webp"]);
+export { MAX_BYTES, ALLOWED_MIME };
 
 function assertStorageConfigured(): { bucket: string; region: string; accessKeyId: string; secretAccessKey: string } {
   const { STORAGE_BUCKET: bucket, STORAGE_REGION: region, STORAGE_ACCESS_KEY_ID: accessKeyId, STORAGE_SECRET_ACCESS_KEY: secretAccessKey } = env;
@@ -76,4 +76,5 @@ export async function deleteStorageObject(storageId: string): Promise<boolean> {
     console.error("deleteStorageObject: failed to remove S3 object", storageId, err);
     return false;
   }
+
 }

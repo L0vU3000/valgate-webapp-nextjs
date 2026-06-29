@@ -29,6 +29,15 @@ export const env = createEnv({
     DATABASE_AUTHENTICATED_URL: z.string().url().optional(),
     // FE: site-gate password (also read directly via process.env in lib/site-gate.ts).
     SITE_PASSWORD: z.string().min(1).optional(),
+    // Shared secret for Vercel Cron routes. Vercel sends it as `Authorization: Bearer ${CRON_SECRET}`;
+    // the cron route 401s unless it matches. Optional so local builds don't fail when unset — the route
+    // refuses to run (401) without it, so an unset secret means "locked", never "open". Set in Vercel.
+    CRON_SECRET: z.string().min(1).optional(),
+    // OpenAI key for the document AI summaries (Phase 2). The @ai-sdk/openai provider reads
+    // process.env.OPENAI_API_KEY automatically; we validate it here so a misconfig is caught at
+    // boot. Optional so local builds without AI still start — the summarize route just lands in
+    // its "failed" state if the key is missing. Never expose this to the client (no NEXT_PUBLIC_).
+    OPENAI_API_KEY: z.string().min(1).optional(),
   },
   client: {
     NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: z.string().min(1).optional(),
@@ -50,6 +59,8 @@ export const env = createEnv({
     UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN,
     DATABASE_AUTHENTICATED_URL: process.env.DATABASE_AUTHENTICATED_URL,
     SITE_PASSWORD: process.env.SITE_PASSWORD,
+    CRON_SECRET: process.env.CRON_SECRET,
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
     NEXT_PUBLIC_MAPBOX_TOKEN: process.env.NEXT_PUBLIC_MAPBOX_TOKEN,
   },
   emptyStringAsUndefined: true,

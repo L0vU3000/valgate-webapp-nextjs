@@ -9,7 +9,8 @@ import type { FormData } from "./types";
 import type { PropertyDraftSummary } from "@/lib/data/add-property-page";
 import { useDrafts } from "../_lib/use-drafts";
 import { submitPropertyAction } from "../actions";
-import { uploadMultipleDocuments } from "@/app/(shell)/property/[id]/documents/actions";
+import { getPropertyDraftAction, getDraftFileUrlAction } from "@/app/actions/property-drafts";
+import type { DraftFileView } from "@/app/actions/property-drafts";
 import { Step0NewOrDraft } from "./Step0NewOrDraft";
 import { Step1PropertyType } from "./Step1PropertyType";
 import { Step2BasicInfo } from "./Step2BasicInfo";
@@ -21,6 +22,25 @@ import { FlowFooter } from "./FlowFooter";
 import { HowItWorksGate } from "./how-it-works";
 import { StepIntro } from "./how-it-works/StepIntro";
 import { AdvisorModal } from "./AdvisorModal";
+
+// Rebuilds the form's media fields (display names + staged references) from a draft's staged
+// files, split by kind. Used when resuming a draft so Step 4 shows the already-uploaded files.
+function mediaFromFiles(files: DraftFileView[]): Partial<FormData> {
+  const toRef = (f: DraftFileView) => ({
+    id: f.id,
+    name: f.name,
+    mimeType: f.mimeType,
+    sizeBytes: f.sizeBytes,
+  });
+  const photos = files.filter((f) => f.kind === "photo");
+  const documents = files.filter((f) => f.kind === "document");
+  return {
+    photos: photos.map((f) => f.name),
+    stagedPhotos: photos.map(toRef),
+    documents: documents.map((f) => f.name),
+    stagedDocuments: documents.map(toRef),
+  };
+}
 
 export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) {
   const router = useRouter();
@@ -46,6 +66,7 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
   // Non-fatal notice shown on the success screen when some staged files didn't make it to storage
   // (e.g. S3 not configured). The property itself was still created.
   const [uploadNotice, setUploadNotice] = useState<string | null>(null);
+  const [successCoverUrl, setSuccessCoverUrl] = useState<string | undefined>(undefined);
   const [stepErrors, setStepErrors] = useState<Record<string, string> | null>(null);
   const latestFormRef = useRef<FormData>(defaultForm);
   const successScrollRef = useRef<HTMLDivElement>(null);
@@ -68,15 +89,18 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
     if (!mounted) return;
     const urlDraftId = searchParams.get("draftId");
     const urlStep = Number(searchParams.get("step")) as Step;
-    if (urlDraftId) {
-      const draft = localDrafts.find((d) => d.id === urlDraftId);
-      if (draft) {
-        setForm(draft.form);
-        setStep(draft.step);
+    if (urlDraftId && urlDraftId.startsWith("DRFT-")) {
+      // Fetch the draft + its staged files so Step 4's photos/documents come back after a refresh.
+      void (async () => {
+        const res = await getPropertyDraftAction(urlDraftId);
+        if (!res.ok) return;
+        const media = mediaFromFiles(res.data.files);
+        setForm({ ...defaultForm, ...(res.data.draft.form as Partial<FormData>), ...media });
+        setStep(res.data.draft.step as Step);
         setActive(urlDraftId);
         setPreFlowStage(null);
-        return;
-      }
+      })();
+      return;
     }
     if (urlStep >= 1 && urlStep <= 6) {
       setStep(urlStep);
@@ -92,6 +116,17 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
     upsert(activeId, form, step);
   }, [form, step, activeId, mounted, upsert]);
 
+  // Once the active draft has its server id (after the first autosave create), reflect it in the
+  // URL's draftId. A refresh then resumes the right server draft. We only touch draftId — the
+  // step param and everything else stay as-is.
+  useEffect(() => {
+    if (!mounted || !activeId || !activeId.startsWith("DRFT-")) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("draftId") === activeId) return;
+    params.set("draftId", activeId);
+    router.replace(`/add-property?${params.toString()}`);
+  }, [activeId, mounted, router]);
+
   // Clear step errors whenever the user edits the form
   useEffect(() => {
     setStepErrors(null);
@@ -99,11 +134,14 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
 
   const advanceToStep1 = useCallback(
     (newForm: FormData) => {
+      // Assign a temporary client id so autosave has a handle to fire on. The first autosave
+      // CREATEs the server draft and swaps activeId to its DRFT-xxxx id; the effect below then
+      // reflects that server id into the URL. We deliberately don't put the temp id in the URL.
       const id = crypto.randomUUID();
       setActive(id);
       setForm(newForm);
       setStep(1);
-      router.replace(`/add-property?step=1&draftId=${id}`);
+      router.replace(`/add-property?step=1`);
     },
     [router, setActive],
   );
@@ -218,13 +256,17 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
     }
   }
 
-  function handleResumeDraft(id: string) {
-    const draft = localDrafts.find((d) => d.id === id);
-    if (!draft) return;
-    setForm(draft.form);
-    setStep(draft.step);
+  async function handleResumeDraft(id: string) {
+    // Pull the draft + its staged files from the server so Step 4 rehydrates with the uploaded
+    // photos/documents (the local draft record holds text only).
+    const res = await getPropertyDraftAction(id);
+    if (!res.ok) return;
+    const media = mediaFromFiles(res.data.files);
+    const step = res.data.draft.step as Step;
+    setForm({ ...defaultForm, ...(res.data.draft.form as Partial<FormData>), ...media });
+    setStep(step);
     setActive(id);
-    router.replace(`/add-property?step=${draft.step}&draftId=${id}`);
+    router.replace(`/add-property?step=${step}&draftId=${id}`);
   }
 
   function handleSaveAsDraft() {
@@ -235,56 +277,43 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
   }
 
   async function handleSubmit() {
+    // Capture the draft id, then clearActive() up front: it cancels any queued autosave and nulls
+    // activeId, so a late autosave can't re-create the draft after the submit converts + deletes it
+    // (a zombie draft). On failure we restore activeId so a retry still targets the same draft.
+    const draftId = activeId;
+    clearActive();
     setSubmitting(true);
     setSubmitError(null);
     setUploadNotice(null);
     try {
-      // Create the property first. Don't ship the staged blobs to this action — they're
-      // uploaded separately below, once we have the new property's id. (zod strips them anyway.)
-      const result = await submitPropertyAction({
-        ...form,
-        photoFiles: undefined,
-        documentFiles: undefined,
-      });
+      // Resolve the cover photo URL now — submitPropertyAction deletes draft file rows,
+      // so any post-submit fetch would find the row gone.
+      const firstPhoto = form.stagedPhotos?.[0];
+      if (firstPhoto?.id.startsWith("DRFF-")) {
+        const urlRes = await getDraftFileUrlAction(firstPhoto.id);
+        if (urlRes.ok) setSuccessCoverUrl(urlRes.data);
+      }
+
+      // Create the property + convert the draft's staged files into its documents (server-side,
+      // reusing each storageId; draft rows are then deleted, S3 objects kept).
+      const result = await submitPropertyAction(form, draftId ?? undefined);
       if (!result.ok) {
+        if (draftId) setActive(draftId);
         setSubmitError(result.error ?? "Something went wrong. Please try again.");
         return;
       }
 
-      // Property exists now → push the photos/documents staged in Step 4 up to S3.
-      if (result.propertyId) {
-        const notice = await uploadStagedFiles(result.propertyId, form);
-        if (notice) setUploadNotice(notice);
-      }
-
+      if (result.fileNotice) setUploadNotice(result.fileNotice);
       if (result.propertyCode) {
         setForm((f) => ({ ...f, confirmedCode: result.propertyCode! }));
       }
-      clearActive();
       setStep(6);
     } catch {
+      if (draftId) setActive(draftId);
       setSubmitError("Something went wrong. Please try again.");
     } finally {
       setSubmitting(false);
     }
-  }
-
-  // Uploads the staged Step-4 files to object storage and returns a human notice if any failed,
-  // or null when everything (or nothing) uploaded cleanly. Failures are non-fatal: the property
-  // was already created, so we just tell the user which files didn't attach.
-  async function uploadStagedFiles(propertyId: string, f: FormData): Promise<string | null> {
-    const files = [...(f.photoFiles ?? []), ...(f.documentFiles ?? [])];
-    if (files.length === 0) return null;
-
-    const fd = new globalThis.FormData();
-    for (const file of files) {
-      fd.append("files", file);
-    }
-
-    const results = await uploadMultipleDocuments(propertyId, fd);
-    const failed = results.filter((r) => !r.result.ok).map((r) => r.name);
-    if (failed.length === 0) return null;
-    return `Property saved, but ${failed.length} file${failed.length === 1 ? "" : "s"} couldn't be uploaded: ${failed.join(", ")}.`;
   }
 
   const progressPercent = step === 0 ? 0 : (step / 6) * 100;
@@ -354,7 +383,7 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
                 </div>
               </div>
             )}
-            <Step6Success form={form} />
+            <Step6Success form={form} coverUrl={successCoverUrl} />
           </div>
         ) : (
           <div className="flex-1 overflow-auto px-4 sm:px-8 pb-4 flex flex-col min-h-0">
@@ -379,7 +408,7 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
               {step === 1 && <Step1PropertyType form={form} setForm={setForm} goNext={goNext} />}
               {step === 2 && <Step2BasicInfo form={form} setForm={setForm} errors={stepErrors} />}
               {step === 3 && <Step3Financial form={form} setForm={setForm} goNext={goNext} errors={stepErrors} />}
-              {step === 4 && <Step4PhotosDocs form={form} setForm={setForm} />}
+              {step === 4 && <Step4PhotosDocs form={form} setForm={setForm} draftId={activeId} />}
               {step === 5 && <Step5Review form={form} goToStep={(s) => setStep(s as Step)} />}
             </div>
           </div>
