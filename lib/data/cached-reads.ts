@@ -253,12 +253,11 @@ export function cachedListEstateAssignments(
 }
 
 // Tag: notifications
+// Uses readThrough (Upstash) instead of unstable_cache for this entity.
+// Upstash is the single cache of record — do not double-wrap with unstable_cache.
+// The cache self-heals at 1h TTL — mutations do not bust this cache (by design).
 export function cachedListNotifications(ctx: Ctx, propertyId?: string): Promise<Notification[]> {
-  return unstable_cache(
-    async () => listNotifications(ctx, propertyId),
-    ["notifications", ctx.orgId, propertyKey(propertyId)],
-    { tags: ["notifications"] },
-  )();
+  return readThrough("notifications", ctx.orgId, propertyId, () => listNotifications(ctx, propertyId));
 }
 
 // Tag: user-profiles
