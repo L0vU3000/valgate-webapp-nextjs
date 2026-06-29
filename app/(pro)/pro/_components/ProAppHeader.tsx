@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   Search,
   Bell,
@@ -31,10 +32,14 @@ export function ProAppHeader({
   manager,
   searchProperties,
   managedAccounts,
+  isManager,
 }: {
   manager: ShellManager;
   searchProperties: PropertyListItem[];
   managedAccounts: { clerkOrgId: string; name: string; level: "view" | "full" }[];
+  // When true, renders the "My portfolio" pill so managers can switch back to
+  // the owner shell. Owners (is_manager=false) never see this pill.
+  isManager: boolean;
 }) {
   const { openAI } = useProAgent();
   const [commandOpen, setCommandOpen] = useState(false);
@@ -106,6 +111,15 @@ export function ProAppHeader({
         </div>
 
         <div className="flex flex-1 items-center justify-end gap-1">
+          {/* Manager-only pill: switch back to the owner portfolio shell. Owners never see this. */}
+          {isManager && (
+            <Link
+              href="/"
+              className="hidden sm:inline-flex items-center h-8 px-3 rounded-full border border-border-default bg-surface-base text-[12.5px] font-medium text-secondary hover:bg-surface-tint hover:text-foreground transition-colors duration-150 mr-1"
+            >
+              My portfolio →
+            </Link>
+          )}
           <button
             type="button"
             onClick={() => openAI()}

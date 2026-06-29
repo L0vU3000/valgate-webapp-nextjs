@@ -61,7 +61,9 @@ const SHOW_GOOGLE = false;
 async function finalize(signIn: ReturnType<typeof useSignIn>["signIn"], router: ReturnType<typeof useRouter>) {
   await signIn!.finalize({
     navigate: ({ decorateUrl }) => {
-      const url = decorateUrl("/");
+      // /launch is the decider page — it reads is_manager and redirects to /pro/dashboard
+      // or "/" so owners and managers each land in the right place automatically.
+      const url = decorateUrl("/launch");
       if (url.startsWith("http")) {
         window.location.href = url;
       } else {

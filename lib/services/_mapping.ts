@@ -25,9 +25,13 @@ export function toDomain(table: PgTable, row: Record<string, unknown>): Record<s
 
 // C8/D8: atomic prefixed-id counter. `collection` IS the id prefix (PROP, TEN, …); id_counters
 // is seeded next=max+1 per prefix, so the just-allocated id is next-1. Exercised in B4.
+// Self-initialises missing counter rows (next=2 → first id is PREFIX-0001) so new collections
+// don't require a seed run to work in production.
 export async function nextId(collection: string): Promise<string> {
   const { rows } = await db.execute<{ next: number }>(
-    sql`UPDATE id_counters SET next = next + 1 WHERE collection = ${collection} RETURNING next`,
+    sql`INSERT INTO id_counters (collection, next) VALUES (${collection}, 2)
+        ON CONFLICT (collection) DO UPDATE SET next = id_counters.next + 1
+        RETURNING next`,
   );
   const next = rows[0]?.next;
   if (next == null) throw new Error(`nextId: unknown collection "${collection}"`);

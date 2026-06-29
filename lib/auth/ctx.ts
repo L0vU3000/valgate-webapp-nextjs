@@ -37,6 +37,8 @@ export async function requireCtx(): Promise<Ctx> {
       primaryEmail: clerkUser?.emailAddresses[0]?.emailAddress ?? `${userId}@pending.clerk`,
       displayName: [clerkUser?.firstName, clerkUser?.lastName].filter(Boolean).join(" ") || null,
       avatarUrl: clerkUser?.imageUrl ?? null,
+      // Read the accountType set at sign-up; if absent, default is owner (false).
+      isManager: clerkUser?.unsafeMetadata?.accountType === "manager",
     });
     // ponytail: org name = Clerk id as placeholder; webhook fills in real name/slug
     await upsertOrg({ id: orgId, name: orgId, slug: null });

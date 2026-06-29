@@ -6,6 +6,7 @@ import { type UserProfile } from "@/lib/data/types/user-profile";
 import { roleAtLeast } from "@/lib/services/_mapping";
 import {
   getInviteCode,
+  getIsManager,
   listAccessRequestsForOwner,
   listManagersForOwner,
   type PendingRequest,
@@ -42,6 +43,8 @@ export type SettingsPageData = {
     language: string;
     timezone: string;
   };
+  // Whether this user has the manager mode flag enabled — drives the toggle in Preferences.
+  isManager: boolean;
   // Only present for org owners/admins. Null for viewers/members.
   managersData: ManagersData | null;
 };
@@ -60,8 +63,11 @@ const HARD_DEFAULTS: Record<string, NotifChannels> = {
 
 export async function getSettingsPageData(): Promise<SettingsPageData> {
   const authCtx = await requireCtx();
-  const storedPrefs = await listNotificationPreferences(authCtx);
-  const profile = await getMyUserProfile(authCtx);
+  const [storedPrefs, profile, isManager] = await Promise.all([
+    listNotificationPreferences(authCtx),
+    getMyUserProfile(authCtx),
+    getIsManager(authCtx),
+  ]);
 
   const defaultNotifications: Record<string, NotifChannels> = { ...HARD_DEFAULTS };
   for (const pref of storedPrefs) {
@@ -88,6 +94,7 @@ export async function getSettingsPageData(): Promise<SettingsPageData> {
     profile,
     notificationRows: NOTIFICATION_ROWS,
     defaultNotifications,
+    isManager,
     managersData,
     dashboardViewOptions: [
       { value: "portfolio-overview", label: "Portfolio Overview" },
