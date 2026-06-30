@@ -19,6 +19,8 @@ import { listEmergencyContacts } from "@/lib/services/emergency-contacts";
 import { listEstateAssignments } from "@/lib/services/estate-assignments";
 import { listNotifications } from "@/lib/services/notifications";
 import { getUserProfile } from "@/lib/services/user-profiles";
+import { listProperties } from "@/lib/services/properties";
+import { listProfessionals } from "@/lib/services/professionals";
 import type { Ctx } from "@/lib/services/_mapping";
 import type { Lease } from "@/lib/data/types/lease";
 import type { Tenant } from "@/lib/data/types/tenant";
@@ -38,6 +40,8 @@ import type { EmergencyContact } from "@/lib/data/types/emergency-contact";
 import type { EstateAssignment } from "@/lib/data/types/successor-property-assignment";
 import type { Notification } from "@/lib/data/types/notification";
 import type { UserProfile } from "@/lib/data/types/user-profile";
+import type { Property } from "@/lib/data/types/property";
+import type { Professional } from "@/lib/data/types/professional";
 
 function propertyKey(propertyId?: string): string {
   return propertyId ?? "__all__";
@@ -258,6 +262,22 @@ export function cachedListEstateAssignments(
 // The cache self-heals at 1h TTL — mutations do not bust this cache (by design).
 export function cachedListNotifications(ctx: Ctx, propertyId?: string): Promise<Notification[]> {
   return readThrough("notifications", ctx.orgId, propertyId, () => listNotifications(ctx, propertyId));
+}
+
+// Tag: properties
+// Uses readThrough (Upstash) instead of unstable_cache for this entity.
+// Upstash is the single cache of record — do not double-wrap with unstable_cache.
+// The paired bust call is in app/actions/properties.ts beside every revalidateFeTag("properties").
+export function cachedListProperties(ctx: Ctx): Promise<Property[]> {
+  return readThrough("properties", ctx.orgId, undefined, () => listProperties(ctx));
+}
+
+// Tag: professionals
+// Uses readThrough (Upstash) instead of unstable_cache for this entity.
+// Upstash is the single cache of record — do not double-wrap with unstable_cache.
+// The paired bust call is in app/actions/professionals.ts beside every revalidateFeTag("professionals").
+export function cachedListProfessionals(ctx: Ctx): Promise<Professional[]> {
+  return readThrough("professionals", ctx.orgId, undefined, () => listProfessionals(ctx));
 }
 
 // Tag: user-profiles
