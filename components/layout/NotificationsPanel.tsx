@@ -41,6 +41,12 @@ const CATEGORY_STYLES: Record<
     iconBg: "bg-purple-50",
     iconText: "text-purple-600",
   },
+  ACCESS: {
+    badgeBg: "bg-slate-50",
+    badgeText: "text-slate-700",
+    iconBg: "bg-slate-50",
+    iconText: "text-slate-600",
+  },
 };
 
 const CATEGORY_ICONS: Record<NotificationCategory, React.ReactNode> = {
@@ -80,6 +86,12 @@ const CATEGORY_ICONS: Record<NotificationCategory, React.ReactNode> = {
       <circle cx="6" cy="4" r="3.5" stroke="currentColor" strokeWidth="1.5" />
       <path d="M0 11c0-3 2.686-4 6-4s6 1 6 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
       <path d="M12 3l1.5 1.5L16 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+  ACCESS: (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+      <circle cx="5" cy="5" r="4" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M8.5 8.5L13 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   ),
 };
