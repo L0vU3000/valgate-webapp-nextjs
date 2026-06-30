@@ -4,6 +4,7 @@
 import { requireCtx } from "@/lib/auth/ctx";
 import type { ActionResult } from "@/app/actions/_result";
 import { revalidateFeTag, NOT_IMPLEMENTED_UNTIL_B6 } from "@/app/actions/_result";
+import { bustCache } from "@/lib/cache/bust";
 import { NewProfessionalSchema, ProfessionalPatchSchema } from "@/lib/data/types/professional";
 import type { Professional } from "@/lib/data/types/professional";
 import {
@@ -20,6 +21,7 @@ export async function createProfessional(data: unknown): Promise<ActionResult<Pr
   try {
     const result = await svcCreateProfessional(ctx, parsed.data);
     revalidateFeTag("professionals");
+    await bustCache("professionals");
     return { ok: true, data: result };
   } catch (err) {
     console.error("createProfessional", err);
@@ -35,6 +37,7 @@ export async function updateProfessional(id: string, patch: unknown): Promise<Ac
     const result = await svcUpdateProfessional(ctx, id, parsed.data);
     if (!result) return { ok: false, error: "Professional not found" };
     revalidateFeTag("professionals");
+    await bustCache("professionals");
     return { ok: true, data: result };
   } catch (err) {
     console.error("updateProfessional", err);
@@ -57,6 +60,7 @@ export async function deleteProfessional(id: string): Promise<ActionResult<void>
       console.error("deleteProfessional: audit log failed", err);
     }
     revalidateFeTag("professionals");
+    await bustCache("professionals");
     return { ok: true, data: undefined };
   } catch (err) {
     console.error("deleteProfessional", err);

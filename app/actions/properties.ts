@@ -4,6 +4,7 @@
 import { requireCtx } from "@/lib/auth/ctx";
 import type { ActionResult } from "@/app/actions/_result";
 import { revalidateFeTag } from "@/app/actions/_result";
+import { bustCache } from "@/lib/cache/bust";
 import { NewPropertySchema, PropertyPatchSchema } from "@/lib/data/types/property";
 import type { Property } from "@/lib/data/types/property";
 import type { PropertyValuation } from "@/lib/data/types/property-valuation";
@@ -35,6 +36,7 @@ export async function createProperty(data: unknown): Promise<ActionResult<Proper
   try {
     const result = await svcCreateProperty(ctx, parsed.data);
     revalidateFeTag("properties");
+    await bustCache("properties");
     return { ok: true, data: result };
   } catch (err) {
     console.error("createProperty", err);
@@ -50,6 +52,7 @@ export async function updateProperty(id: string, patch: unknown): Promise<Action
     const result = await svcUpdateProperty(ctx, id, parsed.data);
     if (!result) return { ok: false, error: "Property not found" };
     revalidateFeTag("properties");
+    await bustCache("properties");
     return { ok: true, data: result };
   } catch (err) {
     console.error("updateProperty", err);
@@ -62,6 +65,7 @@ export async function deleteProperty(id: string): Promise<ActionResult<void>> {
   try {
     await svcDeleteProperty(ctx, id);
     revalidateFeTag("properties");
+    await bustCache("properties");
     return { ok: true, data: undefined };
   } catch (err) {
     console.error("deleteProperty", err);
@@ -78,6 +82,7 @@ async function verifyPillar(propertyId: string, pillar: Pillar, docIds: string[]
   try {
     await submitVerification(ctx, propertyId, pillar, docIds);
     revalidateFeTag("properties");
+    await bustCache("properties");
     const prop = await svcGetProperty(ctx, propertyId);
     if (!prop) return { ok: false, error: "Property not found" };
     return { ok: true, data: prop };
@@ -96,6 +101,7 @@ async function revokePillar(propertyId: string, pillar: Pillar): Promise<ActionR
   try {
     await revokeVerification(ctx, propertyId, pillar);
     revalidateFeTag("properties");
+    await bustCache("properties");
     const prop = await svcGetProperty(ctx, propertyId);
     if (!prop) return { ok: false, error: "Property not found" };
     return { ok: true, data: prop };

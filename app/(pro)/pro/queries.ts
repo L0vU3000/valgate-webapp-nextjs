@@ -2,8 +2,6 @@ import "server-only";
 import * as agentRunsDb from "@/lib/data/db/agent-runs";
 import { getAiMessage } from "@/lib/services/ai-messages";
 import * as clientsDb from "@/lib/data/db/clients";
-import { listProperties } from "@/lib/services/properties";
-import { listProfessionals } from "@/lib/services/professionals";
 import {
   cachedListLeases,
   cachedListPayments,
@@ -19,6 +17,8 @@ import {
   cachedListEmergencyContacts,
   cachedListEstateAssignments,
   cachedListDocuments,
+  cachedListProperties,
+  cachedListProfessionals,
 } from "@/lib/data/cached-reads";
 import { getCurrentUserId } from "@/lib/data/auth-shim";
 import { requireCtx } from "@/lib/auth/ctx";
@@ -392,14 +392,14 @@ async function loadProContext(): Promise<ProContext> {
     documents,
   ] = await Promise.all([
     clientsDb.list(userId),
-    listProperties(authCtx),
+    cachedListProperties(authCtx),
     cachedListLeases(authCtx),
     cachedListPayments(authCtx),
     cachedListTenants(authCtx),
     cachedListMaintenanceItems(authCtx),
     cachedListCertifications(authCtx),
     cachedListSafetyRisks(authCtx),
-    listProfessionals(authCtx),
+    cachedListProfessionals(authCtx),
     cachedListPropertyValuations(authCtx),
     cachedListInspections(authCtx),
     cachedListOwnershipRecords(authCtx),
