@@ -15,10 +15,19 @@ import { organizations, users } from "./identity";
 // Access level a manager requests / is granted. Maps to org roles on approval:
 //   view → "viewer" (read-only, may propose change_requests)
 //   full → "admin"  (acts directly inside the owner org)
+// NOTE: accessLevelEnum is kept for access_requests / managers.ts flow only.
+//       client_handoffs uses portfolioRoleEnum (Phase 6).
 export const accessLevelEnum = pgEnum("access_level", ["view", "full"]);
 
 // Lifecycle shared by access_requests and change_requests.
 export const requestStatusEnum = pgEnum("request_status", ["pending", "approved", "denied"]);
+
+// Phase 6: three-tier role for portfolio members. Replaces the binary view/full
+// that client_handoffs previously used via accessLevelEnum.
+//   admin  → org:admin  (Clerk) — can manage members and all content
+//   member → org:member (Clerk) — can view and edit content
+//   viewer → org:viewer (Clerk) — read-only
+export const portfolioRoleEnum = pgEnum("portfolio_role", ["admin", "member", "viewer"]);
 
 export const accessRequests = pgTable("access_requests", {
   id: text("id").primaryKey(),                                          // ARQ-0001 (C8)
@@ -62,7 +71,14 @@ export const changeRequests = pgTable("change_requests", {
 // is NOT an access_requests row and does NOT grant permissions on its own.
 export const managerAccessEnum = pgEnum("manager_access", ["granted", "removed"]);
 
+// What the manager CHOSE at onboard: keep their access after handoff, or step away.
+// Kept SEPARATE from managerAccess ("granted"/"removed") — intent ≠ live state.
+// "keep" is the safe default; "leave" only applies to full-access handoffs (view-only
+// orgs would be left admin-orphaned if the only admin leaves).
+export const managerAccessIntentEnum = pgEnum("manager_access_intent", ["keep", "leave"]);
+
 export const handoffStatusEnum = pgEnum("handoff_status", [
+  "draft",    // Phase 6: org + handoff created but invitation not yet sent
   "pending",
   "accepted",
   "revoked",
@@ -73,13 +89,16 @@ export const clientHandoffs = pgTable("client_handoffs", {
   id: text("id").primaryKey(),                                          // CHO-0001
   managerUserId: text("manager_user_id").notNull().references(() => users.id),
   orgId: text("org_id").notNull().references(() => organizations.id),
-  clientName: text("client_name").notNull(),
+  clientName: text("client_name"),                                      // Phase 6: nullable — additional invitees may be email-only
   clientEmail: text("client_email").notNull(),
   clerkInvitationId: text("clerk_invitation_id"),                       // null when "create without inviting"
   status: handoffStatusEnum("status").notNull().default("pending"),
-  role: accessLevelEnum("role").notNull().default("full"),
+  role: portfolioRoleEnum("role").notNull().default("admin"),            // Phase 6: was accessLevelEnum "full"
   // Phase 3 — post-acceptance lifecycle
   managerAccess: managerAccessEnum("manager_access").notNull().default("granted"),
+  // Phase 3 finish — manager's intent at onboard time: keep access or step away.
+  // Server clamps this to "keep" when role = "view" (view-only org can't be left admin-orphaned).
+  managerAccessIntent: managerAccessIntentEnum("manager_access_intent").notNull().default("keep"),
   invitationUrl: text("invitation_url"),
   invitationLastCopiedAt: timestamp("invitation_last_copied_at", { withTimezone: true }),
   locale: text("locale").notNull().default("en"),                      // "en" | "km"

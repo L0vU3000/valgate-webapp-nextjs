@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff, ArrowRight, Mail, Check, ArrowLeft, Loader2, Building2, Briefcase } from "lucide-react";
 import { toast } from "sonner";
 import { useSignUp } from "@clerk/nextjs";
@@ -42,7 +42,16 @@ type FieldErrors = Partial<Record<"fullName" | "email" | "password" | "confirmPa
 
 export function RegisterPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { signUp } = useSignUp();
+
+  // Org invitation tickets belong on the dedicated accept flow.
+  useEffect(() => {
+    const ticket = searchParams.get("__clerk_ticket");
+    if (!ticket) return;
+    const query = searchParams.toString();
+    router.replace(query ? `/accept-invitation?${query}` : "/accept-invitation");
+  }, [router, searchParams]);
 
   const [step, setStep] = useState<"form" | "verify">("form");
   // Owner is the default — the vast majority of sign-ups are property owners.

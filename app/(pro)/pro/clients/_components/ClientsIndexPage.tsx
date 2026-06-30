@@ -1,14 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ChevronRight, Plus, RotateCcw } from "lucide-react";
 import { ClientsTable } from "@/app/(pro)/pro/dashboard/_components/ClientsTable";
 import { OnboardClientWizard } from "./OnboardClientWizard";
 import { PendingHandoffsSection } from "./PendingHandoffsSection";
 import { ConfirmAction } from "@/components/ui/confirm-action";
 import { setClientStatus } from "@/app/(pro)/pro/actions";
-import type { ClientRollup, HandoffRow } from "@/app/(pro)/pro/queries";
+import type { ClientRollup, PortfolioRow } from "@/app/(pro)/pro/queries";
 import { cn } from "@/components/ui/utils";
 
 // Clients index — the full book of business. Reuses the dashboard's
@@ -19,7 +19,7 @@ export function ClientsIndexPage({
   clients,
   inactiveClients,
   unassignedProperties,
-  handoffs = [],
+  portfolios = [],
 }: {
   clients: ClientRollup[];
   // Clients whose status is "Inactive" — excluded from rollups but shown
@@ -32,10 +32,18 @@ export function ClientsIndexPage({
     clientType: "Individual" | "Corporate";
   }>;
   unassignedProperties: Array<{ id: string; name: string }>;
-  handoffs?: HandoffRow[];
+  portfolios?: PortfolioRow[];
 }) {
   const [onboardOpen, setOnboardOpen] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Open the wizard when arriving via Create → New Client (?onboard=1).
+  useEffect(() => {
+    if (searchParams.get("onboard") !== "1") return;
+    setOnboardOpen(true);
+    router.replace("/pro/clients", { scroll: false });
+  }, [searchParams, router]);
 
   // Calls the setClientStatus server action and refreshes so the UI reflects
   // the new state immediately (active clients disappear on Archive, inactive
@@ -82,8 +90,8 @@ export function ClientsIndexPage({
           unassignedProperties={unassignedProperties}
         />
 
-        {/* Pending invitations — manager-led onboarding handoffs. */}
-        <PendingHandoffsSection handoffs={handoffs} />
+        {/* Client portfolios — grouped by org, with Manage members drawer. */}
+        <PendingHandoffsSection portfolios={portfolios ?? []} />
 
         {/* Active clients — Archive button is shown because onArchive is provided. */}
         <ClientsTable clients={clients} onArchive={handleArchive} />

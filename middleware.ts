@@ -6,6 +6,7 @@ import {
   SITE_GATE_PATH,
   getExpectedSiteAccessToken,
   isSiteGateEnabled,
+  isSiteGateExempt,
 } from "@/lib/site-gate";
 
 // The frontend's site-gate, factored out so it can run on its own (DEMO_MODE) or wrapped by Clerk.
@@ -17,7 +18,11 @@ async function siteGate(request: NextRequest): Promise<NextResponse | null> {
     return null;
   }
 
-  const { pathname } = request.nextUrl;
+  const { pathname, search } = request.nextUrl;
+
+  if (isSiteGateExempt(pathname)) {
+    return null;
+  }
 
   if (pathname === SITE_GATE_PATH) {
     return null;
@@ -47,7 +52,8 @@ async function siteGate(request: NextRequest): Promise<NextResponse | null> {
 
   const gateUrl = request.nextUrl.clone();
   gateUrl.pathname = SITE_GATE_PATH;
-  gateUrl.searchParams.set("from", pathname);
+  gateUrl.search = "";
+  gateUrl.searchParams.set("from", `${pathname}${search}`);
   return NextResponse.redirect(gateUrl);
 }
 
@@ -70,6 +76,7 @@ const hasClerk =
 const isPublicRoute = createRouteMatcher([
   "/login(.*)",
   "/register(.*)",
+  "/accept-invitation(.*)",
   "/forgot-password(.*)",
   "/contact(.*)",
   "/api/webhooks/clerk(.*)",

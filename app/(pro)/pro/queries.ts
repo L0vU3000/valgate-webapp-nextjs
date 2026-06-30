@@ -25,9 +25,11 @@ import {
 import { getFsUserId } from "@/lib/data/auth-shim";
 import { requireCtx } from "@/lib/auth/ctx";
 import { listManagedAccounts, getIsManager } from "@/lib/services/managers";
-import { clientHandoffs } from "@/lib/db/schema";
+import { clientHandoffs, organizationMemberships } from "@/lib/db/schema";
 import { organizations } from "@/lib/db/schema";
 import { properties } from "@/lib/db/schema";
+import { listPortfolioMembers as svcListPortfolioMembers } from "@/lib/services/client-onboarding";
+import type { PortfolioMember, PortfolioInvitee } from "@/lib/services/client-onboarding";
 import { OWN_PORTFOLIO_ID } from "@/app/(pro)/pro/_components/pro-shell-types";
 import {
   computeProgress,
@@ -1105,22 +1107,33 @@ export async function getAgentHubData(): Promise<AgentHubData> {
 // Client portfolios — manager-led onboarding handoffs (client_handoffs)
 // ---------------------------------------------------------------------------
 
-export type ClientPortfolioEntry = {
-  id: string;
-  name: string;
+// Phase 6: grouped portfolio view — one entry per org, not one per handoff.
+export type PortfolioRow = {
   orgId: string;
-  userId: string;
+  name: string;
+  memberCount: number;
+  pendingCount: number;
   propertyCount: number;
 };
 
+// Re-export so drawer consumers can import types from one place.
+export type { PortfolioMember, PortfolioInvitee };
+
 export type HandoffRow = {
   id: string;
-  clientName: string;
+  // Phase 6: nullable — email-only invitees have no name until they accept.
+  clientName: string | null;
   clientEmail: string;
-  status: "pending" | "accepted" | "revoked" | "bounced";
-  role: "view" | "full";
+  // Phase 6: added "draft" (org created, invitation not yet sent).
+  status: "draft" | "pending" | "accepted" | "revoked" | "bounced";
+  // Phase 6: widened from "view" | "full" to three-tier.
+  role: "admin" | "member" | "viewer";
   managerAccess: "granted" | "removed";
+  // Phase 3 finish: manager's intent at onboard time (keep access or step away).
+  managerAccessIntent: "keep" | "leave";
   invitationUrl: string | null;
+  invitationLastCopiedAt: Date | null;
+  locale: "en" | "km";
   createdAt: Date;
 };
 
@@ -1134,54 +1147,97 @@ export async function listClientHandoffs(): Promise<HandoffRow[]> {
       status: clientHandoffs.status,
       role: clientHandoffs.role,
       managerAccess: clientHandoffs.managerAccess,
+      managerAccessIntent: clientHandoffs.managerAccessIntent,
       invitationUrl: clientHandoffs.invitationUrl,
+      invitationLastCopiedAt: clientHandoffs.invitationLastCopiedAt,
+      locale: clientHandoffs.locale,
       createdAt: clientHandoffs.createdAt,
     })
     .from(clientHandoffs)
     .where(eq(clientHandoffs.managerUserId, authCtx.userId))
     .orderBy(desc(clientHandoffs.createdAt));
-  return rows;
+  return rows.map((row) => ({
+    ...row,
+    locale: row.locale === "km" ? "km" : "en",
+  }));
 }
 
-export async function listClientPortfolios(): Promise<ClientPortfolioEntry[]> {
+// Phase 6: returns one PortfolioRow per org (not one per handoff).
+// memberCount = active org_membership rows; pendingCount = draft/pending/bounced handoffs.
+export async function listClientPortfolios(): Promise<PortfolioRow[]> {
   const authCtx = await requireCtx();
-  const rows = await db
-    .select({
-      id: clientHandoffs.id,
-      name: clientHandoffs.clientName,
-      orgId: organizations.id,
-      userId: clientHandoffs.managerUserId,
+
+  // Distinct orgs this manager has any handoff for.
+  const orgRows = await db
+    .selectDistinct({
+      orgId: clientHandoffs.orgId,
+      orgName: organizations.name,
     })
     .from(clientHandoffs)
     .innerJoin(organizations, eq(organizations.id, clientHandoffs.orgId))
-    .where(
-      and(
-        eq(clientHandoffs.managerUserId, authCtx.userId),
-        eq(clientHandoffs.status, "accepted"),
-      ),
-    );
+    .where(eq(clientHandoffs.managerUserId, authCtx.userId));
 
-  if (rows.length === 0) return [];
+  if (orgRows.length === 0) return [];
 
-  const orgIds = rows.map((r) => r.orgId);
-  const counts = await db
-    .select({
-      orgId: properties.orgId,
-      count: sql<number>`count(*)::int`,
-    })
-    .from(properties)
-    .where(inArray(properties.orgId, orgIds))
-    .groupBy(properties.orgId);
+  const orgIds = orgRows.map((r) => r.orgId);
 
-  const countByOrg = new Map(counts.map((c) => [c.orgId, c.count]));
+  const [memberCounts, pendingCounts, propertyCounts] = await Promise.all([
+    db
+      .select({
+        orgId: organizationMemberships.orgId,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(organizationMemberships)
+      .where(
+        and(
+          inArray(organizationMemberships.orgId, orgIds),
+          eq(organizationMemberships.status, "active"),
+        ),
+      )
+      .groupBy(organizationMemberships.orgId),
+    db
+      .select({
+        orgId: clientHandoffs.orgId,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(clientHandoffs)
+      .where(
+        and(
+          eq(clientHandoffs.managerUserId, authCtx.userId),
+          inArray(clientHandoffs.orgId, orgIds),
+          inArray(clientHandoffs.status, ["draft", "pending", "bounced"]),
+        ),
+      )
+      .groupBy(clientHandoffs.orgId),
+    db
+      .select({
+        orgId: properties.orgId,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(properties)
+      .where(inArray(properties.orgId, orgIds))
+      .groupBy(properties.orgId),
+  ]);
 
-  return rows.map((r) => ({
-    id: r.id,
-    name: r.name,
+  const memberByOrg = new Map(memberCounts.map((r) => [r.orgId, r.count]));
+  const pendingByOrg = new Map(pendingCounts.map((r) => [r.orgId, r.count]));
+  const propByOrg = new Map(propertyCounts.map((r) => [r.orgId, r.count]));
+
+  return orgRows.map((r) => ({
     orgId: r.orgId,
-    userId: r.userId,
-    propertyCount: countByOrg.get(r.orgId) ?? 0,
+    name: r.orgName,
+    memberCount: memberByOrg.get(r.orgId) ?? 0,
+    pendingCount: pendingByOrg.get(r.orgId) ?? 0,
+    propertyCount: propByOrg.get(r.orgId) ?? 0,
   }));
+}
+
+// Server-side drawer data — delegates to the service (auth + org guard happen there).
+export async function getPortfolioMembersQuery(
+  orgId: string,
+): Promise<{ members: PortfolioMember[]; invitees: PortfolioInvitee[] }> {
+  const authCtx = await requireCtx();
+  return svcListPortfolioMembers(authCtx, orgId);
 }
 
 // ---------------------------------------------------------------------------

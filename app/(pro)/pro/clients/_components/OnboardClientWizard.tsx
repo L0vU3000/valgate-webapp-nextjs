@@ -1,10 +1,20 @@
 "use client";
 
+// OnboardClientWizard — 4-step "create a portfolio + invite people" flow.
+//
+// Step 1: Portfolio name
+// Step 2: People — repeatable { email, role, name? } rows (monday.com-style)
+// Step 3: Properties — sketch new or assign existing
+// Step 4: Review — dual CTA: "Create portfolio" (drafts only) / "Create & invite now"
+//
+// On D2 (onComplete provided): always sends invitations, then calls onComplete(orgId, name)
+// so the parent (AddPropertyFlowPro) can resume immediately.
+
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, X, Check } from "lucide-react";
 import { motion } from "motion/react";
-import { onboardClientPortfolioAction } from "@/app/(pro)/pro/actions";
+import { createPortfolioAction } from "@/app/(pro)/pro/actions";
 import {
   ProModal,
   ProField,
@@ -14,68 +24,44 @@ import {
   proSelectClass,
   proPrimaryButtonClass,
 } from "@/app/(pro)/pro/_components/pro-modal";
+import { RoleSelect } from "./RoleSelect";
 import { cn } from "@/components/ui/utils";
+import type { PortfolioRole } from "@/lib/services/client-onboarding";
 
-// ────────────────────────────────────────────────────────────────────────────
-// OnboardClientWizard — the 3-step "invite a client to their portfolio" flow.
-// Replaces the legacy single-form OnboardClientModal.
-//
-// Everything is collected client-side across three steps, then submitted ONCE
-// to onboardClientPortfolioAction. That action creates the Clerk org, sends the
-// invitation, records the handoff, creates any sketched properties, and assigns
-// any selected existing ones.
-//
-// Same controlled props as the old modal — the parent only owns the open/close
-// boolean and supplies the manager's unassigned properties.
-//
-// Phase 1 note: the action carries one `name` (the portfolio/org + client
-// name) plus the property inputs. `portfolioName`, `clientType`, and
-// `retainAccess` are gathered for the manager's benefit but are not persisted
-// separately yet — same precedent as the original modal's UI-only fields.
-// ────────────────────────────────────────────────────────────────────────────
-
-// One sketched property row. `type` holds the human label ("Residential" etc.);
-// the server maps it to the internal enum.
 type PropertyStub = {
   name: string;
   type: string;
   value?: number;
 };
 
-// The whole wizard lives in this single state object, as the design spec asks.
-type WizardState = {
-  step: 1 | 2 | 3;
-  name: string;
+type Invitee = {
   email: string;
+  role: PortfolioRole;
+  name: string;
+};
+
+type WizardState = {
+  step: 1 | 2 | 3 | 4;
   portfolioName: string;
-  clientType: "Individual" | "Corporate";
+  invitees: Invitee[];
   propertyStubs: PropertyStub[];
   assignPropertyIds: string[];
-  role: "full" | "view";
   locale: "en" | "km";
-  retainAccess: boolean;
 };
 
 const INITIAL_STATE: WizardState = {
   step: 1,
-  name: "",
-  email: "",
   portfolioName: "",
-  clientType: "Individual",
+  invitees: [{ email: "", role: "member", name: "" }],
   propertyStubs: [],
   assignPropertyIds: [],
-  role: "full",
   locale: "en",
-  retainAccess: true,
 };
 
-// Property type options for a sketched property row.
 const PROPERTY_TYPE_OPTIONS = ["Residential", "Commercial", "Land"] as const;
 
-// A loose email check that mirrors the server's Zod .email() closely enough to
-// gate the "Next" button. The server is still the real authority.
-function isValidEmail(value: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+function isValidEmail(v: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 }
 
 export function OnboardClientWizard({
@@ -87,32 +73,26 @@ export function OnboardClientWizard({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   unassignedProperties: Array<{ id: string; name: string }>;
-  // D2: when provided, the wizard calls this instead of showing its own success
-  // screen. The parent captures the new org id + client name to continue its flow.
-  onComplete?: (orgId: string, clientName: string) => void;
+  // D2: called instead of showing the success screen, so the parent can resume.
+  onComplete?: (orgId: string, portfolioName: string) => void;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
 
   const [state, setState] = useState<WizardState>(INITIAL_STATE);
 
-  // The portfolio name mirrors the client name until the manager edits it
-  // directly. This flag remembers whether they've taken it over.
-  const [portfolioTouched, setPortfolioTouched] = useState(false);
-
-  // Small helper so every field update reads as one readable line below.
   function patch(next: Partial<WizardState>) {
-    setState((current) => ({ ...current, ...next }));
+    setState((s) => ({ ...s, ...next }));
   }
 
-  // Reset everything so the next open starts clean.
   function resetAll() {
     setState(INITIAL_STATE);
-    setPortfolioTouched(false);
     setError(null);
     setShowSuccess(false);
+    setSuccessMessage("");
   }
 
   function handleOpenChange(next: boolean) {
@@ -120,97 +100,78 @@ export function OnboardClientWizard({
     onOpenChange(next);
   }
 
-  // ── Step 1 field handlers ────────────────────────────────────────────────
-
-  function handleNameChange(value: string) {
-    // While the manager hasn't customised the portfolio name, keep it in sync
-    // with the client name so it has a sensible default.
-    if (portfolioTouched) {
-      patch({ name: value });
-    } else {
-      patch({ name: value, portfolioName: value });
-    }
-  }
-
-  function handlePortfolioChange(value: string) {
-    setPortfolioTouched(true);
-    patch({ portfolioName: value });
-  }
-
-  // ── Step 2: property rows ────────────────────────────────────────────────
-
-  function addPropertyRow() {
-    patch({
-      propertyStubs: [
-        ...state.propertyStubs,
-        { name: "", type: "Residential", value: undefined },
-      ],
-    });
-  }
-
-  function updatePropertyRow(index: number, next: Partial<PropertyStub>) {
-    const rows = state.propertyStubs.map((row, i) =>
-      i === index ? { ...row, ...next } : row,
-    );
-    patch({ propertyStubs: rows });
-  }
-
-  function removePropertyRow(index: number) {
-    patch({
-      propertyStubs: state.propertyStubs.filter((_, i) => i !== index),
-    });
-  }
-
-  function toggleAssignedProperty(propertyId: string) {
-    const current = state.assignPropertyIds;
-    patch({
-      assignPropertyIds: current.includes(propertyId)
-        ? current.filter((id) => id !== propertyId)
-        : [...current, propertyId],
-    });
-  }
-
-  // ── Navigation ───────────────────────────────────────────────────────────
-
   function goToStep(step: WizardState["step"]) {
     setError(null);
     patch({ step });
   }
 
-  // ── Submit (Step 3) ──────────────────────────────────────────────────────
+  // ── Invitee row helpers ──────────────────────────────────────────────────
 
-  function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
+  function addInviteeRow() {
+    patch({ invitees: [...state.invitees, { email: "", role: "member", name: "" }] });
+  }
+
+  function updateInvitee(index: number, next: Partial<Invitee>) {
+    patch({ invitees: state.invitees.map((row, i) => (i === index ? { ...row, ...next } : row)) });
+  }
+
+  function removeInvitee(index: number) {
+    patch({ invitees: state.invitees.filter((_, i) => i !== index) });
+  }
+
+  // ── Property row helpers ─────────────────────────────────────────────────
+
+  function addPropertyRow() {
+    patch({ propertyStubs: [...state.propertyStubs, { name: "", type: "Residential" }] });
+  }
+
+  function updatePropertyRow(index: number, next: Partial<PropertyStub>) {
+    patch({ propertyStubs: state.propertyStubs.map((r, i) => (i === index ? { ...r, ...next } : r)) });
+  }
+
+  function removePropertyRow(index: number) {
+    patch({ propertyStubs: state.propertyStubs.filter((_, i) => i !== index) });
+  }
+
+  function toggleAssigned(id: string) {
+    const cur = state.assignPropertyIds;
+    patch({ assignPropertyIds: cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id] });
+  }
+
+  // ── Submit ───────────────────────────────────────────────────────────────
+
+  function submit(sendNow: boolean) {
     setError(null);
-
-    // Drop any half-filled property rows (no name) before sending — they'd
-    // only fail server validation.
+    const validInvitees = state.invitees.filter((r) => isValidEmail(r.email));
     const stubs = state.propertyStubs
-      .filter((row) => row.name.trim() !== "")
-      .map((row) => ({
-        name: row.name.trim(),
-        type: row.type,
-        value: row.value,
-      }));
+      .filter((r) => r.name.trim() !== "")
+      .map((r) => ({ name: r.name.trim(), type: r.type, value: r.value }));
 
     startTransition(async () => {
-      const result = await onboardClientPortfolioAction({
-        name: state.name.trim(),
-        clientEmail: state.email.trim(),
-        role: state.role,
-        locale: state.locale,
+      const result = await createPortfolioAction({
+        portfolioName: state.portfolioName.trim(),
+        invitees: validInvitees.map((r) => ({
+          email: r.email.trim(),
+          role: r.role,
+          name: r.name.trim() || undefined,
+        })),
         propertyStubs: stubs,
         assignPropertyIds: state.assignPropertyIds,
+        locale: state.locale,
+        sendNow: onComplete ? true : sendNow,
       });
 
       if (result.ok) {
+        router.refresh();
         if (onComplete && result.orgId) {
-          // D2 nested mode: the parent (e.g. AddPropertyFlowPro) captures the new
-          // org id + client name and resumes the property wizard immediately.
-          onComplete(result.orgId, state.name.trim() || "New client");
+          onComplete(result.orgId, state.portfolioName.trim() || "New portfolio");
           handleOpenChange(false);
         } else {
-          router.refresh();
+          setSuccessMessage(
+            sendNow
+              ? `Portfolio created · ${validInvitees.length} invitation${validInvitees.length === 1 ? "" : "s"} sent`
+              : `Portfolio created · ${validInvitees.length} draft invitation${validInvitees.length === 1 ? "" : "s"} saved`,
+          );
           setShowSuccess(true);
         }
       } else {
@@ -219,41 +180,32 @@ export function OnboardClientWizard({
     });
   }
 
-  // ── Derived validation gates ─────────────────────────────────────────────
+  // ── Validation ───────────────────────────────────────────────────────────
 
-  const step1Valid =
-    state.name.trim().length >= 2 &&
-    isValidEmail(state.email) &&
-    state.portfolioName.trim().length >= 2;
-
-  // Total properties the client will receive — drives the Step 3 summary.
+  const step1Valid = state.portfolioName.trim().length >= 2;
+  const validInvitees = state.invitees.filter((r) => isValidEmail(r.email));
+  const step2Valid = validInvitees.length >= 1;
   const totalProperties =
-    state.propertyStubs.filter((row) => row.name.trim() !== "").length +
+    state.propertyStubs.filter((r) => r.name.trim() !== "").length +
     state.assignPropertyIds.length;
 
   return (
     <ProModal
       open={open}
       onOpenChange={handleOpenChange}
-      title="Onboard a client"
-      description="Create a portfolio, add properties, and invite your client."
+      title="New client portfolio"
+      description="Create a portfolio, add people, and optionally seed properties."
     >
       {showSuccess ? (
-        <ProModalSuccess
-          message={`Invitation sent to ${state.name.trim() || "your client"}`}
-          onComplete={() => handleOpenChange(false)}
-        />
+        <ProModalSuccess message={successMessage} onComplete={() => handleOpenChange(false)} />
       ) : (
         <div className="flex flex-col gap-5">
           <ProgressStepper step={state.step} />
 
           {state.step === 1 && (
             <StepOne
-              state={state}
-              onNameChange={handleNameChange}
-              onEmailChange={(value) => patch({ email: value })}
-              onPortfolioChange={handlePortfolioChange}
-              onClientTypeChange={(value) => patch({ clientType: value })}
+              portfolioName={state.portfolioName}
+              onChange={(v) => patch({ portfolioName: v })}
               onNext={() => goToStep(2)}
               onCancel={() => handleOpenChange(false)}
               nextDisabled={!step1Valid}
@@ -262,29 +214,43 @@ export function OnboardClientWizard({
 
           {state.step === 2 && (
             <StepTwo
-              state={state}
-              unassignedProperties={unassignedProperties}
-              onAddRow={addPropertyRow}
-              onUpdateRow={updatePropertyRow}
-              onRemoveRow={removePropertyRow}
-              onToggleAssigned={toggleAssignedProperty}
+              invitees={state.invitees}
+              onAdd={addInviteeRow}
+              onUpdate={updateInvitee}
+              onRemove={removeInvitee}
               onNext={() => goToStep(3)}
-              onSkip={() => goToStep(3)}
+              onBack={() => goToStep(1)}
               onCancel={() => handleOpenChange(false)}
+              nextDisabled={!step2Valid}
             />
           )}
 
           {state.step === 3 && (
             <StepThree
               state={state}
+              unassignedProperties={unassignedProperties}
+              onAddRow={addPropertyRow}
+              onUpdateRow={updatePropertyRow}
+              onRemoveRow={removePropertyRow}
+              onToggleAssigned={toggleAssigned}
+              onNext={() => goToStep(4)}
+              onSkip={() => goToStep(4)}
+              onBack={() => goToStep(2)}
+              onCancel={() => handleOpenChange(false)}
+            />
+          )}
+
+          {state.step === 4 && (
+            <StepFour
+              state={state}
+              validInvitees={validInvitees}
               totalProperties={totalProperties}
               error={error}
               isPending={isPending}
-              onRoleChange={(value) => patch({ role: value })}
-              onLocaleChange={(value) => patch({ locale: value })}
-              onRetainChange={(value) => patch({ retainAccess: value })}
-              onSubmit={handleSubmit}
-              onBack={() => goToStep(2)}
+              showDualCta={!onComplete}
+              onLocaleChange={(v) => patch({ locale: v })}
+              onSubmit={submit}
+              onBack={() => goToStep(3)}
               onCancel={() => handleOpenChange(false)}
             />
           )}
@@ -294,16 +260,13 @@ export function OnboardClientWizard({
   );
 }
 
-// ────────────────────────────────────────────────────────────────────────────
-// Progress stepper — three dots, non-interactive. Active is filled blue,
-// completed shows a green check, future steps are a grey outline.
-// ────────────────────────────────────────────────────────────────────────────
+// ── Progress stepper ─────────────────────────────────────────────────────────
 
-function ProgressStepper({ step }: { step: 1 | 2 | 3 }) {
+function ProgressStepper({ step }: { step: 1 | 2 | 3 | 4 }) {
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-2">
-        {[1, 2, 3].map((dot) => {
+        {([1, 2, 3, 4] as const).map((dot) => {
           const completed = dot < step;
           const active = dot === step;
           return (
@@ -311,13 +274,9 @@ function ProgressStepper({ step }: { step: 1 | 2 | 3 }) {
               key={dot}
               className={cn(
                 "inline-flex h-5 w-5 items-center justify-center rounded-full border text-[10px] font-semibold transition-colors",
-                completed &&
-                  "border-emerald-500 bg-emerald-500 text-white dark:border-emerald-500 dark:bg-emerald-500",
-                active &&
-                  "border-blue-600 bg-blue-600 text-white dark:border-blue-500 dark:bg-blue-500",
-                !completed &&
-                  !active &&
-                  "border-slate-300 bg-white text-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-500",
+                completed && "border-emerald-500 bg-emerald-500 text-white",
+                active && "border-blue-600 bg-blue-600 text-white",
+                !completed && !active && "border-slate-300 bg-white text-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-500",
               )}
             >
               {completed ? <Check className="h-3 w-3" strokeWidth={3} /> : dot}
@@ -326,20 +285,13 @@ function ProgressStepper({ step }: { step: 1 | 2 | 3 }) {
         })}
       </div>
       <span className="text-[12px] font-medium text-slate-500 dark:text-slate-400">
-        Step {step} of 3
+        Step {step} of 4
       </span>
     </div>
   );
 }
 
-// A plain text "link" used for Cancel / Back / Skip actions.
-function TextLink({
-  children,
-  onClick,
-}: {
-  children: React.ReactNode;
-  onClick: () => void;
-}) {
+function TextLink({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
   return (
     <button
       type="button"
@@ -351,92 +303,38 @@ function TextLink({
   );
 }
 
-// ────────────────────────────────────────────────────────────────────────────
-// Step 1 — Client & Portfolio
-// ────────────────────────────────────────────────────────────────────────────
+// ── Step 1 — Portfolio name ───────────────────────────────────────────────────
 
 function StepOne({
-  state,
-  onNameChange,
-  onEmailChange,
-  onPortfolioChange,
-  onClientTypeChange,
+  portfolioName,
+  onChange,
   onNext,
   onCancel,
   nextDisabled,
 }: {
-  state: WizardState;
-  onNameChange: (value: string) => void;
-  onEmailChange: (value: string) => void;
-  onPortfolioChange: (value: string) => void;
-  onClientTypeChange: (value: "Individual" | "Corporate") => void;
+  portfolioName: string;
+  onChange: (v: string) => void;
   onNext: () => void;
   onCancel: () => void;
   nextDisabled: boolean;
 }) {
   return (
     <div className="flex flex-col gap-4">
-      <ProField label="Client name" htmlFor="wizard-name">
-        <input
-          id="wizard-name"
-          type="text"
-          required
-          value={state.name}
-          onChange={(event) => onNameChange(event.target.value)}
-          placeholder="e.g. Sokha Family Office"
-          className={proInputClass}
-        />
-      </ProField>
-
-      <ProField label="Client email" htmlFor="wizard-email">
-        <input
-          id="wizard-email"
-          type="email"
-          required
-          value={state.email}
-          onChange={(event) => onEmailChange(event.target.value)}
-          placeholder="owner@example.com"
-          className={proInputClass}
-        />
-      </ProField>
-
       <ProField
         label="Portfolio name"
         htmlFor="wizard-portfolio"
-        hint="Defaults to the client name — edit if you'd like a different label."
+        hint="This becomes the Clerk org name visible to all members."
       >
         <input
           id="wizard-portfolio"
           type="text"
-          value={state.portfolioName}
-          onChange={(event) => onPortfolioChange(event.target.value)}
+          required
+          autoFocus
+          value={portfolioName}
+          onChange={(e) => onChange(e.target.value)}
           placeholder="e.g. Sokha Family Office"
           className={proInputClass}
         />
-      </ProField>
-
-      <ProField label="Client type">
-        <div className="flex gap-2">
-          {(["Individual", "Corporate"] as const).map((option) => {
-            const selected = state.clientType === option;
-            return (
-              <button
-                key={option}
-                type="button"
-                aria-pressed={selected}
-                onClick={() => onClientTypeChange(option)}
-                className={cn(
-                  "flex-1 rounded-md border px-3 py-2 text-[13px] font-medium transition-colors",
-                  selected
-                    ? "border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/15 dark:text-blue-300"
-                    : "border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800",
-                )}
-              >
-                {option}
-              </button>
-            );
-          })}
-        </div>
       </ProField>
 
       <div className="flex items-center justify-between pt-1">
@@ -454,11 +352,106 @@ function StepOne({
   );
 }
 
-// ────────────────────────────────────────────────────────────────────────────
-// Step 2 — Properties
-// ────────────────────────────────────────────────────────────────────────────
+// ── Step 2 — People ───────────────────────────────────────────────────────────
 
 function StepTwo({
+  invitees,
+  onAdd,
+  onUpdate,
+  onRemove,
+  onNext,
+  onBack,
+  onCancel,
+  nextDisabled,
+}: {
+  invitees: Invitee[];
+  onAdd: () => void;
+  onUpdate: (i: number, patch: Partial<Invitee>) => void;
+  onRemove: (i: number) => void;
+  onNext: () => void;
+  onBack: () => void;
+  onCancel: () => void;
+  nextDisabled: boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-1">
+        <h3 className="text-[14px] font-semibold text-slate-800 dark:text-slate-100">
+          People
+        </h3>
+        <p className="text-[12.5px] text-slate-500 dark:text-slate-400">
+          Add everyone who should have access. You can adjust roles later.
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        {/* Column headers */}
+        <div className="grid grid-cols-[1fr_auto_auto] gap-2">
+          <span className="pl-1 text-[11px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
+            Email
+          </span>
+          <span className="text-[11px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
+            Role
+          </span>
+          <span className="w-9" />
+        </div>
+
+        {invitees.map((row, index) => (
+          <div key={index} className="grid grid-cols-[1fr_auto_auto] items-center gap-2">
+            <input
+              type="email"
+              value={row.email}
+              onChange={(e) => onUpdate(index, { email: e.target.value })}
+              placeholder="owner@example.com"
+              className={cn(proInputClass, "text-[12.5px]")}
+            />
+            <RoleSelect
+              value={row.role}
+              onChange={(role) => onUpdate(index, { role })}
+            />
+            <button
+              type="button"
+              onClick={() => onRemove(index)}
+              disabled={invitees.length === 1}
+              aria-label="Remove"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 disabled:opacity-30 dark:border-slate-700 dark:hover:bg-slate-800"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ))}
+
+        <button
+          type="button"
+          onClick={onAdd}
+          className="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-slate-500 transition-colors hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          Add another
+        </button>
+      </div>
+
+      <div className="flex items-center justify-between pt-1">
+        <TextLink onClick={onCancel}>Cancel</TextLink>
+        <div className="flex items-center gap-4">
+          <TextLink onClick={onBack}>Back</TextLink>
+          <button
+            type="button"
+            onClick={onNext}
+            disabled={nextDisabled}
+            className={proPrimaryButtonClass}
+          >
+            Next
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Step 3 — Properties ───────────────────────────────────────────────────────
+
+function StepThree({
   state,
   unassignedProperties,
   onAddRow,
@@ -467,16 +460,18 @@ function StepTwo({
   onToggleAssigned,
   onNext,
   onSkip,
+  onBack,
   onCancel,
 }: {
   state: WizardState;
   unassignedProperties: Array<{ id: string; name: string }>;
   onAddRow: () => void;
-  onUpdateRow: (index: number, next: Partial<PropertyStub>) => void;
-  onRemoveRow: (index: number) => void;
-  onToggleAssigned: (propertyId: string) => void;
+  onUpdateRow: (i: number, patch: Partial<PropertyStub>) => void;
+  onRemoveRow: (i: number) => void;
+  onToggleAssigned: (id: string) => void;
   onNext: () => void;
   onSkip: () => void;
+  onBack: () => void;
   onCancel: () => void;
 }) {
   return (
@@ -486,12 +481,10 @@ function StepTwo({
           Portfolio properties
         </h3>
         <p className="text-[12.5px] text-slate-500 dark:text-slate-400">
-          Add properties now or later — you can always add more after the client
-          accepts.
+          Add properties now or later.
         </p>
       </div>
 
-      {/* Sketched property rows. */}
       <div className="flex flex-col gap-2">
         {state.propertyStubs.map((row, index) => (
           <div
@@ -505,33 +498,25 @@ function StepTwo({
               <input
                 type="text"
                 value={row.name}
-                onChange={(event) =>
-                  onUpdateRow(index, { name: event.target.value })
-                }
+                onChange={(e) => onUpdateRow(index, { name: e.target.value })}
                 placeholder="e.g. Riverside Villa"
                 className={proInputClass}
               />
             </div>
-
             <div className="w-28">
               <label className="mb-1 block text-[11px] font-medium text-slate-500 dark:text-slate-400">
                 Type
               </label>
               <select
                 value={row.type}
-                onChange={(event) =>
-                  onUpdateRow(index, { type: event.target.value })
-                }
+                onChange={(e) => onUpdateRow(index, { type: e.target.value })}
                 className={proSelectClass}
               >
-                {PROPERTY_TYPE_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
+                {PROPERTY_TYPE_OPTIONS.map((opt) => (
+                  <option key={opt} value={opt}>{opt}</option>
                 ))}
               </select>
             </div>
-
             <div className="w-32">
               <label className="mb-1 block text-[11px] font-medium text-slate-500 dark:text-slate-400">
                 Value
@@ -544,12 +529,9 @@ function StepTwo({
                   type="number"
                   min={0}
                   value={row.value ?? ""}
-                  onChange={(event) =>
+                  onChange={(e) =>
                     onUpdateRow(index, {
-                      value:
-                        event.target.value === ""
-                          ? undefined
-                          : Number(event.target.value),
+                      value: e.target.value === "" ? undefined : Number(e.target.value),
                     })
                   }
                   placeholder="0"
@@ -557,7 +539,6 @@ function StepTwo({
                 />
               </div>
             </div>
-
             <button
               type="button"
               onClick={() => onRemoveRow(index)}
@@ -579,28 +560,27 @@ function StepTwo({
         </button>
       </div>
 
-      {/* Assign existing unassigned properties — only shown if any exist. */}
       {unassignedProperties.length > 0 && (
         <ProField
           label="Assign existing properties"
           hint={`${state.assignPropertyIds.length} of ${unassignedProperties.length} selected · optional`}
         >
           <div className="flex flex-wrap gap-2">
-            {unassignedProperties.map((property) => {
-              const selected = state.assignPropertyIds.includes(property.id);
+            {unassignedProperties.map((p) => {
+              const selected = state.assignPropertyIds.includes(p.id);
               return (
                 <button
-                  key={property.id}
+                  key={p.id}
                   type="button"
                   aria-pressed={selected}
-                  onClick={() => onToggleAssigned(property.id)}
+                  onClick={() => onToggleAssigned(p.id)}
                   className={
                     selected
-                      ? "rounded-full border border-blue-300 bg-blue-50 px-3 py-1 text-[12px] font-medium text-blue-700 transition-colors dark:border-blue-500/40 dark:bg-blue-500/15 dark:text-blue-300"
-                      : "rounded-full border border-slate-200 px-3 py-1 text-[12px] font-medium text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                      ? "rounded-full border border-blue-300 bg-blue-50 px-3 py-1 text-[12px] font-medium text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/15 dark:text-blue-300"
+                      : "rounded-full border border-slate-200 px-3 py-1 text-[12px] font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
                   }
                 >
-                  {property.name}
+                  {p.name}
                 </button>
               );
             })}
@@ -611,7 +591,8 @@ function StepTwo({
       <div className="flex items-center justify-between pt-1">
         <TextLink onClick={onCancel}>Cancel</TextLink>
         <div className="flex items-center gap-4">
-          <TextLink onClick={onSkip}>Skip — I&apos;ll add properties later</TextLink>
+          <TextLink onClick={onBack}>Back</TextLink>
+          <TextLink onClick={onSkip}>Skip</TextLink>
           <button type="button" onClick={onNext} className={proPrimaryButtonClass}>
             Next
           </button>
@@ -621,81 +602,63 @@ function StepTwo({
   );
 }
 
-// ────────────────────────────────────────────────────────────────────────────
-// Step 3 — Review & Invite
-// ────────────────────────────────────────────────────────────────────────────
+// ── Step 4 — Review + dual CTA ────────────────────────────────────────────────
 
-function StepThree({
+function StepFour({
   state,
+  validInvitees,
   totalProperties,
   error,
   isPending,
-  onRoleChange,
+  showDualCta,
   onLocaleChange,
-  onRetainChange,
   onSubmit,
   onBack,
   onCancel,
 }: {
   state: WizardState;
+  validInvitees: Invitee[];
   totalProperties: number;
   error: string | null;
   isPending: boolean;
-  onRoleChange: (value: "full" | "view") => void;
-  onLocaleChange: (value: "en" | "km") => void;
-  onRetainChange: (value: boolean) => void;
-  onSubmit: (event: React.FormEvent) => void;
+  showDualCta: boolean;
+  onLocaleChange: (v: "en" | "km") => void;
+  onSubmit: (sendNow: boolean) => void;
   onBack: () => void;
   onCancel: () => void;
 }) {
+  const inviteeSummary = validInvitees.map((i) => i.email).join(", ");
+
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-4">
-      {/* Summary card. */}
+    <div className="flex flex-col gap-4">
+      {/* Summary card */}
       <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-700 dark:bg-slate-800/40">
         <dl className="flex flex-col gap-2 text-[13px]">
-          <SummaryRow label="Client" value={state.name.trim() || "—"} />
-          <SummaryRow label="Email" value={state.email.trim() || "—"} />
+          <SummaryRow label="Portfolio" value={state.portfolioName.trim() || "—"} />
           <SummaryRow
-            label="Portfolio"
-            value={state.portfolioName.trim() || state.name.trim() || "—"}
+            label="People"
+            value={
+              validInvitees.length === 0
+                ? "—"
+                : `${validInvitees.length} invitee${validInvitees.length === 1 ? "" : "s"}`
+            }
           />
+          {validInvitees.length > 0 && (
+            <SummaryRow label="" value={inviteeSummary} small />
+          )}
           <SummaryRow
             label="Properties"
             value={`${totalProperties} ${totalProperties === 1 ? "property" : "properties"}`}
           />
-          <SummaryRow
-            label="Access"
-            value={state.role === "full" ? "Full access" : "View only"}
-          />
         </dl>
       </div>
 
-      {/* Role selector. */}
-      <ProField label="Client access level">
-        <div className="flex flex-col gap-2">
-          <RoleOption
-            selected={state.role === "full"}
-            onSelect={() => onRoleChange("full")}
-            title="Full access"
-            description="Client can manage properties, tenants, and finances"
-          />
-          <RoleOption
-            selected={state.role === "view"}
-            onSelect={() => onRoleChange("view")}
-            title="View only"
-            description="Client can view portfolio data only"
-          />
-        </div>
-      </ProField>
-
-      {/* Locale selector. */}
-      <ProField label="Invitation language" htmlFor="wizard-locale">
+      {/* Invitation language */}
+      <ProField label="Invitation language" htmlFor="wizard-locale" hint="Sent to all invitees.">
         <select
           id="wizard-locale"
           value={state.locale}
-          onChange={(event) =>
-            onLocaleChange(event.target.value as "en" | "km")
-          }
+          onChange={(e) => onLocaleChange(e.target.value as "en" | "km")}
           className={proSelectClass}
         >
           <option value="en">English</option>
@@ -703,103 +666,73 @@ function StepThree({
         </select>
       </ProField>
 
-      {/* Keep-my-access toggle. */}
-      <label className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2.5 dark:border-slate-700">
-        <span className="flex flex-col">
-          <span className="text-[13px] font-medium text-slate-700 dark:text-slate-200">
-            Keep my access to this portfolio
-          </span>
-          <span className="text-[11.5px] text-slate-500 dark:text-slate-400">
-            Stay on as manager after the client accepts.
-          </span>
-        </span>
-        <input
-          type="checkbox"
-          checked={state.retainAccess}
-          onChange={(event) => onRetainChange(event.target.checked)}
-          className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-200 dark:border-slate-600"
-        />
-      </label>
-
       <ProFormError message={error} />
 
       <div className="flex items-center justify-between pt-1">
         <TextLink onClick={onCancel}>Cancel</TextLink>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
           <TextLink onClick={onBack}>Back</TextLink>
-          <button
-            type="submit"
-            disabled={isPending}
-            className={proPrimaryButtonClass}
-          >
-            {isPending ? "Sending…" : "Send invitation"}
-          </button>
+
+          {showDualCta ? (
+            <>
+              {/* Secondary: save as drafts, no email */}
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={() => onSubmit(false)}
+                className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-200 px-3 text-[13px] font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                Create portfolio
+              </button>
+              {/* Primary: send invitations now */}
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={() => onSubmit(true)}
+                className={proPrimaryButtonClass}
+              >
+                {isPending ? "Creating…" : "Create & invite now"}
+              </button>
+            </>
+          ) : (
+            // D2 mode: single CTA, always sends
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={() => onSubmit(true)}
+              className={proPrimaryButtonClass}
+            >
+              {isPending ? "Creating…" : "Create & invite now"}
+            </button>
+          )}
         </div>
       </div>
-    </form>
-  );
-}
-
-// A single label/value row inside the Step 3 summary card.
-function SummaryRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <dt className="text-slate-500 dark:text-slate-400">{label}</dt>
-      <dd className="font-medium text-slate-800 dark:text-slate-100">{value}</dd>
     </div>
   );
 }
 
-// A selectable role card with a title and description.
-function RoleOption({
-  selected,
-  onSelect,
-  title,
-  description,
+// ── Shared sub-components ─────────────────────────────────────────────────────
+
+function SummaryRow({
+  label,
+  value,
+  small,
 }: {
-  selected: boolean;
-  onSelect: () => void;
-  title: string;
-  description: string;
+  label: string;
+  value: string;
+  small?: boolean;
 }) {
   return (
-    <button
-      type="button"
-      aria-pressed={selected}
-      onClick={onSelect}
-      className={cn(
-        "flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors",
-        selected
-          ? "border-blue-300 bg-blue-50 dark:border-blue-500/40 dark:bg-blue-500/15"
-          : "border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800",
-      )}
-    >
-      <span
+    <div className={cn("flex items-start justify-between gap-3", small && "mt-[-6px]")}>
+      <dt className="shrink-0 text-slate-500 dark:text-slate-400">{label}</dt>
+      <dd
         className={cn(
-          "mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border",
-          selected
-            ? "border-blue-600 bg-blue-600 text-white dark:border-blue-500 dark:bg-blue-500"
-            : "border-slate-300 dark:border-slate-600",
+          "text-right font-medium text-slate-800 dark:text-slate-100",
+          small && "text-[11.5px] font-normal text-slate-500 dark:text-slate-400",
         )}
       >
-        {selected && (
-          <motion.span
-            initial={{ scale: 0.5, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: "spring", stiffness: 320, damping: 18 }}
-          >
-            <Check className="h-2.5 w-2.5" strokeWidth={3.5} />
-          </motion.span>
-        )}
-      </span>
-      <span className="flex flex-col">
-        <span className="text-[13px] font-medium text-slate-800 dark:text-slate-100">
-          {title}
-        </span>
-        <span className="text-[11.5px] text-slate-500 dark:text-slate-400">
-          {description}
-        </span>
-      </span>
-    </button>
+        {value}
+      </dd>
+    </div>
   );
 }

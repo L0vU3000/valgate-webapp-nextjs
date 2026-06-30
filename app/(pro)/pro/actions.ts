@@ -14,7 +14,14 @@ import {
   resendClientInvitation,
   removeManagerAccess,
   recordInvitationLinkCopy,
+  createClientPortfolioWithInvitees,
+  addPortfolioInvitees,
+  changeMemberRole,
+  changeInviteeRole,
+  removePortfolioMember,
+  listPortfolioMembers,
 } from "@/lib/services/client-onboarding";
+import type { PortfolioRole, PortfolioMember, PortfolioInvitee } from "@/lib/services/client-onboarding";
 import * as clientsDb from "@/lib/data/db/clients";
 import { getProperty, updateProperty, createProperty as svcCreateProperty, bulkAssignProperties as svcBulkAssign, listPropertyNamesByClientId } from "@/lib/services/properties";
 import { propertyTypeChoiceSchema, propertyStatusSchema, propertyTitleSchema } from "@/lib/data/types/property";
@@ -595,6 +602,10 @@ const onboardClientPortfolioSchema = z.object({
   propertyStubs: z.array(propertyStubSchema).default([]),
   // Existing unassigned property ids to earmark for the client.
   assignPropertyIds: z.array(z.string().min(1)).default([]),
+  // Phase 3 finish: whether the manager wants to keep their access after the
+  // client accepts. Defaults to true (safe). The server clamps to true when
+  // role = "view" regardless of what is sent.
+  retainAccess: z.boolean().default(true),
 });
 
 export async function onboardClientPortfolioAction(input: {
@@ -604,12 +615,17 @@ export async function onboardClientPortfolioAction(input: {
   locale?: "en" | "km";
   propertyStubs?: Array<{ name: string; type: string; value?: number }>;
   assignPropertyIds?: string[];
+  // Whether the manager wants to keep their org membership after the client accepts.
+  retainAccess?: boolean;
 }): Promise<ProActionResult> {
   const parsed = onboardClientPortfolioSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid input." };
   const authCtx = await requireCtx();
+  // Map the boolean UI value to the DB enum. The service layer also clamps
+  // "leave" to "keep" when role = "view", but we do it here too as defense-in-depth.
+  const intent: "keep" | "leave" = parsed.data.retainAccess ? "keep" : "leave";
   try {
-    const result = await onboardClientPortfolio(authCtx, parsed.data);
+    const result = await onboardClientPortfolio(authCtx, { ...parsed.data, intent });
     revalidatePath("/pro/clients");
     return {
       ok: true,
@@ -693,5 +709,188 @@ export async function copyInvitationLinkAction(input: {
     if (err instanceof AccessError) return { ok: false, error: err.message };
     logger.error("copyInvitationLinkAction: failed", { error: String(err) });
     return { ok: false, error: "Could not copy invitation link." };
+  }
+}
+
+// --- Phase 6: multi-user portfolios ----------------------------------------
+
+const inviteeSchema = z.object({
+  email: z.string().email(),
+  role: z.enum(["admin", "member", "viewer"]),
+  name: z.string().max(120).optional(),
+});
+
+const createPortfolioSchema = z.object({
+  portfolioName: z.string().min(2).max(120),
+  invitees: z.array(inviteeSchema).min(1),
+  propertyStubs: z.array(propertyStubSchema).default([]),
+  assignPropertyIds: z.array(z.string().min(1)).default([]),
+  locale: z.enum(["en", "km"]).optional(),
+  sendNow: z.boolean(),
+  retainAccess: z.boolean().default(true),
+});
+
+// Creates a portfolio org with one or more invitees. sendNow=true sends invitations
+// immediately; sendNow=false creates draft handoffs without emailing.
+export async function createPortfolioAction(input: {
+  portfolioName: string;
+  invitees: Array<{ email: string; role: PortfolioRole; name?: string }>;
+  propertyStubs?: Array<{ name: string; type: string; value?: number }>;
+  assignPropertyIds?: string[];
+  locale?: "en" | "km";
+  sendNow: boolean;
+  retainAccess?: boolean;
+}): Promise<ProActionResult> {
+  const parsed = createPortfolioSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid input." };
+  const authCtx = await requireCtx();
+  try {
+    const result = await createClientPortfolioWithInvitees(authCtx, {
+      portfolioName: parsed.data.portfolioName,
+      invitees: parsed.data.invitees as Array<{ email: string; role: PortfolioRole; name?: string }>,
+      propertyStubs: parsed.data.propertyStubs,
+      assignPropertyIds: parsed.data.assignPropertyIds,
+      locale: parsed.data.locale,
+      sendNow: parsed.data.sendNow,
+      retainAccess: parsed.data.retainAccess,
+    });
+    revalidatePath("/pro/clients");
+    return { ok: true, count: result.propertyCount, orgId: result.orgId };
+  } catch (err) {
+    if (err instanceof AccessError) return { ok: false, error: err.message };
+    logger.error("createPortfolioAction: failed", { error: String(err) });
+    return { ok: false, error: "Could not create portfolio. Please try again." };
+  }
+}
+
+const addInviteesSchema = z.object({
+  orgId: z.string().min(1),
+  invitees: z.array(inviteeSchema).min(1),
+  sendNow: z.boolean(),
+});
+
+// Adds more invitees to an existing portfolio. Manager must be org:admin.
+export async function addPortfolioInviteesAction(input: {
+  orgId: string;
+  invitees: Array<{ email: string; role: PortfolioRole; name?: string }>;
+  sendNow: boolean;
+}): Promise<ProActionResult> {
+  const parsed = addInviteesSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid input." };
+  const authCtx = await requireCtx();
+  try {
+    const result = await addPortfolioInvitees(
+      authCtx,
+      parsed.data.orgId,
+      parsed.data.invitees as Array<{ email: string; role: PortfolioRole; name?: string }>,
+      parsed.data.sendNow,
+    );
+    revalidatePath("/pro/clients");
+    return { ok: true, count: result.added };
+  } catch (err) {
+    if (err instanceof AccessError) return { ok: false, error: err.message };
+    logger.error("addPortfolioInviteesAction: failed", { error: String(err) });
+    return { ok: false, error: "Could not add invitees. Please try again." };
+  }
+}
+
+const changeMemberRoleSchema = z.object({
+  orgId: z.string().min(1),
+  memberClerkUserId: z.string().min(1),
+  role: z.enum(["admin", "member", "viewer"]),
+});
+
+// Updates an accepted member's role in the Clerk org + Neon mirror.
+export async function changeMemberRoleAction(input: {
+  orgId: string;
+  memberClerkUserId: string;
+  role: PortfolioRole;
+}): Promise<ProActionResult> {
+  const parsed = changeMemberRoleSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid input." };
+  const authCtx = await requireCtx();
+  try {
+    await changeMemberRole(authCtx, parsed.data.orgId, parsed.data.memberClerkUserId, parsed.data.role as PortfolioRole);
+    revalidatePath("/pro/clients");
+    return { ok: true };
+  } catch (err) {
+    if (err instanceof AccessError) return { ok: false, error: err.message };
+    logger.error("changeMemberRoleAction: failed", { error: String(err) });
+    return { ok: false, error: "Could not update member role." };
+  }
+}
+
+const changeInviteeRoleSchema = z.object({
+  handoffId: z.string().min(1),
+  role: z.enum(["admin", "member", "viewer"]),
+});
+
+// Changes the role on a draft or pending invitation.
+// For pending: revokes old Clerk invite + creates a new one with the updated role.
+export async function changeInviteeRoleAction(input: {
+  handoffId: string;
+  role: PortfolioRole;
+}): Promise<ProActionResult> {
+  const parsed = changeInviteeRoleSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid input." };
+  const authCtx = await requireCtx();
+  try {
+    await changeInviteeRole(authCtx, parsed.data.handoffId, parsed.data.role as PortfolioRole);
+    revalidatePath("/pro/clients");
+    return { ok: true };
+  } catch (err) {
+    if (err instanceof AccessError) return { ok: false, error: err.message };
+    logger.error("changeInviteeRoleAction: failed", { error: String(err) });
+    return { ok: false, error: "Could not update invitee role." };
+  }
+}
+
+const removePortfolioMemberSchema = z.object({
+  orgId: z.string().min(1),
+  memberClerkUserId: z.string().min(1),
+});
+
+// Removes an accepted member from the portfolio. Guards: no self-remove, no last-admin remove.
+export async function removePortfolioMemberAction(input: {
+  orgId: string;
+  memberClerkUserId: string;
+}): Promise<ProActionResult> {
+  const parsed = removePortfolioMemberSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid input." };
+  const authCtx = await requireCtx();
+  try {
+    await removePortfolioMember(authCtx, parsed.data.orgId, parsed.data.memberClerkUserId);
+    revalidatePath("/pro/clients");
+    return { ok: true };
+  } catch (err) {
+    if (err instanceof AccessError) return { ok: false, error: err.message };
+    logger.error("removePortfolioMemberAction: failed", { error: String(err) });
+    return { ok: false, error: "Could not remove member." };
+  }
+}
+
+const getPortfolioMembersSchema = z.object({
+  orgId: z.string().min(1),
+});
+
+export type GetPortfolioMembersResult =
+  | { ok: true; members: PortfolioMember[]; invitees: PortfolioInvitee[] }
+  | { ok: false; error: string };
+
+// Returns the member + invitee list for the drawer. Called from the Client Component
+// when the drawer opens.
+export async function getPortfolioMembersAction(input: {
+  orgId: string;
+}): Promise<GetPortfolioMembersResult> {
+  const parsed = getPortfolioMembersSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid input." };
+  const authCtx = await requireCtx();
+  try {
+    const result = await listPortfolioMembers(authCtx, parsed.data.orgId);
+    return { ok: true, ...result };
+  } catch (err) {
+    if (err instanceof AccessError) return { ok: false, error: err.message };
+    logger.error("getPortfolioMembersAction: failed", { error: String(err) });
+    return { ok: false, error: "Could not load members." };
   }
 }

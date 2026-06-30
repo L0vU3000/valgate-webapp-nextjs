@@ -25,9 +25,8 @@ import { useProAgent } from "./ProAgentContext";
 import { AccountSwitcher } from "./AccountSwitcher";
 
 // Top header of the Pro shell: brand, command palette search over the
-// real property book, Create menu (links to the real pages where each
-// flow lives), notifications, and the manager identity from the
-// user profile.
+// real property book, Create menu (routes to creation flows or opens
+// onboard wizard via ?onboard=1), notifications, and the manager identity.
 export function ProAppHeader({
   manager,
   searchProperties,
@@ -76,9 +75,13 @@ export function ProAppHeader({
   }, []);
 
   // The Create menu routes to the page where each creation flow lives.
-  const createMenuItems = [
+  // "New Client" opens the onboard wizard via ?onboard=1 (handled on /pro/clients).
+  const createMenuItems: Array<
+    | { icon: typeof Building2; label: string; href: string }
+    | { icon: typeof UserPlus; label: string; onboard: true }
+  > = [
     { icon: Building2, label: "New Property", href: "/add-property" },
-    { icon: UserPlus, label: "New Client", href: "/pro/clients" },
+    { icon: UserPlus, label: "New Client", onboard: true },
     { icon: ClipboardList, label: "New Work Order", href: "/pro/work-orders" },
   ];
 
@@ -151,6 +154,10 @@ export function ProAppHeader({
                       type="button"
                       onClick={() => {
                         setCreateOpen(false);
+                        if ("onboard" in item) {
+                          router.push("/pro/clients?onboard=1");
+                          return;
+                        }
                         router.push(item.href);
                       }}
                       className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-foreground hover:bg-surface-tint"

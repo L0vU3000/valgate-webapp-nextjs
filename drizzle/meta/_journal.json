@@ -106,6 +106,20 @@
       "when": 1782719650708,
       "tag": "0014_flowery_garia",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1782746348258,
+      "tag": "0015_gigantic_paibok",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1782749834381,
+      "tag": "0016_curly_rattler",
+      "breakpoints": true
     }
   ]
 }

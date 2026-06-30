@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, Eye, EyeOff, Mail, Check } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
@@ -82,7 +82,15 @@ export function LoginPage() {
   const [resendIn, setResendIn] = useState(0);
 
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { signIn } = useSignIn();
+
+  useEffect(() => {
+    const ticket = searchParams.get("__clerk_ticket");
+    if (!ticket) return;
+    const query = searchParams.toString();
+    router.replace(query ? `/accept-invitation?${query}` : "/accept-invitation");
+  }, [router, searchParams]);
 
   const form = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
