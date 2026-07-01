@@ -9,7 +9,6 @@ import { ManagerSidebar } from "./ManagerSidebar";
 import { WorkspaceTabProvider } from "./WorkspaceTabProvider";
 import { ProAgentContext } from "./ProAgentContext";
 import { AIOverlay } from "@/components/layout/AIOverlay";
-import { MobileAIFab } from "@/components/layout/MobileAIFab";
 import { FloatingAgentChat, type FloatingOpenTrigger } from "@/components/layout/ai-overlay/FloatingAgentChat";
 import type { ProShellData } from "../queries";
 import type { ShellClient } from "./pro-shell-types";
@@ -40,36 +39,29 @@ export function ManagerProShell({
   const [aiOpen, setAiOpen] = useState(false);
   const [aiSessionId, setAiSessionId] = useState<string | undefined>(undefined);
 
-  // Floating docked panel — Agent Hub only (v1). Count increment is the trigger
-  // signal; FloatingAgentChat fires on the change, not a boolean edge.
+  // Floating docked panel — present on every /pro page. Count increment is the
+  // trigger signal; FloatingAgentChat fires on the change, not a boolean edge.
   const [floatingTrigger, setFloatingTrigger] = useState<FloatingOpenTrigger>({ count: 0 });
 
   const pathname = usePathname();
-  const isHub = pathname === "/pro/agents";
 
   const openAI = useCallback((sessionId?: string) => {
     setAiSessionId(sessionId);
     setAiOpen(true);
   }, []);
 
-  // On the Agent Hub, opens the floating panel; elsewhere falls through to openAI.
+  // Opens the floating docked panel — it's mounted on every /pro page, so
+  // callers never need to fall back to the full overlay.
   const openFloating = useCallback((sessionId?: string) => {
-    if (isHub) {
-      setFloatingTrigger((prev) => ({ count: prev.count + 1, sessionId }));
-    } else {
-      setAiSessionId(sessionId);
-      setAiOpen(true);
-    }
-  }, [isHub]);
+    setFloatingTrigger((prev) => ({ count: prev.count + 1, sessionId }));
+  }, []);
 
   return (
     <WorkspaceTabProvider clients={shellClients}>
       <ProAgentContext.Provider value={{ openAI, openFloating }}>
       <div className="flex h-screen w-full flex-col overflow-hidden bg-surface-page font-sans">
         <ProAppHeader
-          manager={shellData.manager}
           searchProperties={shellData.searchProperties}
-          managedAccounts={shellData.managedAccounts}
           isManager={shellData.isManager}
           notifications={shellData.notifications}
         />
@@ -85,14 +77,10 @@ export function ManagerProShell({
           </div>
         </div>
 
-        {/* Phone-only floating trigger; hidden on Agent Hub (FloatingAgentChat
-            provides its own FAB there) and while the overlay is open. */}
-        {!isHub && <MobileAIFab onOpen={() => openAI()} aiOpen={aiOpen} />}
-
-        {/* Docked floating panel — Agent Hub only (v1). */}
-        {isHub && (
-          <FloatingAgentChat pathname={pathname} openTrigger={floatingTrigger} />
-        )}
+        {/* Docked floating panel — present on every /pro page (replaces the
+            phone-only FAB used on the owner side; this bar already adapts
+            to mobile widths via its own max-width). */}
+        <FloatingAgentChat pathname={pathname} openTrigger={floatingTrigger} />
 
         <AIOverlay
           open={aiOpen}

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Archive, Users } from "lucide-react";
+import { Archive, Plus, Users } from "lucide-react";
 import { WidgetCard } from "@/app/(pro)/pro/_components/WidgetCard";
 import {
   EnterTr,
@@ -10,13 +10,10 @@ import {
 } from "@/app/(pro)/pro/_components/motion-primitives";
 import { useWorkspaceTabs } from "@/app/(pro)/pro/_components/WorkspaceTabProvider";
 import { ConfirmAction } from "@/components/ui/confirm-action";
-import {
-  HEALTH_DOT,
-  OWN_PORTFOLIO_ID,
-  type ClientHealth,
-} from "@/app/(pro)/pro/_components/pro-shell-types";
+import { OWN_PORTFOLIO_ID } from "@/app/(pro)/pro/_components/pro-shell-types";
 import { ManageMembersDrawer } from "@/app/(pro)/pro/clients/_components/ManageMembersDrawer";
 import { formatRelativeTime } from "@/lib/format";
+import { progressDotColor } from "@/lib/property-helpers";
 import { cn } from "@/components/ui/utils";
 import type { ClientRollup } from "../../queries";
 
@@ -24,12 +21,6 @@ import type { ClientRollup } from "../../queries";
 // One row per managed client; every cell comes from the client rollup.
 // Clients with an orgId (manager-led onboarding) show a Status column and a
 // "Manage members" action that opens ManageMembersDrawer inline.
-
-const HEALTH_LABEL: Record<ClientHealth, string> = {
-  healthy: "Healthy",
-  "needs-attention": "Needs attention",
-  critical: "Critical",
-};
 
 // Maps the best handoff status across an org to a display label + colour.
 const STATUS_CONFIG: Record<
@@ -63,7 +54,7 @@ const COLUMNS = [
   { label: "Properties", width: "w-[9%]" },
   { label: "Occupancy", width: "w-[19%]" },
   { label: "Value", width: "w-[10%]" },
-  { label: "Health", width: "w-[10%]" },
+  { label: "Progress", width: "w-[10%]" },
   { label: "Status", width: "w-[13%]" },
   { label: "Activity", width: "w-[9%]" },
   { label: "", width: "w-[6%]" },
@@ -72,12 +63,19 @@ const COLUMNS = [
 // Optional onArchive prop — when provided, each row shows an Archive action.
 // The dashboard widget omits this prop so archive is only reachable from the
 // dedicated clients index page.
+//
+// Optional showAddClient prop — when set, the header carries the primary
+// "Add Client" CTA (used on the dashboard, where this is the sole client
+// surface). The /pro/clients index page omits it: that page already has an
+// Add Client button in its own header, so doubling it up would be redundant.
 export function ClientsTable({
   clients,
   onArchive,
+  showAddClient = false,
 }: {
   clients: ClientRollup[];
   onArchive?: (clientId: string) => Promise<void>;
+  showAddClient?: boolean;
 }) {
   const { openClientTab } = useWorkspaceTabs();
   const [managingOrgId, setManagingOrgId] = useState<string | null>(null);
@@ -98,12 +96,23 @@ export function ClientsTable({
       <WidgetCard
         title="Clients"
         headerRight={
-          <Link
-            href="/pro/clients"
-            className="text-[12.5px] font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
-          >
-            View All
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/pro/clients"
+              className="text-[12.5px] font-medium text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+            >
+              View All
+            </Link>
+            {showAddClient && (
+              <Link
+                href="/pro/clients?add=1"
+                className="inline-flex h-8 items-center gap-1.5 rounded-md bg-blue-600 px-3 text-[12.5px] font-medium text-white transition-[background-color,transform] hover:bg-blue-700 active:scale-[0.97]"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add Client
+              </Link>
+            )}
+          </div>
         }
       >
         <div className="overflow-hidden">
@@ -196,20 +205,20 @@ export function ClientsTable({
                       {rollup.totalValueFormatted}
                     </td>
 
-                    {/* Health dot */}
+                    {/* Progress — data completeness score across this client's properties */}
                     <td className="py-3 pr-3">
                       <span
                         className="inline-flex items-center gap-1.5"
-                        title={HEALTH_LABEL[rollup.health]}
+                        title="Progress score across properties"
                       >
                         <span
                           className={cn(
                             "inline-block w-2 h-2 rounded-full",
-                            HEALTH_DOT[rollup.health],
+                            progressDotColor(rollup.avgProgress),
                           )}
                         />
-                        <span className="text-[12px] text-slate-600 dark:text-slate-300">
-                          {HEALTH_LABEL[rollup.health]}
+                        <span className="text-[12px] text-slate-600 dark:text-slate-300 tabular-nums">
+                          {rollup.avgProgress}%
                         </span>
                       </span>
                     </td>

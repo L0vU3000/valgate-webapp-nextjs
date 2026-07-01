@@ -561,7 +561,12 @@ function OverflowMenu({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!open) return;
     function handler(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Element | null;
+      // A ConfirmAction opened from this menu portals its AlertDialog to <body>,
+      // outside ref.current. Clicking inside that dialog must NOT close the menu —
+      // closing unmounts the dialog mid-click, so Confirm/Cancel never fires.
+      if (target?.closest?.("[role='alertdialog'],[role='dialog']")) return;
+      if (ref.current && !ref.current.contains(target as Node)) setOpen(false);
     }
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);

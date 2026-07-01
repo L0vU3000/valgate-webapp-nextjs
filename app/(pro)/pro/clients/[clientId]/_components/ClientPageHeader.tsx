@@ -3,23 +3,14 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { cn } from "@/components/ui/utils";
-import {
-  HEALTH_DOT,
-  type ClientHealth,
-} from "@/app/(pro)/pro/_components/pro-shell-types";
+import { progressDotColor } from "@/lib/property-helpers";
 import { formatDate, formatRelativeTime } from "@/lib/format";
 import type { ClientRollup } from "@/app/(pro)/pro/queries";
 import { ViewAsClientButton } from "./ViewAsClientButton";
 
 // Header for one client's portfolio page: breadcrumb, avatar, name,
-// type badge, derived health, and a one-line summary built from the
+// type badge, Progress stat, and a one-line summary built from the
 // real rollup (property count, value, client-since, last activity).
-
-const HEALTH_LABEL: Record<ClientHealth, string> = {
-  healthy: "Healthy portfolio",
-  "needs-attention": "Needs attention",
-  critical: "Critical issues",
-};
 
 export function ClientPageHeader({
   rollup,
@@ -65,14 +56,17 @@ export function ClientPageHeader({
               <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
                 {client.clientType}
               </span>
-              <span className="inline-flex items-center gap-1.5 text-[12px] text-slate-600 dark:text-slate-300">
+              <span
+                className="inline-flex items-center gap-1.5 text-[12px] text-slate-600 dark:text-slate-300"
+                title="Progress score across properties"
+              >
                 <span
                   className={cn(
                     "inline-block h-2 w-2 rounded-full",
-                    HEALTH_DOT[rollup.health],
+                    progressDotColor(rollup.avgProgress),
                   )}
                 />
-                {HEALTH_LABEL[rollup.health]}
+                {rollup.avgProgress}% Progress
               </span>
             </div>
             <p className="text-[13px] text-slate-500 dark:text-slate-400">

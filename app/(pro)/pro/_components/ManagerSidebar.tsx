@@ -10,6 +10,7 @@ import {
   ClipboardList,
   ShieldCheck,
   Plus,
+  Pin,
 } from "lucide-react";
 import { cn } from "@/components/ui/utils";
 import { useWorkspaceTabs } from "./WorkspaceTabProvider";
@@ -53,17 +54,6 @@ export function ManagerSidebar({
 
   return (
     <aside className="flex h-full w-[220px] shrink-0 flex-col border-r border-border-default bg-surface-base">
-      <div className="flex items-center gap-2 border-b border-border-default px-3 py-3">
-        <span className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-interactive-primary text-[11px] font-bold text-white">
-          VP
-        </span>
-        <div className="min-w-0 flex-1">
-          <span className="block truncate text-left text-[13px] font-semibold text-foreground">
-            Valgate Professional
-          </span>
-        </div>
-      </div>
-
       <nav className="flex flex-col gap-0.5 px-2 py-3">
         {PRIMARY_NAV.map((item) => {
           const Icon = item.icon;
@@ -150,12 +140,10 @@ export function ManagerSidebar({
                   )}
                 />
                 {tabOpen && (
-                  <span
+                  <Pin
                     aria-label="Open in workspace tab"
-                    className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border border-border-default bg-surface-base"
-                  >
-                    <span className="h-2 w-2 rounded-sm bg-secondary/40" />
-                  </span>
+                    className="h-3.5 w-3.5 shrink-0 text-secondary"
+                  />
                 )}
               </button>
             );

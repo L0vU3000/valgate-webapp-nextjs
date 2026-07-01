@@ -12,7 +12,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, X, Check } from "lucide-react";
+import { Plus, X, Check, ArrowLeft } from "lucide-react";
 import { createPortfolioAction } from "@/app/(pro)/pro/actions";
 import {
   ProModal,
@@ -67,19 +67,8 @@ function isValidEmail(v: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 }
 
-export function OnboardClientWizard({
-  open,
-  onOpenChange,
-  unassignedProperties,
-  onComplete,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  unassignedProperties: Array<{ id: string; name: string }>;
-  // D2: called instead of showing the success screen, so the parent can resume.
-  onComplete?: (orgId: string, portfolioName: string) => void;
-}) {
-  const router = useRouter();
+// Shared wizard state factory, used by both OnboardClientWizard and OnboardClientFlow.
+function useWizardState() {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -98,17 +87,10 @@ export function OnboardClientWizard({
     setSuccessMessage("");
   }
 
-  function handleOpenChange(next: boolean) {
-    if (!next) resetAll();
-    onOpenChange(next);
-  }
-
   function goToStep(step: WizardState["step"]) {
     setError(null);
     patch({ step });
   }
-
-  // ── Invitee row helpers ──────────────────────────────────────────────────
 
   function addInviteeRow() {
     patch({ invitees: [...state.invitees, { email: "", role: "member", name: "" }] });
@@ -121,8 +103,6 @@ export function OnboardClientWizard({
   function removeInvitee(index: number) {
     patch({ invitees: state.invitees.filter((_, i) => i !== index) });
   }
-
-  // ── Property row helpers ─────────────────────────────────────────────────
 
   function addPropertyRow() {
     patch({ propertyStubs: [...state.propertyStubs, { name: "", type: "Residential" }] });
@@ -141,57 +121,231 @@ export function OnboardClientWizard({
     patch({ assignPropertyIds: cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id] });
   }
 
-  // ── Submit ───────────────────────────────────────────────────────────────
+  return {
+    state, isPending, error, showSuccess, successMessage, startTransition,
+    setError, setShowSuccess, setSuccessMessage,
+    patch, resetAll, goToStep,
+    addInviteeRow, updateInvitee, removeInvitee,
+    addPropertyRow, updatePropertyRow, removePropertyRow, toggleAssigned,
+  };
+}
+
+// Flowing inside AddClientModal — no ProModal wrapper, receives an onBack callback
+// for the back-to-chooser arrow in step 1.
+export function OnboardClientFlow({
+  onBack,
+  unassignedProperties,
+}: {
+  onBack: () => void;
+  unassignedProperties: Array<{ id: string; name: string }>;
+}) {
+  const router = useRouter();
+  const w = useWizardState();
 
   function submit(sendNow: boolean) {
-    setError(null);
-    const validInvitees = state.invitees.filter((r) => isValidEmail(r.email));
-    const stubs = state.propertyStubs
+    w.setError(null);
+    const validInvitees = w.state.invitees.filter((r) => isValidEmail(r.email));
+    const stubs = w.state.propertyStubs
       .filter((r) => r.name.trim() !== "")
       .map((r) => ({ name: r.name.trim(), type: r.type, value: r.value }));
 
-    startTransition(async () => {
+    w.startTransition(async () => {
       const result = await createPortfolioAction({
-        portfolioName: state.portfolioName.trim(),
+        portfolioName: w.state.portfolioName.trim(),
         invitees: validInvitees.map((r) => ({
           email: r.email.trim(),
           role: r.role,
           name: r.name.trim() || undefined,
         })),
         propertyStubs: stubs,
-        assignPropertyIds: state.assignPropertyIds,
-        locale: state.locale,
+        assignPropertyIds: w.state.assignPropertyIds,
+        locale: w.state.locale,
+        sendNow,
+        managerAccessModel: w.state.managerAccessModel,
+      });
+
+      if (result.ok) {
+        router.refresh();
+        // Three outcomes: a draft with nobody invited, invitations emailed now, or
+        // draft handoffs saved for specific people to send later.
+        let message: string;
+        if (validInvitees.length === 0) {
+          message = "Draft portfolio created — invite the client when you're ready";
+        } else if (sendNow) {
+          message = `Portfolio created · ${validInvitees.length} invitation${validInvitees.length === 1 ? "" : "s"} sent`;
+        } else {
+          message = `Portfolio created · ${validInvitees.length} draft invitation${validInvitees.length === 1 ? "" : "s"} saved`;
+        }
+        w.setSuccessMessage(message);
+        w.setShowSuccess(true);
+      } else {
+        w.setError(result.error);
+      }
+    });
+  }
+
+  // Blank is valid — the server defaults the name to "<client name> Portfolio".
+  // Otherwise require at least 2 characters so a stray keystroke isn't the name.
+  const trimmedName = w.state.portfolioName.trim();
+  const step1Valid = trimmedName.length === 0 || trimmedName.length >= 2;
+  const validInvitees = w.state.invitees.filter((r) => isValidEmail(r.email));
+  // Draft-capable flow: zero invitees is allowed (it creates a draft portfolio to
+  // invite into later). Only block "Next" if a row has text that isn't a valid email.
+  const step2Valid = w.state.invitees.every(
+    (r) => r.email.trim() === "" || isValidEmail(r.email),
+  );
+  const totalProperties =
+    w.state.propertyStubs.filter((r) => r.name.trim() !== "").length +
+    w.state.assignPropertyIds.length;
+
+  return (
+    <div className="flex flex-col gap-5">
+      {w.showSuccess ? (
+        <ProModalSuccess message={w.successMessage} onComplete={() => {}} />
+      ) : (
+        <>
+          {/* Back-to-chooser arrow */}
+          <button
+            type="button"
+            onClick={onBack}
+            aria-label="Back to method chooser"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+          >
+            <ArrowLeft className="h-4 w-4" strokeWidth={1.5} />
+          </button>
+
+          <ProgressStepper step={w.state.step} />
+
+          {w.state.step === 1 && (
+            <StepOne
+              portfolioName={w.state.portfolioName}
+              onChange={(v) => w.patch({ portfolioName: v })}
+              onNext={() => w.goToStep(2)}
+              onCancel={() => {}} // Cancel is hidden because wrapper controls close
+              nextDisabled={!step1Valid}
+              hideCancel
+            />
+          )}
+
+          {w.state.step === 2 && (
+            <StepTwo
+              invitees={w.state.invitees}
+              onAdd={w.addInviteeRow}
+              onUpdate={w.updateInvitee}
+              onRemove={w.removeInvitee}
+              onNext={() => w.goToStep(3)}
+              onBack={() => w.goToStep(1)}
+              onCancel={() => {}}
+              nextDisabled={!step2Valid}
+              optional
+            />
+          )}
+
+          {w.state.step === 3 && (
+            <StepThree
+              state={w.state}
+              unassignedProperties={unassignedProperties}
+              onAddRow={w.addPropertyRow}
+              onUpdateRow={w.updatePropertyRow}
+              onRemoveRow={w.removePropertyRow}
+              onToggleAssigned={w.toggleAssigned}
+              onNext={() => w.goToStep(4)}
+              onSkip={() => w.goToStep(4)}
+              onBack={() => w.goToStep(2)}
+              onCancel={() => {}}
+            />
+          )}
+
+          {w.state.step === 4 && (
+            <StepFour
+              state={w.state}
+              validInvitees={validInvitees}
+              totalProperties={totalProperties}
+              error={w.error}
+              isPending={w.isPending}
+              showDualCta
+              onLocaleChange={(v) => w.patch({ locale: v })}
+              onAccessModelChange={(v) => w.patch({ managerAccessModel: v })}
+              onSubmit={submit}
+              onBack={() => w.goToStep(3)}
+              onCancel={() => {}}
+            />
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+export function OnboardClientWizard({
+  open,
+  onOpenChange,
+  unassignedProperties,
+  onComplete,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  unassignedProperties: Array<{ id: string; name: string }>;
+  onComplete?: (orgId: string, portfolioName: string) => void;
+}) {
+  const router = useRouter();
+  const w = useWizardState();
+
+  function handleOpenChange(next: boolean) {
+    if (!next) w.resetAll();
+    onOpenChange(next);
+  }
+
+  function submit(sendNow: boolean) {
+    w.setError(null);
+    const validInvitees = w.state.invitees.filter((r) => isValidEmail(r.email));
+    const stubs = w.state.propertyStubs
+      .filter((r) => r.name.trim() !== "")
+      .map((r) => ({ name: r.name.trim(), type: r.type, value: r.value }));
+
+    w.startTransition(async () => {
+      const result = await createPortfolioAction({
+        portfolioName: w.state.portfolioName.trim(),
+        invitees: validInvitees.map((r) => ({
+          email: r.email.trim(),
+          role: r.role,
+          name: r.name.trim() || undefined,
+        })),
+        propertyStubs: stubs,
+        assignPropertyIds: w.state.assignPropertyIds,
+        locale: w.state.locale,
         sendNow: onComplete ? true : sendNow,
-        managerAccessModel: state.managerAccessModel,
+        managerAccessModel: w.state.managerAccessModel,
       });
 
       if (result.ok) {
         router.refresh();
         if (onComplete && result.orgId) {
-          onComplete(result.orgId, state.portfolioName.trim() || "New portfolio");
+          onComplete(result.orgId, w.state.portfolioName.trim() || "New portfolio");
           handleOpenChange(false);
         } else {
-          setSuccessMessage(
+          w.setSuccessMessage(
             sendNow
               ? `Portfolio created · ${validInvitees.length} invitation${validInvitees.length === 1 ? "" : "s"} sent`
               : `Portfolio created · ${validInvitees.length} draft invitation${validInvitees.length === 1 ? "" : "s"} saved`,
           );
-          setShowSuccess(true);
+          w.setShowSuccess(true);
         }
       } else {
-        setError(result.error);
+        w.setError(result.error);
       }
     });
   }
 
-  // ── Validation ───────────────────────────────────────────────────────────
-
-  const step1Valid = state.portfolioName.trim().length >= 2;
-  const validInvitees = state.invitees.filter((r) => isValidEmail(r.email));
+  // Blank is valid — the server defaults the name to "<client name> Portfolio".
+  // Otherwise require at least 2 characters so a stray keystroke isn't the name.
+  const trimmedName = w.state.portfolioName.trim();
+  const step1Valid = trimmedName.length === 0 || trimmedName.length >= 2;
+  const validInvitees = w.state.invitees.filter((r) => isValidEmail(r.email));
   const step2Valid = validInvitees.length >= 1;
   const totalProperties =
-    state.propertyStubs.filter((r) => r.name.trim() !== "").length +
-    state.assignPropertyIds.length;
+    w.state.propertyStubs.filter((r) => r.name.trim() !== "").length +
+    w.state.assignPropertyIds.length;
 
   return (
     <ProModal
@@ -200,62 +354,62 @@ export function OnboardClientWizard({
       title="New client portfolio"
       description="Create a portfolio, add people, and optionally seed properties."
     >
-      {showSuccess ? (
-        <ProModalSuccess message={successMessage} onComplete={() => handleOpenChange(false)} />
+      {w.showSuccess ? (
+        <ProModalSuccess message={w.successMessage} onComplete={() => handleOpenChange(false)} />
       ) : (
         <div className="flex flex-col gap-5">
-          <ProgressStepper step={state.step} />
+          <ProgressStepper step={w.state.step} />
 
-          {state.step === 1 && (
+          {w.state.step === 1 && (
             <StepOne
-              portfolioName={state.portfolioName}
-              onChange={(v) => patch({ portfolioName: v })}
-              onNext={() => goToStep(2)}
+              portfolioName={w.state.portfolioName}
+              onChange={(v) => w.patch({ portfolioName: v })}
+              onNext={() => w.goToStep(2)}
               onCancel={() => handleOpenChange(false)}
               nextDisabled={!step1Valid}
             />
           )}
 
-          {state.step === 2 && (
+          {w.state.step === 2 && (
             <StepTwo
-              invitees={state.invitees}
-              onAdd={addInviteeRow}
-              onUpdate={updateInvitee}
-              onRemove={removeInvitee}
-              onNext={() => goToStep(3)}
-              onBack={() => goToStep(1)}
+              invitees={w.state.invitees}
+              onAdd={w.addInviteeRow}
+              onUpdate={w.updateInvitee}
+              onRemove={w.removeInvitee}
+              onNext={() => w.goToStep(3)}
+              onBack={() => w.goToStep(1)}
               onCancel={() => handleOpenChange(false)}
               nextDisabled={!step2Valid}
             />
           )}
 
-          {state.step === 3 && (
+          {w.state.step === 3 && (
             <StepThree
-              state={state}
+              state={w.state}
               unassignedProperties={unassignedProperties}
-              onAddRow={addPropertyRow}
-              onUpdateRow={updatePropertyRow}
-              onRemoveRow={removePropertyRow}
-              onToggleAssigned={toggleAssigned}
-              onNext={() => goToStep(4)}
-              onSkip={() => goToStep(4)}
-              onBack={() => goToStep(2)}
+              onAddRow={w.addPropertyRow}
+              onUpdateRow={w.updatePropertyRow}
+              onRemoveRow={w.removePropertyRow}
+              onToggleAssigned={w.toggleAssigned}
+              onNext={() => w.goToStep(4)}
+              onSkip={() => w.goToStep(4)}
+              onBack={() => w.goToStep(2)}
               onCancel={() => handleOpenChange(false)}
             />
           )}
 
-          {state.step === 4 && (
+          {w.state.step === 4 && (
             <StepFour
-              state={state}
+              state={w.state}
               validInvitees={validInvitees}
               totalProperties={totalProperties}
-              error={error}
-              isPending={isPending}
+              error={w.error}
+              isPending={w.isPending}
               showDualCta={!onComplete}
-              onLocaleChange={(v) => patch({ locale: v })}
-              onAccessModelChange={(v) => patch({ managerAccessModel: v })}
+              onLocaleChange={(v) => w.patch({ locale: v })}
+              onAccessModelChange={(v) => w.patch({ managerAccessModel: v })}
               onSubmit={submit}
-              onBack={() => goToStep(3)}
+              onBack={() => w.goToStep(3)}
               onCancel={() => handleOpenChange(false)}
             />
           )}
@@ -316,24 +470,25 @@ function StepOne({
   onNext,
   onCancel,
   nextDisabled,
+  hideCancel,
 }: {
   portfolioName: string;
   onChange: (v: string) => void;
   onNext: () => void;
   onCancel: () => void;
   nextDisabled: boolean;
+  hideCancel?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-4">
       <ProField
-        label="Portfolio name"
+        label="Portfolio name (optional)"
         htmlFor="wizard-portfolio"
-        hint="This becomes the Clerk org name visible to all members."
+        hint="Leave blank to default to the client's name — e.g. “Sokha Portfolio”. This becomes the org name visible to all members."
       >
         <input
           id="wizard-portfolio"
           type="text"
-          required
           autoFocus
           value={portfolioName}
           onChange={(e) => onChange(e.target.value)}
@@ -343,7 +498,8 @@ function StepOne({
       </ProField>
 
       <div className="flex items-center justify-between pt-1">
-        <TextLink onClick={onCancel}>Cancel</TextLink>
+        {!hideCancel && <TextLink onClick={onCancel}>Cancel</TextLink>}
+        {hideCancel && <span />}
         <button
           type="button"
           onClick={onNext}
@@ -368,6 +524,7 @@ function StepTwo({
   onBack,
   onCancel,
   nextDisabled,
+  optional = false,
 }: {
   invitees: Invitee[];
   onAdd: () => void;
@@ -377,15 +534,20 @@ function StepTwo({
   onBack: () => void;
   onCancel: () => void;
   nextDisabled: boolean;
+  // When true, this step can be left empty — the portfolio is created as a draft and
+  // the manager invites people later. Only used by the draft-capable OnboardClientFlow.
+  optional?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
         <h3 className="text-[14px] font-semibold text-slate-800 dark:text-slate-100">
-          People
+          {optional ? "Invite people (optional)" : "People"}
         </h3>
         <p className="text-[12.5px] text-slate-500 dark:text-slate-400">
-          Add everyone who should have access. You can adjust roles later.
+          {optional
+            ? "Add people now, or leave this empty and invite them later. You can adjust roles anytime."
+            : "Add everyone who should have access. You can adjust roles later."}
         </p>
       </div>
 
@@ -652,19 +814,30 @@ function StepFour({
   onCancel: () => void;
 }) {
   const inviteeSummary = validInvitees.map((i) => i.email).join(", ");
+  // No valid invitees → this will be created as a draft (org + properties, no invite).
+  const hasInvitees = validInvitees.length > 0;
+
+  // Preview the name the server will use when the manager left the field blank.
+  // Mirrors deriveDefaultPortfolioName() in lib/services/client-onboarding.ts
+  // (source of truth) — kept simple here since it's display-only.
+  const primaryLocalPart = (validInvitees[0]?.email.split("@")[0] ?? "").replace(/[._-]+/g, " ").trim();
+  const derivedName = primaryLocalPart
+    ? `${primaryLocalPart.charAt(0).toUpperCase()}${primaryLocalPart.slice(1)} Portfolio`
+    : "";
+  const portfolioPreview = state.portfolioName.trim() || derivedName || "—";
 
   return (
     <div className="flex flex-col gap-4">
       {/* Summary card */}
       <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-700 dark:bg-slate-800/40">
         <dl className="flex flex-col gap-2 text-[13px]">
-          <SummaryRow label="Portfolio" value={state.portfolioName.trim() || "—"} />
+          <SummaryRow label="Portfolio" value={portfolioPreview} />
           <SummaryRow
             label="People"
             value={
-              validInvitees.length === 0
-                ? "—"
-                : `${validInvitees.length} invitee${validInvitees.length === 1 ? "" : "s"}`
+              hasInvitees
+                ? `${validInvitees.length} invitee${validInvitees.length === 1 ? "" : "s"}`
+                : "None yet — invite later"
             }
           />
           {validInvitees.length > 0 && (
@@ -745,26 +918,39 @@ function StepFour({
           <TextLink onClick={onBack}>Back</TextLink>
 
           {showDualCta ? (
-            <>
-              {/* Secondary: save as drafts, no email */}
+            hasInvitees ? (
+              <>
+                {/* Secondary: save as drafts, no email */}
+                <button
+                  type="button"
+                  disabled={isPending}
+                  onClick={() => onSubmit(false)}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-200 px-3 text-[13px] font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                >
+                  Create portfolio
+                </button>
+                {/* Primary: send invitations now */}
+                <button
+                  type="button"
+                  disabled={isPending}
+                  onClick={() => onSubmit(true)}
+                  className={proPrimaryButtonClass}
+                >
+                  {isPending ? "Creating…" : "Create & invite now"}
+                </button>
+              </>
+            ) : (
+              // No invitees → draft only. There's no one to email, so the single
+              // primary action creates the draft portfolio (sendNow=false).
               <button
                 type="button"
                 disabled={isPending}
                 onClick={() => onSubmit(false)}
-                className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-200 px-3 text-[13px] font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-              >
-                Create portfolio
-              </button>
-              {/* Primary: send invitations now */}
-              <button
-                type="button"
-                disabled={isPending}
-                onClick={() => onSubmit(true)}
                 className={proPrimaryButtonClass}
               >
-                {isPending ? "Creating…" : "Create & invite now"}
+                {isPending ? "Creating…" : "Create portfolio"}
               </button>
-            </>
+            )
           ) : (
             // D2 mode: single CTA, always sends
             <button

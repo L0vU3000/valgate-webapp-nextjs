@@ -46,6 +46,8 @@ chat** — especially for visual plans. Standard flow:
 | `plan-5d5ce2f2a25b4fdd` | Client as permission leader — Phase 2 (change-request loop on Properties) | complete (shipped; defaults applied) | [phase2-change-request-loop.md](./phase2-change-request-loop.md) | [open](https://plan.agent-native.com/plans/plan-5d5ce2f2a25b4fdd) |
 | `plan-75c88ebd725948db` | Client as permission leader — Phase 3 (generalize: all entities + create/update/delete) | review (2 open Qs, defaults recommended) | [phase3-generalize-change-requests.md](./phase3-generalize-change-requests.md) | [open](https://plan.agent-native.com/plans/plan-75c88ebd725948db) |
 | `plan-5157d28c4ef143fc` | Notifications Panel — Empty State (quiet-beacon design) | review (decisions locked, not yet implemented) | [notifications-empty-state.md](./notifications-empty-state.md) | [open](https://plan.agent-native.com/plans/plan-5157d28c4ef143fc) |
+| `plan-f51f6b5374e3461d` | Unified "Add Client" Modal — Phase 1 (merge Onboard + Add account behind a chooser) | approved (decisions locked, ready) | [unified-add-client-phase1.md](./unified-add-client-phase1.md) | [open](https://plan.agent-native.com/plans/plan-f51f6b5374e3461d) |
+| `plan-e389da3d972b4a2a` | Properties register — group by owner (My Portfolio + per-client bands) | shipped (defaults A/A/A/A; tsc+eslint green, QA pending) | [pro-properties-group-by-owner.md](./pro-properties-group-by-owner.md) | [open](https://plan.agent-native.com/plans/plan-e389da3d972b4a2a) |
 
 > The Plan MCP tools return only a link (or truncated text) for plans not authored in
 > the current session, so full local mirrors are written **at authoring time**.

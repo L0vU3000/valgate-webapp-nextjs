@@ -740,18 +740,32 @@ const inviteeSchema = z.object({
   name: z.string().max(120).optional(),
 });
 
-const createPortfolioSchema = z.object({
-  portfolioName: z.string().min(2).max(120),
-  invitees: z.array(inviteeSchema).min(1),
-  propertyStubs: z.array(propertyStubSchema).default([]),
-  assignPropertyIds: z.array(z.string().min(1)).default([]),
-  locale: z.enum(["en", "km"]).optional(),
-  sendNow: z.boolean(),
-  managerAccessModel: z.enum(["approval", "full", "remove"]).default("approval"),
-});
+const createPortfolioSchema = z
+  .object({
+    // Blank is allowed ONLY when there is at least one invitee — the service then
+    // defaults the name to "<client name> Portfolio" derived from the first email.
+    // The .refine() below enforces a name when there are zero invitees (a draft).
+    portfolioName: z.string().max(120),
+    // Zero invitees is allowed: this creates a DRAFT portfolio (org + client row +
+    // properties, no invitation, no email). The manager invites later from the
+    // Manage members drawer. When invitees are present each still needs a valid email.
+    invitees: z.array(inviteeSchema).default([]),
+    propertyStubs: z.array(propertyStubSchema).default([]),
+    assignPropertyIds: z.array(z.string().min(1)).default([]),
+    locale: z.enum(["en", "km"]).optional(),
+    sendNow: z.boolean(),
+    managerAccessModel: z.enum(["approval", "full", "remove"]).default("approval"),
+  })
+  // A draft (no invitees) has no email to derive a name from, so the manager must
+  // type one. The error is attached to portfolioName so the UI can surface it inline.
+  .refine((data) => data.invitees.length > 0 || data.portfolioName.trim().length > 0, {
+    message: "Give the portfolio a name.",
+    path: ["portfolioName"],
+  });
 
-// Creates a portfolio org with one or more invitees. sendNow=true sends invitations
-// immediately; sendNow=false creates draft handoffs without emailing.
+// Creates a portfolio org. With one or more invitees, sendNow=true sends invitations
+// immediately and sendNow=false saves draft handoffs without emailing. With zero
+// invitees it creates a draft portfolio (no handoffs, no email) to invite into later.
 export async function createPortfolioAction(input: {
   portfolioName: string;
   invitees: Array<{ email: string; role: PortfolioRole; name?: string }>;
@@ -762,7 +776,12 @@ export async function createPortfolioAction(input: {
   managerAccessModel?: "approval" | "full" | "remove";
 }): Promise<ProActionResult> {
   const parsed = createPortfolioSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, error: "Invalid input." };
+  if (!parsed.success) {
+    // These validation messages are authored by us (e.g. "Give the portfolio a
+    // name.") and safe to show the user; fall back to a generic string otherwise.
+    const firstIssue = parsed.error.issues[0]?.message;
+    return { ok: false, error: firstIssue ?? "Invalid input." };
+  }
   const authCtx = await requireCtx();
   try {
     const result = await createClientPortfolioWithInvitees(authCtx, {

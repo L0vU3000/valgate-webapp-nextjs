@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, inArray, isNull, ne, sql, countDistinct } from "drizzle-orm";
+import { and, eq, inArray, notInArray, isNull, isNotNull, ne, sql, countDistinct } from "drizzle-orm";
 import { clerkClient } from "@clerk/nextjs/server";
 import { Resend } from "resend";
 import { db } from "@/lib/db/client";
@@ -18,21 +18,54 @@ import { getFsUserId } from "@/lib/data/auth-shim";
 import type { NewProperty, PropertyTypeChoice } from "@/lib/data/types/property";
 import { logger } from "@/lib/logger";
 
-// Cap: a manager cannot have more than this many unconfirmed (draft/pending/bounced) client orgs.
+// Cap: a manager cannot have more than this many unconfirmed client portfolios.
+// "Unconfirmed" = the client has not accepted yet — this covers drafts (not invited
+// at all), pending invites, and bounced invites. Accepted portfolios don't count.
 export const MAX_UNCONFIRMED_CLIENTS = 20;
 
-// Counts distinct portfolio orgs this manager has that still have at least one
-// draft, pending, or bounced handoff — i.e. unconfirmed/invited clients.
+/**
+ * Counts this manager's client portfolios that the client hasn't accepted yet.
+ *
+ * A portfolio becomes "confirmed" only once one of its client_handoffs is accepted.
+ * We therefore count the manager's active client portfolios (rows in `clients` that
+ * are backed by an org) and subtract the ones whose org already has an accepted
+ * handoff. This deliberately includes DRAFT portfolios that have no handoff row at
+ * all, so a manager can't create unlimited backing orgs by never inviting anyone.
+ *
+ * Two small queries (instead of one correlated subquery) keep the intent readable;
+ * the row counts here are tiny (capped at MAX_UNCONFIRMED_CLIENTS), so the extra
+ * round-trip is negligible.
+ */
 export async function countUnconfirmedClients(managerUserId: string): Promise<number> {
-  const [row] = await db
-    .select({ count: countDistinct(clientHandoffs.orgId) })
+  // Step 1: find every org this manager has where the client already accepted.
+  // These are "confirmed" and must be excluded from the count.
+  const acceptedRows = await db
+    .select({ orgId: clientHandoffs.orgId })
     .from(clientHandoffs)
     .where(
       and(
         eq(clientHandoffs.managerUserId, managerUserId),
-        inArray(clientHandoffs.status, ["draft", "pending", "bounced"]),
+        eq(clientHandoffs.status, "accepted"),
       ),
     );
+  const acceptedOrgIds = acceptedRows.map((r) => r.orgId);
+
+  // Step 2: count this manager's active, org-backed client portfolios, excluding the
+  // accepted ones. notInArray is only applied when there is something to exclude —
+  // an empty list would make the SQL "NOT IN ()" which behaves inconsistently.
+  const conditions = [
+    eq(clients.managerUserId, managerUserId),
+    isNotNull(clients.orgId),
+    eq(clients.status, "active"),
+  ];
+  if (acceptedOrgIds.length > 0) {
+    conditions.push(notInArray(clients.orgId, acceptedOrgIds));
+  }
+
+  const [row] = await db
+    .select({ count: countDistinct(clients.orgId) })
+    .from(clients)
+    .where(and(...conditions));
   return row?.count ?? 0;
 }
 
@@ -96,11 +129,18 @@ export async function getPendingWelcome(
 // raw Clerk organization invitation id rather than a Ctx.
 export async function getInviteeNameForInvitation(clerkInvitationId: string): Promise<string | null> {
   const [row] = await db
-    .select({ clientName: clientHandoffs.clientName })
+    .select({
+      clientName: clientHandoffs.clientName,
+      orgName: organizations.name,
+    })
     .from(clientHandoffs)
+    .leftJoin(organizations, eq(organizations.id, clientHandoffs.orgId))
     .where(eq(clientHandoffs.clerkInvitationId, clerkInvitationId))
     .limit(1);
-  return row?.clientName ?? null;
+  // The per-invitee name is optional — many invitees are added email-only. Fall back to
+  // the portfolio/org name (which IS the client's name for single-client portfolios) so
+  // the invitation still greets them by the name the manager typed.
+  return row?.clientName ?? row?.orgName ?? null;
 }
 
 // ─── Visual helpers ───────────────────────────────────────────────────────────
@@ -129,6 +169,26 @@ function nameToAvatarBg(name: string): string {
   let h = 0;
   for (let i = 0; i < name.length; i++) h = (Math.imul(31, h) + name.charCodeAt(i)) | 0;
   return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
+}
+
+// Derives a fallback portfolio/org name from the primary invitee, used when the
+// manager leaves the name field blank. Prefers a typed name ("Sokha Family" →
+// "Sokha Family Portfolio"); otherwise falls back to the email's local part with
+// a capitalised first letter ("sokha@example.com" → "Sokha Portfolio").
+function deriveDefaultPortfolioName(primaryInvitee: { email: string; name?: string }): string {
+  const typedName = (primaryInvitee.name ?? "").trim();
+  if (typedName.length > 0) {
+    return `${typedName} Portfolio`;
+  }
+
+  // No name was collected — build one from the email address instead.
+  const localPart = (primaryInvitee.email.split("@")[0] ?? "").trim();
+  // Turn separators (dots, underscores, hyphens) into spaces so "jane.doe" reads "jane doe".
+  const spaced = localPart.replace(/[._-]+/g, " ").trim();
+  const capitalised = spaced.charAt(0).toUpperCase() + spaced.slice(1);
+
+  // Guard against a pathological empty local part (e.g. "@example.com").
+  return `${capitalised || "New"} Portfolio`;
 }
 
 // ─── Shared dual-write helper ─────────────────────────────────────────────────
@@ -389,14 +449,21 @@ export async function createClientPortfolioWithInvitees(
     .limit(1);
   if (!managerUser) throw new AccessError("Could not find your user record.");
 
+  // Resolve the org name: use what the manager typed, or fall back to a default
+  // built from the primary (first) invitee — e.g. "Sokha Portfolio".
+  const primaryInvitee = input.invitees[0];
+  const resolvedPortfolioName =
+    input.portfolioName.trim() ||
+    (primaryInvitee ? deriveDefaultPortfolioName(primaryInvitee) : "New Portfolio");
+
   // 1. Create the Clerk organisation. The creating user becomes org:admin automatically.
   const clerkOrg = await client.organizations.createOrganization({
-    name: input.portfolioName,
+    name: resolvedPortfolioName,
     createdBy: managerUser.clerkUserId,
   });
 
   // 2. Upsert Neon mirror (idempotent).
-  await upsertOrg({ id: clerkOrg.id, name: input.portfolioName });
+  await upsertOrg({ id: clerkOrg.id, name: resolvedPortfolioName });
 
   // 2b. Mirror the manager's membership immediately so createPropertyForOrg's
   //     admin check passes before the webhook arrives.
@@ -506,13 +573,25 @@ export async function createClientPortfolioWithInvitees(
 
   // 6. Notify manager. Best-effort.
   try {
-    const verb = input.sendNow ? "Invitations sent" : "Portfolio created";
     const n = input.invitees.length;
+    // Three cases: a draft with nobody invited yet, invitations just emailed, or
+    // draft handoffs saved for later. The name shown is the resolved portfolio name
+    // (falls back to what the manager typed).
+    const displayName = resolvedPortfolioName;
+    let title: string;
+    let description: string;
+    if (n === 0) {
+      title = "Draft portfolio created";
+      description = `${displayName} created — invite the client when you're ready`;
+    } else {
+      title = input.sendNow ? "Invitations sent" : "Portfolio created";
+      description = `${displayName} created with ${n} ${n === 1 ? "invitee" : "invitees"}`;
+    }
     await insertAccessNotification({
       orgId: ctx.orgId,
       userId: ctx.userId,
-      title: verb,
-      description: `${input.portfolioName} created with ${n} ${n === 1 ? "invitee" : "invitees"}`,
+      title,
+      description,
       linkTo: "/pro/clients",
     });
   } catch (err) {
@@ -1310,7 +1389,12 @@ export async function handleInvitationAccepted(clerkInvitationId: string): Promi
     .set({ status: "accepted", acceptedAt: new Date(), updatedAt: new Date() })
     .where(eq(clientHandoffs.id, handoff.id));
 
-  const displayName = handoff.clientName ?? "Your client";
+  // The name shown to the manager in the accept notification. Starts as the label the
+  // manager typed at onboarding; becomes the client's chosen name if they set one below.
+  let displayName = handoff.clientName ?? "Your client";
+  // When the client accepts under a different name than the manager's label, this holds
+  // the sentence appended to the accept notification so the manager sees the change.
+  let nameChangeNote: string | null = null;
 
   // Resolve the Clerk org id for this portfolio.
   const [orgRow] = await db
@@ -1334,9 +1418,10 @@ export async function handleInvitationAccepted(clerkInvitationId: string): Promi
     limit: 100,
   });
 
-  const clientClerkUserId = members.find(
+  const clientMember = members.find(
     (m) => m.publicUserData?.identifier?.toLowerCase() === handoff.clientEmail.toLowerCase(),
-  )?.publicUserData?.userId;
+  );
+  const clientClerkUserId = clientMember?.publicUserData?.userId;
 
   if (!clientClerkUserId) {
     // The membership webhook hasn't synced yet — Clerk will retry this event, so we
@@ -1346,6 +1431,67 @@ export async function handleInvitationAccepted(clerkInvitationId: string): Promi
       clientEmail: handoff.clientEmail,
     });
     return;
+  }
+
+  // Option A — the client owns their own display name. If they set a name during signup,
+  // it now overwrites the label the manager typed at onboarding, on both the canonical
+  // client record (shown in /pro/clients) and the handoff row. Initials/avatar are
+  // re-derived so they stay in sync. Best-effort: a name-sync failure must not block the
+  // access handoff below.
+  const clientChosenName = [
+    clientMember?.publicUserData?.firstName,
+    clientMember?.publicUserData?.lastName,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+
+  if (clientChosenName) {
+    try {
+      // The baseline for "did the name change?" is the name the manager currently sees
+      // in /pro/clients — i.e. the canonical clients.name (which for an email-only invitee
+      // is the portfolio/org name the manager typed). Fall back to the handoff label.
+      const [existingClient] = await db
+        .select({ name: clients.name })
+        .from(clients)
+        .where(eq(clients.orgId, handoff.orgId))
+        .limit(1);
+      const previousName = existingClient?.name ?? handoff.clientName ?? null;
+
+      const isDifferent =
+        previousName === null ||
+        previousName.trim().toLowerCase() !== clientChosenName.toLowerCase();
+
+      if (isDifferent) {
+        await db
+          .update(clients)
+          .set({
+            name: clientChosenName,
+            initials: nameToInitials(clientChosenName),
+            avatarBg: nameToAvatarBg(clientChosenName),
+          })
+          .where(eq(clients.orgId, handoff.orgId));
+
+        await db
+          .update(clientHandoffs)
+          .set({ clientName: clientChosenName, updatedAt: new Date() })
+          .where(eq(clientHandoffs.id, handoff.id));
+
+        // Only flag a "change" (vs a first-time name) when there was a real prior label
+        // to change from — otherwise the client simply filled in a name we didn't have.
+        if (previousName) {
+          nameChangeNote = `They joined as "${clientChosenName}" (you had them as "${previousName}").`;
+        }
+      }
+
+      // Use the client's real name in the accept notification either way.
+      displayName = clientChosenName;
+    } catch (err) {
+      logger.error("handleInvitationAccepted: failed to sync client-chosen name", {
+        error: String(err),
+        handoffId: handoff.id,
+      });
+    }
   }
 
   // Resolve the manager's Clerk userId.
@@ -1460,11 +1606,15 @@ export async function handleInvitationAccepted(clerkInvitationId: string): Promi
     }
 
     if (homeOrg) {
+      const baseDescription =
+        notificationDescriptions[model] ?? `${displayName} accepted their portfolio invitation`;
       await insertAccessNotification({
         orgId: homeOrg.id,
         userId: handoff.managerUserId,
-        title: "Client accepted",
-        description: notificationDescriptions[model] ?? `${displayName} accepted their portfolio invitation`,
+        title: nameChangeNote ? "Client accepted — name changed" : "Client accepted",
+        // When the client renamed themselves, append the change so it's visible in the
+        // same notification the manager already gets for the acceptance.
+        description: nameChangeNote ? `${baseDescription} ${nameChangeNote}` : baseDescription,
         linkTo: "/pro/clients",
       });
     }

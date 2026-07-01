@@ -354,8 +354,10 @@ export type ProShellData = {
   manager: { name: string; initials: string };
   // Properties shaped for the command palette (PropertyListItem).
   searchProperties: PropertyListItem[];
-  // Owner accounts the manager has been granted access to — drives AccountSwitcher.
-  // Empty array for non-managers (owners are never managers).
+  // Owner accounts the manager has been granted access to. Not currently
+  // rendered anywhere — the account-switcher UI was removed; this is kept
+  // in case a future account-management surface needs it. Empty array for
+  // non-managers (owners are never managers).
   managedAccounts: { clerkOrgId: string; name: string; level: "view" | "full" }[];
   // Whether the user has manager mode on — drives the My portfolio ⇄ Pro pill in the header.
   isManager: boolean;
@@ -631,11 +633,36 @@ export async function getProDashboardData(): Promise<ProDashboardData> {
   };
 }
 
-// Cross-client Properties register: the full asset list with the small
-// client list needed to power the filter, plus book-level summary stats.
-// Reuses the same property row + value helpers as the dashboard so the
-// numbers match everywhere.
+// One owner's band in the grouped Properties register. Every stat here is
+// lifted straight from that owner's ClientRollup (the same rollup the
+// dashboard and the owner's /pro/clients/[id] portfolio page render), so a
+// band and that portfolio page can never show different numbers.
+export type ProOwnerGroup = {
+  ownerId: string; // client.id, or OWN_PORTFOLIO_ID for the manager's own book
+  ownerName: string; // "My Portfolio" | client.name
+  isOwnPortfolio: boolean;
+  initials: string;
+  avatarBg: string;
+  propertyCount: number; // rows in this band (all of the owner's properties)
+  totalValueFormatted: string;
+  rentedCount: number;
+  vacantCount: number;
+  occupancyRate: number;
+  avgProgress: number;
+  alertCount: number; // actionable alerts only (urgent + warning)
+  properties: ProPropertyRow[];
+};
+
+// Cross-client Properties register: the full asset list plus an owner-grouped
+// view of the same rows, the small client list needed to power the flat-mode
+// filter, and book-level summary stats. Reuses the same property row + value
+// helpers as the dashboard so the numbers match everywhere.
 export type ProPropertiesData = {
+  // The register grouped by owner: My Portfolio first, then each client that
+  // holds at least one property, ordered by portfolio value descending.
+  groups: ProOwnerGroup[];
+  // The flat list of every row (all owners), retained for the "Flat list"
+  // view mode and its cross-owner bulk actions (assign to client, CSV import).
   properties: ProPropertyRow[];
   clients: Array<{ id: string; name: string }>;
   summary: {
@@ -648,7 +675,9 @@ export type ProPropertiesData = {
 };
 
 export async function getProPropertiesData(): Promise<ProPropertiesData> {
+  const authCtx = await requireCtx();
   const ctx = await loadProContext();
+  const monthStart = currentMonthStartUtc();
 
   const properties = ctx.properties
     .map((p) => buildPropertyRow(p, ctx))
@@ -658,12 +687,73 @@ export async function getProPropertiesData(): Promise<ProPropertiesData> {
   const activeProperties = ctx.properties.filter(isActiveProperty);
   const totalValue = sumPropertyValues(activeProperties);
 
-  // Clients that actually own at least one property, for the filter.
+  // Clients that actually own at least one property, for the flat-mode filter.
   const clients = ctx.clients
     .map((client) => ({ id: client.id, name: client.name }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
+  // --- Group the register by owner -----------------------------------------
+  // Roll up each owner once. Client rollups key on client.id; the manager's
+  // own book keys on OWN_PORTFOLIO_ID. These are the exact rollups the client
+  // portfolio pages read, so band stats and portfolio stats always agree.
+  const rollupByOwnerId = new Map<string, ClientRollup>();
+  for (const client of ctx.clients) {
+    rollupByOwnerId.set(client.id, buildClientRollup(client, ctx, monthStart));
+  }
+  const ownRollup = buildOwnPortfolioRollup(ctx, monthStart, authCtx.userId);
+  rollupByOwnerId.set(OWN_PORTFOLIO_ID, ownRollup);
+
+  // Bucket the already-built rows under their owner so the union of every band
+  // equals the flat list exactly — no row is dropped or duplicated. Rows for
+  // the manager's own book carry an empty clientId (buildPropertyRow), which
+  // maps to the synthetic My Portfolio owner.
+  const rowsByOwnerId = new Map<string, ProPropertyRow[]>();
+  for (const row of properties) {
+    const ownerId = row.clientId === "" ? OWN_PORTFOLIO_ID : row.clientId;
+    const bucket = rowsByOwnerId.get(ownerId) ?? [];
+    bucket.push(row);
+    rowsByOwnerId.set(ownerId, bucket);
+  }
+
+  // Assemble one band from a rollup + its bucketed rows. alertCount counts only
+  // actionable severities (urgent + warning) so an owner with nothing but
+  // "rent pending" info notes doesn't raise a scary amber chip.
+  const toGroup = (rollup: ClientRollup): ProOwnerGroup => {
+    const ownerId = rollup.client.id;
+    const ownerRows = rowsByOwnerId.get(ownerId) ?? [];
+    return {
+      ownerId,
+      ownerName: rollup.client.name,
+      isOwnPortfolio: ownerId === OWN_PORTFOLIO_ID,
+      initials: rollup.client.initials,
+      avatarBg: rollup.client.avatarBg,
+      propertyCount: ownerRows.length,
+      totalValueFormatted: rollup.totalValueFormatted,
+      rentedCount: rollup.rentedCount,
+      vacantCount: rollup.vacantCount,
+      occupancyRate: rollup.occupancyRate,
+      avgProgress: rollup.avgProgress,
+      alertCount: rollup.alerts.filter(
+        (a) => a.severity === "urgent" || a.severity === "warning",
+      ).length,
+      properties: ownerRows,
+    };
+  };
+
+  // My Portfolio pins first, even with zero properties (a new manager sees an
+  // empty band inviting a first property). Client bands follow only when they
+  // actually hold a property, ordered by portfolio value descending to match
+  // the dashboard's client table.
+  const clientGroups = ctx.clients
+    .filter((client) => (rowsByOwnerId.get(client.id) ?? []).length > 0)
+    .map((client) => rollupByOwnerId.get(client.id)!)
+    .sort((a, b) => b.totalValue - a.totalValue)
+    .map(toGroup);
+
+  const groups: ProOwnerGroup[] = [toGroup(ownRollup), ...clientGroups];
+
   return {
+    groups,
     properties,
     clients,
     summary: {
@@ -1438,7 +1528,10 @@ async function augmentRollupsWithOrgData(
     rollup.memberCount = memberByOrg.get(orgId) ?? 0;
     const handoffEntry = handoffByOrg.get(orgId);
     rollup.pendingCount = handoffEntry?.pendingCount ?? 0;
-    rollup.confirmationStatus = bestStatus(handoffEntry?.statuses ?? []);
+    // A portfolio with an org but no handoff rows is a DRAFT the manager hasn't
+    // invited anyone into yet — surface it as "draft" so the table shows the badge
+    // instead of a bare "—". Any real handoff status still wins via bestStatus().
+    rollup.confirmationStatus = bestStatus(handoffEntry?.statuses ?? []) || "draft";
   }
 }
 

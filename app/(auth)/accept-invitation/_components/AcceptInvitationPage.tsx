@@ -63,6 +63,7 @@ function AcceptInvitationContent() {
   const [paramsReady, setParamsReady] = useState(false);
 
   const [fullName, setFullName] = useState("");
+  const [inviteeName, setInviteeName] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -89,7 +90,9 @@ function AcceptInvitationContent() {
     if (!token) return;
     let cancelled = false;
     getInviteePrefillNameAction(token).then(({ name }) => {
-      if (!cancelled && name) setFullName((current) => current || name);
+      if (cancelled || !name) return;
+      setInviteeName(name);
+      setFullName((current) => current || name);
     });
     return () => {
       cancelled = true;
@@ -263,7 +266,7 @@ function AcceptInvitationContent() {
           Portfolio invitation
         </div>
         <h2 className="text-[30px] font-semibold text-foreground font-display leading-[36px]">
-          Join your portfolio
+          {inviteeName ? `Welcome, ${inviteeName.trim()}` : "Join your portfolio"}
         </h2>
         <p className="text-base text-[#434655]">
           Your property manager invited you to Valgate. Create your account to view and manage your properties.

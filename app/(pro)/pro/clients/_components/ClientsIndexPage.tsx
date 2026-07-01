@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ChevronRight, Plus, RotateCcw } from "lucide-react";
 import { ClientsTable } from "@/app/(pro)/pro/dashboard/_components/ClientsTable";
-import { OnboardClientWizard } from "./OnboardClientWizard";
+import { AddClientModal } from "./AddClientModal";
 import { ConfirmAction } from "@/components/ui/confirm-action";
 import { setClientStatus } from "@/app/(pro)/pro/actions";
 import type { ClientRollup } from "@/app/(pro)/pro/queries";
@@ -12,15 +12,22 @@ import { cn } from "@/components/ui/utils";
 // Must match MAX_UNCONFIRMED_CLIENTS in lib/services/client-onboarding.ts.
 const MAX_UNCONFIRMED_CLIENTS = 20;
 
-// Clients index — the full book of business. Reuses the dashboard's
-// ClientsTable (real rollups, Status column, Manage members drawer).
-// Archived clients shown below with a Reactivate button.
+type RequestRow = {
+  id: string;
+  ownerOrgName: string;
+  requestedLevel: "view" | "full";
+  status: "pending" | "approved" | "denied";
+  createdAt: number;
+};
 
 export function ClientsIndexPage({
   clients,
   inactiveClients,
   unassignedProperties,
   unconfirmedCount,
+  managerName,
+  managerEmail,
+  requests,
 }: {
   clients: ClientRollup[];
   inactiveClients: Array<{
@@ -31,17 +38,24 @@ export function ClientsIndexPage({
     clientType: "Individual" | "Corporate";
   }>;
   unassignedProperties: Array<{ id: string; name: string }>;
-  // How many of this manager's clients are still unconfirmed (draft/pending/bounced).
   unconfirmedCount: number;
+  managerName: string;
+  managerEmail: string;
+  requests: RequestRow[];
 }) {
-  const [onboardOpen, setOnboardOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [addMode, setAddMode] = useState<"choose" | "new" | "connect">("choose");
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Open the wizard when arriving via Create → New Client (?onboard=1).
+  // Deep links open the modal on the right branch, then clean the URL.
   useEffect(() => {
-    if (searchParams.get("onboard") !== "1") return;
-    setOnboardOpen(true);
+    const add = searchParams.get("add");
+    const onboard = searchParams.get("onboard");
+    if (add === "connect") { setAddMode("connect"); setAddOpen(true); }
+    else if (onboard === "1") { setAddMode("new"); setAddOpen(true); }
+    else if (add) { setAddMode("choose"); setAddOpen(true); }
+    else return;
     router.replace("/pro/clients", { scroll: false });
   }, [searchParams, router]);
 
@@ -95,7 +109,7 @@ export function ClientsIndexPage({
           </div>
           <button
             type="button"
-            onClick={() => setOnboardOpen(true)}
+            onClick={() => { setAddMode("choose"); setAddOpen(true); }}
             disabled={atQuota}
             className={cn(
               "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md px-3 text-[13px] font-medium text-white transition-[background-color,transform]",
@@ -106,14 +120,18 @@ export function ClientsIndexPage({
             title={atQuota ? `Limit of ${MAX_UNCONFIRMED_CLIENTS} pending clients reached` : undefined}
           >
             <Plus className="h-4 w-4" />
-            Onboard Client
+            Add Client
           </button>
         </header>
 
-        <OnboardClientWizard
-          open={onboardOpen}
-          onOpenChange={setOnboardOpen}
+        <AddClientModal
+          open={addOpen}
+          onOpenChange={setAddOpen}
+          initialMode={addMode}
           unassignedProperties={unassignedProperties}
+          managerName={managerName}
+          managerEmail={managerEmail}
+          requests={requests}
         />
 
         {/* Unified clients table — Status column + Manage members drawer built in */}
