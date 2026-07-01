@@ -2,10 +2,9 @@
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { X, Settings, Bell } from "lucide-react";
+import { X, Settings } from "lucide-react";
 import { type Notification, type NotificationCategory } from "@/lib/data/notifications";
 import { formatRelativeTime } from "@/lib/format";
-import { EmptyState } from "@/components/ui/EmptyState";
 
 const CATEGORY_STYLES: Record<
   NotificationCategory,
@@ -42,10 +41,10 @@ const CATEGORY_STYLES: Record<
     iconText: "text-purple-600",
   },
   ACCESS: {
-    badgeBg: "bg-slate-50",
-    badgeText: "text-slate-700",
-    iconBg: "bg-slate-50",
-    iconText: "text-slate-600",
+    badgeBg: "bg-indigo-50",
+    badgeText: "text-indigo-700",
+    iconBg: "bg-indigo-50",
+    iconText: "text-indigo-600",
   },
 };
 
@@ -90,8 +89,9 @@ const CATEGORY_ICONS: Record<NotificationCategory, React.ReactNode> = {
   ),
   ACCESS: (
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
-      <circle cx="5" cy="5" r="4" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M8.5 8.5L13 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <circle cx="5" cy="4" r="2.5" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M1 12c0-2.2 1.8-4 4-4s4 1.8 4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M10.5 8.5l2 2-1.5 1.5-2-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   ),
 };
@@ -151,8 +151,7 @@ export const NotificationsPanel = forwardRef<NotificationsPanelHandle, Notificat
       ref={panelRef}
       role="dialog"
       aria-labelledby="notifications-heading"
-      style={{ bottom: "calc(env(safe-area-inset-bottom) + 12px)" }}
-      className={`fixed inset-x-3 top-auto sm:absolute sm:inset-x-auto sm:right-[-14px] sm:top-[calc(100%+20px)] sm:bottom-auto z-50 w-auto sm:w-[420px] max-h-[80dvh] sm:max-h-none bg-white border border-slate-300 rounded-2xl sm:rounded-lg shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.3)] overflow-hidden motion-reduce:animate-none pb-safe sm:pb-0 ${
+      className={`fixed inset-x-3 top-auto bottom-[calc(env(safe-area-inset-bottom)+12px)] sm:absolute sm:inset-x-auto sm:right-[-14px] sm:top-[calc(100%+20px)] sm:bottom-auto z-50 w-auto sm:w-[420px] max-h-[80dvh] sm:max-h-none bg-white border border-slate-300 rounded-2xl sm:rounded-lg shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.3)] overflow-hidden motion-reduce:animate-none pb-safe sm:pb-0 ${
         isClosing
           ? "animate-[fade-slide-up-out_0.14s_cubic-bezier(0.5,0,0.75,0)_both]"
           : "animate-[fade-slide-down_0.18s_cubic-bezier(0.25,1,0.5,1)_both]"
@@ -193,11 +192,17 @@ export const NotificationsPanel = forwardRef<NotificationsPanelHandle, Notificat
       {/* Notification list */}
       <div className="flex flex-col bg-slate-50/30 overflow-y-auto max-h-[540px]">
         {notifications.length === 0 && (
-          <EmptyState
-            icon={<Bell className="size-6" />}
-            title="No notifications yet"
-            description="You're all caught up. New activity will show up here."
-          />
+          <div className="flex flex-col items-center justify-center px-6 py-16 text-center animate-[fade-slide-up_0.22s_cubic-bezier(0.25,1,0.5,1)_both] motion-reduce:animate-none">
+            <div className="relative w-10 h-10 mb-4 flex items-center justify-center" aria-hidden="true">
+              <div className="w-2.5 h-2.5 bg-slate-300 rounded-full animate-[pin-beacon-quiet_3.5s_ease_infinite] motion-reduce:animate-none" />
+            </div>
+            <p className="text-[0.9375rem] font-bold text-[#121c28] font-display tracking-[-0.02em]">
+              All clear
+            </p>
+            <p className="mt-1.5 text-[0.8125rem] text-slate-500 leading-[1.5] max-w-[220px]">
+              Payments, lease activity, and access changes will show up here as they happen.
+            </p>
+          </div>
         )}
         {notifications.map((notification, index) => {
           const style = CATEGORY_STYLES[notification.category];

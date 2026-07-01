@@ -15,6 +15,8 @@ export const ClientSchema = z.object({
   userId: userIdSchema,
   name: z.string().min(1),
   clientType: clientTypeSchema,
+  // Optional org link — set when the client was created via manager-led onboarding (Phase 6).
+  orgId: z.string().optional(),
   initials: z.string().min(1),
   avatarBg: z.string().min(1),
   email: z.string().email().optional(),

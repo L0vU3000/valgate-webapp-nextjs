@@ -28,7 +28,8 @@
     "db:assert": "tsx --conditions=react-server --env-file=.env.local scripts/schema-assert.ts",
     "seed:neon": "tsx --conditions=react-server --env-file=.env.local scripts/seed-neon.ts",
     "mcp:server": "tsx --conditions=react-server --env-file=.env.local mcp-server/index.ts",
-    "mcp:inspect": "npx @modelcontextprotocol/inspector tsx --conditions=react-server --env-file=.env.local mcp-server/index.ts"
+    "mcp:inspect": "npx @modelcontextprotocol/inspector tsx --conditions=react-server --env-file=.env.local mcp-server/index.ts",
+    "backfill:clients": "tsx --conditions=react-server --env-file=.env.local scripts/backfill-clients.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.78",

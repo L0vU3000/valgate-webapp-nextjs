@@ -71,6 +71,7 @@ export function ManagerProShell({
           searchProperties={shellData.searchProperties}
           managedAccounts={shellData.managedAccounts}
           isManager={shellData.isManager}
+          notifications={shellData.notifications}
         />
         <WorkspaceTabBar />
         <div className="flex min-h-0 flex-1">

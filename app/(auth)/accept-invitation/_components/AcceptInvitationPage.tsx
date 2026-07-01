@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { AuthBrandPanel } from "@/components/auth/AuthBrandPanel";
 import { AuthFooter } from "@/components/auth/AuthFooter";
 import { clerkErrorMessage } from "../../_lib/clerk-errors";
+import { getInviteePrefillNameAction } from "../../actions";
 
 type FieldErrors = Partial<Record<"fullName" | "password" | "confirmPassword" | "agreed", string>>;
 
@@ -81,6 +82,19 @@ function AcceptInvitationContent() {
     setAccountStatus(params.get("__clerk_status"));
     setParamsReady(true);
   }, [searchParams]);
+
+  // Pre-fill "Full name" with the name the manager already typed for this invitee
+  // (Step 2 of the onboarding wizard), if any — still editable, just saves a retype.
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    getInviteePrefillNameAction(token).then(({ name }) => {
+      if (!cancelled && name) setFullName((current) => current || name);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
 
   // Existing user with an active session — send them to the portfolio launcher.
   useEffect(() => {

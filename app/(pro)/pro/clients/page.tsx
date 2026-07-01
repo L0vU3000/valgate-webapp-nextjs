@@ -1,6 +1,8 @@
 import { Suspense } from "react";
-import { getProDashboardData, getInactiveClients, listClientPortfolios } from "../queries";
+import { getProDashboardData, getInactiveClients } from "../queries";
 import { ClientsIndexPage } from "./_components/ClientsIndexPage";
+import { countUnconfirmedClients } from "@/lib/services/client-onboarding";
+import { requireCtx } from "@/lib/auth/ctx";
 
 // /pro/clients — the manager's book of business: every client with
 // real rollups, plus the onboarding flow (create client + assign
@@ -10,13 +12,12 @@ import { ClientsIndexPage } from "./_components/ClientsIndexPage";
 export const dynamic = "force-dynamic";
 
 export default async function Page() {
-  // Load active client rollups and inactive clients in parallel — they come
-  // from different paths (loadProContext filters to active; getInactiveClients
-  // reads the raw list and filters to inactive only).
-  const [data, inactiveClients, portfolios] = await Promise.all([
+  const authCtx = await requireCtx();
+
+  const [data, inactiveClients, unconfirmedCount] = await Promise.all([
     getProDashboardData(),
     getInactiveClients(),
-    listClientPortfolios(),
+    countUnconfirmedClients(authCtx.userId),
   ]);
 
   // Properties not yet assigned to any client are offered during onboarding.
@@ -30,7 +31,7 @@ export default async function Page() {
         clients={data.clients}
         inactiveClients={inactiveClients}
         unassignedProperties={unassignedProperties}
-        portfolios={portfolios}
+        unconfirmedCount={unconfirmedCount}
       />
     </Suspense>
   );

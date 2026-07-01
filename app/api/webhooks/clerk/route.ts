@@ -10,6 +10,7 @@ import {
   deactivateUser,
 } from "@/lib/services/identity-sync";
 import { handleInvitationAccepted } from "@/lib/services/client-onboarding";
+import { ensureManagerHomeOrganizationForClerkUser } from "@/lib/services/managers";
 
 // The ONLY writer of the Clerk→Postgres identity mirror (D14, §4 clerk-organizations.md).
 // verifyWebhook reads CLERK_WEBHOOK_SIGNING_SECRET from env automatically.
@@ -46,6 +47,16 @@ export async function POST(req: NextRequest) {
         // authoritative first writer; subsequent replays leave is_manager unchanged.
         isManager: unsafeMeta.accountType === "manager",
       });
+      if (evt.type === "user.created" && unsafeMeta.accountType === "manager") {
+        try {
+          await ensureManagerHomeOrganizationForClerkUser(d.id as string);
+        } catch (err) {
+          log.warn("clerk.webhook.ensure_manager_home_org failed", {
+            clerkUserId: d.id,
+            error: err instanceof Error ? err.name : "unknown",
+          });
+        }
+      }
       break;
     }
 

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff, ArrowRight, Mail, Check, ArrowLeft, Loader2, Building2, Briefcase } from "lucide-react";
 import { toast } from "sonner";
-import { useSignUp } from "@clerk/nextjs";
+import { useSignUp, useClerk } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,6 +44,7 @@ export function RegisterPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { signUp } = useSignUp();
+  const clerk = useClerk();
 
   // Org invitation tickets belong on the dedicated accept flow.
   useEffect(() => {
@@ -139,8 +140,22 @@ export function RegisterPage() {
         toast.error("Verification isn't complete yet. Please try again.");
         return;
       }
-      // Clerk's "Create first organization automatically" setting creates + activates the user's
-      // org during sign-up, so finalize() lands them in an active org. (No manual createOrganization.)
+
+      // Managers need a personal home org (their Pro cockpit workspace). Create and
+      // activate it before finalize() so the session is not stuck on choose-organization.
+      if (accountType === "manager") {
+        try {
+          const firstName = fullName.trim().split(/\s+/)[0] || "Manager";
+          const org = await clerk.createOrganization({ name: `${firstName}'s Workspace` });
+          await clerk.setActive({ organization: org.id });
+        } catch (err) {
+          toast.error(clerkErrorMessage(err, "Could not create your manager workspace. Please try again."));
+          return;
+        }
+      }
+
+      // Clerk's "Create first organization automatically" setting creates + activates the
+      // owner's org during sign-up for non-manager accounts.
       // navigate callback is required — Clerk needs it to handle Safari ITP cookie redirects.
       // /launch reads is_manager and redirects each account type to the right landing page.
       await signUp.finalize({

@@ -9,6 +9,7 @@ import {
 } from "@/app/(pro)/pro/_components/pro-shell-types";
 import { formatDate, formatRelativeTime } from "@/lib/format";
 import type { ClientRollup } from "@/app/(pro)/pro/queries";
+import { ViewAsClientButton } from "./ViewAsClientButton";
 
 // Header for one client's portfolio page: breadcrumb, avatar, name,
 // type badge, derived health, and a one-line summary built from the
@@ -20,7 +21,13 @@ const HEALTH_LABEL: Record<ClientHealth, string> = {
   critical: "Critical issues",
 };
 
-export function ClientPageHeader({ rollup }: { rollup: ClientRollup }) {
+export function ClientPageHeader({
+  rollup,
+  viewAsClerkOrgId,
+}: {
+  rollup: ClientRollup;
+  viewAsClerkOrgId: string | null;
+}) {
   const { client } = rollup;
 
   return (
@@ -77,6 +84,12 @@ export function ClientPageHeader({ rollup }: { rollup: ClientRollup }) {
             </p>
           </div>
         </div>
+        {/* Top-right: preview the owner view scoped to this client. Shown only
+            when the client has a linked portfolio org (viewAsClerkOrgId set). */}
+        <ViewAsClientButton
+          clientId={client.id}
+          hasOrg={viewAsClerkOrgId !== null}
+        />
       </div>
     </header>
   );

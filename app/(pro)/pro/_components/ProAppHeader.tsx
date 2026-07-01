@@ -20,6 +20,7 @@ import {
 } from "@/components/layout/NotificationsPanel";
 import { useNotifications } from "@/lib/hooks/use-notifications";
 import type { PropertyListItem } from "@/lib/data/types/property";
+import type { Notification } from "@/lib/data/types/notification";
 import type { ShellManager } from "./pro-shell-types";
 import { useProAgent } from "./ProAgentContext";
 import { AccountSwitcher } from "./AccountSwitcher";
@@ -32,6 +33,7 @@ export function ProAppHeader({
   searchProperties,
   managedAccounts,
   isManager,
+  notifications: initialNotifications,
 }: {
   manager: ShellManager;
   searchProperties: PropertyListItem[];
@@ -39,6 +41,9 @@ export function ProAppHeader({
   // When true, renders the "My portfolio" pill so managers can switch back to
   // the owner shell. Owners (is_manager=false) never see this pill.
   isManager: boolean;
+  // Server-fetched notifications for the bell panel. Seeds useNotifications so the
+  // panel shows real data instead of always rendering empty.
+  notifications: Notification[];
 }) {
   const { openAI } = useProAgent();
   const [commandOpen, setCommandOpen] = useState(false);
@@ -47,7 +52,7 @@ export function ProAppHeader({
   const createRef = useRef<HTMLDivElement>(null);
   const bellRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<NotificationsPanelHandle>(null);
-  const { notifications, markAllRead } = useNotifications();
+  const { notifications, markAllRead } = useNotifications(initialNotifications);
   const router = useRouter();
 
   useEffect(() => {

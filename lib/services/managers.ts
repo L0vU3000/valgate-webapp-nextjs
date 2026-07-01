@@ -8,13 +8,14 @@ import {
   organizations,
   organizationMemberships,
   accessRequests,
+  clientHandoffs,
   properties,
   notifications,
 } from "@/lib/db/schema";
 import { nextId, assertCanMutate } from "@/lib/services/_mapping";
 import type { Ctx } from "@/lib/services/_mapping";
 import { roleAtLeast } from "@/lib/services/_mapping";
-import { upsertMembership } from "@/lib/services/identity-sync";
+import { upsertMembership, upsertOrg } from "@/lib/services/identity-sync";
 import { logger } from "@/lib/logger";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -108,6 +109,112 @@ export async function getIsManager(ctx: Ctx): Promise<boolean> {
     .limit(1);
 
   return row?.isManager ?? false;
+}
+
+function managerHomeOrgName(displayName: string | null | undefined, primaryEmail: string): string {
+  const trimmed = displayName?.trim();
+  if (trimmed) {
+    const firstName = trimmed.split(/\s+/)[0];
+    if (firstName) return `${firstName}'s Workspace`;
+  }
+  const localPart = primaryEmail.split("@")[0]?.trim();
+  if (localPart) return `${localPart}'s Workspace`;
+  return "Manager Workspace";
+}
+
+/**
+ * Clerk org ids that are client portfolios or approved owner grants — not the
+ * manager's personal home workspace.
+ */
+async function managerNonHomeOrgClerkIds(managerUserId: string): Promise<Set<string>> {
+  const [grantedRows, clientRows] = await Promise.all([
+    db
+      .select({ clerkOrgId: organizations.clerkOrgId })
+      .from(accessRequests)
+      .innerJoin(organizations, eq(organizations.id, accessRequests.ownerOrgId))
+      .where(
+        and(
+          eq(accessRequests.managerUserId, managerUserId),
+          eq(accessRequests.status, "approved"),
+        ),
+      ),
+    db
+      .select({ clerkOrgId: organizations.clerkOrgId })
+      .from(clientHandoffs)
+      .innerJoin(organizations, eq(organizations.id, clientHandoffs.orgId))
+      .where(
+        and(
+          eq(clientHandoffs.managerUserId, managerUserId),
+          sql`${clientHandoffs.orgId} is not null`,
+        ),
+      ),
+  ]);
+
+  return new Set(
+    [...grantedRows, ...clientRows]
+      .map((row) => row.clerkOrgId)
+      .filter((id): id is string => Boolean(id)),
+  );
+}
+
+/**
+ * Ensures a portfolio manager has a personal home organisation in Clerk + Neon.
+ *
+ * Every manager needs one org that is NOT an owner grant or a client portfolio —
+ * it is the default workspace for /pro/dashboard and backToCockpit(). Idempotent:
+ * returns the existing home org when one is already present.
+ */
+export async function ensureManagerHomeOrganizationForClerkUser(
+  clerkUserId: string,
+): Promise<string | null> {
+  const [user] = await db
+    .select({
+      id: users.id,
+      isManager: users.isManager,
+      displayName: users.displayName,
+      primaryEmail: users.primaryEmail,
+    })
+    .from(users)
+    .where(eq(users.clerkUserId, clerkUserId))
+    .limit(1);
+
+  if (!user?.isManager) return null;
+
+  const excludedOrgIds = await managerNonHomeOrgClerkIds(user.id);
+  const client = await clerkClient();
+  const memberships = await client.users.getOrganizationMembershipList({
+    userId: clerkUserId,
+    limit: 100,
+  });
+
+  const existingHome = memberships.data.find(
+    (membership) => !excludedOrgIds.has(membership.organization.id),
+  );
+  if (existingHome) {
+    return existingHome.organization.id;
+  }
+
+  assertCanMutate();
+
+  const orgName = managerHomeOrgName(user.displayName, user.primaryEmail);
+  const clerkOrg = await client.organizations.createOrganization({
+    name: orgName,
+    createdBy: clerkUserId,
+  });
+
+  await upsertOrg({ id: clerkOrg.id, name: orgName });
+  await upsertMembership({
+    clerkOrgId: clerkOrg.id,
+    clerkUserId,
+    role: "org:admin",
+  });
+
+  logger.info("ensureManagerHomeOrganization: created home org", {
+    clerkUserId,
+    clerkOrgId: clerkOrg.id,
+  });
+
+  return clerkOrg.id;
 }
 
 // Throws "forbidden" unless the caller is a Manager. Mirrors requireRole's contract

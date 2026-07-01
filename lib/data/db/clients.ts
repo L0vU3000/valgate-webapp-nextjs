@@ -30,8 +30,9 @@ export async function get(
 export async function create(
   userId: string,
   data: NewClient,
+  overrideId?: string,
 ): Promise<Client> {
-  const id = await nextId(userId, COLLECTION, ID_PREFIX);
+  const id = overrideId ?? await nextId(userId, COLLECTION, ID_PREFIX);
   const now = Date.now();
   const record = ClientSchema.parse({
     ...data,

@@ -22,12 +22,13 @@ import {
   cachedListProperties,
   cachedListProfessionals,
 } from "@/lib/data/cached-reads";
+import { listNotifications } from "@/lib/services/notifications";
 import { getFsUserId } from "@/lib/data/auth-shim";
 import { requireCtx } from "@/lib/auth/ctx";
 import { listManagedAccounts, getIsManager } from "@/lib/services/managers";
-import { clientHandoffs, organizationMemberships } from "@/lib/db/schema";
-import { organizations } from "@/lib/db/schema";
-import { properties } from "@/lib/db/schema";
+import { clientHandoffs, organizationMemberships, clients, organizations, properties } from "@/lib/db/schema";
+import { toDomain } from "@/lib/services/_mapping";
+import { PropertySchema } from "@/lib/data/types/property";
 import { listPortfolioMembers as svcListPortfolioMembers } from "@/lib/services/client-onboarding";
 import type { PortfolioMember, PortfolioInvitee } from "@/lib/services/client-onboarding";
 import { OWN_PORTFOLIO_ID } from "@/app/(pro)/pro/_components/pro-shell-types";
@@ -38,6 +39,7 @@ import {
 import { formatCurrency, formatCurrencyFull, addUtcMonths } from "@/lib/format";
 import { getUserProfile } from "@/lib/services/user-profiles";
 import type { Client, ClientType } from "@/lib/data/types/client";
+import type { Notification } from "@/lib/data/types/notification";
 import type {
   Property,
   PropertyStatus,
@@ -120,6 +122,11 @@ export type ClientRollup = {
   alerts: ProAlert[];
   health: ClientHealth;
   lastActivityAt: number;
+  // Portfolio org data — only present when client was created via manager-led onboarding.
+  memberCount?: number;
+  pendingCount?: number;
+  // Derived from the best (most actionable) handoff status across the org.
+  confirmationStatus?: "draft" | "pending" | "accepted" | "bounced";
 };
 
 export type ProPropertyRow = {
@@ -327,6 +334,10 @@ export type ClientPortfolioData = {
   financialSeries: CashflowPoint[];
   leasesExpiring90d: number;
   ownerStatement: OwnerStatement;
+  // Clerk org id behind this client's portfolio, used by the "View as client"
+  // button to switch into the client's org. Null for the own-portfolio view
+  // and any client without a linked org.
+  viewAsClerkOrgId: string | null;
 };
 
 export type ProShellData = {
@@ -348,6 +359,10 @@ export type ProShellData = {
   managedAccounts: { clerkOrgId: string; name: string; level: "view" | "full" }[];
   // Whether the user has manager mode on — drives the My portfolio ⇄ Pro pill in the header.
   isManager: boolean;
+  // Notifications for the manager's current org (ctx.orgId) — seeds the header bell
+  // panel. Without this the Pro panel would always render empty (owner shell fetches
+  // these in app/(shell)/layout.tsx; the Pro shell must do the same).
+  notifications: Notification[];
 };
 
 // ---------------------------------------------------------------------------
@@ -375,13 +390,52 @@ type ProContext = {
   propertyIdByLeaseId: Map<string, string>;
 };
 
+// Reads all clients for a manager from Neon (authoritative after M5).
+// Maps DB lowercase status enum → ClientSchema's capitalised enum.
+// userId on each Client is set to the FS user id to preserve rollup semantics
+// for code that still derives totals via client.userId.
+async function listClientsForManager(managerUserId: string): Promise<Client[]> {
+  const fsUserId = getFsUserId(managerUserId);
+  const rows = await db
+    .select()
+    .from(clients)
+    .where(eq(clients.managerUserId, managerUserId));
+
+  return rows.map((row) => ({
+    id: row.id,
+    userId: fsUserId,
+    name: row.name,
+    clientType: row.clientType,
+    orgId: row.orgId ?? undefined,
+    initials: row.initials,
+    avatarBg: row.avatarBg,
+    email: row.email ?? undefined,
+    status: row.status === "active" ? ("Active" as const) : ("Inactive" as const),
+    clientSince: row.createdAt.getTime(),
+    createdAt: row.createdAt.getTime(),
+    updatedAt: row.updatedAt.getTime(),
+  }));
+}
+
 async function loadProContext(): Promise<ProContext> {
   const authCtx = await requireCtx();
-  const fsUserId = getFsUserId(authCtx.userId);
 
+  // Resolve all orgs the manager has client portfolio handoffs for, so we can
+  // load properties (and other entities) across orgs — not just the current one.
+  const handoffOrgRows = await db
+    .selectDistinct({ orgId: clientHandoffs.orgId })
+    .from(clientHandoffs)
+    .where(eq(clientHandoffs.managerUserId, authCtx.userId));
+  const handoffOrgIds = handoffOrgRows
+    .map((r) => r.orgId)
+    .filter((id): id is string => id !== null && id !== authCtx.orgId);
+
+  // Renamed `currentOrgProperties` to avoid shadowing the `properties` table import
+  // used in the portfolio org query below.
   const [
-    clients,
-    properties,
+    clientList,
+    currentOrgProperties,
+    portfolioProperties,
     leases,
     payments,
     tenants,
@@ -398,8 +452,13 @@ async function loadProContext(): Promise<ProContext> {
     successorAssignments,
     documents,
   ] = await Promise.all([
-    clientsDb.list(fsUserId),
+    listClientsForManager(authCtx.userId),
     cachedListProperties(authCtx),
+    handoffOrgIds.length > 0
+      ? db.select().from(properties)
+          .where(inArray(properties.orgId, handoffOrgIds))
+          .limit(500)
+      : Promise.resolve([]),
     cachedListLeases(authCtx),
     cachedListPayments(authCtx),
     cachedListTenants(authCtx),
@@ -417,10 +476,15 @@ async function loadProContext(): Promise<ProContext> {
     cachedListDocuments(authCtx),
   ]);
 
+  // Merge portfolio properties into the main property list, converting DB rows
+  // to domain objects using the same transform the service layer uses.
+  const allProperties = handoffOrgIds.length > 0
+    ? [...currentOrgProperties, ...portfolioProperties.map((r) => PropertySchema.parse(toDomain(properties, r)))]
+    : currentOrgProperties;
+
   // Filter inactive clients so they vanish from rollups, alerts, the client
-  // book, and all derived counts. Absent status field = Active (back-compatible
-  // with existing FS records that predate this field).
-  const activeClients = clients.filter((c) => c.status !== "Inactive");
+  // book, and all derived counts.
+  const activeClients = clientList.filter((c) => c.status !== "Inactive");
 
   // Re-use the client-side Progress derivation as-is.
   const progressCtx: ProgressContext = {
@@ -440,7 +504,7 @@ async function loadProContext(): Promise<ProContext> {
   };
 
   const progressByPropertyId = new Map<string, number>();
-  for (const p of properties) {
+  for (const p of allProperties) {
     progressByPropertyId.set(p.id, computeProgress(p, progressCtx));
   }
 
@@ -451,7 +515,7 @@ async function loadProContext(): Promise<ProContext> {
 
   return {
     clients: activeClients,
-    properties,
+    properties: allProperties,
     leases,
     payments,
     tenants,
@@ -461,7 +525,7 @@ async function loadProContext(): Promise<ProContext> {
     inspections,
     professionals,
     progressByPropertyId,
-    propertyById: new Map(properties.map((p) => [p.id, p])),
+    propertyById: new Map(allProperties.map((p) => [p.id, p])),
     clientById: new Map(activeClients.map((c) => [c.id, c])),
     leaseById: new Map(leases.map((l) => [l.id, l])),
     tenantById: new Map(tenants.map((t) => [t.id, t])),
@@ -488,6 +552,10 @@ export async function getProDashboardData(): Promise<ProDashboardData> {
   // Always included — new users see an empty "My Portfolio" card.
   const ownRollup = buildOwnPortfolioRollup(ctx, monthStart, authCtx.userId);
   rollups.unshift(ownRollup);
+
+  // Augment rollups with portfolio org data (member/pending counts, confirmation status)
+  // for clients that were created via manager-led onboarding (have client.orgId set).
+  await augmentRollupsWithOrgData(authCtx.userId, rollups);
 
   const allAlerts = rollups
     .flatMap((r) => r.alerts)
@@ -820,6 +888,18 @@ export async function getClientPortfolioData(
     }),
   };
 
+  // Resolve the Clerk org id behind this client (for the "View as client"
+  // org switch). Null for the own-portfolio view and clients with no org.
+  let viewAsClerkOrgId: string | null = null;
+  if (client.orgId) {
+    const [orgRow] = await db
+      .select({ clerkOrgId: organizations.clerkOrgId })
+      .from(organizations)
+      .where(eq(organizations.id, client.orgId))
+      .limit(1);
+    viewAsClerkOrgId = orgRow?.clerkOrgId ?? null;
+  }
+
   return {
     rollup,
     properties: scoped.properties
@@ -834,6 +914,40 @@ export async function getClientPortfolioData(
     financialSeries: buildCashflowSeries(scoped.payments, monthStart, 6),
     leasesExpiring90d: countLeasesExpiring(scoped.leases, 90),
     ownerStatement: buildOwnerStatement(client, scoped, monthStart),
+    viewAsClerkOrgId,
+  };
+}
+
+// Authz + resolution for the "View as client" preview route.
+// Returns the client's internal org id (so the owner view can be scoped to it)
+// and the manager's own user id — only when the signed-in manager actually owns
+// this client (clients.managerUserId). Returns null otherwise (not their client,
+// or the client has no linked portfolio org yet), so the route can 404.
+export async function resolveClientOrgForManager(
+  clientId: string,
+): Promise<{
+  orgId: string;
+  name: string;
+  initials: string;
+  managerUserId: string;
+} | null> {
+  const authCtx = await requireCtx();
+
+  const [row] = await db
+    .select({ orgId: clients.orgId, name: clients.name, initials: clients.initials })
+    .from(clients)
+    .where(and(eq(clients.id, clientId), eq(clients.managerUserId, authCtx.userId)))
+    .limit(1);
+
+  if (!row || !row.orgId) {
+    return null;
+  }
+
+  return {
+    orgId: row.orgId,
+    name: row.name,
+    initials: row.initials,
+    managerUserId: authCtx.userId,
   };
 }
 
@@ -984,25 +1098,31 @@ export async function getInactiveClients(): Promise<
   }>
 > {
   const authCtx = await requireCtx();
-  const all = await clientsDb.list(getFsUserId(authCtx.userId));
-  return all
-    .filter((c) => c.status === "Inactive")
-    .map((c) => ({
-      id: c.id,
-      name: c.name,
-      initials: c.initials,
-      avatarBg: c.avatarBg,
-      clientType: c.clientType,
-    }));
+  return db
+    .select({
+      id: clients.id,
+      name: clients.name,
+      initials: clients.initials,
+      avatarBg: clients.avatarBg,
+      clientType: clients.clientType,
+    })
+    .from(clients)
+    .where(
+      and(
+        eq(clients.managerUserId, authCtx.userId),
+        eq(clients.status, "inactive"),
+      ),
+    );
 }
 
 export async function getProShellData(): Promise<ProShellData> {
   const authCtx = await requireCtx();
-  const [ctx, profile, rawAccounts, isManager] = await Promise.all([
+  const [ctx, profile, rawAccounts, isManager, notifications] = await Promise.all([
     loadProContext(),
     getUserProfile(authCtx, authCtx.userId),
     listManagedAccounts(authCtx),
     getIsManager(authCtx),
+    listNotifications(authCtx),
   ]);
   const monthStart = currentMonthStartUtc();
 
@@ -1059,6 +1179,7 @@ export async function getProShellData(): Promise<ProShellData> {
       level: a.level,
     })),
     isManager,
+    notifications,
   };
 }
 
@@ -1129,8 +1250,8 @@ export type HandoffRow = {
   // Phase 6: widened from "view" | "full" to three-tier.
   role: "admin" | "member" | "viewer";
   managerAccess: "granted" | "removed";
-  // Phase 3 finish: manager's intent at onboard time (keep access or step away).
-  managerAccessIntent: "keep" | "leave";
+  // Phase 1: manager's chosen model at onboard time (what happens to them when client accepts).
+  managerAccessModel: "approval" | "full" | "remove";
   invitationUrl: string | null;
   invitationLastCopiedAt: Date | null;
   locale: "en" | "km";
@@ -1147,7 +1268,7 @@ export async function listClientHandoffs(): Promise<HandoffRow[]> {
       status: clientHandoffs.status,
       role: clientHandoffs.role,
       managerAccess: clientHandoffs.managerAccess,
-      managerAccessIntent: clientHandoffs.managerAccessIntent,
+      managerAccessModel: clientHandoffs.managerAccessModel,
       invitationUrl: clientHandoffs.invitationUrl,
       invitationLastCopiedAt: clientHandoffs.invitationLastCopiedAt,
       locale: clientHandoffs.locale,
@@ -1238,6 +1359,87 @@ export async function getPortfolioMembersQuery(
 ): Promise<{ members: PortfolioMember[]; invitees: PortfolioInvitee[] }> {
   const authCtx = await requireCtx();
   return svcListPortfolioMembers(authCtx, orgId);
+}
+
+// ---------------------------------------------------------------------------
+// Portfolio org augmentation — member/pending counts and confirmation status
+// ---------------------------------------------------------------------------
+
+// Priority order for collapsing multiple handoff statuses into one label:
+// bounced needs immediate action, then pending (waiting), draft (unsent), accepted (done).
+const STATUS_PRIORITY = ["bounced", "pending", "draft", "accepted"] as const;
+type HandoffStatus = (typeof STATUS_PRIORITY)[number];
+
+function bestStatus(statuses: HandoffStatus[]): HandoffStatus | undefined {
+  for (const s of STATUS_PRIORITY) {
+    if (statuses.includes(s)) return s;
+  }
+  return statuses[0];
+}
+
+async function augmentRollupsWithOrgData(
+  managerUserId: string,
+  rollups: ClientRollup[],
+): Promise<void> {
+  const orgIds = rollups
+    .map((r) => r.client.orgId)
+    .filter((id): id is string => !!id);
+
+  if (orgIds.length === 0) return;
+
+  const [memberCounts, handoffRows] = await Promise.all([
+    db
+      .select({
+        orgId: organizationMemberships.orgId,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(organizationMemberships)
+      .where(
+        and(
+          inArray(organizationMemberships.orgId, orgIds),
+          eq(organizationMemberships.status, "active"),
+        ),
+      )
+      .groupBy(organizationMemberships.orgId),
+    db
+      .select({
+        orgId: clientHandoffs.orgId,
+        status: clientHandoffs.status,
+        pendingCount: sql<number>`
+          count(*) filter (where ${clientHandoffs.status} in ('draft','pending','bounced'))::int
+        `,
+      })
+      .from(clientHandoffs)
+      .where(
+        and(
+          eq(clientHandoffs.managerUserId, managerUserId),
+          inArray(clientHandoffs.orgId, orgIds),
+        ),
+      )
+      .groupBy(clientHandoffs.orgId, clientHandoffs.status),
+  ]);
+
+  // Build lookup maps.
+  const memberByOrg = new Map(memberCounts.map((r) => [r.orgId, r.count]));
+
+  // Collapse per-org handoff rows into pending count + best status.
+  const handoffByOrg = new Map<string, { pendingCount: number; statuses: HandoffStatus[] }>();
+  for (const row of handoffRows) {
+    const entry = handoffByOrg.get(row.orgId) ?? { pendingCount: 0, statuses: [] };
+    entry.pendingCount += row.pendingCount ?? 0;
+    entry.statuses.push(row.status as HandoffStatus);
+    handoffByOrg.set(row.orgId, entry);
+  }
+
+  // Stamp onto rollups.
+  for (const rollup of rollups) {
+    const orgId = rollup.client.orgId;
+    if (!orgId) continue;
+    rollup.memberCount = memberByOrg.get(orgId) ?? 0;
+    const handoffEntry = handoffByOrg.get(orgId);
+    rollup.pendingCount = handoffEntry?.pendingCount ?? 0;
+    rollup.confirmationStatus = bestStatus(handoffEntry?.statuses ?? []);
+  }
 }
 
 // ---------------------------------------------------------------------------

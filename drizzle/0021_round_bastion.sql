@@ -1,0 +1,1 @@
+ALTER TABLE "client_handoffs" ADD COLUMN "welcome_seen_at" timestamp with time zone;

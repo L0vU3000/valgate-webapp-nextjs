@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
+import { auth } from "@clerk/nextjs/server";
 import { requireCtx } from "@/lib/auth/ctx";
-import { getIsManager } from "@/lib/services/managers";
+import { getIsManager, ensureManagerHomeOrganizationForClerkUser } from "@/lib/services/managers";
 import { env } from "@/lib/env";
+import { logger } from "@/lib/logger";
 
 // Root layout for the (pro) route group — the Manager cockpit (Pro-2.x).
 //
@@ -28,6 +30,15 @@ export default async function ProLayout({
   const ctx = await requireCtx();
   if (!(await getIsManager(ctx))) {
     notFound();
+  }
+
+  const { userId } = await auth();
+  if (userId) {
+    try {
+      await ensureManagerHomeOrganizationForClerkUser(userId);
+    } catch (err) {
+      logger.error("pro layout: ensure manager home org failed", { error: String(err) });
+    }
   }
 
   return children;

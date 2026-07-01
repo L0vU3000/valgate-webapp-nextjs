@@ -89,6 +89,12 @@ const isPublicRoute = createRouteMatcher([
   "/__clerk(.*)",
 ]);
 
+// The bare sign-in/sign-up entry points only — NOT "/login(.*)" wildcard, which would also
+// catch /login/tasks (the manager onboarding step that /launch itself redirects signed-in
+// users to). A signed-in user landing on these two exact routes already has a session, so
+// send them to /launch to resolve where they left off instead of showing the form again.
+const isAuthEntryRoute = createRouteMatcher(["/login", "/register"]);
+
 async function siteGateOnly(request: NextRequest): Promise<NextResponse> {
   return (await siteGate(request)) ?? NextResponse.next();
 }
@@ -97,6 +103,11 @@ const middleware = hasClerk
   ? clerkMiddleware(async (auth, request) => {
       const gated = await siteGate(request);
       if (gated) return gated;
+      const { userId } = await auth();
+      const hasInviteTicket = request.nextUrl.searchParams.has("__clerk_ticket");
+      if (userId && isAuthEntryRoute(request) && !hasInviteTicket) {
+        return NextResponse.redirect(new URL("/launch", request.url));
+      }
       // Redirect signed-out users hitting a protected route to /login (set via ClerkProvider signInUrl).
       if (!isPublicRoute(request)) await auth.protect();
     })

@@ -13,7 +13,6 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, X, Check } from "lucide-react";
-import { motion } from "motion/react";
 import { createPortfolioAction } from "@/app/(pro)/pro/actions";
 import {
   ProModal,
@@ -40,6 +39,8 @@ type Invitee = {
   name: string;
 };
 
+type ManagerAccessModel = "approval" | "full" | "remove";
+
 type WizardState = {
   step: 1 | 2 | 3 | 4;
   portfolioName: string;
@@ -47,15 +48,17 @@ type WizardState = {
   propertyStubs: PropertyStub[];
   assignPropertyIds: string[];
   locale: "en" | "km";
+  managerAccessModel: ManagerAccessModel;
 };
 
 const INITIAL_STATE: WizardState = {
   step: 1,
   portfolioName: "",
-  invitees: [{ email: "", role: "member", name: "" }],
+  invitees: [{ email: "", role: "admin", name: "" }],
   propertyStubs: [],
   assignPropertyIds: [],
   locale: "en",
+  managerAccessModel: "approval",
 };
 
 const PROPERTY_TYPE_OPTIONS = ["Residential", "Commercial", "Land"] as const;
@@ -159,6 +162,7 @@ export function OnboardClientWizard({
         assignPropertyIds: state.assignPropertyIds,
         locale: state.locale,
         sendNow: onComplete ? true : sendNow,
+        managerAccessModel: state.managerAccessModel,
       });
 
       if (result.ok) {
@@ -249,6 +253,7 @@ export function OnboardClientWizard({
               isPending={isPending}
               showDualCta={!onComplete}
               onLocaleChange={(v) => patch({ locale: v })}
+              onAccessModelChange={(v) => patch({ managerAccessModel: v })}
               onSubmit={submit}
               onBack={() => goToStep(3)}
               onCancel={() => handleOpenChange(false)}
@@ -405,10 +410,17 @@ function StepTwo({
               placeholder="owner@example.com"
               className={cn(proInputClass, "text-[12.5px]")}
             />
-            <RoleSelect
-              value={row.role}
-              onChange={(role) => onUpdate(index, { role })}
-            />
+            {index === 0 ? (
+              // Primary invitee is always admin — they become the portfolio owner on accept.
+              <span className="inline-flex h-9 items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-[12.5px] font-medium text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
+                Admin
+              </span>
+            ) : (
+              <RoleSelect
+                value={row.role}
+                onChange={(role) => onUpdate(index, { role })}
+              />
+            )}
             <button
               type="button"
               onClick={() => onRemove(index)}
@@ -604,6 +616,16 @@ function StepThree({
 
 // ── Step 4 — Review + dual CTA ────────────────────────────────────────────────
 
+const ACCESS_MODEL_OPTIONS: Array<{
+  value: ManagerAccessModel;
+  label: string;
+  hint: string;
+}> = [
+  { value: "approval", label: "Approval (default)", hint: "You become read-only. Client leads." },
+  { value: "full", label: "Full access", hint: "You stay co-admin alongside the client." },
+  { value: "remove", label: "Remove me", hint: "Your access is removed when they accept." },
+];
+
 function StepFour({
   state,
   validInvitees,
@@ -612,6 +634,7 @@ function StepFour({
   isPending,
   showDualCta,
   onLocaleChange,
+  onAccessModelChange,
   onSubmit,
   onBack,
   onCancel,
@@ -623,6 +646,7 @@ function StepFour({
   isPending: boolean;
   showDualCta: boolean;
   onLocaleChange: (v: "en" | "km") => void;
+  onAccessModelChange: (v: ManagerAccessModel) => void;
   onSubmit: (sendNow: boolean) => void;
   onBack: () => void;
   onCancel: () => void;
@@ -651,6 +675,53 @@ function StepFour({
             value={`${totalProperties} ${totalProperties === 1 ? "property" : "properties"}`}
           />
         </dl>
+      </div>
+
+      {/* Manager access model picker */}
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-0.5">
+          <span className="text-[12px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            Your access after client accepts
+          </span>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          {ACCESS_MODEL_OPTIONS.map((opt) => {
+            const selected = state.managerAccessModel === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => onAccessModelChange(opt.value)}
+                className={cn(
+                  "flex items-center gap-3 rounded-md border px-3 py-2.5 text-left transition-colors",
+                  selected
+                    ? "border-blue-300 bg-blue-50 dark:border-blue-500/40 dark:bg-blue-500/10"
+                    : "border-slate-200 bg-white hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800",
+                )}
+              >
+                <span
+                  className={cn(
+                    "mt-0.5 h-3.5 w-3.5 shrink-0 rounded-full border-2 transition-colors",
+                    selected
+                      ? "border-blue-600 bg-blue-600"
+                      : "border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-900",
+                  )}
+                />
+                <span className="flex flex-col gap-0.5">
+                  <span
+                    className={cn(
+                      "text-[13px] font-medium",
+                      selected ? "text-blue-700 dark:text-blue-400" : "text-slate-800 dark:text-slate-100",
+                    )}
+                  >
+                    {opt.label}
+                  </span>
+                  <span className="text-[11.5px] text-slate-500 dark:text-slate-400">{opt.hint}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Invitation language */}

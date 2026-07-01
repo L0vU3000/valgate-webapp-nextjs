@@ -38,6 +38,11 @@ export default function RootLayout({
       signUpUrl="/register"
       signInFallbackRedirectUrl="/launch"
       signUpFallbackRedirectUrl="/launch"
+      taskUrls={{
+        "choose-organization": "/login/tasks",
+        "reset-password": "/login/tasks",
+        "setup-mfa": "/login/tasks",
+      }}
     >
       <html lang="en">
         <body className="antialiased">

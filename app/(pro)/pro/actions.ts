@@ -20,9 +20,13 @@ import {
   changeInviteeRole,
   removePortfolioMember,
   listPortfolioMembers,
+  createClientRecord,
 } from "@/lib/services/client-onboarding";
 import type { PortfolioRole, PortfolioMember, PortfolioInvitee } from "@/lib/services/client-onboarding";
 import * as clientsDb from "@/lib/data/db/clients";
+import { db } from "@/lib/db/client";
+import { clients } from "@/lib/db/schema";
+import { eq, and } from "drizzle-orm";
 import { getProperty, updateProperty, createProperty as svcCreateProperty, bulkAssignProperties as svcBulkAssign, listPropertyNamesByClientId } from "@/lib/services/properties";
 import { propertyTypeChoiceSchema, propertyStatusSchema, propertyTitleSchema } from "@/lib/data/types/property";
 import { getCurrentUserId } from "@/lib/data/auth-shim";
@@ -274,25 +278,6 @@ const onboardClientSchema = z.object({
   propertyIds: z.array(z.string().min(1)).default([]),
 });
 
-// Avatar palette cycled by client count — matches the seeded convention.
-const AVATAR_PALETTE = [
-  "bg-violet-400",
-  "bg-rose-400",
-  "bg-sky-400",
-  "bg-amber-400",
-  "bg-emerald-400",
-  "bg-cyan-400",
-  "bg-indigo-400",
-  "bg-orange-400",
-];
-
-function initialsFromName(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  const first = parts[0]?.[0] ?? "?";
-  const second = parts.length > 1 ? (parts[1]?.[0] ?? "") : "";
-  return (first + second).toUpperCase();
-}
-
 export async function onboardClient(input: {
   name: string;
   clientType: "Individual" | "Corporate";
@@ -306,24 +291,31 @@ export async function onboardClient(input: {
 
   const userId = getCurrentUserId();
   const authCtx = await requireCtx();
-  const existing = await clientsDb.list(userId);
-  const now = Date.now();
 
-  const client = await clientsDb.create(userId, {
+  // Write to Neon (canonical) + FS mirror. orgId=null = manual wizard client (no portfolio org).
+  const clientId = await createClientRecord(
+    authCtx.userId,
+    null,
+    parsed.data.name,
+    parsed.data.email,
     userId,
-    name: parsed.data.name,
-    clientType: parsed.data.clientType,
-    initials: initialsFromName(parsed.data.name),
-    avatarBg: AVATAR_PALETTE[existing.length % AVATAR_PALETTE.length],
-    email: parsed.data.email,
-    phone: parsed.data.phone,
-    managementFeePct: parsed.data.managementFeePct,
-    clientSince: now,
-  });
+  );
+
+  // Best-effort: patch FS record with wizard-only fields the Neon schema doesn't store.
+  // Non-fatal if this fails — Neon is the authoritative store.
+  try {
+    await clientsDb.update(userId, clientId, {
+      phone: parsed.data.phone,
+      managementFeePct: parsed.data.managementFeePct,
+      clientType: parsed.data.clientType,
+    });
+  } catch (err) {
+    logger.error("onboardClient: FS extra-field patch failed (non-fatal)", { error: String(err) });
+  }
 
   for (const propertyId of parsed.data.propertyIds) {
     const updated = await updateProperty(authCtx, propertyId, {
-      clientId: client.id,
+      clientId,
     });
     if (!updated) {
       logger.error("onboardClient: property not found", { propertyId });
@@ -346,8 +338,7 @@ const setClientStatusSchema = z.object({
 
 // Archives (or reactivates) a client. An Inactive client drops out of all
 // Pro rollups, alerts, and the active client book. Reactivating sets them back.
-// Uses the FS layer's clientsDb.update, which merges the patch over the existing
-// record — no other fields are touched.
+// Neon is the authoritative store; FS is updated as a best-effort mirror.
 export async function setClientStatus(input: {
   clientId: string;
   status: "Active" | "Inactive";
@@ -355,41 +346,70 @@ export async function setClientStatus(input: {
   const parsed = setClientStatusSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid input." };
 
-  // The FS layer is user-scoped (not org-scoped like Neon), so we use userId
-  // for the IDOR check — clientsDb.get only returns records for this user.
   const userId = getCurrentUserId();
+  const ctx = await requireCtx();
 
-  // Verify the client exists and belongs to this user before updating.
-  const existing = await clientsDb.get(userId, parsed.data.clientId);
-  if (!existing) {
+  // IDOR check: verify the client belongs to this manager.
+  // Check Neon first (post-migration clients), fall back to FS (legacy manual-wizard clients).
+  const [neonClient] = await db
+    .select({ name: clients.name })
+    .from(clients)
+    .where(
+      and(
+        eq(clients.id, parsed.data.clientId),
+        eq(clients.managerUserId, ctx.userId),
+      ),
+    )
+    .limit(1);
+
+  const fsClient = neonClient ? null : await clientsDb.get(userId, parsed.data.clientId);
+  const clientName = neonClient?.name ?? fsClient?.name;
+
+  if (!clientName) {
     logger.error("setClientStatus: client not found", input);
     return { ok: false, error: "Client not found." };
   }
 
-  // Update only the status field; all other client fields remain unchanged.
-  const updated = await clientsDb.update(userId, parsed.data.clientId, {
-    status: parsed.data.status,
-  });
-  if (!updated) {
-    logger.error("setClientStatus: update failed", input);
-    return { ok: false, error: "Could not update client status." };
+  // Map display enum → DB lowercase enum.
+  const dbStatus = parsed.data.status === "Active" ? ("active" as const) : ("inactive" as const);
+
+  // Neon update — only for clients that live in Neon (post-migration).
+  if (neonClient) {
+    await db
+      .update(clients)
+      .set({ status: dbStatus, updatedAt: new Date() })
+      .where(eq(clients.id, parsed.data.clientId));
   }
-  // Record the change in the activity log (Neon, org-scoped). The activities
-  // table now accepts any entity, so "client" is fine. A failed audit write must
-  // never roll back the status change, so it has its own try/catch.
-  const ctx = await requireCtx();
+
+  // FS mirror — best-effort for Neon clients; authoritative for legacy-only clients.
+  try {
+    const updated = await clientsDb.update(userId, parsed.data.clientId, {
+      status: parsed.data.status,
+    });
+    if (!updated && !neonClient) {
+      logger.error("setClientStatus: FS update failed for legacy client", input);
+      return { ok: false, error: "Could not update client status." };
+    }
+  } catch (err) {
+    if (!neonClient) {
+      logger.error("setClientStatus: FS update threw for legacy client", { error: String(err) });
+      return { ok: false, error: "Could not update client status." };
+    }
+    logger.error("setClientStatus: FS mirror update failed (non-fatal)", { error: String(err) });
+  }
+
+  // Activity log — non-critical; never rolls back the status change.
   try {
     await logActivity(ctx, {
       entity: "client",
       action: parsed.data.status === "Inactive" ? "archived" : "updated",
       entityId: parsed.data.clientId,
-      summary: `Client ${existing.name} ${
-        parsed.data.status === "Inactive" ? "archived" : "reactivated"
-      }`,
+      summary: `Client ${clientName} ${parsed.data.status === "Inactive" ? "archived" : "reactivated"}`,
     });
   } catch (err) {
     console.error("setClientStatus: audit log failed", err);
   }
+
   revalidatePro();
   return { ok: true };
 }
@@ -727,7 +747,7 @@ const createPortfolioSchema = z.object({
   assignPropertyIds: z.array(z.string().min(1)).default([]),
   locale: z.enum(["en", "km"]).optional(),
   sendNow: z.boolean(),
-  retainAccess: z.boolean().default(true),
+  managerAccessModel: z.enum(["approval", "full", "remove"]).default("approval"),
 });
 
 // Creates a portfolio org with one or more invitees. sendNow=true sends invitations
@@ -739,7 +759,7 @@ export async function createPortfolioAction(input: {
   assignPropertyIds?: string[];
   locale?: "en" | "km";
   sendNow: boolean;
-  retainAccess?: boolean;
+  managerAccessModel?: "approval" | "full" | "remove";
 }): Promise<ProActionResult> {
   const parsed = createPortfolioSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid input." };
@@ -752,7 +772,7 @@ export async function createPortfolioAction(input: {
       assignPropertyIds: parsed.data.assignPropertyIds,
       locale: parsed.data.locale,
       sendNow: parsed.data.sendNow,
-      retainAccess: parsed.data.retainAccess,
+      managerAccessModel: parsed.data.managerAccessModel,
     });
     revalidatePath("/pro/clients");
     return { ok: true, count: result.propertyCount, orgId: result.orgId };

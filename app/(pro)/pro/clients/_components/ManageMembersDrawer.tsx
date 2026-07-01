@@ -10,6 +10,7 @@ import { X, Plus, MoreHorizontal, UserMinus, RotateCcw, XCircle } from "lucide-r
 import { toast } from "sonner";
 import { RoleSelect } from "./RoleSelect";
 import { ConfirmAction } from "@/components/ui/confirm-action";
+import { toActionResult } from "@/lib/client/action-result";
 import { cn } from "@/components/ui/utils";
 import {
   getPortfolioMembersAction,
@@ -22,6 +23,7 @@ import {
 } from "@/app/(pro)/pro/actions";
 import type { PortfolioMember, PortfolioInvitee } from "@/app/(pro)/pro/queries";
 import type { PortfolioRole } from "@/lib/services/client-onboarding";
+import type { ActionResult } from "@/app/actions/_result";
 import { proInputClass } from "@/app/(pro)/pro/_components/pro-modal";
 
 // A loose email check — server is the real authority.
@@ -116,7 +118,7 @@ export function ManageMembersDrawer({
 
   // ── Member remove ───────────────────────────────────────────────────────────
 
-  async function handleRemoveMember(member: PortfolioMember) {
+  async function handleRemoveMember(member: PortfolioMember): Promise<ActionResult<void>> {
     const result = await removePortfolioMemberAction({
       orgId,
       memberClerkUserId: member.clerkUserId,
@@ -124,9 +126,10 @@ export function ManageMembersDrawer({
     if (result.ok) {
       setMembers((prev) => prev.filter((m) => m.clerkUserId !== member.clerkUserId));
       router.refresh();
-    } else {
-      toast.error(result.error);
     }
+    // Returned (not swallowed) so <ConfirmAction>'s onConfirm can tell success from
+    // failure — otherwise it always shows its own success toast regardless of `result.ok`.
+    return toActionResult(result);
   }
 
   // ── Invitee role change ─────────────────────────────────────────────────────
@@ -147,27 +150,26 @@ export function ManageMembersDrawer({
 
   // ── Invitee resend ──────────────────────────────────────────────────────────
 
-  async function handleResend(handoffId: string) {
+  async function handleResend(handoffId: string): Promise<ActionResult<void>> {
     const result = await resendClientInvitationAction({ handoffId });
     if (result.ok) {
-      toast.success("Invitation resent");
       await fetchMembers();
       router.refresh();
-    } else {
-      toast.error(result.error);
     }
+    // Returned (not swallowed) so <ConfirmAction>'s onConfirm can tell success from
+    // failure — otherwise it always shows its own success toast regardless of `result.ok`.
+    return toActionResult(result);
   }
 
   // ── Invitee revoke ──────────────────────────────────────────────────────────
 
-  async function handleRevoke(handoffId: string) {
+  async function handleRevoke(handoffId: string): Promise<ActionResult<void>> {
     const result = await revokeClientInvitationAction({ handoffId });
     if (result.ok) {
       setInvitees((prev) => prev.filter((i) => i.handoffId !== handoffId));
       router.refresh();
-    } else {
-      toast.error(result.error);
     }
+    return toActionResult(result);
   }
 
   // ── Add people ──────────────────────────────────────────────────────────────
@@ -381,7 +383,7 @@ function MemberRow({
   member: PortfolioMember;
   isPending: boolean;
   onRoleChange: (member: PortfolioMember, role: PortfolioRole) => void;
-  onRemove: (member: PortfolioMember) => void;
+  onRemove: (member: PortfolioMember) => Promise<ActionResult<void>>;
 }) {
   return (
     <li className="flex items-center justify-between gap-2 rounded-lg border border-slate-100 px-2.5 py-2 dark:border-slate-800">
@@ -451,8 +453,8 @@ function InviteeRow({
   invitee: PortfolioInvitee;
   isPending: boolean;
   onRoleChange: (invitee: PortfolioInvitee, role: PortfolioRole) => void;
-  onResend: (handoffId: string) => void;
-  onRevoke: (handoffId: string) => void;
+  onResend: (handoffId: string) => Promise<ActionResult<void>>;
+  onRevoke: (handoffId: string) => Promise<ActionResult<void>>;
 }) {
   return (
     <li className="flex items-center justify-between gap-2 rounded-lg border border-slate-100 px-2.5 py-2 dark:border-slate-800">
@@ -566,7 +568,7 @@ function OverflowMenu({ children }: { children: React.ReactNode }) {
   }, [open]);
 
   return (
-    <div ref={ref} className="relative" onClick={() => setOpen(false)}>
+    <div ref={ref} className="relative">
       <button
         type="button"
         onClick={(e) => {
@@ -591,18 +593,26 @@ function OverflowItem({
   icon,
   label,
   destructive,
+  onClick,
+  disabled,
 }: {
   icon: React.ReactNode;
   label: string;
   destructive?: boolean;
+  // <ConfirmAction> clones its trigger with onClick/disabled — both must be
+  // forwarded to the rendered <span> or the item is inert (no click ever fires).
+  onClick?: (e: React.MouseEvent<HTMLSpanElement>) => void;
+  disabled?: boolean;
 }) {
   return (
     <span
+      onClick={disabled ? undefined : onClick}
       className={cn(
         "flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-[12.5px] font-medium transition-colors hover:bg-slate-50 dark:hover:bg-slate-700/60",
         destructive
           ? "text-red-600 dark:text-red-400"
           : "text-slate-700 dark:text-slate-200",
+        disabled && "pointer-events-none opacity-50",
       )}
     >
       {icon}

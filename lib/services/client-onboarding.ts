@@ -1,9 +1,9 @@
 import "server-only";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, ne, sql, countDistinct } from "drizzle-orm";
 import { clerkClient } from "@clerk/nextjs/server";
 import { Resend } from "resend";
 import { db } from "@/lib/db/client";
-import { clientHandoffs, notifications, organizationMemberships, organizations, users } from "@/lib/db/schema";
+import { clientHandoffs, clients, notifications, organizationMemberships, organizations, properties, users } from "@/lib/db/schema";
 import { env } from "@/lib/env";
 import { buildInvitationEmailEn } from "@/lib/email-templates/invitation-en";
 import { buildInvitationEmailKm } from "@/lib/email-templates/invitation-km";
@@ -11,10 +11,212 @@ import { getClientInvitationRedirectUrl } from "@/lib/app-origin";
 import { nextId, assertCanMutate, type Ctx } from "@/lib/services/_mapping";
 import { upsertOrg, upsertMembership, removeMembership } from "@/lib/services/identity-sync";
 import { assertOrgAdmin } from "@/lib/services/_crud";
-import { AccessError } from "@/lib/services/managers";
+import { AccessError, ensureManagerHomeOrganizationForClerkUser } from "@/lib/services/managers";
 import { createPropertyForOrg, bulkAssignProperties } from "@/lib/services/properties";
+import * as clientsDb from "@/lib/data/db/clients";
+import { getFsUserId } from "@/lib/data/auth-shim";
 import type { NewProperty, PropertyTypeChoice } from "@/lib/data/types/property";
 import { logger } from "@/lib/logger";
+
+// Cap: a manager cannot have more than this many unconfirmed (draft/pending/bounced) client orgs.
+export const MAX_UNCONFIRMED_CLIENTS = 20;
+
+// Counts distinct portfolio orgs this manager has that still have at least one
+// draft, pending, or bounced handoff — i.e. unconfirmed/invited clients.
+export async function countUnconfirmedClients(managerUserId: string): Promise<number> {
+  const [row] = await db
+    .select({ count: countDistinct(clientHandoffs.orgId) })
+    .from(clientHandoffs)
+    .where(
+      and(
+        eq(clientHandoffs.managerUserId, managerUserId),
+        inArray(clientHandoffs.status, ["draft", "pending", "bounced"]),
+      ),
+    );
+  return row?.count ?? 0;
+}
+
+// Every portfolio org a manager onboarded a client into (the handoff path).
+// The access-request based listManagedAccounts does NOT include these, so the
+// owner shell uses this to recognise "manager viewing as client" for onboarded
+// portfolios — both for the context banner and the client-view glow.
+export async function listManagerClientOrgs(
+  ctx: Ctx,
+): Promise<Array<{ orgId: string; clerkOrgId: string; name: string }>> {
+  return db
+    .selectDistinct({
+      orgId: organizations.id,
+      clerkOrgId: organizations.clerkOrgId,
+      name: organizations.name,
+    })
+    .from(clientHandoffs)
+    .innerJoin(organizations, eq(organizations.id, clientHandoffs.orgId))
+    .where(eq(clientHandoffs.managerUserId, ctx.userId));
+}
+
+// The client's one-time welcome message after accepting a manager's portfolio invite.
+// Null once dismissed (welcomeSeenAt set), if the client's current org wasn't created via
+// a handoff (e.g. a plain owner who signed up directly), or if the caller IS the manager
+// who created the handoff — a manager who retains org membership post-accept (the
+// "approval"/"full" access models) can switch into viewing this org too, and shouldn't
+// see their own "your manager created this for you" message.
+export async function getPendingWelcome(
+  ctx: Ctx,
+): Promise<{ handoffId: string; portfolioName: string; managerName: string } | null> {
+  const [row] = await db
+    .select({
+      handoffId: clientHandoffs.id,
+      portfolioName: organizations.name,
+      managerName: users.displayName,
+    })
+    .from(clientHandoffs)
+    .innerJoin(organizations, eq(organizations.id, clientHandoffs.orgId))
+    .innerJoin(users, eq(users.id, clientHandoffs.managerUserId))
+    .where(
+      and(
+        eq(clientHandoffs.orgId, ctx.orgId),
+        eq(clientHandoffs.status, "accepted"),
+        isNull(clientHandoffs.welcomeSeenAt),
+        ne(clientHandoffs.managerUserId, ctx.userId),
+      ),
+    )
+    .limit(1);
+
+  if (!row) return null;
+  return {
+    handoffId: row.handoffId,
+    portfolioName: row.portfolioName,
+    managerName: row.managerName ?? "Your manager",
+  };
+}
+
+// Pre-auth lookup: the client name a manager typed for this invitee in Step 2 of the
+// onboarding wizard (optional — additional invitees may be email-only). Called from the
+// accept-invitation page, before the client has an account or session, so it takes the
+// raw Clerk organization invitation id rather than a Ctx.
+export async function getInviteeNameForInvitation(clerkInvitationId: string): Promise<string | null> {
+  const [row] = await db
+    .select({ clientName: clientHandoffs.clientName })
+    .from(clientHandoffs)
+    .where(eq(clientHandoffs.clerkInvitationId, clerkInvitationId))
+    .limit(1);
+  return row?.clientName ?? null;
+}
+
+// ─── Visual helpers ───────────────────────────────────────────────────────────
+
+// Derives short initials from a display name (up to 2 chars, uppercase).
+function nameToInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return ((parts[0][0] ?? "") + (parts[parts.length - 1][0] ?? "")).toUpperCase();
+}
+
+// Deterministic colour slot derived from the portfolio name.
+const AVATAR_COLORS = [
+  "bg-blue-600 text-white",
+  "bg-indigo-600 text-white",
+  "bg-violet-600 text-white",
+  "bg-purple-600 text-white",
+  "bg-teal-600 text-white",
+  "bg-emerald-600 text-white",
+  "bg-rose-600 text-white",
+  "bg-amber-600 text-white",
+];
+
+function nameToAvatarBg(name: string): string {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (Math.imul(31, h) + name.charCodeAt(i)) | 0;
+  return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
+}
+
+// ─── Shared dual-write helper ─────────────────────────────────────────────────
+
+/**
+ * Creates a Drizzle clients row (canonical) and a best-effort FS mirror record,
+ * both sharing the same CLI-xxxx id.
+ *
+ * Idempotent: if a row already exists for this (managerUserId, orgId) pair
+ * (non-null orgId only), the insert is a no-op and the existing id is returned.
+ * orgId=null (manual wizard clients) always inserts a new row — no unique constraint applies.
+ *
+ * Exported so actions.ts can route the manual-wizard create through Neon too.
+ */
+export async function createClientRecord(
+  managerUserId: string,
+  orgId: string | null,
+  name: string,
+  email: string | undefined,
+  fsUserId: string,
+): Promise<string> {
+  const clientId = await nextId("CLI");
+  const initials = nameToInitials(name);
+  const avatarBg = nameToAvatarBg(name);
+  const now = Date.now();
+
+  // Neon insert — canonical. ON CONFLICT on the partial unique index (non-null orgId)
+  // is a no-op; returning() gives us the inserted id (empty array = conflict occurred).
+  const inserted = await db
+    .insert(clients)
+    .values({
+      id: clientId,
+      managerUserId,
+      orgId,
+      name,
+      email: email ?? null,
+      clientType: "Individual",
+      initials,
+      avatarBg,
+    })
+    .onConflictDoNothing()
+    .returning({ id: clients.id });
+
+  // If insert was a no-op (conflict on unique index), fetch the existing row's id.
+  let canonicalId = inserted[0]?.id;
+  if (canonicalId === undefined && orgId !== null) {
+    const [existing] = await db
+      .select({ id: clients.id })
+      .from(clients)
+      .where(and(eq(clients.managerUserId, managerUserId), eq(clients.orgId, orgId)))
+      .limit(1);
+    canonicalId = existing?.id ?? clientId;
+  }
+  if (canonicalId === undefined) {
+    canonicalId = clientId;
+  }
+
+  // FS mirror — best-effort only. Neon is the canonical store from here on.
+  try {
+    await clientsDb.create(
+      fsUserId,
+      {
+        userId: fsUserId,
+        name,
+        clientType: "Individual",
+        initials,
+        avatarBg,
+        email,
+        orgId: orgId ?? undefined,
+        clientSince: now,
+      },
+      canonicalId,
+    );
+  } catch (err) {
+    logger.error("createClientRecord: FS mirror write failed (non-fatal)", { error: String(err) });
+  }
+
+  return canonicalId;
+}
+
+// ─── Stamp properties in an org with a clientId ───────────────────────────────
+
+async function stampClientIdOnOrgProperties(orgId: string, clientId: string): Promise<void> {
+  await db
+    .update(properties)
+    .set({ clientId, updatedAt: new Date() })
+    .where(and(eq(properties.orgId, orgId), sql`${properties.clientId} IS NULL`));
+}
 
 const DEFAULT_FROM_EMAIL = "Valgate <onboarding@resend.dev>";
 
@@ -165,10 +367,19 @@ export async function createClientPortfolioWithInvitees(
     assignPropertyIds?: string[];
     locale?: "en" | "km";
     sendNow: boolean;
-    retainAccess?: boolean;
+    managerAccessModel?: "approval" | "full" | "remove";
   },
 ): Promise<CreatePortfolioResult> {
   assertCanMutate();
+
+  // Cap guard: block before doing any Clerk work.
+  const unconfirmed = await countUnconfirmedClients(ctx.userId);
+  if (unconfirmed >= MAX_UNCONFIRMED_CLIENTS) {
+    throw new AccessError(
+      `You have reached the limit of ${MAX_UNCONFIRMED_CLIENTS} pending client invitations. ` +
+      `Accept or remove existing invitations to add more.`,
+    );
+  }
 
   const client = await clerkClient();
   const [managerUser] = await db
@@ -207,12 +418,14 @@ export async function createClientPortfolioWithInvitees(
   //    invitation and send the Resend email for that invitee.
   const handoffIds: string[] = [];
   const locale = input.locale ?? "en";
-  const managerAccessIntent: "keep" | "leave" = input.retainAccess === false ? "leave" : "keep";
+  const managerAccessModel: "approval" | "full" | "remove" = input.managerAccessModel ?? "approval";
 
   for (const invitee of input.invitees) {
     let clerkInvitationId: string | null = null;
     let invitationUrl: string | null = null;
-    const status: "draft" | "pending" = input.sendNow ? "pending" : "draft";
+    // "bounced" = the Clerk invite was created but email delivery failed. We still
+    // finish onboarding so the manager keeps the client + can copy the invite link.
+    let status: "draft" | "pending" | "bounced" = input.sendNow ? "pending" : "draft";
 
     if (input.sendNow) {
       const invitation = await client.organizations.createOrganizationInvitation({
@@ -225,12 +438,23 @@ export async function createClientPortfolioWithInvitees(
       clerkInvitationId = invitation.id;
       invitationUrl = invitation.url ?? null;
 
-      await sendInvitationEmail(
-        invitee.email,
-        invitation.url ?? "",
-        locale,
-        invitee.name || input.portfolioName,
-      );
+      // A failed third-party email must NOT abort onboarding — that would orphan the
+      // Clerk org + invitation with no client row. Mark it bounced and keep going;
+      // the invitation URL is persisted so the manager can deliver the link manually.
+      try {
+        await sendInvitationEmail(
+          invitee.email,
+          invitation.url ?? "",
+          locale,
+          invitee.name || input.portfolioName,
+        );
+      } catch (err) {
+        logger.error("createClientPortfolioWithInvitees: invitation email failed; marking bounced", {
+          error: String(err),
+          email: invitee.email,
+        });
+        status = "bounced";
+      }
     }
 
     const handoffId = await nextId("CHO");
@@ -246,12 +470,24 @@ export async function createClientPortfolioWithInvitees(
       managerAccess: "granted",
       invitationUrl,
       locale,
-      managerAccessIntent,
+      managerAccessModel,
+      bouncedAt: status === "bounced" ? new Date() : null,
     });
     handoffIds.push(handoffId);
   }
 
-  // 4. Seed the portfolio with properties.
+  // 4. Create the client record (Drizzle + FS dual-write) and link it to the org.
+  const primaryEmail = input.invitees[0]?.email;
+  const fsUserId = getFsUserId(ctx.userId);
+  const clientId = await createClientRecord(
+    ctx.userId,
+    orgRow.id,
+    input.portfolioName,
+    primaryEmail,
+    fsUserId,
+  );
+
+  // 5. Seed the portfolio with properties, then stamp the new clientId.
   let propertiesCreated = 0;
   let propertiesAssigned = 0;
 
@@ -261,11 +497,14 @@ export async function createClientPortfolioWithInvitees(
   }
 
   if ((input.assignPropertyIds ?? []).length > 0) {
-    const assignResult = await bulkAssignProperties(ctx, orgRow.id, orgRow.id, input.assignPropertyIds!);
+    const assignResult = await bulkAssignProperties(ctx, clientId, orgRow.id, input.assignPropertyIds!);
     propertiesAssigned = assignResult.assigned;
   }
 
-  // 5. Notify manager. Best-effort.
+  // Stamp clientId on any properties that were just created/assigned to this org.
+  await stampClientIdOnOrgProperties(orgRow.id, clientId);
+
+  // 6. Notify manager. Best-effort.
   try {
     const verb = input.sendNow ? "Invitations sent" : "Portfolio created";
     const n = input.invitees.length;
@@ -347,7 +586,7 @@ export async function addPortfolioInvitees(
       managerAccess: "granted",
       invitationUrl,
       locale: "en",
-      managerAccessIntent: "keep",
+      managerAccessModel: "approval",
     });
     added++;
   }
@@ -671,6 +910,15 @@ export async function onboardClientPortfolio(
 ): Promise<OnboardResult> {
   assertCanMutate();
 
+  // Cap guard: block before doing any Clerk work.
+  const unconfirmed = await countUnconfirmedClients(ctx.userId);
+  if (unconfirmed >= MAX_UNCONFIRMED_CLIENTS) {
+    throw new AccessError(
+      `You have reached the limit of ${MAX_UNCONFIRMED_CLIENTS} pending client invitations. ` +
+      `Accept or remove existing invitations to add more.`,
+    );
+  }
+
   // Map legacy role → new PortfolioRole.
   const portfolioRole: PortfolioRole = input.role === "full" ? "admin" : "viewer";
 
@@ -718,8 +966,10 @@ export async function onboardClientPortfolio(
     input.name,
   );
 
-  const resolvedIntent: "keep" | "leave" =
-    input.role === "view" ? "keep" : (input.intent ?? "keep");
+  // Legacy single-invitee flow: map old "leave"/"keep" intent to the new three-way model.
+  // "leave" → "remove" (manager exits org on accept); anything else → "full" (manager stays admin).
+  const managerAccessModel: "approval" | "full" | "remove" =
+    input.intent === "leave" ? "remove" : "full";
 
   const handoffId = await nextId("CHO");
   await db.insert(clientHandoffs).values({
@@ -734,8 +984,18 @@ export async function onboardClientPortfolio(
     managerAccess: "granted",
     invitationUrl: invitation.url ?? null,
     locale: input.locale ?? "en",
-    managerAccessIntent: resolvedIntent,
+    managerAccessModel,
   });
+
+  // Create the client record (Drizzle + FS dual-write) and link it to the org.
+  const fsUserId = getFsUserId(ctx.userId);
+  const clientId = await createClientRecord(
+    ctx.userId,
+    orgRow.id,
+    input.name,
+    input.clientEmail,
+    fsUserId,
+  );
 
   let propertiesCreated = 0;
   let propertiesAssigned = 0;
@@ -746,9 +1006,12 @@ export async function onboardClientPortfolio(
   }
 
   if ((input.assignPropertyIds ?? []).length > 0) {
-    const assignResult = await bulkAssignProperties(ctx, orgRow.id, orgRow.id, input.assignPropertyIds!);
+    const assignResult = await bulkAssignProperties(ctx, clientId, orgRow.id, input.assignPropertyIds!);
     propertiesAssigned = assignResult.assigned;
   }
+
+  // Stamp clientId on any properties in this org that don't have one yet.
+  await stampClientIdOnOrgProperties(orgRow.id, clientId);
 
   try {
     await insertAccessNotification({
@@ -913,6 +1176,15 @@ export async function recordInvitationLinkCopy(ctx: Ctx, handoffId: string): Pro
   return { invitationUrl: handoff.invitationUrl };
 }
 
+// Dismisses the client's one-time welcome banner. Scoped by ctx.orgId (not managerUserId) —
+// this is a client-initiated action, not a manager one.
+export async function markWelcomeSeen(ctx: Ctx, handoffId: string): Promise<void> {
+  await db
+    .update(clientHandoffs)
+    .set({ welcomeSeenAt: new Date(), updatedAt: new Date() })
+    .where(and(eq(clientHandoffs.id, handoffId), eq(clientHandoffs.orgId, ctx.orgId)));
+}
+
 /**
  * Removes the manager from the client's Clerk org after the handoff is accepted.
  */
@@ -1002,6 +1274,9 @@ export async function handleBounce(email: string, bounceType: string): Promise<v
 
 /**
  * Handles the organizationInvitation.accepted Clerk webhook event.
+ *
+ * ORDER IS CRITICAL — client must be promoted to org:admin BEFORE the manager is
+ * demoted or removed. Clerk requires every org to have ≥1 admin at all times.
  */
 export async function handleInvitationAccepted(clerkInvitationId: string): Promise<void> {
   const [handoff] = await db
@@ -1009,10 +1284,11 @@ export async function handleInvitationAccepted(clerkInvitationId: string): Promi
       id: clientHandoffs.id,
       managerUserId: clientHandoffs.managerUserId,
       clientName: clientHandoffs.clientName,
+      clientEmail: clientHandoffs.clientEmail,
       orgId: clientHandoffs.orgId,
       status: clientHandoffs.status,
       role: clientHandoffs.role,
-      managerAccessIntent: clientHandoffs.managerAccessIntent,
+      managerAccessModel: clientHandoffs.managerAccessModel,
     })
     .from(clientHandoffs)
     .where(eq(clientHandoffs.clerkInvitationId, clerkInvitationId))
@@ -1028,6 +1304,7 @@ export async function handleInvitationAccepted(clerkInvitationId: string): Promi
     return;
   }
 
+  // Mark the handoff as accepted immediately so duplicate webhook deliveries are no-ops.
   await db
     .update(clientHandoffs)
     .set({ status: "accepted", acceptedAt: new Date(), updatedAt: new Date() })
@@ -1035,35 +1312,203 @@ export async function handleInvitationAccepted(clerkInvitationId: string): Promi
 
   const displayName = handoff.clientName ?? "Your client";
 
-  try {
-    await insertAccessNotification({
-      orgId: handoff.orgId,
-      userId: handoff.managerUserId,
-      title: "Client accepted",
-      description: `${displayName} accepted their portfolio invitation`,
-      linkTo: "/pro/clients",
-    });
-  } catch (err) {
-    logger.error("handleInvitationAccepted: notification failed", { error: String(err), handoffId: handoff.id });
+  // Resolve the Clerk org id for this portfolio.
+  const [orgRow] = await db
+    .select({ clerkOrgId: organizations.clerkOrgId })
+    .from(organizations)
+    .where(eq(organizations.id, handoff.orgId))
+    .limit(1);
+
+  if (!orgRow) {
+    logger.error("handleInvitationAccepted: org not found in Neon mirror", { orgId: handoff.orgId });
+    return;
   }
 
-  // Phase 3 finish: if manager chose to leave an admin-level portfolio, prompt them.
-  if (handoff.managerAccessIntent === "leave" && handoff.role === "admin") {
+  const clerk = await clerkClient();
+
+  // Resolve the accepting client's Clerk userId via org membership list.
+  // We list memberships rather than relying on the organizationMembership.created webhook
+  // landing first — that ordering is not guaranteed by Clerk.
+  const { data: members } = await clerk.organizations.getOrganizationMembershipList({
+    organizationId: orgRow.clerkOrgId,
+    limit: 100,
+  });
+
+  const clientClerkUserId = members.find(
+    (m) => m.publicUserData?.identifier?.toLowerCase() === handoff.clientEmail.toLowerCase(),
+  )?.publicUserData?.userId;
+
+  if (!clientClerkUserId) {
+    // The membership webhook hasn't synced yet — Clerk will retry this event, so we
+    // log and return. The JIT path in upsertMembership will backfill the mirror later.
+    logger.warn("handleInvitationAccepted: client membership not yet visible in Clerk, will retry", {
+      handoffId: handoff.id,
+      clientEmail: handoff.clientEmail,
+    });
+    return;
+  }
+
+  // Resolve the manager's Clerk userId.
+  const [managerUser] = await db
+    .select({ clerkUserId: users.clerkUserId })
+    .from(users)
+    .where(eq(users.id, handoff.managerUserId))
+    .limit(1);
+
+  if (!managerUser) {
+    logger.error("handleInvitationAccepted: manager user not found", { managerUserId: handoff.managerUserId });
+    return;
+  }
+
+  // STEP 1 — Promote the client to org:admin FIRST (before any demotion/removal).
+  // Clerk rejects org operations that would leave an org with no admin, so
+  // the client must be elevated before the manager is touched.
+  try {
+    await clerk.organizations.updateOrganizationMembership({
+      organizationId: orgRow.clerkOrgId,
+      userId: clientClerkUserId,
+      role: "org:admin",
+    });
+    await upsertMembership({ clerkOrgId: orgRow.clerkOrgId, clerkUserId: clientClerkUserId, role: "org:admin" });
+  } catch (err) {
+    logger.error("handleInvitationAccepted: failed to promote client to org:admin", {
+      error: String(err),
+      handoffId: handoff.id,
+    });
+    return;
+  }
+
+  // STEP 2 — Apply the manager access model chosen at onboarding.
+  const model = handoff.managerAccessModel ?? "approval";
+
+  if (model === "approval") {
+    // Demote manager to read-only viewer. They may propose change_requests in Phase 2.
     try {
-      await insertAccessNotification({
-        orgId: handoff.orgId,
-        userId: handoff.managerUserId,
-        title: "Ready to hand off",
-        description: `${displayName} accepted — you chose to step away. Remove your access when ready.`,
-        linkTo: "/pro/clients",
+      await clerk.organizations.updateOrganizationMembership({
+        organizationId: orgRow.clerkOrgId,
+        userId: managerUser.clerkUserId,
+        role: "org:viewer",
       });
+      await upsertMembership({ clerkOrgId: orgRow.clerkOrgId, clerkUserId: managerUser.clerkUserId, role: "org:viewer" });
     } catch (err) {
-      logger.error("handleInvitationAccepted: leave-intent notification failed", {
+      logger.error("handleInvitationAccepted: failed to demote manager to org:viewer", {
+        error: String(err),
+        handoffId: handoff.id,
+      });
+    }
+  } else if (model === "remove") {
+    // Remove the manager from the org entirely.
+    try {
+      await clerk.organizations.deleteOrganizationMembership({
+        organizationId: orgRow.clerkOrgId,
+        userId: managerUser.clerkUserId,
+      });
+      await removeMembership({ clerkOrgId: orgRow.clerkOrgId, clerkUserId: managerUser.clerkUserId });
+      await db
+        .update(clientHandoffs)
+        .set({ managerAccess: "removed", updatedAt: new Date() })
+        .where(eq(clientHandoffs.id, handoff.id));
+    } catch (err) {
+      logger.error("handleInvitationAccepted: failed to remove manager from org", {
         error: String(err),
         handoffId: handoff.id,
       });
     }
   }
+  // model === "full" → no-op: manager stays co-admin alongside the client.
+
+  // Notify the manager. The message is model-aware.
+  //
+  // The notification MUST be stored against the manager's home org (not the
+  // portfolio org), because the manager's notification panel queries by
+  // ctx.orgId (their home org). A notification stored in the portfolio org
+  // would be invisible.
+  const notificationDescriptions: Record<typeof model, string> = {
+    approval: `${displayName} accepted — you're now a read-only viewer on their portfolio.`,
+    full: `${displayName} accepted their portfolio invitation. You remain a co-admin.`,
+    remove: `${displayName} accepted — your access to the portfolio has been removed.`,
+  };
+
+  try {
+    // Resolve the SAME home org the manager lands in by default (via /launch →
+    // ensureManagerHomeOrganizationForClerkUser), and create it if this manager
+    // never had one (legacy accounts onboarded before the home-org concept).
+    // Using a different heuristic here was the bug: it could pick an orphaned
+    // test org with no client_handoffs/access_requests row, which the manager
+    // would never actually visit — so the notification was silently unreachable.
+    const homeClerkOrgId = await ensureManagerHomeOrganizationForClerkUser(managerUser.clerkUserId);
+    let [homeOrg] = homeClerkOrgId
+      ? await db
+          .select({ id: organizations.id })
+          .from(organizations)
+          .where(eq(organizations.clerkOrgId, homeClerkOrgId))
+          .limit(1)
+      : [];
+
+    // The home org can be a pre-existing Clerk membership that this dev/test
+    // environment's webhook never mirrored into Neon yet. Self-heal instead of
+    // silently dropping the notification (mirrors the pattern approveAccessRequest
+    // already uses: write the mirror now rather than waiting for the webhook).
+    if (!homeOrg && homeClerkOrgId) {
+      const clerkOrg = await clerk.organizations.getOrganization({ organizationId: homeClerkOrgId });
+      await upsertOrg({ id: clerkOrg.id, name: clerkOrg.name, slug: clerkOrg.slug ?? null });
+      [homeOrg] = await db
+        .select({ id: organizations.id })
+        .from(organizations)
+        .where(eq(organizations.clerkOrgId, homeClerkOrgId))
+        .limit(1);
+    }
+
+    if (homeOrg) {
+      await insertAccessNotification({
+        orgId: homeOrg.id,
+        userId: handoff.managerUserId,
+        title: "Client accepted",
+        description: notificationDescriptions[model] ?? `${displayName} accepted their portfolio invitation`,
+        linkTo: "/pro/clients",
+      });
+    }
+  } catch (err) {
+    logger.error("handleInvitationAccepted: notification failed", { error: String(err), handoffId: handoff.id });
+  }
+}
+
+// ─── Client-side acceptance fallback ──────────────────────────────────────────
+//
+// Called from /launch when the Clerk webhook (organizationInvitation.accepted)
+// hasn't fired or wasn't delivered yet. Without this fallback, handoffs stay
+// "pending" forever and the manager never receives the notification.
+//
+// Finds all pending handoffs where the user's email matches, then delegates to
+// the same handleInvitationAccepted logic the webhook would have called.
+
+export async function completePendingHandoffsForUser(clerkUserId: string): Promise<{ completed: number }> {
+  const [user] = await db
+    .select({ id: users.id, primaryEmail: users.primaryEmail })
+    .from(users)
+    .where(eq(users.clerkUserId, clerkUserId))
+    .limit(1);
+  if (!user) return { completed: 0 };
+
+  const pendingRows = await db
+    .select({ id: clientHandoffs.id, clerkInvitationId: clientHandoffs.clerkInvitationId })
+    .from(clientHandoffs)
+    .where(
+      and(
+        eq(clientHandoffs.clientEmail, user.primaryEmail),
+        eq(clientHandoffs.status, "pending"),
+      ),
+    );
+
+  let completed = 0;
+  for (const row of pendingRows) {
+    if (row.clerkInvitationId) {
+      await handleInvitationAccepted(row.clerkInvitationId);
+      completed++;
+    }
+  }
+
+  return { completed };
 }
 
 // ─── Private helpers ──────────────────────────────────────────────────────────
@@ -1080,7 +1525,7 @@ async function getOwnHandoff(ctx: Ctx, handoffId: string): Promise<{
   managerAccess: string;
   invitationUrl: string | null;
   locale: string;
-  managerAccessIntent: string;
+  managerAccessModel: string;
 }> {
   const [handoff] = await db
     .select({
@@ -1095,7 +1540,7 @@ async function getOwnHandoff(ctx: Ctx, handoffId: string): Promise<{
       managerAccess: clientHandoffs.managerAccess,
       invitationUrl: clientHandoffs.invitationUrl,
       locale: clientHandoffs.locale,
-      managerAccessIntent: clientHandoffs.managerAccessIntent,
+      managerAccessModel: clientHandoffs.managerAccessModel,
     })
     .from(clientHandoffs)
     .where(
@@ -1105,4 +1550,73 @@ async function getOwnHandoff(ctx: Ctx, handoffId: string): Promise<{
 
   if (!handoff) throw new AccessError("Handoff not found.");
   return handoff;
+}
+
+// ─── One-off backfill ─────────────────────────────────────────────────────────
+
+/**
+ * Creates a Drizzle clients row + FS client record for every portfolio org that
+ * belongs to this manager but doesn't have a linked client yet.
+ * Also stamps clientId on properties in those orgs that lack one.
+ *
+ * Idempotent — safe to call multiple times; existing rows are skipped.
+ * Designed to run once from the /pro/clients page on first load after deploy.
+ */
+export async function backfillClientsForHandoffs(ctx: Ctx): Promise<void> {
+  // Find all orgs this manager has handoffs for.
+  const handoffOrgs = await db
+    .selectDistinct({ orgId: clientHandoffs.orgId, orgName: organizations.name })
+    .from(clientHandoffs)
+    .innerJoin(organizations, eq(organizations.id, clientHandoffs.orgId))
+    .where(eq(clientHandoffs.managerUserId, ctx.userId));
+
+  if (handoffOrgs.length === 0) return;
+
+  // Find which orgs already have a Drizzle clients row.
+  const existingOrgIds = new Set(
+    (
+      await db
+        .select({ orgId: clients.orgId })
+        .from(clients)
+        .where(
+          and(
+            eq(clients.managerUserId, ctx.userId),
+            inArray(
+              clients.orgId,
+              handoffOrgs.map((r) => r.orgId),
+            ),
+          ),
+        )
+    )
+      .map((r) => r.orgId)
+      .filter((id): id is string => id !== null),
+  );
+
+  const fsUserId = getFsUserId(ctx.userId);
+
+  for (const { orgId, orgName } of handoffOrgs) {
+    if (existingOrgIds.has(orgId)) continue;
+
+    // Get the primary email from the first handoff for this org.
+    const [firstHandoff] = await db
+      .select({ clientEmail: clientHandoffs.clientEmail })
+      .from(clientHandoffs)
+      .where(eq(clientHandoffs.orgId, orgId))
+      .orderBy(clientHandoffs.createdAt)
+      .limit(1);
+
+    try {
+      const clientId = await createClientRecord(
+        ctx.userId,
+        orgId,
+        orgName,
+        firstHandoff?.clientEmail,
+        fsUserId,
+      );
+      await stampClientIdOnOrgProperties(orgId, clientId);
+    } catch (err) {
+      // Best-effort: log and continue so one bad org doesn't block the rest.
+      logger.error("backfillClientsForHandoffs: failed for org", { orgId, error: String(err) });
+    }
+  }
 }

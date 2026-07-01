@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   FileText, Wrench, Bell,
   MoreHorizontal, Download, Pencil,
-  DollarSign, AlertTriangle, Clock,
+  DollarSign, AlertTriangle, Clock, UserCheck,
   Building2, Maximize2, Calendar, MapPin,
   BedDouble, Bath, Car, FileCheck,
   TrendingUp, TrendingDown,
@@ -172,6 +172,7 @@ function getAlertStyle(type: string, category?: string): {
   if (category === "COMPLIANCE")    return { borderClass: "border-l-rose-500",   iconBg: "bg-rose-50",   iconFg: "text-rose-500",   label: "Compliance",  Icon: AlertTriangle  };
   if (category === "PAYMENT")       return { borderClass: "border-l-blue-400",   iconBg: "bg-blue-50",   iconFg: "text-blue-500",   label: "Payment",     Icon: DollarSign     };
   if (category === "LEASING")       return { borderClass: "border-l-blue-400",   iconBg: "bg-blue-50",   iconFg: "text-blue-500",   label: "Leasing",     Icon: FileText       };
+  if (category === "ACCESS")        return { borderClass: "border-l-indigo-400", iconBg: "bg-indigo-50", iconFg: "text-indigo-500", label: "Access",      Icon: UserCheck      };
   return                                   { borderClass: "border-l-amber-400",  iconBg: "bg-amber-50",  iconFg: "text-amber-500",  label: "Maintenance", Icon: Wrench         };
 }
 
