@@ -42,6 +42,8 @@ entirely **`next/dynamic({ ssr: false })`** — defer these libraries until the 
 | **2** | [Code-split the add-property wizard](./phase-2-add-property-wizard.md) | `/add-property`, `/pro/properties` | ~456 → ~250 kB | Medium |
 | **3** | [Dynamic recharts + trim the property shell](./phase-3-property-shell-recharts.md) | all `/property/[id]/*` | ~520 → ~330 kB each | Medium–High |
 | **4** | [Trim the shared baseline](./phase-4-shared-baseline.md) | every route (−225 kB floor) | −25–40 kB everywhere | Low–Medium |
+| **5** | [Trim the `/pro/*` cluster](./phase-5-pro-cluster.md) | `/pro/dashboard`, `/pro/rent`, `/pro/clients/[clientId]` | ~−60–80 kB each | Low–Medium |
+| **6** | [Defer the last static recharts charts](./phase-6-remaining-recharts.md) | `/property/[id]/rental`, `/property/[id]/overview`, `/analytics` | ~−90–110 kB each | Low |
 
 Do them in order — Phase 1 is the single biggest, lowest-risk win. Re-run `npm run build` after each
 phase and record the new First Load numbers in that phase's file to confirm the win before moving on.

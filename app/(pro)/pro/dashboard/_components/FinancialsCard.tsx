@@ -1,15 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { ArrowRight } from "lucide-react";
-import {
-  LineChart,
-  Line,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+// The recharts chart loads lazily, client-only, so recharts is no longer in this card's — and
+// therefore the dashboard/rent/client-portfolio pages' — initial bundle. The card frame renders
+// instantly; only the chart area waits on the chunk (the skeleton fills the same h-32 box).
+const FinancialsCardChart = dynamic(
+  () => import("./FinancialsCardChart").then((m) => m.FinancialsCardChart),
+  { ssr: false, loading: () => <div className="h-full w-full animate-pulse rounded bg-slate-100 dark:bg-slate-800" /> },
+);
 import { WidgetCard } from "@/app/(pro)/pro/_components/WidgetCard";
 import { DrawInBar } from "@/app/(pro)/pro/_components/motion-primitives";
 import { cn } from "@/components/ui/utils";
@@ -82,47 +82,7 @@ export function FinancialsCard({
       </div>
 
       <div className="h-32 -mx-1">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart
-            data={series}
-            margin={{ top: 8, right: 8, bottom: 4, left: 8 }}
-          >
-            <XAxis
-              dataKey="month"
-              tick={{ fontSize: 10, fill: "currentColor" }}
-              className="text-slate-400 dark:text-slate-500"
-              axisLine={false}
-              tickLine={false}
-            />
-            <YAxis hide domain={[0, "dataMax + 1000"]} />
-            <Tooltip
-              cursor={{ stroke: "#94a3b8", strokeDasharray: "3 3" }}
-              wrapperClassName="!outline-none"
-              contentStyle={{
-                fontSize: 11,
-                padding: "4px 8px",
-                background: "rgb(15 23 42)",
-                border: "1px solid rgb(51 65 85)",
-                borderRadius: 6,
-                color: "rgb(241 245 249)",
-              }}
-              labelStyle={{ color: "rgb(148 163 184)" }}
-              itemStyle={{ color: "rgb(241 245 249)" }}
-              formatter={(value: number) => [
-                `$${value.toLocaleString()}`,
-                "Collected",
-              ]}
-            />
-            <Line
-              type="monotone"
-              dataKey="collected"
-              stroke="#3b82f6"
-              strokeWidth={2}
-              dot={{ r: 2.5, stroke: "#3b82f6", fill: "#0f172a", strokeWidth: 1.5 }}
-              activeDot={{ r: 4 }}
-            />
-          </LineChart>
-        </ResponsiveContainer>
+        <FinancialsCardChart series={series} />
       </div>
 
       <Link
