@@ -1,17 +1,35 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { Check } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { cn } from "@/components/ui/utils";
 import type { FormData, Step } from "@/app/_shared/add-property/types";
 import { defaultForm } from "@/app/_shared/add-property/types";
+import { StepSkeleton } from "@/app/_shared/add-property/StepSkeleton";
+// Step 1 (the type picker) renders first, so it stays static. Steps 2–5 are code-split so
+// their heavy code (mapbox picker in 2, date-fns calendar in 3, image tooling + motion in 4)
+// only downloads when the manager reaches that step — keeping it out of the /pro/properties
+// and /pro/clients bundles that mount this modal. ssr: false is correct (client-only modal).
 import { Step1PropertyType } from "@/app/_shared/add-property/Step1PropertyType";
-import { Step2BasicInfo } from "@/app/_shared/add-property/Step2BasicInfo";
-import { Step3Financial } from "@/app/_shared/add-property/Step3Financial";
-import { Step4PhotosDocs } from "@/app/_shared/add-property/Step4PhotosDocs";
-import { Step5Review } from "@/app/_shared/add-property/Step5Review";
+const Step2BasicInfo = dynamic(
+  () => import("@/app/_shared/add-property/Step2BasicInfo").then((m) => m.Step2BasicInfo),
+  { ssr: false, loading: () => <StepSkeleton /> },
+);
+const Step3Financial = dynamic(
+  () => import("@/app/_shared/add-property/Step3Financial").then((m) => m.Step3Financial),
+  { ssr: false, loading: () => <StepSkeleton /> },
+);
+const Step4PhotosDocs = dynamic(
+  () => import("@/app/_shared/add-property/Step4PhotosDocs").then((m) => m.Step4PhotosDocs),
+  { ssr: false, loading: () => <StepSkeleton /> },
+);
+const Step5Review = dynamic(
+  () => import("@/app/_shared/add-property/Step5Review").then((m) => m.Step5Review),
+  { ssr: false, loading: () => <StepSkeleton /> },
+);
 import { FlowFooter } from "@/app/_shared/add-property/FlowFooter";
 import { PortfolioSelectorModal } from "./PortfolioSelectorModal";
 import { OnboardClientWizard } from "@/app/(pro)/pro/clients/_components/OnboardClientWizard";

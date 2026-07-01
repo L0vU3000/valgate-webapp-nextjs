@@ -64,6 +64,38 @@ change expected.
 2. Smoke test: toasts still fire on login and in-app; AI overlay opens and animates; Pro dashboard
    alerts render; icons all present.
 
-## Expected result
+## Result (executed 2026-07-02) ✅
 
-Shared baseline: **225 → ~190 kB** (−25–40 kB on **every** route). Record actuals here after building.
+The "shared by all" baseline stayed **225 kB** — that intersection is Clerk + Radix + React + the
+51 kB CSS, and none of the deferred code was ever in it (login/auth routes don't use the app shells,
+so `motion`/`react-pdf` were in per-route bundles, not the all-routes intersection). Trimming the
+225 kB floor further needs architectural changes (Clerk/Radix) — out of scope.
+
+But the real win landed on the actual app routes. Deferring `AIOverlay` from **both** shells cut a
+consistent ~**−79 kB** off nearly every owner-side route, and finally addressed the `rental` outlier:
+
+| Route | Before Phase 4 | After Phase 4 | Δ |
+|---|---|---|---|
+| `/property/[id]/rental` | 501 kB | **422 kB** | −79 |
+| `/property/[id]/overview` | 439 kB | **369 kB** | −70 |
+| `/property/[id]/financials` | 395 kB | **317 kB** | −78 |
+| `/property/[id]/valuation` | 320 kB | **241 kB** | −79 |
+| `/property/[id]/documents` | 337 kB | **258 kB** | −79 |
+| `/property/[id]/safety` | 315 kB | **236 kB** | −79 |
+| `/portfolio` | 338 kB | **262 kB** | −76 |
+| `/pro/dashboard` | 439 kB | **426 kB** | −13 |
+
+Changes made:
+- **4.1** — `next.config.ts`: added `optimizePackageImports: ["lucide-react", "motion"]`.
+- **4.2** — `AIOverlay` now `next/dynamic({ ssr: false })` in `ShellLayout.tsx` (owner) and
+  `ManagerProShell.tsx` (pro). This is what moved motion + react-pdf + the chat panes out of First
+  Load on every shell-wrapped route.
+
+Deliberately skipped:
+- **4.3 (consolidate Toaster)** — no bundle benefit. `sonner` is imported into the bundle once
+  regardless of how many `<Toaster>` elements render; consolidating saves ~0 kB and only adds
+  route-position complexity. Not worth it.
+- **4.4 (CSS split)** — speculative; the 51 kB is a legitimate full design-system token set. Left as-is.
+- **4.5 (Agentation)** — already `NODE_ENV`-gated + a devDependency; not deep-verified beyond that.
+
+`npm run build` compiled successfully.

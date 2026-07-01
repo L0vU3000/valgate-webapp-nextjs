@@ -1,11 +1,24 @@
 "use client";
 
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import type { Property, PropertyListItem } from "@/lib/data/types/property";
 import type { ProgressDetails } from "@/lib/data/types/progress";
-import { ProgressModal } from "@/components/portfolio/ProgressModal";
-import { PropertyProfileWizard } from "@/components/property/PropertyProfileWizard";
 import { formatCurrency } from "@/lib/format";
+
+// This provider wraps EVERY property segment (overview, financials, rental, …), so anything it
+// statically imports is downloaded on all of them. The progress modal and the profile-edit
+// wizard are both closed on load, so we load them lazily (client-only) — their code moves out
+// of every segment's initial bundle and into chunks fetched after hydration. No loading
+// fallback: both render nothing until opened.
+const ProgressModal = dynamic(
+  () => import("@/components/portfolio/ProgressModal").then((m) => m.ProgressModal),
+  { ssr: false },
+);
+const PropertyProfileWizard = dynamic(
+  () => import("@/components/property/PropertyProfileWizard").then((m) => m.PropertyProfileWizard),
+  { ssr: false },
+);
 
 type PropertyShellContextValue = {
   progress: number;

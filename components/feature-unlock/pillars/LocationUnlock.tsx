@@ -2,7 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { z } from "zod";
-import { FeatureUnlockWizard } from "../FeatureUnlockWizard";
+import dynamic from "next/dynamic";
+// The unlock modal (react-hook-form + zod, ~537 lines) loads lazily — its code stays out of
+// this property segment's bundle until the user actually opens the unlock wizard.
+const FeatureUnlockWizard = dynamic(
+  () => import("../FeatureUnlockWizard").then((m) => m.FeatureUnlockWizard),
+  { ssr: false },
+);
 import type { WizardConfig } from "../types";
 import type { UseFormReturn } from "react-hook-form";
 import {
@@ -14,7 +20,14 @@ import {
   propertyTypeChoiceSchema,
   propertyTitleSchema,
 } from "@/lib/data/types/property";
-import { LocationPickerModal } from "@/app/(shell)/add-property/_components/LocationPickerModal";
+// The location picker embeds mapbox-gl (~500 kB). Loading it lazily and client-only
+// keeps mapbox out of every route that merely mounts this unlock wizard (the property
+// location page, the add-property flow, the pro properties register). The modal only
+// renders once the user opens the picker, so nothing is downloaded until then.
+const LocationPickerModal = dynamic(
+  () => import("@/app/(shell)/add-property/_components/LocationPickerModal").then((m) => m.LocationPickerModal),
+  { ssr: false },
+);
 import { Map as MapIcon, MapPin, Navigation } from "lucide-react";
 import { env } from "@/lib/env";
 import { cn } from "@/components/ui/utils";

@@ -53,7 +53,24 @@ free. If doing Phase 2 first, at minimum lazy-load Step 2 so mapbox doesn't pars
 2. Click through all 6 steps in both the shell wizard and the Pro modal — each step renders, no
    missing-component errors, photo upload + location picker + review still work end to end.
 
-## Expected result
+## Result (executed 2026-07-02) ✅
 
-`/add-property`: **456 → ~250 kB.** `/pro/properties`: **463 → ~380 kB** (rest is Phase 4's motion).
-Record actuals here after building.
+| Route | Before | After | Δ |
+|---|---|---|---|
+| `/add-property` | 456 kB (page 77.6) | **320 kB** (page 28.5) | **−136 kB** |
+| `/pro/properties` | 465 kB (page 75.4) | **332 kB** (page 11.4) | **−133 kB** |
+
+Changes made:
+- New shared `app/_shared/add-property/StepSkeleton.tsx` — loading fallback for lazy steps.
+- `AddPropertyFlow.tsx` (shell wizard) → Steps **2–6** via `next/dynamic({ ssr: false })`. Step 0
+  (entry) and Step 1 (type picker) stay static since they render first.
+- `AddPropertyFlowPro.tsx` (pro modal) → Steps **2–5** via `next/dynamic`. Step 1 static.
+- `PropertiesRegisterPage.tsx` → the three toolbar modals (`AddPropertyFlowPro`, `CsvImportModal`
+  w/ papaparse, `BulkAssignModal`) now `next/dynamic({ ssr: false })`. They're closed on load, so
+  their code (incl. the whole wizard again + papaparse) is now a post-hydration chunk, not First Load.
+
+Notes:
+- `/pro/properties` beat its estimate because deferring the whole modal also removed the second copy
+  of the wizard steps + papaparse, not just splitting steps in place.
+- Remaining ~320 kB on both is the shared 225 kB baseline + `motion` + page chrome → **Phase 4**.
+- `npm run build` compiled successfully; no type errors.

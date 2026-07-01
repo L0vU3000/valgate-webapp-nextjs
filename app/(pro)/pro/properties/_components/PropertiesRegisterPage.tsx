@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import {
   ChevronRight,
@@ -20,10 +21,23 @@ import {
 import { formatRelativeTime } from "@/lib/format";
 import { cn } from "@/components/ui/utils";
 import type { ProPropertiesData, ProPropertyRow } from "@/app/(pro)/pro/queries";
-import { AddPropertyFlowPro } from "@/app/(pro)/pro/_components/AddPropertyFlowPro";
 import { PropertyOwnerBand } from "./PropertyOwnerBand";
-import { BulkAssignModal } from "./BulkAssignModal";
-import { CsvImportModal } from "./CsvImportModal";
+// These three are modals behind toolbar buttons — closed on page load. Loading them lazily
+// (client-only) keeps their code — including the whole add-property wizard, and papaparse
+// (~15 kB) inside CsvImportModal — out of the initial /pro/properties bundle. Each becomes a
+// separate chunk fetched after hydration. No loading fallback: they render nothing when closed.
+const AddPropertyFlowPro = dynamic(
+  () => import("@/app/(pro)/pro/_components/AddPropertyFlowPro").then((m) => m.AddPropertyFlowPro),
+  { ssr: false },
+);
+const BulkAssignModal = dynamic(
+  () => import("./BulkAssignModal").then((m) => m.BulkAssignModal),
+  { ssr: false },
+);
+const CsvImportModal = dynamic(
+  () => import("./CsvImportModal").then((m) => m.CsvImportModal),
+  { ssr: false },
+);
 import { proPrimaryButtonClass } from "@/app/(pro)/pro/_components/pro-modal";
 import {
   DropdownMenu,

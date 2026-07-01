@@ -67,6 +67,39 @@ pages and the shell context is load-bearing.
 2. On a property, exercise: open Progress modal, open a Feature Unlock wizard, open Notifications,
    open the Profile wizard, view a chart on financials + valuation. All must still work.
 
-## Expected result
+## Result (executed 2026-07-02) ✅
 
-`/property/[id]/*`: **~520 → ~330 kB** across the family. Record actuals here after building.
+First Load JS, original (Phase 0 build) → after Phase 3:
+
+| Segment | Before | After | Δ |
+|---|---|---|---|
+| `valuation` | 516 kB | **320 kB** | −196 (recharts + shell) |
+| `financials` | 528 kB | **395 kB** | −133 (recharts + shell) |
+| `documents` | 426 kB | **337 kB** | −89 (shell modals) |
+| `safety` | 404 kB | **315 kB** | −89 (shell modals) |
+| `ownership2` | 410 kB | **321 kB** | −89 (shell modals) |
+| `overview` | 525 kB | **439 kB** | −86 |
+| `location` | 896→423 (P1) | **397 kB** | −26 (shell modals, on top of P1) |
+| `rental` | 526 kB | **501 kB** | −25 |
+| `ownership` | 429 kB | **414 kB** | −15 |
+
+The ~−89 kB seen on the plain segments (safety/documents/ownership2) is the shared-shell win:
+deferring `ProgressModal` + `PropertyProfileWizard` (a big react-hook-form/zod wizard) helped
+**every** segment, since both mount in the layout provider.
+
+Changes made:
+- **Part A** — New `components/property/ValueHistoryChart.tsx` holds the (identical) recharts area
+  chart; `PropertyFinancialsPage` + `PropertyValuationPage` now `next/dynamic({ ssr: false })` it.
+  recharts (~120 kB) is out of both pages' initial bundles.
+- **Part B** — `PropertyShellContext.tsx`: `ProgressModal` + `PropertyProfileWizard` now dynamic.
+- **Part B** — all 5 unlock pillars (`Financials/Location/Rental/Estate/Ownership`) now
+  dynamic-import `FeatureUnlockWizard`, deferring it (+react-hook-form/zod) until the wizard opens.
+
+Deviations from plan:
+- **`NotificationsPanel` left static (deliberate).** It's used with a `ref`
+  (`NotificationsPanelHandle`) and `next/dynamic` doesn't forward refs — making it dynamic would
+  break `panelRef.current?.close()`. Not worth the regression for its small size.
+- **`rental` is now the heaviest segment (501 kB)** — its remaining weight isn't the shell or a
+  chart, so it needs its own look (likely `motion` / page content). Candidate for a Phase 4/5 follow-up.
+- Build note: fixing a duplicate `import dynamic` in `LocationUnlock.tsx` (Phase 1 already added
+  it) was required — caught and fixed. `npm run build` now compiles successfully.

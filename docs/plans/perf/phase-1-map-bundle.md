@@ -61,6 +61,19 @@ call sites. The mapbox `import` line stays inside the leaf component — you're 
 2. Manually open the location page: map still renders, skeleton shows briefly, no console errors.
 3. Open the add-property location picker and the pro properties add-flow: pickers still work.
 
-## Expected result
+## Result (executed 2026-07-02) ✅
 
-`/property/[id]/location`: **896 → ~400 kB.** Record actual numbers here after building.
+`/property/[id]/location`: **896 → 423 kB First Load** (page JS **496 → 23.2 kB**). −473 kB.
+
+Changes made:
+- `components/map/MapControls.tsx:7` → `import type mapboxgl` (was value import; only used as a type).
+- `app/(shell)/property/[id]/_components/PropertyLocationPage.tsx` → `PropertyDetailMap` via `next/dynamic({ ssr: false })` + skeleton.
+- `components/feature-unlock/pillars/LocationUnlock.tsx:17` → `LocationPickerModal` via `next/dynamic({ ssr: false })`. **This was the real leak into the location page** — the unlock wizard is mounted there and statically pulled mapbox.
+
+Notes:
+- `/add-property` (456 kB) and `/pro/properties` (465 kB) did **not** drop — their `Step2BasicInfo`
+  already dynamic-imported the map, so mapbox was never eager there. Their remaining weight is the
+  eager wizard steps (**Phase 2**) and `motion`/`papaparse` (**Phase 2/4**), not mapbox.
+- All four mapbox-owning leaf components (`PropertyDetailMap`, `MapView`, `LocationPickerModal`,
+  `PropertyLocationMap`) are now reached only through dynamic imports — verified by grep sweep.
+- `npm run build` compiled successfully; build compile time unaffected.

@@ -46,6 +46,33 @@ entirely **`next/dynamic({ ssr: false })`** — defer these libraries until the 
 Do them in order — Phase 1 is the single biggest, lowest-risk win. Re-run `npm run build` after each
 phase and record the new First Load numbers in that phase's file to confirm the win before moving on.
 
+## Final results — all 4 phases executed (2026-07-02) ✅
+
+First Load JS, original build → after Phase 4. Every phase verified with `npm run build`.
+
+| Route | Original | Final | Δ | % |
+|---|---|---|---|---|
+| `/property/[id]/location` | 896 kB | **318 kB** | −578 | −65% |
+| `/property/[id]/valuation` | 516 kB | **241 kB** | −275 | −53% |
+| `/property/[id]/financials` | 528 kB | **317 kB** | −211 | −40% |
+| `/add-property` | 456 kB | **246 kB** | −210 | −46% |
+| `/property/[id]/documents` | 426 kB | **258 kB** | −168 | −39% |
+| `/property/[id]/safety` | 404 kB | **236 kB** | −168 | −42% |
+| `/property/[id]/overview` | 525 kB | **369 kB** | −156 | −30% |
+| `/pro/properties` | 463 kB | **319 kB** | −144 | −31% |
+| `/property/[id]/rental` | 526 kB | **422 kB** | −104 | −20% |
+| `/property/[id]/ownership` | 429 kB | **335 kB** | −94 | −22% |
+| `/estate-planning` | 420 kB | **337 kB** | −83 | −20% |
+| `/` (home) | 339 kB | **260 kB** | −79 | −23% |
+| `/portfolio` | 338 kB | **262 kB** | −76 | −22% |
+| `/analytics` | 420 kB | **345 kB** | −75 | −18% |
+| `/directory` | 397 kB | **323 kB** | −74 | −19% |
+
+Shared-by-all baseline unchanged at 225 kB (Clerk + Radix + React + CSS — architectural, out of scope).
+The technique throughout was one thing: `next/dynamic({ ssr: false })` for interactive code that's
+behind an interaction or below the fold (maps, charts, wizards, modals, the AI overlay), plus one
+`import type` fix and one config line. No features removed, no backend touched.
+
 ## Guardrails
 
 - `next/dynamic({ ssr: false })` means the component renders **client-only**. For maps/charts/wizards

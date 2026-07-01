@@ -12,6 +12,10 @@ const nextConfig: NextConfig = {
       // but go through a separate presigned-POST path, so only photos hit this limit.
       bodySizeLimit: "4mb",
     },
+    // Tree-shake barrel packages so a route only bundles the icons/exports it actually uses,
+    // instead of pulling a whole library in through one named import. lucide-react (icons) and
+    // motion (animation) are the two big barrels we import from across many components.
+    optimizePackageImports: ["lucide-react", "motion"],
   },
   // Allow loading dev assets when opened via LAN IP or mDNS on a phone/tablet.
   allowedDevOrigins: [

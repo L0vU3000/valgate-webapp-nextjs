@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { Toaster } from "sonner";
 import { ProAppHeader } from "./ProAppHeader";
@@ -8,7 +9,13 @@ import { WorkspaceTabBar } from "./WorkspaceTabBar";
 import { ManagerSidebar } from "./ManagerSidebar";
 import { WorkspaceTabProvider } from "./WorkspaceTabProvider";
 import { ProAgentContext } from "./ProAgentContext";
-import { AIOverlay } from "@/components/layout/AIOverlay";
+// The AI overlay (chat panes + motion + a react-pdf viewer) is closed on load and opened on
+// demand. This shell wraps every /pro route, so loading the overlay lazily keeps its heavy
+// deps out of the shared First Load bundle. It renders nothing until opened — no fallback needed.
+const AIOverlay = dynamic(
+  () => import("@/components/layout/AIOverlay").then((m) => m.AIOverlay),
+  { ssr: false },
+);
 import { FloatingAgentChat, type FloatingOpenTrigger } from "@/components/layout/ai-overlay/FloatingAgentChat";
 import type { ProShellData } from "../queries";
 import type { ShellClient } from "./pro-shell-types";
