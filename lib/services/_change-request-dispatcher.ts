@@ -25,7 +25,7 @@ import { createPayment, updatePayment, deletePayment } from "@/lib/services/paym
 import type { PaymentPatch } from "@/lib/data/types/payment";
 
 import type { Ctx } from "@/lib/services/_mapping";
-import type { ChangeRequest } from "@/lib/services/change-requests";
+import type { ChangeRequest } from "@/lib/services/change-request-types";
 
 // ─── Registry entry shape ─────────────────────────────────────────────────────
 

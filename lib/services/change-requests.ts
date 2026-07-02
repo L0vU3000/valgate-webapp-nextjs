@@ -9,24 +9,14 @@ import { changeRequests, organizationMemberships } from "@/lib/db/schema";
 import { nextId, assertCanMutate, type Ctx } from "@/lib/services/_mapping";
 import { requireAdmin } from "@/lib/services/_crud";
 import { insertAccessNotification } from "@/lib/services/client-onboarding";
+import { applyChangeRequest } from "@/lib/services/_change-request-dispatcher";
+import type { ChangeRequest } from "@/lib/services/change-request-types";
 
 // ─── Domain type ─────────────────────────────────────────────────────────────
 
-export type ChangeRequest = {
-  id: string;
-  ownerOrgId: string;
-  managerUserId: string;
-  entityType: string;
-  // Null for "create" operations — the entity doesn't exist yet.
-  entityId: string | null;
-  operation: "create" | "update" | "delete";
-  proposedPatch: Record<string, unknown>;
-  status: "pending" | "approved" | "denied";
-  decidedByUserId: string | null;
-  decidedAt: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
-};
+// Moved to change-request-types.ts (cycle break); re-exported so existing
+// importers of this module keep working unchanged.
+export type { ChangeRequest } from "@/lib/services/change-request-types";
 
 // ─── Row mapper ───────────────────────────────────────────────────────────────
 
@@ -128,7 +118,6 @@ export async function approveChangeRequest(ctx: Ctx, id: string): Promise<void> 
   const cr = rowToCR(row);
 
   // Apply the patch via the dispatcher (re-validates proposedPatch before writing).
-  const { applyChangeRequest } = await import("./_change-request-dispatcher");
   await applyChangeRequest(ctx, cr);
 
   // Mark approved.
