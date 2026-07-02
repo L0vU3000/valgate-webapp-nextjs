@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { logRentPayment } from "@/app/(pro)/pro/properties.actions";
+import { logRentPayment } from "@/app/(pro)/pro/rent.actions";
 import { formatCurrencyFull } from "@/lib/format";
 import {
   ProModal,

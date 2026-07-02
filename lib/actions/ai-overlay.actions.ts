@@ -35,15 +35,10 @@ import {
   CONSUMER_TOOLS,
   toolSummaryLabel,
 } from "@/lib/actions/ai-tools";
-import {
-  markRentPaid,
-  logRentPayment,
-  renewLease,
-  createWorkOrder,
-  updateWorkOrder,
-  resolveSafetyRisk,
-  assignProperties,
-} from "@/app/(pro)/pro/properties.actions";
+import { markRentPaid, logRentPayment, renewLease } from "@/app/(pro)/pro/rent.actions";
+import { createWorkOrder, updateWorkOrder } from "@/app/(pro)/pro/work-orders.actions";
+import { resolveSafetyRisk } from "@/app/(pro)/pro/compliance.actions";
+import { assignProperties } from "@/app/(pro)/pro/properties.actions";
 import type { AiSession } from "@/lib/data/types/ai-session";
 import type { AiMessage, AiMessageStep, AiProposedAction } from "@/lib/data/types/ai-message";
 import { isToolStepSuccessful, surfaceKey } from "@/lib/actions/ai-overlay-utils";

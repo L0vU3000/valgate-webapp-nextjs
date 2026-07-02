@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { createWorkOrder } from "@/app/(pro)/pro/properties.actions";
+import { createWorkOrder } from "@/app/(pro)/pro/work-orders.actions";
 import {
   ProModal,
   ProField,
