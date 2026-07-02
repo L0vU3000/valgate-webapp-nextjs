@@ -1,30 +1,28 @@
-// Local stdio entry point for the Valgate MCP server. Runs as a subprocess launched by an MCP
-// client on your own machine (`npm run mcp:server`). The tool definitions live in ./tools.ts and
-// are shared with the Vercel HTTP route; this file only wires them to stdio with the demo identity.
+// Valgate MCP server — stdio transport, demo Ctx (local dev / MCP Inspector / Claude Desktop).
+// Proves a non-Next.js process can import lib/services/* and return real Neon data.
+// Nothing here touches Clerk or the web layer — the Ctx comes from ctxFor() (the demo identity).
 //
-// Identity here is the hardcoded demo owner (ctxFor.ts). That is only safe for a local process —
-// the HTTP route uses real Clerk auth instead. See docs/MCP implementation/05-vercel-deploy-plan.md.
+// The authenticated, multi-tenant front door is the HTTP route at app/mcp/route.ts (Phase 3).
+// Both register the SAME tool + resources via registerValgateMcp() — the only difference is how
+// the Ctx is resolved: demo here, Clerk-authenticated over HTTP.
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { registerValgateTools } from "./tools";
 import { ctxFor } from "./ctxFor";
+import { registerValgateMcp } from "./register";
 
 const server = new McpServer({
   name: "valgate",
-  version: "0.2.0",
+  version: "0.3.0",
 });
 
-registerValgateTools(server, {
-  // Local stdio has no per-request auth — ignore authInfo, use the demo owner.
-  ctxFor: () => ctxFor(),
-  // Writes on/off via the same flag documented in .env.example.
-  allowWrites: process.env.MCP_ALLOW_WRITES === "true",
-  // Single long-lived process, so a per-boot random secret is fine here.
-  confirmSecret: process.env.MCP_CONFIRM_SECRET ?? "",
-});
+// Demo identity for local dev — the stdio server ignores the request's auth and always runs as
+// the ORG-0001 owner. Writes are still refused at the service layer under DEMO_MODE.
+registerValgateMcp(server, async () => ctxFor());
 
-// tsx compiles these .ts files as CommonJS, which forbids top-level await, so connect() lives in
-// an async main(). A boot failure logs and exits non-zero.
+// Start the server. This is wrapped in an async function (instead of a top-level `await`)
+// because tsx transforms this file as CommonJS — and CommonJS does not support top-level
+// await. Making the whole Next.js app ESM ("type": "module") would be a far bigger change,
+// so the server entry point keeps its startup inside main() instead.
 async function main() {
   // Refuse to run over a network transport from this local entry point while identity is hardcoded.
   // The real network surface is the Clerk-authenticated Vercel route, not this file.

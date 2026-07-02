@@ -9,6 +9,14 @@ import {
   isSiteGateExempt,
 } from "@/lib/site-gate";
 
+// The MCP HTTP server (/mcp) and its OAuth discovery metadata (/.well-known/oauth-protected-
+// resource/*) authenticate themselves with Clerk OAuth bearer tokens — they must NEVER be
+// redirected to the login page or the site-gate. They are exempted from both below.
+const isMcpRoute = createRouteMatcher([
+  "/mcp(.*)",
+  "/.well-known/oauth-protected-resource(.*)",
+]);
+
 // The frontend's site-gate, factored out so it can run on its own (DEMO_MODE) or wrapped by Clerk.
 // Returns a response when the request should be short-circuited (redirect to the gate), else null.
 async function siteGate(request: NextRequest): Promise<NextResponse | null> {
@@ -18,28 +26,26 @@ async function siteGate(request: NextRequest): Promise<NextResponse | null> {
     return null;
   }
 
+  // MCP endpoints must stay publicly reachable (they do their own token auth).
+  if (isMcpRoute(request)) {
+    return null;
+  }
+
   const { pathname, search } = request.nextUrl;
 
   if (isSiteGateExempt(pathname)) {
     return null;
   }
 
-  if (pathname === SITE_GATE_PATH) {
+  // The OAuth consent screen: Clerk redirects the user here from the connecting app (e.g. claude.ai)
+  // mid-OAuth, and that visitor has no site-gate cookie, so the gate would otherwise bounce them to
+  // /gate and break the grant. Skip the site gate here — the page still runs auth.protect() (it needs
+  // a signed-in user), so it is not left unauthenticated.
+  if (pathname.startsWith("/oauth-consent")) {
     return null;
   }
 
-  // The MCP server and its OAuth discovery metadata are machine endpoints authenticated by Clerk
-  // bearer tokens, not the human site-gate. Never redirect them to the gate page.
-  //
-  // /oauth-consent is the MCP OAuth consent screen: Clerk redirects the user here from the
-  // connecting app (e.g. claude.ai) mid-OAuth. That visitor has no site-gate cookie, so the gate
-  // would bounce them to /gate and break the grant. Skip the gate here — the page still runs
-  // auth.protect() (it requires a signed-in user), so it is not left unauthenticated.
-  if (
-    pathname.startsWith("/api/mcp") ||
-    pathname.startsWith("/.well-known/oauth-protected-resource") ||
-    pathname.startsWith("/oauth-consent")
-  ) {
+  if (pathname === SITE_GATE_PATH) {
     return null;
   }
 
@@ -87,6 +93,10 @@ const isPublicRoute = createRouteMatcher([
   "/.well-known/oauth-protected-resource(.*)",
   `${SITE_GATE_PATH}(.*)`,
   "/__clerk(.*)",
+  // MCP server + its OAuth metadata: no Clerk session redirect; /mcp validates its own
+  // OAuth bearer token, the metadata endpoint is public discovery data.
+  "/mcp(.*)",
+  "/.well-known/oauth-protected-resource(.*)",
 ]);
 
 // The bare sign-in/sign-up entry points only — NOT "/login(.*)" wildcard, which would also
