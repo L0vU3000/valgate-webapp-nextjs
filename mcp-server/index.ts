@@ -15,8 +15,10 @@ const server = new McpServer({
   version: "0.3.0",
 });
 
-// Demo identity for local dev — the stdio server ignores the request's auth and always runs as
-// the ORG-0001 owner. Writes are still refused at the service layer under DEMO_MODE.
+// Demo identity for local dev — the stdio server ignores the request's auth (and any org-resolve
+// options) and always runs as the ORG-0001 owner. The demo Ctx is single-org, so the write path's
+// requireExplicitOrg never triggers here. Writes are still refused at the service layer under
+// DEMO_MODE unless DEMO_ALLOW_WRITES is set.
 registerValgateMcp(server, async () => ctxFor());
 
 // Start the server. This is wrapped in an async function (instead of a top-level `await`)

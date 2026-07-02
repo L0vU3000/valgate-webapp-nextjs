@@ -157,6 +157,22 @@ without an audit trail and a confirmation gate.
    `properties.ts:144`), and is audited (`02` §G rule 7).
 5. Run **`/review`** and **`/cso`** on the full diff.
 
+**Status — code-complete (`mcp-server/writes.ts`).** Five outcome-shaped tools: `create_property`,
+`update_property`, `delete_property`, `preview_property_delete`, `record_maintenance`. Each is a
+thin wrapper over the existing service, validates with the website's Zod schemas
+(`NewPropertySchema` / `PropertyPatchSchema` / `NewMaintenanceItemSchema`), and inherits every
+guard from the service layer (org-scope, `requireMember`, admin-only delete, `assertCanMutate`
+demo lock) — the tool adds no authz of its own. Every successful write is audited via
+`logActivity` (`lib/services/activity.ts`), wrapped so an audit failure can't undo the mutation.
+`delete_property` is gated twice: it deletes nothing unless `confirm: true`, and the `confirm:false`
+path returns the `countPropertyCascade` blast-radius preview (statelessness means the confirm flag,
+not a tracked prior call, is the human-in-the-loop gate). **M2 tie-in:** writes resolve their Ctx
+with `requireExplicitOrg=true`, so a multi-org caller must pass `orgId` (verified: multi-org write
+with no org → `org_required`; with a valid org → resolves; single-org → allowed).
+**Still to validate live** (per "validate after implementation"): an end-to-end write under a real
+token landing in the activity log, and the viewer/`DEMO_MODE` refusals, once a token + writable
+instance are wired.
+
 **Files touched:** `mcp-server/*` only.
 **Depends on:** Phase 3 (you want real identity + audit before allowing writes).
 **Done when:** an AI client creates/updates a record under a real token, the write lands in

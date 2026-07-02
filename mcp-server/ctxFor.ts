@@ -27,6 +27,17 @@ export function ctxFor(): Ctx {
   return { userId: "USR-0001", orgId: "ORG-0001", orgRole: "owner" };
 }
 
+// Options for resolving which org a Clerk user acts as (see ctxFromMcpAuth).
+export type CtxResolveOptions = {
+  // The org the caller explicitly asked to act in (e.g. a write tool's `orgId` argument). When
+  // given it must be one of the user's own active memberships, or we refuse.
+  requestedOrgId?: string;
+  // When true, a multi-org user MUST have named an org — we will NOT fall back to a primary org.
+  // Phase 4 writes set this: a create/update/delete must land in the org the caller intends, so
+  // guessing is forbidden. Reads leave it false and accept the primary-org default below.
+  requireExplicitOrg?: boolean;
+};
+
 // Phase 3: turn a Clerk user id (extracted from a validated OAuth token) into a real Ctx.
 //
 // A Clerk OAuth token identifies a *user*, not an org, but Valgate scopes all data by org — so
@@ -34,22 +45,26 @@ export function ctxFor(): Ctx {
 //
 // Org selection (M2). The rule is: always DETERMINISTIC, never a random "first row".
 //   - `requestedOrgId` given → it must be one of the user's own active memberships, else we refuse.
-//     This is the explicit path Phase 4 (writes) will use, because a write must hit the org the
-//     caller actually intends — guessing there would be dangerous.
+//     This is the explicit path Phase 4 (writes) uses, because a write must hit the org the caller
+//     actually intends — guessing there would be dangerous.
 //   - Single-org user, no org given → use their one membership.
-//   - Multi-org user, no org given → pick a stable "primary" org: the most senior role first
-//     (owner > admin > member > viewer), tie-broken by org id. This is safe for the READ-only
-//     Phase 3 (the user can only ever see orgs they already belong to, so there is no cross-tenant
-//     leak) and it unblocks real multi-org users instead of hard-blocking them. Callers that need
-//     a specific org can discover their options via the list_workspaces tool and pass requestedOrgId.
+//   - Multi-org user, no org given:
+//       · reads (`requireExplicitOrg` false) → pick a stable "primary" org: the most senior role
+//         first (owner > admin > member > viewer), tie-broken by org id. Safe for READS (the user
+//         only ever sees orgs they already belong to) and it unblocks real multi-org users.
+//       · writes (`requireExplicitOrg` true) → REFUSE. A write must never fall back to a guess.
+//     Callers discover their options via the list_workspaces tool and pass requestedOrgId.
 //
 // When resolution fails (unknown user / no membership / requested an org they're not in) we throw
 // the SAME generic "unauthenticated" error so the client can never tell which case it was; the
-// specific reason is logged server-side (console.error) for our own debugging only.
+// specific reason is logged server-side (console.error) for our own debugging only. The one
+// exception is the multi-org-write case, which throws "org_required" so a write tool can give the
+// caller actionable guidance (call list_workspaces, pass orgId) rather than a bare auth failure.
 export async function ctxFromMcpAuth(
   clerkUserId: string,
-  requestedOrgId?: string,
+  options: CtxResolveOptions = {},
 ): Promise<Ctx> {
+  const { requestedOrgId, requireExplicitOrg = false } = options;
   // 1) Clerk user id → our internal USR-* id.
   const [userRow] = await db
     .select({ id: users.id })
@@ -96,10 +111,17 @@ export async function ctxFromMcpAuth(
   } else if (memberships.length === 1) {
     // Single-org user, no ambiguity: use their only membership.
     selected = memberships[0];
+  } else if (requireExplicitOrg) {
+    // Multi-org user attempting a write with no org named. Refuse to guess — a write must land in
+    // the org the caller intends. Distinct error so the tool can guide them to list_workspaces.
+    console.warn(
+      `[valgate-mcp] ctxFromMcpAuth: multi-org user ${userRow.id} must name an org for this action`,
+    );
+    throw new Error("org_required");
   } else {
-    // Multi-org user, no org named: pick a stable primary. `memberships` is already sorted by org
-    // id ascending, so this reduce is fully deterministic: keep the more senior role, and on a
-    // role tie keep the earlier org id (the current `best`, since we walk in ascending order).
+    // Multi-org user, read with no org named: pick a stable primary. `memberships` is already
+    // sorted by org id ascending, so this reduce is fully deterministic: keep the more senior
+    // role, and on a role tie keep the earlier org id (the current `best`, since we walk ascending).
     selected = memberships.reduce((best, candidate) => {
       const candidateRank = ROLE_RANK[candidate.role as Ctx["orgRole"]];
       const bestRank = ROLE_RANK[best.role as Ctx["orgRole"]];

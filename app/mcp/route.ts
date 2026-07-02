@@ -48,13 +48,17 @@ function isOAuthClientAllowed(clientId: string | undefined): boolean {
 // Build the MCP server for each request, wiring the shared tool/resources to the AUTHENTICATED
 // caller. The Clerk user id rides in extra.authInfo.extra.userId (set by verifyClerkToken below).
 const handler = createMcpHandler((server) => {
-  registerValgateMcp(server, async (extra) => {
+  registerValgateMcp(server, async (extra, options) => {
     const userId = extra.authInfo?.extra?.userId as string | undefined;
     if (!userId) {
       // Should never happen when withMcpAuth requires a valid token, but fail closed.
       throw new Error("unauthenticated");
     }
-    return ctxFromMcpAuth(userId);
+    // Reads pass no options (primary-org default); writes pass requestedOrgId + requireExplicitOrg.
+    return ctxFromMcpAuth(userId, {
+      requestedOrgId: options?.requestedOrgId,
+      requireExplicitOrg: options?.requireExplicitOrg,
+    });
   });
 });
 

@@ -12,9 +12,10 @@ import type { Ctx } from "@/lib/services/_mapping";
 import { listProperties } from "@/lib/services/properties";
 import { listWorkspacesForUser } from "./ctxFor";
 import { registerResources } from "./resources";
+import { registerWriteTools } from "./writes";
 
 // The per-call context resolver. It receives the MCP request's `extra` object (which carries
-// `authInfo` on the authenticated HTTP path) and returns the Valgate Ctx to run the read as.
+// `authInfo` on the authenticated HTTP path) and returns the Valgate Ctx to run the call as.
 // We only read `authInfo.extra` here, so the type is kept deliberately small and transport-agnostic.
 export type McpCallExtra = {
   authInfo?: {
@@ -22,7 +23,16 @@ export type McpCallExtra = {
   };
 };
 
-export type GetCtx = (extra: McpCallExtra) => Promise<Ctx>;
+// Per-call org resolution controls, passed by the tool that knows what it needs:
+//   - reads call getCtx(extra) and accept the primary-org default for multi-org users;
+//   - writes call getCtx(extra, { requestedOrgId, requireExplicitOrg: true }) so a multi-org
+//     caller must name the org (see ctxFromMcpAuth).
+export type GetCtxOptions = {
+  requestedOrgId?: string;
+  requireExplicitOrg?: boolean;
+};
+
+export type GetCtx = (extra: McpCallExtra, options?: GetCtxOptions) => Promise<Ctx>;
 
 export function registerValgateMcp(server: McpServer, getCtx: GetCtx): void {
   // list_workspaces: show which workspace (org) the caller is acting in, and every other workspace
@@ -92,4 +102,9 @@ export function registerValgateMcp(server: McpServer, getCtx: GetCtx): void {
 
   // All reading beyond the search entry point is served by resources (keeps the tool list short).
   registerResources(server, getCtx);
+
+  // Phase 4: the outcome-shaped write tools (create/update/delete property, delete preview,
+  // record maintenance). They inherit org-scope, role, and demo read-only guards from the service
+  // layer, resolve their org explicitly (M2), and audit every mutation.
+  registerWriteTools(server, getCtx);
 }
