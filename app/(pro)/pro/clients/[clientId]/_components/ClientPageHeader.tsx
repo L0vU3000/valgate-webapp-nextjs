@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, ArrowRight } from "lucide-react";
 import { cn } from "@/components/ui/utils";
 import { progressDotColor } from "@/lib/property-helpers";
 import { formatDate, formatRelativeTime } from "@/lib/format";
 import type { ClientRollup } from "@/app/(pro)/pro/queries";
+import { OWN_PORTFOLIO_ID } from "@/app/(pro)/pro/_components/pro-shell-types";
 import { ViewAsClientButton } from "./ViewAsClientButton";
 
 // Header for one client's portfolio page: breadcrumb, avatar, name,
@@ -78,12 +79,24 @@ export function ClientPageHeader({
             </p>
           </div>
         </div>
-        {/* Top-right: preview the owner view scoped to this client. Shown only
-            when the client has a linked portfolio org (viewAsClerkOrgId set). */}
-        <ViewAsClientButton
-          clientId={client.id}
-          hasOrg={viewAsClerkOrgId !== null}
-        />
+        {/* Top-right: for the manager's own book, jump into the owner shell
+            (this synthetic "client" has no org to view-as). For real clients,
+            preview the owner view scoped to that client's org. */}
+        {client.id === OWN_PORTFOLIO_ID ? (
+          <Link
+            href="/"
+            title="Manage this portfolio in the owner view"
+            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md border border-blue-200 bg-blue-50 px-3 text-[13px] font-medium text-blue-700 transition-[background-color,transform] hover:bg-blue-100 active:scale-[0.97] dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-900/50"
+          >
+            My portfolio
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        ) : (
+          <ViewAsClientButton
+            clientId={client.id}
+            hasOrg={viewAsClerkOrgId !== null}
+          />
+        )}
       </div>
     </header>
   );
