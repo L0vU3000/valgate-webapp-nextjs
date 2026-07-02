@@ -12,7 +12,6 @@ import { nextId, assertCanMutate, type Ctx } from "@/lib/services/_mapping";
 import { upsertOrg, upsertMembership, removeMembership } from "@/lib/services/identity-sync";
 import { AccessError, ensureManagerHomeOrganizationForClerkUser } from "@/lib/services/managers";
 import { createPropertyForOrg, bulkAssignProperties } from "@/lib/services/properties";
-import { getFsUserId } from "@/lib/data/auth-shim";
 import { logger } from "@/lib/logger";
 import {
   MAX_UNCONFIRMED_CLIENTS,
@@ -258,14 +257,12 @@ export async function onboardClientPortfolio(
     managerAccessModel,
   });
 
-  // Create the client record (Drizzle + FS dual-write) and link it to the org.
-  const fsUserId = getFsUserId(ctx.userId);
+  // Create the client record (Drizzle-only) and link it to the org.
   const clientId = await createClientRecord(
     ctx.userId,
     orgRow.id,
     input.name,
     input.clientEmail,
-    fsUserId,
   );
 
   let propertiesCreated = 0;

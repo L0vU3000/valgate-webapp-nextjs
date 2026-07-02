@@ -9,7 +9,6 @@ import { upsertOrg, upsertMembership, removeMembership } from "@/lib/services/id
 import { assertOrgAdmin } from "@/lib/services/_crud";
 import { AccessError } from "@/lib/services/managers";
 import { createPropertyForOrg, bulkAssignProperties } from "@/lib/services/properties";
-import { getFsUserId } from "@/lib/data/auth-shim";
 import { logger } from "@/lib/logger";
 import {
   MAX_UNCONFIRMED_CLIENTS,
@@ -213,15 +212,13 @@ export async function createClientPortfolioWithInvitees(
     handoffIds.push(handoffId);
   }
 
-  // 4. Create the client record (Drizzle + FS dual-write) and link it to the org.
+  // 4. Create the client record (Drizzle-only) and link it to the org.
   const primaryEmail = input.invitees[0]?.email;
-  const fsUserId = getFsUserId(ctx.userId);
   const clientId = await createClientRecord(
     ctx.userId,
     orgRow.id,
     input.portfolioName,
     primaryEmail,
-    fsUserId,
   );
 
   // 5. Seed the portfolio with properties, then stamp the new clientId.

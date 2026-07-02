@@ -4,15 +4,10 @@ import { z } from "zod";
 import { requestAccess, AccessError } from "@/lib/services/managers";
 import {
   createClientRecord,
-  nameToInitials,
-  nameToAvatarBg,
-} from "@/lib/services/client-onboarding";
-import * as clientsDb from "@/lib/data/db/clients";
-import { db } from "@/lib/db/client";
-import { clients } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+  setClientStatusRecord,
+  updateClientRecord,
+} from "@/lib/services/client-records";
 import { updateProperty } from "@/lib/services/properties";
-import { getCurrentUserId } from "@/lib/data/auth-shim";
 import { requireCtx } from "@/lib/auth/ctx";
 import { logger } from "@/lib/logger";
 import { logActivity } from "@/lib/services/activity";
@@ -40,29 +35,22 @@ export async function onboardClient(input: {
   const parsed = onboardClientSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid input." };
 
-  const userId = getCurrentUserId();
   const authCtx = await requireCtx();
 
-  // Write to Neon (canonical) + FS mirror. orgId=null = manual wizard client (no portfolio org).
+  // Neon-only write. orgId=null = manual wizard client (no portfolio org).
+  // The wizard-only fields (phone, fee, type) live in real columns since
+  // migration 0023 — no FS mirror needed.
   const clientId = await createClientRecord(
     authCtx.userId,
     null,
     parsed.data.name,
     parsed.data.email,
-    userId,
-  );
-
-  // Best-effort: patch FS record with wizard-only fields the Neon schema doesn't store.
-  // Non-fatal if this fails — Neon is the authoritative store.
-  try {
-    await clientsDb.update(userId, clientId, {
+    {
+      clientType: parsed.data.clientType,
       phone: parsed.data.phone,
       managementFeePct: parsed.data.managementFeePct,
-      clientType: parsed.data.clientType,
-    });
-  } catch (err) {
-    logger.error("onboardClient: FS extra-field patch failed (non-fatal)", { error: String(err) });
-  }
+    },
+  );
 
   for (const propertyId of parsed.data.propertyIds) {
     const updated = await updateProperty(authCtx, propertyId, {
@@ -89,7 +77,7 @@ const setClientStatusSchema = z.object({
 
 // Archives (or reactivates) a client. An Inactive client drops out of all
 // Pro rollups, alerts, and the active client book. Reactivating sets them back.
-// Neon is the authoritative store; FS is updated as a best-effort mirror.
+// Neon is the only store — the FS mirror was retired after parity was verified.
 export async function setClientStatus(input: {
   clientId: string;
   status: "Active" | "Inactive";
@@ -97,56 +85,17 @@ export async function setClientStatus(input: {
   const parsed = setClientStatusSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid input." };
 
-  const userId = getCurrentUserId();
   const ctx = await requireCtx();
-
-  // IDOR check: verify the client belongs to this manager.
-  // Check Neon first (post-migration clients), fall back to FS (legacy manual-wizard clients).
-  const [neonClient] = await db
-    .select({ name: clients.name })
-    .from(clients)
-    .where(
-      and(
-        eq(clients.id, parsed.data.clientId),
-        eq(clients.managerUserId, ctx.userId),
-      ),
-    )
-    .limit(1);
-
-  const fsClient = neonClient ? null : await clientsDb.get(userId, parsed.data.clientId);
-  const clientName = neonClient?.name ?? fsClient?.name;
-
-  if (!clientName) {
-    logger.error("setClientStatus: client not found", input);
-    return { ok: false, error: "Client not found." };
-  }
 
   // Map display enum → DB lowercase enum.
   const dbStatus = parsed.data.status === "Active" ? ("active" as const) : ("inactive" as const);
 
-  // Neon update — only for clients that live in Neon (post-migration).
-  if (neonClient) {
-    await db
-      .update(clients)
-      .set({ status: dbStatus, updatedAt: new Date() })
-      .where(eq(clients.id, parsed.data.clientId));
-  }
-
-  // FS mirror — best-effort for Neon clients; authoritative for legacy-only clients.
-  try {
-    const updated = await clientsDb.update(userId, parsed.data.clientId, {
-      status: parsed.data.status,
-    });
-    if (!updated && !neonClient) {
-      logger.error("setClientStatus: FS update failed for legacy client", input);
-      return { ok: false, error: "Could not update client status." };
-    }
-  } catch (err) {
-    if (!neonClient) {
-      logger.error("setClientStatus: FS update threw for legacy client", { error: String(err) });
-      return { ok: false, error: "Could not update client status." };
-    }
-    logger.error("setClientStatus: FS mirror update failed (non-fatal)", { error: String(err) });
+  // The service call does the IDOR check and the update in one ownership-scoped
+  // query: a client id that isn't this manager's matches nothing and returns null.
+  const clientName = await setClientStatusRecord(ctx, parsed.data.clientId, dbStatus);
+  if (clientName === null) {
+    logger.error("setClientStatus: client not found", input);
+    return { ok: false, error: "Client not found." };
   }
 
   // Activity log — non-critical; never rolls back the status change.
@@ -179,8 +128,7 @@ const updateClientSchema = z.object({
 // Edits a client's name, contact email, and type. This mutates ONLY the
 // manager-owned `clients` record (their private label for the engagement) —
 // it never writes through to the client's Clerk identity or profile. Modeled
-// on setClientStatus: validate -> auth -> ownership check -> Neon (canonical)
-// -> FS mirror -> audit log.
+// on setClientStatus: validate -> auth -> ownership-scoped update -> audit log.
 export async function updateClient(input: {
   clientId: string;
   name: string;
@@ -194,73 +142,25 @@ export async function updateClient(input: {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input." };
   }
 
-  const userId = getCurrentUserId();
   const ctx = await requireCtx();
 
-  // 2. IDOR guard: the client must belong to THIS manager. Check Neon first
-  //    (post-migration clients); fall back to the FS record for legacy
-  //    manual-wizard clients — the same lookup setClientStatus uses.
-  const [neonClient] = await db
-    .select({ id: clients.id })
-    .from(clients)
-    .where(
-      and(
-        eq(clients.id, parsed.data.clientId),
-        eq(clients.managerUserId, ctx.userId),
-      ),
-    )
-    .limit(1);
+  // 2. Normalise the optional email — empty string means "clear the field".
+  const name = parsed.data.name;
+  const email = parsed.data.email && parsed.data.email.trim() ? parsed.data.email.trim() : null;
 
-  const fsClient = neonClient ? null : await clientsDb.get(userId, parsed.data.clientId);
-  if (!neonClient && !fsClient) {
+  // 3. Ownership-scoped update (IDOR guard lives in the service WHERE clause);
+  //    the service also re-derives initials + avatar colour from the new name.
+  const updated = await updateClientRecord(ctx, parsed.data.clientId, {
+    name,
+    email,
+    clientType: parsed.data.clientType,
+  });
+  if (!updated) {
     logger.error("updateClient: client not found", { clientId: parsed.data.clientId });
     return { ok: false, error: "Client not found." };
   }
 
-  // 3. Derive the avatar visuals from the (possibly new) name so the initials
-  //    and colour stay in sync with the label everywhere it renders.
-  const name = parsed.data.name;
-  const email = parsed.data.email && parsed.data.email.trim() ? parsed.data.email.trim() : null;
-  const initials = nameToInitials(name);
-  const avatarBg = nameToAvatarBg(name);
-
-  // 4. Neon update — the canonical store.
-  if (neonClient) {
-    await db
-      .update(clients)
-      .set({
-        name,
-        email,
-        clientType: parsed.data.clientType,
-        initials,
-        avatarBg,
-        updatedAt: new Date(),
-      })
-      .where(eq(clients.id, parsed.data.clientId));
-  }
-
-  // 5. FS mirror — authoritative for legacy-only clients, best-effort otherwise.
-  try {
-    const updated = await clientsDb.update(userId, parsed.data.clientId, {
-      name,
-      email: email ?? undefined,
-      clientType: parsed.data.clientType,
-      initials,
-      avatarBg,
-    });
-    if (!updated && !neonClient) {
-      logger.error("updateClient: FS update failed for legacy client", { clientId: parsed.data.clientId });
-      return { ok: false, error: "Could not update client." };
-    }
-  } catch (err) {
-    if (!neonClient) {
-      logger.error("updateClient: FS update threw for legacy client", { error: String(err) });
-      return { ok: false, error: "Could not update client." };
-    }
-    logger.error("updateClient: FS mirror update failed (non-fatal)", { error: String(err) });
-  }
-
-  // 6. Audit log — never rolls back the update.
+  // 4. Audit log — never rolls back the update.
   try {
     await logActivity(ctx, {
       entity: "client",

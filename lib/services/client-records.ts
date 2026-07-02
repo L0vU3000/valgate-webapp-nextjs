@@ -3,8 +3,6 @@ import { and, eq, inArray, notInArray, isNotNull, sql, countDistinct } from "dri
 import { db } from "@/lib/db/client";
 import { clientHandoffs, clients, organizations, properties } from "@/lib/db/schema";
 import { nextId, type Ctx } from "@/lib/services/_mapping";
-import * as clientsDb from "@/lib/data/db/clients";
-import { getFsUserId } from "@/lib/data/auth-shim";
 import { logger } from "@/lib/logger";
 
 // Cap: a manager cannot have more than this many unconfirmed client portfolios.
@@ -106,31 +104,36 @@ export function nameToAvatarBg(name: string): string {
   return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
 }
 
-// ─── Shared dual-write helper ─────────────────────────────────────────────────
+// ─── Client record creation ─────────────────────────────────────────────────
+
+// Optional extra fields captured by the manual wizard. Stored directly in Neon —
+// migration 0023 added the columns that used to live only in the FS record.
+export type ClientRecordExtras = {
+  clientType?: "Individual" | "Corporate";
+  phone?: string;
+  managementFeePct?: number;
+};
 
 /**
- * Creates a Drizzle clients row (canonical) and a best-effort FS mirror record,
- * both sharing the same CLI-xxxx id.
+ * Creates a Drizzle clients row. Neon is the ONLY store — the FS mirror was
+ * retired after the FS/DB parity check passed (see scripts/verify-clients-parity.ts).
  *
  * Idempotent: if a row already exists for this (managerUserId, orgId) pair
  * (non-null orgId only), the insert is a no-op and the existing id is returned.
  * orgId=null (manual wizard clients) always inserts a new row — no unique constraint applies.
- *
- * Exported so actions.ts can route the manual-wizard create through Neon too.
  */
 export async function createClientRecord(
   managerUserId: string,
   orgId: string | null,
   name: string,
   email: string | undefined,
-  fsUserId: string,
+  extras?: ClientRecordExtras,
 ): Promise<string> {
   const clientId = await nextId("CLI");
   const initials = nameToInitials(name);
   const avatarBg = nameToAvatarBg(name);
-  const now = Date.now();
 
-  // Neon insert — canonical. ON CONFLICT on the partial unique index (non-null orgId)
+  // Neon insert — ON CONFLICT on the partial unique index (non-null orgId)
   // is a no-op; returning() gives us the inserted id (empty array = conflict occurred).
   const inserted = await db
     .insert(clients)
@@ -140,7 +143,10 @@ export async function createClientRecord(
       orgId,
       name,
       email: email ?? null,
-      clientType: "Individual",
+      clientType: extras?.clientType ?? "Individual",
+      phone: extras?.phone ?? null,
+      managementFeePct: extras?.managementFeePct ?? null,
+      clientSince: new Date(),
       initials,
       avatarBg,
     })
@@ -161,27 +167,95 @@ export async function createClientRecord(
     canonicalId = clientId;
   }
 
-  // FS mirror — best-effort only. Neon is the canonical store from here on.
-  try {
-    await clientsDb.create(
-      fsUserId,
-      {
-        userId: fsUserId,
-        name,
-        clientType: "Individual",
-        initials,
-        avatarBg,
-        email,
-        orgId: orgId ?? undefined,
-        clientSince: now,
-      },
-      canonicalId,
-    );
-  } catch (err) {
-    logger.error("createClientRecord: FS mirror write failed (non-fatal)", { error: String(err) });
-  }
-
   return canonicalId;
+}
+
+// ─── Client record reads (ownership-scoped) ──────────────────────────────────
+
+// Minimal client shape the AI context builder (and similar read-only surfaces) render.
+export type ClientRecordSummary = {
+  id: string;
+  name: string;
+  clientType: "Individual" | "Corporate";
+  managementFeePct: number | null;
+};
+
+// Lists every client belonging to this manager (both portfolio-org and manual-wizard).
+export async function listClientRecords(ctx: Ctx): Promise<ClientRecordSummary[]> {
+  return db
+    .select({
+      id: clients.id,
+      name: clients.name,
+      clientType: clients.clientType,
+      managementFeePct: clients.managementFeePct,
+    })
+    .from(clients)
+    .where(eq(clients.managerUserId, ctx.userId));
+}
+
+// Fetches one client, ownership-scoped: returns null when the id exists but
+// belongs to a different manager (IDOR guard by WHERE clause).
+export async function getClientRecord(
+  ctx: Ctx,
+  clientId: string,
+): Promise<ClientRecordSummary | null> {
+  const [row] = await db
+    .select({
+      id: clients.id,
+      name: clients.name,
+      clientType: clients.clientType,
+      managementFeePct: clients.managementFeePct,
+    })
+    .from(clients)
+    .where(and(eq(clients.id, clientId), eq(clients.managerUserId, ctx.userId)))
+    .limit(1);
+  return row ?? null;
+}
+
+// ─── Client record mutations (ownership-checked, Drizzle-only) ───────────────
+
+/**
+ * Sets a client's active/inactive status. Returns the client's name on success,
+ * or null when no client with this id belongs to this manager (IDOR guard —
+ * the WHERE clause enforces ownership, so a foreign id simply matches nothing).
+ */
+export async function setClientStatusRecord(
+  ctx: Ctx,
+  clientId: string,
+  status: "active" | "inactive",
+): Promise<string | null> {
+  const updated = await db
+    .update(clients)
+    .set({ status, updatedAt: new Date() })
+    .where(and(eq(clients.id, clientId), eq(clients.managerUserId, ctx.userId)))
+    .returning({ name: clients.name });
+  return updated[0]?.name ?? null;
+}
+
+/**
+ * Edits a client's name, contact email, and type (the manager's private label
+ * for the engagement — never the client's real account). Derives initials and
+ * avatar colour from the new name so the visuals stay in sync everywhere.
+ * Returns true on success, false when the client doesn't belong to this manager.
+ */
+export async function updateClientRecord(
+  ctx: Ctx,
+  clientId: string,
+  patch: { name: string; email: string | null; clientType: "Individual" | "Corporate" },
+): Promise<boolean> {
+  const updated = await db
+    .update(clients)
+    .set({
+      name: patch.name,
+      email: patch.email,
+      clientType: patch.clientType,
+      initials: nameToInitials(patch.name),
+      avatarBg: nameToAvatarBg(patch.name),
+      updatedAt: new Date(),
+    })
+    .where(and(eq(clients.id, clientId), eq(clients.managerUserId, ctx.userId)))
+    .returning({ id: clients.id });
+  return updated.length > 0;
 }
 
 // ─── Stamp properties in an org with a clientId ───────────────────────────────
@@ -233,8 +307,6 @@ export async function backfillClientsForHandoffs(ctx: Ctx): Promise<void> {
       .filter((id): id is string => id !== null),
   );
 
-  const fsUserId = getFsUserId(ctx.userId);
-
   for (const { orgId, orgName } of handoffOrgs) {
     if (existingOrgIds.has(orgId)) continue;
 
@@ -252,7 +324,6 @@ export async function backfillClientsForHandoffs(ctx: Ctx): Promise<void> {
         orgId,
         orgName,
         firstHandoff?.clientEmail,
-        fsUserId,
       );
       await stampClientIdOnOrgProperties(orgId, clientId);
     } catch (err) {

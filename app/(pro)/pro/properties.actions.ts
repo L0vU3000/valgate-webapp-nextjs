@@ -6,10 +6,9 @@ import { getLease, updateLease } from "@/lib/services/leases";
 import { createMaintenanceItem, updateMaintenanceItem } from "@/lib/services/maintenance-items";
 import { updateSafetyRisk } from "@/lib/services/safety-risks";
 import { getProfessional } from "@/lib/services/professionals";
-import * as clientsDb from "@/lib/data/db/clients";
+import { getClientRecord } from "@/lib/services/client-records";
 import { getProperty, updateProperty, createProperty as svcCreateProperty, bulkAssignProperties as svcBulkAssign, listPropertyNamesByClientId } from "@/lib/services/properties";
 import { propertyTypeChoiceSchema, propertyStatusSchema, propertyTitleSchema } from "@/lib/data/types/property";
-import { getCurrentUserId } from "@/lib/data/auth-shim";
 import { requireCtx } from "@/lib/auth/ctx";
 import { logger } from "@/lib/logger";
 import { addUtcMonths } from "@/lib/format";
@@ -284,9 +283,9 @@ export async function assignProperties(input: {
   const parsed = assignPropertiesSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid input." };
 
-  const userId = getCurrentUserId();
   const authCtx = await requireCtx();
-  const client = await clientsDb.get(userId, parsed.data.clientId);
+  // Ownership-scoped Drizzle read (IDOR guard) — the FS record is retired.
+  const client = await getClientRecord(authCtx, parsed.data.clientId);
   if (!client) {
     logger.error("assignProperties: client not found", input);
     return { ok: false, error: "Could not assign properties." };

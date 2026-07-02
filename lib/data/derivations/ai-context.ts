@@ -8,7 +8,7 @@ import { listPropertyValuations } from "@/lib/services/property-valuations";
 import { listOwnershipRecords } from "@/lib/services/ownership-records";
 import { listMaintenanceItems } from "@/lib/services/maintenance-items";
 import { listProperties } from "@/lib/services/properties";
-import * as clientsDb from "@/lib/data/db/clients";
+import { listClientRecords, getClientRecord } from "@/lib/services/client-records";
 import { getPortfolioSnapshot } from "@/lib/data/derivations/portfolio-snapshot";
 import { getPropertyByIdParam } from "@/lib/data/properties";
 import { getCurrentUserId } from "@/lib/data/auth-shim";
@@ -206,7 +206,6 @@ export async function buildAiOverlayContext(
   pathname: string,
 ): Promise<AiOverlayContext> {
   const authCtx = await requireCtx();
-  const userId = getCurrentUserId();
   const propertyId = parsePropertyIdFromPath(pathname);
   const clientId = parseClientIdFromPath(pathname);
   const isProRoute = pathname.startsWith("/pro");
@@ -234,7 +233,7 @@ export async function buildAiOverlayContext(
     listPropertyValuations(authCtx),
     listOwnershipRecords(authCtx),
     listMaintenanceItems(authCtx),
-    clientsDb.list(userId),
+    listClientRecords(authCtx),
     getPortfolioSnapshot(),
   ]);
 
@@ -334,7 +333,7 @@ export async function buildAiOverlayContext(
   if (isProRoute) {
     yieldHref = "/pro/dashboard";
 
-    const clientRecord = clientId ? await clientsDb.get(userId, clientId) : null;
+    const clientRecord = clientId ? await getClientRecord(authCtx, clientId) : null;
 
     if (clientRecord) {
       const clientProperties = allProperties.filter(
