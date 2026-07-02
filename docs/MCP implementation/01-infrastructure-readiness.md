@@ -121,14 +121,20 @@ The MCP server replaces only the *left half* of that chain.
 
 ## MISSING — does not exist yet (all expected for a greenfield MCP)
 
-### M1 — No MCP server, transport, or tool definitions — **IN PROGRESS (Phase 1)**
+### M1 — No MCP server, transport, or tool definitions — **RESOLVED (Phase 1 spike, 2026-07-02)**
 - `@modelcontextprotocol/sdk` v1.29.0 installed (2026-06-25).
 - `mcp-server/index.ts` — server entry + `search_properties` tool (calls `listProperties(ctx)`).
 - `mcp-server/ctxFor.ts` — Phase 1 demo `Ctx` seam (W1 resolved for Phase 1).
 - Run scripts added: `npm run mcp:server` (stdio) and `npm run mcp:inspect` (MCP Inspector).
-- **Pending:** create `.env.local` with `DATABASE_URL` pointing at the dev Neon branch
-  (`br-solitary-lab-aoci2g33`), then run `npm run mcp:inspect` to confirm real ORG-0001
-  data returns. Mark M1 RESOLVED when the inspector call succeeds.
+- **Bug found & fixed by running it:** `index.ts` used a top-level `await server.connect(...)`,
+  but `tsx` transforms the file as CommonJS (the Next.js `package.json` has no
+  `"type": "module"`), and CommonJS does not allow top-level await — the process crashed on
+  boot. Fixed by moving startup into an async `main()` with a `.catch()` guard, rather than
+  making the whole app ESM.
+- **Verified end-to-end (2026-07-02):** with `.env.local` pointing at the dev Neon branch, a
+  headless MCP client (SDK `Client` + `StdioClientTransport`, the same path the Inspector uses)
+  connected, listed `search_properties`, and the tool returned **26 real ORG-0001 properties**
+  (`PROP-0001` … `PROP-0026`) with no error. Foundation proven — Phase 2 (resources) is repetition.
 
 ### M2 — No machine-to-machine auth / API tokens — **MISSING**
 - Evidence: all auth flows go through Clerk's interactive session (`lib/auth/ctx.ts`).
@@ -157,7 +163,7 @@ The MCP server replaces only the *left half* of that chain.
 | `Ctx` from a non-web caller | 🟡 NEEDS WORK (W1) ← **main gap** |
 | `server-only` in a Node process | ✅ RESOLVED (W2) — `--conditions=react-server` |
 | Cache coherence across front doors | 🟡 ACCEPT FOR v1 (W3) |
-| MCP server / tools / transport | 🟡 IN PROGRESS (M1) — SDK installed, files created |
+| MCP server / tools / transport | ✅ RESOLVED (M1) — Phase 1 spike returns 26 real ORG-0001 rows |
 | Machine auth / API tokens | 🔴 MISSING (M2) — blocks W1 |
 | Rate limiting | 🔴 MISSING (M3) — needed before public |
 
