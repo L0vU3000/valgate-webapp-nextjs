@@ -47,3 +47,18 @@ Keep the existing exported names (`cachedListLeases = createCachedList('leases',
 
 ## Execution prompt (paste into Sonnet)
 > Execute docs/plans/refactor-phase-4-data-layer-unification.md on a branch. Run the pre-flight parity script FIRST and abort with a report if it finds mismatches. Then targets 1–4 in order, one commit each, running tests/authz + e2e after each. Never run seed:reset. Finish with /cso on the diff and `graphify update .`.
+
+## Pre-flight execution record (2026-07-02)
+`scripts/verify-clients-parity.ts` written and run (read-only). **Parity FAILED — phase halted per guardrail.**
+
+Real-user (USR-0079) blockers:
+1. `CLI-0006` "test sucess" — FS-only, no DB row. DECISION: import or delete?
+2. `CLI-0010` — status drift: db=`inactive`, fs=`active`. DECISION: which wins?
+3. `clientSince` FS-only data on CLI-0010/0011; no DB column for phone/preferredContact/clientSince/managementFeePct. Mechanical: add columns + backfill before retiring FS writes (seed clients also carry these fields, so seed:neon wants the columns too).
+
+Not blockers: demo-user FS records are the seed corpus (expected FS-only); DB-only `CLI-0005` "ABC" is fine (DB is the target). Note: FS ids are per-user-dir scoped while DB ids are global — demo-user's CLI-0005/0006 collide with real ids; retirement removes this ambiguity entirely.
+
+## Targets 3 & 4 execution record (2026-07-02)
+- Target 3 DONE: `ChangeRequest` type moved to new `lib/services/change-request-types.ts`; dispatcher now imports the type from there (not from change-requests.ts); the dynamic `await import()` workaround in `approveChangeRequest` replaced with a normal static import (verified no entity service imports change-requests back). Cycle gone.
+- Target 4 SKIPPED deliberately: wrappers are already one-line bodies; per-entity comments carry unique bust-call locations. A factory saves ~60 signature lines but violates the "long, explicit, commented backend code" style rule. Re-open only if wrapper count doubles.
+- Targets 1 & 2 remain HALTED on the pre-flight decisions above.

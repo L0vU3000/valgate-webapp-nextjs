@@ -2,7 +2,7 @@
 // Matches FS CLI-xxxx ids; orgId (nullable) links to the portfolio org created
 // via manager-led onboarding (Phase 6). The FK on properties.client_id that
 // was previously deferred ("clients table deferred to B11") resolves here.
-import { pgTable, text, timestamp, pgEnum, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, pgEnum, index, uniqueIndex, real } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { organizations, users } from "./identity";
 
@@ -19,6 +19,13 @@ export const clients = pgTable("clients", {
   email: text("email"),
   clientType: clientTypeEnum("client_type").notNull().default("Individual"),
   status: clientStatusEnum("status").notNull().default("active"),
+  // Contact + engagement fields (Phase 4 dual-write retirement): these existed only
+  // in the FS core.json records; columns added so the FS side can be retired without
+  // losing data. All nullable — legacy rows simply have no value.
+  phone: text("phone"),
+  preferredContact: text("preferred_contact"),
+  clientSince: timestamp("client_since", { withTimezone: true }),
+  managementFeePct: real("management_fee_pct"),
   // Visual fields — mirror the FS record so the UI can render without FS fallback.
   initials: text("initials").notNull().default("?"),
   avatarBg: text("avatar_bg").notNull().default("bg-slate-400 text-white"),
