@@ -102,9 +102,18 @@ using only resources + the one search tool — and the total tool count fits on 
 2. Build `ctxFromMcpAuth()` reusing `ourOrgId`/`ourUserId`/`normaliseRole`
    (`lib/services/identity-sync.ts`) — the Clerk OAuth token resolves to a real Clerk user,
    which plugs straight into the existing identity-sync mapping.
-3. **Validate token audience** — reject any token not issued for this MCP server (MCP =
-   OAuth Resource Server; prevents token-passthrough abuse). `02` §B/§G. Clerk's
-   `authenticateRequest` covers most of this; verify, don't assume.
+3. **Validate token audience (M1) — done, with a caveat proven by reading the SDK.** The
+   assumption that Clerk covers this was **false**: neither `verifyClerkToken` nor Clerk's
+   underlying OAuth verification checks that a token was issued for *this* resource. Clerk
+   OAuth tokens are bound to the Clerk **instance**, not to a resource — verification returns
+   `{ clientId, scopes, userId }` with **no `aud`/resource claim**. So any OAuth client in our
+   instance could otherwise call `/mcp`. Because Clerk exposes the token's `clientId`, we bind
+   explicitly with a **client-id allowlist**: `MCP_ALLOWED_OAUTH_CLIENT_IDS` (env, comma-sep).
+   Set → only those clients are accepted (others 401); unset → accept any client in the instance
+   (required for Dynamic Client Registration, which mints client ids we can't know ahead of time)
+   and log a warning. Enforced in `app/mcp/route.ts` (`isOAuthClientAllowed`). **Still to prove
+   with a live token** (blocked on Clerk dashboard config): mint a token for a *different* client
+   and confirm `/mcp` 401s once the manual ChatGPT app's client id is the sole allowlist entry.
 4. Swap `ctxFor()` to read the token from the MCP client's auth, fall back to demo only
    when `DEMO_MODE`.
 5. Test tenant isolation: a token for ORG-A must never see ORG-B data (it can't, because
