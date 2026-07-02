@@ -1,13 +1,16 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ChevronRight, ArrowRight } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ChevronRight, ArrowRight, Pencil } from "lucide-react";
 import { cn } from "@/components/ui/utils";
 import { progressDotColor } from "@/lib/property-helpers";
 import { formatDate, formatRelativeTime } from "@/lib/format";
 import type { ClientRollup } from "@/app/(pro)/pro/queries";
 import { OWN_PORTFOLIO_ID } from "@/app/(pro)/pro/_components/pro-shell-types";
 import { ViewAsClientButton } from "./ViewAsClientButton";
+import { EditClientDrawer } from "./EditClientDrawer";
 
 // Header for one client's portfolio page: breadcrumb, avatar, name,
 // type badge, Progress stat, and a one-line summary built from the
@@ -21,6 +24,20 @@ export function ClientPageHeader({
   viewAsClerkOrgId: string | null;
 }) {
   const { client } = rollup;
+  const isOwn = client.id === OWN_PORTFOLIO_ID;
+
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [editOpen, setEditOpen] = useState(false);
+
+  // Deep link from the clients table (row menu -> ?edit=1) opens the drawer,
+  // then cleans the URL — same pattern ClientsIndexPage uses for ?add=.
+  useEffect(() => {
+    if (!isOwn && searchParams.get("edit") === "1") {
+      setEditOpen(true);
+      router.replace(`/pro/clients/${client.id}`, { scroll: false });
+    }
+  }, [searchParams, router, client.id, isOwn]);
 
   return (
     <header className="flex flex-col gap-3">
@@ -82,7 +99,7 @@ export function ClientPageHeader({
         {/* Top-right: for the manager's own book, jump into the owner shell
             (this synthetic "client" has no org to view-as). For real clients,
             preview the owner view scoped to that client's org. */}
-        {client.id === OWN_PORTFOLIO_ID ? (
+        {isOwn ? (
           <Link
             href="/"
             title="Manage this portfolio in the owner view"
@@ -92,12 +109,41 @@ export function ClientPageHeader({
             <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         ) : (
-          <ViewAsClientButton
-            clientId={client.id}
-            hasOrg={viewAsClerkOrgId !== null}
-          />
+          <div className="flex shrink-0 items-center gap-2">
+            {/* Option A entry point: edit this client's details in place. Kept
+                as a secondary button — blue is reserved for Save inside the drawer. */}
+            <button
+              type="button"
+              onClick={() => setEditOpen(true)}
+              className="inline-flex h-9 items-center gap-1.5 rounded-md border border-slate-200 px-3 text-[13px] font-medium text-slate-700 transition-colors hover:bg-slate-50 active:scale-[0.97] dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              Edit
+            </button>
+            <ViewAsClientButton
+              clientId={client.id}
+              hasOrg={viewAsClerkOrgId !== null}
+            />
+          </div>
         )}
       </div>
+
+      {/* Edit details drawer — only for real clients (the synthetic "My
+          portfolio" row has no editable record). */}
+      {!isOwn && (
+        <EditClientDrawer
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          client={{
+            id: client.id,
+            name: client.name,
+            email: client.email,
+            clientType: client.clientType,
+            avatarBg: client.avatarBg,
+            orgId: client.orgId,
+          }}
+        />
+      )}
     </header>
   );
 }

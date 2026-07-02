@@ -21,6 +21,8 @@ import {
   removePortfolioMember,
   listPortfolioMembers,
   createClientRecord,
+  nameToInitials,
+  nameToAvatarBg,
 } from "@/lib/services/client-onboarding";
 import type { PortfolioRole, PortfolioMember, PortfolioInvitee } from "@/lib/services/client-onboarding";
 import * as clientsDb from "@/lib/data/db/clients";
@@ -408,6 +410,117 @@ export async function setClientStatus(input: {
     });
   } catch (err) {
     console.error("setClientStatus: audit log failed", err);
+  }
+
+  revalidatePro();
+  return { ok: true };
+}
+
+// Schema for editing a client's core details. Name is required; email is the
+// manager's contact label (optional) and is NOT the client's login email —
+// editing it here never touches the client's real account. An empty string is
+// accepted and normalised to null so clearing the field works.
+const updateClientSchema = z.object({
+  clientId: z.string().min(1).max(64),
+  name: z.string().trim().min(1, "Name is required").max(120),
+  email: z.string().trim().email().max(200).or(z.literal("")).optional(),
+  clientType: z.enum(["Individual", "Corporate"]),
+});
+
+// Edits a client's name, contact email, and type. This mutates ONLY the
+// manager-owned `clients` record (their private label for the engagement) —
+// it never writes through to the client's Clerk identity or profile. Modeled
+// on setClientStatus: validate -> auth -> ownership check -> Neon (canonical)
+// -> FS mirror -> audit log.
+export async function updateClient(input: {
+  clientId: string;
+  name: string;
+  email?: string;
+  clientType: "Individual" | "Corporate";
+}): Promise<ProActionResult> {
+  // 1. Reject anything malformed before touching the DB.
+  const parsed = updateClientSchema.safeParse(input);
+  if (!parsed.success) {
+    // Surface the first authored validation message (e.g. "Name is required").
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input." };
+  }
+
+  const userId = getCurrentUserId();
+  const ctx = await requireCtx();
+
+  // 2. IDOR guard: the client must belong to THIS manager. Check Neon first
+  //    (post-migration clients); fall back to the FS record for legacy
+  //    manual-wizard clients — the same lookup setClientStatus uses.
+  const [neonClient] = await db
+    .select({ id: clients.id })
+    .from(clients)
+    .where(
+      and(
+        eq(clients.id, parsed.data.clientId),
+        eq(clients.managerUserId, ctx.userId),
+      ),
+    )
+    .limit(1);
+
+  const fsClient = neonClient ? null : await clientsDb.get(userId, parsed.data.clientId);
+  if (!neonClient && !fsClient) {
+    logger.error("updateClient: client not found", { clientId: parsed.data.clientId });
+    return { ok: false, error: "Client not found." };
+  }
+
+  // 3. Derive the avatar visuals from the (possibly new) name so the initials
+  //    and colour stay in sync with the label everywhere it renders.
+  const name = parsed.data.name;
+  const email = parsed.data.email && parsed.data.email.trim() ? parsed.data.email.trim() : null;
+  const initials = nameToInitials(name);
+  const avatarBg = nameToAvatarBg(name);
+
+  // 4. Neon update — the canonical store.
+  if (neonClient) {
+    await db
+      .update(clients)
+      .set({
+        name,
+        email,
+        clientType: parsed.data.clientType,
+        initials,
+        avatarBg,
+        updatedAt: new Date(),
+      })
+      .where(eq(clients.id, parsed.data.clientId));
+  }
+
+  // 5. FS mirror — authoritative for legacy-only clients, best-effort otherwise.
+  try {
+    const updated = await clientsDb.update(userId, parsed.data.clientId, {
+      name,
+      email: email ?? undefined,
+      clientType: parsed.data.clientType,
+      initials,
+      avatarBg,
+    });
+    if (!updated && !neonClient) {
+      logger.error("updateClient: FS update failed for legacy client", { clientId: parsed.data.clientId });
+      return { ok: false, error: "Could not update client." };
+    }
+  } catch (err) {
+    if (!neonClient) {
+      logger.error("updateClient: FS update threw for legacy client", { error: String(err) });
+      return { ok: false, error: "Could not update client." };
+    }
+    logger.error("updateClient: FS mirror update failed (non-fatal)", { error: String(err) });
+  }
+
+  // 6. Audit log — never rolls back the update.
+  try {
+    await logActivity(ctx, {
+      entity: "client",
+      action: "updated",
+      entityId: parsed.data.clientId,
+      summary: `Client ${name} details updated`,
+    });
+  } catch (err) {
+    console.error("updateClient: audit log failed", err);
   }
 
   revalidatePro();

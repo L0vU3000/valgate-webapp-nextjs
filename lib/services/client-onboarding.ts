@@ -146,7 +146,9 @@ export async function getInviteeNameForInvitation(clerkInvitationId: string): Pr
 // ─── Visual helpers ───────────────────────────────────────────────────────────
 
 // Derives short initials from a display name (up to 2 chars, uppercase).
-function nameToInitials(name: string): string {
+// Exported so server actions (e.g. updateClient) reuse the same derivation
+// instead of keeping a third copy of it.
+export function nameToInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return "?";
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
@@ -165,7 +167,7 @@ const AVATAR_COLORS = [
   "bg-amber-600 text-white",
 ];
 
-function nameToAvatarBg(name: string): string {
+export function nameToAvatarBg(name: string): string {
   let h = 0;
   for (let i = 0; i < name.length; i++) h = (Math.imul(31, h) + name.charCodeAt(i)) | 0;
   return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];

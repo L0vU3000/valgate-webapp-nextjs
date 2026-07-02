@@ -2,7 +2,7 @@
 
 > Local mirror of hosted plan [`plan-c7d2f442eed74dff`](https://plan.agent-native.com/plans/plan-c7d2f442eed74dff).
 > Authored in Opus with **Mobbin** references + **/impeccable** (`.impeccable.md` → Valgate Professional).
-> Status: **review** (open questions not yet locked). Execute in a separate Sonnet chat once decisions are locked.
+> Status: **approved** (decisions locked; implementing).
 
 ## Objective
 
@@ -139,13 +139,32 @@ avatarBg, updatedAt).
 7. **IDOR smoke:** `updateClient` with another manager's `clientId` → "Client not found.", writes nothing.
 8. **Identity smoke:** the client's real login email is unchanged after a drawer email edit.
 
-## Open questions (unlocked — decide before executing)
+## Decisions locked (recommended defaults)
 
-1. **Client type control** — segmented Individual/Corporate toggle *(recommended)* vs native `<select>`.
-2. **Allow editing email** — yes, it's the manager's contact label *(recommended)* vs read-only.
-3. **Reach the client's settings** — via *View as client* only for v1 *(recommended)* vs a direct
-   "Open client settings" deep-link (needs as-client `/settings` org-scoping — a follow-up).
-4. **`···` row menu scope** — clients index only *(recommended)* vs index + dashboard widget.
+1. **Client type** — segmented Individual/Corporate toggle.
+2. **Email is editable** — the manager's contact label, with helper text that it never changes the client's login.
+3. **Reach client settings** — via *View as client* for v1; a direct "Open client settings" deep-link is a
+   deferred follow-up (needs as-client `/settings` org-scoping).
+4. **`···` row menu** — clients index only, gated like `onArchive`.
+
+## As built (2026-07-02) — implemented, tsc + eslint clean
+
+Shipped on branch `L0vU3000/pro-ui-ux`. Minor deviations from the plan, all simplifications:
+
+- **No `queries.ts` change.** The linked-account state is derived in `ClientPageHeader` straight from
+  the rollup (`client.orgId`) — no new query or `linkedAccount` prop needed.
+- **Row affordance is an inline pencil `Link`, not a `···` dropdown.** Same B→A behavior
+  (`/pro/clients/[id]?edit=1`), consistent with the existing inline row-action icons, and avoids new
+  dropdown state/coupling. Gated exactly like archive (`onArchive && id !== OWN_PORTFOLIO_ID`).
+- **Linked-account section** shows a "Linked" badge + **Manage members** (mounts `ManageMembersDrawer`
+  inline) + **View as client** for invited clients; a plain informational card for not-yet-invited
+  (manual/legacy) clients. It does **not** print a separate "authoritative account email" — the rollup
+  only carries the manager's label email, so surfacing a second email would imply data we don't have.
+- `ConfirmAction.onConfirm` needs an `ActionResult`, so archive returns `toActionResult(setClientStatus(...))`.
+
+Files: `EditClientDrawer.tsx` (new), `actions.ts` (+`updateClient`/`updateClientSchema`),
+`ClientPageHeader.tsx`, `ClientsTable.tsx`, `client-onboarding.ts` (exported the two helpers).
+**QA pending:** browser smoke with a manager session (edit → save → refresh; row pencil → drawer opens).
 
 ## Paste-ready Sonnet execution prompt (after locking)
 

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Archive, Plus, Users } from "lucide-react";
+import { Archive, Pencil, Plus, Users } from "lucide-react";
 import { WidgetCard } from "@/app/(pro)/pro/_components/WidgetCard";
 import {
   EnterTr,
@@ -274,6 +274,20 @@ export function ClientsTable({
                         >
                           View
                         </button>
+
+                        {/* Edit details — B → A: deep-link to the client detail
+                            page with the drawer already open. Gated like archive
+                            (index page only; never the synthetic own-portfolio row). */}
+                        {onArchive && rollup.client.id !== OWN_PORTFOLIO_ID && (
+                          <Link
+                            href={`/pro/clients/${rollup.client.id}?edit=1`}
+                            title="Edit details"
+                            aria-label={`Edit ${rollup.client.name}`}
+                            className="h-7 w-7 inline-flex items-center justify-center rounded-md border border-slate-200 dark:border-slate-700 text-slate-400 hover:text-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Link>
+                        )}
 
                         {/* Manage members — only for manager-led portfolio clients */}
                         {hasOrg && (
