@@ -8,7 +8,7 @@ import { listPropertyValuations } from "@/lib/services/property-valuations";
 import { listOwnershipRecords } from "@/lib/services/ownership-records";
 import { listMaintenanceItems } from "@/lib/services/maintenance-items";
 import { listProperties } from "@/lib/services/properties";
-import { listClientRecords, getClientRecord } from "@/lib/services/client-records";
+import { listClientRecords } from "@/lib/services/client-records";
 import { getPortfolioSnapshot } from "@/lib/data/derivations/portfolio-snapshot";
 import { getPropertyByIdParam } from "@/lib/data/properties";
 import { getCurrentUserId } from "@/lib/data/auth-shim";
@@ -333,7 +333,12 @@ export async function buildAiOverlayContext(
   if (isProRoute) {
     yieldHref = "/pro/dashboard";
 
-    const clientRecord = clientId ? await getClientRecord(authCtx, clientId) : null;
+    // Reuse the book already loaded by listClientRecords in the Promise.all
+    // above (identical ClientRecordSummary shape, same manager scoping) instead
+    // of a second DB roundtrip on every overlay open on a /pro/clients/<id> route.
+    const clientRecord = clientId
+      ? (allClients.find((c) => c.id === clientId) ?? null)
+      : null;
 
     if (clientRecord) {
       const clientProperties = allProperties.filter(
