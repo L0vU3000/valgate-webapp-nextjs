@@ -117,9 +117,13 @@ using only resources + the one search tool — and the total tool count fits on 
    `{ clientId, scopes, userId }` with **no `aud`/resource claim**. So any OAuth client in our
    instance could otherwise call `/mcp`. Because Clerk exposes the token's `clientId`, we bind
    explicitly with a **client-id allowlist**: `MCP_ALLOWED_OAUTH_CLIENT_IDS` (env, comma-sep).
-   Set → only those clients are accepted (others 401); unset → accept any client in the instance
-   (required for Dynamic Client Registration, which mints client ids we can't know ahead of time)
-   and log a warning. The pure decision lives in `mcp-server/clientAllowlist.ts` and is unit-tested
+   Set → only those clients are accepted (others 401); unset → the endpoint is *unbound*, handled
+   by environment so it is never a silent production accident: **production fails closed** (rejects
+   all) unless `MCP_ALLOW_ANY_OAUTH_CLIENT=true` is set — the conscious "run open for Dynamic Client
+   Registration" opt-in (DCR mints client ids we can't allowlist ahead of time); dev/test stay
+   permissive with a warning. This mirrors `CRON_SECRET`'s "unset means locked, never open" stance.
+   The pure decisions (`isClientAllowed`, `isUnboundEndpointAllowed`) live in
+   `mcp-server/clientAllowlist.ts` and are unit-tested
    exhaustively (`clientAllowlist.test.ts`); `app/mcp/route.ts` wires env + the token's clientId
    into it and returns 401 on reject. **Verified:** no-token and invalid-token both return 401 live
    (the same `return undefined` path the allowlist reject uses), and every allowlist branch is
@@ -194,6 +198,10 @@ requires a preview first.
 2. Add rate limiting (M3) — pick the project's "decide later" rate-limit lib now. Agents
    loop; this is mandatory before any public surface. Run **`/cso`** again.
 3. TLS, deployment, secret rotation (rotate the Neon prod string before any prod deploy).
+4. **/mcp audience decision (M1 go-live gate).** Production now fails closed when `/mcp` is unbound,
+   so before first prod use the operator must consciously choose ONE: set
+   `MCP_ALLOWED_OAUTH_CLIENT_IDS` to the trusted client id(s), OR set `MCP_ALLOW_ANY_OAUTH_CLIENT=true`
+   to run open for DCR. With neither set, `/mcp` returns 401 for everyone (safe default).
 
 **Files touched:** `mcp-server/*`, deploy config.
 **Depends on:** a real remote use case. **Do not build speculatively** (YAGNI) — stdio may

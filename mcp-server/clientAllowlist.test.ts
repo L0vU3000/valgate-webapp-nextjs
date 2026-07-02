@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { isClientAllowed, parseClientAllowlist } from "./clientAllowlist";
+import {
+  isClientAllowed,
+  isUnboundEndpointAllowed,
+  parseClientAllowlist,
+} from "./clientAllowlist";
 
 // ---------------------------------------------------------------------------
 // M1 audience-binding decision. These lock down the exact rule /mcp uses to
@@ -53,6 +57,23 @@ describe("isClientAllowed", () => {
   it("is exact-match (no partial or case-insensitive matching)", () => {
     expect(isClientAllowed("client_chat", ["client_chatgpt"])).toBe(false);
     expect(isClientAllowed("CLIENT_CHATGPT", ["client_chatgpt"])).toBe(false);
+  });
+});
+
+describe("isUnboundEndpointAllowed (no-allowlist safety gate)", () => {
+  it("allows an unbound endpoint outside production regardless of the opt-in", () => {
+    // Dev / test must never be blocked, whether or not the open-mode flag is set.
+    expect(isUnboundEndpointAllowed(false, false)).toBe(true);
+    expect(isUnboundEndpointAllowed(false, true)).toBe(true);
+  });
+
+  it("FAILS CLOSED in production when the open-mode opt-in is not set", () => {
+    // The M1 production gate: no allowlist + no explicit MCP_ALLOW_ANY_OAUTH_CLIENT → reject.
+    expect(isUnboundEndpointAllowed(true, false)).toBe(false);
+  });
+
+  it("allows an unbound endpoint in production only with the explicit opt-in (DCR mode)", () => {
+    expect(isUnboundEndpointAllowed(true, true)).toBe(true);
   });
 });
 

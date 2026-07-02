@@ -36,3 +36,17 @@ export function isClientAllowed(clientId: string | undefined, allowlist: string[
   }
   return allowlist.includes(clientId);
 }
+
+// When there is NO allowlist, /mcp is "unbound" — any valid OAuth client in the Clerk instance
+// could use it. This decides whether that is acceptable, so the route never *silently* ships an
+// unbound endpoint in production. Pure (env/NODE_ENV read stays in the route) so it is testable.
+//   - Not production (dev / test) → allow: local testing must never be blocked.
+//   - Production → allow ONLY with an explicit opt-in (MCP_ALLOW_ANY_OAUTH_CLIENT=true), the
+//     conscious "run open for DCR" switch. Otherwise refuse — mirrors CRON_SECRET's "unset means
+//     locked, never open" stance.
+export function isUnboundEndpointAllowed(isProduction: boolean, allowAnyOptIn: boolean): boolean {
+  if (!isProduction) {
+    return true;
+  }
+  return allowAnyOptIn;
+}

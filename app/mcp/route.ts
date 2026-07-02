@@ -13,7 +13,11 @@ import { verifyClerkToken } from "@clerk/mcp-tools/next";
 import { createMcpHandler, experimental_withMcpAuth as withMcpAuth } from "mcp-handler";
 import { registerValgateMcp } from "@/mcp-server/register";
 import { ctxFromMcpAuth } from "@/mcp-server/ctxFor";
-import { isClientAllowed, parseClientAllowlist } from "@/mcp-server/clientAllowlist";
+import {
+  isClientAllowed,
+  isUnboundEndpointAllowed,
+  parseClientAllowlist,
+} from "@/mcp-server/clientAllowlist";
 import { env } from "@/lib/env";
 import { mcpLimiter, allowed } from "@/lib/ratelimit";
 
@@ -30,14 +34,26 @@ export const dynamic = "force-dynamic";
 // instance could call /mcp. Since Clerk gives us the token's `clientId`, the way to bind explicitly
 // is to allowlist the client ids we trust.
 //
-// Behaviour (the pure decision lives in @/mcp-server/clientAllowlist, unit-tested there):
+// Behaviour (the pure allowlist decision lives in @/mcp-server/clientAllowlist, unit-tested there):
 //   - MCP_ALLOWED_OAUTH_CLIENT_IDS set   → only those client ids are accepted; others get 401.
-//   - MCP_ALLOWED_OAUTH_CLIENT_IDS unset → accept any valid client (needed for Dynamic Client
-//     Registration, which mints a fresh client id per client we can't know ahead of time), and log
-//     a warning so we never *silently* ship an unbound endpoint.
+//   - MCP_ALLOWED_OAUTH_CLIENT_IDS unset → the endpoint is UNBOUND (any client in the instance). We
+//     handle that case by environment, so an unbound endpoint is never a silent production accident:
+//       · production → FAIL CLOSED (reject all) UNLESS MCP_ALLOW_ANY_OAUTH_CLIENT=true, the explicit
+//         "run open for Dynamic Client Registration" opt-in (DCR mints fresh client ids we can't
+//         allowlist ahead of time). This mirrors CRON_SECRET: unset means locked, never open.
+//       · dev/test → accept any client with a warning, so local testing is never blocked.
 function isOAuthClientAllowed(clientId: string | undefined): boolean {
   const allowlist = parseClientAllowlist(env.MCP_ALLOWED_OAUTH_CLIENT_IDS);
   if (allowlist.length === 0) {
+    const isProduction = process.env.NODE_ENV === "production";
+    if (!isUnboundEndpointAllowed(isProduction, env.MCP_ALLOW_ANY_OAUTH_CLIENT)) {
+      // No allowlist AND no explicit open-mode opt-in, in production → refuse. The operator must
+      // consciously choose: set MCP_ALLOWED_OAUTH_CLIENT_IDS, or set MCP_ALLOW_ANY_OAUTH_CLIENT=true.
+      console.error(
+        "[valgate-mcp] /mcp is unbound in production and MCP_ALLOW_ANY_OAUTH_CLIENT is not set — rejecting. Set MCP_ALLOWED_OAUTH_CLIENT_IDS to allowlist clients, or MCP_ALLOW_ANY_OAUTH_CLIENT=true to run open for DCR.",
+      );
+      return false;
+    }
     console.warn(
       "[valgate-mcp] MCP_ALLOWED_OAUTH_CLIENT_IDS is not set — /mcp accepts any Clerk OAuth client in this instance. Set it to bind /mcp to specific clients.",
     );

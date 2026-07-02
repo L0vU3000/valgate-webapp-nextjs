@@ -50,6 +50,15 @@ export const env = createEnv({
     // is what Dynamic Client Registration (DCR) needs, since DCR mints a fresh client id per client
     // that we can't know in advance. Server-only; never prefix with NEXT_PUBLIC_.
     MCP_ALLOWED_OAUTH_CLIENT_IDS: z.string().min(1).optional(),
+    // MCP open-client opt-in (Phase 3, M1). When MCP_ALLOWED_OAUTH_CLIENT_IDS is UNSET, /mcp would
+    // otherwise accept ANY OAuth client in the Clerk instance. In PRODUCTION we fail closed instead
+    // (reject all) — UNLESS this is explicitly true, the conscious "run open for DCR" switch (DCR
+    // client ids can't be allowlisted ahead of time). Dev/test stay permissive so local testing is
+    // never blocked. Mirrors CRON_SECRET's "unset means locked, never open" stance. Server-only.
+    MCP_ALLOW_ANY_OAUTH_CLIENT: z
+      .enum(["true", "false"])
+      .default("false")
+      .transform((v) => v === "true"),
   },
   client: {
     NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: z.string().min(1).optional(),
@@ -77,6 +86,7 @@ export const env = createEnv({
     RESEND_WEBHOOK_SECRET: process.env.RESEND_WEBHOOK_SECRET,
     RESEND_FROM_EMAIL: process.env.RESEND_FROM_EMAIL,
     MCP_ALLOWED_OAUTH_CLIENT_IDS: process.env.MCP_ALLOWED_OAUTH_CLIENT_IDS,
+    MCP_ALLOW_ANY_OAUTH_CLIENT: process.env.MCP_ALLOW_ANY_OAUTH_CLIENT,
     NEXT_PUBLIC_MAPBOX_TOKEN: process.env.NEXT_PUBLIC_MAPBOX_TOKEN,
   },
   emptyStringAsUndefined: true,
