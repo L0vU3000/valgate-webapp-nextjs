@@ -9,12 +9,14 @@ import {
   isSiteGateExempt,
 } from "@/lib/site-gate";
 
-// The MCP HTTP server (/mcp) and its OAuth discovery metadata (/.well-known/oauth-protected-
-// resource/*) authenticate themselves with Clerk OAuth bearer tokens — they must NEVER be
-// redirected to the login page or the site-gate. They are exempted from both below.
+// The MCP HTTP server (/mcp) and ALL of its OAuth discovery metadata under /.well-known/*
+// (protected-resource, authorization-server, openid-configuration) are public: /mcp validates its
+// own Clerk OAuth bearer token, and the well-known docs are unauthenticated discovery data. They
+// must NEVER be redirected to the login page or the site-gate — a gate redirect turns an expected
+// JSON/404 into HTML and breaks the MCP OAuth handshake (the client can't discover the auth server).
 const isMcpRoute = createRouteMatcher([
   "/mcp(.*)",
-  "/.well-known/oauth-protected-resource(.*)",
+  "/.well-known/(.*)",
 ]);
 
 // Phase 5 (M3) — edge-safe IP rate limiter for /mcp. In-memory sliding window; effective only
@@ -118,10 +120,10 @@ const isPublicRoute = createRouteMatcher([
   "/.well-known/oauth-protected-resource(.*)",
   `${SITE_GATE_PATH}(.*)`,
   "/__clerk(.*)",
-  // MCP server + its OAuth metadata: no Clerk session redirect; /mcp validates its own
-  // OAuth bearer token, the metadata endpoint is public discovery data.
+  // MCP server + all its OAuth discovery metadata: no Clerk session redirect; /mcp validates its
+  // own OAuth bearer token, and everything under /.well-known/* is public discovery data.
   "/mcp(.*)",
-  "/.well-known/oauth-protected-resource(.*)",
+  "/.well-known/(.*)",
 ]);
 
 // The bare sign-in/sign-up entry points only — NOT "/login(.*)" wildcard, which would also

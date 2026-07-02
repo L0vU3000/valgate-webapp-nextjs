@@ -72,7 +72,10 @@ export async function ctxFromMcpAuth(
     .where(eq(users.clerkUserId, clerkUserId))
     .limit(1);
   if (!userRow) {
-    console.error("[valgate-mcp] ctxFromMcpAuth: no Valgate user for the given Clerk user id");
+    console.error(
+      "[valgate-mcp] ctxFromMcpAuth: no Valgate user for Clerk user id:",
+      clerkUserId,
+    );
     throw new Error("unauthenticated");
   }
 
