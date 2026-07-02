@@ -346,12 +346,23 @@ export async function importCsvProperties(input: {
 
   const authCtx = await requireCtx();
 
+  // Ownership-scoped Drizzle read (IDOR guard) — confirm the target client
+  // actually belongs to this manager BEFORE we create any properties and stamp
+  // that clientId onto them. Client ids are short and guessable (CLI-xxxx), so
+  // without this check a manager could stamp their own new properties with
+  // another manager's clientId. Mirrors the same guard in `assignProperties`.
+  const client = await getClientRecord(authCtx, parsed.data.clientId);
+  if (!client) {
+    logger.error("importCsvProperties: client not found", { clientId: parsed.data.clientId });
+    return { ok: false, error: "Could not import properties." };
+  }
+
   // Pre-load existing property names for this client so we can detect duplicates
   // without a DB query per row (avoids N+1). Returns an empty Set when the client
   // has no properties yet, so first-time imports are unaffected.
   const existingNames = input.createAnyway
     ? new Set<string>()
-    : await listPropertyNamesByClientId(authCtx, parsed.data.clientId);
+    : await listPropertyNamesByClientId(authCtx, client.id);
 
   let createdCount = 0;
   const skippedRows: Array<{ row: number; reason: string }> = [];
@@ -376,7 +387,7 @@ export async function importCsvProperties(input: {
         skippedRows.push({ row: rowNumber, reason: "could not create property" });
         continue;
       }
-      await updateProperty(authCtx, result.id, { clientId: parsed.data.clientId });
+      await updateProperty(authCtx, result.id, { clientId: client.id });
       createdCount++;
     } catch (err) {
       logger.error("importCsvProperties: row failed", { row: rowNumber, error: String(err) });
