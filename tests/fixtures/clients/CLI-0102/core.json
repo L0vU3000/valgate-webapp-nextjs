@@ -1,0 +1,16 @@
+{
+  "id": "CLI-0102",
+  "userId": "demo-user",
+  "name": "Mey Lina",
+  "clientType": "Individual",
+  "initials": "ML",
+  "avatarBg": "bg-rose-400",
+  "email": "mey.lina@gmail.com",
+  "phone": "+855 12 334 901",
+  "preferredContact": "Phone",
+  "clientSince": 1688342400000,
+  "managementFeePct": 10,
+  "status": "Inactive",
+  "createdAt": 1688342400000,
+  "updatedAt": 1782807331421
+}

@@ -8,5 +8,6 @@
   "lat": 11.5535,
   "lng": 104.9238,
   "createdAt": 1779356162880,
-  "updatedAt": 1779356162880
+  "updatedAt": 1779356162880,
+  "clientId": "CLI-0101"
 }

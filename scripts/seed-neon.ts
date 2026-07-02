@@ -13,6 +13,7 @@ import { db } from "@/lib/db/client";
 import * as s from "@/lib/db/schema";
 
 import { PropertySchema } from "@/lib/data/types/property";
+import { ClientSchema } from "@/lib/data/types/client";
 import { TenantSchema } from "@/lib/data/types/tenant";
 import { LeaseSchema } from "@/lib/data/types/lease";
 import { PaymentSchema } from "@/lib/data/types/payment";
@@ -52,7 +53,9 @@ const SEED_CLERK_ORG_ID  = process.env.SEED_CLERK_ORG_ID  ?? "demo-org";
 type Entry = { dir: string; table: PgTable; schema: ZodTypeAny; files?: string[]; selfFk?: string };
 
 // FK-safe order (parents before children). properties merge their 4 split files.
+// clients must load before properties — properties.client_id references clients.id.
 const PLAN: Entry[] = [
+  { dir: "clients", table: s.clients, schema: ClientSchema },
   { dir: "properties", table: s.properties, schema: PropertySchema, files: ["core.json", "finance.json", "location.json", "media.json"] },
   { dir: "land-parcels", table: s.landParcels, schema: LandParcelSchema },
   { dir: "co-owners", table: s.coOwners, schema: CoOwnerSchema },
@@ -186,7 +189,21 @@ async function main() {
       const parsed = e.schema.parse(rec) as Record<string, unknown>;
       if (e.dir === "leases") leaseProp.set(parsed.id as string, parsed.propertyId as string);
       if (e.dir === "payments" && parsed.leaseId) parsed.propertyId = leaseProp.get(parsed.leaseId as string);
-      return toRow(e.table, parsed);
+      const row = toRow(e.table, parsed);
+      if (e.dir === "clients") {
+        // Clients diverge from the generic mapping in three ways:
+        // 1. The domain field is userId but the column is manager_user_id — all demo
+        //    clients belong to the demo user.
+        row.managerUserId = USER;
+        // 2. The FS status values are "Active"/"Inactive"; the DB enum is lowercase.
+        if (typeof parsed.status === "string") row.status = parsed.status.toLowerCase();
+        // 3. toRow stamps orgId = ORG-0001 on every table that has the column, but a
+        //    client's orgId means "portfolio org from manager-led onboarding" — the
+        //    demo clients are legacy manual-wizard clients, so it must stay NULL
+        //    (the (manager, org) unique index would also collide otherwise).
+        row.orgId = null;
+      }
+      return row;
     });
     if (e.selfFk) rows = orderBySelfFk(rows, e.selfFk as string);
     rows.forEach((r) => bumpCounter(counters, r.id as string));
@@ -195,10 +212,41 @@ async function main() {
       if (rows.length) await tx.insert(e.table).values(rows).onConflictDoNothing();
     });
 
-    const n = await db.$count(e.table);
+    // Count only the seed org's rows — the shared dev branch also holds real-user
+    // data (their own orgs/clients/properties), which must not fail the seed check.
+    const cols = getTableColumns(e.table);
+    let n: number;
+    if (e.dir === "clients") {
+      n = await db.$count(e.table, eq(s.clients.managerUserId, USER));
+    } else if ("orgId" in cols) {
+      n = await db.$count(e.table, eq((cols as Record<string, never>)["orgId"], ORG));
+    } else {
+      n = await db.$count(e.table);
+    }
     report.push({ table: getTableName(e.table), loaded: n, expected: records.length });
-    if (n !== records.length) failed = true;
+    // The demo org accumulates rows at runtime (properties added via the app, activity
+    // events, etc.), so "more than the fixtures" is normal — only fewer is a failure.
+    if (n < records.length) failed = true;
   }
+
+  // Fixture properties now carry clientId, but rows seeded before the clients table
+  // existed have client_id NULL (insert above is ON CONFLICT DO NOTHING, so existing
+  // rows never pick the value up). Stamp it — only where it is still NULL, and only
+  // for the seed org, so real-user data is never touched.
+  const propFixtures = readEntity(PLAN.find((e) => e.dir === "properties")!);
+  let stamped = 0;
+  for (const rec of propFixtures) {
+    const propId = rec.id as string;
+    const clientId = rec.clientId as string | undefined;
+    if (!clientId) continue;
+    const res = await db
+      .update(s.properties)
+      .set({ clientId })
+      .where(sql`${s.properties.id} = ${propId} AND ${s.properties.orgId} = ${ORG} AND ${s.properties.clientId} IS NULL`)
+      .returning({ id: s.properties.id });
+    stamped += res.length;
+  }
+  if (stamped > 0) console.log(`properties: stamped client_id on ${stamped} pre-existing row(s)`);
 
   // id_counters: next = max seen suffix + 1 (so nextId never collides with seeded ids)
   const counterRows = [...counters].map(([collection, max]) => ({ collection, next: max + 1 }));

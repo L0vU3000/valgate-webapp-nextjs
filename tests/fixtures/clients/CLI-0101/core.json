@@ -1,0 +1,16 @@
+{
+  "id": "CLI-0101",
+  "userId": "demo-user",
+  "name": "Vireak Family Office",
+  "clientType": "Corporate",
+  "initials": "VF",
+  "avatarBg": "bg-violet-400",
+  "email": "office@vireakfamily.com.kh",
+  "phone": "+855 23 900 145",
+  "preferredContact": "Email",
+  "clientSince": 1647302400000,
+  "managementFeePct": 8,
+  "status": "Inactive",
+  "createdAt": 1647302400000,
+  "updatedAt": 1782807327843
+}
