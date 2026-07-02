@@ -83,21 +83,35 @@ using only resources + the one search tool — and the total tool count fits on 
 
 ## Phase 3 — Real auth seam (multi-tenant)
 
-**Goal:** replace the demo `Ctx` with a real, headless, per-workspace token (`02` §B, Opt 2).
+**Goal:** replace the demo `Ctx` with real per-user auth (`02` §B).
+
+> **Transport coupling (2026-07-02):** Clerk's OAuth flow only works over the **HTTP
+> transport**, not stdio — so full multi-tenant OAuth implies pulling Phase 5's transport
+> forward. For a stdio server the interim pattern is a per-client token in the MCP client's
+> config `env` block (no `.env` file), or staying on the demo `Ctx`.
 
 **Steps:**
-1. Design a minimal token store (table + issuance). Run **`/cso`** on this design first.
-2. Build `ctxFromMcpAuth(token)` reusing `ourOrgId`/`ourUserId`/`normaliseRole`
-   (`lib/services/identity-sync.ts`).
-3. **Validate token audience** — scope each token to this MCP server and **reject any token
-   not issued for it** (MCP = OAuth Resource Server; prevents token-passthrough abuse). `02` §B/§G.
+1. **Clerk first — do not hand-roll.** Valgate already uses Clerk, and Clerk ships MCP
+   auth support: `@clerk/mcp-tools` (`generateClerkProtectedResourceMetadata` for the
+   `/.well-known/oauth-protected-resource` handshake) + `clerkClient.authenticateRequest(req,
+   { acceptsToken: 'oauth_token' })` for validation. Login/consent screens come free.
+   **Dynamic client registration** (Clerk dashboard setting) lets Claude register its own
+   OAuth client; ChatGPT can't — it needs a manually created OAuth application in the Clerk
+   dashboard (known gotcha). Design a custom token store ONLY if Clerk can't express what
+   we need. Run **`/cso`** on whichever design wins.
+2. Build `ctxFromMcpAuth()` reusing `ourOrgId`/`ourUserId`/`normaliseRole`
+   (`lib/services/identity-sync.ts`) — the Clerk OAuth token resolves to a real Clerk user,
+   which plugs straight into the existing identity-sync mapping.
+3. **Validate token audience** — reject any token not issued for this MCP server (MCP =
+   OAuth Resource Server; prevents token-passthrough abuse). `02` §B/§G. Clerk's
+   `authenticateRequest` covers most of this; verify, don't assume.
 4. Swap `ctxFor()` to read the token from the MCP client's auth, fall back to demo only
    when `DEMO_MODE`.
 5. Test tenant isolation: a token for ORG-A must never see ORG-B data (it can't, because
    org-scope lives in the services — but prove it with a test).
 
-**Files touched:** `mcp-server/*`, new token store (new schema file — **stop and ask
-before touching the DB schema**), the auth seam.
+**Files touched:** `mcp-server/*`, the auth seam; a token store schema only in the
+fallback case (**stop and ask before touching the DB schema**).
 **Depends on:** Phase 2; a decision to go multi-tenant.
 **Done when:** two different tokens see strictly their own org's data.
 
@@ -135,7 +149,10 @@ requires a preview first.
 
 **Steps:**
 1. Swap stdio for the SDK's Streamable HTTP transport (transport change, not a rewrite —
-   the tools are unchanged).
+   the tools are unchanged). Stateless pattern: one server per request,
+   `sessionIdGenerator: undefined, enableJsonResponse: true`, close in `finally`.
+   Never put the auth token in the URL (URLs get logged) — it rides in the
+   `Authorization` header via the Phase 3 Clerk OAuth flow.
 2. Add rate limiting (M3) — pick the project's "decide later" rate-limit lib now. Agents
    loop; this is mandatory before any public surface. Run **`/cso`** again.
 3. TLS, deployment, secret rotation (rotate the Neon prod string before any prod deploy).

@@ -88,16 +88,18 @@ reading is pushed into resources — chiefly `valgate://property/{id}` with its 
 ## Phase roadmap
 
 ```
-0 Decide ✅ ──▶ 1 Read spike ──▶ 2 Resources ──▶ 3 Auth ──▶ 4 Writes ──▶ 5 HTTP
-   (locked)     (retires risk)                   (real id first)   (only if remote is real)
+0 Decide ✅ ──▶ 1 Read spike ✅ ──▶ 2 Resources ✅ ──▶ 3 Auth 🔨 ──▶ 4 Writes ──▶ 5 HTTP
+   (locked)     (retired risk)       (shipped)         (Clerk OAuth code-  (real id first)  (HTTP pulled
+                                                        complete; pending                    forward in P3)
+                                                        dashboard config)
 ```
 
 | Phase | Goal | Auth | Writes | Done when |
 |---|---|---|---|---|
 | 0 · Decide ✅ | Lock v1 choices | — | — | Done — stdio, demo Ctx, read-only, `mcp-server/`, SDK v1.x |
-| 1 · Read spike | Prove a non-Next process calls the services | demo Ctx | no | `search_properties` returns real ORG-0001 data in MCP Inspector |
-| 2 · Resources | Full read coverage via resources, tiny tool list | demo Ctx | no | AI summarises a portfolio with 1 tool + resources |
-| 3 · Auth | Per-workspace tokens + audience validation | real token | no | two tokens see strictly their own org |
+| 1 · Read spike ✅ | Prove a non-Next process calls the services | demo Ctx | no | Done (2026-07-02) — `search_properties` returns 26 real ORG-0001 rows |
+| 2 · Resources ✅ | Full read coverage via resources, tiny tool list | demo Ctx | no | Done (2026-07-02) — 1 tool + `property/{id}`, `property/{id}/progress`, `portfolio/snapshot` resources |
+| 3 · Auth | Clerk OAuth via `@clerk/mcp-tools` (token store only as fallback); needs HTTP transport — stdio interim = env-token/demo | real token | no | two identities see strictly their own org |
 | 4 · Writes | Outcome-shaped write tools, audited | real token | yes | write hits activity log; viewer/demo refused; delete needs preview |
 | 5 · HTTP | Remote transport + rate limiting | real token | yes | remote client authed, rate-limited, org-isolated |
 
