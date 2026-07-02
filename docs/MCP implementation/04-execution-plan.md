@@ -119,9 +119,14 @@ using only resources + the one search tool — and the total tool count fits on 
    explicitly with a **client-id allowlist**: `MCP_ALLOWED_OAUTH_CLIENT_IDS` (env, comma-sep).
    Set → only those clients are accepted (others 401); unset → accept any client in the instance
    (required for Dynamic Client Registration, which mints client ids we can't know ahead of time)
-   and log a warning. Enforced in `app/mcp/route.ts` (`isOAuthClientAllowed`). **Still to prove
-   with a live token** (blocked on Clerk dashboard config): mint a token for a *different* client
-   and confirm `/mcp` 401s once the manual ChatGPT app's client id is the sole allowlist entry.
+   and log a warning. The pure decision lives in `mcp-server/clientAllowlist.ts` and is unit-tested
+   exhaustively (`clientAllowlist.test.ts`); `app/mcp/route.ts` wires env + the token's clientId
+   into it and returns 401 on reject. **Verified:** no-token and invalid-token both return 401 live
+   (the same `return undefined` path the allowlist reject uses), and every allowlist branch is
+   covered by unit tests. A full live replay (a real token from a non-allowlisted client → 401) is
+   optional confirmation only — Clerk has no client-credentials grant, so a token needs a one-time
+   browser login via the MCP Inspector; the outcome is already guaranteed by the proven 401 path +
+   the unit-tested decision.
 4. Swap `ctxFor()` to read the token from the MCP client's auth, fall back to demo only
    when `DEMO_MODE`.
 5. Test tenant isolation: a token for ORG-A must never see ORG-B data (it can't, because

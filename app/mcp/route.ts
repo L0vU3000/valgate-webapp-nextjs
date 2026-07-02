@@ -13,6 +13,7 @@ import { verifyClerkToken } from "@clerk/mcp-tools/next";
 import { createMcpHandler, experimental_withMcpAuth as withMcpAuth } from "mcp-handler";
 import { registerValgateMcp } from "@/mcp-server/register";
 import { ctxFromMcpAuth } from "@/mcp-server/ctxFor";
+import { isClientAllowed, parseClientAllowlist } from "@/mcp-server/clientAllowlist";
 import { env } from "@/lib/env";
 
 // This route hits the database per request and reads request auth — never statically prerender.
@@ -28,24 +29,20 @@ export const dynamic = "force-dynamic";
 // instance could call /mcp. Since Clerk gives us the token's `clientId`, the way to bind explicitly
 // is to allowlist the client ids we trust.
 //
-// Behaviour:
+// Behaviour (the pure decision lives in @/mcp-server/clientAllowlist, unit-tested there):
 //   - MCP_ALLOWED_OAUTH_CLIENT_IDS set   → only those client ids are accepted; others get 401.
 //   - MCP_ALLOWED_OAUTH_CLIENT_IDS unset → accept any valid client (needed for Dynamic Client
 //     Registration, which mints a fresh client id per client we can't know ahead of time), and log
 //     a warning so we never *silently* ship an unbound endpoint.
 function isOAuthClientAllowed(clientId: string | undefined): boolean {
-  const raw = env.MCP_ALLOWED_OAUTH_CLIENT_IDS;
-  if (!raw) {
+  const allowlist = parseClientAllowlist(env.MCP_ALLOWED_OAUTH_CLIENT_IDS);
+  if (allowlist.length === 0) {
     console.warn(
       "[valgate-mcp] MCP_ALLOWED_OAUTH_CLIENT_IDS is not set — /mcp accepts any Clerk OAuth client in this instance. Set it to bind /mcp to specific clients.",
     );
     return true;
   }
-  const allowed = raw
-    .split(",")
-    .map((id) => id.trim())
-    .filter((id) => id.length > 0);
-  return clientId !== undefined && allowed.includes(clientId);
+  return isClientAllowed(clientId, allowlist);
 }
 
 // Build the MCP server for each request, wiring the shared tool/resources to the AUTHENTICATED
