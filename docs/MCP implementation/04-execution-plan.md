@@ -110,6 +110,16 @@ using only resources + the one search tool — and the total tool count fits on 
      only ever sees orgs they belong to. The `list_workspaces` tool surfaces all their orgs (+ which
      is current) so the default is never hidden. **Phase 4 writes must pass `requestedOrgId`
      explicitly** — a write must never fall back to a guessed org.
+   - **Known limitation (v1): multi-org READS are primary-org-only.** The read surface takes no org
+     argument — `search_properties` and every resource (`valgate://property/{id}`, `/progress`,
+     `portfolio/snapshot`) resolve `getCtx(extra)` with no options, so a multi-org user always reads
+     their **primary** org (resource URIs can't carry an org anyway). Writes, by contrast, take an
+     explicit `orgId`. The asymmetry a multi-org user hits: they can *write* to a non-primary org
+     (naming it) but then can't *read* it back through search/resources — it reads as "data vanished."
+     `list_workspaces` shows the other orgs exist but nothing switches reads to them. Single-org users
+     (incl. the demo) are unaffected. Accepted for v1; the fix (an optional `orgId` on
+     `search_properties`, and/or org-scoped resource addressing) is deferred — revisit if real
+     multi-org read usage appears.
 3. **Validate token audience (M1) — done, with a caveat proven by reading the SDK.** The
    assumption that Clerk covers this was **false**: neither `verifyClerkToken` nor Clerk's
    underlying OAuth verification checks that a token was issued for *this* resource. Clerk
