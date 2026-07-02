@@ -24,7 +24,7 @@ function inMemoryLimiter(limit: number, windowMs: number): Limiter {
   };
 }
 
-function makeLimiter(prefix: string, limit: number, window: `${number} m`, windowMs: number): Limiter {
+export function makeLimiter(prefix: string, limit: number, window: `${number} m`, windowMs: number): Limiter {
   if (env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN) {
     return new Ratelimit({
       redis: new Redis({ url: env.UPSTASH_REDIS_REST_URL, token: env.UPSTASH_REDIS_REST_TOKEN }),
@@ -38,6 +38,11 @@ function makeLimiter(prefix: string, limit: number, window: `${number} m`, windo
 
 // Sensitive mutations: 5 / minute / user. Used on the verification submit + revoke edges.
 export const verifyLimiter = makeLimiter("rl:verify", 5, "1 m", 60_000);
+
+// Phase 5 (M3) — MCP endpoint: 60 / minute / user. AI agents loop; this is the outer guard
+// on the programmatic surface. Keyed on Clerk userId in the route handler (after auth succeeds,
+// so only authenticated traffic counts against the quota).
+export const mcpLimiter = makeLimiter("rl:mcp", 60, "1 m", 60_000);
 
 // Fail-CLOSED for sensitive edges: a Redis/network error blocks rather than fails open.
 export async function allowed(limiter: Limiter, id: string): Promise<boolean> {

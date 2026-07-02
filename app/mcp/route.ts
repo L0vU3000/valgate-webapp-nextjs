@@ -15,6 +15,7 @@ import { registerValgateMcp } from "@/mcp-server/register";
 import { ctxFromMcpAuth } from "@/mcp-server/ctxFor";
 import { isClientAllowed, parseClientAllowlist } from "@/mcp-server/clientAllowlist";
 import { env } from "@/lib/env";
+import { mcpLimiter, allowed } from "@/lib/ratelimit";
 
 // This route hits the database per request and reads request auth — never statically prerender.
 export const dynamic = "force-dynamic";
@@ -44,6 +45,11 @@ function isOAuthClientAllowed(clientId: string | undefined): boolean {
   }
   return isClientAllowed(clientId, allowlist);
 }
+
+// Phase 5 (M3) — per-user rate limit flag, set inside the verify callback (after auth succeeds)
+// and checked by the thin wrapper around authHandler below. Only authenticated traffic counts
+// against the quota; unauthenticated requests 401 before reaching the limiter.
+let mcpRateLimited = false;
 
 // Build the MCP server for each request, wiring the shared tool/resources to the AUTHENTICATED
 // caller. The Clerk user id rides in extra.authInfo.extra.userId (set by verifyClerkToken below).
@@ -87,6 +93,14 @@ const authHandler = withMcpAuth(
       );
       return undefined;
     }
+    // Phase 5 (M3) — per-user rate limit. Checked AFTER auth + client allowlist so only
+    // legitimate traffic counts against the quota. Fail-closed: a limiter error blocks.
+    mcpRateLimited = false;
+    const userId = authInfo.extra?.userId as string | undefined;
+    if (userId && !(await allowed(mcpLimiter, userId))) {
+      console.warn("[valgate-mcp] rate limit exceeded for user:", userId);
+      mcpRateLimited = true;
+    }
     return authInfo;
   },
   {
@@ -95,4 +109,24 @@ const authHandler = withMcpAuth(
   },
 );
 
-export { authHandler as GET, authHandler as POST };
+// Phase 5 (M3) — thin wrapper: if the verify callback flagged a rate-limit hit, short-circuit
+// with 429 before the MCP handler runs. Retry-After is fixed at 60s (matches the 1-minute window).
+async function withRateLimit(request: Request): Promise<Response> {
+  mcpRateLimited = false;
+  const response = await authHandler(request);
+  if (mcpRateLimited) {
+    return new Response(
+      JSON.stringify({ error: "rate_limit_exceeded", retry_after_seconds: 60 }),
+      {
+        status: 429,
+        headers: {
+          "Content-Type": "application/json",
+          "Retry-After": "60",
+        },
+      },
+    );
+  }
+  return response;
+}
+
+export { withRateLimit as GET, withRateLimit as POST };

@@ -17,6 +17,31 @@ const isMcpRoute = createRouteMatcher([
   "/.well-known/oauth-protected-resource(.*)",
 ]);
 
+// Phase 5 (M3) — edge-safe IP rate limiter for /mcp. In-memory sliding window; effective only
+// within a single process (serverless = per-instance). The authoritative per-user limiter runs
+// in the route handler via Upstash (lib/ratelimit.ts). This is a cheap outer guard against
+// unauthenticated abuse. 200 req/min/IP is generous — legitimate AI clients rarely exceed this.
+const MCP_IP_LIMIT = 200;
+const MCP_IP_WINDOW_MS = 60_000;
+const mcpIpHits = new Map<string, number[]>();
+
+function checkMcpIpRateLimit(request: NextRequest): NextResponse | null {
+  if (!isMcpRoute(request)) return null;
+  const forwarded = request.headers.get("x-forwarded-for");
+  const ip = forwarded?.split(",")[0]?.trim() ?? "unknown";
+  const now = Date.now();
+  const recent = (mcpIpHits.get(ip) ?? []).filter((t) => now - t < MCP_IP_WINDOW_MS);
+  mcpIpHits.set(ip, recent);
+  if (recent.length >= MCP_IP_LIMIT) {
+    return NextResponse.json(
+      { error: "rate_limit_exceeded", retry_after_seconds: 60 },
+      { status: 429, headers: { "Retry-After": "60" } },
+    );
+  }
+  recent.push(now);
+  return null;
+}
+
 // The frontend's site-gate, factored out so it can run on its own (DEMO_MODE) or wrapped by Clerk.
 // Returns a response when the request should be short-circuited (redirect to the gate), else null.
 async function siteGate(request: NextRequest): Promise<NextResponse | null> {
@@ -106,11 +131,15 @@ const isPublicRoute = createRouteMatcher([
 const isAuthEntryRoute = createRouteMatcher(["/login", "/register"]);
 
 async function siteGateOnly(request: NextRequest): Promise<NextResponse> {
+  const rl = checkMcpIpRateLimit(request);
+  if (rl) return rl;
   return (await siteGate(request)) ?? NextResponse.next();
 }
 
 const middleware = hasClerk
   ? clerkMiddleware(async (auth, request) => {
+      const rl = checkMcpIpRateLimit(request);
+      if (rl) return rl;
       const gated = await siteGate(request);
       if (gated) return gated;
       const { userId } = await auth();
