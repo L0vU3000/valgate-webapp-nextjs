@@ -43,3 +43,10 @@ Pick up any Phase 1 triaged TODOs that live in these files (e.g. `lib/data/auth-
 
 ## Execution prompt (paste into Sonnet)
 > Execute docs/plans/refactor-phase-2-backend-layering.md. Move-only refactor: split app/(pro)/pro/actions.ts by domain, extract Drizzle queries from app/(pro)/pro/queries.ts into lib/services/*, split lib/services/client-onboarding.ts by concern. Zero behavior change — keep every Zod schema, requireCtx call, and cache wrapper exactly as-is. Verify: tsc, lint, npm run test, test:e2e:auth. Commit per split (3 commits). Then run /code-review.
+
+## Execution record (2026-07-02) — PHASE COMPLETE
+- queries.ts: 2,284 -> 977 lines; DB access -> lib/services/pro-dashboard.ts (480), pure derivations -> pro-derive.ts (971). Re-exports keep all 28 importers unchanged. (e237f68)
+- actions.ts (1,048 incl. edit-client feature) split -> properties.actions.ts (390) / clients.actions.ts (310) / portfolio.actions.ts (354) + _lib/revalidate.ts; actions.ts deleted; 16 importers updated. (6197ebb)
+- client-onboarding.ts (1,774) split -> client-records.ts / portfolio-members.ts / client-invitations.ts + portfolio-shared.ts (leaf, prevents a new cycle); client-onboarding.ts is now a 53-line barrel with a byte-identical 31-export surface. (29371e8)
+- Note: executed in-chat (not via the Sonnet handoff prompt) at user request; the parallel edit-client WIP was committed first as fe573b5 to unblock.
+- e2e:auth NOT RUN here: this Conductor workspace lacks the gitignored `.env.e2e-auth` (real Clerk keys) and `playwright/.clerk/test-org-ids.json` (provision artifact). Run `npm run test:e2e:auth` (Node ≥ 24) from the original workspace before merging. Demo-mode assurance in place: tsc, lint, 83/83 unit+authz.

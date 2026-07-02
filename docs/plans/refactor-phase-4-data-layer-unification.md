@@ -62,3 +62,10 @@ Not blockers: demo-user FS records are the seed corpus (expected FS-only); DB-on
 - Target 3 DONE: `ChangeRequest` type moved to new `lib/services/change-request-types.ts`; dispatcher now imports the type from there (not from change-requests.ts); the dynamic `await import()` workaround in `approveChangeRequest` replaced with a normal static import (verified no entity service imports change-requests back). Cycle gone.
 - Target 4 SKIPPED deliberately: wrappers are already one-line bodies; per-entity comments carry unique bust-call locations. A factory saves ~60 signature lines but violates the "long, explicit, commented backend code" style rule. Re-open only if wrapper count doubles.
 - Targets 1 & 2 remain HALTED on the pre-flight decisions above.
+
+## Targets 1 & 2 execution record (2026-07-02) — retirement SHIPPED
+User approved recommendations ("go with recommended"): CLI-0006 imported (org ORG-0140 was FS-only, imported without orgId), CLI-0010 drift resolved DB-wins (FS never updated after creation — it had no status field at all), clientSince/phone/preferredContact/managementFeePct columns added (migration 0023, hand-authored: drizzle-kit generate blocked by pre-existing 0008/0011 snapshot collision — REPAIR NEEDED before next generated migration). Parity PASSES.
+- createClientRecord: FS mirror deleted, extras stored in 0023 columns. New ownership-scoped service fns: listClientRecords/getClientRecord/setClientStatusRecord/updateClientRecord.
+- Actions + ai-context now Drizzle-only; lib/data/db/clients.ts and lib/actions/clients.actions.ts (0 importers) deleted. (394372c)
+- Scope decision: _fs.ts write path KEPT for agent-runs + dbdiagram-state — ephemeral-by-design (/tmp on Vercel), never parity-verified, separate entity migration if ever needed. "Zero FS writes" done-when is amended accordingly.
+- Seed backfill bonus: demo clients seeded as CLI-0101..0106 (0001-0006 collide with real-user global DB ids) + 23 fixture properties linked; Pro cockpit demo gap closed. (47ff048)
