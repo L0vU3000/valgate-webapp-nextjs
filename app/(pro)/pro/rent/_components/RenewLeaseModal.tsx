@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight } from "lucide-react";
-import { renewLease } from "@/app/(pro)/pro/actions";
+import { renewLease } from "@/app/(pro)/pro/properties.actions";
 import { formatCurrencyFull, formatDate } from "@/lib/format";
 import {
   ProModal,

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { WidgetCard } from "@/app/(pro)/pro/_components/WidgetCard";
-import { markRentPaid } from "@/app/(pro)/pro/actions";
+import { markRentPaid } from "@/app/(pro)/pro/properties.actions";
 import { useDestructiveAction } from "@/lib/client/use-destructive-action";
 import { toActionResult } from "@/lib/client/action-result";
 import { formatCurrencyFull } from "@/lib/format";

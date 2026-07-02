@@ -13,7 +13,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, X, Check, ArrowLeft } from "lucide-react";
-import { createPortfolioAction } from "@/app/(pro)/pro/actions";
+import { createPortfolioAction } from "@/app/(pro)/pro/portfolio.actions";
 import {
   ProModal,
   ProField,

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { ProModal, ProField, ProFormError, ProModalActions, ProModalSuccess, proSelectClass } from "@/app/(pro)/pro/_components/pro-modal";
-import { assignProperties } from "@/app/(pro)/pro/actions";
+import { assignProperties } from "@/app/(pro)/pro/properties.actions";
 
 type ClientOption = {
   id: string;

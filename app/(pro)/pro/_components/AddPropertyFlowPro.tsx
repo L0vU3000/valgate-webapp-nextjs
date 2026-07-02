@@ -35,7 +35,7 @@ import { PortfolioSelectorModal } from "./PortfolioSelectorModal";
 import { OnboardClientWizard } from "@/app/(pro)/pro/clients/_components/OnboardClientWizard";
 import { ProFormError } from "./pro-modal";
 import { createProperty, createPropertyForOrg } from "@/app/actions/properties";
-import { assignProperties } from "@/app/(pro)/pro/actions";
+import { assignProperties } from "@/app/(pro)/pro/properties.actions";
 import {
   upsertPropertyDraftAction,
   convertDraftToDocumentsAction,

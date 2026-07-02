@@ -18,7 +18,7 @@ import { ConfirmAction } from "@/components/ui/confirm-action";
 import { toActionResult } from "@/lib/client/action-result";
 import { cn } from "@/components/ui/utils";
 import { proInputClass } from "@/app/(pro)/pro/_components/pro-modal";
-import { updateClient, setClientStatus } from "@/app/(pro)/pro/actions";
+import { updateClient, setClientStatus } from "@/app/(pro)/pro/clients.actions";
 import { ManageMembersDrawer } from "@/app/(pro)/pro/clients/_components/ManageMembersDrawer";
 
 type ClientType = "Individual" | "Corporate";

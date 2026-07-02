@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Star, Check } from "lucide-react";
-import { updateWorkOrder } from "@/app/(pro)/pro/actions";
+import { updateWorkOrder } from "@/app/(pro)/pro/properties.actions";
 import { cn } from "@/components/ui/utils";
 import {
   ProModal,

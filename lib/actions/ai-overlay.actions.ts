@@ -43,7 +43,7 @@ import {
   updateWorkOrder,
   resolveSafetyRisk,
   assignProperties,
-} from "@/app/(pro)/pro/actions";
+} from "@/app/(pro)/pro/properties.actions";
 import type { AiSession } from "@/lib/data/types/ai-session";
 import type { AiMessage, AiMessageStep, AiProposedAction } from "@/lib/data/types/ai-message";
 import { isToolStepSuccessful, surfaceKey } from "@/lib/actions/ai-overlay-utils";

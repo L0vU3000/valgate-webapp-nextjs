@@ -20,7 +20,7 @@ import {
   addPortfolioInviteesAction,
   resendClientInvitationAction,
   revokeClientInvitationAction,
-} from "@/app/(pro)/pro/actions";
+} from "@/app/(pro)/pro/portfolio.actions";
 import type { PortfolioMember, PortfolioInvitee } from "@/app/(pro)/pro/queries";
 import type { PortfolioRole } from "@/lib/services/client-onboarding";
 import type { ActionResult } from "@/app/actions/_result";

@@ -6,7 +6,7 @@ import { ChevronRight, Plus, RotateCcw } from "lucide-react";
 import { ClientsTable } from "@/app/(pro)/pro/dashboard/_components/ClientsTable";
 import { AddClientModal } from "./AddClientModal";
 import { ConfirmAction } from "@/components/ui/confirm-action";
-import { setClientStatus } from "@/app/(pro)/pro/actions";
+import { setClientStatus } from "@/app/(pro)/pro/clients.actions";
 import type { ClientRollup } from "@/app/(pro)/pro/queries";
 import { cn } from "@/components/ui/utils";
 // Must match MAX_UNCONFIRMED_CLIENTS in lib/services/client-onboarding.ts.

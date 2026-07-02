@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { WidgetCard } from "@/app/(pro)/pro/_components/WidgetCard";
 import { EnterLi } from "@/app/(pro)/pro/_components/motion-primitives";
 import { AssignVendorModal } from "./AssignVendorModal";
-import { updateWorkOrder } from "@/app/(pro)/pro/actions";
+import { updateWorkOrder } from "@/app/(pro)/pro/properties.actions";
 import { ConfirmAction } from "@/components/ui/confirm-action";
 import { toActionResult } from "@/lib/client/action-result";
 import { formatCurrencyFull, formatRelativeTime } from "@/lib/format";

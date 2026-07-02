@@ -10,7 +10,7 @@ import {
   ProModalActions,
   proSelectClass,
 } from "@/app/(pro)/pro/_components/pro-modal";
-import { importCsvProperties } from "@/app/(pro)/pro/actions";
+import { importCsvProperties } from "@/app/(pro)/pro/properties.actions";
 
 type ClientOption = { id: string; name: string };
 type CsvRow = Record<string, string>;

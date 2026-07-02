@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ArrowLeft, Clock, Check, X } from "lucide-react";
-import { requestAccessAction } from "@/app/(pro)/pro/actions";
+import { requestAccessAction } from "@/app/(pro)/pro/clients.actions";
 import {
   ProField,
   ProFormError,
