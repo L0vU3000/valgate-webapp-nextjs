@@ -102,6 +102,18 @@ using only resources + the one search tool — and the total tool count fits on 
 2. Build `ctxFromMcpAuth()` reusing `ourOrgId`/`ourUserId`/`normaliseRole`
    (`lib/services/identity-sync.ts`) — the Clerk OAuth token resolves to a real Clerk user,
    which plugs straight into the existing identity-sync mapping.
+   - **⚠️ GO-LIVE GAP: new users are NOT auto-provisioned (found live 2026-07-02).**
+     `ctxFromMcpAuth` only *looks up* `users.clerkUserId` — it never creates a row. A brand-new
+     Clerk user who authenticates via `/mcp` but has no Valgate `users` row gets a generic
+     "unauthenticated" failure (the client sees a bare connection error; the server logs the
+     offending Clerk id — added on the auth-miss path). Provisioning normally happens via the
+     Clerk **webhook** (`app/api/webhooks/clerk` → `identity-sync`), which does NOT fire unless it
+     is pointed at the reachable deploy URL. **Before go-live, do ONE of:** (a) configure the Clerk
+     webhook against the deployed URL so users provision on sign-up, or (b) make `ctxFromMcpAuth`
+     JIT-provision a user+org on first call (mirroring the webapp's `resolveCtx`). Until then every
+     genuinely new user hits this wall. (During the 2026-07-02 dev test this was bridged by hand:
+     `UPDATE users SET clerk_user_id=<clerk id> WHERE id='USR-0001'` — a throwaway mapping, revert
+     with `clerk_user_id='demo-user'`.)
    - **Org selection (M2) — done.** A Clerk token names a *user*, not an org, but one user can
      belong to several orgs. Resolution is always deterministic: an explicit `requestedOrgId`
      (validated against the user's active memberships) wins; a single-org user uses their one org;
