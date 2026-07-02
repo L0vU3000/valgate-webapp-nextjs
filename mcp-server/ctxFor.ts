@@ -9,8 +9,17 @@
 // website uses. Services then apply org-scoping and role checks for free.
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { organizationMemberships, users } from "@/lib/db/schema";
+import { organizationMemberships, organizations, users } from "@/lib/db/schema";
 import type { Ctx } from "@/lib/services/_mapping";
+
+// Role seniority, most senior first. Used to pick a deterministic "primary" org for a multi-org
+// user when the caller has not named one (see ctxFromMcpAuth). Higher number = more senior.
+const ROLE_RANK: Record<Ctx["orgRole"], number> = {
+  owner: 3,
+  admin: 2,
+  member: 1,
+  viewer: 0,
+};
 
 // Mirrors DEMO_CTX in lib/auth/ctx.ts:12. Safe because DEMO_MODE (or assertCanMutate) refuses
 // writes at the service layer. Used by the stdio server for local dev.
@@ -23,22 +32,20 @@ export function ctxFor(): Ctx {
 // A Clerk OAuth token identifies a *user*, not an org, but Valgate scopes all data by org — so
 // we look up the user's active organization membership(s) to get the org id and role.
 //
-// Org selection (M2 — must be deterministic, never a guess):
-//   - Single-org user  → we use their one active membership.
-//   - Multi-org user   → we require the CALLER to say which org it means, via `requestedOrgId`,
-//                        and we validate that id against the user's own active memberships. If a
-//                        multi-org user does NOT supply an org, we refuse rather than silently
-//                        pick one — picking "the first row" is non-deterministic and, once writes
-//                        land in Phase 4, would let a write hit the wrong workspace.
-//   - `requestedOrgId` also works for single-org users (it must still match their membership).
+// Org selection (M2). The rule is: always DETERMINISTIC, never a random "first row".
+//   - `requestedOrgId` given → it must be one of the user's own active memberships, else we refuse.
+//     This is the explicit path Phase 4 (writes) will use, because a write must hit the org the
+//     caller actually intends — guessing there would be dangerous.
+//   - Single-org user, no org given → use their one membership.
+//   - Multi-org user, no org given → pick a stable "primary" org: the most senior role first
+//     (owner > admin > member > viewer), tie-broken by org id. This is safe for the READ-only
+//     Phase 3 (the user can only ever see orgs they already belong to, so there is no cross-tenant
+//     leak) and it unblocks real multi-org users instead of hard-blocking them. Callers that need
+//     a specific org can discover their options via the list_workspaces tool and pass requestedOrgId.
 //
-// Every failure throws the SAME generic "unauthenticated" error so the client can never tell
-// whether the user was missing, had no membership, or asked for an org it doesn't belong to.
-// The specific reason is logged server-side (via console.error) for our own debugging only.
-//
-// `requestedOrgId` is optional today because the stdio path and the current HTTP path do not yet
-// pass one; Phase 4 (writes) will thread an explicit org through from the client. Until then,
-// multi-org callers are safely blocked instead of served an arbitrary org.
+// When resolution fails (unknown user / no membership / requested an org they're not in) we throw
+// the SAME generic "unauthenticated" error so the client can never tell which case it was; the
+// specific reason is logged server-side (console.error) for our own debugging only.
 export async function ctxFromMcpAuth(
   clerkUserId: string,
   requestedOrgId?: string,
@@ -78,7 +85,7 @@ export async function ctxFromMcpAuth(
   if (requestedOrgId) {
     // The caller named an org. It must be one the user actually belongs to (and is active in);
     // otherwise this is an attempt to act on an org outside the user's access → refuse.
-    const match = memberships.find((m) => m.orgId === requestedOrgId);
+    const match = memberships.find((membership) => membership.orgId === requestedOrgId);
     if (!match) {
       console.error(
         "[valgate-mcp] ctxFromMcpAuth: requested org is not an active membership for this user",
@@ -90,12 +97,17 @@ export async function ctxFromMcpAuth(
     // Single-org user, no ambiguity: use their only membership.
     selected = memberships[0];
   } else {
-    // Multi-org user with no org specified. Do NOT guess — that would be non-deterministic and
-    // unsafe for writes. The caller must supply requestedOrgId once that channel exists (Phase 4).
-    console.error(
-      "[valgate-mcp] ctxFromMcpAuth: user belongs to multiple orgs but no org was specified",
+    // Multi-org user, no org named: pick a stable primary. `memberships` is already sorted by org
+    // id ascending, so this reduce is fully deterministic: keep the more senior role, and on a
+    // role tie keep the earlier org id (the current `best`, since we walk in ascending order).
+    selected = memberships.reduce((best, candidate) => {
+      const candidateRank = ROLE_RANK[candidate.role as Ctx["orgRole"]];
+      const bestRank = ROLE_RANK[best.role as Ctx["orgRole"]];
+      return candidateRank > bestRank ? candidate : best;
+    });
+    console.warn(
+      `[valgate-mcp] ctxFromMcpAuth: multi-org user ${userRow.id} defaulted to primary org ${selected.orgId} (${selected.role}); pass an explicit orgId to target another.`,
     );
-    throw new Error("unauthenticated");
   }
 
   // The membership role column already stores a normalised Ctx role
@@ -105,4 +117,42 @@ export async function ctxFromMcpAuth(
     orgId: selected.orgId,
     orgRole: selected.role as Ctx["orgRole"],
   };
+}
+
+// A single workspace (org) the user belongs to, as surfaced by the list_workspaces tool.
+export type McpWorkspace = {
+  orgId: string;
+  name: string;
+  role: Ctx["orgRole"];
+};
+
+// List every active workspace (org) the given Valgate user belongs to, with the org's display
+// name and the user's role in it. Ordered by org id so the output is stable. This is what powers
+// the list_workspaces tool: it lets a multi-org caller SEE all their orgs (nothing is hidden by
+// the primary-org default in ctxFromMcpAuth) and learn the org ids to pass as an explicit target.
+//
+// Takes the internal USR-* id (which we already have on the resolved Ctx), so it works the same on
+// both transports: the demo stdio Ctx and a real Clerk-authenticated Ctx.
+export async function listWorkspacesForUser(userId: string): Promise<McpWorkspace[]> {
+  const rows = await db
+    .select({
+      orgId: organizationMemberships.orgId,
+      role: organizationMemberships.role,
+      name: organizations.name,
+    })
+    .from(organizationMemberships)
+    .innerJoin(organizations, eq(organizations.id, organizationMemberships.orgId))
+    .where(
+      and(
+        eq(organizationMemberships.userId, userId),
+        eq(organizationMemberships.status, "active"),
+      ),
+    )
+    .orderBy(asc(organizationMemberships.orgId));
+
+  return rows.map((row) => ({
+    orgId: row.orgId,
+    name: row.name,
+    role: row.role as Ctx["orgRole"],
+  }));
 }

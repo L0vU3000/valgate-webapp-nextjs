@@ -102,6 +102,14 @@ using only resources + the one search tool — and the total tool count fits on 
 2. Build `ctxFromMcpAuth()` reusing `ourOrgId`/`ourUserId`/`normaliseRole`
    (`lib/services/identity-sync.ts`) — the Clerk OAuth token resolves to a real Clerk user,
    which plugs straight into the existing identity-sync mapping.
+   - **Org selection (M2) — done.** A Clerk token names a *user*, not an org, but one user can
+     belong to several orgs. Resolution is always deterministic: an explicit `requestedOrgId`
+     (validated against the user's active memberships) wins; a single-org user uses their one org;
+     a multi-org user with no explicit org falls back to a stable **primary** (most senior role,
+     tie-broken by org id). The default is safe here because Phase 3 is **read-only** and a user
+     only ever sees orgs they belong to. The `list_workspaces` tool surfaces all their orgs (+ which
+     is current) so the default is never hidden. **Phase 4 writes must pass `requestedOrgId`
+     explicitly** — a write must never fall back to a guessed org.
 3. **Validate token audience (M1) — done, with a caveat proven by reading the SDK.** The
    assumption that Clerk covers this was **false**: neither `verifyClerkToken` nor Clerk's
    underlying OAuth verification checks that a token was issued for *this* resource. Clerk
