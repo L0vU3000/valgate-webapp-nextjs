@@ -1,9 +1,8 @@
 import "server-only";
-import { and, eq, inArray, notInArray, isNotNull, sql, countDistinct } from "drizzle-orm";
+import { and, eq, notInArray, isNotNull, sql, countDistinct } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { clientHandoffs, clients, organizations, properties } from "@/lib/db/schema";
 import { nextId, type Ctx } from "@/lib/services/_mapping";
-import { logger } from "@/lib/logger";
 
 // Cap: a manager cannot have more than this many unconfirmed client portfolios.
 // "Unconfirmed" = the client has not accepted yet — this covers drafts (not invited
@@ -265,70 +264,4 @@ export async function stampClientIdOnOrgProperties(orgId: string, clientId: stri
     .update(properties)
     .set({ clientId, updatedAt: new Date() })
     .where(and(eq(properties.orgId, orgId), sql`${properties.clientId} IS NULL`));
-}
-
-// ─── One-off backfill ─────────────────────────────────────────────────────────
-
-/**
- * Creates a Drizzle clients row + FS client record for every portfolio org that
- * belongs to this manager but doesn't have a linked client yet.
- * Also stamps clientId on properties in those orgs that lack one.
- *
- * Idempotent — safe to call multiple times; existing rows are skipped.
- * Designed to run once from the /pro/clients page on first load after deploy.
- */
-export async function backfillClientsForHandoffs(ctx: Ctx): Promise<void> {
-  // Find all orgs this manager has handoffs for.
-  const handoffOrgs = await db
-    .selectDistinct({ orgId: clientHandoffs.orgId, orgName: organizations.name })
-    .from(clientHandoffs)
-    .innerJoin(organizations, eq(organizations.id, clientHandoffs.orgId))
-    .where(eq(clientHandoffs.managerUserId, ctx.userId));
-
-  if (handoffOrgs.length === 0) return;
-
-  // Find which orgs already have a Drizzle clients row.
-  const existingOrgIds = new Set(
-    (
-      await db
-        .select({ orgId: clients.orgId })
-        .from(clients)
-        .where(
-          and(
-            eq(clients.managerUserId, ctx.userId),
-            inArray(
-              clients.orgId,
-              handoffOrgs.map((r) => r.orgId),
-            ),
-          ),
-        )
-    )
-      .map((r) => r.orgId)
-      .filter((id): id is string => id !== null),
-  );
-
-  for (const { orgId, orgName } of handoffOrgs) {
-    if (existingOrgIds.has(orgId)) continue;
-
-    // Get the primary email from the first handoff for this org.
-    const [firstHandoff] = await db
-      .select({ clientEmail: clientHandoffs.clientEmail })
-      .from(clientHandoffs)
-      .where(eq(clientHandoffs.orgId, orgId))
-      .orderBy(clientHandoffs.createdAt)
-      .limit(1);
-
-    try {
-      const clientId = await createClientRecord(
-        ctx.userId,
-        orgId,
-        orgName,
-        firstHandoff?.clientEmail,
-      );
-      await stampClientIdOnOrgProperties(orgId, clientId);
-    } catch (err) {
-      // Best-effort: log and continue so one bad org doesn't block the rest.
-      logger.error("backfillClientsForHandoffs: failed for org", { orgId, error: String(err) });
-    }
-  }
 }

@@ -19,7 +19,6 @@ export {
   nameToInitials,
   nameToAvatarBg,
   createClientRecord,
-  backfillClientsForHandoffs,
 } from "@/lib/services/client-records";
 
 export {
