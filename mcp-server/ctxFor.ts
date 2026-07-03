@@ -8,8 +8,10 @@
 // user id; we turn that into { userId, orgId, orgRole } using the same identity tables the
 // website uses. Services then apply org-scoping and role checks for free.
 import { and, asc, eq } from "drizzle-orm";
+import { clerkClient } from "@clerk/nextjs/server";
 import { db } from "@/lib/db/client";
 import { organizationMemberships, organizations, users } from "@/lib/db/schema";
+import { upsertOrg, upsertUser, upsertMembership } from "@/lib/services/identity-sync";
 import type { Ctx } from "@/lib/services/_mapping";
 
 // Role seniority, most senior first. Used to pick a deterministic "primary" org for a multi-org
@@ -37,6 +39,59 @@ export type CtxResolveOptions = {
   // guessing is forbidden. Reads leave it false and accept the primary-org default below.
   requireExplicitOrg?: boolean;
 };
+
+// Bootstrap a brand-new Clerk user the first time they hit /mcp, before the Clerk webhook
+// (app/api/webhooks/clerk) has ever fired for them — e.g. an AI-client-only user who never
+// opened the web app. Mirrors resolveCtx's JIT branch (lib/auth/ctx.ts) but has no active
+// session to read an org from, so it asks the Clerk Backend API for the user's own org
+// memberships and mirrors ALL of them (org strategy A: reuse Valgate's real tenancy instead
+// of inventing a personal org). The webhook remains the authoritative steady-state writer;
+// this only fills the gap on a user's very first request.
+//
+// Reuses the exact upserts requireCtx uses (lib/services/identity-sync.ts) — no new writer.
+async function provisionMcpUser(clerkUserId: string): Promise<{ id: string }> {
+  const client = await clerkClient();
+  const clerkUser = await client.users.getUser(clerkUserId);
+  await upsertUser({
+    id: clerkUserId,
+    primaryEmail: clerkUser.emailAddresses[0]?.emailAddress ?? `${clerkUserId}@pending.clerk`,
+    displayName: [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") || null,
+    avatarUrl: clerkUser.imageUrl ?? null,
+    isManager: clerkUser.unsafeMetadata?.accountType === "manager",
+  });
+
+  const { data: memberships } = await client.users.getOrganizationMembershipList({
+    userId: clerkUserId,
+  });
+  if (memberships.length === 0) {
+    // upsertUser above already created their Valgate user row, but they belong to zero Clerk
+    // orgs — there is nothing to scope their data to, so there is no workspace to hand them.
+    // "no workspace yet" is a distinct reason from "unknown user", but per ctxFromMcpAuth's
+    // convention below we still throw the same generic client-facing error and log the reason.
+    console.error(
+      "[valgate-mcp] provisionMcpUser: Clerk user has no organization memberships (no workspace yet):",
+      clerkUserId,
+    );
+    throw new Error("unauthenticated");
+  }
+  for (const membership of memberships) {
+    await upsertOrg({
+      id: membership.organization.id,
+      name: membership.organization.name,
+      slug: membership.organization.slug,
+    });
+    await upsertMembership({
+      clerkOrgId: membership.organization.id,
+      clerkUserId,
+      role: membership.role,
+    });
+  }
+
+  const [row] = await db.select({ id: users.id }).from(users)
+    .where(eq(users.clerkUserId, clerkUserId)).limit(1);
+  if (!row) throw new Error("unauthenticated"); // unreachable: upsertUser above always inserts it
+  return row;
+}
 
 // Phase 3: turn a Clerk user id (extracted from a validated OAuth token) into a real Ctx.
 //
@@ -66,17 +121,17 @@ export async function ctxFromMcpAuth(
 ): Promise<Ctx> {
   const { requestedOrgId, requireExplicitOrg = false } = options;
   // 1) Clerk user id → our internal USR-* id.
-  const [userRow] = await db
+  let [userRow] = await db
     .select({ id: users.id })
     .from(users)
     .where(eq(users.clerkUserId, clerkUserId))
     .limit(1);
   if (!userRow) {
-    console.error(
-      "[valgate-mcp] ctxFromMcpAuth: no Valgate user for Clerk user id:",
-      clerkUserId,
-    );
-    throw new Error("unauthenticated");
+    // First time this Clerk user has hit /mcp: the webhook may never have fired for them (a
+    // tunnel/dev environment, or an AI-client-only user who never opened the web app). Bootstrap
+    // their Valgate row + org membership(s) from Clerk directly, then re-read below as normal.
+    // The webhook remains the authoritative steady-state writer; this is the fallback path.
+    userRow = await provisionMcpUser(clerkUserId);
   }
 
   // 2) ALL of the user's active memberships, ordered deterministically by org id so that any
