@@ -83,21 +83,83 @@ using only resources + the one search tool — and the total tool count fits on 
 
 ## Phase 3 — Real auth seam (multi-tenant)
 
-**Goal:** replace the demo `Ctx` with a real, headless, per-workspace token (`02` §B, Opt 2).
+**Goal:** replace the demo `Ctx` with real per-user auth (`02` §B).
+
+> **Transport coupling (2026-07-02):** Clerk's OAuth flow only works over the **HTTP
+> transport**, not stdio — so full multi-tenant OAuth implies pulling Phase 5's transport
+> forward. For a stdio server the interim pattern is a per-client token in the MCP client's
+> config `env` block (no `.env` file), or staying on the demo `Ctx`.
 
 **Steps:**
-1. Design a minimal token store (table + issuance). Run **`/cso`** on this design first.
-2. Build `ctxFromMcpAuth(token)` reusing `ourOrgId`/`ourUserId`/`normaliseRole`
-   (`lib/services/identity-sync.ts`).
-3. **Validate token audience** — scope each token to this MCP server and **reject any token
-   not issued for it** (MCP = OAuth Resource Server; prevents token-passthrough abuse). `02` §B/§G.
+1. **Clerk first — do not hand-roll.** Valgate already uses Clerk, and Clerk ships MCP
+   auth support: `@clerk/mcp-tools` (`generateClerkProtectedResourceMetadata` for the
+   `/.well-known/oauth-protected-resource` handshake) + `clerkClient.authenticateRequest(req,
+   { acceptsToken: 'oauth_token' })` for validation. Login/consent screens come free.
+   **Dynamic client registration** (Clerk dashboard setting) lets Claude register its own
+   OAuth client; ChatGPT can't — it needs a manually created OAuth application in the Clerk
+   dashboard (known gotcha). Design a custom token store ONLY if Clerk can't express what
+   we need. Run **`/cso`** on whichever design wins.
+2. Build `ctxFromMcpAuth()` reusing `ourOrgId`/`ourUserId`/`normaliseRole`
+   (`lib/services/identity-sync.ts`) — the Clerk OAuth token resolves to a real Clerk user,
+   which plugs straight into the existing identity-sync mapping.
+   - **⚠️ GO-LIVE GAP: new users are NOT auto-provisioned (found live 2026-07-02).**
+     `ctxFromMcpAuth` only *looks up* `users.clerkUserId` — it never creates a row. A brand-new
+     Clerk user who authenticates via `/mcp` but has no Valgate `users` row gets a generic
+     "unauthenticated" failure (the client sees a bare connection error; the server logs the
+     offending Clerk id — added on the auth-miss path). Provisioning normally happens via the
+     Clerk **webhook** (`app/api/webhooks/clerk` → `identity-sync`), which does NOT fire unless it
+     is pointed at the reachable deploy URL. **Before go-live, do ONE of:** (a) configure the Clerk
+     webhook against the deployed URL so users provision on sign-up, or (b) make `ctxFromMcpAuth`
+     JIT-provision a user+org on first call (mirroring the webapp's `resolveCtx`). Until then every
+     genuinely new user hits this wall. (During the 2026-07-02 dev test this was bridged by hand:
+     `UPDATE users SET clerk_user_id=<clerk id> WHERE id='USR-0001'` — a throwaway mapping, revert
+     with `clerk_user_id='demo-user'`.)
+   - **Org selection (M2) — done.** A Clerk token names a *user*, not an org, but one user can
+     belong to several orgs. Resolution is always deterministic: an explicit `requestedOrgId`
+     (validated against the user's active memberships) wins; a single-org user uses their one org;
+     a multi-org user with no explicit org falls back to a stable **primary** (most senior role,
+     tie-broken by org id). The default is safe here because Phase 3 is **read-only** and a user
+     only ever sees orgs they belong to. The `list_workspaces` tool surfaces all their orgs (+ which
+     is current) so the default is never hidden. **Phase 4 writes must pass `requestedOrgId`
+     explicitly** — a write must never fall back to a guessed org.
+   - **Known limitation (v1): multi-org READS are primary-org-only.** The read surface takes no org
+     argument — `search_properties` and every resource (`valgate://property/{id}`, `/progress`,
+     `portfolio/snapshot`) resolve `getCtx(extra)` with no options, so a multi-org user always reads
+     their **primary** org (resource URIs can't carry an org anyway). Writes, by contrast, take an
+     explicit `orgId`. The asymmetry a multi-org user hits: they can *write* to a non-primary org
+     (naming it) but then can't *read* it back through search/resources — it reads as "data vanished."
+     `list_workspaces` shows the other orgs exist but nothing switches reads to them. Single-org users
+     (incl. the demo) are unaffected. Accepted for v1; the fix (an optional `orgId` on
+     `search_properties`, and/or org-scoped resource addressing) is deferred — revisit if real
+     multi-org read usage appears.
+3. **Validate token audience (M1) — done, with a caveat proven by reading the SDK.** The
+   assumption that Clerk covers this was **false**: neither `verifyClerkToken` nor Clerk's
+   underlying OAuth verification checks that a token was issued for *this* resource. Clerk
+   OAuth tokens are bound to the Clerk **instance**, not to a resource — verification returns
+   `{ clientId, scopes, userId }` with **no `aud`/resource claim**. So any OAuth client in our
+   instance could otherwise call `/mcp`. Because Clerk exposes the token's `clientId`, we bind
+   explicitly with a **client-id allowlist**: `MCP_ALLOWED_OAUTH_CLIENT_IDS` (env, comma-sep).
+   Set → only those clients are accepted (others 401); unset → the endpoint is *unbound*, handled
+   by environment so it is never a silent production accident: **production fails closed** (rejects
+   all) unless `MCP_ALLOW_ANY_OAUTH_CLIENT=true` is set — the conscious "run open for Dynamic Client
+   Registration" opt-in (DCR mints client ids we can't allowlist ahead of time); dev/test stay
+   permissive with a warning. This mirrors `CRON_SECRET`'s "unset means locked, never open" stance.
+   The pure decisions (`isClientAllowed`, `isUnboundEndpointAllowed`) live in
+   `mcp-server/clientAllowlist.ts` and are unit-tested
+   exhaustively (`clientAllowlist.test.ts`); `app/mcp/route.ts` wires env + the token's clientId
+   into it and returns 401 on reject. **Verified:** no-token and invalid-token both return 401 live
+   (the same `return undefined` path the allowlist reject uses), and every allowlist branch is
+   covered by unit tests. A full live replay (a real token from a non-allowlisted client → 401) is
+   optional confirmation only — Clerk has no client-credentials grant, so a token needs a one-time
+   browser login via the MCP Inspector; the outcome is already guaranteed by the proven 401 path +
+   the unit-tested decision.
 4. Swap `ctxFor()` to read the token from the MCP client's auth, fall back to demo only
    when `DEMO_MODE`.
 5. Test tenant isolation: a token for ORG-A must never see ORG-B data (it can't, because
    org-scope lives in the services — but prove it with a test).
 
-**Files touched:** `mcp-server/*`, new token store (new schema file — **stop and ask
-before touching the DB schema**), the auth seam.
+**Files touched:** `mcp-server/*`, the auth seam; a token store schema only in the
+fallback case (**stop and ask before touching the DB schema**).
 **Depends on:** Phase 2; a decision to go multi-tenant.
 **Done when:** two different tokens see strictly their own org's data.
 
@@ -121,6 +183,22 @@ without an audit trail and a confirmation gate.
    `properties.ts:144`), and is audited (`02` §G rule 7).
 5. Run **`/review`** and **`/cso`** on the full diff.
 
+**Status — code-complete (`mcp-server/writes.ts`).** Five outcome-shaped tools: `create_property`,
+`update_property`, `delete_property`, `preview_property_delete`, `record_maintenance`. Each is a
+thin wrapper over the existing service, validates with the website's Zod schemas
+(`NewPropertySchema` / `PropertyPatchSchema` / `NewMaintenanceItemSchema`), and inherits every
+guard from the service layer (org-scope, `requireMember`, admin-only delete, `assertCanMutate`
+demo lock) — the tool adds no authz of its own. Every successful write is audited via
+`logActivity` (`lib/services/activity.ts`), wrapped so an audit failure can't undo the mutation.
+`delete_property` is gated twice: it deletes nothing unless `confirm: true`, and the `confirm:false`
+path returns the `countPropertyCascade` blast-radius preview (statelessness means the confirm flag,
+not a tracked prior call, is the human-in-the-loop gate). **M2 tie-in:** writes resolve their Ctx
+with `requireExplicitOrg=true`, so a multi-org caller must pass `orgId` (verified: multi-org write
+with no org → `org_required`; with a valid org → resolves; single-org → allowed).
+**Still to validate live** (per "validate after implementation"): an end-to-end write under a real
+token landing in the activity log, and the viewer/`DEMO_MODE` refusals, once a token + writable
+instance are wired.
+
 **Files touched:** `mcp-server/*` only.
 **Depends on:** Phase 3 (you want real identity + audit before allowing writes).
 **Done when:** an AI client creates/updates a record under a real token, the write lands in
@@ -135,10 +213,17 @@ requires a preview first.
 
 **Steps:**
 1. Swap stdio for the SDK's Streamable HTTP transport (transport change, not a rewrite —
-   the tools are unchanged).
+   the tools are unchanged). Stateless pattern: one server per request,
+   `sessionIdGenerator: undefined, enableJsonResponse: true`, close in `finally`.
+   Never put the auth token in the URL (URLs get logged) — it rides in the
+   `Authorization` header via the Phase 3 Clerk OAuth flow.
 2. Add rate limiting (M3) — pick the project's "decide later" rate-limit lib now. Agents
    loop; this is mandatory before any public surface. Run **`/cso`** again.
 3. TLS, deployment, secret rotation (rotate the Neon prod string before any prod deploy).
+4. **/mcp audience decision (M1 go-live gate).** Production now fails closed when `/mcp` is unbound,
+   so before first prod use the operator must consciously choose ONE: set
+   `MCP_ALLOWED_OAUTH_CLIENT_IDS` to the trusted client id(s), OR set `MCP_ALLOW_ANY_OAUTH_CLIENT=true`
+   to run open for DCR. With neither set, `/mcp` returns 401 for everyone (safe default).
 
 **Files touched:** `mcp-server/*`, deploy config.
 **Depends on:** a real remote use case. **Do not build speculatively** (YAGNI) — stdio may

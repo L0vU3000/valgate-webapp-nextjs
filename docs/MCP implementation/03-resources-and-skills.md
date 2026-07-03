@@ -71,6 +71,7 @@ Found via web search; all are `npx`-on-demand, so there's no benefit to installi
 | **`mcp-builder`** (Anthropic official skill, `anthropics/skills` repo) | MCP tool-design methodology — pairs with `/spec` | Start of Phase 1 build. `npx skills add https://github.com/anthropics/skills --skill mcp-builder` — **verify repo/syntax first**, came from web search. |
 | **MCP Inspector** (`@modelcontextprotocol/inspector`) | Browser UI to test tools/resources without an AI client | First time we test the spike: `npx @modelcontextprotocol/inspector node mcp-server/index.js` |
 | **`@anthropic-ai/mcpb`** (`mcpb init`/`pack`) | Bundles server into a one-click Claude Desktop extension | Phase 5 (distribution) only |
+| **`@clerk/mcp-tools`** | Clerk's MCP OAuth helpers — `generateClerkProtectedResourceMetadata` for the `/.well-known/oauth-protected-resource` handshake; pairs with `clerkClient.authenticateRequest(req, { acceptsToken: 'oauth_token' })`. The Phase 3 auth path (no hand-rolled token store). HTTP transport only — not stdio. | Start of Phase 3. |
 
 > `[unverified]`: package/repo names from web search, not yet confirmed hands-on. Confirm
 > (`npm view <pkg> version`, repo reachable) at install time.
@@ -85,7 +86,7 @@ Found via web search; all are `npx`-on-demand, so there's no benefit to installi
 | MCP spec | Protocol concepts (tools/resources/prompts/transports) | Context7 `/modelcontextprotocol/modelcontextprotocol` |
 | "MCP for beginners" (Microsoft) | Beginner-friendly walkthroughs, multi-language | Context7 `/microsoft/mcp-for-beginners` |
 | Claude Desktop MCP config docs | How to register our stdio server as a client | claude.ai / Anthropic docs `[unverified link]` |
-| Clerk machine-auth docs | Only if we pick Auth Option 3 later | Context7 `resolve-library-id "Clerk"` |
+| Clerk MCP/OAuth docs (`@clerk/mcp-tools`, `authenticateRequest`) | Promoted to the primary Phase 3 auth path (2026-07-02) — Clerk validates MCP OAuth tokens; no hand-rolled token store unless Clerk can't express what we need | Context7 `resolve-library-id "Clerk"` |
 
 ---
 

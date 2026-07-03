@@ -121,19 +121,75 @@ The MCP server replaces only the *left half* of that chain.
 
 ## MISSING — does not exist yet (all expected for a greenfield MCP)
 
-### M1 — No MCP server, transport, or tool definitions — **IN PROGRESS (Phase 1)**
+### M1 — No MCP server, transport, or tool definitions — **RESOLVED (Phase 1 spike, 2026-07-02)**
 - `@modelcontextprotocol/sdk` v1.29.0 installed (2026-06-25).
 - `mcp-server/index.ts` — server entry + `search_properties` tool (calls `listProperties(ctx)`).
 - `mcp-server/ctxFor.ts` — Phase 1 demo `Ctx` seam (W1 resolved for Phase 1).
 - Run scripts added: `npm run mcp:server` (stdio) and `npm run mcp:inspect` (MCP Inspector).
-- **Pending:** create `.env.local` with `DATABASE_URL` pointing at the dev Neon branch
-  (`br-solitary-lab-aoci2g33`), then run `npm run mcp:inspect` to confirm real ORG-0001
-  data returns. Mark M1 RESOLVED when the inspector call succeeds.
+- **Bug found & fixed by running it:** `index.ts` used a top-level `await server.connect(...)`,
+  but `tsx` transforms the file as CommonJS (the Next.js `package.json` has no
+  `"type": "module"`), and CommonJS does not allow top-level await — the process crashed on
+  boot. Fixed by moving startup into an async `main()` with a `.catch()` guard, rather than
+  making the whole app ESM.
+- **Verified end-to-end (2026-07-02):** with `.env.local` pointing at the dev Neon branch, a
+  headless MCP client (SDK `Client` + `StdioClientTransport`, the same path the Inspector uses)
+  connected, listed `search_properties`, and the tool returned **26 real ORG-0001 properties**
+  (`PROP-0001` … `PROP-0026`) with no error. Foundation proven — Phase 2 (resources) is repetition.
 
-### M2 — No machine-to-machine auth / API tokens — **MISSING**
-- Evidence: all auth flows go through Clerk's interactive session (`lib/auth/ctx.ts`).
-  There is no non-interactive token system for a headless client.
-- This is the dependency W1 hangs on. Decision + small build required.
+### M1b — Read breadth via resources — **RESOLVED (Phase 2, 2026-07-02)**
+- Added `mcp-server/resources.ts` (registration) + `mcp-server/context.ts` (data builders).
+- Resources, all still on the demo `Ctx`, tool list unchanged (still just `search_properties`):
+  - `valgate://property/{id}` — the property + 16 nested child lists (leases, tenants, payments,
+    valuations, ownership, safety, certifications, maintenance, documents, …). One fetch replaces
+    ~10 would-be list tools. A `list` callback also enumerates every property for discovery.
+  - `valgate://property/{id}/progress` — pillar-by-pillar completeness via the PURE
+    `computeProgressDetails` (same function the website's progress modal uses).
+  - `valgate://portfolio/snapshot` — per-property list + `computeStats`/`computeKpis` overview.
+- **Finding (resolves the `[unverified sig]` notes in `02` §D):** the higher-level derivations
+  `lib/data/derivations/ai-context.ts` (`buildAiOverlayContext`) and
+  `portfolio-snapshot.ts` (`getPortfolioSnapshot`) are **not** transport-pure — they call
+  `requireCtx()` internally and lean on `lib/data/properties.ts` (Next `unstable_cache`). They
+  cannot run in the plain-Node MCP process. **Only the leaf compute helpers are pure**
+  (`computeProgressDetails`, `computeStats`, `computeKpis`) — those take explicit data and are
+  reused directly. The MCP builders therefore fetch through the ctx services and call those pure
+  helpers, re-assembling the snapshot shape without any new business logic. `lib/services/*` and
+  the derivations were **not** modified.
+- **Verified end-to-end (2026-07-02):** headless client listed 1 tool + 27 resources + 2
+  templates; read `valgate://property/PROP-0001` (1 lease, 1 tenant, 3 payments, 4 documents),
+  its `/progress` (score 98, all pillars), and `valgate://portfolio/snapshot` (24 active
+  properties, 33% occupancy, $14.44M total value, live monthly KPIs). Phase 2 done-when met:
+  a portfolio summary is answerable from resources + the single search tool.
+
+### M2 — Machine-to-machine auth — **CODE-COMPLETE via Clerk OAuth (Phase 3, 2026-07-02); pending dashboard config**
+- Decision: **Clerk OAuth over HTTP** (option A) — no hand-rolled token store. Clerk OAuth tokens
+  are machine tokens (free during Clerk's public beta).
+- **Transport:** Clerk OAuth is HTTP-only, so Phase 5's HTTP transport was pulled forward. The
+  authenticated server lives as a Next.js app route; the stdio server stays for local/demo.
+- Deps added (peer-locked): `mcp-handler` v1.1.0 + `@clerk/mcp-tools` v0.5.0. `mcp-handler@1.1.0`
+  pins `@modelcontextprotocol/sdk@1.26.0` exactly, so the SDK was aligned 1.29 → **1.26.0** (stdio
+  server re-verified working after the downgrade).
+- New files:
+  - `app/mcp/route.ts` — `createMcpHandler` wrapped by `experimental_withMcpAuth` + `verifyClerkToken`;
+    `auth({ acceptsToken: 'oauth_token' })` validates the Bearer token.
+  - `app/.well-known/oauth-protected-resource/mcp/route.ts` — `protectedResourceHandlerClerk` (RFC 9728) + CORS OPTIONS.
+  - `mcp-server/register.ts` — shared `registerValgateMcp(server, getCtx)` so stdio + HTTP register
+    identical tools/resources; only the Ctx resolver differs.
+  - `mcp-server/ctxFor.ts` — added `ctxFromMcpAuth(clerkUserId)`: resolves the Clerk user → our
+    USR-* id → the user's **first active** `organizationMemberships` row → `{ userId, orgId, orgRole }`.
+    (Multi-org users would need the client to choose an org — noted for a later refinement; a `/cso`
+    review is still owed on this seam.)
+  - `middleware.ts` — `/mcp(.*)` and `/.well-known/oauth-protected-resource(.*)` exempted from the
+    site-gate and Clerk's login redirect (they do their own token auth / are public discovery data).
+- **Verified locally (no dashboard needed):** typecheck clean project-wide; `GET` the metadata
+  endpoint returns valid RFC 9728 JSON pointing at the Clerk auth server; `POST /mcp` with no token
+  returns **401 + `WWW-Authenticate: Bearer … resource_metadata=…`** (the correct OAuth challenge).
+- **Still required for the Phase 3 done-when ("two identities see strictly their own org"):**
+  (1) Clerk dashboard — enable OAuth/dynamic client registration for MCP (and a manual OAuth app for
+  ChatGPT), (2) a real MCP client completing the OAuth flow, or a multi-org isolation test. Org
+  isolation is structural (services filter by `ctx.orgId`, and each token resolves only to its own
+  user's membership), but should still be proven with a live token or fixture test.
+
+### M3 — No rate limiting on a programmatic surface — **MISSING**
 
 ### M3 — No rate limiting on a programmatic surface — **MISSING**
 - Evidence: CLAUDE.md lists "Rate Limiting | decide later" as undecided.
@@ -157,7 +213,7 @@ The MCP server replaces only the *left half* of that chain.
 | `Ctx` from a non-web caller | 🟡 NEEDS WORK (W1) ← **main gap** |
 | `server-only` in a Node process | ✅ RESOLVED (W2) — `--conditions=react-server` |
 | Cache coherence across front doors | 🟡 ACCEPT FOR v1 (W3) |
-| MCP server / tools / transport | 🟡 IN PROGRESS (M1) — SDK installed, files created |
+| MCP server / tools / transport | ✅ RESOLVED (M1) — Phase 1 spike returns 26 real ORG-0001 rows |
 | Machine auth / API tokens | 🔴 MISSING (M2) — blocks W1 |
 | Rate limiting | 🔴 MISSING (M3) — needed before public |
 
