@@ -15,7 +15,7 @@ async function resolveProperties(): Promise<Property[]> {
   const ctx = await requireCtx();
   return unstable_cache(
     async () => listProperties(ctx),
-    ["properties", ctx.orgId],
+    ["properties", "v2", ctx.orgId],
     { tags: ["properties"] },
   )();
 }
