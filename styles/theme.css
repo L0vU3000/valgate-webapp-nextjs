@@ -80,6 +80,12 @@
   100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--interactive-primary) 0%, transparent); }
 }
 
+@keyframes pin-beacon-quiet {
+  0%   { box-shadow: 0 0 0 0 rgb(100 116 139 / 0.35); }
+  70%  { box-shadow: 0 0 0 9px rgb(100 116 139 / 0); }
+  100% { box-shadow: 0 0 0 0 rgb(100 116 139 / 0); }
+}
+
 @keyframes loading-bar {
   0%   { width: 0%; margin-left: 0; }
   50%  { width: 70%; margin-left: 15%; }

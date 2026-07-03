@@ -6,6 +6,7 @@ import {
   SITE_GATE_PATH,
   getExpectedSiteAccessToken,
   isSiteGateEnabled,
+  isSiteGateExempt,
 } from "@/lib/site-gate";
 
 // The frontend's site-gate, factored out so it can run on its own (DEMO_MODE) or wrapped by Clerk.
@@ -17,7 +18,11 @@ async function siteGate(request: NextRequest): Promise<NextResponse | null> {
     return null;
   }
 
-  const { pathname } = request.nextUrl;
+  const { pathname, search } = request.nextUrl;
+
+  if (isSiteGateExempt(pathname)) {
+    return null;
+  }
 
   if (pathname === SITE_GATE_PATH) {
     return null;
@@ -47,7 +52,8 @@ async function siteGate(request: NextRequest): Promise<NextResponse | null> {
 
   const gateUrl = request.nextUrl.clone();
   gateUrl.pathname = SITE_GATE_PATH;
-  gateUrl.searchParams.set("from", pathname);
+  gateUrl.search = "";
+  gateUrl.searchParams.set("from", `${pathname}${search}`);
   return NextResponse.redirect(gateUrl);
 }
 
@@ -70,6 +76,7 @@ const hasClerk =
 const isPublicRoute = createRouteMatcher([
   "/login(.*)",
   "/register(.*)",
+  "/accept-invitation(.*)",
   "/forgot-password(.*)",
   "/contact(.*)",
   "/api/webhooks/clerk(.*)",
@@ -82,6 +89,12 @@ const isPublicRoute = createRouteMatcher([
   "/__clerk(.*)",
 ]);
 
+// The bare sign-in/sign-up entry points only — NOT "/login(.*)" wildcard, which would also
+// catch /login/tasks (the manager onboarding step that /launch itself redirects signed-in
+// users to). A signed-in user landing on these two exact routes already has a session, so
+// send them to /launch to resolve where they left off instead of showing the form again.
+const isAuthEntryRoute = createRouteMatcher(["/login", "/register"]);
+
 async function siteGateOnly(request: NextRequest): Promise<NextResponse> {
   return (await siteGate(request)) ?? NextResponse.next();
 }
@@ -90,6 +103,11 @@ const middleware = hasClerk
   ? clerkMiddleware(async (auth, request) => {
       const gated = await siteGate(request);
       if (gated) return gated;
+      const { userId } = await auth();
+      const hasInviteTicket = request.nextUrl.searchParams.has("__clerk_ticket");
+      if (userId && isAuthEntryRoute(request) && !hasInviteTicket) {
+        return NextResponse.redirect(new URL("/launch", request.url));
+      }
       // Redirect signed-out users hitting a protected route to /login (set via ClerkProvider signInUrl).
       if (!isPublicRoute(request)) await auth.protect();
     })

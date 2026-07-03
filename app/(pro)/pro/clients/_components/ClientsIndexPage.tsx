@@ -1,27 +1,35 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ChevronRight, Plus, RotateCcw } from "lucide-react";
 import { ClientsTable } from "@/app/(pro)/pro/dashboard/_components/ClientsTable";
-import { OnboardClientModal } from "./OnboardClientModal";
+import { AddClientModal } from "./AddClientModal";
 import { ConfirmAction } from "@/components/ui/confirm-action";
-import { setClientStatus } from "@/app/(pro)/pro/actions";
+import { setClientStatus } from "@/app/(pro)/pro/clients.actions";
 import type { ClientRollup } from "@/app/(pro)/pro/queries";
 import { cn } from "@/components/ui/utils";
+// Must match MAX_UNCONFIRMED_CLIENTS in lib/services/client-onboarding.ts.
+const MAX_UNCONFIRMED_CLIENTS = 20;
 
-// Clients index — the full book of business. Reuses the dashboard's
-// ClientsTable (real rollups) and hosts the onboarding form.
-// Also shows archived (Inactive) clients with a Reactivate button.
+type RequestRow = {
+  id: string;
+  ownerOrgName: string;
+  requestedLevel: "view" | "full";
+  status: "pending" | "approved" | "denied";
+  createdAt: number;
+};
 
 export function ClientsIndexPage({
   clients,
   inactiveClients,
   unassignedProperties,
+  unconfirmedCount,
+  managerName,
+  managerEmail,
+  requests,
 }: {
   clients: ClientRollup[];
-  // Clients whose status is "Inactive" — excluded from rollups but shown
-  // here so the manager can reactivate them.
   inactiveClients: Array<{
     id: string;
     name: string;
@@ -30,17 +38,37 @@ export function ClientsIndexPage({
     clientType: "Individual" | "Corporate";
   }>;
   unassignedProperties: Array<{ id: string; name: string }>;
+  unconfirmedCount: number;
+  managerName: string;
+  managerEmail: string;
+  requests: RequestRow[];
 }) {
-  const [onboardOpen, setOnboardOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [addMode, setAddMode] = useState<"choose" | "new" | "connect">("choose");
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Deep links open the modal on the right branch, then clean the URL.
+  useEffect(() => {
+    const add = searchParams.get("add");
+    const onboard = searchParams.get("onboard");
+    if (add === "connect") { setAddMode("connect"); setAddOpen(true); }
+    else if (onboard === "1") { setAddMode("new"); setAddOpen(true); }
+    else if (add) { setAddMode("choose"); setAddOpen(true); }
+    else return;
+    router.replace("/pro/clients", { scroll: false });
+  }, [searchParams, router]);
 
   // Calls the setClientStatus server action and refreshes so the UI reflects
-  // the new state immediately (active clients disappear on Archive, inactive
-  // clients disappear on Reactivate).
+  // the new state immediately.
   async function handleArchive(clientId: string): Promise<void> {
     await setClientStatus({ clientId, status: "Inactive" });
     router.refresh();
   }
+
+  // Active clients minus the synthetic "My Portfolio" entry.
+  const realClientCount = clients.filter((r) => r.client.id !== "OWN").length;
+  const atQuota = unconfirmedCount >= MAX_UNCONFIRMED_CLIENTS;
 
   return (
     <main className="h-full overflow-y-auto bg-slate-50/50">
@@ -57,32 +85,59 @@ export function ClientsIndexPage({
             <h1 className="text-[28px] font-semibold leading-tight text-slate-900 dark:text-slate-100">
               Clients
             </h1>
-            <p className="text-[13px] text-slate-500 dark:text-slate-400">
-              {clients.length} owner{" "}
-              {clients.length === 1 ? "engagement" : "engagements"} under
-              management
-            </p>
+            <div className="flex items-center gap-3">
+              <p className="text-[13px] text-slate-500 dark:text-slate-400">
+                {realClientCount} owner{" "}
+                {realClientCount === 1 ? "engagement" : "engagements"} under
+                management
+              </p>
+              {/* Quota hint — shows how many pending invitations are outstanding */}
+              {unconfirmedCount > 0 && (
+                <span
+                  className={cn(
+                    "text-[11.5px] font-medium px-2 py-0.5 rounded-full",
+                    atQuota
+                      ? "bg-red-50 text-red-700 border border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800"
+                      : "bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800",
+                  )}
+                >
+                  {unconfirmedCount}/{MAX_UNCONFIRMED_CLIENTS} pending
+                  {atQuota ? " — at limit" : ""}
+                </span>
+              )}
+            </div>
           </div>
           <button
             type="button"
-            onClick={() => setOnboardOpen(true)}
-            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md bg-blue-600 px-3 text-[13px] font-medium text-white transition-[background-color,transform] hover:bg-blue-700 active:scale-[0.97]"
+            onClick={() => { setAddMode("choose"); setAddOpen(true); }}
+            disabled={atQuota}
+            className={cn(
+              "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md px-3 text-[13px] font-medium text-white transition-[background-color,transform]",
+              atQuota
+                ? "bg-slate-300 cursor-not-allowed dark:bg-slate-700"
+                : "bg-blue-600 hover:bg-blue-700 active:scale-[0.97]",
+            )}
+            title={atQuota ? `Limit of ${MAX_UNCONFIRMED_CLIENTS} pending clients reached` : undefined}
           >
             <Plus className="h-4 w-4" />
-            Onboard Client
+            Add Client
           </button>
         </header>
 
-        <OnboardClientModal
-          open={onboardOpen}
-          onOpenChange={setOnboardOpen}
+        <AddClientModal
+          open={addOpen}
+          onOpenChange={setAddOpen}
+          initialMode={addMode}
           unassignedProperties={unassignedProperties}
+          managerName={managerName}
+          managerEmail={managerEmail}
+          requests={requests}
         />
 
-        {/* Active clients — Archive button is shown because onArchive is provided. */}
+        {/* Unified clients table — Status column + Manage members drawer built in */}
         <ClientsTable clients={clients} onArchive={handleArchive} />
 
-        {/* Archived clients — only shown when at least one client is inactive. */}
+        {/* Archived clients — only shown when at least one client is inactive */}
         {inactiveClients.length > 0 && (
           <section className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
             <h2 className="mb-4 text-[13px] font-semibold text-slate-700 dark:text-slate-200">
@@ -112,7 +167,6 @@ export function ClientsIndexPage({
                       </span>
                     </div>
                   </div>
-                  {/* Reactivate restores the client to the active book. */}
                   <ConfirmAction
                     tier="confirm"
                     title={`Reactivate ${client.name}?`}

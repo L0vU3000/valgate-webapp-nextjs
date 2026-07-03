@@ -2,8 +2,15 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { ArrowRight, AlertTriangle } from "lucide-react";
-import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
+// The recharts donut loads lazily, client-only, so recharts is no longer in this card's — and
+// therefore the dashboard/client-portfolio pages' — initial bundle. The skeleton fills the same
+// h-36 box while the chunk streams in; the % overlay renders instantly on top.
+const OccupancyCardChart = dynamic(
+  () => import("./OccupancyCardChart").then((m) => m.OccupancyCardChart),
+  { ssr: false, loading: () => <div className="h-full w-full animate-pulse rounded-full bg-slate-100 dark:bg-slate-800" /> },
+);
 import { WidgetCard } from "@/app/(pro)/pro/_components/WidgetCard";
 import type { ProDashboardData } from "../../queries";
 
@@ -55,24 +62,7 @@ export function OccupancyCard({
     <WidgetCard title="Occupancy">
       {hasData ? (
         <div className="relative h-36">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={chartData}
-                dataKey="value"
-                nameKey="name"
-                innerRadius={48}
-                outerRadius={66}
-                startAngle={90}
-                endAngle={-270}
-                strokeWidth={0}
-              >
-                {chartData.map((slice) => (
-                  <Cell key={slice.name} fill={slice.color} />
-                ))}
-              </Pie>
-            </PieChart>
-          </ResponsiveContainer>
+          <OccupancyCardChart chartData={chartData} />
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
             <span className="text-[24px] font-semibold text-slate-900 dark:text-slate-100 leading-none">
               {occupancyRate}%

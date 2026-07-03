@@ -1,7 +1,13 @@
 "use client";
 
 import { z } from "zod";
-import { FeatureUnlockWizard } from "../FeatureUnlockWizard";
+import dynamic from "next/dynamic";
+// The unlock modal (react-hook-form + zod, ~537 lines) loads lazily — its code stays out of
+// this property segment's bundle until the user actually opens the unlock wizard.
+const FeatureUnlockWizard = dynamic(
+  () => import("../FeatureUnlockWizard").then((m) => m.FeatureUnlockWizard),
+  { ssr: false },
+);
 import type { WizardConfig } from "../types";
 import type { UseFormReturn } from "react-hook-form";
 import {

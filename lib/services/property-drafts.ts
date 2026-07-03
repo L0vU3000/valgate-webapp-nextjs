@@ -9,7 +9,7 @@ import { assertCanMutate } from "@/lib/services/_mapping";
 // storage.ts exports this as `deleteStorageObject`; aliased to keep the
 // call sites below short and unchanged after the v1.0.2 merge renamed it.
 import { deleteStorageObject as deleteObject } from "@/lib/services/storage";
-import { createDocument as svcCreateDocument } from "@/lib/services/documents";
+import { createDocument as svcCreateDocument, createDocumentForOrg as svcCreateDocumentForOrg } from "@/lib/services/documents";
 import { log } from "@/lib/log";
 
 // ---------------------------------------------------------------------------
@@ -78,9 +78,11 @@ function rowToDraftFile(r: typeof propertyDraftFiles.$inferSelect): PropertyDraf
 
 // Lists the caller's own drafts, newest-edited first. Scoped to (org_id, user_id)
 // so it never returns another member's drafts. Read-only — allowed in demo mode.
-export async function listPropertyDrafts(ctx: Ctx): Promise<PropertyDraft[]> {
+// Accepts an optional targetOrgId override to filter drafts by a different org (Pro wizard).
+export async function listPropertyDrafts(ctx: Ctx, targetOrgId?: string): Promise<PropertyDraft[]> {
+  const orgFilter = targetOrgId ?? ctx.orgId;
   const rows = await db.select().from(propertyDrafts)
-    .where(and(eq(propertyDrafts.orgId, ctx.orgId), eq(propertyDrafts.userId, ctx.userId))) // C3 + personal
+    .where(and(eq(propertyDrafts.orgId, orgFilter), eq(propertyDrafts.userId, ctx.userId))) // C3 + personal
     .orderBy(desc(propertyDrafts.updatedAt), desc(propertyDrafts.id))
     .limit(100);
   return rows.map(rowToDraft);
@@ -101,20 +103,24 @@ export async function getPropertyDraft(ctx: Ctx, id: string): Promise<PropertyDr
 
 // Creates a new draft with a server-minted DRFT-xxxx id. scopedInsert stamps org_id +
 // user_id from ctx and refuses writes in demo mode / for non-members.
+// Accepts an optional targetOrgId override for cross-org draft creation (e.g. Pro wizard).
 export async function createPropertyDraft(
   ctx: Ctx,
   input: { title: string; step: number; form: Record<string, unknown> },
+  targetOrgId?: string,
 ): Promise<PropertyDraft> {
-  return scopedInsert(ctx, propertyDrafts, "DRFT", input, rowToDraft);
+  return scopedInsert(ctx, propertyDrafts, "DRFT", input, rowToDraft, targetOrgId ? { orgId: targetOrgId } : undefined);
 }
 
 // Updates one of the caller's own drafts and bumps updated_at. Returns null if no row
 // matched the (org_id, user_id, id) filter — i.e. it doesn't exist or isn't theirs, so a
 // member can't overwrite another member's draft (IDOR guard).
+// Accepts an optional targetOrgId override for cross-org draft updates (e.g. Pro wizard).
 export async function updatePropertyDraft(
   ctx: Ctx,
   id: string,
   patch: { title?: string; step?: number; form?: Record<string, unknown> },
+  targetOrgId?: string,
 ): Promise<PropertyDraft | null> {
   assertCanMutate();     // D9 — demo mode is read-only
   requireMember(ctx);    // role gate
@@ -123,10 +129,11 @@ export async function updatePropertyDraft(
   // Using the app clock here instead would let app↔DB skew invert the ordering, and the drafts
   // list orders by updated_at — so a just-edited draft could wrongly sort below an older one.
   dbPatch.updatedAt = sql`now()`;
+  const orgFilter = targetOrgId ?? ctx.orgId;
   const [row] = await db.update(propertyDrafts)
     .set(dbPatch as never)
     .where(and(
-      eq(propertyDrafts.orgId, ctx.orgId),
+      eq(propertyDrafts.orgId, orgFilter),
       eq(propertyDrafts.userId, ctx.userId),
       eq(propertyDrafts.id, id),
     ))
@@ -272,6 +279,41 @@ export async function convertDraftToDocuments(
     });
   }
   // Rows only — never deleteObject here (see deleteDraftRowsOnly).
+  await deleteDraftRowsOnly(ctx, draftId);
+  return files.length;
+}
+
+// Cross-org variant of convertDraftToDocuments, used by the Pro add-property wizard.
+//
+// The staged draft files belong to the CALLER's own org (where the manager uploaded them),
+// but the freshly-created property lives in `targetOrgId` — a managed client's portfolio
+// org. So we read the files from the caller's org (listDraftFiles is ctx-scoped) and create
+// each document in the TARGET org via createDocumentForOrg. Without this, the documents would
+// land in the manager's org and the client would never see their own property's files.
+//
+// Same fail-soft ordering as the single-org version: create documents first (each reuses its
+// S3 object verbatim — no re-upload), then delete the draft ROWS ONLY. If a document insert
+// throws, the draft and its files survive for a retry; the S3 objects are never deleted here.
+export async function convertDraftToDocumentsForOrg(
+  ctx: Ctx,
+  draftId: string,
+  propertyId: string,
+  targetOrgId: string,
+): Promise<number> {
+  assertCanMutate();
+  requireMember(ctx);
+  const files = await listDraftFiles(ctx, draftId);
+  for (const file of files) {
+    await svcCreateDocumentForOrg(ctx, targetOrgId, {
+      propertyId,
+      name: file.name,
+      kind: file.kind,
+      mimeType: file.mimeType ?? undefined,
+      sizeBytes: file.sizeBytes ?? undefined,
+      storageId: file.storageId, // SAME S3 object — reused verbatim, no re-upload
+      uploadedAt: Date.now(),
+    });
+  }
   await deleteDraftRowsOnly(ctx, draftId);
   return files.length;
 }

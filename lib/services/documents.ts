@@ -5,7 +5,7 @@ import { documents } from "@/lib/db/schema";
 import { DocumentSchema, type Document } from "@/lib/data/types/document";
 import type { NewDocument, DocumentPatch } from "@/lib/data/types/document";
 import { toDomain, type Ctx } from "@/lib/services/_mapping";
-import { scopedInsert, scopedUpdate, scopedDelete } from "@/lib/services/_crud";
+import { scopedInsert, scopedUpdate, scopedDelete, assertOrgAdmin } from "@/lib/services/_crud";
 import { deleteStorageObject } from "@/lib/services/storage";
 
 const rowToDocument = (r: typeof documents.$inferSelect): Document =>
@@ -29,6 +29,26 @@ export async function getDocument(ctx: Ctx, id: string): Promise<Document | null
 
 export async function createDocument(ctx: Ctx, input: NewDocument): Promise<Document> {
   return scopedInsert(ctx, documents, "DOC", input, rowToDocument);
+}
+
+// Creates a document in a DIFFERENT org than the caller's active one — used when a
+// manager populates a managed client's portfolio, which lives in its own Clerk org.
+//
+// This mirrors createPropertyForOrg (lib/services/properties.ts): scopedInsert always
+// stamps orgId = ctx.orgId, so without this override a manager's uploaded files would be
+// filed under the MANAGER's org instead of the client's portfolio org — and the client
+// (who reads documents scoped to their own org) would never see them.
+//
+// Authorization: we verify the caller is an admin of the target org via the Neon
+// membership mirror (assertOrgAdmin). The `{ orgId: targetOrgId }` extra is spread last
+// in scopedInsert, so it overrides the default ctx.orgId.
+export async function createDocumentForOrg(
+  ctx: Ctx,
+  targetOrgId: string,
+  input: NewDocument,
+): Promise<Document> {
+  await assertOrgAdmin(ctx, targetOrgId);
+  return scopedInsert(ctx, documents, "DOC", input, rowToDocument, { orgId: targetOrgId });
 }
 
 export async function updateDocument(ctx: Ctx, id: string, patch: DocumentPatch): Promise<Document | null> {

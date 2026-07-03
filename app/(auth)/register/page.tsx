@@ -1,5 +1,10 @@
+import { Suspense } from "react";
 import { RegisterPage } from "./_components/RegisterPage";
 
-export default async function Page() {
-  return <RegisterPage />;
+export default function Page() {
+  return (
+    <Suspense fallback={null}>
+      <RegisterPage />
+    </Suspense>
+  );
 }

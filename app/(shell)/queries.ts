@@ -1,6 +1,7 @@
 import "server-only";
-import { getProperties } from "@/lib/data/properties";
 import { requireCtx } from "@/lib/auth/ctx";
+import type { Ctx } from "@/lib/services/_mapping";
+import { listProperties } from "@/lib/services/properties";
 import { listPayments } from "@/lib/services/payments";
 import { listLeases } from "@/lib/services/leases";
 import { listPropertyValuations } from "@/lib/services/property-valuations";
@@ -36,8 +37,11 @@ export type HomePageData = {
   documents: Document[];
 };
 
-export async function getHomePageData(): Promise<HomePageData> {
-  const authCtx = await requireCtx();
+// Pass a `ctx` to render the owner home view scoped to *another* org — e.g. the
+// manager's read-only "View as client" preview, which builds a client-scoped Ctx
+// instead of the caller's own session. Omit it for the normal owner request.
+export async function getHomePageData(ctxOverride?: Ctx): Promise<HomePageData> {
+  const authCtx = ctxOverride ?? (await requireCtx());
 
   const [
     properties,
@@ -55,7 +59,7 @@ export async function getHomePageData(): Promise<HomePageData> {
     successorAssignments,
     documents,
   ] = await Promise.all([
-    getProperties(),
+    listProperties(authCtx),
     listPayments(authCtx),
     listLeases(authCtx),
     listPropertyValuations(authCtx),

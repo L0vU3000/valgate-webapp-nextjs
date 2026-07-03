@@ -44,3 +44,7 @@ export async function createPayment(ctx: Ctx, input: NewPayment): Promise<Paymen
 export async function updatePayment(ctx: Ctx, id: string, patch: PaymentPatch): Promise<Payment | null> {
   return scopedUpdate(ctx, payments, id, patch, rowToPayment);
 }
+
+export async function deletePayment(ctx: Ctx, id: string): Promise<void> {
+  await scopedDelete(ctx, payments, id);
+}

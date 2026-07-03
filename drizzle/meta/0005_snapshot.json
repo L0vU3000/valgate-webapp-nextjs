@@ -2003,7 +2003,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-<<<<<<< HEAD
     "public.property_draft_files": {
       "name": "property_draft_files",
       "schema": "",
@@ -2230,8 +2229,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-=======
->>>>>>> origin/valgate-webapp-nextjs-v1.0.2
     "public.expenses": {
       "name": "expenses",
       "schema": "",
@@ -5278,12 +5275,7 @@
       "values": [
         "Open",
         "InProgress",
-<<<<<<< HEAD
         "Resolved"
-=======
-        "Resolved",
-        "Cancelled"
->>>>>>> origin/valgate-webapp-nextjs-v1.0.2
       ]
     },
     "public.safety_risk_severity": {

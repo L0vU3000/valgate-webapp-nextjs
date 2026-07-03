@@ -15,6 +15,7 @@ import {
   approveAccessRequest,
   denyAccessRequest,
   AccessError,
+  ensureManagerHomeOrganizationForClerkUser,
 } from "@/lib/services/managers";
 import { setUserIsManager } from "@/lib/services/identity-sync";
 import { auth } from "@clerk/nextjs/server";
@@ -75,6 +76,14 @@ export async function setManagerMode(enabled: boolean): Promise<{ ok: boolean; e
     }
     // userId here is the Clerk user_… id — setUserIsManager resolves the internal row.
     await setUserIsManager(userId, enabled);
+    if (enabled) {
+      try {
+        await ensureManagerHomeOrganizationForClerkUser(userId);
+      } catch (err) {
+        logger.error("setManagerMode: ensure home org failed", { error: String(err) });
+        return { ok: false, error: "Manager mode saved, but your workspace could not be created." };
+      }
+    }
     revalidatePath("/settings");
     revalidatePath("/");
     return { ok: true };

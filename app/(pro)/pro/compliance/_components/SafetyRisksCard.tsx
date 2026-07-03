@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { WidgetCard } from "@/app/(pro)/pro/_components/WidgetCard";
 import { EnterLi } from "@/app/(pro)/pro/_components/motion-primitives";
-import { resolveSafetyRisk } from "@/app/(pro)/pro/actions";
+import { resolveSafetyRisk } from "@/app/(pro)/pro/compliance.actions";
 import { ConfirmAction } from "@/components/ui/confirm-action";
 import { toActionResult } from "@/lib/client/action-result";
 import { cn } from "@/components/ui/utils";

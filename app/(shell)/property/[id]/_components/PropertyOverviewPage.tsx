@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   FileText, Wrench, Bell,
   MoreHorizontal, Download, Pencil,
-  DollarSign, AlertTriangle, Clock,
+  DollarSign, AlertTriangle, Clock, UserCheck,
   Building2, Maximize2, Calendar, MapPin,
   BedDouble, Bath, Car, FileCheck,
   TrendingUp, TrendingDown,
@@ -18,9 +18,13 @@ import { ConfirmAction } from "@/components/ui/confirm-action";
 import { X } from "lucide-react";
 import { toast } from "sonner";
 import type { PropertyListItem } from "@/lib/data/types/property";
-import {
-  BarChart, Bar, ResponsiveContainer, Tooltip, XAxis,
-} from "recharts";
+import dynamic from "next/dynamic";
+// The recharts bar chart loads lazily, client-only, so recharts is no longer in this page's initial
+// bundle — it downloads once the chart renders. The skeleton fills the same 72px-tall box.
+const OverviewBarChart = dynamic(
+  () => import("./OverviewBarChart").then((m) => m.OverviewBarChart),
+  { ssr: false, loading: () => <div className="h-[72px] w-full animate-pulse rounded bg-slate-50" /> },
+);
 import type { Property } from "@/lib/data/types/property";
 import type { PropertyValuation } from "@/lib/data/types/property-valuation";
 import type { Lease } from "@/lib/data/types/lease";
@@ -172,6 +176,7 @@ function getAlertStyle(type: string, category?: string): {
   if (category === "COMPLIANCE")    return { borderClass: "border-l-rose-500",   iconBg: "bg-rose-50",   iconFg: "text-rose-500",   label: "Compliance",  Icon: AlertTriangle  };
   if (category === "PAYMENT")       return { borderClass: "border-l-blue-400",   iconBg: "bg-blue-50",   iconFg: "text-blue-500",   label: "Payment",     Icon: DollarSign     };
   if (category === "LEASING")       return { borderClass: "border-l-blue-400",   iconBg: "bg-blue-50",   iconFg: "text-blue-500",   label: "Leasing",     Icon: FileText       };
+  if (category === "ACCESS")        return { borderClass: "border-l-indigo-400", iconBg: "bg-indigo-50", iconFg: "text-indigo-500", label: "Access",      Icon: UserCheck      };
   return                                   { borderClass: "border-l-amber-400",  iconBg: "bg-amber-50",  iconFg: "text-amber-500",  label: "Maintenance", Icon: Wrench         };
 }
 
@@ -703,31 +708,7 @@ export function PropertyOverviewPage({
                   </div>
                   {/* 6-month income vs expense chart */}
                   <div className="-mx-1">
-                    <ResponsiveContainer width="100%" height={72}>
-                      <BarChart data={chartData} barSize={7} barGap={1} margin={{ top: 2, right: 4, bottom: 0, left: 4 }}>
-                        <XAxis
-                          dataKey="label"
-                          tick={{ fontSize: 9, fill: "#94a3b8" }}
-                          axisLine={false}
-                          tickLine={false}
-                        />
-                        <Tooltip
-                          cursor={{ fill: "rgba(0,0,0,0.04)" }}
-                          contentStyle={{
-                            fontSize: 11,
-                            borderRadius: 6,
-                            border: "1px solid #e2e8f0",
-                            boxShadow: "0 4px 6px -1px rgba(0,0,0,0.08)",
-                          }}
-                          formatter={(value: number, name: string) => [
-                            formatCurrencyFull(value),
-                            name === "income" ? "Income" : "Expenses",
-                          ]}
-                        />
-                        <Bar dataKey="income"  fill="var(--val-primary-dark)" radius={[2, 2, 0, 0]} opacity={0.85} />
-                        <Bar dataKey="expense" fill="#fda4af"                 radius={[2, 2, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
+                    <OverviewBarChart chartData={chartData} />
                   </div>
                   <div className="grid grid-cols-2 gap-3 pt-1 border-t border-slate-100">
                     <div>

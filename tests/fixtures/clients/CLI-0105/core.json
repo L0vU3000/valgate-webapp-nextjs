@@ -1,0 +1,16 @@
+{
+  "id": "CLI-0105",
+  "userId": "demo-user",
+  "name": "Harper & Liem Estates",
+  "clientType": "Corporate",
+  "initials": "HL",
+  "avatarBg": "bg-emerald-400",
+  "email": "portfolio@harperliem.com",
+  "phone": "+855 23 882 460",
+  "preferredContact": "Email",
+  "clientSince": 1661990400000,
+  "managementFeePct": 8.5,
+  "status": "Inactive",
+  "createdAt": 1661990400000,
+  "updatedAt": 1782807341497
+}

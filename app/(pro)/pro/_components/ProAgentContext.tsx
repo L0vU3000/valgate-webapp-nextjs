@@ -6,8 +6,7 @@ import { createContext, useContext } from "react";
 // optionally jumping straight to a specific session (e.g. from a board card).
 type ProAgentCtx = {
   openAI: (sessionId?: string) => void;
-  // Opens the floating docked panel (Agent Hub only). Falls back to openAI
-  // elsewhere — callers don't need to know which entry point is active.
+  // Opens the floating docked panel — mounted on every /pro page.
   openFloating: (sessionId?: string) => void;
 };
 

@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "ux_clients_manager_org" ON "clients" USING btree ("manager_user_id","org_id") WHERE "clients"."org_id" is not null;

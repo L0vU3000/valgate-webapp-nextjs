@@ -95,7 +95,7 @@ This project uses **Neon (serverless Postgres)** with **Drizzle ORM** as its bac
 - Seeding: `npm run seed:neon`. **Never run `seed:reset`** — it destroys the evolved seed data.
 - `DATABASE_URL` points at the Neon branch; it is a secret (server-only, never `NEXT_PUBLIC_`).
 
-> The `convex/` directory is a legacy/parallel layer that the app does **not** call. Do not
+> The `archive/convex/` directory is a legacy/parallel layer that the app does **not** call. Do not
 > add new backend code there or follow Convex patterns — use Neon + Drizzle services.
 
 ## graphify

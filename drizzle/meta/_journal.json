@@ -92,6 +92,83 @@
       "when": 1782669560346,
       "tag": "0012_chief_mongu",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1782715197169,
+      "tag": "0013_heavy_sentinel",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1782719650708,
+      "tag": "0014_flowery_garia",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1782746348258,
+      "tag": "0015_gigantic_paibok",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1782749834381,
+      "tag": "0016_curly_rattler",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1782791417836,
+      "tag": "0017_magenta_black_cat",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1782793452485,
+      "tag": "0018_married_dragon_lord",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1782793452486,
+      "tag": "0019_manager_access_model",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1782806350584,
+      "tag": "0020_complex_energizer",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1782884792649,
+      "tag": "0021_round_bastion",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1782885034519,
+      "tag": "0022_backfill_welcome_seen_at",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1782968500000,
+      "tag": "0023_clients_contact_fields",
+      "breakpoints": true
     }
   ]
 }

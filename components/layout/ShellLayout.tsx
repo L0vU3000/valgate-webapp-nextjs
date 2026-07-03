@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { Toaster } from "sonner";
 import { cn } from "../ui/utils";
@@ -12,7 +13,14 @@ import {
 import { Sidebar } from "./Sidebar";
 import { PhoneTopBar } from "./PhoneTopBar";
 import { MobileAIFab } from "./MobileAIFab";
-import { AIOverlay } from "./AIOverlay";
+// The AI overlay (chat panes + motion + a react-pdf viewer) is closed on load and opened on
+// demand. It's mounted in this shell — which wraps every owner-side route — so loading it
+// lazily removes motion/react-pdf/chat code from the shared First Load bundle. It renders
+// nothing until opened, so no loading fallback is needed.
+const AIOverlay = dynamic(
+  () => import("./AIOverlay").then((m) => m.AIOverlay),
+  { ssr: false },
+);
 import { ShellContext } from "./shell-context";
 
 export function ShellLayout({

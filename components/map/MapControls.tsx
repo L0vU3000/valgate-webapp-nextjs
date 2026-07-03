@@ -4,7 +4,10 @@ import type React from "react";
 import { Layers, RefreshCw, ZoomIn, ZoomOut } from "lucide-react";
 import { MapIconButton } from "@/components/home/QuickStats";
 import { cn } from "@/components/ui/utils";
-import mapboxgl from "mapbox-gl";
+// Type-only import: this component uses `mapboxgl.Map` solely as a type on `mapRef`,
+// never the runtime. `import type` keeps the ~500 kB mapbox-gl library out of any
+// bundle that pulls in MapControls.
+import type mapboxgl from "mapbox-gl";
 
 const CAMBODIA_CENTER: [number, number] = [104.9, 12.5];
 const CAMBODIA_ZOOM = 7;

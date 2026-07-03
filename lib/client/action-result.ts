@@ -15,7 +15,7 @@
 import { toast } from "sonner";
 import type { ActionResult } from "@/app/actions/_result";
 
-// Some action families (e.g. the Pro interface in app/(pro)/pro/actions.ts)
+// Some action families (e.g. the Pro interface in app/(pro)/pro/*.actions.ts)
 // return a leaner result shape with no `data` payload on success:
 //     { ok: true } | { ok: false; error: string }
 // The shared toast + <ConfirmAction> + useDestructiveAction helpers all expect

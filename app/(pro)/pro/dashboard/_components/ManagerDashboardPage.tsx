@@ -11,49 +11,34 @@ import { OccupancyCard } from "./OccupancyCard";
 import { MaintenanceQueueCard } from "./MaintenanceQueueCard";
 import { ComplianceTable } from "./ComplianceTable";
 import { ActivityFeed } from "./ActivityFeed";
-import { ManagedAccountsSection } from "./ManagedAccountsSection";
 import { SectionEnter } from "@/app/(pro)/pro/_components/motion-primitives";
 import type { ProDashboardData } from "../../queries";
-import type { ManagedAccount, MyAccessRequest } from "@/lib/services/managers";
 
 // Top-level composition for the manager dashboard.
 // Receives the full server-derived payload and distributes the slices
 // to each widget — no widget invents its own data.
 //
 // Layout (managers):
-//   <ManagedAccountsSection /> ← account rollup — first, above everything
 //   <PageHeader />             ← title + breadcrumb + real book summary
 //   <KpiBanner />              ← 5 stat cards (book-level rollups)
 //   <AlertsStrip />            ← derived alert chips
 //   <div grid 65/35>           ← Clients + Assets | 4 stacked widgets
 //   <div grid 50/50>           ← Compliance | Activity
 //
-// Owners: managedAccounts === null → ManagedAccountsSection is absent, layout unchanged.
-
-type ManagedAccountsData = {
-  accounts: ManagedAccount[];
-  pending: MyAccessRequest[];
-} | null;
+// The managed clients live in the ClientsTable widget below — the dedicated
+// "Managed accounts" rollup that used to sit above the header was redundant
+// with it and has been removed. Connected (invite-code) accounts have no
+// dedicated switch-into-account surface right now (AccountSwitcher was
+// removed); pending requests surface via the Add Client modal on /pro/clients.
 
 export function ManagerDashboardPage({
   data,
-  managedAccounts,
 }: {
   data: ProDashboardData;
-  managedAccounts: ManagedAccountsData;
 }) {
   return (
     <main className="h-full overflow-y-auto bg-slate-50/50">
       <div className="mx-auto flex max-w-[1440px] flex-col gap-6 px-4 py-6 sm:px-8 sm:py-8">
-        {/* Manager rollup — only rendered when caller is a manager. Sits above PageHeader. */}
-        {managedAccounts !== null && (
-          <SectionEnter index={0}>
-            <ManagedAccountsSection
-              accounts={managedAccounts.accounts}
-              pending={managedAccounts.pending}
-            />
-          </SectionEnter>
-        )}
         <SectionEnter index={0}>
           <PageHeader
             clientCount={data.kpis.clientCount}
@@ -72,7 +57,7 @@ export function ManagerDashboardPage({
           className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[65fr_35fr]"
         >
           <div className="flex flex-col gap-6">
-            <ClientsTable clients={data.clients} />
+            <ClientsTable clients={data.clients} showAddClient />
             <AssetsTable properties={data.properties} />
           </div>
           <div className="flex flex-col gap-6">

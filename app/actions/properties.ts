@@ -13,6 +13,7 @@ import type { Tenant } from "@/lib/data/types/tenant";
 import type { Payment } from "@/lib/data/types/payment";
 import {
   createProperty as svcCreateProperty,
+  createPropertyForOrg as svcCreatePropertyForOrg,
   updateProperty as svcUpdateProperty,
   deleteProperty as svcDeleteProperty,
   getProperty as svcGetProperty,
@@ -40,6 +41,23 @@ export async function createProperty(data: unknown): Promise<ActionResult<Proper
     return { ok: true, data: result };
   } catch (err) {
     console.error("createProperty", err);
+    return { ok: false, error: "Could not create property" };
+  }
+}
+
+export async function createPropertyForOrg(
+  targetOrgId: string,
+  data: unknown,
+): Promise<ActionResult<Property>> {
+  const parsed = NewPropertySchema.safeParse(data);
+  if (!parsed.success) return { ok: false, error: "Invalid property" };
+  const ctx = await requireCtx();
+  try {
+    const result = await svcCreatePropertyForOrg(ctx, targetOrgId, parsed.data);
+    revalidateFeTag("properties");
+    return { ok: true, data: result };
+  } catch (err) {
+    console.error("createPropertyForOrg", err);
     return { ok: false, error: "Could not create property" };
   }
 }

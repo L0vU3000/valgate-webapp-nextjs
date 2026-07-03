@@ -17,6 +17,7 @@ import {
   Sparkles,
   BookUser,
   LogOut,
+  Briefcase,
 } from "lucide-react";
 import { cn } from "../ui/utils";
 
@@ -34,6 +35,7 @@ const sidebarNavItems = [
   { label: "Rental", path: "/rental", icon: Key },
   { label: "Analytics", path: "/analytics", icon: BarChart2 },
   { label: "Estate Planning", path: "/estate-planning", icon: Landmark },
+  { label: "Pro", path: "/pro/dashboard", icon: Briefcase },
   { label: "Settings", path: "/settings", icon: Settings },
 ] as const;
 
@@ -52,6 +54,18 @@ interface SidebarProps {
    * the parent can close the Sheet on navigation.
    */
   onNavigate?: () => void;
+  /**
+   * Preview mode for the manager's "View as client" route. When set, the
+   * sidebar shows the *client's* identity (not the signed-in manager), hides
+   * the manager-only "Pro" item and the sign-out control, forces "Home" active,
+   * and makes nav items inert (the preview only renders the client's home).
+   */
+  isPreview?: boolean;
+  /**
+   * Identity to show in preview mode instead of the Clerk user. Lets the
+   * sidebar read as the client being previewed.
+   */
+  identity?: { displayName: string; initials: string; roleText: string };
 }
 
 export function Sidebar({
@@ -59,6 +73,8 @@ export function Sidebar({
   onOpenAI,
   variant = "rail",
   onNavigate,
+  isPreview = false,
+  identity,
 }: SidebarProps) {
   const [expanded, setExpanded] = useState(false);
   const router = useRouter();
@@ -67,17 +83,31 @@ export function Sidebar({
   const { membership } = useOrganization();
   const { signOut } = useClerk();
 
-  const displayName = user?.fullName || user?.primaryEmailAddress?.emailAddress || "Account";
+  // In preview mode use the supplied client identity; otherwise the Clerk user.
+  const displayName =
+    identity?.displayName ||
+    user?.fullName ||
+    user?.primaryEmailAddress?.emailAddress ||
+    "Account";
   const initials =
+    identity?.initials ||
     ((user?.firstName?.[0] ?? "") + (user?.lastName?.[0] ?? "")).toUpperCase() ||
     displayName.charAt(0).toUpperCase();
-  const roleText = roleLabel(membership?.role);
+  const roleText = identity ? identity.roleText : roleLabel(membership?.role);
+
+  // Managers see "Pro"; an owner-client never does, so drop it in the preview.
+  const navItems = isPreview
+    ? sidebarNavItems.filter((item) => item.label !== "Pro")
+    : sidebarNavItems;
 
   const isDrawer = variant === "drawer";
   // Drawer is always fully expanded; rail keeps the collapse toggle.
   const isExpanded = isDrawer || expanded;
 
   const handleNavigate = (path: string) => {
+    // ponytail: preview only renders the client's Home, so nav is inert here.
+    // Full client-scoped navigation across owner routes is future work.
+    if (isPreview) return;
     router.push(path);
     onNavigate?.();
   };
@@ -155,10 +185,13 @@ export function Sidebar({
 
       {/* Nav items */}
       <nav className="flex flex-col gap-1 px-2 py-3 flex-1 overflow-y-auto">
-        {sidebarNavItems.map((item) => {
+        {navItems.map((item) => {
           const Icon = item.icon;
-          const isActive =
-            item.path === "/"
+          const isPro = item.label === "Pro";
+          // Preview always sits on the client's Home, so highlight that.
+          const isActive = isPreview
+            ? item.path === "/"
+            : item.path === "/"
               ? pathname === "/"
               : pathname.startsWith(item.path);
           return (
@@ -167,9 +200,23 @@ export function Sidebar({
               onClick={() => handleNavigate(item.path)}
               className={cn(
                 "flex items-center gap-3 h-11 px-3 rounded-xl text-sm transition-colors",
-                isActive
-                  ? "bg-surface-tint text-foreground font-medium"
-                  : "text-secondary hover:bg-surface-tint hover:text-foreground",
+                isPro
+                  ? isExpanded
+                    ? cn(
+                        "border font-medium text-[#2563eb]",
+                        isActive
+                          ? "border-[#2563eb] bg-[#e4efff]"
+                          : "border-[#c3c6d7] bg-surface-base hover:bg-[#e4efff] hover:border-[#2563eb]",
+                      )
+                    : cn(
+                        "font-medium text-[#2563eb]",
+                        isActive ? "bg-[#e4efff]" : "hover:bg-[#e4efff]",
+                      )
+                  : cn(
+                      isActive
+                        ? "bg-surface-tint text-foreground font-medium"
+                        : "text-secondary hover:bg-surface-tint hover:text-foreground",
+                    ),
                 !isExpanded && "justify-center px-0",
               )}
               title={!isExpanded ? item.label : undefined}
@@ -254,17 +301,20 @@ export function Sidebar({
             </div>
           )}
         </button>
-        <button
-          onClick={() => signOut({ redirectUrl: "/login" })}
-          className={cn(
-            "flex h-11 items-center gap-3 rounded-xl px-3 text-sm text-secondary hover:bg-surface-tint hover:text-foreground transition-colors",
-            !isExpanded && "justify-center px-0",
-          )}
-          title={!isExpanded ? "Sign out" : undefined}
-        >
-          <LogOut className="size-5 shrink-0" />
-          {isExpanded && <span>Sign out</span>}
-        </button>
+        {/* No sign-out in preview — it would log the *manager* out. */}
+        {!isPreview && (
+          <button
+            onClick={() => signOut({ redirectUrl: "/login" })}
+            className={cn(
+              "flex h-11 items-center gap-3 rounded-xl px-3 text-sm text-secondary hover:bg-surface-tint hover:text-foreground transition-colors",
+              !isExpanded && "justify-center px-0",
+            )}
+            title={!isExpanded ? "Sign out" : undefined}
+          >
+            <LogOut className="size-5 shrink-0" />
+            {isExpanded && <span>Sign out</span>}
+          </button>
+        )}
       </div>
     </div>
   );

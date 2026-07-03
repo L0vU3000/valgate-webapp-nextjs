@@ -7,7 +7,7 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import { X, Search, MapPin, Plus, Minus, Map as MapIcon, Loader2 } from "lucide-react";
 import { cn } from "@/components/ui/utils";
 import { env } from "@/lib/env";
-import { useGeocode } from "../_lib/use-geocode";
+import { useGeocode } from "@/app/_shared/add-property/_lib/use-geocode";
 
 const DEFAULT_ZOOM = 13;
 

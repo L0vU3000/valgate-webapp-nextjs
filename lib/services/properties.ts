@@ -10,8 +10,8 @@ import {
 } from "@/lib/db/schema";
 import { PropertySchema, type Property } from "@/lib/data/types/property";
 import type { NewProperty, PropertyPatch } from "@/lib/data/types/property";
-import { toDomain, nextId, type Ctx } from "@/lib/services/_mapping";
-import { scopedUpdate, scopedDelete, requireMember } from "@/lib/services/_crud";
+import { toDomain, nextId, assertCanMutate, type Ctx } from "@/lib/services/_mapping";
+import { scopedUpdate, scopedDelete, requireMember, assertOrgAdmin } from "@/lib/services/_crud";
 import { convertRowToDb } from "@/lib/db/column-classifier";
 import { listDocuments } from "@/lib/services/documents";
 import { deleteStorageObject } from "@/lib/services/storage";
@@ -48,6 +48,26 @@ export async function createProperty(ctx: Ctx, input: NewProperty): Promise<Prop
   const [row] = await db.insert(properties).values({
     ...convertRowToDb(properties, merged as Record<string, unknown>),
     orgId: ctx.orgId,
+  } as never).returning();
+  return rowToProperty(row!);
+}
+
+export async function createPropertyForOrg(ctx: Ctx, targetOrgId: string, input: NewProperty): Promise<Property> {
+  assertCanMutate();
+  await assertOrgAdmin(ctx, targetOrgId);
+  const id = await nextId("PROP");
+  const now = Date.now();
+  const merged = PropertySchema.parse({
+    ...input,
+    id,
+    userId: ctx.userId,
+    code: id,
+    createdAt: now,
+    updatedAt: now,
+  });
+  const [row] = await db.insert(properties).values({
+    ...convertRowToDb(properties, merged as Record<string, unknown>),
+    orgId: targetOrgId,
   } as never).returning();
   return rowToProperty(row!);
 }
@@ -107,6 +127,76 @@ export async function deleteProperty(ctx: Ctx, id: string): Promise<void> {
   for (const sid of storageIdsToDelete) {
     await deleteStorageObject(sid); // already never-throws — see storage.ts
   }
+}
+
+export async function bulkAssignProperties(
+  ctx: Ctx,
+  targetUserId: string,
+  targetOrgId: string,
+  propertyIds: string[],
+): Promise<{ assigned: number; conflicts: string[] }> {
+  assertCanMutate();
+  requireMember(ctx);
+  const conflicts: string[] = [];
+  const toAssign: string[] = [];
+
+  await db.transaction(async (tx) => {
+    for (const propertyId of propertyIds) {
+      const [row] = await tx
+        .select({ orgId: properties.orgId, clientId: properties.clientId })
+        .from(properties)
+        .where(eq(properties.id, propertyId))
+        .limit(1);
+
+      if (!row) {
+        conflicts.push(propertyId);
+        continue;
+      }
+
+      if (row.orgId !== targetOrgId && row.clientId) {
+        conflicts.push(propertyId);
+        continue;
+      }
+
+      if (row.clientId && row.clientId !== targetUserId) {
+        conflicts.push(propertyId);
+        continue;
+      }
+
+      toAssign.push(propertyId);
+    }
+
+    for (const propertyId of toAssign) {
+      await tx
+        .update(properties)
+        .set({ clientId: targetUserId, updatedAt: new Date() })
+        .where(eq(properties.id, propertyId));
+    }
+  });
+
+  return { assigned: toAssign.length, conflicts };
+}
+
+/**
+ * Returns a Set of lowercase property names currently assigned to a specific
+ * client (by clientId) within this org. Used by importCsvProperties to detect
+ * duplicates before inserting a batch — avoids an N+1 check per row.
+ *
+ * Why lowercase: user-entered names may differ only in capitalisation
+ * (e.g. "Sunset Villa" vs "sunset villa"). Lowercasing catches those as dupes.
+ *
+ * What could go wrong: an unknown clientId returns an empty Set so no valid
+ * rows are silently blocked.
+ */
+export async function listPropertyNamesByClientId(
+  ctx: Ctx,
+  clientId: string,
+): Promise<Set<string>> {
+  const rows = await db
+    .select({ name: properties.name })
+    .from(properties)
+    .where(and(eq(properties.orgId, ctx.orgId), eq(properties.clientId, clientId)));
+  return new Set(rows.map((r) => r.name.toLowerCase()));
 }
 
 // The shape returned by countPropertyCascade — used by the delete-confirm dialog to show

@@ -1,0 +1,314 @@
+# Manager-led client onboarding (reverse handoff) — Phase 4
+
+- **Plan ID:** `plan-phase4-client-portfolio`
+- **Status:** draft
+- **Surface:** UI + backend — client-facing portfolio experience after the handoff is accepted.
+
+## Objective
+
+Phases 1–3 are entirely **manager-side**: creating orgs, sending invites, populating properties, managing lifecycle. The client receives a Clerk invitation link, accepts, and... lands on the generic owner dashboard with no context about who set up their portfolio or what to do next.
+
+Phase 4 builds the **client portfolio experience**: a dedicated post-acceptance welcome flow, a portfolio page branded with manager context, notifications for portfolio changes, and a lightweight change-request mechanism so clients can communicate back to their manager — completing the two-way loop.
+
+## Scope
+
+| # | Feature | Effort |
+|---|---------|--------|
+| 1 | Post-acceptance welcome flow | M |
+| 2 | Client portfolio page with manager context | L |
+| 3 | Client notifications for portfolio changes | S |
+| 4 | Change-request escalation to manager | M |
+
+---
+
+## 1 — Post-acceptance welcome flow
+
+### Problem
+
+When a client clicks the Clerk invitation link and accepts, they are redirected to the app. But:
+- No confirmation that their portfolio was set up by a manager
+- No context about who manages their portfolio
+- No call-to-action (browse properties, contact manager)
+- The shell shows a generic dashboard with no handoff-related content
+
+### Decision
+
+Add a **one-time welcome banner** that shows after the first acceptance. The banner explains:
+- "Your portfolio was set up by [Manager Name] at [Manager Company]"
+- "You are now the owner of [org name]"
+- "Your properties have been added to your account"
+- Contact information for the manager
+
+The banner appears on the shell homepage and can be dismissed with "Got it". It checks `client_handoffs` for rows where `clientEmail` matches the user's email and `status === "accepted"`.
+
+For **multi-portfolio clients** (a client whose email matches multiple handoffs), show a carousel or list: "You have portfolios with [Manager 1], [Manager 2]".
+
+### Implementation
+
+**Data flow:**
+```ts
+// New query: check for recently-accepted handoffs for this user's email
+async function getPendingClientWelcome(ctx: Ctx): Promise<ClientWelcome | null> {
+  // Match client_handoffs by email, status = "accepted", no dismissal record
+  // Return manager name, org name, manager contact info
+}
+```
+
+**Dismissal:** Store the dismissal in a new column or a new table (`client_welcome_dismissals`).
+
+### Decision: use a client-side dismissed flag in localStorage
+
+- Simple, no DB writes for dismissal
+- No new table or column
+- Re-shows if user clears localStorage (acceptable — it's a one-time info banner)
+- For multi-portfolio clients: always show until all handoffs are acknowledged
+
+<Callout id="1-welcome-decision" tone="decision">
+
+**Decision: localStorage dismissal** — No new schema for welcome dismissal. The welcome banner checks `localStorage.getItem("portfolio-welcome-dismissed")` and the welcome query is only called on first load when the flag is absent.
+
+</Callout>
+
+### File map
+
+| File | Change |
+|------|--------|
+| `app/(shell)/queries.ts` | Add `getClientWelcome(ctx)` — queries `clientHandoffs` + `organizations` by email, joins `users` (manager) to get manager name. |
+| `app/(shell)/_components/ClientWelcomeBanner.tsx` | **New** — dismissible banner showing manager name, org name, contact info. For multi-portfolio clients shows an accordion/carousel. |
+| `app/(shell)/layout.tsx` | Render `<ClientWelcomeBanner>` after the manager-context banner, only for non-managers (clients). |
+
+---
+
+## 2 — Client portfolio page with manager context
+
+### Problem
+
+The owner shell dashboard shows properties but doesn't tell the client who manages them, what the management terms are, or how to reach their manager. The `(pro)` layout blocks access for non-managers, so clients can't see the rich Pro view.
+
+### Decision: add a client-facing "Your Portfolio" tab
+
+Add a new route `/portfolio` within the shell group that shows:
+
+1. **Manager contact card** — name, company, email, phone of the portfolio manager
+2. **Property cards** — same property grid as the dashboard but with a "Managed by [Manager]" badge on each
+3. **Management summary** — fee structure, engagement start date, property count
+4. **Activity feed** — recent changes made by the manager (properties added, valuations updated, etc.)
+
+The route is only accessible to users who have an accepted handoff matching their email.
+
+### Data flow
+
+```ts
+// New query: client portfolio data for a specific handoff
+async function getClientPortfolioData(ctx: Ctx, handoffId: string): Promise<ClientPortfolioView | null> {
+  // 1. Match handoff by id + client email matches current user's email
+  // 2. Join organizations, users (manager), properties
+  // 3. Return manager profile, org stats, property list, activity
+}
+```
+
+### Implementation
+
+The `getClientPortfolioData` query in `app/(pro)/pro/queries.ts` already exists (line 766) but it's Pro-only (manager-facing). The client-facing version needs different concerns:
+- No rollup math (clients see simple property tiles, not Pro-style KPI panels)
+- Manager contact info instead of management metrics
+- Read-only property view (client cannot edit)
+- Activity log of manager actions scoped to their org
+
+### File map
+
+| File | Change |
+|------|--------|
+| `app/(shell)/portfolio/page.tsx` | **New** — server page, gets list of handoffs for this user's email, picks first (or shows picker for multi-portfolio). |
+| `app/(shell)/portfolio/layout.tsx` | **New** — simple layout. |
+| `app/(shell)/portfolio/_components/ClientPortfolioView.tsx` | **New** — tabbed view: Properties tab, Manager tab, Activity tab. |
+| `app/(shell)/portfolio/_components/ManagerContactCard.tsx` | **New** — manager name, org, email, phone. |
+| `app/(shell)/portfolio/_components/ClientPropertyCard.tsx` | **New** — simple property tile with "Managed by [Manager]" badge. |
+| `app/(shell)/portfolio/_components/ActivityLog.tsx` | **New** — activity feed filtered to this client's org. |
+| `app/(shell)/portfolio/_components/PortfolioPicker.tsx` | **New** — shown when client has multiple portfolios. |
+| `lib/services/client-onboarding.ts` | Add `listClientHandoffsByEmail(ctx, email)` — returns all accepted handoffs for an email address. |
+| `app/(shell)/queries.ts` | Add `getClientPortfolioView(ctx, handoffId)`. |
+| `components/layout/AppHeaderNavigation.tsx` | Add "Your Portfolio" link in the main header nav, only visible when the user has accepted handoffs. |
+
+---
+
+## 3 — Client notifications for portfolio changes
+
+### Problem
+
+Clients get no in-app notifications when their manager adds properties, updates data, or changes the portfolio. The notification system is manager-only today.
+
+### Decision: extend the existing notification system
+
+The `notifications` table already has `userId` and `orgId`. Clients who own their org (via handoff) should see notifications scoped to that org. The `insertAccessNotification` helper in `client-onboarding.ts` already writes notifications for the manager — add the mirror for the client.
+
+### Events to notify (client side)
+
+| Event | Notification title | Trigger point |
+|-------|-------------------|---------------|
+| Portfolio created | "Your portfolio with [Manager] is ready" | `onboardClientPortfolio` (invitation sent) |
+| Property added | "[Property Name] was added to your portfolio" | `createPropertyForOrg` |
+| Property updated | "[Property Name] details were updated" | `updateProperty` (scoped to target org) |
+| Manager removed access | "[Manager] no longer manages your portfolio" | `removeManagerAccess` |
+
+### Implementation
+
+- Add a `clientNotifications` helper similar to `insertAccessNotification` but targeting the client side
+- Call it from the same service functions that already fire manager notifications
+- No new schema needed — `notifications` table already has the right shape
+- The existing `NotificationsContext` in `app/(shell)/layout.tsx` already reads notifications — extend to include org-scoped notifications if the current user is `org:admin` of that org
+
+<Callout id="3-notification-decision" tone="decision">
+
+**Decision: reuse the existing notifications table** — No new schema. The `notifications` table already has `userId`, `orgId`, and `category`. The client-side notification context adds a filter for org-scoped notifications where the user's email matches the handoff.
+
+</Callout>
+
+### File map
+
+| File | Change |
+|------|--------|
+| `lib/services/client-onboarding.ts` | Add `insertClientNotification(input)` — same pattern as `insertAccessNotification` but writes to `notifications` and is called from `onboardClientPortfolio`, `createPropertyForOrg`, `removeManagerAccess`. |
+| `components/layout/NotificationsContext.tsx` | Add org-scoped notification loading for non-manager users who own accepted handoffs. |
+| `app/(shell)/_components/NotificationPanel.tsx` | Show org-scoped notifications for clients alongside system notifications. |
+
+---
+
+## 4 — Change-request escalation to manager
+
+### Problem
+
+When a client notices incorrect data in their portfolio (wrong property details, missing documents), there is no way to communicate this back to the manager. Currently the only channel is external (email, phone).
+
+### Decision: lightweight "Report an issue" flow per property
+
+Add a "Report an issue" button on each property card in the client portfolio view. Clicking opens a small form:
+1. Issue type: "Wrong details" / "Missing document" / "Other"
+2. Description (free text)
+3. Submit → creates a `change_requests` row in the client's org
+
+The manager sees the change request in the Pro notifications and can approve/deny it from the existing Pro dashboard.
+
+### Reuse existing schema
+
+The `change_requests` table already exists in `access.ts`:
+```ts
+entityType: text("entity_type"),  // "property", "document"
+entityId: text("entity_id"),       // the target row's id
+proposedPatch: jsonb("proposed_patch"),  // partial field set
+status: "pending" | "approved" | "denied"
+```
+
+No schema changes needed — the table already supports this use case. The `ownerOrgId` maps to the client's org, `managerUserId` maps to the manager's user id.
+
+### File map
+
+| File | Change |
+|------|--------|
+| `lib/services/client-onboarding.ts` | Add `submitChangeRequest(ctx, handoffId, entityType, entityId, description)` — creates a `change_requests` row in the target org, writes notification for the manager. |
+| `app/(shell)/portfolio/_components/ReportIssueModal.tsx` | **New** — modal with issue type selector + description textarea. |
+| `app/(shell)/actions.ts` | Add `submitChangeRequestAction` — Zod-schematized, calls service, revalidates. |
+| `shared types` | No change — `change_requests` entity already supports any `entityType`. |
+
+---
+
+## Architecture decisions (locked)
+
+1. **Client portfolio lives in `(shell)`** — Not in `(pro)`. The `(pro)` layout enforces `getIsManager(ctx)`, which clients never have. The shell is the correct group for client-facing pages.
+
+2. **No new DB tables** — All Phase 4 features reuse existing schema: `clientHandoffs`, `notifications`, `change_requests`. Only new queries and service functions are added.
+
+3. **Welcome dismissal in localStorage** — No dismissal column or table. The banner is informational, not critical. If the user clears storage, they see it again once — acceptable trade-off.
+
+4. **Change requests reuse `change_requests` table** — This table was designed for view-level managers proposing patches to owners. Phase 4 reverses the direction (client → manager) but the schema is direction-agnostic: the table doesn't encode who initiates, only the target and the proposed patch.
+
+5. **Notifications are org-scoped, not user-scoped** — The existing `notifications` table already has `userId` and `orgId`. Client notifications target the client's user id and the handoff's org id. The existing `NotificationsContext` filters by the current user id, so it naturally picks them up.
+
+## Current implementation status
+
+Before Phase 4 begins, this is the actual state of Phases 1–3:
+
+<Checklist id="pre-phase4-status" items={[
+  { id: "p1-schema", label: "client_handoffs table exists in access.ts", checked: true },
+  { id: "p1-service", label: "lib/services/client-onboarding.ts exists (all services)", checked: true },
+  { id: "p1-webhook", label: "Clerk webhook calls handleInvitationAccepted on organizationInvitation.accepted", checked: false, note: "Must be fixed before Phase 4 — without it, handoffs never flip to accepted" },
+  { id: "p1-actions", label: "onboardClientPortfolio / revokeClientInvitation / resendClientInvitation in actions.ts", checked: false },
+  { id: "p1-ui-wizard", label: "3-step OnboardClientWizard replaces the old OnboardClientModal", checked: false },
+  { id: "p1-ui-pending", label: "PendingHandoffsSection on the clients page", checked: false },
+  { id: "p3-schema-cols", label: "Phase 3 columns exist (managerAccess, invitationUrl, locale, bouncedAt)", checked: true },
+  { id: "p3-service", label: "Phase 3 service functions exist (handleBounce, removeManagerAccess, etc.)", checked: true },
+  { id: "p3-webhook", label: "Resend webhook route exists", checked: false },
+  { id: "p3-email-templates", label: "Email templates exist (en + km)", checked: false },
+  { id: "p3-ui-actions", label: "Phase 3 UI actions exist (removeManagerAccessAction, copyInvitationLinkAction)", checked: false },
+  { id: "p3-ui-components", label: "Phase 3 UI components exist (locale selector, copy link, remove access)", checked: false },
+]} />
+
+## File map (Phase 4 only)
+
+| File | Change |
+|------|--------|
+| `lib/services/client-onboarding.ts` | Add `listClientHandoffsByEmail`, `insertClientNotification`, `submitChangeRequest`. |
+| `app/(shell)/queries.ts` | Add `getClientWelcome(ctx)`, `getClientPortfolioView(ctx, handoffId)`. |
+| `app/(shell)/layout.tsx` | Render `<ClientWelcomeBanner>` for non-manager users with accepted handoffs. |
+| `app/(shell)/portfolio/page.tsx` | **New** — server page routing to portfolio picker or single portfolio view. |
+| `app/(shell)/portfolio/layout.tsx` | **New** — layout. |
+| `app/(shell)/portfolio/_components/ClientPortfolioView.tsx` | **New** — tabbed portfolio view. |
+| `app/(shell)/portfolio/_components/ManagerContactCard.tsx` | **New** — manager contact card. |
+| `app/(shell)/portfolio/_components/ClientPropertyCard.tsx` | **New** — property card with "Managed by" badge. |
+| `app/(shell)/portfolio/_components/ActivityLog.tsx` | **New** — org-scoped activity feed. |
+| `app/(shell)/portfolio/_components/PortfolioPicker.tsx` | **New** — multi-portfolio switcher. |
+| `app/(shell)/portfolio/_components/ReportIssueModal.tsx` | **New** — change request form. |
+| `app/(shell)/_components/ClientWelcomeBanner.tsx` | **New** — post-acceptance welcome banner. |
+| `app/(shell)/actions.ts` | Add `submitChangeRequestAction`. |
+| `components/layout/NotificationsContext.tsx` | Extend to show org-scoped notifications for clients. |
+| `components/layout/AppHeaderNavigation.tsx` | Conditionally show "Your Portfolio" link. |
+
+## Implementation order
+
+1. **Clerk webhook** — Wire `organizationInvitation.accepted` to `handleInvitationAccepted`. This is a Phase 1 gap that all higher phases depend on. Without it, handoffs never leave `pending` status and Phase 4 can't distinguish onboarded clients.
+2. **Client welcome banner** (feature 1) — Self-contained, no new pages. Reuses the shell layout. Quick win for client experience.
+3. **Client notifications** (feature 3) — Extends existing notification context. Low risk, shipping it early gives clients immediate feedback when managers act.
+4. **Client portfolio route** (feature 2) — The main surface. New `/portfolio` route with tabs. Depends on the welcome banner's handoff-matching query (reuse that).
+5. **Change request escalation** (feature 4) — The two-way loop. Depends on the portfolio route (the "Report an issue" button lives on property cards there).
+
+<QuestionForm id="phase4-questions" questions={[
+  {
+    id: "multi-portfolio-priority",
+    title: "How should multi-portfolio clients be handled?",
+    mode: "single",
+    options: [
+      { id: "auto-show-all", label: "Show all portfolios in a list on first visit", detail: "Client picks which to view. Portfolio picker persists in nav.", recommended: true },
+      { id: "single-by-default", label: "Default to the most recently created portfolio", detail: "Dropdown switcher for others. Less upfront complexity." },
+    ],
+  },
+  {
+    id: "change-request-scope",
+    title: "What should the initial change-request scope be?",
+    mode: "single",
+    options: [
+      { id: "property-details", label: "Property details only", detail: "Name, address, valuation, type, status, title. Most common client concern.", recommended: true },
+      { id: "property-plus-docs", label: "Property details + missing documents", detail: "Also covers document upload requests. Wider scope, more useful, slightly more complex." },
+    ],
+  },
+  {
+    id: "nav-placement",
+    title: "Where does 'Your Portfolio' appear in the shell nav?",
+    mode: "single",
+    options: [
+      { id: "top-nav", label: "Top header nav, after Home", detail: "Visible to all users with accepted handoffs.", recommended: true },
+      { id: "sidebar-only", label: "Sidebar, below Properties", detail: "More prominent, but requires shell sidebar changes." },
+    ],
+  },
+]} />
+
+## Verification
+
+- Client sees welcome banner after accepting invitation; dismissing it stores localStorage flag and hides on reload
+- `/portfolio` route shows property tiles with "Managed by [Manager]" badges
+- Manager contact card shows correct manager name, org, email from DB
+- Multi-portfolio clients see portfolio picker with all their portfolios listed
+- Client receives in-app notification when manager adds a property to their org
+- "Report an issue" creates a `change_requests` row and notifies the manager
+- Manager can see the change request in Pro notifications and approve/deny it (existing flow, verified by test)
+- `npm run lint` passes; no new DB tables (only columns on existing tables)
+- `tsc --noEmit` exits 0

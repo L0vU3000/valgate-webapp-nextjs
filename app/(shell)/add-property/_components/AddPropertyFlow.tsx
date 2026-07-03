@@ -7,18 +7,41 @@ import type { Step } from "./types";
 import { defaultForm, stepLabels } from "./types";
 import type { FormData } from "./types";
 import type { PropertyDraftSummary } from "@/lib/data/add-property-page";
-import { useDrafts } from "../_lib/use-drafts";
+import { useDrafts } from "@/app/_shared/add-property/_lib/use-drafts";
 import { submitPropertyAction } from "../actions";
 import { getPropertyDraftAction, getDraftFileUrlAction } from "@/app/actions/property-drafts";
 import type { DraftFileView } from "@/app/actions/property-drafts";
+import dynamic from "next/dynamic";
+import { StepSkeleton } from "@/app/_shared/add-property/StepSkeleton";
+// Step 0 (the entry / draft-picker) and Step 1 (a lightweight type picker) render first,
+// so they stay statically imported — deferring them would only flash a skeleton for no gain.
 import { Step0NewOrDraft } from "./Step0NewOrDraft";
-import { Step1PropertyType } from "./Step1PropertyType";
-import { Step2BasicInfo } from "./Step2BasicInfo";
-import { Step3Financial } from "./Step3Financial";
-import { Step4PhotosDocs } from "./Step4PhotosDocs";
-import { Step5Review } from "./Step5Review";
-import { Step6Success } from "./Step6Success";
-import { FlowFooter } from "./FlowFooter";
+import { Step1PropertyType } from "@/app/_shared/add-property/Step1PropertyType";
+// Steps 2–6 are code-split: each is its own JS chunk that only downloads when the user
+// reaches that step. This keeps the heavy step code (mapbox picker in 2, the date-fns
+// calendar in 3, image tooling + motion in 4, motion in 5/6) out of the initial page bundle.
+// ssr: false is correct — the whole wizard is client-only and interactive.
+const Step2BasicInfo = dynamic(
+  () => import("@/app/_shared/add-property/Step2BasicInfo").then((m) => m.Step2BasicInfo),
+  { ssr: false, loading: () => <StepSkeleton /> },
+);
+const Step3Financial = dynamic(
+  () => import("@/app/_shared/add-property/Step3Financial").then((m) => m.Step3Financial),
+  { ssr: false, loading: () => <StepSkeleton /> },
+);
+const Step4PhotosDocs = dynamic(
+  () => import("@/app/_shared/add-property/Step4PhotosDocs").then((m) => m.Step4PhotosDocs),
+  { ssr: false, loading: () => <StepSkeleton /> },
+);
+const Step5Review = dynamic(
+  () => import("@/app/_shared/add-property/Step5Review").then((m) => m.Step5Review),
+  { ssr: false, loading: () => <StepSkeleton /> },
+);
+const Step6Success = dynamic(
+  () => import("./Step6Success").then((m) => m.Step6Success),
+  { ssr: false, loading: () => <StepSkeleton /> },
+);
+import { FlowFooter } from "@/app/_shared/add-property/FlowFooter";
 import { HowItWorksGate } from "./how-it-works";
 import { StepIntro } from "./how-it-works/StepIntro";
 import { AdvisorModal } from "./AdvisorModal";

@@ -17,6 +17,7 @@ import {
   getDraftFile,
   listDraftFiles,
   convertDraftToDocuments,
+  convertDraftToDocumentsForOrg,
   type PropertyDraft,
   type PropertyDraftFile,
 } from "@/lib/services/property-drafts";
@@ -42,6 +43,7 @@ const UpsertDraftSchema = z.object({
   title: z.string(),
   step: z.number().int().min(0).max(6),
   form: FormSchema,
+  targetOrgId: z.string().optional(),             // cross-org override (Pro wizard)
 });
 
 const StageFileSchema = z.object({
@@ -77,10 +79,11 @@ function toFileView(file: PropertyDraftFile): DraftFileView {
 }
 
 // Lists the caller's own drafts (newest-edited first). Used by Step 0's "Resume a draft" list.
-export async function listPropertyDraftsAction(): Promise<ActionResult<PropertyDraft[]>> {
+// Accepts an optional targetOrgId to filter drafts by a specific org (Pro wizard).
+export async function listPropertyDraftsAction(targetOrgId?: string): Promise<ActionResult<PropertyDraft[]>> {
   const ctx = await requireCtx();
   try {
-    return { ok: true, data: await listPropertyDrafts(ctx) };
+    return { ok: true, data: await listPropertyDrafts(ctx, targetOrgId) };
   } catch (err) {
     console.error("listPropertyDraftsAction", err);
     return { ok: false, error: "Could not load drafts" };
@@ -112,17 +115,17 @@ export async function upsertPropertyDraftAction(
   const parsed = UpsertDraftSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid draft" };
   const ctx = await requireCtx();
-  const { id, title, step, form } = parsed.data;
+  const { id, title, step, form, targetOrgId } = parsed.data;
   try {
     if (id) {
-      const updated = await updatePropertyDraft(ctx, id, { title, step, form });
+      const updated = await updatePropertyDraft(ctx, id, { title, step, form }, targetOrgId);
       if (updated) {
         revalidateFeTag(DRAFTS_TAG);
         return { ok: true, data: updated };
       }
       // The id was stale (draft gone). Fall through and create a new one.
     }
-    const created = await createPropertyDraft(ctx, { title, step, form });
+    const created = await createPropertyDraft(ctx, { title, step, form }, targetOrgId);
     revalidateFeTag(DRAFTS_TAG);
     return { ok: true, data: created };
   } catch (err) {
@@ -240,6 +243,27 @@ export async function convertDraftToDocumentsAction(
     return { ok: true, data: count };
   } catch (err) {
     console.error("convertDraftToDocumentsAction", err);
+    return { ok: false, error: "Could not attach files" };
+  }
+}
+
+// Cross-org variant of convertDraftToDocumentsAction, for the Pro add-property wizard:
+// converts a manager's staged draft files into documents on a property that lives in a
+// managed client's org (targetOrgId). The service verifies the manager is an admin of that
+// org. Called AFTER createPropertyForOrg returns the new property id.
+export async function convertDraftToDocumentsForOrgAction(
+  draftId: string,
+  propertyId: string,
+  targetOrgId: string,
+): Promise<ActionResult<number>> {
+  const ctx = await requireCtx();
+  try {
+    const count = await convertDraftToDocumentsForOrg(ctx, draftId, propertyId, targetOrgId);
+    revalidateFeTag("documents");
+    revalidateFeTag(DRAFTS_TAG);
+    return { ok: true, data: count };
+  } catch (err) {
+    console.error("convertDraftToDocumentsForOrgAction", err);
     return { ok: false, error: "Could not attach files" };
   }
 }

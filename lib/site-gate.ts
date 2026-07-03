@@ -29,10 +29,26 @@ export function sanitizeRedirectPath(from: string | null | undefined): string {
   if (!from || !from.startsWith("/") || from.startsWith("//")) {
     return "/";
   }
-  if (from.startsWith(SITE_GATE_PATH)) {
+  if (from.includes("://")) {
+    return "/";
+  }
+  const pathOnly = from.split("?")[0] ?? from;
+  if (pathOnly.startsWith(SITE_GATE_PATH)) {
     return "/";
   }
   return from;
+}
+
+/** Auth/onboarding routes must stay reachable without the preview password. */
+export function isSiteGateExempt(pathname: string): boolean {
+  return (
+    pathname === SITE_GATE_PATH ||
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/register") ||
+    pathname.startsWith("/accept-invitation") ||
+    pathname.startsWith("/forgot-password") ||
+    pathname.startsWith("/api/webhooks/")
+  );
 }
 
 export function getSiteAccessCookieOptions() {

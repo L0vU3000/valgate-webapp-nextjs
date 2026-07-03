@@ -5,6 +5,7 @@ import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { convertRowToDb } from "@/lib/db/column-classifier";
 import { db } from "@/lib/db/client";
 import { nextId, roleAtLeast, assertCanMutate, type Ctx } from "@/lib/services/_mapping";
+import { organizationMemberships } from "@/lib/db/schema";
 
 type ScopedTable = PgTable & { orgId: AnyPgColumn; id: AnyPgColumn };
 
@@ -14,6 +15,23 @@ export function requireMember(ctx: Ctx): void {
 
 export function requireAdmin(ctx: Ctx): void {
   if (!roleAtLeast(ctx.orgRole, "admin")) throw new Error("forbidden");
+}
+
+export async function assertOrgAdmin(ctx: Ctx, targetOrgId: string): Promise<void> {
+  const [row] = await db
+    .select({ role: organizationMemberships.role })
+    .from(organizationMemberships)
+    .where(
+      and(
+        eq(organizationMemberships.orgId, targetOrgId),
+        eq(organizationMemberships.userId, ctx.userId),
+        eq(organizationMemberships.status, "active"),
+      ),
+    )
+    .limit(1);
+  if (!row || !roleAtLeast(row.role as Ctx["orgRole"], "admin")) {
+    throw new Error("forbidden");
+  }
 }
 
 export async function scopedInsert<T, R = unknown>(

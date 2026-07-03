@@ -1,0 +1,2 @@
+CREATE TYPE "public"."manager_access_intent" AS ENUM('keep', 'leave');--> statement-breakpoint
+ALTER TABLE "client_handoffs" ADD COLUMN "manager_access_intent" "manager_access_intent" DEFAULT 'keep' NOT NULL;

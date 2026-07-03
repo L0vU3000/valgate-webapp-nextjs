@@ -2,15 +2,16 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, Eye, EyeOff, Mail, Check } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { useSignIn } from "@clerk/nextjs";
+import { useSignIn, useClerk } from "@clerk/nextjs";
 import { clerkErrorMessage } from "../../_lib/clerk-errors";
+import { resolveDefaultHomeOrgAction } from "../../actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
@@ -58,11 +59,18 @@ function GoogleIcon({ className }: { className?: string }) {
 // D3: Google sign-in is styled but not yet configured in Clerk — hidden until wired.
 const SHOW_GOOGLE = false;
 
-async function finalize(signIn: ReturnType<typeof useSignIn>["signIn"], router: ReturnType<typeof useRouter>) {
+async function completeSignIn(
+  signIn: ReturnType<typeof useSignIn>["signIn"],
+  router: ReturnType<typeof useRouter>,
+  setActive: ReturnType<typeof useClerk>["setActive"],
+) {
   await signIn!.finalize({
-    navigate: ({ decorateUrl }) => {
-      // /launch is the decider page — it reads is_manager and redirects to /pro/dashboard
-      // or "/" so owners and managers each land in the right place automatically.
+    navigate: async ({ decorateUrl }) => {
+      const { clerkOrgId } = await resolveDefaultHomeOrgAction();
+      if (clerkOrgId) {
+        await setActive({ organization: clerkOrgId });
+      }
+
       const url = decorateUrl("/launch");
       if (url.startsWith("http")) {
         window.location.href = url;
@@ -82,7 +90,16 @@ export function LoginPage() {
   const [resendIn, setResendIn] = useState(0);
 
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { signIn } = useSignIn();
+  const { setActive } = useClerk();
+
+  useEffect(() => {
+    const ticket = searchParams.get("__clerk_ticket");
+    if (!ticket) return;
+    const query = searchParams.toString();
+    router.replace(query ? `/accept-invitation?${query}` : "/accept-invitation");
+  }, [router, searchParams]);
 
   const form = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
@@ -107,7 +124,7 @@ export function LoginPage() {
       }
 
       if (signIn!.status === "complete") {
-        await finalize(signIn, router);
+        await completeSignIn(signIn, router, setActive);
       } else if (signIn!.status === "needs_client_trust") {
         // Clerk doesn't recognise this device — send a verification code to the email.
         const { error: sendError } = await signIn!.mfa.sendEmailCode();
@@ -148,7 +165,7 @@ export function LoginPage() {
         return;
       }
       if (signIn!.status === "complete") {
-        await finalize(signIn, router);
+        await completeSignIn(signIn, router, setActive);
       } else {
         toast.error("Verification could not be completed. Please try again.");
       }

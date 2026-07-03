@@ -496,7 +496,6 @@
           "type": "jsonb",
           "primaryKey": false,
           "notNull": false
-<<<<<<< HEAD
         },
         "ai_status": {
           "name": "ai_status",
@@ -521,8 +520,6 @@
           "type": "bigint",
           "primaryKey": false,
           "notNull": false
-=======
->>>>>>> origin/valgate-webapp-nextjs-v1.0.2
         }
       },
       "indexes": {
@@ -596,11 +593,7 @@
           "columnsTo": [
             "id"
           ],
-<<<<<<< HEAD
           "onDelete": "no action",
-=======
-          "onDelete": "cascade",
->>>>>>> origin/valgate-webapp-nextjs-v1.0.2
           "onUpdate": "no action"
         },
         "documents_folder_id_folders_id_fk": {
@@ -613,11 +606,7 @@
           "columnsTo": [
             "id"
           ],
-<<<<<<< HEAD
           "onDelete": "no action",
-=======
-          "onDelete": "cascade",
->>>>>>> origin/valgate-webapp-nextjs-v1.0.2
           "onUpdate": "no action"
         }
       },
@@ -746,11 +735,7 @@
           "columnsTo": [
             "id"
           ],
-<<<<<<< HEAD
           "onDelete": "no action",
-=======
-          "onDelete": "cascade",
->>>>>>> origin/valgate-webapp-nextjs-v1.0.2
           "onUpdate": "no action"
         },
         "folders_parent_folder_id_folders_id_fk": {
@@ -891,11 +876,7 @@
           "columnsTo": [
             "id"
           ],
-<<<<<<< HEAD
           "onDelete": "no action",
-=======
-          "onDelete": "set null",
->>>>>>> origin/valgate-webapp-nextjs-v1.0.2
           "onUpdate": "no action"
         }
       },
@@ -1038,11 +1019,7 @@
           "columnsTo": [
             "id"
           ],
-<<<<<<< HEAD
           "onDelete": "no action",
-=======
-          "onDelete": "cascade",
->>>>>>> origin/valgate-webapp-nextjs-v1.0.2
           "onUpdate": "no action"
         }
       },
@@ -1684,11 +1661,7 @@
           "columnsTo": [
             "id"
           ],
-<<<<<<< HEAD
           "onDelete": "no action",
-=======
-          "onDelete": "cascade",
->>>>>>> origin/valgate-webapp-nextjs-v1.0.2
           "onUpdate": "no action"
         }
       },
@@ -2183,7 +2156,6 @@
           "columnsTo": [
             "id"
           ],
-<<<<<<< HEAD
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2317,8 +2289,6 @@
           "columnsTo": [
             "id"
           ],
-=======
->>>>>>> origin/valgate-webapp-nextjs-v1.0.2
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2329,7 +2299,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-<<<<<<< HEAD
     "public.property_drafts": {
       "name": "property_drafts",
       "schema": "",
@@ -2429,8 +2398,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-=======
->>>>>>> origin/valgate-webapp-nextjs-v1.0.2
     "public.expenses": {
       "name": "expenses",
       "schema": "",
@@ -2541,11 +2508,7 @@
           "columnsTo": [
             "id"
           ],
-<<<<<<< HEAD
           "onDelete": "no action",
-=======
-          "onDelete": "cascade",
->>>>>>> origin/valgate-webapp-nextjs-v1.0.2
           "onUpdate": "no action"
         }
       },
@@ -2689,11 +2652,7 @@
           "columnsTo": [
             "id"
           ],
-<<<<<<< HEAD
           "onDelete": "no action",
-=======
-          "onDelete": "cascade",
->>>>>>> origin/valgate-webapp-nextjs-v1.0.2
           "onUpdate": "no action"
         },
         "leases_tenant_id_tenants_id_fk": {
@@ -2882,11 +2841,7 @@
           "columnsTo": [
             "id"
           ],
-<<<<<<< HEAD
           "onDelete": "no action",
-=======
-          "onDelete": "set null",
->>>>>>> origin/valgate-webapp-nextjs-v1.0.2
           "onUpdate": "no action"
         },
         "payments_lease_id_leases_id_fk": {
@@ -2899,11 +2854,7 @@
           "columnsTo": [
             "id"
           ],
-<<<<<<< HEAD
           "onDelete": "no action",
-=======
-          "onDelete": "cascade",
->>>>>>> origin/valgate-webapp-nextjs-v1.0.2
           "onUpdate": "no action"
         },
         "payments_tenant_id_tenants_id_fk": {
@@ -3048,11 +2999,7 @@
           "columnsTo": [
             "id"
           ],
-<<<<<<< HEAD
           "onDelete": "no action",
-=======
-          "onDelete": "cascade",
->>>>>>> origin/valgate-webapp-nextjs-v1.0.2
           "onUpdate": "no action"
         }
       },
@@ -3193,11 +3140,7 @@
           "columnsTo": [
             "id"
           ],
-<<<<<<< HEAD
           "onDelete": "no action",
-=======
-          "onDelete": "cascade",
->>>>>>> origin/valgate-webapp-nextjs-v1.0.2
           "onUpdate": "no action"
         }
       },
@@ -3324,11 +3267,7 @@
           "columnsTo": [
             "id"
           ],
-<<<<<<< HEAD
           "onDelete": "no action",
-=======
-          "onDelete": "cascade",
->>>>>>> origin/valgate-webapp-nextjs-v1.0.2
           "onUpdate": "no action"
         }
       },
@@ -3469,11 +3408,7 @@
           "columnsTo": [
             "id"
           ],
-<<<<<<< HEAD
           "onDelete": "no action",
-=======
-          "onDelete": "cascade",
->>>>>>> origin/valgate-webapp-nextjs-v1.0.2
           "onUpdate": "no action"
         }
       },
@@ -3607,11 +3542,7 @@
           "columnsTo": [
             "id"
           ],
-<<<<<<< HEAD
           "onDelete": "no action",
-=======
-          "onDelete": "cascade",
->>>>>>> origin/valgate-webapp-nextjs-v1.0.2
           "onUpdate": "no action"
         }
       },
@@ -3753,11 +3684,7 @@
           "columnsTo": [
             "id"
           ],
-<<<<<<< HEAD
           "onDelete": "no action",
-=======
-          "onDelete": "cascade",
->>>>>>> origin/valgate-webapp-nextjs-v1.0.2
           "onUpdate": "no action"
         }
       },
@@ -3908,11 +3835,7 @@
           "columnsTo": [
             "id"
           ],
-<<<<<<< HEAD
           "onDelete": "no action",
-=======
-          "onDelete": "cascade",
->>>>>>> origin/valgate-webapp-nextjs-v1.0.2
           "onUpdate": "no action"
         }
       },
@@ -4058,11 +3981,7 @@
           "columnsTo": [
             "id"
           ],
-<<<<<<< HEAD
           "onDelete": "no action",
-=======
-          "onDelete": "cascade",
->>>>>>> origin/valgate-webapp-nextjs-v1.0.2
           "onUpdate": "no action"
         }
       },
@@ -4189,11 +4108,7 @@
           "columnsTo": [
             "id"
           ],
-<<<<<<< HEAD
           "onDelete": "no action",
-=======
-          "onDelete": "cascade",
->>>>>>> origin/valgate-webapp-nextjs-v1.0.2
           "onUpdate": "no action"
         }
       },
@@ -4394,11 +4309,7 @@
           "columnsTo": [
             "id"
           ],
-<<<<<<< HEAD
           "onDelete": "no action",
-=======
-          "onDelete": "cascade",
->>>>>>> origin/valgate-webapp-nextjs-v1.0.2
           "onUpdate": "no action"
         }
       },
@@ -4984,11 +4895,7 @@
           "columnsTo": [
             "id"
           ],
-<<<<<<< HEAD
           "onDelete": "no action",
-=======
-          "onDelete": "set null",
->>>>>>> origin/valgate-webapp-nextjs-v1.0.2
           "onUpdate": "no action"
         }
       },
@@ -5140,11 +5047,7 @@
           "columnsTo": [
             "id"
           ],
-<<<<<<< HEAD
           "onDelete": "no action",
-=======
-          "onDelete": "cascade",
->>>>>>> origin/valgate-webapp-nextjs-v1.0.2
           "onUpdate": "no action"
         }
       },
@@ -5208,11 +5111,7 @@
           "columnsTo": [
             "id"
           ],
-<<<<<<< HEAD
           "onDelete": "no action",
-=======
-          "onDelete": "cascade",
->>>>>>> origin/valgate-webapp-nextjs-v1.0.2
           "onUpdate": "no action"
         }
       },
@@ -5264,11 +5163,7 @@
           "columnsTo": [
             "id"
           ],
-<<<<<<< HEAD
           "onDelete": "no action",
-=======
-          "onDelete": "cascade",
->>>>>>> origin/valgate-webapp-nextjs-v1.0.2
           "onUpdate": "no action"
         },
         "verification_evidence_document_id_documents_id_fk": {
@@ -5281,11 +5176,7 @@
           "columnsTo": [
             "id"
           ],
-<<<<<<< HEAD
           "onDelete": "no action",
-=======
-          "onDelete": "cascade",
->>>>>>> origin/valgate-webapp-nextjs-v1.0.2
           "onUpdate": "no action"
         }
       },
@@ -5553,12 +5444,7 @@
       "values": [
         "Open",
         "InProgress",
-<<<<<<< HEAD
         "Resolved"
-=======
-        "Resolved",
-        "Cancelled"
->>>>>>> origin/valgate-webapp-nextjs-v1.0.2
       ]
     },
     "public.safety_risk_severity": {

@@ -1,8 +1,19 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import dynamic from "next/dynamic";
 import type mapboxgl from "mapbox-gl";
-import { PropertyDetailMap } from "@/components/map/PropertyDetailMap";
+// Load the mapbox-based map lazily and client-only. mapbox-gl is ~500 kB; a static
+// import here forced every visitor to download it before the page could render.
+// `ssr: false` defers that download until the map actually mounts in the browser,
+// and the loading skeleton keeps the layout stable while the chunk streams in.
+const PropertyDetailMap = dynamic(
+  () => import("@/components/map/PropertyDetailMap").then((m) => m.PropertyDetailMap),
+  {
+    ssr: false,
+    loading: () => <div className="absolute inset-0 animate-pulse bg-slate-100" />,
+  },
+);
 import type { Property } from "@/lib/data/types/property";
 import type { LandParcel } from "@/lib/data/types/land-parcel";
 import { PropertyLayout } from "@/components/property/PropertyLayout";
