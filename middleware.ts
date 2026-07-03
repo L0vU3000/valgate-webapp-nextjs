@@ -72,10 +72,6 @@ async function siteGate(request: NextRequest): Promise<NextResponse | null> {
     return null;
   }
 
-  if (pathname === SITE_GATE_PATH) {
-    return null;
-  }
-
   const expectedToken = await getExpectedSiteAccessToken();
   const cookieValue = request.cookies.get(SITE_ACCESS_COOKIE_NAME)?.value;
 
