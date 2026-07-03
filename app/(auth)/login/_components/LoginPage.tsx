@@ -61,22 +61,28 @@ const SHOW_GOOGLE = false;
 
 async function completeSignIn(
   signIn: ReturnType<typeof useSignIn>["signIn"],
-  router: ReturnType<typeof useRouter>,
   setActive: ReturnType<typeof useClerk>["setActive"],
 ) {
   await signIn!.finalize({
     navigate: async ({ decorateUrl }) => {
-      const { clerkOrgId } = await resolveDefaultHomeOrgAction();
-      if (clerkOrgId) {
-        await setActive({ organization: clerkOrgId });
+      // Pre-selecting the user's default org is a convenience, NOT a gate. finalize() has
+      // already activated the session by the time navigate runs, so if resolving or
+      // activating the org fails we must still redirect — otherwise the user is left
+      // signed-in but stranded on /login. /launch resolves the org server-side anyway.
+      try {
+        const { clerkOrgId } = await resolveDefaultHomeOrgAction();
+        if (clerkOrgId) {
+          await setActive({ organization: clerkOrgId });
+        }
+      } catch (err) {
+        console.error("[login] default-org activation failed; continuing to /launch", err);
       }
 
       const url = decorateUrl("/launch");
-      if (url.startsWith("http")) {
-        window.location.href = url;
-      } else {
-        router.push(url);
-      }
+      // Hard navigation (not router.push) so the server re-evaluates auth with the freshly
+      // activated session — a soft nav can land on /launch before the session is readable
+      // server-side and bounce back to /login.
+      window.location.href = url;
     },
   });
 }
@@ -124,7 +130,7 @@ export function LoginPage() {
       }
 
       if (signIn!.status === "complete") {
-        await completeSignIn(signIn, router, setActive);
+        await completeSignIn(signIn, setActive);
       } else if (signIn!.status === "needs_client_trust") {
         // Clerk doesn't recognise this device — send a verification code to the email.
         const { error: sendError } = await signIn!.mfa.sendEmailCode();
@@ -165,7 +171,7 @@ export function LoginPage() {
         return;
       }
       if (signIn!.status === "complete") {
-        await completeSignIn(signIn, router, setActive);
+        await completeSignIn(signIn, setActive);
       } else {
         toast.error("Verification could not be completed. Please try again.");
       }
