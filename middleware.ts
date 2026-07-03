@@ -25,9 +25,15 @@ async function siteGate(request: NextRequest): Promise<NextResponse | null> {
 
   // The MCP server and its OAuth discovery metadata are machine endpoints authenticated by Clerk
   // bearer tokens, not the human site-gate. Never redirect them to the gate page.
+  //
+  // /oauth-consent is the MCP OAuth consent screen: Clerk redirects the user here from the
+  // connecting app (e.g. claude.ai) mid-OAuth. That visitor has no site-gate cookie, so the gate
+  // would bounce them to /gate and break the grant. Skip the gate here — the page still runs
+  // auth.protect() (it requires a signed-in user), so it is not left unauthenticated.
   if (
     pathname.startsWith("/api/mcp") ||
-    pathname.startsWith("/.well-known/oauth-protected-resource")
+    pathname.startsWith("/.well-known/oauth-protected-resource") ||
+    pathname.startsWith("/oauth-consent")
   ) {
     return null;
   }

@@ -150,7 +150,18 @@ No `MCP_API_KEY` / `MCP_CTX_*` anymore — identity comes from the logged-in Cle
 **Clerk Dashboard (the "proper authorization" setup):**
 - Enable **OAuth applications** and **Dynamic Client Registration (DCR)** so MCP clients can register and
   run the login flow. Confirm this is available on the current Clerk plan (§8.3).
-- Decide the **scopes** the MCP requests (`email`, `profile`, plus any custom). Keep minimal.
+- Point the OAuth application's **custom consent URL** at `/oauth-consent` (the consent UI). Without this,
+  Clerk shows its own hosted consent screen and the custom UI never appears.
+- Define these three **scopes** on the OAuth application (names MUST match `app/.well-known/.../api/mcp`
+  `scopes_supported`, or Clerk rejects the authorize request as an unknown scope):
+  - `valgate:read`   → "View your properties and their details"
+  - `valgate:write`  → "Create and update properties and maintenance items"
+  - `valgate:delete` → "Permanently delete properties"
+  These are what the consent screen groups into View / Modify / Delete (Delete shown red as "Sensitive").
+  They describe the tool surface the user grants; the actual gate on each call is still the user's org
+  role (a viewer can't delete regardless). Clerk consent is all-or-nothing, so displaying them is
+  transparency, not per-scope enforcement. Custom per-scope enforcement in the tools is an optional
+  later hardening.
 
 ## 8. Decisions to lock before building
 
