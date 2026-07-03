@@ -8,18 +8,15 @@ import {
   metadataCorsOptionsRequestHandler,
 } from "@clerk/mcp-tools/next";
 
-// The scopes this MCP server exposes, named so the consent screen's keyword classifier buckets
-// them into View / Modify / Delete groups (see app/(auth)/oauth-consent). These describe the tool
-// surface the user is granting Claude; the per-user org role still gates what they can actually do.
-//
-// IMPORTANT: these exact scope names MUST also be defined on the Clerk OAuth application in the
-// Clerk Dashboard, or Clerk rejects the authorization request as an unknown scope. Recommended
-// human descriptions to set there:
-//   valgate:read   → "View your properties and their details"
-//   valgate:write  → "Create and update properties and maintenance items"
-//   valgate:delete → "Permanently delete properties"
+// Scopes advertised for this MCP resource. Clerk's OAuth only permits a FIXED identity-scope set
+// (verified against the live instance: openid, offline_access, user:org:read, profile,
+// public_metadata, private_metadata, email) — custom app scopes like "valgate:delete" are rejected
+// with form_param_value_invalid. So we advertise the identity scopes we rely on; the actual
+// read/write/delete capability of each MCP tool is gated by the caller's org role, NOT by an OAuth
+// scope. (This is why the consent UI can only show a "View"-style group — see
+// docs/MCP implementation/05-vercel-deploy-plan.md.)
 const handler = protectedResourceHandlerClerk({
-  scopes_supported: ["valgate:read", "valgate:write", "valgate:delete"],
+  scopes_supported: ["openid", "profile", "email"],
 });
 const corsHandler = metadataCorsOptionsRequestHandler();
 

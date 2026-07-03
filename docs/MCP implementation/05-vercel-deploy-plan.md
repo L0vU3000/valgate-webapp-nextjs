@@ -147,21 +147,24 @@ back to a random value.
 
 No `MCP_API_KEY` / `MCP_CTX_*` anymore — identity comes from the logged-in Clerk user, not env.
 
-**Clerk Dashboard (the "proper authorization" setup):**
-- Enable **OAuth applications** and **Dynamic Client Registration (DCR)** so MCP clients can register and
-  run the login flow. Confirm this is available on the current Clerk plan (§8.3).
-- Point the OAuth application's **custom consent URL** at `/oauth-consent` (the consent UI). Without this,
-  Clerk shows its own hosted consent screen and the custom UI never appears.
-- Define these three **scopes** on the OAuth application (names MUST match `app/.well-known/.../api/mcp`
-  `scopes_supported`, or Clerk rejects the authorize request as an unknown scope):
-  - `valgate:read`   → "View your properties and their details"
-  - `valgate:write`  → "Create and update properties and maintenance items"
-  - `valgate:delete` → "Permanently delete properties"
-  These are what the consent screen groups into View / Modify / Delete (Delete shown red as "Sensitive").
-  They describe the tool surface the user grants; the actual gate on each call is still the user's org
-  role (a viewer can't delete regardless). Clerk consent is all-or-nothing, so displaying them is
-  transparency, not per-scope enforcement. Custom per-scope enforcement in the tools is an optional
-  later hardening.
+**Clerk instance setup — DONE via `clerk` CLI on 2026-07-03** (dev instance `charmed-ostrich-94`,
+app `app_3F9qh3NZsZQjUEoqjeh7Fw8uVJ1`):
+- **DCR already enabled** (`dynamic_oauth_client_registration: true`) + JWT access tokens. No action needed.
+- **Custom consent path set:** `paths.oauth_consent = "/oauth-consent"` (via `clerk config patch`). Clerk
+  now routes the OAuth consent step to our custom page instead of its hosted screen.
+- **Cleaned up** 3 stale dynamically-registered "Claude" OAuth apps (they regenerate via DCR on connect).
+
+**Scopes — Clerk does NOT support custom scopes (verified against the live instance).** A create with
+`valgate:*` scopes fails with `form_param_value_invalid`; the only allowed values are
+`openid, offline_access, user:org:read, profile, public_metadata, private_metadata, email`. So:
+- `app/.well-known/.../api/mcp` advertises `["openid","profile","email"]` (identity only).
+- The consent UI's View / Modify / Delete grouping CANNOT be driven by OAuth scopes — every allowed scope
+  classifies as "View". Each MCP tool's real read/write/delete gate is the caller's **org role**, not a scope.
+- **Open design item:** if we still want the consent screen to communicate "Claude can edit/delete", it must
+  show that as static descriptive copy of the MCP tool surface, decoupled from OAuth scopes. Decision left
+  to the consent-UI owner.
+- Still manual: confirm the Clerk **production** instance has DCR on + the same `oauth_consent` path before a
+  prod deploy (the CLI steps above were on the dev instance).
 
 ## 8. Decisions to lock before building
 
