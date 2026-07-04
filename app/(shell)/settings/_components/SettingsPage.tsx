@@ -7,6 +7,7 @@ import { AppHeader } from "@/components/layout/AppHeader";
 import type { SettingsPageData, NotifChannels } from "../queries";
 import { saveNotificationPreference, saveUserPreferences, setManagerMode } from "../actions";
 import { ManagersSection } from "./ManagersSection";
+import { ConnectClaudeSection } from "./ConnectClaudeSection";
 
 /* Staggered section entrance — reusable inline style helper */
 function sectionStyle(i: number): React.CSSProperties {
@@ -16,7 +17,7 @@ function sectionStyle(i: number): React.CSSProperties {
   };
 }
 
-export function SettingsPage({ data }: { data: SettingsPageData }) {
+export function SettingsPage({ data, mcpUrl }: { data: SettingsPageData; mcpUrl: string }) {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -310,10 +311,13 @@ export function SettingsPage({ data }: { data: SettingsPageData }) {
           <ManagersSection initialData={data.managersData} />
         )}
 
+        {/* Connect Claude Section — in-app entry point for the Valgate MCP connector */}
+        <ConnectClaudeSection mcpUrl={mcpUrl} style={sectionStyle(5)} />
+
         {/* Data & Privacy Section */}
         <section
           className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-8 pb-6 sm:pb-8 border-b border-[#e8eaed]"
-          style={sectionStyle(5)}
+          style={sectionStyle(6)}
         >
           <div className="flex flex-col gap-2">
             <h2 className="font-display font-bold text-[18px] sm:text-[24px] leading-tight text-foreground">Data &amp; Privacy</h2>
@@ -340,7 +344,7 @@ export function SettingsPage({ data }: { data: SettingsPageData }) {
         {/* Danger Zone Section */}
         <section
           className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-8 pb-8 sm:pb-12"
-          style={sectionStyle(6)}
+          style={sectionStyle(7)}
         >
           <div className="flex flex-col gap-2">
             <h2 className="font-display font-bold text-[18px] sm:text-[24px] leading-tight text-[#e11d48]">Danger Zone</h2>
