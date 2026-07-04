@@ -281,7 +281,10 @@ function ConsentForm({
             // eslint-disable-next-line @next/next/no-img-element -- external, unregistered Clerk-hosted logo
             <img src={applicationLogoUrl} alt="" className="mb-4 size-12 rounded-lg" />
           ) : (
-            <div className="mb-4 flex size-12 items-center justify-center rounded-lg bg-surface-tint text-lg font-semibold text-foreground">
+            // Clients registered via Dynamic Client Registration (e.g. Claude) don't send a
+            // logo_uri, so applicationLogoUrl is usually null. Render a branded monogram avatar
+            // rather than a bare grey letter so the absent-logo case still reads as intentional.
+            <div className="mb-4 flex size-12 items-center justify-center rounded-xl bg-val-bg-tint text-lg font-semibold text-[--val-primary-dark]">
               {applicationName.charAt(0).toUpperCase()}
             </div>
           )}
