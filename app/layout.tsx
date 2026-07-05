@@ -14,7 +14,14 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: "Valgate",
   description: "Property portfolio management",
-  icons: { icon: "/valgate-icon.svg" },
+  // .ico first so clients that hard-request /favicon.ico (e.g. some connector UIs) get a
+  // real raster mark; svg second for crisp rendering in browsers that support it.
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "48x48", type: "image/x-icon" },
+      { url: "/favicon.svg", type: "image/svg+xml" },
+    ],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",

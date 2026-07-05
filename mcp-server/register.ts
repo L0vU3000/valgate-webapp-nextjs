@@ -13,6 +13,7 @@ import { listProperties } from "@/lib/services/properties";
 import { listWorkspacesForUser } from "./ctxFor";
 import { registerResources } from "./resources";
 import { registerWriteTools } from "./writes";
+import { registerRentalWriteTools } from "./writes-rental";
 
 // The per-call context resolver. It receives the MCP request's `extra` object (which carries
 // `authInfo` on the authenticated HTTP path) and returns the Valgate Ctx to run the call as.
@@ -84,7 +85,13 @@ export function registerValgateMcp(server: McpServer, getCtx: GetCtx): void {
     async (_args, extra) => {
       try {
         const ctx = await getCtx(extra);
-        const data = await listProperties(ctx);
+        const properties = await listProperties(ctx);
+        // Drop the internal owner id (userId) from each row — it's an internal handle the AI
+        // never needs, so it's just noise in the tool output. This trim is MCP-local on purpose:
+        // listProperties() also feeds the website, so we shape the response here rather than
+        // changing the shared service.
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars -- destructure-omit: drop userId, keep the rest
+        const data = properties.map(({ userId, ...rest }) => rest);
         return {
           content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
           structuredContent: { data },
@@ -107,4 +114,8 @@ export function registerValgateMcp(server: McpServer, getCtx: GetCtx): void {
   // record maintenance). They inherit org-scope, role, and demo read-only guards from the service
   // layer, resolve their org explicitly (M2), and audit every mutation.
   registerWriteTools(server, getCtx);
+
+  // Phase 6: the rental-core write tools (create/update/delete for leases, tenants, payments).
+  // Same design laws and shared helpers as registerWriteTools — see writes-rental.ts.
+  registerRentalWriteTools(server, getCtx);
 }

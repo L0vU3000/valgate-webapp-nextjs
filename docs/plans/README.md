@@ -51,6 +51,7 @@ chat** — especially for visual plans. Standard flow:
 | `plan-c7d2f442eed74dff` | Edit Client / Portfolio Details — Pro cockpit CRUD (Edit drawer + updateClient) | review (4 open Qs, defaults recommended) | [edit-client-details.md](./edit-client-details.md) | [open](https://plan.agent-native.com/plans/plan-c7d2f442eed74dff) |
 | `plan-be3fd434c3d145c7` | MCP User JIT-Provisioning | review (open decision: org strategy) | [mcp-jit-provisioning.md](./mcp-jit-provisioning.md) | [open](https://plan.agent-native.com/plans/plan-be3fd434c3d145c7) |
 | `plan-f25c07c2625443d1` | MCP Connect — Login & Consent UI | review (4 decisions locked; 3 UI open questions) | [mcp-connect-login-consent-ui.md](./mcp-connect-login-consent-ui.md) | [open](https://plan.agent-native.com/plans/plan-f25c07c2625443d1) |
+| `plan-5a3f987798d547de` | Connect Claude — in-app MCP setup (Settings entry + setup Sheet) | review (decisions locked; 1 open Q: connection status/disconnect) | [mcp-connect-inapp-page-execution.md](./mcp-connect-inapp-page-execution.md) | [open](https://plan.agent-native.com/plans/plan-5a3f987798d547de) |
 
 > The Plan MCP tools return only a link (or truncated text) for plans not authored in
 > the current session, so full local mirrors are written **at authoring time**.

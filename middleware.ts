@@ -66,8 +66,11 @@ async function siteGate(request: NextRequest): Promise<NextResponse | null> {
 
   // The OAuth consent screen: Clerk redirects the user here from the connecting app (e.g. claude.ai)
   // mid-OAuth, and that visitor has no site-gate cookie, so the gate would otherwise bounce them to
-  // /gate and break the grant. Skip the site gate here — the page still runs auth.protect() (it needs
-  // a signed-in user), so it is not left unauthenticated.
+  // /gate and break the grant. Skip the site gate here. The page does NOT run auth.protect() — it
+  // self-gates on the Clerk session via hooks (useUser/useOAuthConsent) and is listed in
+  // isPublicRoute below. On a Clerk dev instance auth.protect() rewrites a signed-out /
+  // dev-browser-missing visitor (exactly how a visitor arrives mid-OAuth) to /404 instead of
+  // redirecting to sign-in, which 404'd the consent page and broke the MCP grant.
   if (pathname.startsWith("/oauth-consent")) {
     return null;
   }
@@ -107,6 +110,10 @@ const isPublicRoute = createRouteMatcher([
   "/register(.*)",
   "/accept-invitation(.*)",
   "/forgot-password(.*)",
+  // The OAuth consent screen self-gates on the Clerk session via hooks; it must NOT go through
+  // auth.protect(), which on a Clerk dev instance rewrites a mid-OAuth (dev-browser-missing)
+  // visitor to /404 instead of sign-in — 404'ing the page and breaking the MCP grant.
+  "/oauth-consent(.*)",
   "/contact(.*)",
   "/api/webhooks/clerk(.*)",
   // MCP server: authenticates callers itself via Clerk OAuth bearer tokens (withMcpAuth), NOT the
