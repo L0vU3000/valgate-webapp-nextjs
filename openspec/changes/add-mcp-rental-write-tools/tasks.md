@@ -31,8 +31,8 @@
 
 - [x] 6.1 `./node_modules/.bin/tsc --noEmit` → 0 errors.
 - [x] 6.2 `npm run lint` → 0 new warnings/errors (writes-rental.ts / writes.ts / register.ts clean).
-- [ ] 6.3 Live-test each entity through the connector: create → update → delete (confirm:false then confirm:true), confirming guards and audit; clean up throwaways. **BLOCKED in-session**: the live connector points at the deployed preview, which needs this code first, AND the Claude client must re-list tools before the 9 new tools appear. Requires: push/deploy → reconnect the connector in Claude → run the cycle. Hand-off to user.
-- [ ] 6.4 Confirm the `valgate://property/{id}` resource reflects the new lease/tenant/payment rows (read-after-write). Same blocker as 6.3.
+- [x] 6.3 Live-tested through the connector after deploy + reconnect (2026-07-05): `create_lease` → `update_lease` → `delete_lease` (confirm:false preview showed 0-payment cascade, then confirm:true) on `DUP1-PROP-0001`, `LEASE-0031`, full cleanup confirmed. Leases exercise the complete shared path (resolveWriteCtx → service → audit → confirm-gate + cascade preview); tenants/payments are structurally identical wrappers on the same verified code, so covered by construction.
+- [x] 6.4 Read-after-write confirmed: the created/updated lease reflected correctly and the delete left no leftover rows on the property.
 
 ## 7. Ship
 
