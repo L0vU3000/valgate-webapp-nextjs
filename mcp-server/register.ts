@@ -84,7 +84,13 @@ export function registerValgateMcp(server: McpServer, getCtx: GetCtx): void {
     async (_args, extra) => {
       try {
         const ctx = await getCtx(extra);
-        const data = await listProperties(ctx);
+        const properties = await listProperties(ctx);
+        // Drop the internal owner id (userId) from each row — it's an internal handle the AI
+        // never needs, so it's just noise in the tool output. This trim is MCP-local on purpose:
+        // listProperties() also feeds the website, so we shape the response here rather than
+        // changing the shared service.
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars -- destructure-omit: drop userId, keep the rest
+        const data = properties.map(({ userId, ...rest }) => rest);
         return {
           content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
           structuredContent: { data },
