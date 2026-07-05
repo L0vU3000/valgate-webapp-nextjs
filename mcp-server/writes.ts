@@ -31,20 +31,22 @@ import type { GetCtx, McpCallExtra } from "./register";
 
 // A tool result the MCP SDK understands. `structuredContent` is the typed payload; `content` is the
 // human-readable mirror. `isError: true` marks a tool-level failure (not a protocol error).
-type ToolResult = {
+// Exported so the sibling rental write-tools module (writes-rental.ts) reuses the exact same
+// result shape and helpers instead of duplicating them.
+export type ToolResult = {
   content: { type: "text"; text: string }[];
   structuredContent?: { data: unknown };
   isError?: boolean;
 };
 
-function toolOk(data: unknown): ToolResult {
+export function toolOk(data: unknown): ToolResult {
   return {
     content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
     structuredContent: { data },
   };
 }
 
-function toolError(message: string): ToolResult {
+export function toolError(message: string): ToolResult {
   return {
     content: [{ type: "text", text: message }],
     isError: true,
@@ -53,7 +55,7 @@ function toolError(message: string): ToolResult {
 
 // The `orgId` argument every write tool accepts. Reused so the description (and the fact it is
 // optional-but-required-for-multi-org) is stated identically everywhere.
-const orgIdArg = z
+export const orgIdArg = z
   .string()
   .optional()
   .describe(
@@ -64,7 +66,7 @@ const orgIdArg = z
 // requireExplicitOrg=true. Returns either a ready Ctx or a ToolResult to send straight back:
 //   - "org_required" (multi-org caller gave no orgId) → actionable guidance, not a bare error.
 //   - anything else (unknown user, org they're not in, …) → generic "not authorized".
-async function resolveWriteCtx(
+export async function resolveWriteCtx(
   getCtx: GetCtx,
   extra: McpCallExtra,
   orgId: string | undefined,
@@ -88,7 +90,7 @@ async function resolveWriteCtx(
 
 // Write one audit row. Deliberately swallows its own errors: a failed audit must never roll back
 // or mask a mutation that already succeeded (it is logged so we still notice).
-async function audit(ctx: Ctx, input: LogActivityInput): Promise<void> {
+export async function audit(ctx: Ctx, input: LogActivityInput): Promise<void> {
   try {
     await logActivity(ctx, input);
   } catch (err) {

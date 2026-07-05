@@ -13,6 +13,7 @@ import { listProperties } from "@/lib/services/properties";
 import { listWorkspacesForUser } from "./ctxFor";
 import { registerResources } from "./resources";
 import { registerWriteTools } from "./writes";
+import { registerRentalWriteTools } from "./writes-rental";
 
 // The per-call context resolver. It receives the MCP request's `extra` object (which carries
 // `authInfo` on the authenticated HTTP path) and returns the Valgate Ctx to run the call as.
@@ -113,4 +114,8 @@ export function registerValgateMcp(server: McpServer, getCtx: GetCtx): void {
   // record maintenance). They inherit org-scope, role, and demo read-only guards from the service
   // layer, resolve their org explicitly (M2), and audit every mutation.
   registerWriteTools(server, getCtx);
+
+  // Phase 6: the rental-core write tools (create/update/delete for leases, tenants, payments).
+  // Same design laws and shared helpers as registerWriteTools — see writes-rental.ts.
+  registerRentalWriteTools(server, getCtx);
 }

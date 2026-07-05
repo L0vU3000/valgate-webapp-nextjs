@@ -1,40 +1,40 @@
 ## 1. Groundwork
 
-- [ ] 1.1 Confirm the FK on-delete semantics for `payments.lease_id` and `leases.tenant_id` by reading `lib/db/schema/*` (restrict vs cascade) — records how the delete tools must behave (block-with-message vs proceed-and-warn).
-- [ ] 1.2 Confirm the exact exported names + Zod schemas: `createLease/updateLease/deleteLease` (`NewLease`/`LeasePatch`), `createTenant/updateTenant/deleteTenant` (`NewTenant`/`TenantPatch`), `createPayment/updatePayment/deletePayment` (`NewPayment`/`PaymentPatch`).
-- [ ] 1.3 Decide file placement per D2: extend `mcp-server/writes.ts`, or add `mcp-server/writes-rental.ts` wired through `registerWriteTools`.
+- [x] 1.1 Confirm the FK on-delete semantics for `payments.lease_id` and `leases.tenant_id` by reading `lib/db/schema/*` (restrict vs cascade) — records how the delete tools must behave (block-with-message vs proceed-and-warn). FOUND: `payments.lease_id` = CASCADE (lease delete destroys its payments → count them); `leases.tenant_id` and `payments.tenant_id` = no onDelete = RESTRICT (tenant delete errors if referenced → count leases + payments and warn); payments are leaves.
+- [x] 1.2 Confirm the exact exported names + Zod schemas: `createLease/updateLease/deleteLease` (`NewLeaseSchema`/`LeasePatchSchema`), `createTenant/updateTenant/deleteTenant` (`NewTenantSchema`/`TenantPatchSchema`), `createPayment/updatePayment/deletePayment` (`NewPaymentSchema`/`PaymentPatchSchema`); `get*` + `list*` exist for existence checks. `logActivity` entity/action are plain strings.
+- [x] 1.3 Decide file placement per D2: NEW `mcp-server/writes-rental.ts` (writes.ts + 9 tools would cross ~500 lines), reusing writes.ts helpers via exports, wired through a new `registerRentalWriteTools` call in `register.ts`.
 
 ## 2. Lease tools
 
-- [ ] 2.1 `create_lease` — thin wrapper over `createLease`; `orgIdArg` + `NewLease` input; `resolveWriteCtx` → service → `audit` → `toolOk`/`toolError`.
-- [ ] 2.2 `update_lease` — id + `LeasePatch`; returns generic "no such lease" when the id is absent in the workspace.
-- [ ] 2.3 `delete_lease` — `confirm: true` gate; on `confirm !== true` return a lightweight inline count of referencing payments as the blast-radius preview (D3).
+- [x] 2.1 `create_lease` — thin wrapper over `createLease`; `orgIdArg` + `NewLease` input; `resolveWriteCtx` → service → `audit` → `toolOk`/`toolError`.
+- [x] 2.2 `update_lease` — id + `LeasePatch`; returns generic "no such lease" when the id is absent in the workspace.
+- [x] 2.3 `delete_lease` — `confirm: true` gate; on `confirm !== true` return a lightweight inline count of referencing payments (CASCADE) as the blast-radius preview (D3).
 
 ## 3. Tenant tools
 
-- [ ] 3.1 `create_tenant` — thin wrapper over `createTenant`; `NewTenant` input.
-- [ ] 3.2 `update_tenant` — id + `TenantPatch`.
-- [ ] 3.3 `delete_tenant` — `confirm: true` gate; on `confirm !== true` return a lightweight inline count of referencing leases as the preview (D3).
+- [x] 3.1 `create_tenant` — thin wrapper over `createTenant`; `NewTenant` input.
+- [x] 3.2 `update_tenant` — id + `TenantPatch`.
+- [x] 3.3 `delete_tenant` — `confirm: true` gate; preview counts referencing leases + payments (RESTRICT), and a confirmed delete is refused up front with a clear message when references still exist (D3, refined per FK finding).
 
 ## 4. Payment tools
 
-- [ ] 4.1 `record_payment` — thin wrapper over `createPayment` (outcome-shaped name, per D4); `NewPayment` input.
-- [ ] 4.2 `update_payment` — id + `PaymentPatch`.
-- [ ] 4.3 `delete_payment` — leaf entity: `confirm: true` gate, preview branch just echoes the payment (no cascade count needed).
+- [x] 4.1 `record_payment` — thin wrapper over `createPayment` (outcome-shaped name, per D4); `NewPayment` input.
+- [x] 4.2 `update_payment` — id + `PaymentPatch`.
+- [x] 4.3 `delete_payment` — leaf entity: `confirm: true` gate, preview branch just echoes the payment (no cascade count needed).
 
 ## 5. Wire-up
 
-- [ ] 5.1 Register all 9 tools through `registerWriteTools` in `mcp-server/register.ts` so both transports (stdio + HTTP) get them identically.
-- [ ] 5.2 Ensure each tool description states the role requirement and the `orgId` rule, reusing `orgIdArg`'s wording.
+- [x] 5.1 Register all 9 tools via new `registerRentalWriteTools` in `mcp-server/register.ts` (sibling `writes-rental.ts`), so both transports (stdio + HTTP) get them identically.
+- [x] 5.2 Each tool description states the role requirement and the `orgId` rule, reusing `orgIdArg`'s wording.
 
 ## 6. Verify
 
-- [ ] 6.1 `./node_modules/.bin/tsc --noEmit` → 0 errors.
-- [ ] 6.2 `npm run lint` → 0 new warnings/errors.
-- [ ] 6.3 Live-test each entity through the connector against a throwaway record: create → update → delete (confirm:false then confirm:true), confirming guards and audit. Clean up all throwaways.
-- [ ] 6.4 Confirm the property resource still reflects the new lease/tenant/payment rows (read-after-write sanity).
+- [x] 6.1 `./node_modules/.bin/tsc --noEmit` → 0 errors.
+- [x] 6.2 `npm run lint` → 0 new warnings/errors (writes-rental.ts / writes.ts / register.ts clean).
+- [ ] 6.3 Live-test each entity through the connector: create → update → delete (confirm:false then confirm:true), confirming guards and audit; clean up throwaways. **BLOCKED in-session**: the live connector points at the deployed preview, which needs this code first, AND the Claude client must re-list tools before the 9 new tools appear. Requires: push/deploy → reconnect the connector in Claude → run the cycle. Hand-off to user.
+- [ ] 6.4 Confirm the `valgate://property/{id}` resource reflects the new lease/tenant/payment rows (read-after-write). Same blocker as 6.3.
 
 ## 7. Ship
 
-- [ ] 7.1 Update the in-app "Connect Claude" capability list (`ConnectClaudeSection.tsx`) to include the new Modify actions, keeping it honest against the live server.
-- [ ] 7.2 `graphify update .`, commit, and note the tool count moved from 7 → ~16.
+- [x] 7.1 Updated the in-app "Connect Claude" capability list (`ConnectClaudeSection.tsx`) with the new Modify (leases/tenants/payments) + Delete actions, keeping it honest against the live server.
+- [ ] 7.2 `graphify update .`, commit, and note the tool count moved from 7 → 16 (2 read + 5 property/maintenance writes + 9 rental writes).

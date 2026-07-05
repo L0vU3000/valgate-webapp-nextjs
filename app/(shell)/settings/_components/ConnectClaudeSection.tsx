@@ -58,6 +58,9 @@ const CAPABILITY_GROUPS: CapabilityGroup[] = [
       "Create a new property",
       "Edit a property's details",
       "Log a maintenance issue",
+      "Create and edit leases",
+      "Add and edit tenants",
+      "Record and edit rent payments",
     ],
   },
   {
@@ -68,6 +71,7 @@ const CAPABILITY_GROUPS: CapabilityGroup[] = [
     items: [
       "Preview what deleting a property would remove",
       "Permanently delete a property (asks you to confirm twice first)",
+      "Delete a lease, tenant, or payment — each behind a confirm step",
     ],
   },
 ];
