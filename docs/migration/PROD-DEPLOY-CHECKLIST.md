@@ -10,6 +10,11 @@
 
 Legend: ⬜ todo · ⚠️ needs a decision/secret from you · 🔒 security-sensitive
 
+**Decisions locked (2026-07-06):**
+- **App domain:** `www.valgate.co` (Clerk subdomain on the apex: `clerk.valgate.co`).
+- **Legacy `/api/mcp`:** ✅ **removed** — route + its `/.well-known` descriptor deleted; only the live `/mcp` remains.
+- **Seeding:** launch **empty** — do NOT run `seed:neon`/`seed:reset` against prod.
+
 ---
 
 ## 0. Code is ready (mostly done)
@@ -25,14 +30,14 @@ Legend: ⬜ todo · ⚠️ needs a decision/secret from you · 🔒 security-sen
 ## 2. Clerk production instance ⚠️🔒 (critical path)
 This is the gating item — it also fixes the deferred unbranded sign-in/consent screens.
 - ⚠️ Create the Clerk **production instance** (`pk_live_…` / `sk_live_…`).
-- ⬜ Add DNS records for the Clerk subdomain (e.g. CNAME `clerk.<domain>`), per Clerk's dashboard.
+- ⬜ Add DNS records for the Clerk subdomain (`clerk.valgate.co`), per Clerk's dashboard.
 - ⬜ Point `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` / `CLERK_SECRET_KEY` at the **live** keys.
-- ⬜ Recreate the Clerk **webhook** on the prod instance → `https://<domain>/api/webhooks/clerk`, subscribe `user.*` / `organization.*` / `organizationMembership.*` → set `CLERK_WEBHOOK_SIGNING_SECRET`. (JIT bootstrap covers first sign-in even before this — not blocking.)
-- 🔒 Set the **custom consent screen URL** to `https://<domain>/oauth-consent` — this is what makes the MCP "allow access" step Valgate-branded (see `project_mcp_consent_screen_unbranded`). On a stable prod domain it no longer drifts.
+- ⬜ Recreate the Clerk **webhook** on the prod instance → `https://www.valgate.co/api/webhooks/clerk`, subscribe `user.*` / `organization.*` / `organizationMembership.*` → set `CLERK_WEBHOOK_SIGNING_SECRET`. (JIT bootstrap covers first sign-in even before this — not blocking.)
+- 🔒 Set the **custom consent screen URL** to `https://www.valgate.co/oauth-consent` — this is what makes the MCP "allow access" step Valgate-branded (see `project_mcp_consent_screen_unbranded`). On a stable prod domain it no longer drifts.
 
 ## 3. Custom domain
-- ⚠️ Point the app domain (e.g. `app.valgate.com`) at Vercel; add it in Vercel → Domains.
-- ⬜ Set `NEXT_PUBLIC_APP_URL` = `https://<domain>` (fallback for invitation links; the MCP connector URL is computed live from `headers()`, so it becomes `https://<domain>/mcp` automatically — no hardcoding).
+- ⚠️ Point `www.valgate.co` at Vercel; add it in Vercel → Domains.
+- ⬜ Set `NEXT_PUBLIC_APP_URL` = `https://www.valgate.co` (fallback for invitation links; the MCP connector URL is computed live from `headers()`, so it becomes `https://www.valgate.co/mcp` automatically — no hardcoding).
 
 ## 4. Vercel env vars — Production scope 🔒
 Build the Production environment from `lib/env.ts`. **Required** (build fails without): `DATABASE_URL`, `NEXT_PUBLIC_MAPBOX_TOKEN`. Everything else is optional to the *build* but needed for features to work.
@@ -44,7 +49,7 @@ Build the Production environment from `lib/env.ts`. **Required** (build fails wi
 | `CLERK_SECRET_KEY` | `sk_live_…` | 🔒 |
 | `CLERK_WEBHOOK_SIGNING_SECRET` | from the prod webhook (§2) | 🔒, add after first deploy |
 | `NEXT_PUBLIC_MAPBOX_TOKEN` | required | build needs it |
-| `NEXT_PUBLIC_APP_URL` | `https://<domain>` | — |
+| `NEXT_PUBLIC_APP_URL` | `https://www.valgate.co` | — |
 | `SITE_PASSWORD` | **omit** in Production (gate is preview-only) | 🔒 |
 | `DEMO_MODE` | omit / `false` | prod refuses demo anyway |
 | `STORAGE_BUCKET` / `STORAGE_REGION` | prod bucket | — |
@@ -59,13 +64,13 @@ Build the Production environment from `lib/env.ts`. **Required** (build fails wi
 
 ## 5. MCP connector — production specifics 🔒
 - ⚠️🔒 `MCP_ALLOW_ANY_OAUTH_CLIENT=true` is **required** for Claude to connect in prod. Reason: Claude registers via Dynamic Client Registration (DCR) with a client id we can't know ahead of time; in prod `NODE_ENV` the `/mcp` endpoint fails closed unless this opt-in is set (see `lib/env.ts` comment + `project_mcp_dcr_client_rejected`). **Tradeoff:** with it on, `/mcp` accepts *any* valid OAuth client in our Clerk instance. Acceptable for launch; tighten later via `MCP_ALLOWED_OAUTH_CLIENT_IDS` if/when clients are known.
-- 🔒 **Decide the `/api/mcp` surface.** There are two MCP endpoints: `/mcp` (the live connector — role-enforced, no env write-gate) and the legacy `/api/mcp` (gated by `MCP_ALLOW_WRITES` / `MCP_CONFIRM_SECRET`). If `/api/mcp` isn't intended for prod, leave its gates unset (stays locked) or remove the route to shrink the attack surface.
+- ✅ **`/api/mcp` removed** (2026-07-06). The legacy endpoint and its `/.well-known/oauth-protected-resource/api/mcp` descriptor are deleted, so `/mcp` is the single MCP surface. `MCP_ALLOW_WRITES` / `MCP_CONFIRM_SECRET` are no longer read anywhere — don't set them.
 - ⬜ The 14 write tools need **no** env flag — they're role-enforced in the service layer. A prod user with `viewer` role is refused; `member+` can write.
 
 ## 6. Deploy + smoke-test
 - ⬜ Deploy the release branch to Production (Vercel). Watch the build log.
 - ⬜ Smoke-test on the custom domain: land on `/login` (no site-gate) → sign up (real email) → add a property with a photo (S3) → sign out/in.
-- ⬜ **MCP end-to-end**: connect Claude to `https://<domain>/mcp` → sign-in + consent should now be **Valgate-branded** → "list my properties" → a write round-trip (create/update/delete a throwaway). Reconnect the connector after any tool changes (client caches the tool list).
+- ⬜ **MCP end-to-end**: connect Claude to `https://www.valgate.co/mcp` → sign-in + consent should now be **Valgate-branded** → "list my properties" → a write round-trip (create/update/delete a throwaway). Reconnect the connector after any tool changes (client caches the tool list).
 
 ## 7. Post-launch (not blocking)
 - ⬜ **RLS** (go-live item 5): now runnable against real prod Clerk JWTs — see `RLS-PLAN.md`; set `DATABASE_AUTHENTICATED_URL`.
@@ -81,7 +86,7 @@ Build the Production environment from `lib/env.ts`. **Required** (build fails wi
 4. **Deploy + smoke-test**, MCP end-to-end (§6).
 5. RLS + monitoring (§7) after.
 
-## Open decisions for you
-- **Custom domain name** for the app + Clerk subdomain?
-- **Keep or remove `/api/mcp`** (legacy endpoint) in prod?
-- **Seed prod at all**, or launch fully empty? (Recommend empty.)
+## Decisions — resolved 2026-07-06
+- **Custom domain:** `www.valgate.co` (app) + `clerk.valgate.co` (Clerk subdomain, on the apex).
+- **`/api/mcp`:** removed — `/mcp` is the only MCP surface.
+- **Seeding:** launch empty.
