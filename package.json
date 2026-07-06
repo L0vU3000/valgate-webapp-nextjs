@@ -29,7 +29,8 @@
     "seed:neon": "tsx --conditions=react-server --env-file=.env.local scripts/seed-neon.ts",
     "mcp:server": "tsx --conditions=react-server --env-file=.env.local mcp-server/index.ts",
     "mcp:inspect": "npx @modelcontextprotocol/inspector tsx --conditions=react-server --env-file=.env.local mcp-server/index.ts",
-    "backfill:clients": "tsx --conditions=react-server --env-file=.env.local scripts/backfill-clients.ts"
+    "backfill:clients": "tsx --conditions=react-server --env-file=.env.local scripts/backfill-clients.ts",
+    "promote": "git fetch origin main -q && if git merge-base --is-ancestor origin/main HEAD; then git push origin HEAD:main && echo '✓ Promoted current branch to main (fast-forward)'; else echo '✗ Refused: main has commits not on this branch. Bring origin/main into this branch first (git merge origin/main), then retry.' && exit 1; fi"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.78",
