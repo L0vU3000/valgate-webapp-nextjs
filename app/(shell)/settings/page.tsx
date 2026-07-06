@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { SettingsPage } from "./_components/SettingsPage";
 import { getSettingsPageData } from "./queries";
+import { getProfilePageData } from "../profile/queries";
 import { getAppOrigin } from "@/lib/app-origin";
 
 // The Valgate MCP endpoint users paste into Claude. It MUST be the exact origin the
@@ -21,7 +22,10 @@ async function getMcpUrl(): Promise<string> {
 }
 
 export default async function Page() {
-  const data = await getSettingsPageData();
-  const mcpUrl = await getMcpUrl();
-  return <SettingsPage data={data} mcpUrl={mcpUrl} />;
+  const [data, profileData, mcpUrl] = await Promise.all([
+    getSettingsPageData(),
+    getProfilePageData(),
+    getMcpUrl(),
+  ]);
+  return <SettingsPage data={data} mcpUrl={mcpUrl} profileData={profileData} />;
 }

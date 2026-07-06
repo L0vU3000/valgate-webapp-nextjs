@@ -189,7 +189,7 @@ export function CommandPalette({
                 { label: "Map View", icon: MapIcon, path: "/map" },
                 { label: "Succession Planning", icon: Users, path: "/estate-planning" },
                 { label: "Settings", icon: Settings, path: "/settings" },
-                { label: "Profile", icon: UserCircle, path: "/profile" },
+                { label: "Profile", icon: UserCircle, path: "/settings?section=profile" },
               ].map(({ label, icon: Icon, path }, i) => (
                 <CommandItem
                   key={path}

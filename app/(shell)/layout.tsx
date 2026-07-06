@@ -74,11 +74,16 @@ export default async function ShellGroupLayout({
           managerName={pendingWelcome.managerName}
         />
       )}
-      <ShellLayout>
-        <NotificationsProvider notifications={notifications}>
-          <AppHeaderProperties properties={slim} isManager={isManager}>{children}</AppHeaderProperties>
-        </NotificationsProvider>
-      </ShellLayout>
+      {/* AppHeaderProperties wraps ShellLayout (not just children) so the
+          Sidebar — rendered by ShellLayout — can read isManager via
+          useIsManager(), the same source the header pill uses. */}
+      <AppHeaderProperties properties={slim} isManager={isManager}>
+        <ShellLayout>
+          <NotificationsProvider notifications={notifications}>
+            {children}
+          </NotificationsProvider>
+        </ShellLayout>
+      </AppHeaderProperties>
     </>
   );
 }

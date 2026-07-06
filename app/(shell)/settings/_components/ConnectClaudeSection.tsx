@@ -85,18 +85,13 @@ const CONNECT_STEPS: string[] = [
 
 export function ConnectClaudeSection({
   mcpUrl,
-  style,
 }: {
   mcpUrl: string;
-  style?: React.CSSProperties;
 }) {
   return (
-    <section
-      className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-8 pb-6 sm:pb-8 border-b border-[#e8eaed]"
-      style={style}
-    >
+    <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-2">
-        <h2 className="font-display font-bold text-[18px] sm:text-[24px] leading-tight text-foreground">
+        <h2 className="font-display font-bold text-[20px] sm:text-[24px] leading-tight text-foreground">
           Connect Claude
         </h2>
         <p className="font-sans text-[14px] leading-[20px] text-tertiary">
@@ -104,7 +99,7 @@ export function ConnectClaudeSection({
         </p>
       </div>
 
-      <div className="col-span-1 sm:col-span-2 bg-white border border-[#d1d5db] rounded-[12px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] p-4 sm:p-[25px] flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="bg-white border border-[#d1d5db] rounded-[12px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] p-4 sm:p-[25px] flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
           <div className="size-[48px] rounded-[12px] bg-blue-50 flex items-center justify-center text-[#2563eb] shrink-0">
             <Sparkles className="w-6 h-6" strokeWidth={1.75} />
@@ -128,7 +123,7 @@ export function ConnectClaudeSection({
           <ConnectClaudeSheet mcpUrl={mcpUrl} />
         </Sheet>
       </div>
-    </section>
+    </div>
   );
 }
 

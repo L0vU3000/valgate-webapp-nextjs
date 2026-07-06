@@ -20,6 +20,7 @@ import {
   Briefcase,
 } from "lucide-react";
 import { cn } from "../ui/utils";
+import { useIsManager } from "./AppHeaderPropertiesContext";
 
 // Maps a Clerk org role ("org:admin") to a friendly label ("Admin").
 function roleLabel(role: string | null | undefined): string {
@@ -82,6 +83,8 @@ export function Sidebar({
   const { user } = useUser();
   const { membership } = useOrganization();
   const { signOut } = useClerk();
+  // Pro (== manager) status, same source the header pill reads.
+  const isManager = useIsManager();
 
   // In preview mode use the supplied client identity; otherwise the Clerk user.
   const displayName =
@@ -95,10 +98,12 @@ export function Sidebar({
     displayName.charAt(0).toUpperCase();
   const roleText = identity ? identity.roleText : roleLabel(membership?.role);
 
-  // Managers see "Pro"; an owner-client never does, so drop it in the preview.
-  const navItems = isPreview
-    ? sidebarNavItems.filter((item) => item.label !== "Pro")
-    : sidebarNavItems;
+  // "Pro" is a Pro-only (== manager) entry point. Show it only to Pro users,
+  // and never in the client preview. Standard users must not see a button that
+  // would 404 at /pro (the route + header pill are already gated the same way).
+  const navItems = sidebarNavItems.filter(
+    (item) => item.label !== "Pro" || (isManager && !isPreview),
+  );
 
   const isDrawer = variant === "drawer";
   // Drawer is always fully expanded; rail keeps the collapse toggle.
@@ -281,11 +286,10 @@ export function Sidebar({
           {isExpanded && <span>{isDark ? "Light mode" : "Dark mode"}</span>}
         </button>
         <button
-          onClick={() => handleNavigate("/profile")}
+          onClick={() => handleNavigate("/settings?section=profile")}
           className={cn(
             "flex items-center gap-3 px-3 py-1 rounded-xl hover:bg-surface-tint transition-colors w-full",
             !isExpanded && "justify-center px-0",
-            pathname === "/profile" && "bg-surface-tint",
           )}
           title={!isExpanded ? displayName : undefined}
         >

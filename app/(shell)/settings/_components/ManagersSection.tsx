@@ -129,13 +129,10 @@ export function ManagersSection({ initialData }: { initialData: ManagersData }) 
   }
 
   return (
-    <section
-      className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-8 pb-6 sm:pb-8 border-b border-[#e8eaed]"
-      style={{ animation: "fade-slide-up 0.45s ease-out both", animationDelay: "630ms" }}
-    >
-      {/* Section label column */}
+    <div className="flex flex-col gap-6">
+      {/* Section header */}
       <div className="flex flex-col gap-2">
-        <h2 className="font-display font-bold text-[18px] sm:text-[24px] leading-tight text-foreground">
+        <h2 className="font-display font-bold text-[20px] sm:text-[24px] leading-tight text-foreground">
           Managers
         </h2>
         <p className="font-sans text-[14px] leading-[20px] text-tertiary">
@@ -144,8 +141,8 @@ export function ManagersSection({ initialData }: { initialData: ManagersData }) 
         </p>
       </div>
 
-      {/* Content column */}
-      <div className="col-span-1 sm:col-span-2 flex flex-col gap-4">
+      {/* Content */}
+      <div className="flex flex-col gap-4">
 
         {/* ── Invite code ─────────────────────────────────────────────── */}
         <div className="bg-white border border-[#d1d5db] rounded-[12px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] p-4 sm:p-[25px] flex flex-col gap-4">
@@ -345,6 +342,6 @@ export function ManagersSection({ initialData }: { initialData: ManagersData }) 
           )}
         </div>
       </div>
-    </section>
+    </div>
   );
 }
