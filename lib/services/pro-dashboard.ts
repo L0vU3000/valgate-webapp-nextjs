@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, inArray, sql, desc } from "drizzle-orm";
+import { and, eq, inArray, sql, desc, isNotNull } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { getFsUserId } from "@/lib/data/auth-shim";
 // Cached read-through wrappers (client-perf layer from v1.0.2). These replace the
@@ -78,15 +78,32 @@ async function listClientsForManager(managerUserId: string): Promise<Client[]> {
 export async function loadProContext(): Promise<ProContext> {
   const authCtx = await requireCtx();
 
-  // Resolve all orgs the manager has client portfolio handoffs for, so we can
-  // load properties (and other entities) across orgs — not just the current one.
-  const handoffOrgRows = await db
-    .selectDistinct({ orgId: clientHandoffs.orgId })
-    .from(clientHandoffs)
-    .where(eq(clientHandoffs.managerUserId, authCtx.userId));
+  // Resolve all orgs the manager has access to via client portfolios:
+  //  1. clientHandoffs  — manager-led onboarding flow
+  //  2. clients.orgId   — direct client records (e.g. seed data, manual creation)
+  // Merge both so properties from ANY client-linked org are loaded.
+  const [handoffOrgRows, clientOrgRows] = await Promise.all([
+    db
+      .selectDistinct({ orgId: clientHandoffs.orgId })
+      .from(clientHandoffs)
+      .where(eq(clientHandoffs.managerUserId, authCtx.userId)),
+    db
+      .selectDistinct({ orgId: clients.orgId })
+      .from(clients)
+      .where(
+        and(eq(clients.managerUserId, authCtx.userId), isNotNull(clients.orgId)),
+      ),
+  ]);
+
   const handoffOrgIds = handoffOrgRows
     .map((r) => r.orgId)
     .filter((id): id is string => id !== null && id !== authCtx.orgId);
+
+  const clientOrgIds = clientOrgRows
+    .map((r) => r.orgId)
+    .filter((id): id is string => id !== null && id !== authCtx.orgId);
+
+  const allPortfolioOrgIds = [...new Set([...handoffOrgIds, ...clientOrgIds])];
 
   // Renamed `currentOrgProperties` to avoid shadowing the `properties` table import
   // used in the portfolio org query below.
@@ -113,9 +130,9 @@ export async function loadProContext(): Promise<ProContext> {
     listClientsForManager(authCtx.userId),
     cachedListProperties(authCtx),
     // Load properties from portfolio orgs (separate Clerk orgs holding client data)
-    handoffOrgIds.length > 0
+    allPortfolioOrgIds.length > 0
       ? db.select().from(properties)
-          .where(inArray(properties.orgId, handoffOrgIds))
+          .where(inArray(properties.orgId, allPortfolioOrgIds))
           .limit(500)
       : Promise.resolve([]),
     cachedListLeases(authCtx),
@@ -137,7 +154,7 @@ export async function loadProContext(): Promise<ProContext> {
 
   // Merge portfolio properties into the main property list, converting DB rows
   // to domain objects using the same transform the service layer uses.
-  const allProperties = handoffOrgIds.length > 0
+  const allProperties = allPortfolioOrgIds.length > 0
     ? [...currentOrgProperties, ...portfolioProperties.map((r) => PropertySchema.parse(toDomain(properties, r)))]
     : currentOrgProperties;
 
