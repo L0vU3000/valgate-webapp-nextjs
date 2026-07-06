@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
+import { useClerk } from "@clerk/nextjs";
 import {
   Home,
   Users,
@@ -11,8 +12,18 @@ import {
   ShieldCheck,
   Plus,
   Pin,
+  Settings,
+  LogOut,
+  User,
 } from "lucide-react";
 import { cn } from "@/components/ui/utils";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import { useWorkspaceTabs } from "./WorkspaceTabProvider";
 import {
   HEALTH_DOT,
@@ -46,6 +57,7 @@ export function ManagerSidebar({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const { signOut } = useClerk();
   const { activeTabId, openClientTab, isTabOpen } = useWorkspaceTabs();
 
   const activeClientId = pathname.startsWith("/pro/clients/")
@@ -152,17 +164,39 @@ export function ManagerSidebar({
       </div>
 
       <div className="mt-auto border-t border-border-default px-2 py-3">
-        <div className="flex items-center gap-2 px-2.5 py-2">
-          <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-teal-100 text-[10px] font-semibold text-teal-700">
-            {manager.initials}
-          </span>
-          <div className="min-w-0">
-            <div className="truncate text-[12px] font-medium text-foreground">
-              {manager.name}
-            </div>
-            <div className="text-[11px] text-secondary">Valgate Pro</div>
-          </div>
-        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left transition-colors hover:bg-surface-tint"
+            >
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-teal-100 text-[10px] font-semibold text-teal-700">
+                {manager.initials}
+              </span>
+              <div className="min-w-0">
+                <div className="truncate text-[12px] font-medium text-foreground">
+                  {manager.name}
+                </div>
+                <div className="text-[11px] text-secondary">Valgate Pro</div>
+              </div>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" sideOffset={8} className="w-48">
+            <DropdownMenuItem onSelect={() => router.push("/profile")}>
+              <User className="mr-2 h-4 w-4" />
+              Account
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => router.push("/settings")}>
+              <Settings className="mr-2 h-4 w-4" />
+              Settings
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => signOut({ redirectUrl: "/login" })}>
+              <LogOut className="mr-2 h-4 w-4" />
+              Sign out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </aside>
   );
