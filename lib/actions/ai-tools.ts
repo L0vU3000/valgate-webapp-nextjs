@@ -4,7 +4,6 @@ import { tool } from "ai";
 import { z } from "zod";
 
 import { requireCtx } from "@/lib/auth/ctx";
-import { formatCurrency } from "@/lib/format";
 import {
   getProDashboardData,
   getRentPageData,
@@ -12,11 +11,7 @@ import {
   getCompliancePageData,
   getClientPortfolioData,
 } from "@/app/(pro)/pro/queries";
-import { getPayment } from "@/lib/services/payments";
-import { getLease } from "@/lib/services/leases";
-import { getMaintenanceItem } from "@/lib/services/maintenance-items";
-import { getSafetyRisk } from "@/lib/services/safety-risks";
-import { getProperty } from "@/lib/services/properties";
+import { VALGATE_TOOLS, audit, type ValgateToolDef } from "@/mcp-server/tool-defs";
 
 // ---------------------------------------------------------------------------
 // READ tools — thin summaries over the Pro query layer so the AI can give
@@ -173,218 +168,89 @@ export const getClientPortfolio = tool({
 });
 
 // ---------------------------------------------------------------------------
-// WRITE tools (proposal only) — these tools do NOT mutate any data.
-// They look up the current state to build a human-readable consequence string
-// and capture a pre-image for rollback, then return a proposed action object.
-// The manager must approve in the UI before any mutation happens.
-// ponytail: one tool per Pro action; no execution here.
+// Real action tools — built from the shared VALGATE_TOOLS registry
+// (mcp-server/tool-defs.ts), the same bodies the MCP connector runs.
+//
+//   - "read" / "write" tools EXECUTE FOR REAL: the session's Ctx (requireCtx())
+//     is resolved here, the tool body runs, and on a successful write we log
+//     an audit row — exactly like the MCP surface, just with a session Ctx
+//     instead of an OAuth one.
+//   - "destructive" tools (the 4 deletes) do NOT execute. They run `preview()`
+//     only and hand back a `proposedAction` — the amber ApprovalGate card in
+//     the chat UI — so a human has to click Approve before anything is
+//     permanently deleted. Approving calls `commit()` via
+//     approveProposedAction() in ai-overlay.actions.ts.
 // ---------------------------------------------------------------------------
 
-export const proposeMarkRentPaid = tool({
-  description:
-    "Propose marking an existing Overdue or Pending rent payment as Paid. Use this when the manager wants to record that a tenant has paid their rent. Requires the paymentId from getRentCollection.",
-  inputSchema: z.object({
-    paymentId: z.string().describe("The payment ID to mark as Paid, e.g. PMT-0001"),
-  }),
-  execute: async ({ paymentId }) => {
-    const authCtx = await requireCtx();
-    const payment = await getPayment(authCtx, paymentId);
-    if (!payment) return { error: `Payment ${paymentId} not found.` };
-
-    return {
-      proposedAction: {
-        action: "markRentPaid",
-        payload: { paymentId },
-        consequence: `Mark payment ${paymentId} as Paid (${formatCurrency(payment.amount)} rent — currently ${payment.status})`,
-        preImage: { status: payment.status },
-      },
-    };
-  },
-});
-
-export const proposeLogRentPayment = tool({
-  description:
-    "Propose logging a new rent payment for a lease that has no payment record this month. Use this when recording cash or bank transfers.",
-  inputSchema: z.object({
-    leaseId: z.string().describe("The lease ID for which to record payment"),
-    amount: z.number().positive().describe("Payment amount in the local currency"),
-    method: z
-      .enum(["ABA Bank", "Wing", "Wire transfer", "Cash"])
-      .describe("Payment method used"),
-  }),
-  execute: async ({ leaseId, amount, method }) => {
-    const authCtx = await requireCtx();
-    const lease = await getLease(authCtx, leaseId);
-    if (!lease) return { error: `Lease ${leaseId} not found.` };
-
-    return {
-      proposedAction: {
-        action: "logRentPayment",
-        payload: { leaseId, amount, method },
-        consequence: `Log ${formatCurrency(amount)} rent payment via ${method} for lease ${leaseId}`,
-        preImage: null,
-      },
-    };
-  },
-});
-
-export const proposeRenewLease = tool({
-  description:
-    "Propose renewing a lease by extending it by one full term. Requires the leaseId from getRentCollection.",
-  inputSchema: z.object({
-    leaseId: z.string().describe("The lease ID to renew, e.g. LEASE-0001"),
-  }),
-  execute: async ({ leaseId }) => {
-    const authCtx = await requireCtx();
-    const lease = await getLease(authCtx, leaseId);
-    if (!lease) return { error: `Lease ${leaseId} not found.` };
-
-    const end = new Date(lease.endDate);
-    end.setUTCMonth(end.getUTCMonth() + lease.termMonths);
-    const newEnd = end.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
-
-    return {
-      proposedAction: {
-        action: "renewLease",
-        payload: { leaseId },
-        consequence: `Renew lease ${leaseId} for ${lease.termMonths} months — new end date: ${newEnd}`,
-        preImage: { endDate: lease.endDate, renewalStatus: lease.renewalStatus },
-      },
-    };
-  },
-});
-
-export const proposeCreateWorkOrder = tool({
-  description:
-    "Propose creating a new work order (maintenance request) for a property. Requires the propertyId.",
-  inputSchema: z.object({
-    propertyId: z.string().describe("The property ID, e.g. PROP-0001"),
-    title: z.string().min(3).max(200).describe("Short description of the work needed"),
-    severity: z
-      .enum(["Emergency", "Urgent", "Standard"])
-      .describe("How urgent the work is"),
-    vendorId: z.string().optional().describe("Optional vendor/professional ID to assign"),
-    cost: z.number().nonnegative().optional().describe("Estimated cost in local currency"),
-  }),
-  execute: async ({ propertyId, title, severity, vendorId, cost }) => {
-    const authCtx = await requireCtx();
-    const property = await getProperty(authCtx, propertyId);
-    if (!property) return { error: `Property ${propertyId} not found.` };
-
-    const costLabel = cost != null ? ` — estimated ${formatCurrency(cost)}` : "";
-    return {
-      proposedAction: {
-        action: "createWorkOrder",
-        payload: { propertyId, title, severity, vendorId, cost },
-        consequence: `Create ${severity} work order "${title}" for ${property.name}${costLabel}`,
-        preImage: null,
-      },
-    };
-  },
-});
-
-export const proposeUpdateWorkOrder = tool({
-  description:
-    "Propose updating an existing work order's status, assigned vendor, or cost.",
-  inputSchema: z.object({
-    id: z.string().describe("The maintenance item / work order ID, e.g. MAINT-0001"),
-    status: z
-      .enum(["Open", "InProgress", "Resolved"])
-      .optional()
-      .describe("New status for the work order"),
-    vendorId: z.string().nullable().optional().describe("Vendor to assign (null to unassign)"),
-    cost: z.number().nonnegative().optional().describe("Updated cost estimate"),
-  }),
-  execute: async ({ id, status, vendorId, cost }) => {
-    const authCtx = await requireCtx();
-    const item = await getMaintenanceItem(authCtx, id);
-    if (!item) return { error: `Work order ${id} not found.` };
-
-    const changes: string[] = [];
-    if (status) changes.push(`status → ${status}`);
-    if (vendorId !== undefined) changes.push(vendorId ? `assign vendor ${vendorId}` : "unassign vendor");
-    if (cost !== undefined) changes.push(`cost → ${formatCurrency(cost)}`);
-
-    return {
-      proposedAction: {
-        action: "updateWorkOrder",
-        payload: { id, status, vendorId, cost },
-        consequence: `Update work order "${item.title}": ${changes.join(", ")}`,
-        preImage: { status: item.status, vendorId: item.vendorId, cost: item.cost },
-      },
-    };
-  },
-});
-
-export const proposeResolveSafetyRisk = tool({
-  description:
-    "Propose resolving (closing) an open safety risk. Use the riskId from getComplianceOverview.",
-  inputSchema: z.object({
-    riskId: z.string().describe("The safety risk ID, e.g. RISK-0001"),
-  }),
-  execute: async ({ riskId }) => {
-    const authCtx = await requireCtx();
-    const risk = await getSafetyRisk(authCtx, riskId);
-    if (!risk) return { error: `Safety risk ${riskId} not found.` };
-
-    return {
-      proposedAction: {
-        action: "resolveSafetyRisk",
-        payload: { riskId },
-        consequence: `Resolve ${risk.severity} safety risk: "${risk.title}"`,
-        preImage: { status: risk.status, resolvedAt: risk.resolvedAt },
-      },
-    };
-  },
-});
-
-export const proposeAssignProperties = tool({
-  description:
-    "Propose assigning one or more properties to a client. Use when the manager wants to onboard unassigned properties.",
-  inputSchema: z.object({
-    clientId: z.string().describe("The client ID to assign the properties to"),
-    propertyIds: z.array(z.string()).min(1).describe("List of property IDs to assign"),
-  }),
-  execute: async ({ clientId, propertyIds }) => {
-    const authCtx = await requireCtx();
-
-    // Capture pre-image: original clientId for each property (for rollback)
-    const preImage: Record<string, { clientId: string | undefined }> = {};
-    for (const propertyId of propertyIds) {
-      const property = await getProperty(authCtx, propertyId);
-      if (property) {
-        preImage[propertyId] = { clientId: property.clientId };
+function buildReadOrWriteTool(def: Extract<ValgateToolDef, { kind: "read" | "write" }>) {
+  return tool({
+    description: def.description,
+    inputSchema: def.input,
+    execute: async (args: Record<string, unknown>) => {
+      const ctx = await requireCtx();
+      const result = await def.run(ctx, args);
+      if (!result.ok) return { error: result.message };
+      if (def.kind === "write" && def.audit) {
+        await audit(ctx, def.audit(ctx, args, result.data));
       }
-    }
+      return result.data;
+    },
+  });
+}
 
-    return {
-      proposedAction: {
-        action: "assignProperties",
-        payload: { clientId, propertyIds },
-        consequence: `Assign ${propertyIds.length} ${propertyIds.length === 1 ? "property" : "properties"} to client ${clientId}: ${propertyIds.join(", ")}`,
-        preImage,
-      },
-    };
-  },
-});
+function buildDestructiveTool(def: Extract<ValgateToolDef, { kind: "destructive" }>) {
+  return tool({
+    description: def.description,
+    inputSchema: def.input,
+    execute: async (args: Record<string, unknown>) => {
+      const ctx = await requireCtx();
+      const preview = await def.preview(ctx, args);
+      if (!preview.ok) return { error: preview.message };
+      return {
+        proposedAction: {
+          toolName: def.name,
+          args,
+          consequence: preview.data.consequence,
+          cascade: preview.data.cascade,
+        },
+      };
+    },
+  });
+}
 
-// The full tool set for Pro routes — passed to generateText.
+// Looks up a tool body by name in the shared registry and wraps it for the AI SDK. Throws at
+// module load if a name is misspelled here — a build-time invariant, not a runtime concern.
+function toolFor(name: string) {
+  const def = VALGATE_TOOLS.find((candidate) => candidate.name === name);
+  if (!def) throw new Error(`Unknown Valgate tool: ${name}`);
+  return def.kind === "destructive" ? buildDestructiveTool(def) : buildReadOrWriteTool(def);
+}
+
+// The full tool set for Pro routes — passed to generateText. Reads for grounded answers, direct
+// writes (create/update/record execute immediately), and gated deletes (propose → human approves).
 export const PRO_TOOLS = {
   getDashboardOverview,
   getRentCollection,
   getWorkOrders,
   getComplianceOverview,
   getClientPortfolio,
-  proposeMarkRentPaid,
-  proposeLogRentPayment,
-  proposeRenewLease,
-  proposeCreateWorkOrder,
-  proposeUpdateWorkOrder,
-  proposeResolveSafetyRisk,
-  proposeAssignProperties,
+  search_properties: toolFor("search_properties"),
+  create_property: toolFor("create_property"),
+  update_property: toolFor("update_property"),
+  delete_property: toolFor("delete_property"),
+  record_maintenance: toolFor("record_maintenance"),
+  create_lease: toolFor("create_lease"),
+  update_lease: toolFor("update_lease"),
+  delete_lease: toolFor("delete_lease"),
+  create_tenant: toolFor("create_tenant"),
+  update_tenant: toolFor("update_tenant"),
+  delete_tenant: toolFor("delete_tenant"),
+  record_payment: toolFor("record_payment"),
+  update_payment: toolFor("update_payment"),
+  delete_payment: toolFor("delete_payment"),
 };
 
-// READ-only tools for non-Pro routes (no mutation proposals).
+// READ-only tools for non-Pro routes (no writes — property owners can't mutate via chat).
 export const CONSUMER_TOOLS = {
   getDashboardOverview,
   getRentCollection,
@@ -406,20 +272,34 @@ export function toolSummaryLabel(toolName: string, args: Record<string, unknown>
       return "Read compliance overview (certifications, risks)";
     case "getClientPortfolio":
       return `Read portfolio for client ${args.clientId ?? ""}`;
-    case "proposeMarkRentPaid":
-      return `Prepared rent mark-paid proposal (payment ${args.paymentId ?? ""})`;
-    case "proposeLogRentPayment":
-      return `Prepared rent payment log proposal for lease ${args.leaseId ?? ""}`;
-    case "proposeRenewLease":
-      return `Prepared lease renewal proposal (lease ${args.leaseId ?? ""})`;
-    case "proposeCreateWorkOrder":
-      return `Prepared new work order proposal: "${args.title ?? ""}"`;
-    case "proposeUpdateWorkOrder":
-      return `Prepared work order update proposal (${args.id ?? ""})`;
-    case "proposeResolveSafetyRisk":
-      return `Prepared safety risk resolution proposal (${args.riskId ?? ""})`;
-    case "proposeAssignProperties":
-      return `Prepared property assignment proposal to client ${args.clientId ?? ""}`;
+    case "search_properties":
+      return "Searched properties";
+    case "create_property":
+      return "Created a property";
+    case "update_property":
+      return `Updated property ${args.id ?? ""}`;
+    case "delete_property":
+      return `Prepared property delete for approval (${args.id ?? ""})`;
+    case "record_maintenance":
+      return "Logged a maintenance item";
+    case "create_lease":
+      return "Created a lease";
+    case "update_lease":
+      return `Updated lease ${args.id ?? ""}`;
+    case "delete_lease":
+      return `Prepared lease delete for approval (${args.id ?? ""})`;
+    case "create_tenant":
+      return "Created a tenant";
+    case "update_tenant":
+      return `Updated tenant ${args.id ?? ""}`;
+    case "delete_tenant":
+      return `Prepared tenant delete for approval (${args.id ?? ""})`;
+    case "record_payment":
+      return "Recorded a payment";
+    case "update_payment":
+      return `Updated payment ${args.id ?? ""}`;
+    case "delete_payment":
+      return `Prepared payment delete for approval (${args.id ?? ""})`;
     default:
       return `Called tool: ${toolName}`;
   }
