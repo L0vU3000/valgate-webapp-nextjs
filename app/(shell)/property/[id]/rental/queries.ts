@@ -9,6 +9,7 @@ import {
   cachedListFolders,
   cachedListMaintenanceItems,
 } from "@/lib/data/cached-reads";
+import type { Ctx } from "@/lib/services/_mapping";
 import type { Lease } from "@/lib/data/types/lease";
 import type { Tenant } from "@/lib/data/types/tenant";
 import type { Payment } from "@/lib/data/types/payment";
@@ -27,11 +28,9 @@ export type RentalPageData = {
   maintenanceItems: MaintenanceItem[];
 };
 
-export async function getRentalPageData(propertyId: string): Promise<RentalPageData> {
-  const authCtx = await requireCtx();
+export async function getRentalPageData(propertyId: string, overrideCtx?: Ctx): Promise<RentalPageData> {
+  const authCtx = overrideCtx ?? await requireCtx();
 
-  // All list calls pass propertyId so the WHERE clause filters at the DB level.
-  // Payments are filtered by payments.property_id directly (Option B from the plan).
   const [
     leases,
     tenants,

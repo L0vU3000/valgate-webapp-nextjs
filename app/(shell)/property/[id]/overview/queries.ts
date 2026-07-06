@@ -20,6 +20,7 @@ import {
   cachedGetUserProfile,
 } from "@/lib/data/cached-reads";
 import { listActivities } from "@/lib/services/activities";
+import type { Ctx } from "@/lib/services/_mapping";
 import type { Activity } from "@/lib/data/types/activity";
 import type { PropertyValuation } from "@/lib/data/types/property-valuation";
 import type { Lease } from "@/lib/data/types/lease";
@@ -60,9 +61,6 @@ export type OverviewPageData = {
   recentActivities: Activity[];
 };
 
-// Notifications do not have a reliable property_id column — they are matched to a property
-// by inspecting notification.propertyId OR by parsing the linkTo URL path. This JS match
-// is the ONE intentional exception to the "filter in SQL" rule for this loader.
 function notificationMatchesProperty(notification: Notification, propertyId: string): boolean {
   if (notification.propertyId) return notification.propertyId === propertyId;
   if (!notification.linkTo) return false;
@@ -70,11 +68,12 @@ function notificationMatchesProperty(notification: Notification, propertyId: str
   return match ? match[1] === propertyId : false;
 }
 
-export async function getOverviewPageData(propertyId: string): Promise<OverviewPageData> {
-  const authCtx = await requireCtx();
+export async function getOverviewPageData(
+  propertyId: string,
+  overrideCtx?: Ctx,
+): Promise<OverviewPageData> {
+  const authCtx = overrideCtx ?? await requireCtx();
 
-  // Every list call passes propertyId so the WHERE clause filters at the DB level.
-  // Only cachedListNotifications is left without propertyId — see notificationMatchesProperty above.
   const [
     valuations,
     leases,
@@ -121,7 +120,6 @@ export async function getOverviewPageData(propertyId: string): Promise<OverviewP
     tenants,
     payments,
     expenses,
-    // Notifications: DB returns all for the org; JS filters to this property.
     notifications: allNotifications.filter((n) => notificationMatchesProperty(n, propertyId)),
     maintenanceItems,
     ownershipRecords,
@@ -134,7 +132,6 @@ export async function getOverviewPageData(propertyId: string): Promise<OverviewP
     estateAssignments,
     documents,
     userProfile: userProfile ?? null,
-    // Already filtered to this property by listActivities(authCtx, propertyId, 10).
     recentActivities,
   };
 }

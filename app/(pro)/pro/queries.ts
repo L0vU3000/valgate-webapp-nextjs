@@ -910,6 +910,7 @@ export async function getProShellData(): Promise<ProShellData> {
       buyNumeric: p.buyNumeric,
       isArchived: p.isArchived,
       progress: ctx.progressByPropertyId.get(p.id) ?? 0,
+      orgId: p.orgId,
     })),
     managedAccounts: rawAccounts.map((a) => ({
       clerkOrgId: a.clerkOrgId,

@@ -8,6 +8,7 @@ import {
   cachedListDocuments,
 } from "@/lib/data/cached-reads";
 import { listOwnershipHistory } from "@/lib/services/ownership-history";
+import type { Ctx } from "@/lib/services/_mapping";
 import type { OwnershipRecord } from "@/lib/data/types/ownership-record";
 import type { Property } from "@/lib/data/types/property";
 import type { Document as CentralDocument } from "@/lib/data/types/document";
@@ -28,12 +29,10 @@ export type OwnershipPageData = {
 export async function getOwnershipPageData(
   propertyId: string,
   property: Property,
+  overrideCtx?: Ctx,
 ): Promise<OwnershipPageData> {
-  const authCtx = await requireCtx();
-  // All six list calls pass propertyId so the WHERE clause filters at the DB level.
-  // cachedListDocuments is scoped to this property — verificationDocs then further filters by
-  // verifies.entityType and verifies.entityId, which is NOT a propertyId filter and must
-  // remain in JS (it matches by the specific ownership-record id, not by property).
+  const authCtx = overrideCtx ?? await requireCtx();
+
   const [
     ownershipDocuments,
     ownershipHistory,
@@ -52,8 +51,6 @@ export async function getOwnershipPageData(
 
   const ownershipRecord = ownershipRecords[0] ?? null;
 
-  // Central docs that verify this specific ownership record (de-duped from legacy docs).
-  // This filter is NOT a propertyId filter — it matches by verifies.entityType and entityId.
   const verificationDocs: CentralDocument[] = ownershipRecord
     ? allPropertyDocs.filter(
         (doc) =>
@@ -62,7 +59,6 @@ export async function getOwnershipPageData(
       )
     : [];
 
-  // Leases are already scoped to this property by the DB; only filter by stage here.
   const signedLeases = leases.filter((l) => l.stage === "Signed");
   const monthlyRentIncome = signedLeases.reduce((s, l) => s + l.monthlyRent, 0);
 

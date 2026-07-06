@@ -1,6 +1,7 @@
 import "server-only";
 import { requireCtx } from "@/lib/auth/ctx";
 import { roleAtLeast } from "@/lib/services/_mapping";
+import type { Ctx } from "@/lib/services/_mapping";
 import { cachedListDocuments, cachedListFolders } from "@/lib/data/cached-reads";
 import { resolveDocumentUrl } from "@/lib/services/storage";
 
@@ -11,11 +12,8 @@ function isImageDoc(doc: { kind: string; name: string; extension?: string }): bo
   return doc.kind === "photo" || IMAGE_EXTENSIONS.has(ext);
 }
 
-// Both list calls pass propertyId so the WHERE clause filters at the DB level.
-// The imageDocs filter is not a propertyId filter — it checks doc.kind/extension to
-// identify images so their signed thumbnail URLs can be pre-resolved for the grid view.
-export async function getDocumentsPageData(propertyId: string) {
-  const authCtx = await requireCtx();
+export async function getDocumentsPageData(propertyId: string, overrideCtx?: Ctx) {
+  const authCtx = overrideCtx ?? await requireCtx();
   const [docs, folders] = await Promise.all([
     cachedListDocuments(authCtx, propertyId),
     cachedListFolders(authCtx, propertyId),
@@ -23,7 +21,6 @@ export async function getDocumentsPageData(propertyId: string) {
 
   const imageDocs = docs.filter(isImageDoc);
 
-  // Resolve signed URLs for image documents only — used as grid thumbnails.
   const docThumbUrls: Record<string, string> = Object.fromEntries(
     await Promise.all(
       imageDocs.map(async (d) => [
@@ -35,11 +32,6 @@ export async function getDocumentsPageData(propertyId: string) {
 
   return {
     userId: authCtx.userId,
-    // Whether this user may delete documents/folders. Mirrors the portfolio's
-    // gate: only admin/owner can delete. The server already rejects deletes from
-    // lower roles (scopedDelete requires admin, proven in tests/authz), so this
-    // flag exists purely to HIDE the delete controls in the UI for viewer/member
-    // — defence in depth, not the enforcement itself.
     canDelete: roleAtLeast(authCtx.orgRole, "admin"),
     documents: docs,
     folders,
