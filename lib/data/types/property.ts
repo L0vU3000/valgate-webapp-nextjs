@@ -36,6 +36,7 @@ export type PropertyUse = z.infer<typeof propertyUseSchema>;
 export const PropertyCoreSchema = z.object({
   id: idSchema,
   userId: userIdSchema,
+  orgId: idSchema,
   name: z.string().min(1),
   code: z.string().min(1),
   type: propertyTypeChoiceSchema,
@@ -123,6 +124,10 @@ export const PropertyListItemSchema = PropertySchema.pick({
   buyNumeric: z.number(),
   isArchived: z.boolean().optional(),
   progress: z.number().int().min(0).max(100),
+  // Owning org. Only populated in the Pro shell, where a manager's search
+  // spans client orgs and links must carry ?orgId= to open cross-org. Owner
+  // shell omits it (own org needs no param).
+  orgId: z.string().optional(),
 });
 
 export type PropertyListItem = z.infer<typeof PropertyListItemSchema> & {
@@ -134,6 +139,7 @@ export type { ProgressDetails };
 export const NewPropertySchema = PropertySchema.omit({
   id: true,
   userId: true,
+  orgId: true,
   code: true,
   createdAt: true,
   updatedAt: true,

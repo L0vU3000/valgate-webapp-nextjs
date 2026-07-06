@@ -6,10 +6,10 @@ import {
   cachedListSafetyRisks,
   cachedListEmergencyContacts,
 } from "@/lib/data/cached-reads";
+import type { Ctx } from "@/lib/services/_mapping";
 
-// All four list calls pass propertyId so the WHERE clause filters at the DB level.
-export async function getSafetyPageData(propertyId: string) {
-  const authCtx = await requireCtx();
+export async function getSafetyPageData(propertyId: string, overrideCtx?: Ctx) {
+  const authCtx = overrideCtx ?? await requireCtx();
   const [inspections, certifications, risks, emergencyContacts] = await Promise.all([
     cachedListInspections(authCtx, propertyId),
     cachedListCertifications(authCtx, propertyId),
