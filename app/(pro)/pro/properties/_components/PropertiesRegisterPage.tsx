@@ -462,7 +462,7 @@ export function PropertiesRegisterPage({ data }: { data: ProPropertiesData }) {
                         </td>
                         <td
                           className="cursor-pointer py-3 pr-3"
-                          onClick={() => router.push(`/property/${property.id}`)}
+                          onClick={() => router.push(`/property/${property.id}?orgId=${encodeURIComponent(property.orgId)}`)}
                         >
                           <div className="flex flex-col leading-tight">
                             <span className="text-[13px] font-semibold text-slate-900 dark:text-slate-100">

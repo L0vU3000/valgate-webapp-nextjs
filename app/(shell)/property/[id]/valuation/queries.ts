@@ -6,6 +6,7 @@ import {
   cachedListExpenses,
 } from "@/lib/data/cached-reads";
 import { getProperties } from "@/lib/data/properties";
+import type { Ctx } from "@/lib/services/_mapping";
 import type { PropertyValuation } from "@/lib/data/types/property-valuation";
 import type { PropertyComparable } from "@/lib/data/types/property-comparable";
 import type { MarketSnapshot } from "@/lib/data/types/market-snapshot";
@@ -25,14 +26,9 @@ export type ValuationPageData = {
   investmentPerformance: InvestmentPerformance;
 };
 
-export async function getValuationPageData(propertyId: string): Promise<ValuationPageData> {
-  const authCtx = await requireCtx();
+export async function getValuationPageData(propertyId: string, overrideCtx?: Ctx): Promise<ValuationPageData> {
+  const authCtx = overrideCtx ?? await requireCtx();
 
-  // valuations, leases, and expenses pass propertyId so the WHERE clause filters at the DB level.
-  // computeInvestmentPerformance also filters internally by property.id, so passing pre-filtered
-  // data is correct and reduces the number of rows transferred.
-  // getProperties must remain unfiltered — computePropertyComparables needs all org properties
-  // to calculate comparable sales and the market snapshot.
   const [valuations, allProperties, leases, expenses] = await Promise.all([
     cachedListPropertyValuations(authCtx, propertyId),
     getProperties(),

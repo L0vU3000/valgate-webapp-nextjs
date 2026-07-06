@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { ChevronLeft, MoreVertical, LayoutGrid, Eye, Shield, DollarSign, Key, Coins, Globe, Archive, Pencil, Bell } from "lucide-react";
 import type { Property } from "@/lib/data/types/property";
 import { usePropertyShell } from "@/components/property/PropertyShellContext";
@@ -35,6 +35,9 @@ interface PropertyLayoutProps {
 export function PropertyLayout({ activeTab, children, property, progress, onProgressClick, headerSlot }: PropertyLayoutProps) {
   const router = useRouter();
   const { id } = useParams();
+  const searchParams = useSearchParams();
+  const orgId = searchParams.get("orgId");
+  const orgQuery = orgId ? `?orgId=${encodeURIComponent(orgId)}` : "";
   const shell = usePropertyShell();
   const displayProgress = progress ?? shell?.progress;
   const handleProgressClick = onProgressClick ?? shell?.openProgressModal;
@@ -259,7 +262,7 @@ export function PropertyLayout({ activeTab, children, property, progress, onProg
           <button
             key={tab.key}
             ref={(el) => { tabRefs.current[i] = el; }}
-            onClick={() => router.push(`/property/${id}/${tab.key}`)}
+            onClick={() => router.push(`/property/${id}/${tab.key}${orgQuery}`)}
             className={`group px-4 py-3 min-h-11 text-[14px] transition-colors duration-200 whitespace-nowrap flex items-center gap-1.5 snap-start sm:snap-align-none ${
               activeTab === tab.key
                 ? "text-primary"

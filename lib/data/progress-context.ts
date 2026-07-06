@@ -14,10 +14,11 @@ import { listEmergencyContacts } from "@/lib/services/emergency-contacts";
 import { listEstateAssignments } from "@/lib/services/estate-assignments";
 import { listDocuments } from "@/lib/services/documents";
 import type { ProgressContext } from "@/lib/data/derivations/progress";
+import type { Ctx } from "@/lib/services/_mapping";
 
 /** Loads all entity lists needed to compute weighted property progress. */
-export async function getProgressContext(): Promise<ProgressContext> {
-  const authCtx = await requireCtx();
+export async function getProgressContext(overrideCtx?: Ctx): Promise<ProgressContext> {
+  const authCtx = overrideCtx ?? await requireCtx();
   const [
     leases,
     tenants,

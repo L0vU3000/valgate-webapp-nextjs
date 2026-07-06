@@ -2,6 +2,7 @@ import "server-only";
 import { requireCtx } from "@/lib/auth/ctx";
 import { listLandParcels } from "@/lib/services/land-parcels";
 import { getProperties } from "@/lib/data/properties";
+import type { Ctx } from "@/lib/services/_mapping";
 import type { LandParcel } from "@/lib/data/types/land-parcel";
 import type { PropertyComparable } from "@/lib/data/types/property-comparable";
 import type { MarketSnapshot } from "@/lib/data/types/market-snapshot";
@@ -16,12 +17,9 @@ export type LocationPageData = {
   marketSnapshot: MarketSnapshot;
 };
 
-export async function getLocationPageData(propertyId: string): Promise<LocationPageData> {
-  const authCtx = await requireCtx();
+export async function getLocationPageData(propertyId: string, overrideCtx?: Ctx): Promise<LocationPageData> {
+  const authCtx = overrideCtx ?? await requireCtx();
 
-  // listLandParcels passes propertyId so only this property's parcels come back from the DB.
-  // getProperties must remain unfiltered — computePropertyComparables needs all org properties
-  // to calculate comparable sales and the market snapshot against them.
   const [landParcels, allProperties] = await Promise.all([
     listLandParcels(authCtx, propertyId),
     getProperties(),

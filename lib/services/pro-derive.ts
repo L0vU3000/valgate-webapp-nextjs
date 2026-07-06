@@ -87,6 +87,7 @@ export type ClientRollup = {
 
 export type ProPropertyRow = {
   id: string;
+  orgId: string;
   name: string;
   addressLabel: string;
   type: Property["type"];
@@ -618,6 +619,7 @@ export function buildPropertyRow(
   const value = propertyValue(p);
   return {
     id: p.id,
+    orgId: p.orgId,
     name: p.name,
     addressLabel:
       [p.addressLine, p.city ?? p.province].filter(Boolean).join(", ") ||

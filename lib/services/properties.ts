@@ -33,6 +33,12 @@ export async function getProperty(ctx: Ctx, id: string): Promise<Property | null
   return row ? rowToProperty(row) : null;
 }
 
+export async function getPropertyForOrg(orgId: string, id: string): Promise<Property | null> {
+  const [row] = await db.select().from(properties)
+    .where(and(eq(properties.orgId, orgId), eq(properties.id, id)));
+  return row ? rowToProperty(row) : null;
+}
+
 export async function createProperty(ctx: Ctx, input: NewProperty): Promise<Property> {
   requireMember(ctx);
   const id = await nextId("PROP");
@@ -41,6 +47,7 @@ export async function createProperty(ctx: Ctx, input: NewProperty): Promise<Prop
     ...input,
     id,
     userId: ctx.userId,
+    orgId: ctx.orgId,
     code: id,
     createdAt: now,
     updatedAt: now,
@@ -61,6 +68,7 @@ export async function createPropertyForOrg(ctx: Ctx, targetOrgId: string, input:
     ...input,
     id,
     userId: ctx.userId,
+    orgId: targetOrgId,
     code: id,
     createdAt: now,
     updatedAt: now,

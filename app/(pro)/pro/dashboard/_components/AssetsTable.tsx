@@ -134,7 +134,7 @@ export function AssetsTable({
               <EnterTr
                 key={property.id}
                 index={index}
-                onClick={() => router.push(`/property/${property.id}`)}
+                onClick={() => router.push(`/property/${property.id}?orgId=${encodeURIComponent(property.orgId)}`)}
                 className="border-b border-slate-100 dark:border-slate-800 last:border-0 hover:bg-slate-50/60 dark:hover:bg-slate-800/40 active:bg-slate-100/70 dark:active:bg-slate-800/70 transition-colors cursor-pointer"
               >
                 <td className="py-3 pr-3">

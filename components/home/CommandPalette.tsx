@@ -116,7 +116,7 @@ export function CommandPalette({
                 <CommandItem
                   key={p.id}
                   value={`${p.name} ${p.code} ${p.province}`}
-                  onSelect={() => navigate(`/property/${p.id}`)}
+                  onSelect={() => navigate(p.orgId ? `/property/${p.id}?orgId=${encodeURIComponent(p.orgId)}` : `/property/${p.id}`)}
                   className="gap-3 pl-5 pr-4 py-3 border-l-4 border-transparent data-[selected=true]:border-interactive-primary data-[selected=true]:bg-brand-subtle [animation:cmd-item-in_0.18s_cubic-bezier(0.16,1,0.3,1)_both]"
                   style={{ animationDelay: `${i * 35}ms` }}
                 >

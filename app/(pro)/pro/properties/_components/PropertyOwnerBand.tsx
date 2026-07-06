@@ -130,7 +130,7 @@ export function PropertyOwnerBand({
               <EnterTr
                 key={property.id}
                 index={index}
-                onClick={() => router.push(`/property/${property.id}`)}
+                onClick={() => router.push(`/property/${property.id}?orgId=${encodeURIComponent(property.orgId)}`)}
                 className="cursor-pointer border-t border-slate-100 transition-colors hover:bg-slate-50/60 active:bg-slate-100/70 dark:border-slate-800 dark:hover:bg-slate-800/40"
               >
                 {/* Indented to sit under the owner avatar; the Client column
