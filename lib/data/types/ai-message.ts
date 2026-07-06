@@ -13,12 +13,15 @@ export const AiMessageStepSchema = z.object({
   ok: z.boolean().optional(),
 });
 
-// An action the agent wants to take, waiting for manager approval.
+// A destructive action the agent wants to take, waiting for manager approval. `toolName` names
+// the shared tool (see mcp-server/tool-defs.ts) that `approveProposedAction` re-invokes on
+// Approve; `args` are the exact arguments to re-run it with. `cascade` is whatever the tool's
+// preview returned (a count of linked records that would also be destroyed, or null for a leaf).
 export const AiProposedActionSchema = z.object({
-  action: z.string(),
-  payload: z.record(z.string(), z.unknown()),
+  toolName: z.string(),
+  args: z.record(z.string(), z.unknown()),
   consequence: z.string(),
-  preImage: z.record(z.string(), z.unknown()).optional(),
+  cascade: z.unknown().optional(),
 });
 
 // The result after a manager approves or rejects a proposed action.

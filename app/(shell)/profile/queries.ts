@@ -1,6 +1,7 @@
 import "server-only";
 import { currentUser } from "@clerk/nextjs/server";
 import { requireCtx } from "@/lib/auth/ctx";
+import { env } from "@/lib/env";
 import { getMyUserProfile } from "@/lib/services/user-profiles";
 import { type UserProfile } from "@/lib/data/types/user-profile";
 
@@ -38,7 +39,15 @@ export type ProfilePageData = {
 
 export async function getProfilePageData(): Promise<ProfilePageData> {
   const authCtx = await requireCtx();
-  const [profile, clerkUser] = await Promise.all([getMyUserProfile(authCtx), currentUser()]);
+  // currentUser() invokes Clerk's auth(), which throws when clerkMiddleware
+  // isn't active — e.g. DEMO_MODE, where resolveCtx() returns DEMO_CTX and never
+  // calls auth(). This loader now runs on every /settings visit (Profile was
+  // folded into the settings shell), so guard it: in demo mode skip currentUser()
+  // and rely on the profile row + defaults instead of the Clerk identity.
+  const [profile, clerkUser] = await Promise.all([
+    getMyUserProfile(authCtx),
+    env.DEMO_MODE ? Promise.resolve(null) : currentUser(),
+  ]);
 
   // A brand-new sign-up has an identity (Clerk) but no user_profiles row yet, so fall back to the
   // Clerk identity for the core fields. Editing the profile creates the row (upsertUserProfile).

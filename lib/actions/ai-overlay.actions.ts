@@ -1,7 +1,6 @@
 "use server";
 
 import { z } from "zod";
-import { getCurrentUserId } from "@/lib/data/auth-shim";
 import { requireCtx } from "@/lib/auth/ctx";
 import {
   listAiSessions,
@@ -15,12 +14,6 @@ import {
   createAiMessage,
   updateAiMessage,
 } from "@/lib/services/ai-messages";
-import * as agentRunsDb from "@/lib/data/db/agent-runs";
-import { updatePayment } from "@/lib/services/payments";
-import { updateLease } from "@/lib/services/leases";
-import { updateMaintenanceItem } from "@/lib/services/maintenance-items";
-import { updateSafetyRisk } from "@/lib/services/safety-risks";
-import { updateProperty } from "@/lib/services/properties";
 import {
   buildAiOverlayContext,
   buildSessionTitle,
@@ -35,25 +28,10 @@ import {
   CONSUMER_TOOLS,
   toolSummaryLabel,
 } from "@/lib/actions/ai-tools";
-import { markRentPaid, logRentPayment, renewLease } from "@/app/(pro)/pro/rent.actions";
-import { createWorkOrder, updateWorkOrder } from "@/app/(pro)/pro/work-orders.actions";
-import { resolveSafetyRisk } from "@/app/(pro)/pro/compliance.actions";
-import { assignProperties } from "@/app/(pro)/pro/properties.actions";
+import { VALGATE_TOOLS, audit } from "@/mcp-server/tool-defs";
 import type { AiSession } from "@/lib/data/types/ai-session";
 import type { AiMessage, AiMessageStep, AiProposedAction } from "@/lib/data/types/ai-message";
 import { isToolStepSuccessful, surfaceKey } from "@/lib/actions/ai-overlay-utils";
-import type { AgentKey } from "@/lib/data/types/agent-run";
-
-// Maps a proposed action name to the agent key for the Agent Hub board card.
-const ACTION_AGENT_MAP: Partial<Record<string, AgentKey>> = {
-  markRentPaid: "rent-watch",
-  logRentPayment: "rent-watch",
-  createWorkOrder: "maintenance-coordinator",
-  updateWorkOrder: "maintenance-coordinator",
-  renewLease: "lease-renewal",
-  resolveSafetyRisk: "compliance-sentinel",
-  assignProperties: "portfolio-analyst",
-};
 
 export type ActionResult<T = unknown> =
   | { ok: true; data: T }
@@ -149,11 +127,10 @@ const SYSTEM_PROMPT = (promptContext: string, isPro: boolean) =>
     ...(isPro
       ? [
           "Action tools (Pro routes only):",
-          "- You can propose actions on behalf of the manager using the propose_* tools.",
-          "- These tools do NOT execute anything — they prepare a proposal for the manager to review and approve.",
-          "- When a manager asks you to take an action (mark rent paid, renew a lease, create a work order, etc.), call the matching propose_* tool.",
-          "- After calling a propose_* tool, confirm in your text reply: 'I've prepared that action for your approval — please review the card below.'",
-          "- NEVER claim you have executed an action. You can only propose; the manager approves.",
+          "- You can execute real actions on behalf of the manager: search_properties, create_property, update_property, record_maintenance, create_lease, update_lease, create_tenant, update_tenant, record_payment, update_payment.",
+          "- These run for real, immediately — there is no separate confirmation step, so only call them once you have the right ids and values (use search_properties or the read tools to find ids first).",
+          "- delete_property, delete_lease, delete_tenant, and delete_payment are different: calling them NEVER deletes anything by itself. They prepare a preview of what would be destroyed and show the manager an approval card — only the manager's click actually deletes. Tell the manager: 'I've prepared that delete for your approval — please review the card below.'",
+          "- After a direct write succeeds, confirm in your text reply what you did (e.g. 'Created lease LEASE-0042 on PROP-0001.').",
           "",
         ]
       : []),
@@ -209,7 +186,8 @@ async function generateAssistantReply(
         system: SYSTEM_PROMPT(context.promptContext, isPro),
         messages: [...recent, { role: "user", content: userMessage }],
         tools,
-        stopWhen: stepCountIs(5),
+        // Search→write chains (find the property, then update it) need more than one round trip.
+        stopWhen: stepCountIs(8),
       });
 
       // Build the steps array for the Activity pane.
@@ -239,7 +217,7 @@ async function generateAssistantReply(
           const output = res.output as Record<string, unknown> | null;
           if (output && typeof output === "object" && "proposedAction" in output) {
             const raw = output.proposedAction as AiProposedAction;
-            if (raw && raw.action && raw.payload && raw.consequence) {
+            if (raw && raw.toolName && raw.args && raw.consequence) {
               proposedAction = raw;
               break;
             }
@@ -457,7 +435,6 @@ export async function sendMessage(input: {
     const content = contentSchema.parse(input.content.trim());
     const pathname = pathnameSchema.parse(input.pathname);
     const authCtx = await requireCtx();
-    const userId = getCurrentUserId();
 
     const session = await getAiSession(authCtx, sessionId);
     if (!session || session.status !== "active") {
@@ -485,7 +462,7 @@ export async function sendMessage(input: {
 
     const reply = await generateAssistantReply(content, context, history);
 
-    const assistantMessage = await createAiMessage(authCtx, {
+    await createAiMessage(authCtx, {
       sessionId,
       role: "assistant",
       content: reply.content,
@@ -493,25 +470,6 @@ export async function sendMessage(input: {
       steps: reply.steps,
       proposedAction: reply.proposedAction,
     });
-
-    // If the agent proposed an action, surface it as a board card in Agent Hub.
-    if (reply.proposedAction) {
-      const agentKey = ACTION_AGENT_MAP[reply.proposedAction.action];
-      if (agentKey) {
-        try {
-          await agentRunsDb.upsertForProposal(userId, assistantMessage.id, {
-            agentKey,
-            title: `${agentKey} proposal`,
-            task: reply.proposedAction.consequence,
-            status: "needs-approval",
-            proposalMessageId: assistantMessage.id,
-            sessionId,
-          });
-        } catch (e) {
-          console.error("[ai-overlay] agent-run upsert failed:", e);
-        }
-      }
-    }
 
     if (!updatedSessionTitle) {
       // updateAiSession always bumps updatedAt server-side; empty patch = touch.
@@ -529,9 +487,12 @@ export async function sendMessage(input: {
 // ---------------------------------------------------------------------------
 // Phase 5 — Approval gate actions
 //
-// When a manager approves a proposed action, we execute the real action
-// and record the result on the message. On reject, we record the rejection
-// without touching any data.
+// A proposed action always names a destructive tool from the shared registry
+// (mcp-server/tool-defs.ts) — the 4 gated deletes are the only tools that ever
+// produce a proposedAction; every other write already executed before the
+// message was created. Approving re-runs that same tool's commit() with the
+// exact args the preview was shown for, then audits it like any other write.
+// On reject, we record the rejection without touching any data.
 // ---------------------------------------------------------------------------
 
 export async function approveProposedAction(
@@ -546,41 +507,19 @@ export async function approveProposedAction(
       return { ok: false, error: "Message or proposed action not found." };
     }
 
-    const { action, payload } = message.proposedAction;
+    const { toolName, args } = message.proposedAction;
+    const toolDef = VALGATE_TOOLS.find((candidate) => candidate.name === toolName);
+    if (!toolDef || toolDef.kind !== "destructive") {
+      return { ok: false, error: `Unknown action: ${toolName}` };
+    }
 
-    // Dispatch to the correct Pro action.
-    let actionResult: Awaited<ReturnType<typeof markRentPaid>>;
-
-    switch (action) {
-      case "markRentPaid":
-        actionResult = await markRentPaid(payload as Parameters<typeof markRentPaid>[0]);
-        break;
-      case "logRentPayment":
-        actionResult = await logRentPayment(payload as Parameters<typeof logRentPayment>[0]);
-        break;
-      case "renewLease":
-        actionResult = await renewLease(payload as Parameters<typeof renewLease>[0]);
-        break;
-      case "createWorkOrder":
-        actionResult = await createWorkOrder(payload as Parameters<typeof createWorkOrder>[0]);
-        break;
-      case "updateWorkOrder":
-        actionResult = await updateWorkOrder(payload as Parameters<typeof updateWorkOrder>[0]);
-        break;
-      case "resolveSafetyRisk":
-        actionResult = await resolveSafetyRisk(payload as Parameters<typeof resolveSafetyRisk>[0]);
-        break;
-      case "assignProperties":
-        actionResult = await assignProperties(payload as Parameters<typeof assignProperties>[0]);
-        break;
-      default:
-        return { ok: false, error: `Unknown action: ${action}` };
+    const result = await toolDef.commit(authCtx, args);
+    if (result.ok && toolDef.audit) {
+      await audit(authCtx, toolDef.audit(authCtx, args, result.data));
     }
 
     await updateAiMessage(authCtx, id, {
-      actionResult: actionResult.ok
-        ? { ok: true }
-        : { ok: false, error: actionResult.error },
+      actionResult: result.ok ? { ok: true } : { ok: false, error: result.message },
     });
 
     const session = await getAiSession(authCtx, message.sessionId);
@@ -633,78 +572,13 @@ export async function undoApprovedAction(
       return { ok: false, error: "No successful action to undo." };
     }
 
-    const { action, payload, preImage } = message.proposedAction;
-
-    // Inverse mutations — restore pre-image state.
-    switch (action) {
-      case "markRentPaid": {
-        // Restore the prior payment status.
-        const pi = preImage as { status: string } | null;
-        const paymentId = (payload as { paymentId: string }).paymentId;
-        await updatePayment(authCtx, paymentId, {
-          status: (pi?.status ?? "Pending") as "Paid" | "Pending" | "Overdue",
-        });
-        break;
-      }
-      case "logRentPayment": {
-        // We don't have the created payment ID stored. Skip for now.
-        // ponytail: undo for logRentPayment requires storing the created ID — add if requested.
-        break;
-      }
-      case "renewLease": {
-        const pi = preImage as { endDate: number; renewalStatus?: string } | null;
-        const leaseId = (payload as { leaseId: string }).leaseId;
-        await updateLease(authCtx, leaseId, {
-          endDate: pi?.endDate ?? 0,
-          renewalStatus: pi?.renewalStatus as "Renewed" | "NotRenewed" | undefined,
-        });
-        break;
-      }
-      case "createWorkOrder": {
-        // Work order ID not stored on the message; mark as Resolved to soft-undo.
-        // ponytail: real delete would need storing the created ID — add if requested.
-        break;
-      }
-      case "updateWorkOrder": {
-        const pi = preImage as { status?: string; vendorId?: string; cost?: number } | null;
-        const woId = (payload as { id: string }).id;
-        await updateMaintenanceItem(authCtx, woId, {
-          status: (pi?.status ?? "Open") as "Open" | "InProgress" | "Resolved",
-          vendorId: pi?.vendorId,
-          cost: pi?.cost,
-        });
-        break;
-      }
-      case "resolveSafetyRisk": {
-        const pi = preImage as { status: string; resolvedAt?: number } | null;
-        const riskId = (payload as { riskId: string }).riskId;
-        await updateSafetyRisk(authCtx, riskId, {
-          status: (pi?.status ?? "Open") as "Open" | "Resolved",
-          resolvedAt: undefined,
-        });
-        break;
-      }
-      case "assignProperties": {
-        const pi = preImage as Record<string, { clientId?: string }> | null;
-        if (pi) {
-          for (const [propertyId, state] of Object.entries(pi)) {
-            await updateProperty(authCtx, propertyId, {
-              clientId: state.clientId,
-            });
-          }
-        }
-        break;
-      }
-      default:
-        return { ok: false, error: `Undo not supported for action: ${action}` };
-    }
-
-    await updateAiMessage(authCtx, id, {
-      actionResult: { ok: true, undone: true },
-    });
-
-    const messages = await listAiMessages(authCtx, message.sessionId);
-    return stripUndefined({ ok: true as const, data: { messages } });
+    // Every proposedAction is now a gated delete (see approveProposedAction) — there is no
+    // pre-image to restore for a permanent delete. The activities table is the record of what
+    // happened instead; undo a delete by recreating the record if needed.
+    return {
+      ok: false,
+      error: "This action can't be undone — it was a permanent delete. Check the activity log.",
+    };
   } catch (err) {
     console.error("[ai-overlay] undoApprovedAction error:", err);
     return { ok: false, error: "Could not undo action." };

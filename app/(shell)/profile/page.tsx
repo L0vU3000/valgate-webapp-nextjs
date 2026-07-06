@@ -1,7 +1,8 @@
-import { ProfilePage } from "./_components/ProfilePage";
-import { getProfilePageData } from "./queries";
+import { redirect } from "next/navigation";
 
-export default async function Page() {
-  const data = await getProfilePageData();
-  return <ProfilePage data={data} />;
+// The standalone profile page has been folded into the Account group of
+// /settings. Keep this route as a permanent redirect so existing links and
+// bookmarks land on the Profile section rather than 404-ing.
+export default function Page() {
+  redirect("/settings?section=profile");
 }

@@ -5,9 +5,10 @@ import { motion } from "motion/react";
 import { cn } from "@/components/ui/utils";
 import type { AiActionResult, AiProposedAction } from "@/lib/data/types/ai-message";
 
-// Formats raw payload key names into human-readable labels.
+// Formats raw arg key names into human-readable labels.
 function labelFor(key: string): string {
   const labels: Record<string, string> = {
+    id: "ID",
     paymentId: "Payment ID",
     leaseId: "Lease ID",
     amount: "Amount",
@@ -21,7 +22,6 @@ function labelFor(key: string): string {
     vendorId: "Vendor ID",
     cost: "Cost",
     status: "Status",
-    id: "Work order ID",
     email: "Email",
     phone: "Phone",
     name: "Name",
@@ -31,16 +31,39 @@ function labelFor(key: string): string {
   return labels[key] ?? key;
 }
 
-// Formats a raw payload value into a readable string.
+// Formats a raw arg value into a readable string.
 function valueFor(value: unknown): string {
   if (value === null || value === undefined) return "—";
   if (Array.isArray(value)) return value.join(", ");
+  if (typeof value === "object") return JSON.stringify(value);
   if (typeof value === "number") {
     // Show numbers that look like money with formatting.
     if (value > 100) return value.toLocaleString();
     return String(value);
   }
   return String(value);
+}
+
+// The delete tools' cascade counts differ per entity (see mcp-server/tool-defs.ts previews), but
+// they all share these count field names, so one generic renderer covers every case.
+function cascadeLine(cascade: unknown): string | null {
+  if (!cascade || typeof cascade !== "object") return null;
+  const counts = cascade as Record<string, unknown>;
+  const fields: [string, string][] = [
+    ["leases", "lease"],
+    ["payments", "payment"],
+    ["documents", "document"],
+    ["tenants", "tenant"],
+    ["otherTotal", "other linked record"],
+  ];
+  const parts = fields
+    .filter(([key]) => typeof counts[key] === "number" && (counts[key] as number) > 0)
+    .map(([key, singular]) => {
+      const n = counts[key] as number;
+      return `${n} ${singular}${n === 1 ? "" : "s"}`;
+    });
+  if (parts.length === 0) return null;
+  return `This will also permanently delete ${parts.join(", ")}.`;
 }
 
 type ApprovalGateProps = {
@@ -131,10 +154,11 @@ export function ApprovalGate({
     );
   }
 
-  // Default: pending approval — show the payload card + Approve/Reject buttons.
-  const payloadEntries = Object.entries(action.payload).filter(
+  // Default: pending approval — show the args card + Approve/Reject buttons.
+  const payloadEntries = Object.entries(action.args).filter(
     ([, v]) => v !== null && v !== undefined,
   );
+  const cascade = cascadeLine(action.cascade);
 
   return (
     <motion.div
@@ -170,9 +194,16 @@ export function ApprovalGate({
         </div>
 
         {/* Consequence */}
-        <p className="mb-4 text-sm leading-relaxed text-amber-800 dark:text-amber-300">
+        <p className={cn("text-sm leading-relaxed text-amber-800 dark:text-amber-300", cascade ? "mb-1" : "mb-4")}>
           {action.consequence}
         </p>
+
+        {/* Cascade summary — what else would be destroyed */}
+        {cascade && (
+          <p className="mb-4 text-xs font-medium leading-relaxed text-amber-700/90 dark:text-amber-400/90">
+            {cascade}
+          </p>
+        )}
 
         {/* Actions */}
         <div className="flex items-center gap-2">
