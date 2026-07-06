@@ -31,7 +31,6 @@ import {
   properties,
 } from "@/lib/db/schema";
 import { toDomain } from "@/lib/services/_mapping";
-import { stampClientIdOnOrgProperties } from "@/lib/services/client-records";
 import { PropertySchema } from "@/lib/data/types/property";
 import {
   computeProgress,
@@ -114,13 +113,16 @@ export async function loadProContext(): Promise<ProContext> {
     }
   }
 
-  // Lazy-stamp: ensure properties in client-linked portfolio orgs have
-  // clientId set. Idempotent (only updates NULL rows); handles seed /
-  // pre-existing data where stampClientIdOnOrgProperties wasn't called
-  // at creation time. Must run BEFORE loading portfolioProperties so the
-  // SELECT picks up freshly-stamped clientId values.
+  // Lazy-stamp: ensure properties in client-linked portfolio orgs are
+  // assigned to the correct managed client. Uses an unconditional UPDATE
+  // (not just NULL rows) because properties may have stale clientId values
+  // from a different manager's view. Must run BEFORE loading portfolioProperties
+  // so the SELECT picks up the freshly-stamped values.
   for (const [orgId, clientId] of orgToClientId) {
-    await stampClientIdOnOrgProperties(orgId, clientId);
+    await db
+      .update(properties)
+      .set({ clientId, updatedAt: new Date() })
+      .where(eq(properties.orgId, orgId));
   }
 
   // Renamed `currentOrgProperties` to avoid shadowing the `properties` table import
