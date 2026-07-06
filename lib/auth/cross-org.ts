@@ -1,7 +1,8 @@
 import "server-only";
 import { cache } from "react";
 import { requireCtx } from "@/lib/auth/ctx";
-import { getIsManager, listManagedAccounts } from "@/lib/services/managers";
+import { getIsManager } from "@/lib/services/managers";
+import { listManagedOrgIds } from "@/lib/services/managed-orgs";
 import type { Ctx } from "@/lib/services/_mapping";
 
 // Resolves the effective viewer Ctx for a property request that may carry a
@@ -20,9 +21,11 @@ export const resolveCrossOrgCtx = cache(async (
   const isManager = await getIsManager(ctx);
   if (!isManager) return { ctx, isCrossOrg: false };
 
-  const accounts = await listManagedAccounts(ctx);
-  const hasAccess = accounts.some((a) => a.orgId === requestedOrgId);
-  if (!hasAccess) return { ctx, isCrossOrg: false };
+  // Authorize against every org the manager controls (clients + handoffs +
+  // approved grants) — the same set the Pro cockpit renders links from, so a
+  // link it shows can never be denied here.
+  const managedOrgIds = await listManagedOrgIds(ctx.userId);
+  if (!managedOrgIds.has(requestedOrgId)) return { ctx, isCrossOrg: false };
 
   return {
     ctx: {

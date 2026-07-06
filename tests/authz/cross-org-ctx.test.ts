@@ -21,12 +21,14 @@ vi.mock("react", async (importOriginal) => {
 
 const requireCtx = vi.fn();
 const getIsManager = vi.fn();
-const listManagedAccounts = vi.fn();
+const listManagedOrgIds = vi.fn();
 
 vi.mock("@/lib/auth/ctx", () => ({ requireCtx: () => requireCtx() }));
 vi.mock("@/lib/services/managers", () => ({
   getIsManager: () => getIsManager(),
-  listManagedAccounts: () => listManagedAccounts(),
+}));
+vi.mock("@/lib/services/managed-orgs", () => ({
+  listManagedOrgIds: () => listManagedOrgIds(),
 }));
 
 import { resolveCrossOrgCtx } from "@/lib/auth/cross-org";
@@ -63,7 +65,7 @@ describe("resolveCrossOrgCtx", () => {
 
   it("manager WITHOUT access to the requested org → DENIED: own ctx, isCrossOrg false", async () => {
     getIsManager.mockResolvedValue(true);
-    listManagedAccounts.mockResolvedValue([{ orgId: "ORG-OTHER-CLIENT" }]);
+    listManagedOrgIds.mockResolvedValue(new Set(["ORG-OTHER-CLIENT"]));
     const { ctx, isCrossOrg } = await resolveCrossOrgCtx("ORG-VICTIM");
     expect(isCrossOrg).toBe(false);
     expect(ctx.orgId).toBe("ORG-MANAGER");
@@ -71,7 +73,9 @@ describe("resolveCrossOrgCtx", () => {
 
   it("manager WITH access to the requested org → GRANTED: viewer ctx scoped to that org", async () => {
     getIsManager.mockResolvedValue(true);
-    listManagedAccounts.mockResolvedValue([{ orgId: "ORG-VICTIM" }]);
+    // Access via any source (clients / handoff / approved grant) lands here as
+    // a managed org id — this is what the ORG-0001 clients+handoff case exercises.
+    listManagedOrgIds.mockResolvedValue(new Set(["ORG-VICTIM"]));
     const { ctx, isCrossOrg } = await resolveCrossOrgCtx("ORG-VICTIM");
     expect(isCrossOrg).toBe(true);
     expect(ctx.orgId).toBe("ORG-VICTIM");
