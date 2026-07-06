@@ -31,6 +31,7 @@ import {
   properties,
 } from "@/lib/db/schema";
 import { toDomain } from "@/lib/services/_mapping";
+import { stampClientIdOnOrgProperties } from "@/lib/services/client-records";
 import { PropertySchema } from "@/lib/data/types/property";
 import {
   computeProgress,
@@ -88,7 +89,7 @@ export async function loadProContext(): Promise<ProContext> {
       .from(clientHandoffs)
       .where(eq(clientHandoffs.managerUserId, authCtx.userId)),
     db
-      .selectDistinct({ orgId: clients.orgId })
+      .select({ orgId: clients.orgId, clientId: clients.id })
       .from(clients)
       .where(
         and(eq(clients.managerUserId, authCtx.userId), isNotNull(clients.orgId)),
@@ -104,6 +105,23 @@ export async function loadProContext(): Promise<ProContext> {
     .filter((id): id is string => id !== null && id !== authCtx.orgId);
 
   const allPortfolioOrgIds = [...new Set([...handoffOrgIds, ...clientOrgIds])];
+
+  // Build org→clientId map from client rows for lazy-stamp below.
+  const orgToClientId = new Map<string, string>();
+  for (const row of clientOrgRows) {
+    if (row.orgId && row.clientId) {
+      orgToClientId.set(row.orgId, row.clientId);
+    }
+  }
+
+  // Lazy-stamp: ensure properties in client-linked portfolio orgs have
+  // clientId set. Idempotent (only updates NULL rows); handles seed /
+  // pre-existing data where stampClientIdOnOrgProperties wasn't called
+  // at creation time. Must run BEFORE loading portfolioProperties so the
+  // SELECT picks up freshly-stamped clientId values.
+  for (const [orgId, clientId] of orgToClientId) {
+    await stampClientIdOnOrgProperties(orgId, clientId);
+  }
 
   // Renamed `currentOrgProperties` to avoid shadowing the `properties` table import
   // used in the portfolio org query below.
