@@ -27,8 +27,6 @@ export const env = createEnv({
     UPSTASH_REDIS_REST_TOKEN: z.string().min(1).optional(),
     // B9 RLS (Neon authenticated role). Optional until Neon RLS + Clerk JWT are provisioned (D17).
     DATABASE_AUTHENTICATED_URL: z.string().url().optional(),
-    // FE: site-gate password (also read directly via process.env in lib/site-gate.ts).
-    SITE_PASSWORD: z.string().min(1).optional(),
     // Shared secret for Vercel Cron routes. Vercel sends it as `Authorization: Bearer ${CRON_SECRET}`;
     // the cron route 401s unless it matches. Optional so local builds don't fail when unset — the route
     // refuses to run (401) without it, so an unset secret means "locked", never "open". Set in Vercel.
@@ -79,7 +77,6 @@ export const env = createEnv({
     UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL,
     UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN,
     DATABASE_AUTHENTICATED_URL: process.env.DATABASE_AUTHENTICATED_URL,
-    SITE_PASSWORD: process.env.SITE_PASSWORD,
     CRON_SECRET: process.env.CRON_SECRET,
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
     RESEND_API_KEY: process.env.RESEND_API_KEY,

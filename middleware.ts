@@ -1,13 +1,6 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import {
-  SITE_ACCESS_COOKIE_NAME,
-  SITE_GATE_PATH,
-  getExpectedSiteAccessToken,
-  isSiteGateEnabled,
-  isSiteGateExempt,
-} from "@/lib/site-gate";
 
 // The MCP HTTP server (/mcp) and ALL of its OAuth discovery metadata under /.well-known/*
 // (protected-resource, authorization-server, openid-configuration) are public: /mcp validates its
@@ -44,54 +37,9 @@ function checkMcpIpRateLimit(request: NextRequest): NextResponse | null {
   return null;
 }
 
-// The frontend's site-gate, factored out so it can run on its own (DEMO_MODE) or wrapped by Clerk.
-// Returns a response when the request should be short-circuited (redirect to the gate), else null.
-async function siteGate(request: NextRequest): Promise<NextResponse | null> {
-  // Future: pro.valgate.com subdomain routing — see git history for the rewrite sketch.
-
-  if (!isSiteGateEnabled()) {
-    return null;
-  }
-
-  // MCP endpoints must stay publicly reachable (they do their own token auth).
-  if (isMcpRoute(request)) {
-    return null;
-  }
-
-  const { pathname, search } = request.nextUrl;
-
-  if (isSiteGateExempt(pathname)) {
-    return null;
-  }
-
-  // The OAuth consent screen: Clerk redirects the user here from the connecting app (e.g. claude.ai)
-  // mid-OAuth, and that visitor has no site-gate cookie, so the gate would otherwise bounce them to
-  // /gate and break the grant. Skip the site gate here. The page does NOT run auth.protect() — it
-  // self-gates on the Clerk session via hooks (useUser/useOAuthConsent) and is listed in
-  // isPublicRoute below. On a Clerk dev instance auth.protect() rewrites a signed-out /
-  // dev-browser-missing visitor (exactly how a visitor arrives mid-OAuth) to /404 instead of
-  // redirecting to sign-in, which 404'd the consent page and broke the MCP grant.
-  if (pathname.startsWith("/oauth-consent")) {
-    return null;
-  }
-
-  const expectedToken = await getExpectedSiteAccessToken();
-  const cookieValue = request.cookies.get(SITE_ACCESS_COOKIE_NAME)?.value;
-
-  if (expectedToken && cookieValue === expectedToken) {
-    return null;
-  }
-
-  const gateUrl = request.nextUrl.clone();
-  gateUrl.pathname = SITE_GATE_PATH;
-  gateUrl.search = "";
-  gateUrl.searchParams.set("from", `${pathname}${search}`);
-  return NextResponse.redirect(gateUrl);
-}
-
 // DEMO_MODE-aware. clerkMiddleware() throws at request time without a publishable key, and
-// requireCtx() skips Clerk entirely in DEMO_MODE — so when no Clerk key is configured we run the
-// site-gate alone. When a key is present, the site-gate runs first, then Clerk auth applies.
+// requireCtx() skips Clerk entirely in DEMO_MODE — so when no Clerk key is configured we skip
+// Clerk auth entirely and only apply the MCP IP rate limit.
 //
 // WHY CLERK_SECRET_KEY instead of NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:
 // Turbopack can compile NEXT_PUBLIC_* values into the Edge middleware bundle at startup
@@ -103,7 +51,7 @@ const hasClerk =
   Boolean(process.env.CLERK_SECRET_KEY) &&
   process.env.CLERK_SECRET_KEY !== "sk_test_placeholder";
 
-// Routes reachable WITHOUT being signed in: the auth pages, the Clerk webhook, the site-gate, and
+// Routes reachable WITHOUT being signed in: the auth pages, the Clerk webhook, and
 // Clerk's own frontend API routes. Everything else requires a session (auth.protect → /login).
 const isPublicRoute = createRouteMatcher([
   "/login(.*)",
@@ -121,7 +69,6 @@ const isPublicRoute = createRouteMatcher([
   // discovery metadata under /.well-known.
   "/api/mcp(.*)",
   "/.well-known/oauth-protected-resource(.*)",
-  `${SITE_GATE_PATH}(.*)`,
   "/__clerk(.*)",
   // MCP server + all its OAuth discovery metadata: no Clerk session redirect; /mcp validates its
   // own OAuth bearer token, and everything under /.well-known/* is public discovery data.
@@ -135,18 +82,16 @@ const isPublicRoute = createRouteMatcher([
 // send them to /launch to resolve where they left off instead of showing the form again.
 const isAuthEntryRoute = createRouteMatcher(["/login", "/register"]);
 
-async function siteGateOnly(request: NextRequest): Promise<NextResponse> {
+async function mcpRateLimitOnly(request: NextRequest): Promise<NextResponse> {
   const rl = checkMcpIpRateLimit(request);
   if (rl) return rl;
-  return (await siteGate(request)) ?? NextResponse.next();
+  return NextResponse.next();
 }
 
 const middleware = hasClerk
   ? clerkMiddleware(async (auth, request) => {
       const rl = checkMcpIpRateLimit(request);
       if (rl) return rl;
-      const gated = await siteGate(request);
-      if (gated) return gated;
       const { userId } = await auth();
       const hasInviteTicket = request.nextUrl.searchParams.has("__clerk_ticket");
       if (userId && isAuthEntryRoute(request) && !hasInviteTicket) {
@@ -155,7 +100,7 @@ const middleware = hasClerk
       // Redirect signed-out users hitting a protected route to /login (set via ClerkProvider signInUrl).
       if (!isPublicRoute(request)) await auth.protect();
     })
-  : siteGateOnly;
+  : mcpRateLimitOnly;
 
 export default middleware;
 
