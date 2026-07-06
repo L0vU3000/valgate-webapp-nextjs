@@ -6,6 +6,12 @@
 // textarea for the user to complete. The templates are plain natural-language
 // prompts (with [bracketed] slots the user fills in), so they route through the
 // existing reply engine without needing any new parsing.
+//
+// The MCP-aligned action entries (add-property, add-lease, etc.) mirror the
+// non-destructive VALGATE_TOOLS from mcp-server/tool-defs.ts. The AI model
+// already has those tools registered via PRO_TOOLS in lib/actions/ai-tools.ts,
+// so typing "/add-tenant" → inserting a template → Enter triggers the same
+// underlying create_tenant tool that the MCP connector runs.
 
 export type SlashCommand = {
   /** The trigger the user types, including the leading slash. */
@@ -105,6 +111,88 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     description: "Move a property to a different client",
     template: "Reassign [property] to client [client].",
     keywords: ["reassign", "move", "client", "owner", "portfolio"],
+    scope: "pro",
+  },
+
+  // ── MCP action tools — one entry per VALGATE_TOOLS non-destructive tool ──
+  {
+    command: "/add-property",
+    title: "Add property",
+    description: "Add a new property to the workspace",
+    template: "Add a new property. Name: [name], Type: [type], Status: [status], Purchase value: [amount], Area: [area].",
+    keywords: ["create", "new", "property", "add"],
+    scope: "pro",
+  },
+  {
+    command: "/edit-property",
+    title: "Edit property",
+    description: "Change fields on an existing property",
+    template: "Update property [id]. Change [field] to [value].",
+    keywords: ["update", "change", "edit", "property", "modify"],
+    scope: "pro",
+  },
+  {
+    command: "/find-properties",
+    title: "Search properties",
+    description: "List all properties in the workspace",
+    template: "Show me all properties in this workspace.",
+    keywords: ["search", "list", "find", "properties", "portfolio"],
+    scope: "pro",
+  },
+  {
+    command: "/add-lease",
+    title: "Add lease",
+    description: "Create a lease on a property",
+    template: "Create a new lease on property [property id]. Unit: [unit], Monthly rent: [amount], Start: [date], End: [date].",
+    keywords: ["create", "new", "lease", "rental", "contract"],
+    scope: "pro",
+  },
+  {
+    command: "/edit-lease",
+    title: "Edit lease",
+    description: "Change fields on an existing lease",
+    template: "Update lease [id]. Change [field] to [value].",
+    keywords: ["update", "change", "edit", "lease", "modify"],
+    scope: "pro",
+  },
+  {
+    command: "/add-tenant",
+    title: "Add tenant",
+    description: "Add a tenant to a property",
+    template: "Add a tenant to property [property id]. Name: [name], Unit: [unit], Rent: [amount].",
+    keywords: ["create", "new", "tenant", "add", "resident"],
+    scope: "pro",
+  },
+  {
+    command: "/edit-tenant",
+    title: "Edit tenant",
+    description: "Change fields on an existing tenant",
+    template: "Update tenant [id]. Change [field] to [value].",
+    keywords: ["update", "change", "edit", "tenant", "modify"],
+    scope: "pro",
+  },
+  {
+    command: "/add-payment",
+    title: "Record payment",
+    description: "Record a rent payment or fee",
+    template: "Record a [kind] payment on lease [lease id]. Amount: [amount], Date: [date], Method: [method].",
+    keywords: ["record", "payment", "rent", "fee", "deposit", "add"],
+    scope: "pro",
+  },
+  {
+    command: "/edit-payment",
+    title: "Edit payment",
+    description: "Change fields on an existing payment",
+    template: "Update payment [id]. Change [field] to [value].",
+    keywords: ["update", "change", "edit", "payment", "modify"],
+    scope: "pro",
+  },
+  {
+    command: "/maintenance",
+    title: "Record maintenance",
+    description: "Log a maintenance issue against a property",
+    template: "Log a maintenance issue on property [property id]. Title: [title], Severity: [severity].",
+    keywords: ["maintenance", "repair", "issue", "log", "record"],
     scope: "pro",
   },
 ];
