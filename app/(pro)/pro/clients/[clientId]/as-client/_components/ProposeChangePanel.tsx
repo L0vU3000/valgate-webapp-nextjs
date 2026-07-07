@@ -1,15 +1,11 @@
 "use client";
-// Full-screen "View as client" takeover + manager "Propose changes" panel (Pro-3.0).
-// The blue-glow frame signals the manager is previewing this client's view.
-// The "Propose changes" side panel now covers all Tier 1 entities (property,
-// lease, tenant, payment) across all operations (add / edit / remove).
+// Manager "Propose changes" side panel (Pro-3.0). Covers all Tier 1 entities
+// (property, lease, tenant, payment) across all operations (add / edit / remove).
+// Rendered by ClientPreviewShell so it persists across preview section navigation.
 import { useState, useTransition } from "react";
-import Link from "next/link";
-import { ArrowLeft, Eye, Pencil, X, Check, AlertTriangle } from "lucide-react";
-import { Sidebar } from "@/components/layout/Sidebar";
-import { HomePage } from "@/app/(shell)/_components/HomePage";
-import type { HomeProperty, PortfolioStats } from "@/app/(shell)/queries";
-import type { Document } from "@/lib/data/types/document";
+import { useRouter } from "next/navigation";
+import { Pencil, X, Check, AlertTriangle } from "lucide-react";
+import type { Property } from "@/lib/data/types/property";
 import type { Lease } from "@/lib/data/types/lease";
 import type { Tenant } from "@/lib/data/types/tenant";
 import type { Payment } from "@/lib/data/types/payment";
@@ -110,7 +106,7 @@ function LeaseFormFields({
 }: {
   form: LeaseForm;
   onChange: (key: keyof LeaseForm, value: string) => void;
-  properties: HomeProperty[];
+  properties: Property[];
   showPropertyPicker: boolean;
 }) {
   return (
@@ -223,7 +219,7 @@ function TenantFormFields({
 }: {
   form: TenantForm;
   onChange: (key: keyof TenantForm, value: string) => void;
-  properties: HomeProperty[];
+  properties: Property[];
   showPropertyPicker: boolean;
 }) {
   return (
@@ -380,7 +376,7 @@ function PaymentFormFields({
   );
 }
 
-// ─── Property form (Phase 2 logic — preserved) ────────────────────────────────
+// ─── Property form ────────────────────────────────────────────────────────────
 
 const PROPERTY_STATUSES = [
   "Rented", "Vacant", "For Sale", "Sold", "Archived", "Owner-Occupied",
@@ -406,7 +402,7 @@ const EMPTY_PROPERTY_FORM: PropertyForm = {
   totalArea: "",
 };
 
-function initPropertyForm(p: HomeProperty): PropertyForm {
+function initPropertyForm(p: Property): PropertyForm {
   return {
     name: p.name ?? "",
     status: p.status ?? "",
@@ -419,7 +415,7 @@ function initPropertyForm(p: HomeProperty): PropertyForm {
 }
 
 // Only include fields that actually differ from the original.
-function buildPropertyPatch(form: PropertyForm, original: HomeProperty): Record<string, unknown> {
+function buildPropertyPatch(form: PropertyForm, original: Property): Record<string, unknown> {
   const patch: Record<string, unknown> = {};
   if (form.name.trim() && form.name.trim() !== original.name) patch.name = form.name.trim();
   if (form.status && form.status !== original.status) patch.status = form.status;
@@ -479,14 +475,18 @@ function PropertyFormFields({ form, onChange }: { form: PropertyForm; onChange: 
 
 type ProposePanelProps = {
   clientId: string;
-  properties: HomeProperty[];
+  // Full-grant manager → the same forms apply directly (auto-approved) instead of proposing.
+  // The write path is chosen SERVER-SIDE from the real grant; this prop only drives copy.
+  canWrite: boolean;
+  properties: Property[];
   leases: Lease[];
   tenants: Tenant[];
   payments: Payment[];
   onClose: () => void;
 };
 
-function ProposeChangePanel({ clientId, properties, leases, tenants, payments, onClose }: ProposePanelProps) {
+export function ProposeChangePanel({ clientId, canWrite, properties, leases, tenants, payments, onClose }: ProposePanelProps) {
+  const router = useRouter();
   const [entityType, setEntityType] = useState<EntityType>("property");
   const [operation, setOperation] = useState<OperationType>("update");
   const [isPending, startTransition] = useTransition();
@@ -558,7 +558,7 @@ function ProposeChangePanel({ clientId, properties, leases, tenants, payments, o
           entityId = selectedPropertyId || null;
           patch = {};
         } else if (operation === "create") {
-          patch = buildPropertyPatch(propertyForm, {} as HomeProperty);
+          patch = buildPropertyPatch(propertyForm, {} as Property);
           entityId = null;
         } else {
           // update
@@ -619,7 +619,13 @@ function ProposeChangePanel({ clientId, properties, leases, tenants, payments, o
 
       if (result.ok) {
         const opLabel = operation === "create" ? "addition" : operation === "delete" ? "removal" : "update";
-        toast.success(`${ENTITY_LABELS[entityType]} ${opLabel} proposal submitted. The client will be notified.`);
+        if (canWrite) {
+          toast.success(`${ENTITY_LABELS[entityType]} ${opLabel} applied. The client has been notified.`);
+          // Reflect the applied change in the preview without a full reload.
+          router.refresh();
+        } else {
+          toast.success(`${ENTITY_LABELS[entityType]} ${opLabel} proposal submitted. The client will be notified.`);
+        }
         onClose();
       } else {
         toast.error(result.error ?? "Failed to submit proposal. Please try again.");
@@ -719,10 +725,10 @@ function ProposeChangePanel({ clientId, properties, leases, tenants, payments, o
         <div className="flex items-start gap-2.5">
           <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
           <div>
-            <p className="text-[13px] font-semibold text-red-700">Propose removal</p>
+            <p className="text-[13px] font-semibold text-red-700">{canWrite ? "Remove entity" : "Propose removal"}</p>
             <p className="text-[12px] text-red-600 mt-0.5">
               <strong className="font-semibold">{entityLabel}</strong> will be permanently removed
-              if the client approves. This cannot be undone.
+              {canWrite ? " immediately" : " if the client approves"}. This cannot be undone.
             </p>
           </div>
         </div>
@@ -790,7 +796,7 @@ function ProposeChangePanel({ clientId, properties, leases, tenants, payments, o
       <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
         <div className="flex items-center gap-2">
           <Pencil className="h-4 w-4 text-blue-600" />
-          <h2 className="text-[15px] font-semibold text-slate-800">Propose changes</h2>
+          <h2 className="text-[15px] font-semibold text-slate-800">{canWrite ? "Edit portfolio" : "Propose changes"}</h2>
         </div>
         <button
           type="button"
@@ -804,7 +810,9 @@ function ProposeChangePanel({ clientId, properties, leases, tenants, payments, o
 
       {/* Info banner */}
       <div className="shrink-0 mx-5 mt-4 rounded-lg bg-blue-50 border border-blue-200 px-3 py-2.5 text-[12px] text-blue-700">
-        Your proposal will be sent to the client for review. No changes are applied until they approve.
+        {canWrite
+          ? "You have full access. Changes apply immediately to the client's portfolio, and the client is notified of each one."
+          : "Your proposal will be sent to the client for review. No changes are applied until they approve."}
       </div>
 
       {/* Scrollable form body */}
@@ -879,7 +887,15 @@ function ProposeChangePanel({ clientId, properties, leases, tenants, payments, o
         >
           <Check className="h-4 w-4" />
           {isPending
-            ? "Submitting…"
+            ? canWrite
+              ? "Applying…"
+              : "Submitting…"
+            : canWrite
+            ? operation === "delete"
+              ? "Remove now"
+              : operation === "create"
+              ? `Add ${ENTITY_LABELS[entityType].toLowerCase()}`
+              : "Save changes"
             : operation === "delete"
             ? "Submit removal proposal"
             : operation === "create"
@@ -894,115 +910,6 @@ function ProposeChangePanel({ clientId, properties, leases, tenants, payments, o
           Cancel
         </button>
       </div>
-    </div>
-  );
-}
-
-// ─── Main component ───────────────────────────────────────────────────────────
-
-export function ClientViewPreview({
-  clientId,
-  clientName,
-  clientInitials,
-  properties,
-  portfolioStats,
-  documents,
-  leases,
-  tenants,
-  payments,
-}: {
-  clientId: string;
-  clientName: string;
-  clientInitials: string;
-  properties: HomeProperty[];
-  portfolioStats: PortfolioStats;
-  documents: Document[];
-  leases: Lease[];
-  tenants: Tenant[];
-  payments: Payment[];
-}) {
-  const [isDark, setIsDark] = useState(false);
-  const [proposeOpen, setProposeOpen] = useState(false);
-
-  // Show "Propose changes" only if the portfolio has at least one entity to work with.
-  const hasAnyEntities = properties.length > 0 || leases.length > 0 || tenants.length > 0 || payments.length > 0;
-
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-surface-base">
-      {/* Exit bar — tells the manager whose view this is and how to leave. */}
-      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-blue-200 bg-blue-50 px-4 py-2 dark:border-blue-900 dark:bg-blue-950/40">
-        <span className="inline-flex items-center gap-2 text-[13px] text-blue-800 dark:text-blue-200">
-          <Eye className="h-4 w-4 shrink-0" />
-          Viewing as <strong className="font-semibold">{clientName}</strong>
-          <span className="hidden text-blue-700/70 dark:text-blue-300/70 sm:inline">
-            — the portfolio exactly as this client sees it
-          </span>
-        </span>
-
-        <div className="flex items-center gap-2 shrink-0">
-          {hasAnyEntities && (
-            <button
-              type="button"
-              onClick={() => setProposeOpen(true)}
-              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-blue-300 bg-white px-3 text-[13px] font-medium text-blue-700 transition-[background-color,transform] hover:bg-blue-50 active:scale-[0.97] dark:border-blue-800 dark:bg-blue-950/60 dark:text-blue-300"
-            >
-              <Pencil className="h-3.5 w-3.5" />
-              Propose changes
-            </button>
-          )}
-
-          <Link
-            href={`/pro/clients/${clientId}`}
-            className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-blue-200 bg-white px-3 text-[13px] font-medium text-blue-700 transition-[background-color,transform] hover:bg-blue-50 active:scale-[0.97] dark:border-blue-900 dark:bg-blue-950/60 dark:text-blue-300 dark:hover:bg-blue-900/50"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Exit client view
-          </Link>
-        </div>
-      </div>
-
-      {/* Owner shell (rail sidebar + content) scoped to the client. */}
-      <div className="relative flex min-h-0 flex-1 overflow-hidden bg-surface-page">
-        <div className="hidden h-full sm:flex">
-          <Sidebar
-            isDark={isDark}
-            onToggleDark={() => setIsDark((d) => !d)}
-            onOpenAI={() => {}}
-            isPreview
-            identity={{
-              displayName: clientName,
-              initials: clientInitials,
-              roleText: "Owner",
-            }}
-          />
-        </div>
-
-        <main className="flex min-h-0 flex-1 flex-col overflow-hidden bg-surface-page">
-          <HomePage
-            initialProperties={properties}
-            portfolioStats={portfolioStats}
-            documents={documents}
-          />
-        </main>
-
-        {/* Inset blue glow framing the whole client view. */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 z-40 ring-4 ring-inset ring-blue-500/40 shadow-[inset_0_0_60px_rgba(37,99,235,0.18)]"
-        />
-      </div>
-
-      {/* Propose-changes side panel (renders on top of everything). */}
-      {proposeOpen && (
-        <ProposeChangePanel
-          clientId={clientId}
-          properties={properties}
-          leases={leases}
-          tenants={tenants}
-          payments={payments}
-          onClose={() => setProposeOpen(false)}
-        />
-      )}
     </div>
   );
 }

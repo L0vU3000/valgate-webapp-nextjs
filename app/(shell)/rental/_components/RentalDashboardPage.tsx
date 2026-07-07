@@ -20,7 +20,16 @@ import type { RentalDashboardData } from "../queries";
 /*  Page Component                                                            */
 /* -------------------------------------------------------------------------- */
 
-export function RentalDashboardPage({ data }: { data: RentalDashboardData }) {
+export function RentalDashboardPage({
+  data,
+  // readOnly hides controls that escape the "View as client" preview into the
+  // manager's own org (e.g. "Add Property" → /add-property). Defaults false so
+  // the real owner route is unchanged.
+  readOnly = false,
+}: {
+  data: RentalDashboardData;
+  readOnly?: boolean;
+}) {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [showAddLease, setShowAddLease] = useState(false);
@@ -110,13 +119,15 @@ export function RentalDashboardPage({ data }: { data: RentalDashboardData }) {
               <Plus className="h-4 w-4" />
               New Lease
             </button>
-            <button
-              onClick={() => router.push("/add-property")}
-              className="shrink-0 flex items-center gap-2 rounded px-4 py-2 text-sm font-semibold text-val-heading hover:bg-slate-50 active:scale-[0.98] transition-all duration-150"
-            >
-              <Building2 className="h-4 w-4" />
-              Add Property
-            </button>
+            {!readOnly && (
+              <button
+                onClick={() => router.push("/add-property")}
+                className="shrink-0 flex items-center gap-2 rounded px-4 py-2 text-sm font-semibold text-val-heading hover:bg-slate-50 active:scale-[0.98] transition-all duration-150"
+              >
+                <Building2 className="h-4 w-4" />
+                Add Property
+              </button>
+            )}
             <button
               onClick={() => setShowPortfolioReport(true)}
               className="shrink-0 flex items-center gap-2 rounded px-4 py-2 text-sm font-semibold text-val-heading hover:bg-slate-50 active:scale-[0.98] transition-all duration-150"

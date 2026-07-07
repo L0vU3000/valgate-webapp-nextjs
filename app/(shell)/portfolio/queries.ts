@@ -1,7 +1,7 @@
 import "server-only";
 import { getProperties } from "@/lib/data/properties";
 import { requireCtx } from "@/lib/auth/ctx";
-import { roleAtLeast } from "@/lib/services/_mapping";
+import { roleAtLeast, type Ctx } from "@/lib/services/_mapping";
 // Cut 3: read through the cross-request cache layer (unstable_cache) instead of
 // hitting the services directly. Same org-wide queries, now cached + tag-invalidated.
 import {
@@ -66,9 +66,10 @@ function toListItem(p: Property, ctx: ProgressContext): PropertyListItem {
 
 export async function getPortfolioPageData(
   opts: { showArchived?: boolean } = {},
+  ctxOverride?: Ctx,
 ): Promise<PortfolioPageData> {
   const { showArchived = false } = opts;
-  const authCtx = await requireCtx();
+  const authCtx = ctxOverride ?? (await requireCtx());
 
   const [
     properties,

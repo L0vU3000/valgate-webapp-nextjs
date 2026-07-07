@@ -10,13 +10,13 @@
 
 ## 2. Phase 2 — One audited path for Compliance + Work Orders entities
 
-- [ ] 2.1 Extend `_change-request-dispatcher.ts` `REGISTRY` with `certification`, `inspection`, `safety-risk`, `maintenance-item` (each `{createSchema, updateSchema, create, update, delete}` from existing `New*`/`Patch*` schemas + service fns)
-- [ ] 2.2 Add the same four to the action-layer `ENTITY_SCHEMAS` map in `change-requests.actions.ts` and the `ProposeChangePanel` entity coverage (forms + selectors), reusing the existing form pattern
-- [ ] 2.3 Re-home `app/(pro)/pro/work-orders.actions.ts` (`createWorkOrder`/`updateWorkOrder`) off `requireCtx()` → resolve the target client org and route through `proposeChangeAction`/`recordAndApplyManagerChange` (client-org ctx + ledger)
-- [ ] 2.4 Re-home `app/(pro)/pro/compliance.actions.ts` (`resolveSafetyRisk`) onto the audited path (safety-risk update via the registry)
-- [ ] 2.5 Re-home `app/(pro)/pro/rent.actions.ts` (`markRentPaid`/`logRentPayment`/`renewLease`) onto the audited path (payment/lease via the registry)
-- [ ] 2.6 Add preview mirror sections `app/(pro)/pro/clients/[clientId]/as-client/{compliance,work-orders}/page.tsx` mounting the shell page components under `viewerCtx` with `readOnly={!canWrite}`
-- [ ] 2.7 Add "Compliance" + "Work Orders" to the preview Sidebar nav (`isPreview` branch) so they appear in the as-client rail
+- [x] 2.1 Extend `_change-request-dispatcher.ts` `REGISTRY` with `certification`, `inspection`, `safety-risk`, `maintenance-item` (each `{createSchema, updateSchema, create, update, delete}` from existing `New*`/`Patch*` schemas + service fns)
+- [~] 2.2 Add the same four to the action-layer `ENTITY_SCHEMAS` map in `change-requests.actions.ts` (DONE — schemas + `ENTITY_CACHE_TAGS`) and the `ProposeChangePanel` entity coverage (forms + selectors) — PANEL FORMS PENDING (needs `ClientPreviewShell` to load certs/inspections/risks/maintenance + 4 new form components)
+- [ ] 2.3 Re-home `app/(pro)/pro/work-orders.actions.ts` (`createWorkOrder`/`updateWorkOrder`) off `requireCtx()` → resolve the target client org and route through `proposeChangeAction`/`recordAndApplyManagerChange` (client-org ctx + ledger) — BLOCKED ON DESIGN FORK (own-org vs accepted-client routing)
+- [ ] 2.4 Re-home `app/(pro)/pro/compliance.actions.ts` (`resolveSafetyRisk`) onto the audited path (safety-risk update via the registry) — BLOCKED ON DESIGN FORK
+- [ ] 2.5 Re-home `app/(pro)/pro/rent.actions.ts` (`markRentPaid`/`logRentPayment`/`renewLease`) onto the audited path (payment/lease via the registry) — BLOCKED ON DESIGN FORK
+- [x] 2.6 Add preview mirror sections `app/(pro)/pro/clients/[clientId]/as-client/{compliance,work-orders}/page.tsx` mounting the shell page components under `viewerCtx` with `readOnly`
+- [x] 2.7 "Compliance" + "Work Orders" appear in the preview Sidebar rail — satisfied for free by the Phase 1 shared `sidebarNavItems` edit (preview routes them via `previewBasePath`)
 - [ ] 2.8 Authz test (`tests/authz/`): full-grant manager applies a maintenance-item + safety-risk change (approved row + entity written); viewer-grant proposes (pending); non-owner 404s
 - [ ] 2.9 `tsc` + `eslint` clean; live QA: manager acts on Compliance + Work Orders in the preview (full → applied + notified; viewer → pending) and from the re-homed Pro book-page actions
 

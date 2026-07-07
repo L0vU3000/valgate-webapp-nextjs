@@ -1,5 +1,6 @@
 import "server-only";
 import { requireCtx } from "@/lib/auth/ctx";
+import type { Ctx } from "@/lib/services/_mapping";
 import { listProperties } from "@/lib/services/properties";
 import { listSuccessors } from "@/lib/services/successors";
 import { listDocuments } from "@/lib/services/documents";
@@ -145,8 +146,8 @@ function estateDocumentMeta(
   return `${formatDate(doc.uploadedAt)} • ${ext} • ${size}`;
 }
 
-export async function getEstatePlanningPageData(): Promise<EstatePlanningPageData> {
-  const authCtx = await requireCtx();
+export async function getEstatePlanningPageData(ctxOverride?: Ctx): Promise<EstatePlanningPageData> {
+  const authCtx = ctxOverride ?? (await requireCtx());
   const [propertiesRaw, successorsRaw, documentsRaw, assignmentsRaw, activityRaw] =
     await Promise.all([
       listProperties(authCtx),

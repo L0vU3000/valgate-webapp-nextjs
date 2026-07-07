@@ -24,6 +24,26 @@ import { NewPaymentSchema, PaymentPatchSchema } from "@/lib/data/types/payment";
 import { createPayment, updatePayment, deletePayment } from "@/lib/services/payments";
 import type { PaymentPatch } from "@/lib/data/types/payment";
 
+// Certification
+import { NewCertificationSchema, CertificationPatchSchema } from "@/lib/data/types/certification";
+import { createCertification, updateCertification, deleteCertification } from "@/lib/services/certifications";
+import type { NewCertification, CertificationPatch } from "@/lib/data/types/certification";
+
+// Inspection
+import { NewInspectionSchema, InspectionPatchSchema } from "@/lib/data/types/inspection";
+import { createInspection, updateInspection, deleteInspection } from "@/lib/services/inspections";
+import type { NewInspection, InspectionPatch } from "@/lib/data/types/inspection";
+
+// Safety risk
+import { NewSafetyRiskSchema, SafetyRiskPatchSchema } from "@/lib/data/types/safety-risk";
+import { createSafetyRisk, updateSafetyRisk, deleteSafetyRisk } from "@/lib/services/safety-risks";
+import type { NewSafetyRisk, SafetyRiskPatch } from "@/lib/data/types/safety-risk";
+
+// Maintenance item (Work Orders)
+import { NewMaintenanceItemSchema, MaintenanceItemPatchSchema } from "@/lib/data/types/maintenance-item";
+import { createMaintenanceItem, updateMaintenanceItem, deleteMaintenanceItem } from "@/lib/services/maintenance-items";
+import type { NewMaintenanceItem, MaintenanceItemPatch } from "@/lib/data/types/maintenance-item";
+
 import type { Ctx } from "@/lib/services/_mapping";
 import type { ChangeRequest } from "@/lib/services/change-request-types";
 
@@ -71,6 +91,34 @@ const REGISTRY: Record<string, RegistryEntry<any, any>> = {
     create: (ctx: Ctx, input: unknown) => createPayment(ctx, input as import("@/lib/data/types/payment").NewPayment),
     update: (ctx: Ctx, id: string, patch: unknown) => updatePayment(ctx, id, patch as PaymentPatch),
     delete: (ctx: Ctx, id: string) => deletePayment(ctx, id),
+  },
+  certification: {
+    createSchema: NewCertificationSchema,
+    updateSchema: CertificationPatchSchema,
+    create: (ctx: Ctx, input: unknown) => createCertification(ctx, input as NewCertification),
+    update: (ctx: Ctx, id: string, patch: unknown) => updateCertification(ctx, id, patch as CertificationPatch),
+    delete: (ctx: Ctx, id: string) => deleteCertification(ctx, id),
+  },
+  inspection: {
+    createSchema: NewInspectionSchema,
+    updateSchema: InspectionPatchSchema,
+    create: (ctx: Ctx, input: unknown) => createInspection(ctx, input as NewInspection),
+    update: (ctx: Ctx, id: string, patch: unknown) => updateInspection(ctx, id, patch as InspectionPatch),
+    delete: (ctx: Ctx, id: string) => deleteInspection(ctx, id),
+  },
+  "safety-risk": {
+    createSchema: NewSafetyRiskSchema,
+    updateSchema: SafetyRiskPatchSchema,
+    create: (ctx: Ctx, input: unknown) => createSafetyRisk(ctx, input as NewSafetyRisk),
+    update: (ctx: Ctx, id: string, patch: unknown) => updateSafetyRisk(ctx, id, patch as SafetyRiskPatch),
+    delete: (ctx: Ctx, id: string) => deleteSafetyRisk(ctx, id),
+  },
+  "maintenance-item": {
+    createSchema: NewMaintenanceItemSchema,
+    updateSchema: MaintenanceItemPatchSchema,
+    create: (ctx: Ctx, input: unknown) => createMaintenanceItem(ctx, input as NewMaintenanceItem),
+    update: (ctx: Ctx, id: string, patch: unknown) => updateMaintenanceItem(ctx, id, patch as MaintenanceItemPatch),
+    delete: (ctx: Ctx, id: string) => deleteMaintenanceItem(ctx, id),
   },
 };
 

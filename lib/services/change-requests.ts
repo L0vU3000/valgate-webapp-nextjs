@@ -91,6 +91,83 @@ export async function createChangeRequest(
   return rowToCR(row!);
 }
 
+// Record a manager's change as ALREADY approved and apply it, in one step.
+// ctx is the MANAGER's WRITE ctx — orgId is the client's portfolio org and orgRole is
+// their real (admin/owner) grant. Used when a full-grant manager acts on behalf of the
+// client from the preview: the mutation still lands in the change_requests ledger (so it
+// is always audited, and deletes leave a durable tombstone), but it is auto-approved and
+// applied instantly instead of waiting for the client.
+//
+// requireAdmin is the gate: a viewer-grant ctx is rejected here, so this path can only be
+// reached with a real full grant (which the action re-derives server-side, never trusts).
+export async function recordAndApplyManagerChange(
+  ctx: Ctx,
+  input: {
+    ownerOrgId: string;
+    entityType: string;
+    entityId?: string | null;
+    operation: "create" | "update" | "delete";
+    proposedPatch: Record<string, unknown>;
+  },
+): Promise<ChangeRequest> {
+  assertCanMutate();
+  requireAdmin(ctx); // full grant == admin/owner; viewer ctx throws "forbidden"
+
+  const id = await nextId("CRQ");
+  const now = new Date();
+
+  // Insert-approved + apply, atomically. If applyChangeRequest throws (invalid patch or a
+  // failed write), the callback throws and the change_requests insert rolls back — so we
+  // never leave an "approved" row that was never applied.
+  // ponytail: only the CR insert runs on `tx`; applyChangeRequest's own write goes through
+  // the pooled `db`. That single-entity write is atomic on its own, and the insert-rollback
+  // still prevents the ghost approved row — full cross-statement rollback would mean
+  // threading `tx` through every service fn, which isn't worth it here.
+  const cr = await db.transaction(async (tx) => {
+    const [row] = await tx
+      .insert(changeRequests)
+      .values({
+        id,
+        ownerOrgId: input.ownerOrgId,
+        managerUserId: ctx.userId,
+        entityType: input.entityType,
+        entityId: input.entityId ?? null,
+        operation: input.operation,
+        proposedPatch: input.proposedPatch,
+        status: "approved",
+        decidedByUserId: ctx.userId,
+        decidedAt: now,
+      })
+      .returning();
+    const created = rowToCR(row!);
+    // Re-validates proposedPatch and writes via the real service fns under the manager's
+    // write ctx. Throws → transaction rolls back the row above.
+    await applyChangeRequest(ctx, created);
+    return created;
+  });
+
+  // Notify the CLIENT (owner), not the acting manager — the transparency that makes
+  // pre-granting full permission trustworthy. Never blocks or rolls back the applied change.
+  try {
+    const ownerUserId = await findOwnerUserId(input.ownerOrgId, ctx.userId);
+    if (ownerUserId) {
+      const opLabel =
+        input.operation === "create" ? "added" : input.operation === "delete" ? "removed" : "updated";
+      await insertAccessNotification({
+        orgId: input.ownerOrgId,
+        userId: ownerUserId,
+        title: "Your manager updated your portfolio",
+        description: `Your manager ${opLabel} a ${input.entityType}.`,
+        linkTo: "/portfolio/pending-changes",
+      });
+    }
+  } catch (err) {
+    console.error("recordAndApplyManagerChange: client notification failed (non-fatal)", err);
+  }
+
+  return cr;
+}
+
 // Approve a pending change request.
 // ctx must be the OWNER's ctx (ctx.orgId === ownerOrgId) AND the user must be org:admin.
 // This blocks non-admin client members from approving destructive deletes.
