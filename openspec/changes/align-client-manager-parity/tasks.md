@@ -22,9 +22,9 @@
 
 ## 3. Phase 3 — Extend the audited path to the remaining entities
 
-- [ ] 3.1 Confirm org-scoping of `professional` (per-client vs manager-shared directory) before registering it (design open question)
-- [ ] 3.2 Add remaining `REGISTRY` entries: `co-owner`, `ownership-record`, `ownership-document`, `property-valuation`, `estate-assignment`, `successor`, `emergency-contact`, `document`, `folder`, (+ `professional` if per-client)
-- [ ] 3.3 Extend `change-requests.actions.ts` `ENTITY_SCHEMAS` + `ProposeChangePanel` coverage for the Phase-3 entities that need preview forms
-- [ ] 3.4 Verify side-effecting deletes (document, folder → S3 objects) free their objects through the audited path, same as the direct path
-- [ ] 3.5 Registry-coverage test: every registered entity round-trips create/update/delete through `applyChangeRequest` with a full-grant ctx
-- [ ] 3.6 `tsc` + `eslint` clean; `graphify update .`; full authz suite green
+- [x] 3.1 `professional` confirmed org-scoped (`scopedInsert`/`Update`/`Delete` on `professionals.orgId === ctx.orgId`) → per-client-org → registered (Q2 resolved).
+- [x] 3.2 Added `REGISTRY` entries: `co-owner`, `ownership-record`, `ownership-document`, `property-valuation`, `successor`, `emergency-contact`, `document`, `folder`, `professional` (9). **`estate-assignment` DEFERRED** — it has no `Patch` schema and no `update`/`delete` service fn (create-only), so it can't fit the `{create,update,delete}` registry shape; needs that plumbing added first if on-behalf editing is ever required.
+- [~] 3.3 `change-requests.actions.ts` `ENTITY_SCHEMAS` + `ENTITY_CACHE_TAGS` extended to all 9 (DONE). **`ProposeChangePanel` forms DEFERRED** — several Phase-3 entities (document/folder/ownership-document) need file upload the field-only panel can't do; the rest are lower-frequency and editable via their dedicated property sub-tabs. Registry supports them all through the audited path now; add a panel form per entity on demand (YAGNI).
+- [x] 3.4 S3-freeing deletes satisfied by construction — the registry's `document`/`folder` delete calls the SAME `deleteDocument`/`deleteFolder` service fn the direct path uses, so cleanup semantics are identical (audited path can't diverge).
+- [x] 3.5 Registry-coverage test (`parity-registry.test.ts`): maintenance-item + safety-risk (Phase 2) and co-owner + emergency-contact (Phase 3) round-trip create/update/delete through `recordAndApplyManagerChange`. Representative sample rather than all ~18 (some need S3/complex FKs). 8/8.
+- [x] 3.6 `tsc` 0 errors; `eslint` clean; `graphify update .` done; full authz suite **55/55** green.

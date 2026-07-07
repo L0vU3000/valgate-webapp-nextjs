@@ -16,6 +16,15 @@ import { NewCertificationSchema, CertificationPatchSchema } from "@/lib/data/typ
 import { NewInspectionSchema, InspectionPatchSchema } from "@/lib/data/types/inspection";
 import { NewSafetyRiskSchema, SafetyRiskPatchSchema } from "@/lib/data/types/safety-risk";
 import { NewMaintenanceItemSchema, MaintenanceItemPatchSchema } from "@/lib/data/types/maintenance-item";
+import { NewCoOwnerSchema, CoOwnerPatchSchema } from "@/lib/data/types/co-owner";
+import { NewOwnershipRecordSchema, OwnershipRecordPatchSchema } from "@/lib/data/types/ownership-record";
+import { NewOwnershipDocumentSchema, OwnershipDocumentPatchSchema } from "@/lib/data/types/ownership-document";
+import { NewPropertyValuationSchema, PropertyValuationPatchSchema } from "@/lib/data/types/property-valuation";
+import { NewSuccessorSchema, SuccessorPatchSchema } from "@/lib/data/types/successor";
+import { NewEmergencyContactSchema, EmergencyContactPatchSchema } from "@/lib/data/types/emergency-contact";
+import { NewDocumentSchema, DocumentPatchSchema } from "@/lib/data/types/document";
+import { NewFolderSchema, FolderPatchSchema } from "@/lib/data/types/folder";
+import { NewProfessionalSchema, ProfessionalPatchSchema } from "@/lib/data/types/professional";
 import { resolveClientOrgForManager } from "@/app/(pro)/pro/queries";
 import {
   createChangeRequest,
@@ -40,6 +49,15 @@ const ENTITY_CACHE_TAGS: Record<string, string> = {
   inspection: "inspections",
   "safety-risk": "safety-risks",
   "maintenance-item": "maintenance-items",
+  "co-owner": "co-owners",
+  "ownership-record": "ownership-records",
+  "ownership-document": "ownership-documents",
+  "property-valuation": "property-valuations",
+  "emergency-contact": "emergency-contacts",
+  document: "documents",
+  folder: "folders",
+  professional: "professionals",
+  // successor has no cached-read tag (not read through Upstash) → no bust needed.
 };
 
 // ─── Schema map ───────────────────────────────────────────────────────────────
@@ -61,6 +79,15 @@ const ENTITY_SCHEMAS: Record<string, SchemaPair> = {
   inspection:         { createSchema: NewInspectionSchema,    updateSchema: InspectionPatchSchema },
   "safety-risk":      { createSchema: NewSafetyRiskSchema,    updateSchema: SafetyRiskPatchSchema },
   "maintenance-item": { createSchema: NewMaintenanceItemSchema, updateSchema: MaintenanceItemPatchSchema },
+  "co-owner":            { createSchema: NewCoOwnerSchema,           updateSchema: CoOwnerPatchSchema },
+  "ownership-record":    { createSchema: NewOwnershipRecordSchema,   updateSchema: OwnershipRecordPatchSchema },
+  "ownership-document":  { createSchema: NewOwnershipDocumentSchema, updateSchema: OwnershipDocumentPatchSchema },
+  "property-valuation":  { createSchema: NewPropertyValuationSchema, updateSchema: PropertyValuationPatchSchema },
+  successor:             { createSchema: NewSuccessorSchema,         updateSchema: SuccessorPatchSchema },
+  "emergency-contact":   { createSchema: NewEmergencyContactSchema,  updateSchema: EmergencyContactPatchSchema },
+  document:              { createSchema: NewDocumentSchema,          updateSchema: DocumentPatchSchema },
+  folder:                { createSchema: NewFolderSchema,            updateSchema: FolderPatchSchema },
+  professional:          { createSchema: NewProfessionalSchema,      updateSchema: ProfessionalPatchSchema },
 };
 
 // ─── Main generalised action ──────────────────────────────────────────────────

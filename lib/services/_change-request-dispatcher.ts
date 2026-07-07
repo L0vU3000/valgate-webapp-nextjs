@@ -44,6 +44,27 @@ import { NewMaintenanceItemSchema, MaintenanceItemPatchSchema } from "@/lib/data
 import { createMaintenanceItem, updateMaintenanceItem, deleteMaintenanceItem } from "@/lib/services/maintenance-items";
 import type { NewMaintenanceItem, MaintenanceItemPatch } from "@/lib/data/types/maintenance-item";
 
+// ── Phase 3 entities (ownership, estate, docs, valuation, directory) ──
+// These use the Parameters<typeof …> cast so they need no per-entity Patch/New type imports.
+import { NewCoOwnerSchema, CoOwnerPatchSchema } from "@/lib/data/types/co-owner";
+import { createCoOwner, updateCoOwner, deleteCoOwner } from "@/lib/services/co-owners";
+import { NewOwnershipRecordSchema, OwnershipRecordPatchSchema } from "@/lib/data/types/ownership-record";
+import { createOwnershipRecord, updateOwnershipRecord, deleteOwnershipRecord } from "@/lib/services/ownership-records";
+import { NewOwnershipDocumentSchema, OwnershipDocumentPatchSchema } from "@/lib/data/types/ownership-document";
+import { createOwnershipDocument, updateOwnershipDocument, deleteOwnershipDocument } from "@/lib/services/ownership-documents";
+import { NewPropertyValuationSchema, PropertyValuationPatchSchema } from "@/lib/data/types/property-valuation";
+import { createPropertyValuation, updatePropertyValuation, deletePropertyValuation } from "@/lib/services/property-valuations";
+import { NewSuccessorSchema, SuccessorPatchSchema } from "@/lib/data/types/successor";
+import { createSuccessor, updateSuccessor, deleteSuccessor } from "@/lib/services/successors";
+import { NewEmergencyContactSchema, EmergencyContactPatchSchema } from "@/lib/data/types/emergency-contact";
+import { createEmergencyContact, updateEmergencyContact, deleteEmergencyContact } from "@/lib/services/emergency-contacts";
+import { NewDocumentSchema, DocumentPatchSchema } from "@/lib/data/types/document";
+import { createDocument, updateDocument, deleteDocument } from "@/lib/services/documents";
+import { NewFolderSchema, FolderPatchSchema } from "@/lib/data/types/folder";
+import { createFolder, updateFolder, deleteFolder } from "@/lib/services/folders";
+import { NewProfessionalSchema, ProfessionalPatchSchema } from "@/lib/data/types/professional";
+import { createProfessional, updateProfessional, deleteProfessional } from "@/lib/services/professionals";
+
 import type { Ctx } from "@/lib/services/_mapping";
 import type { ChangeRequest } from "@/lib/services/change-request-types";
 
@@ -119,6 +140,70 @@ const REGISTRY: Record<string, RegistryEntry<any, any>> = {
     create: (ctx: Ctx, input: unknown) => createMaintenanceItem(ctx, input as NewMaintenanceItem),
     update: (ctx: Ctx, id: string, patch: unknown) => updateMaintenanceItem(ctx, id, patch as MaintenanceItemPatch),
     delete: (ctx: Ctx, id: string) => deleteMaintenanceItem(ctx, id),
+  },
+  "co-owner": {
+    createSchema: NewCoOwnerSchema,
+    updateSchema: CoOwnerPatchSchema,
+    create: (ctx: Ctx, input: unknown) => createCoOwner(ctx, input as Parameters<typeof createCoOwner>[1]),
+    update: (ctx: Ctx, id: string, patch: unknown) => updateCoOwner(ctx, id, patch as Parameters<typeof updateCoOwner>[2]),
+    delete: (ctx: Ctx, id: string) => deleteCoOwner(ctx, id),
+  },
+  "ownership-record": {
+    createSchema: NewOwnershipRecordSchema,
+    updateSchema: OwnershipRecordPatchSchema,
+    create: (ctx: Ctx, input: unknown) => createOwnershipRecord(ctx, input as Parameters<typeof createOwnershipRecord>[1]),
+    update: (ctx: Ctx, id: string, patch: unknown) => updateOwnershipRecord(ctx, id, patch as Parameters<typeof updateOwnershipRecord>[2]),
+    delete: (ctx: Ctx, id: string) => deleteOwnershipRecord(ctx, id),
+  },
+  "ownership-document": {
+    createSchema: NewOwnershipDocumentSchema,
+    updateSchema: OwnershipDocumentPatchSchema,
+    create: (ctx: Ctx, input: unknown) => createOwnershipDocument(ctx, input as Parameters<typeof createOwnershipDocument>[1]),
+    update: (ctx: Ctx, id: string, patch: unknown) => updateOwnershipDocument(ctx, id, patch as Parameters<typeof updateOwnershipDocument>[2]),
+    delete: (ctx: Ctx, id: string) => deleteOwnershipDocument(ctx, id),
+  },
+  "property-valuation": {
+    createSchema: NewPropertyValuationSchema,
+    updateSchema: PropertyValuationPatchSchema,
+    create: (ctx: Ctx, input: unknown) => createPropertyValuation(ctx, input as Parameters<typeof createPropertyValuation>[1]),
+    update: (ctx: Ctx, id: string, patch: unknown) => updatePropertyValuation(ctx, id, patch as Parameters<typeof updatePropertyValuation>[2]),
+    delete: (ctx: Ctx, id: string) => deletePropertyValuation(ctx, id),
+  },
+  successor: {
+    createSchema: NewSuccessorSchema,
+    updateSchema: SuccessorPatchSchema,
+    create: (ctx: Ctx, input: unknown) => createSuccessor(ctx, input as Parameters<typeof createSuccessor>[1]),
+    update: (ctx: Ctx, id: string, patch: unknown) => updateSuccessor(ctx, id, patch as Parameters<typeof updateSuccessor>[2]),
+    delete: (ctx: Ctx, id: string) => deleteSuccessor(ctx, id),
+  },
+  "emergency-contact": {
+    createSchema: NewEmergencyContactSchema,
+    updateSchema: EmergencyContactPatchSchema,
+    create: (ctx: Ctx, input: unknown) => createEmergencyContact(ctx, input as Parameters<typeof createEmergencyContact>[1]),
+    update: (ctx: Ctx, id: string, patch: unknown) => updateEmergencyContact(ctx, id, patch as Parameters<typeof updateEmergencyContact>[2]),
+    delete: (ctx: Ctx, id: string) => deleteEmergencyContact(ctx, id),
+  },
+  document: {
+    createSchema: NewDocumentSchema,
+    updateSchema: DocumentPatchSchema,
+    create: (ctx: Ctx, input: unknown) => createDocument(ctx, input as Parameters<typeof createDocument>[1]),
+    update: (ctx: Ctx, id: string, patch: unknown) => updateDocument(ctx, id, patch as Parameters<typeof updateDocument>[2]),
+    // deleteDocument returns the removed row (for S3 cleanup); the registry delete is void.
+    delete: async (ctx: Ctx, id: string) => { await deleteDocument(ctx, id); },
+  },
+  folder: {
+    createSchema: NewFolderSchema,
+    updateSchema: FolderPatchSchema,
+    create: (ctx: Ctx, input: unknown) => createFolder(ctx, input as Parameters<typeof createFolder>[1]),
+    update: (ctx: Ctx, id: string, patch: unknown) => updateFolder(ctx, id, patch as Parameters<typeof updateFolder>[2]),
+    delete: (ctx: Ctx, id: string) => deleteFolder(ctx, id),
+  },
+  professional: {
+    createSchema: NewProfessionalSchema,
+    updateSchema: ProfessionalPatchSchema,
+    create: (ctx: Ctx, input: unknown) => createProfessional(ctx, input as Parameters<typeof createProfessional>[1]),
+    update: (ctx: Ctx, id: string, patch: unknown) => updateProfessional(ctx, id, patch as Parameters<typeof updateProfessional>[2]),
+    delete: (ctx: Ctx, id: string) => deleteProfessional(ctx, id),
   },
 };
 

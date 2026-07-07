@@ -70,6 +70,8 @@ const createdCrIds: string[] = [];
 let propId = "";
 let workOrderId = "";
 let riskId = "";
+let coOwnerId = "";
+let emergencyId = "";
 
 beforeAll(async () => {
   propId = (await createThrowawayProperty()).propertyId;
@@ -79,6 +81,8 @@ afterAll(async () => {
   for (const id of createdCrIds) await q(`DELETE FROM change_requests WHERE id = $1`, [id]);
   if (workOrderId) await q(`DELETE FROM maintenance_items WHERE id = $1`, [workOrderId]);
   if (riskId) await q(`DELETE FROM safety_risks WHERE id = $1`, [riskId]);
+  if (coOwnerId) await q(`DELETE FROM co_owners WHERE id = $1`, [coOwnerId]);
+  if (emergencyId) await q(`DELETE FROM emergency_contacts WHERE id = $1`, [emergencyId]);
   await cleanup(propId);
 });
 
@@ -131,6 +135,60 @@ describe("registry coverage — safety-risk create via the audited path", () => 
     expect(rows.length).toBe(1);
     riskId = rows[0].id;
     expect(rows[0].status).toBe("Open");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 1b. Phase 3 entities round-trip through the same registry (representative sample)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("registry coverage — Phase 3 co-owner create + delete via the audited path", () => {
+  it("lands a co-owner, then a delete removes it and leaves the tombstone", async () => {
+    const cr = await recordAndApplyManagerChange(fullGrantCtx, {
+      ownerOrgId: ORG,
+      entityType: "co-owner",
+      operation: "create",
+      proposedPatch: { propertyId: propId, name: "AUTHZ-COOWNER", role: "Primary", sharePercent: 50 },
+    });
+    createdCrIds.push(cr.id);
+
+    const rows = await q<{ id: string }>(
+      `SELECT id FROM co_owners WHERE property_id = $1 AND name = $2 LIMIT 1`,
+      [propId, "AUTHZ-COOWNER"],
+    );
+    expect(rows.length).toBe(1);
+    coOwnerId = rows[0].id;
+
+    const del = await recordAndApplyManagerChange(fullGrantCtx, {
+      ownerOrgId: ORG,
+      entityType: "co-owner",
+      entityId: coOwnerId,
+      operation: "delete",
+      proposedPatch: {},
+    });
+    createdCrIds.push(del.id);
+    const gone = await q<{ id: string }>(`SELECT id FROM co_owners WHERE id = $1 LIMIT 1`, [coOwnerId]);
+    expect(gone.length).toBe(0);
+    coOwnerId = ""; // already removed
+  });
+});
+
+describe("registry coverage — Phase 3 emergency-contact create via the audited path", () => {
+  it("lands an emergency contact in the client's org", async () => {
+    const cr = await recordAndApplyManagerChange(fullGrantCtx, {
+      ownerOrgId: ORG,
+      entityType: "emergency-contact",
+      operation: "create",
+      proposedPatch: { propertyId: propId, name: "AUTHZ-EC", phone: "+855 12 000 000" },
+    });
+    createdCrIds.push(cr.id);
+
+    const rows = await q<{ id: string }>(
+      `SELECT id FROM emergency_contacts WHERE property_id = $1 AND name = $2 LIMIT 1`,
+      [propId, "AUTHZ-EC"],
+    );
+    expect(rows.length).toBe(1);
+    emergencyId = rows[0].id;
   });
 });
 
