@@ -12,6 +12,11 @@ import type { Property } from "@/lib/data/types/property";
 import type { Lease } from "@/lib/data/types/lease";
 import type { Tenant } from "@/lib/data/types/tenant";
 import type { Payment } from "@/lib/data/types/payment";
+import type { Certification } from "@/lib/data/types/certification";
+import type { Inspection } from "@/lib/data/types/inspection";
+import type { SafetyRisk } from "@/lib/data/types/safety-risk";
+import type { MaintenanceItem } from "@/lib/data/types/maintenance-item";
+import type { Professional } from "@/lib/data/types/professional";
 import { ProposeChangePanel } from "./ProposeChangePanel";
 
 export function ClientPreviewShell({
@@ -24,6 +29,11 @@ export function ClientPreviewShell({
   leases,
   tenants,
   payments,
+  certifications,
+  inspections,
+  safetyRisks,
+  maintenanceItems,
+  professionals,
   children,
 }: {
   clientId: string;
@@ -37,13 +47,26 @@ export function ClientPreviewShell({
   leases: Lease[];
   tenants: Tenant[];
   payments: Payment[];
+  certifications: Certification[];
+  inspections: Inspection[];
+  safetyRisks: SafetyRisk[];
+  maintenanceItems: MaintenanceItem[];
+  professionals: Professional[];
   children: React.ReactNode;
 }) {
   const [isDark, setIsDark] = useState(false);
   const [proposeOpen, setProposeOpen] = useState(false);
 
   // Show "Propose changes" only if the portfolio has at least one entity to work with.
-  const hasAnyEntities = properties.length > 0 || leases.length > 0 || tenants.length > 0 || payments.length > 0;
+  const hasAnyEntities =
+    properties.length > 0 ||
+    leases.length > 0 ||
+    tenants.length > 0 ||
+    payments.length > 0 ||
+    certifications.length > 0 ||
+    inspections.length > 0 ||
+    safetyRisks.length > 0 ||
+    maintenanceItems.length > 0;
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-surface-base">
@@ -116,6 +139,11 @@ export function ClientPreviewShell({
           leases={leases}
           tenants={tenants}
           payments={payments}
+          certifications={certifications}
+          inspections={inspections}
+          safetyRisks={safetyRisks}
+          maintenanceItems={maintenanceItems}
+          professionals={professionals}
           onClose={() => setProposeOpen(false)}
         />
       )}

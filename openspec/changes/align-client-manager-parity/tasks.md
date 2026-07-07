@@ -12,13 +12,13 @@
 
 - [x] 2.1 Extend `_change-request-dispatcher.ts` `REGISTRY` with `certification`, `inspection`, `safety-risk`, `maintenance-item` (each `{createSchema, updateSchema, create, update, delete}` from existing `New*`/`Patch*` schemas + service fns)
 - [~] 2.2 Add the same four to the action-layer `ENTITY_SCHEMAS` map in `change-requests.actions.ts` (DONE — schemas + `ENTITY_CACHE_TAGS`) and the `ProposeChangePanel` entity coverage (forms + selectors) — PANEL FORMS PENDING (needs `ClientPreviewShell` to load certs/inspections/risks/maintenance + 4 new form components)
-- [ ] 2.3 Re-home `app/(pro)/pro/work-orders.actions.ts` (`createWorkOrder`/`updateWorkOrder`) off `requireCtx()` → resolve the target client org and route through `proposeChangeAction`/`recordAndApplyManagerChange` (client-org ctx + ledger) — BLOCKED ON DESIGN FORK (own-org vs accepted-client routing)
-- [ ] 2.4 Re-home `app/(pro)/pro/compliance.actions.ts` (`resolveSafetyRisk`) onto the audited path (safety-risk update via the registry) — BLOCKED ON DESIGN FORK
-- [ ] 2.5 Re-home `app/(pro)/pro/rent.actions.ts` (`markRentPaid`/`logRentPayment`/`renewLease`) onto the audited path (payment/lease via the registry) — BLOCKED ON DESIGN FORK
+- [x] 2.3 Re-home `app/(pro)/pro/work-orders.actions.ts` (`createWorkOrder`/`updateWorkOrder`) — Option A (hybrid): owning org resolved server-side via `_lib/on-behalf.ts`; own-portfolio/draft → direct write, accepted client → `proposeChangeAction`. No component changes (server-side resolution).
+- [x] 2.4 Re-home `app/(pro)/pro/compliance.actions.ts` (`resolveSafetyRisk`) onto the audited path via `resolveOnBehalfForRow(safetyRisks, …)`
+- [x] 2.5 Re-home `app/(pro)/pro/rent.actions.ts` (`markRentPaid`/`logRentPayment`/`renewLease`) onto the audited path (reads under the resolved org ctx; writes via `proposeChangeAction`)
 - [x] 2.6 Add preview mirror sections `app/(pro)/pro/clients/[clientId]/as-client/{compliance,work-orders}/page.tsx` mounting the shell page components under `viewerCtx` with `readOnly`
 - [x] 2.7 "Compliance" + "Work Orders" appear in the preview Sidebar rail — satisfied for free by the Phase 1 shared `sidebarNavItems` edit (preview routes them via `previewBasePath`)
-- [ ] 2.8 Authz test (`tests/authz/`): full-grant manager applies a maintenance-item + safety-risk change (approved row + entity written); viewer-grant proposes (pending); non-owner 404s
-- [ ] 2.9 `tsc` + `eslint` clean; live QA: manager acts on Compliance + Work Orders in the preview (full → applied + notified; viewer → pending) and from the re-homed Pro book-page actions
+- [x] 2.8 Authz test (`tests/authz/parity-registry.test.ts`): full-grant manager applies a maintenance-item + safety-risk create/update through the ledger (approved row + entity written); viewer-grant rejected before write; delete leaves a tombstone. 6/6 pass; full authz suite 53/53 green.
+- [x] 2.9 `tsc` (0 errors) + `eslint` clean. Live QA (demo, direct-write path): `resolveSafetyRisk` persisted to the correct row/org — re-home verified. QA surfaced a stale-cache bug (direct path committed + `revalidatePro()` but never busted the Upstash cached-read tag); FIXED by adding `bustCache(<tag>)` to all six direct-write branches (safety-risks/payments×2/leases/maintenance-items×2), matching the audited path's `ENTITY_CACHE_TAGS` behavior. Audited path proven by the authz suite (53/53).
 
 ## 3. Phase 3 — Extend the audited path to the remaining entities
 

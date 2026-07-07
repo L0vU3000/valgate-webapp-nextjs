@@ -2,6 +2,11 @@ import { listProperties } from "@/lib/services/properties";
 import { listLeases } from "@/lib/services/leases";
 import { listTenants } from "@/lib/services/tenants";
 import { listPayments } from "@/lib/services/payments";
+import { listCertifications } from "@/lib/services/certifications";
+import { listInspections } from "@/lib/services/inspections";
+import { listSafetyRisks } from "@/lib/services/safety-risks";
+import { listMaintenanceItems } from "@/lib/services/maintenance-items";
+import { listProfessionals } from "@/lib/services/professionals";
 import { ClientPreviewShell } from "./_components/ClientPreviewShell";
 import { requirePreviewContext } from "./_ctx";
 
@@ -22,12 +27,27 @@ export default async function AsClientLayout({ children, params }: LayoutProps) 
   const { clientId } = await params;
   const { viewerCtx, clientName, clientInitials, canWrite } = await requirePreviewContext(clientId);
 
-  // Panel data: Tier 1 entities the manager can propose add/edit/delete against.
-  const [properties, leases, tenants, payments] = await Promise.all([
+  // Panel data: entities the manager can propose add/edit/delete against.
+  const [
+    properties,
+    leases,
+    tenants,
+    payments,
+    certifications,
+    inspections,
+    safetyRisks,
+    maintenanceItems,
+    professionals,
+  ] = await Promise.all([
     listProperties(viewerCtx),
     listLeases(viewerCtx),
     listTenants(viewerCtx),
     listPayments(viewerCtx),
+    listCertifications(viewerCtx),
+    listInspections(viewerCtx),
+    listSafetyRisks(viewerCtx),
+    listMaintenanceItems(viewerCtx),
+    listProfessionals(viewerCtx),
   ]);
 
   return (
@@ -41,6 +61,11 @@ export default async function AsClientLayout({ children, params }: LayoutProps) 
       leases={leases}
       tenants={tenants}
       payments={payments}
+      certifications={certifications}
+      inspections={inspections}
+      safetyRisks={safetyRisks}
+      maintenanceItems={maintenanceItems}
+      professionals={professionals}
     >
       {children}
     </ClientPreviewShell>
