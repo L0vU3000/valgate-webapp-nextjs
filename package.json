@@ -33,7 +33,6 @@
     "promote": "git fetch origin main -q && if git merge-base --is-ancestor origin/main HEAD; then git push origin HEAD:main && echo '✓ Promoted current branch to main (fast-forward)'; else echo '✗ Refused: main has commits not on this branch. Bring origin/main into this branch first (git merge origin/main), then retry.' && exit 1; fi"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^3.0.78",
     "@ai-sdk/openai": "^3.0.53",
     "@aws-sdk/client-kms": "^3.1033.0",
     "@aws-sdk/client-s3": "^3.1033.0",

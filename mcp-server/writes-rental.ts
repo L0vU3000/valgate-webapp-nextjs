@@ -3,8 +3,7 @@
 // A sibling of writes.ts, kept separate only because writes.ts + these 9 tools would cross the
 // ~500-line readability line (design decision D2). Every design law from writes.ts still holds and
 // the shared helpers are imported from it, NOT duplicated:
-//   - Tools are THIN wrappers over lib/services/{leases,tenants,payments} — no new business logic.
-//   - Inputs validate with the SAME Zod schemas the website uses (NewLeaseSchema, …).
+//   - Tools are THIN wrappers over the shared VALGATE_TOOLS registry in tool-defs.ts.
 //   - Authorization is NOT re-implemented: the service layer enforces org-scope, role
 //     (requireMember), and demo read-only (assertCanMutate) on its own.
 //   - Never leak err.message — log internally, return a generic string.
@@ -17,49 +16,16 @@
 //   - payments.lease_id = ON DELETE CASCADE → deleting a lease ALSO deletes its payments; the
 //     preview counts them.
 //   - leases.tenant_id / payments.tenant_id = no ON DELETE = RESTRICT → deleting a referenced
-//     tenant would error at the DB; we count the references and refuse with a clear message first.
+//     tenant would error at the DB; countRefs checks and refuses with a clear message first.
 //   - a payment is a leaf → a plain confirm gate, no cascade.
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { and, count, eq } from "drizzle-orm";
-import { db } from "@/lib/db/client";
-import { leases as leasesTable, payments as paymentsTable } from "@/lib/db/schema";
 import { NewLeaseSchema, LeasePatchSchema } from "@/lib/data/types/lease";
 import { NewTenantSchema, TenantPatchSchema } from "@/lib/data/types/tenant";
 import { NewPaymentSchema, PaymentPatchSchema } from "@/lib/data/types/payment";
-import { createLease, updateLease, deleteLease, getLease } from "@/lib/services/leases";
-import { createTenant, updateTenant, deleteTenant, getTenant } from "@/lib/services/tenants";
-import { createPayment, updatePayment, deletePayment, getPayment } from "@/lib/services/payments";
-import type { Ctx } from "@/lib/services/_mapping";
 import type { GetCtx } from "./register";
 import { orgIdArg, resolveWriteCtx, audit, toolOk, toolError } from "./writes";
-
-// ── small scoped counters for delete previews ────────────────────────────────
-// These mirror what countPropertyCascade does for properties, but inline (a single scoped count)
-// rather than as a service function — there is only this one caller (design decision D3).
-async function countPaymentsForLease(ctx: Ctx, leaseId: string): Promise<number> {
-  const [row] = await db
-    .select({ n: count() })
-    .from(paymentsTable)
-    .where(and(eq(paymentsTable.orgId, ctx.orgId), eq(paymentsTable.leaseId, leaseId)));
-  return row?.n ?? 0;
-}
-
-async function countLeasesForTenant(ctx: Ctx, tenantId: string): Promise<number> {
-  const [row] = await db
-    .select({ n: count() })
-    .from(leasesTable)
-    .where(and(eq(leasesTable.orgId, ctx.orgId), eq(leasesTable.tenantId, tenantId)));
-  return row?.n ?? 0;
-}
-
-async function countPaymentsForTenant(ctx: Ctx, tenantId: string): Promise<number> {
-  const [row] = await db
-    .select({ n: count() })
-    .from(paymentsTable)
-    .where(and(eq(paymentsTable.orgId, ctx.orgId), eq(paymentsTable.tenantId, tenantId)));
-  return row?.n ?? 0;
-}
+import { VALGATE_TOOLS, type ReadOrWriteDef, type DestructiveDef } from "./tool-defs";
 
 export function registerRentalWriteTools(server: McpServer, getCtx: GetCtx): void {
   // ── create_lease ─────────────────────────────────────────────────────────
@@ -76,23 +42,15 @@ export function registerRentalWriteTools(server: McpServer, getCtx: GetCtx): voi
     },
     async (args, extra) => {
       const resolved = await resolveWriteCtx(getCtx, extra, args.orgId, "create the lease");
-      if ("error" in resolved) {
-        return resolved.error;
+      if ("error" in resolved) return resolved.error;
+      const def = VALGATE_TOOLS.find((d) => d.name === "create_lease")! as ReadOrWriteDef;
+      const result = await def.run(resolved.ctx, { lease: args.lease });
+      if (!result.ok) return toolError(result.message);
+      if (def.audit) {
+        const entry = def.audit(resolved.ctx, { lease: args.lease }, result.data);
+        await audit(resolved.ctx, { ...entry, summary: `${entry.summary} via MCP` });
       }
-      try {
-        const created = await createLease(resolved.ctx, args.lease);
-        await audit(resolved.ctx, {
-          entity: "lease",
-          action: "created",
-          entityId: created.id,
-          propertyId: created.propertyId,
-          summary: `Created lease ${created.id} on property ${created.propertyId} via MCP`,
-        });
-        return toolOk(created);
-      } catch (err) {
-        console.error("[valgate-mcp] create_lease failed:", err);
-        return toolError("Could not create the lease.");
-      }
+      return toolOk(result.data);
     },
   );
 
@@ -113,32 +71,21 @@ export function registerRentalWriteTools(server: McpServer, getCtx: GetCtx): voi
     },
     async (args, extra) => {
       const resolved = await resolveWriteCtx(getCtx, extra, args.orgId, "update the lease");
-      if ("error" in resolved) {
-        return resolved.error;
+      if ("error" in resolved) return resolved.error;
+      const def = VALGATE_TOOLS.find((d) => d.name === "update_lease")! as ReadOrWriteDef;
+      const result = await def.run(resolved.ctx, { id: args.id, patch: args.patch });
+      if (!result.ok) return toolError(result.message);
+      if (def.audit) {
+        const entry = def.audit(resolved.ctx, { id: args.id, patch: args.patch }, result.data);
+        await audit(resolved.ctx, { ...entry, summary: `${entry.summary} via MCP` });
       }
-      try {
-        const updated = await updateLease(resolved.ctx, args.id, args.patch);
-        if (!updated) {
-          return toolError(`No lease ${args.id} exists in this workspace.`);
-        }
-        await audit(resolved.ctx, {
-          entity: "lease",
-          action: "updated",
-          entityId: updated.id,
-          propertyId: updated.propertyId,
-          summary: `Updated lease ${updated.id} via MCP`,
-        });
-        return toolOk(updated);
-      } catch (err) {
-        console.error("[valgate-mcp] update_lease failed:", err);
-        return toolError("Could not update the lease.");
-      }
+      return toolOk(result.data);
     },
   );
 
   // ── delete_lease ─────────────────────────────────────────────────────────
   // CASCADE: deleting a lease also permanently deletes its payments. Confirm gate + a preview
-  // that counts those payments.
+  // that counts those payments. Delegates to VALGATE_TOOLS per design.md Decision 3.
   server.registerTool(
     "delete_lease",
     {
@@ -158,39 +105,26 @@ export function registerRentalWriteTools(server: McpServer, getCtx: GetCtx): voi
     },
     async (args, extra) => {
       const resolved = await resolveWriteCtx(getCtx, extra, args.orgId, "delete the lease");
-      if ("error" in resolved) {
-        return resolved.error;
-      }
-      try {
-        const lease = await getLease(resolved.ctx, args.id);
-        if (!lease) {
-          return toolError(`No lease ${args.id} exists in this workspace.`);
-        }
-        const payments = await countPaymentsForLease(resolved.ctx, args.id);
+      if ("error" in resolved) return resolved.error;
+      const def = VALGATE_TOOLS.find((d) => d.name === "delete_lease")! as DestructiveDef;
+      const preview = await def.preview(resolved.ctx, { id: args.id });
+      if (!preview.ok) return toolError(preview.message);
 
-        // Gate: no explicit confirmation → show the blast radius, delete nothing.
-        if (args.confirm !== true) {
-          return toolOk({
-            lease: { id: lease.id, unit: lease.unit },
-            cascade: { payments },
-            confirmRequired: true,
-            note: `Nothing was deleted. Deleting this lease will also permanently delete its ${payments} payment(s). Re-call delete_lease with confirm: true to proceed.`,
-          });
-        }
-
-        await deleteLease(resolved.ctx, args.id);
-        await audit(resolved.ctx, {
-          entity: "lease",
-          action: "deleted",
-          entityId: args.id,
-          propertyId: lease.propertyId,
-          summary: `Deleted lease ${args.id} and its ${payments} payment(s) via MCP`,
+      if (args.confirm !== true) {
+        return toolOk({
+          ...preview.data,
+          confirmRequired: true,
+          note: `Nothing was deleted. Re-call ${def.name} with confirm: true to proceed.`,
         });
-        return toolOk({ deleted: args.id, deletedPayments: payments });
-      } catch (err) {
-        console.error("[valgate-mcp] delete_lease failed:", err);
-        return toolError("Could not delete that lease.");
       }
+
+      const result = await def.commit(resolved.ctx, { id: args.id });
+      if (!result.ok) return toolError(result.message);
+      if (def.audit) {
+        const entry = def.audit(resolved.ctx, { id: args.id }, result.data);
+        await audit(resolved.ctx, { ...entry, summary: `${entry.summary} via MCP` });
+      }
+      return toolOk(result.data);
     },
   );
 
@@ -208,23 +142,15 @@ export function registerRentalWriteTools(server: McpServer, getCtx: GetCtx): voi
     },
     async (args, extra) => {
       const resolved = await resolveWriteCtx(getCtx, extra, args.orgId, "create the tenant");
-      if ("error" in resolved) {
-        return resolved.error;
+      if ("error" in resolved) return resolved.error;
+      const def = VALGATE_TOOLS.find((d) => d.name === "create_tenant")! as ReadOrWriteDef;
+      const result = await def.run(resolved.ctx, { tenant: args.tenant });
+      if (!result.ok) return toolError(result.message);
+      if (def.audit) {
+        const entry = def.audit(resolved.ctx, { tenant: args.tenant }, result.data);
+        await audit(resolved.ctx, { ...entry, summary: `${entry.summary} via MCP` });
       }
-      try {
-        const created = await createTenant(resolved.ctx, args.tenant);
-        await audit(resolved.ctx, {
-          entity: "tenant",
-          action: "created",
-          entityId: created.id,
-          propertyId: created.propertyId,
-          summary: `Created tenant "${created.name}" on property ${created.propertyId} via MCP`,
-        });
-        return toolOk(created);
-      } catch (err) {
-        console.error("[valgate-mcp] create_tenant failed:", err);
-        return toolError("Could not create the tenant.");
-      }
+      return toolOk(result.data);
     },
   );
 
@@ -245,33 +171,22 @@ export function registerRentalWriteTools(server: McpServer, getCtx: GetCtx): voi
     },
     async (args, extra) => {
       const resolved = await resolveWriteCtx(getCtx, extra, args.orgId, "update the tenant");
-      if ("error" in resolved) {
-        return resolved.error;
+      if ("error" in resolved) return resolved.error;
+      const def = VALGATE_TOOLS.find((d) => d.name === "update_tenant")! as ReadOrWriteDef;
+      const result = await def.run(resolved.ctx, { id: args.id, patch: args.patch });
+      if (!result.ok) return toolError(result.message);
+      if (def.audit) {
+        const entry = def.audit(resolved.ctx, { id: args.id, patch: args.patch }, result.data);
+        await audit(resolved.ctx, { ...entry, summary: `${entry.summary} via MCP` });
       }
-      try {
-        const updated = await updateTenant(resolved.ctx, args.id, args.patch);
-        if (!updated) {
-          return toolError(`No tenant ${args.id} exists in this workspace.`);
-        }
-        await audit(resolved.ctx, {
-          entity: "tenant",
-          action: "updated",
-          entityId: updated.id,
-          propertyId: updated.propertyId,
-          summary: `Updated tenant ${updated.id} ("${updated.name}") via MCP`,
-        });
-        return toolOk(updated);
-      } catch (err) {
-        console.error("[valgate-mcp] update_tenant failed:", err);
-        return toolError("Could not update the tenant.");
-      }
+      return toolOk(result.data);
     },
   );
 
   // ── delete_tenant ────────────────────────────────────────────────────────
   // RESTRICT: a tenant referenced by any lease or payment CANNOT be deleted (the FK has no
-  // cascade). So the preview counts those references, and a confirmed delete is refused up front
-  // with a clear message when references still exist — instead of surfacing a raw DB FK error.
+  // cascade). VALGATE_TOOLS.delete_tenant.preview counts references; its commit refuses with a
+  // clear message if any still exist.
   server.registerTool(
     "delete_tenant",
     {
@@ -291,55 +206,30 @@ export function registerRentalWriteTools(server: McpServer, getCtx: GetCtx): voi
     },
     async (args, extra) => {
       const resolved = await resolveWriteCtx(getCtx, extra, args.orgId, "delete the tenant");
-      if ("error" in resolved) {
-        return resolved.error;
-      }
-      try {
-        const tenant = await getTenant(resolved.ctx, args.id);
-        if (!tenant) {
-          return toolError(`No tenant ${args.id} exists in this workspace.`);
-        }
-        const leaseRefs = await countLeasesForTenant(resolved.ctx, args.id);
-        const paymentRefs = await countPaymentsForTenant(resolved.ctx, args.id);
+      if ("error" in resolved) return resolved.error;
+      const def = VALGATE_TOOLS.find((d) => d.name === "delete_tenant")! as DestructiveDef;
+      const preview = await def.preview(resolved.ctx, { id: args.id });
+      if (!preview.ok) return toolError(preview.message);
 
-        // Gate: no explicit confirmation → show the references, delete nothing.
-        if (args.confirm !== true) {
-          return toolOk({
-            tenant: { id: tenant.id, name: tenant.name },
-            references: { leases: leaseRefs, payments: paymentRefs },
-            confirmRequired: true,
-            note:
-              leaseRefs + paymentRefs > 0
-                ? `Nothing was deleted. This tenant is still referenced by ${leaseRefs} lease(s) and ${paymentRefs} payment(s); the delete will be refused until those are reassigned or removed.`
-                : "Nothing was deleted. This tenant has no references and can be deleted. Re-call delete_tenant with confirm: true to proceed.",
-          });
-        }
-
-        // Confirmed, but RESTRICT means we must refuse if anything still points at the tenant.
-        if (leaseRefs + paymentRefs > 0) {
-          return toolError(
-            `Cannot delete tenant ${args.id}: still referenced by ${leaseRefs} lease(s) and ${paymentRefs} payment(s). Reassign or delete those first.`,
-          );
-        }
-
-        await deleteTenant(resolved.ctx, args.id);
-        await audit(resolved.ctx, {
-          entity: "tenant",
-          action: "deleted",
-          entityId: args.id,
-          propertyId: tenant.propertyId,
-          summary: `Deleted tenant ${args.id} ("${tenant.name}") via MCP`,
+      if (args.confirm !== true) {
+        return toolOk({
+          ...preview.data,
+          confirmRequired: true,
+          note: `Nothing was deleted. Re-call ${def.name} with confirm: true to proceed.`,
         });
-        return toolOk({ deleted: args.id, name: tenant.name });
-      } catch (err) {
-        console.error("[valgate-mcp] delete_tenant failed:", err);
-        return toolError("Could not delete that tenant.");
       }
+
+      const result = await def.commit(resolved.ctx, { id: args.id });
+      if (!result.ok) return toolError(result.message);
+      if (def.audit) {
+        const entry = def.audit(resolved.ctx, { id: args.id }, result.data);
+        await audit(resolved.ctx, { ...entry, summary: `${entry.summary} via MCP` });
+      }
+      return toolOk(result.data);
     },
   );
 
   // ── record_payment ───────────────────────────────────────────────────────
-  // Outcome-shaped create (named like record_maintenance, per design decision D4).
   server.registerTool(
     "record_payment",
     {
@@ -353,22 +243,15 @@ export function registerRentalWriteTools(server: McpServer, getCtx: GetCtx): voi
     },
     async (args, extra) => {
       const resolved = await resolveWriteCtx(getCtx, extra, args.orgId, "record the payment");
-      if ("error" in resolved) {
-        return resolved.error;
+      if ("error" in resolved) return resolved.error;
+      const def = VALGATE_TOOLS.find((d) => d.name === "record_payment")! as ReadOrWriteDef;
+      const result = await def.run(resolved.ctx, { payment: args.payment });
+      if (!result.ok) return toolError(result.message);
+      if (def.audit) {
+        const entry = def.audit(resolved.ctx, { payment: args.payment }, result.data);
+        await audit(resolved.ctx, { ...entry, summary: `${entry.summary} via MCP` });
       }
-      try {
-        const created = await createPayment(resolved.ctx, args.payment);
-        await audit(resolved.ctx, {
-          entity: "payment",
-          action: "created",
-          entityId: created.id,
-          summary: `Recorded ${created.kind} payment ${created.id}${created.leaseId ? ` on lease ${created.leaseId}` : ""} via MCP`,
-        });
-        return toolOk(created);
-      } catch (err) {
-        console.error("[valgate-mcp] record_payment failed:", err);
-        return toolError("Could not record the payment.");
-      }
+      return toolOk(result.data);
     },
   );
 
@@ -389,31 +272,21 @@ export function registerRentalWriteTools(server: McpServer, getCtx: GetCtx): voi
     },
     async (args, extra) => {
       const resolved = await resolveWriteCtx(getCtx, extra, args.orgId, "update the payment");
-      if ("error" in resolved) {
-        return resolved.error;
+      if ("error" in resolved) return resolved.error;
+      const def = VALGATE_TOOLS.find((d) => d.name === "update_payment")! as ReadOrWriteDef;
+      const result = await def.run(resolved.ctx, { id: args.id, patch: args.patch });
+      if (!result.ok) return toolError(result.message);
+      if (def.audit) {
+        const entry = def.audit(resolved.ctx, { id: args.id, patch: args.patch }, result.data);
+        await audit(resolved.ctx, { ...entry, summary: `${entry.summary} via MCP` });
       }
-      try {
-        const updated = await updatePayment(resolved.ctx, args.id, args.patch);
-        if (!updated) {
-          return toolError(`No payment ${args.id} exists in this workspace.`);
-        }
-        await audit(resolved.ctx, {
-          entity: "payment",
-          action: "updated",
-          entityId: updated.id,
-          summary: `Updated payment ${updated.id} via MCP`,
-        });
-        return toolOk(updated);
-      } catch (err) {
-        console.error("[valgate-mcp] update_payment failed:", err);
-        return toolError("Could not update the payment.");
-      }
+      return toolOk(result.data);
     },
   );
 
   // ── delete_payment ───────────────────────────────────────────────────────
-  // A payment is a leaf (nothing references it), so the confirm gate has no cascade to preview —
-  // the false branch just echoes the payment that would be removed.
+  // A payment is a leaf (nothing references it), so the confirm gate has no cascade to preview.
+  // Delegates to VALGATE_TOOLS per design.md Decision 3.
   server.registerTool(
     "delete_payment",
     {
@@ -433,35 +306,26 @@ export function registerRentalWriteTools(server: McpServer, getCtx: GetCtx): voi
     },
     async (args, extra) => {
       const resolved = await resolveWriteCtx(getCtx, extra, args.orgId, "delete the payment");
-      if ("error" in resolved) {
-        return resolved.error;
-      }
-      try {
-        const payment = await getPayment(resolved.ctx, args.id);
-        if (!payment) {
-          return toolError(`No payment ${args.id} exists in this workspace.`);
-        }
+      if ("error" in resolved) return resolved.error;
+      const def = VALGATE_TOOLS.find((d) => d.name === "delete_payment")! as DestructiveDef;
+      const preview = await def.preview(resolved.ctx, { id: args.id });
+      if (!preview.ok) return toolError(preview.message);
 
-        if (args.confirm !== true) {
-          return toolOk({
-            payment: { id: payment.id, kind: payment.kind, amount: payment.amount },
-            confirmRequired: true,
-            note: "Nothing was deleted. This is permanent. Re-call delete_payment with confirm: true to proceed.",
-          });
-        }
-
-        await deletePayment(resolved.ctx, args.id);
-        await audit(resolved.ctx, {
-          entity: "payment",
-          action: "deleted",
-          entityId: args.id,
-          summary: `Deleted ${payment.kind} payment ${args.id} via MCP`,
+      if (args.confirm !== true) {
+        return toolOk({
+          ...preview.data,
+          confirmRequired: true,
+          note: `Nothing was deleted. Re-call ${def.name} with confirm: true to proceed.`,
         });
-        return toolOk({ deleted: args.id });
-      } catch (err) {
-        console.error("[valgate-mcp] delete_payment failed:", err);
-        return toolError("Could not delete that payment.");
       }
+
+      const result = await def.commit(resolved.ctx, { id: args.id });
+      if (!result.ok) return toolError(result.message);
+      if (def.audit) {
+        const entry = def.audit(resolved.ctx, { id: args.id }, result.data);
+        await audit(resolved.ctx, { ...entry, summary: `${entry.summary} via MCP` });
+      }
+      return toolOk(result.data);
     },
   );
 }

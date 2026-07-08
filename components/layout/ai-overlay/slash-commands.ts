@@ -13,6 +13,31 @@
 // so typing "/add-tenant" → inserting a template → Enter triggers the same
 // underlying create_tenant tool that the MCP connector runs.
 
+export type SlashCommandCategory = "ask" | "do";
+
+// Shown as a sub-header (nested inside each domain group) in the slash menu.
+export const CATEGORY_LABELS: Record<SlashCommandCategory, string> = {
+  ask: "Ask",
+  do: "Do",
+};
+
+const CATEGORY_ORDER: SlashCommandCategory[] = ["ask", "do"];
+
+// Domain groups mirror the cockpit's own entity vocabulary (lib/services/*
+// and the /pro/* nav) rather than inventing a new taxonomy — the same split
+// a manager already sees in the sidebar. This is the primary grouping; "ask"
+// vs "do" nests inside each one as the secondary grouping.
+export type SlashCommandGroup = "properties" | "leases-tenants" | "rent" | "work-orders";
+
+export const GROUP_LABELS: Record<SlashCommandGroup, string> = {
+  properties: "Properties",
+  "leases-tenants": "Leases & Tenants",
+  rent: "Rent & Collections",
+  "work-orders": "Work Orders",
+};
+
+const GROUP_ORDER: SlashCommandGroup[] = ["properties", "leases-tenants", "rent", "work-orders"];
+
 export type SlashCommand = {
   /** The trigger the user types, including the leading slash. */
   command: string;
@@ -30,6 +55,14 @@ export type SlashCommand = {
    * On consumer routes we hide "pro" commands so the menu stays relevant.
    */
   scope: "pro" | "all";
+  /**
+   * "ask" — a read-only question; answered from context/read tools, nothing is written.
+   * "do"  — executes a real mutation, backed 1:1 by a shared VALGATE_TOOLS write tool
+   *         (the same tool the MCP connector exposes).
+   */
+  category: SlashCommandCategory;
+  /** Which domain section of the menu this command lives under. */
+  group: SlashCommandGroup;
 };
 
 export const SLASH_COMMANDS: SlashCommand[] = [
@@ -40,6 +73,8 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     template: "Who is overdue on rent this month, and by how much?",
     keywords: ["arrears", "late", "unpaid", "collection"],
     scope: "all",
+    category: "ask",
+    group: "rent",
   },
   {
     command: "/rent-roll",
@@ -48,6 +83,8 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     template: "Show me the rent roll — expected vs collected rent this month.",
     keywords: ["rent", "collected", "expected", "income"],
     scope: "all",
+    category: "ask",
+    group: "rent",
   },
   {
     command: "/owner-statement",
@@ -56,6 +93,8 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     template: "Generate the owner statement for [client] for [month].",
     keywords: ["report", "statement", "owner", "monthly", "packet"],
     scope: "pro",
+    category: "ask",
+    group: "rent",
   },
   {
     command: "/work-orders",
@@ -64,14 +103,18 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     template: "List the open work orders by priority and client.",
     keywords: ["maintenance", "repairs", "vendor", "tickets"],
     scope: "pro",
+    category: "ask",
+    group: "work-orders",
   },
   {
     command: "/assign-vendor",
     title: "Assign vendor",
     description: "Assign a vendor to a work order",
-    template: "Assign a vendor to work order [work order id].",
+    template: "Assign vendor [vendor id] to work order [maintenance item id].",
     keywords: ["vendor", "contractor", "dispatch", "maintenance"],
     scope: "pro",
+    category: "do",
+    group: "work-orders",
   },
   {
     command: "/compliance",
@@ -80,6 +123,8 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     template: "What certificates or inspections are expiring in the next 90 days?",
     keywords: ["certificate", "inspection", "safety", "expiry", "risk"],
     scope: "all",
+    category: "ask",
+    group: "properties",
   },
   {
     command: "/expiring",
@@ -88,6 +133,8 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     template: "Which leases expire in the next 90 days?",
     keywords: ["lease", "renewal", "ending", "vacancy"],
     scope: "all",
+    category: "ask",
+    group: "leases-tenants",
   },
   {
     command: "/value",
@@ -96,6 +143,8 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     template: "What is the current value of [property]?",
     keywords: ["valuation", "worth", "price", "market"],
     scope: "all",
+    category: "ask",
+    group: "properties",
   },
   {
     command: "/equity",
@@ -104,6 +153,8 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     template: "What is the equity and LTV for [property]?",
     keywords: ["equity", "ltv", "mortgage", "loan"],
     scope: "all",
+    category: "ask",
+    group: "properties",
   },
   {
     command: "/reassign",
@@ -112,9 +163,12 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     template: "Reassign [property] to client [client].",
     keywords: ["reassign", "move", "client", "owner", "portfolio"],
     scope: "pro",
+    category: "do",
+    group: "properties",
   },
 
   // ── MCP action tools — one entry per VALGATE_TOOLS non-destructive tool ──
+  // (/find-properties is a read, so it's categorized "ask" below despite living in this block.)
   {
     command: "/add-property",
     title: "Add property",
@@ -122,6 +176,8 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     template: "Add a new property. Name: [name], Type: [type], Status: [status], Purchase value: [amount], Area: [area].",
     keywords: ["create", "new", "property", "add"],
     scope: "pro",
+    category: "do",
+    group: "properties",
   },
   {
     command: "/edit-property",
@@ -130,6 +186,8 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     template: "Update property [id]. Change [field] to [value].",
     keywords: ["update", "change", "edit", "property", "modify"],
     scope: "pro",
+    category: "do",
+    group: "properties",
   },
   {
     command: "/find-properties",
@@ -138,6 +196,18 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     template: "Show me all properties in this workspace.",
     keywords: ["search", "list", "find", "properties", "portfolio"],
     scope: "pro",
+    category: "ask",
+    group: "properties",
+  },
+  {
+    command: "/find-vendors",
+    title: "Search professionals",
+    description: "List vendors and professionals in the directory",
+    template: "Show me all professionals/vendors in this workspace's directory.",
+    keywords: ["search", "list", "find", "vendor", "professional", "contractor", "directory"],
+    scope: "pro",
+    category: "ask",
+    group: "work-orders",
   },
   {
     command: "/add-lease",
@@ -146,6 +216,8 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     template: "Create a new lease on property [property id]. Unit: [unit], Monthly rent: [amount], Start: [date], End: [date].",
     keywords: ["create", "new", "lease", "rental", "contract"],
     scope: "pro",
+    category: "do",
+    group: "leases-tenants",
   },
   {
     command: "/edit-lease",
@@ -154,6 +226,8 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     template: "Update lease [id]. Change [field] to [value].",
     keywords: ["update", "change", "edit", "lease", "modify"],
     scope: "pro",
+    category: "do",
+    group: "leases-tenants",
   },
   {
     command: "/add-tenant",
@@ -162,6 +236,8 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     template: "Add a tenant to property [property id]. Name: [name], Unit: [unit], Rent: [amount].",
     keywords: ["create", "new", "tenant", "add", "resident"],
     scope: "pro",
+    category: "do",
+    group: "leases-tenants",
   },
   {
     command: "/edit-tenant",
@@ -170,6 +246,8 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     template: "Update tenant [id]. Change [field] to [value].",
     keywords: ["update", "change", "edit", "tenant", "modify"],
     scope: "pro",
+    category: "do",
+    group: "leases-tenants",
   },
   {
     command: "/add-payment",
@@ -178,6 +256,8 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     template: "Record a [kind] payment on lease [lease id]. Amount: [amount], Date: [date], Method: [method].",
     keywords: ["record", "payment", "rent", "fee", "deposit", "add"],
     scope: "pro",
+    category: "do",
+    group: "rent",
   },
   {
     command: "/edit-payment",
@@ -186,6 +266,8 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     template: "Update payment [id]. Change [field] to [value].",
     keywords: ["update", "change", "edit", "payment", "modify"],
     scope: "pro",
+    category: "do",
+    group: "rent",
   },
   {
     command: "/maintenance",
@@ -194,6 +276,18 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     template: "Log a maintenance issue on property [property id]. Title: [title], Severity: [severity].",
     keywords: ["maintenance", "repair", "issue", "log", "record"],
     scope: "pro",
+    category: "do",
+    group: "work-orders",
+  },
+  {
+    command: "/edit-maintenance",
+    title: "Edit maintenance item",
+    description: "Change status, severity, cost, or vendor on a maintenance item",
+    template: "Update maintenance item [id]. Change [field] to [value].",
+    keywords: ["update", "change", "edit", "maintenance", "modify", "status"],
+    scope: "pro",
+    category: "do",
+    group: "work-orders",
   },
 ];
 
@@ -210,7 +304,10 @@ export function parseSlashQuery(input: string): string | null {
 
 /**
  * Filter the command set by the typed query. On a manager (/pro) route, pro
- * commands are surfaced first; on consumer routes they're hidden entirely.
+ * commands are included; on consumer routes they're hidden entirely. Results
+ * are grouped by domain (GROUP_ORDER) so the menu can render section headers,
+ * and nested within each domain by category ("ask" before "do"); within a
+ * group+category pair, original declaration order is preserved.
  */
 export function filterSlashCommands(query: string, isPro: boolean): SlashCommand[] {
   const pool = SLASH_COMMANDS.filter((c) => isPro || c.scope === "all");
@@ -226,14 +323,16 @@ export function filterSlashCommands(query: string, isPro: boolean): SlashCommand
             c.keywords.some((k) => k.includes(q)),
         );
 
-  if (!isPro) return matched;
-
-  // Stable sort: pro-scoped commands first when in the cockpit.
+  // Stable sort: group by domain first, then by category within the domain,
+  // preserving relative declaration order within a group+category pair.
   return matched
     .map((c, i) => ({ c, i }))
     .sort((a, b) => {
-      const ap = a.c.scope === "pro" ? 0 : 1;
-      const bp = b.c.scope === "pro" ? 0 : 1;
+      const agp = GROUP_ORDER.indexOf(a.c.group);
+      const bgp = GROUP_ORDER.indexOf(b.c.group);
+      if (agp !== bgp) return agp - bgp;
+      const ap = CATEGORY_ORDER.indexOf(a.c.category);
+      const bp = CATEGORY_ORDER.indexOf(b.c.category);
       return ap !== bp ? ap - bp : a.i - b.i;
     })
     .map((x) => x.c);
