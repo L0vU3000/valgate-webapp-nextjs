@@ -16,7 +16,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { NewPropertySchema, PropertyPatchSchema } from "@/lib/data/types/property";
-import { NewMaintenanceItemSchema } from "@/lib/data/types/maintenance-item";
+import { NewMaintenanceItemSchema, MaintenanceItemPatchSchema } from "@/lib/data/types/maintenance-item";
 import { logActivity, type LogActivityInput } from "@/lib/services/activity";
 import type { Ctx } from "@/lib/services/_mapping";
 import type { GetCtx, McpCallExtra } from "./register";
@@ -245,4 +245,32 @@ export function registerWriteTools(server: McpServer, getCtx: GetCtx): void {
     },
   );
 
+  // ── update_maintenance ───────────────────────────────────────────────────────
+  server.registerTool(
+    "update_maintenance",
+    {
+      title: "Update maintenance item",
+      description:
+        "Change fields on an existing maintenance item — including assigning a vendor (patch.vendorId), status, severity, or cost. Only the fields you pass in `patch` are updated; everything else is left as-is. Requires member access or higher.",
+      inputSchema: z.object({
+        orgId: orgIdArg,
+        id: z.string().describe("The maintenance item id to update, e.g. MAINT-0001."),
+        patch: MaintenanceItemPatchSchema.describe(
+          "The subset of maintenance item fields to change. Omitted fields are left unchanged.",
+        ),
+      }),
+    },
+    async (args, extra) => {
+      const resolved = await resolveWriteCtx(getCtx, extra, args.orgId, "update the maintenance item");
+      if ("error" in resolved) return resolved.error;
+      const def = VALGATE_TOOLS.find((d) => d.name === "update_maintenance")! as ReadOrWriteDef;
+      const result = await def.run(resolved.ctx, { id: args.id, patch: args.patch });
+      if (!result.ok) return toolError(result.message);
+      if (def.audit) {
+        const entry = def.audit(resolved.ctx, { id: args.id, patch: args.patch }, result.data);
+        await audit(resolved.ctx, { ...entry, summary: `${entry.summary} via MCP` });
+      }
+      return toolOk(result.data);
+    },
+  );
 }

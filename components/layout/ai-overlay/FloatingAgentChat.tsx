@@ -9,6 +9,7 @@ import { useAgentChat } from "./useAgentChat";
 import { refreshOverlayContext } from "@/lib/actions/ai-overlay.actions";
 import { useProAgent } from "@/app/(pro)/pro/_components/ProAgentContext";
 import {
+  CATEGORY_LABELS,
   filterSlashCommands,
   parseSlashQuery,
   type SlashCommand,
@@ -375,6 +376,14 @@ export function FloatingAgentChat({ pathname, openTrigger }: FloatingAgentChatPr
               >
                 {slashMatches.map((cmd, i) => (
                   <li key={cmd.command} role="presentation">
+                    {(i === 0 || slashMatches[i - 1].category !== cmd.category) && (
+                      <div
+                        className="px-3 pb-1 pt-2.5 text-[10.5px] font-semibold uppercase tracking-wide text-slate-400 first:pt-1"
+                        aria-hidden="true"
+                      >
+                        {CATEGORY_LABELS[cmd.category]}
+                      </div>
+                    )}
                     <button
                       type="button"
                       role="option"

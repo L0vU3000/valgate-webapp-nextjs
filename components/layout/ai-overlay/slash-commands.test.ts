@@ -30,12 +30,16 @@ describe("filterSlashCommands", () => {
     expect(result.find((c) => c.command === "/owner-statement")).toBeUndefined();
   });
 
-  it("includes pro commands on /pro routes and surfaces them first", () => {
+  it("includes pro commands on /pro routes", () => {
     const result = filterSlashCommands("", true);
     expect(result.length).toBe(SLASH_COMMANDS.length);
-    const firstAllIndex = result.findIndex((c) => c.scope === "all");
-    const lastProIndex = result.map((c) => c.scope).lastIndexOf("pro");
-    expect(lastProIndex).toBeLessThan(firstAllIndex);
+  });
+
+  it("groups results by category, with all 'ask' commands before all 'do' commands", () => {
+    const result = filterSlashCommands("", true);
+    const lastAskIndex = result.map((c) => c.category).lastIndexOf("ask");
+    const firstDoIndex = result.findIndex((c) => c.category === "do");
+    expect(lastAskIndex).toBeLessThan(firstDoIndex);
   });
 
   it("matches on command, title, and keywords", () => {

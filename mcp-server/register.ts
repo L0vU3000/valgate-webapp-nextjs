@@ -107,6 +107,41 @@ export function registerValgateMcp(server: McpServer, getCtx: GetCtx): void {
     },
   );
 
+  // Lets a caller resolve a vendor's id (needed by update_maintenance's patch.vendorId) from
+  // the workspace's professionals/vendor directory.
+  server.registerTool(
+    "search_professionals",
+    {
+      title: "Search professionals",
+      description:
+        "Find the professionals/vendors (contractors, inspectors, agents, etc.) in this Valgate workspace's directory. Returns each one's id, name, company, category, rating, and availability.",
+      inputSchema: z.object({}),
+    },
+    async (_args, extra) => {
+      try {
+        const ctx = await getCtx(extra);
+        const def = VALGATE_TOOLS.find((d) => d.name === "search_professionals")! as ReadOrWriteDef;
+        const result = await def.run(ctx, {});
+        if (!result.ok) {
+          return {
+            content: [{ type: "text" as const, text: result.message }],
+            isError: true,
+          };
+        }
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify(result.data, null, 2) }],
+          structuredContent: { data: result.data },
+        };
+      } catch (err) {
+        console.error("[valgate-mcp] search_professionals failed:", err);
+        return {
+          content: [{ type: "text" as const, text: "Could not load professionals." }],
+          isError: true,
+        };
+      }
+    },
+  );
+
   // All reading beyond the search entry point is served by resources (keeps the tool list short).
   registerResources(server, getCtx);
 

@@ -14,7 +14,7 @@ import { and, count, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { leases as leasesTable, payments as paymentsTable } from "@/lib/db/schema";
 import { NewPropertySchema, PropertyPatchSchema } from "@/lib/data/types/property";
-import { NewMaintenanceItemSchema } from "@/lib/data/types/maintenance-item";
+import { NewMaintenanceItemSchema, MaintenanceItemPatchSchema } from "@/lib/data/types/maintenance-item";
 import { NewLeaseSchema, LeasePatchSchema } from "@/lib/data/types/lease";
 import { NewTenantSchema, TenantPatchSchema } from "@/lib/data/types/tenant";
 import { NewPaymentSchema, PaymentPatchSchema } from "@/lib/data/types/payment";
@@ -26,7 +26,8 @@ import {
   getProperty,
   countPropertyCascade,
 } from "@/lib/services/properties";
-import { createMaintenanceItem } from "@/lib/services/maintenance-items";
+import { createMaintenanceItem, updateMaintenanceItem } from "@/lib/services/maintenance-items";
+import { listProfessionals } from "@/lib/services/professionals";
 import { createLease, updateLease, deleteLease, getLease } from "@/lib/services/leases";
 import { createTenant, updateTenant, deleteTenant, getTenant } from "@/lib/services/tenants";
 import { createPayment, updatePayment, deletePayment, getPayment } from "@/lib/services/payments";
@@ -119,6 +120,28 @@ export const VALGATE_TOOLS: ValgateToolDef[] = [
       } catch (err) {
         console.error("[valgate-tools] search_properties failed:", err);
         return { ok: false, message: "Could not load properties." };
+      }
+    },
+  },
+
+  // ── search_professionals ─────────────────────────────────────────────────
+  // Lets the AI resolve a vendor NAME (from the manager's message) to the id that
+  // update_maintenance's patch.vendorId needs — same directory the "Assign a vendor" modal reads.
+  {
+    kind: "read",
+    name: "search_professionals",
+    description:
+      "Find the professionals/vendors (contractors, inspectors, agents, etc.) in this Valgate workspace's directory. Returns each one's id, name, company, category, rating, and availability. Use this to look up a vendor's id before assigning them to a maintenance item with update_maintenance.",
+    input: z.object({}),
+    run: async (ctx: Ctx) => {
+      try {
+        const professionals = await listProfessionals(ctx);
+        // Drop the internal owner id (userId) — an internal handle the AI never needs.
+        const data = professionals.map(({ userId: _userId, ...rest }) => rest);
+        return { ok: true, data };
+      } catch (err) {
+        console.error("[valgate-tools] search_professionals failed:", err);
+        return { ok: false, message: "Could not load professionals." };
       }
     },
   },
@@ -261,6 +284,43 @@ export const VALGATE_TOOLS: ValgateToolDef[] = [
       entityId: data.id,
       propertyId: data.propertyId,
       summary: `Logged maintenance "${data.title}"`,
+    }),
+  },
+
+  // ── update_maintenance ───────────────────────────────────────────────────
+  // Covers status/severity/cost edits AND vendor assignment (patch.vendorId) — the same
+  // field the "Assign a vendor" modal writes on the website.
+  {
+    kind: "write",
+    name: "update_maintenance",
+    description:
+      "Change fields on an existing maintenance item — including assigning a vendor (patch.vendorId), status, severity, or cost. Only the fields you pass in `patch` are updated; everything else is left as-is. Requires member access or higher.",
+    input: z.object({
+      id: z.string().describe("The maintenance item id to update, e.g. MAINT-0001."),
+      patch: MaintenanceItemPatchSchema.describe(
+        "The subset of maintenance item fields to change. Omitted fields are left unchanged.",
+      ),
+    }),
+    run: async (ctx: Ctx, args: { id: string; patch: z.infer<typeof MaintenanceItemPatchSchema> }) => {
+      try {
+        const updated = await updateMaintenanceItem(ctx, args.id, args.patch);
+        if (!updated) {
+          return { ok: false, message: `No maintenance item ${args.id} exists in this workspace.` };
+        }
+        return { ok: true, data: updated };
+      } catch (err) {
+        console.error("[valgate-tools] update_maintenance failed:", err);
+        return { ok: false, message: "Could not update that maintenance item." };
+      }
+    },
+    audit: (_ctx, args, data) => ({
+      entity: "maintenance",
+      action: "updated",
+      entityId: data.id,
+      propertyId: data.propertyId,
+      summary: args.patch.vendorId
+        ? `Assigned a vendor to maintenance item ${data.id}`
+        : `Updated maintenance item ${data.id} ("${data.title}")`,
     }),
   },
 

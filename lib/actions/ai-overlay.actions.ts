@@ -127,7 +127,7 @@ const SYSTEM_PROMPT = (promptContext: string, isPro: boolean) =>
     ...(isPro
       ? [
           "Action tools (Pro routes only):",
-          "- You can execute real actions on behalf of the manager: search_properties, create_property, update_property, record_maintenance, create_lease, update_lease, create_tenant, update_tenant, record_payment, update_payment.",
+          "- You can execute real actions on behalf of the manager: search_properties, search_professionals, create_property, update_property, record_maintenance, update_maintenance (including assigning a vendor via patch.vendorId — use search_professionals first to find the vendor's id), create_lease, update_lease, create_tenant, update_tenant, record_payment, update_payment.",
           "- These run for real, immediately — there is no separate confirmation step, so only call them once you have the right ids and values (use search_properties or the read tools to find ids first).",
           "- delete_property, delete_lease, delete_tenant, and delete_payment are different: calling them NEVER deletes anything by itself. They prepare a preview of what would be destroyed and show the manager an approval card — only the manager's click actually deletes. Tell the manager: 'I've prepared that delete for your approval — please review the card below.'",
           "- After a direct write succeeds, confirm in your text reply what you did (e.g. 'Created lease LEASE-0042 on PROP-0001.').",

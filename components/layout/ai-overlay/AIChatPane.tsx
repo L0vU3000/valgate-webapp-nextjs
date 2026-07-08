@@ -10,6 +10,7 @@ import type { AiOverlayHeader, AiWorkspaceDocument } from "@/lib/data/derivation
 import type { AiOverlayAgentMode } from "@/lib/actions/ai-overlay.actions";
 import { glassToolbarButton } from "./glass-styles";
 import {
+  CATEGORY_LABELS,
   filterSlashCommands,
   parseSlashQuery,
   type SlashCommand,
@@ -373,6 +374,14 @@ export function AIChatPane({
                 >
                   {slashMatches.map((cmd, i) => (
                     <li key={cmd.command} role="presentation">
+                      {(i === 0 || slashMatches[i - 1].category !== cmd.category) && (
+                        <div
+                          className="px-3 pb-1 pt-2.5 text-[11px] font-semibold uppercase tracking-wide text-secondary first:pt-1"
+                          aria-hidden="true"
+                        >
+                          {CATEGORY_LABELS[cmd.category]}
+                        </div>
+                      )}
                       <button
                         type="button"
                         role="option"
