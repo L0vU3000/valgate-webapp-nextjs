@@ -38,7 +38,7 @@ import type { Ctx } from "@/lib/services/_mapping";
 // not-found / forbidden logic in two places.
 export type ToolOutcome<T> = { ok: true; data: T } | { ok: false; message: string };
 
-type ReadOrWriteDef = {
+export type ReadOrWriteDef = {
   kind: "read" | "write";
   name: string;
   description: string;
@@ -47,7 +47,7 @@ type ReadOrWriteDef = {
   audit?: (ctx: Ctx, args: any, data: any) => LogActivityInput; // eslint-disable-line @typescript-eslint/no-explicit-any -- see above
 };
 
-type DestructiveDef = {
+export type DestructiveDef = {
   kind: "destructive";
   name: string;
   description: string;
