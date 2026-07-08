@@ -145,11 +145,10 @@ const SYSTEM_PROMPT = (promptContext: string, isPro: boolean) =>
   ].join("\n");
 
 // ---------------------------------------------------------------------------
-// Phase 4 — Reply engine with Claude tool-calling
+// Phase 4 — Reply engine with GPT tool-calling
 //
-// Priority: ANTHROPIC_API_KEY → Claude with tools
-//           OPENAI_API_KEY    → OpenAI without tools (existing path)
-//           neither           → deterministic fallback
+// Priority: OPENAI_API_KEY → gpt-4o-mini with tools
+//           no key          → deterministic fallback
 // ---------------------------------------------------------------------------
 
 async function generateAssistantReply(
@@ -162,16 +161,14 @@ async function generateAssistantReply(
   steps?: AiMessageStep[];
   proposedAction?: AiProposedAction;
 }> {
-  const anthropicKey = process.env.ANTHROPIC_API_KEY;
   const openaiKey = process.env.OPENAI_API_KEY;
   const isPro = context.pathname === "/pro" || context.pathname.startsWith("/pro/");
 
-  // --- Claude path (tool-use) ---
-  if (anthropicKey) {
+  if (openaiKey) {
     try {
-      const [{ generateText, stepCountIs }, { anthropic }] = await Promise.all([
+      const [{ generateText, stepCountIs }, { openai }] = await Promise.all([
         import("ai"),
-        import("@ai-sdk/anthropic"),
+        import("@ai-sdk/openai"),
       ]);
 
       const recent = history.slice(-20).map((m) => ({
@@ -182,7 +179,7 @@ async function generateAssistantReply(
       const tools = isPro ? PRO_TOOLS : CONSUMER_TOOLS;
 
       const result = await generateText({
-        model: anthropic("claude-sonnet-4-6"),
+        model: openai("gpt-4o-mini"),
         system: SYSTEM_PROMPT(context.promptContext, isPro),
         messages: [...recent, { role: "user", content: userMessage }],
         tools,
@@ -232,33 +229,8 @@ async function generateAssistantReply(
         proposedAction,
       };
     } catch (err) {
-      console.error("[ai-overlay] Anthropic error:", err);
-      // Fall through to OpenAI then deterministic
-    }
-  }
-
-  // --- OpenAI path (no tools) ---
-  if (openaiKey) {
-    try {
-      const [{ generateText }, { openai }] = await Promise.all([
-        import("ai"),
-        import("@ai-sdk/openai"),
-      ]);
-
-      const recent = history.slice(-20).map((m) => ({
-        role: m.role as "user" | "assistant",
-        content: m.content,
-      }));
-
-      const { text } = await generateText({
-        model: openai("gpt-4o-mini"),
-        system: SYSTEM_PROMPT(context.promptContext, isPro),
-        messages: [...recent, { role: "user", content: userMessage }],
-      });
-
-      return { content: text.trim() || "I couldn't generate a response. Please try again." };
-    } catch (err) {
       console.error("[ai-overlay] OpenAI error:", err);
+      // Fall through to deterministic
     }
   }
 
@@ -324,7 +296,7 @@ export async function getOverlayBootstrap(
       ? await listAiMessages(authCtx, resolvedSessionId)
       : [];
 
-    const agentMode: AiOverlayAgentMode = process.env.ANTHROPIC_API_KEY
+    const agentMode: AiOverlayAgentMode = process.env.OPENAI_API_KEY
       ? "full"
       : "basic";
 
