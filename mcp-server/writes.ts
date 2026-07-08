@@ -16,18 +16,11 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { NewPropertySchema, PropertyPatchSchema } from "@/lib/data/types/property";
-import { NewMaintenanceItemSchema } from "@/lib/data/types/maintenance-item";
-import {
-  createProperty,
-  updateProperty,
-  deleteProperty,
-  getProperty,
-  countPropertyCascade,
-} from "@/lib/services/properties";
-import { createMaintenanceItem } from "@/lib/services/maintenance-items";
+import { NewMaintenanceItemSchema, MaintenanceItemPatchSchema } from "@/lib/data/types/maintenance-item";
 import { logActivity, type LogActivityInput } from "@/lib/services/activity";
 import type { Ctx } from "@/lib/services/_mapping";
 import type { GetCtx, McpCallExtra } from "./register";
+import { VALGATE_TOOLS, type ReadOrWriteDef, type DestructiveDef } from "./tool-defs";
 
 // A tool result the MCP SDK understands. `structuredContent` is the typed payload; `content` is the
 // human-readable mirror. `isError: true` marks a tool-level failure (not a protocol error).
@@ -113,23 +106,15 @@ export function registerWriteTools(server: McpServer, getCtx: GetCtx): void {
     },
     async (args, extra) => {
       const resolved = await resolveWriteCtx(getCtx, extra, args.orgId, "create the property");
-      if ("error" in resolved) {
-        return resolved.error;
+      if ("error" in resolved) return resolved.error;
+      const def = VALGATE_TOOLS.find((d) => d.name === "create_property")! as ReadOrWriteDef;
+      const result = await def.run(resolved.ctx, { property: args.property });
+      if (!result.ok) return toolError(result.message);
+      if (def.audit) {
+        const entry = def.audit(resolved.ctx, { property: args.property }, result.data);
+        await audit(resolved.ctx, { ...entry, summary: `${entry.summary} via MCP` });
       }
-      try {
-        const created = await createProperty(resolved.ctx, args.property);
-        await audit(resolved.ctx, {
-          entity: "property",
-          action: "created",
-          entityId: created.id,
-          propertyId: created.id,
-          summary: `Created property "${created.name}" via MCP`,
-        });
-        return toolOk(created);
-      } catch (err) {
-        console.error("[valgate-mcp] create_property failed:", err);
-        return toolError("Could not create the property.");
-      }
+      return toolOk(result.data);
     },
   );
 
@@ -150,33 +135,20 @@ export function registerWriteTools(server: McpServer, getCtx: GetCtx): void {
     },
     async (args, extra) => {
       const resolved = await resolveWriteCtx(getCtx, extra, args.orgId, "update the property");
-      if ("error" in resolved) {
-        return resolved.error;
+      if ("error" in resolved) return resolved.error;
+      const def = VALGATE_TOOLS.find((d) => d.name === "update_property")! as ReadOrWriteDef;
+      const result = await def.run(resolved.ctx, { id: args.id, patch: args.patch });
+      if (!result.ok) return toolError(result.message);
+      if (def.audit) {
+        const entry = def.audit(resolved.ctx, { id: args.id, patch: args.patch }, result.data);
+        await audit(resolved.ctx, { ...entry, summary: `${entry.summary} via MCP` });
       }
-      try {
-        const updated = await updateProperty(resolved.ctx, args.id, args.patch);
-        if (!updated) {
-          return toolError(`No property ${args.id} exists in this workspace.`);
-        }
-        await audit(resolved.ctx, {
-          entity: "property",
-          action: "updated",
-          entityId: updated.id,
-          propertyId: updated.id,
-          summary: `Updated property ${updated.id} ("${updated.name}") via MCP`,
-        });
-        return toolOk(updated);
-      } catch (err) {
-        console.error("[valgate-mcp] update_property failed:", err);
-        return toolError("Could not update the property.");
-      }
+      return toolOk(result.data);
     },
   );
 
   // ── preview_property_delete ────────────────────────────────────────────────────
-  // The blast-radius preview. Read-only: it counts every child row a delete would destroy so a
-  // human can see the consequences before confirming. This is the "look before you leap" half of
-  // the destructive-delete flow (§G rule 7).
+  // The blast-radius preview. Read-only, delegates to VALGATE_TOOLS delete_property.preview.
   server.registerTool(
     "preview_property_delete",
     {
@@ -190,35 +162,17 @@ export function registerWriteTools(server: McpServer, getCtx: GetCtx): void {
     },
     async (args, extra) => {
       const resolved = await resolveWriteCtx(getCtx, extra, args.orgId, "preview the delete");
-      if ("error" in resolved) {
-        return resolved.error;
-      }
-      try {
-        const property = await getProperty(resolved.ctx, args.id);
-        if (!property) {
-          return toolError(`No property ${args.id} exists in this workspace.`);
-        }
-        const cascade = await countPropertyCascade(resolved.ctx, args.id);
-        return toolOk({
-          property: { id: property.id, name: property.name },
-          cascade,
-          note: "Nothing was deleted. To delete, call delete_property with confirm: true.",
-        });
-      } catch (err) {
-        console.error("[valgate-mcp] preview_property_delete failed:", err);
-        return toolError("Could not preview that delete.");
-      }
+      if ("error" in resolved) return resolved.error;
+      const def = VALGATE_TOOLS.find((d) => d.name === "delete_property")! as DestructiveDef;
+      const preview = await def.preview(resolved.ctx, { id: args.id });
+      if (!preview.ok) return toolError(preview.message);
+      return toolOk(preview.data);
     },
   );
 
   // ── delete_property ────────────────────────────────────────────────────────────
-  // Permanent, irreversible, admin-only (enforced in the service). Two safety gates layered on top:
-  //   1. confirm must be explicitly true. When it is false/omitted we DELETE NOTHING and instead
-  //      return the blast-radius preview — so a delete can never happen on a single accidental call.
-  //   2. the service's scopedDelete requires admin role and org-scope, so a member/viewer or a
-  //      wrong-org caller is refused regardless of what they pass here.
-  // (We can't track "did they call preview first?" because the HTTP server is stateless per request,
-  // so the confirm flag IS the human-in-the-loop gate, and the false-path shows the preview.)
+  // Permanent, irreversible, admin-only (enforced in the service). Delegates preview/commit
+  // to VALGATE_TOOLS; the confirm flag maps to preview vs commit per design.md Decision 3.
   server.registerTool(
     "delete_property",
     {
@@ -238,46 +192,32 @@ export function registerWriteTools(server: McpServer, getCtx: GetCtx): void {
     },
     async (args, extra) => {
       const resolved = await resolveWriteCtx(getCtx, extra, args.orgId, "delete the property");
-      if ("error" in resolved) {
-        return resolved.error;
-      }
-      try {
-        const property = await getProperty(resolved.ctx, args.id);
-        if (!property) {
-          return toolError(`No property ${args.id} exists in this workspace.`);
-        }
+      if ("error" in resolved) return resolved.error;
+      const def = VALGATE_TOOLS.find((d) => d.name === "delete_property")! as DestructiveDef;
+      const preview = await def.preview(resolved.ctx, { id: args.id });
+      if (!preview.ok) return toolError(preview.message);
 
-        // Gate 1: no explicit confirmation → show the preview, delete nothing.
-        if (args.confirm !== true) {
-          const cascade = await countPropertyCascade(resolved.ctx, args.id);
-          return toolOk({
-            property: { id: property.id, name: property.name },
-            cascade,
-            confirmRequired: true,
-            note: "Nothing was deleted. This is permanent and irreversible. Re-call delete_property with confirm: true to proceed.",
-          });
-        }
-
-        // Confirmed. The service enforces admin-only + org-scope; a non-admin throws here.
-        await deleteProperty(resolved.ctx, args.id);
-        await audit(resolved.ctx, {
-          entity: "property",
-          action: "deleted",
-          entityId: args.id,
-          // No propertyId: the property row is gone, so we must not FK-reference it.
-          summary: `Deleted property ${args.id} ("${property.name}") and all linked records via MCP`,
+      if (args.confirm !== true) {
+        return toolOk({
+          ...preview.data,
+          confirmRequired: true,
+          note: `Nothing was deleted. Re-call ${def.name} with confirm: true to proceed.`,
         });
-        return toolOk({ deleted: args.id, name: property.name });
-      } catch (err) {
-        console.error("[valgate-mcp] delete_property failed:", err);
-        return toolError("Could not delete that property.");
       }
+
+      const result = await def.commit(resolved.ctx, { id: args.id });
+      if (!result.ok) return toolError(result.message);
+      if (def.audit) {
+        const entry = def.audit(resolved.ctx, { id: args.id }, result.data);
+        await audit(resolved.ctx, { ...entry, summary: `${entry.summary} via MCP` });
+      }
+      return toolOk(result.data);
     },
   );
 
   // ── record_maintenance ────────────────────────────────────────────────────────
-  // An example of an intent-shaped write: "log a maintenance issue for a property". Requires
-  // member access; audited like every other write.
+  // An example of an intent-shaped write: "log a maintenance issue for a property".
+  // Delegates to VALGATE_TOOLS; audited like every other write.
   server.registerTool(
     "record_maintenance",
     {
@@ -293,23 +233,44 @@ export function registerWriteTools(server: McpServer, getCtx: GetCtx): void {
     },
     async (args, extra) => {
       const resolved = await resolveWriteCtx(getCtx, extra, args.orgId, "record maintenance");
-      if ("error" in resolved) {
-        return resolved.error;
+      if ("error" in resolved) return resolved.error;
+      const def = VALGATE_TOOLS.find((d) => d.name === "record_maintenance")! as ReadOrWriteDef;
+      const result = await def.run(resolved.ctx, { item: args.item });
+      if (!result.ok) return toolError(result.message);
+      if (def.audit) {
+        const entry = def.audit(resolved.ctx, { item: args.item }, result.data);
+        await audit(resolved.ctx, { ...entry, summary: `${entry.summary} via MCP` });
       }
-      try {
-        const created = await createMaintenanceItem(resolved.ctx, args.item);
-        await audit(resolved.ctx, {
-          entity: "maintenance",
-          action: "created",
-          entityId: created.id,
-          propertyId: created.propertyId,
-          summary: `Logged maintenance "${created.title}" via MCP`,
-        });
-        return toolOk(created);
-      } catch (err) {
-        console.error("[valgate-mcp] record_maintenance failed:", err);
-        return toolError("Could not record that maintenance item.");
+      return toolOk(result.data);
+    },
+  );
+
+  // ── update_maintenance ───────────────────────────────────────────────────────
+  server.registerTool(
+    "update_maintenance",
+    {
+      title: "Update maintenance item",
+      description:
+        "Change fields on an existing maintenance item — including assigning a vendor (patch.vendorId), status, severity, or cost. Only the fields you pass in `patch` are updated; everything else is left as-is. Requires member access or higher.",
+      inputSchema: z.object({
+        orgId: orgIdArg,
+        id: z.string().describe("The maintenance item id to update, e.g. MAINT-0001."),
+        patch: MaintenanceItemPatchSchema.describe(
+          "The subset of maintenance item fields to change. Omitted fields are left unchanged.",
+        ),
+      }),
+    },
+    async (args, extra) => {
+      const resolved = await resolveWriteCtx(getCtx, extra, args.orgId, "update the maintenance item");
+      if ("error" in resolved) return resolved.error;
+      const def = VALGATE_TOOLS.find((d) => d.name === "update_maintenance")! as ReadOrWriteDef;
+      const result = await def.run(resolved.ctx, { id: args.id, patch: args.patch });
+      if (!result.ok) return toolError(result.message);
+      if (def.audit) {
+        const entry = def.audit(resolved.ctx, { id: args.id, patch: args.patch }, result.data);
+        await audit(resolved.ctx, { ...entry, summary: `${entry.summary} via MCP` });
       }
+      return toolOk(result.data);
     },
   );
 }

@@ -235,10 +235,12 @@ export const PRO_TOOLS = {
   getComplianceOverview,
   getClientPortfolio,
   search_properties: toolFor("search_properties"),
+  search_professionals: toolFor("search_professionals"),
   create_property: toolFor("create_property"),
   update_property: toolFor("update_property"),
   delete_property: toolFor("delete_property"),
   record_maintenance: toolFor("record_maintenance"),
+  update_maintenance: toolFor("update_maintenance"),
   create_lease: toolFor("create_lease"),
   update_lease: toolFor("update_lease"),
   delete_lease: toolFor("delete_lease"),
@@ -274,6 +276,8 @@ export function toolSummaryLabel(toolName: string, args: Record<string, unknown>
       return `Read portfolio for client ${args.clientId ?? ""}`;
     case "search_properties":
       return "Searched properties";
+    case "search_professionals":
+      return "Searched professionals/vendors";
     case "create_property":
       return "Created a property";
     case "update_property":
@@ -282,6 +286,10 @@ export function toolSummaryLabel(toolName: string, args: Record<string, unknown>
       return `Prepared property delete for approval (${args.id ?? ""})`;
     case "record_maintenance":
       return "Logged a maintenance item";
+    case "update_maintenance":
+      return args.patch && typeof args.patch === "object" && "vendorId" in args.patch
+        ? `Assigned a vendor to maintenance item ${args.id ?? ""}`
+        : `Updated maintenance item ${args.id ?? ""}`;
     case "create_lease":
       return "Created a lease";
     case "update_lease":

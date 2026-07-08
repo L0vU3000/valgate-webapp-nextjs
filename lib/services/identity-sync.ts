@@ -1,5 +1,5 @@
 import "server-only";
-import { eq, and } from "drizzle-orm";
+import { eq, and, or, isNull, lt } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { organizations, users, organizationMemberships } from "@/lib/db/schema";
 import { nextId } from "@/lib/services/_mapping";
@@ -77,6 +77,44 @@ export async function setUserIsManager(clerkUserId: string, isManager: boolean):
   await db.update(users)
     .set({ isManager, updatedAt: new Date() })
     .where(eq(users.clerkUserId, clerkUserId));
+}
+
+// Stamp the user's last_active_at timestamp. Called from authenticated layouts
+// (Pro shell + owner shell) so portfolio presence dots reflect real usage.
+// Throttled to at most one write per minute per user to keep DB load low.
+export async function stampLastActiveAt(userId: string): Promise<void> {
+  const staleBefore = new Date(Date.now() - 60_000);
+  await db.update(users)
+    .set({ lastActiveAt: new Date(), updatedAt: new Date() })
+    .where(
+      and(
+        eq(users.id, userId),
+        or(isNull(users.lastActiveAt), lt(users.lastActiveAt, staleBefore)),
+      ),
+    );
+}
+
+// How recently a user must have been seen to count as "active" / online.
+export const MEMBER_ACTIVE_THRESHOLD_MS = 5 * 60 * 1000;
+
+export function isRecentlyActive(
+  lastActiveAt: Date | null | undefined,
+): boolean {
+  if (!lastActiveAt) return false;
+  return lastActiveAt.getTime() > Date.now() - MEMBER_ACTIVE_THRESHOLD_MS;
+}
+
+// Portfolio presence is about client-side members (owners/family), not the
+// Valgate Pro manager who created the org and browses /pro.
+export function isClientPortfolioMemberActive(
+  lastActiveAt: Date | null | undefined,
+  memberUserId: string,
+  managerUserId: string | null | undefined,
+): boolean {
+  if (managerUserId && memberUserId === managerUserId) {
+    return false;
+  }
+  return isRecentlyActive(lastActiveAt);
 }
 
 export async function upsertMembership(data: {

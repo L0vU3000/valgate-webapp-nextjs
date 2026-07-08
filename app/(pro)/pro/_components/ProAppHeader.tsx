@@ -18,6 +18,7 @@ import {
   NotificationsPanel,
   type NotificationsPanelHandle,
 } from "@/components/layout/NotificationsPanel";
+import { HelpMenu } from "@/components/layout/HelpMenu";
 import { useNotifications } from "@/lib/hooks/use-notifications";
 import type { PropertyListItem } from "@/lib/data/types/property";
 import type { Notification } from "@/lib/data/types/notification";
@@ -179,6 +180,8 @@ export function ProAppHeader({
               </div>
             )}
           </div>
+
+          <HelpMenu />
 
           <div className="relative">
             <button

@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, inArray, sql, desc, isNotNull } from "drizzle-orm";
+import { and, eq, gt, inArray, sql, desc, isNotNull } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { getFsUserId } from "@/lib/data/auth-shim";
 // Cached read-through wrappers (client-perf layer from v1.0.2). These replace the
@@ -29,7 +29,9 @@ import {
   clients,
   organizations,
   properties,
+  users,
 } from "@/lib/db/schema";
+import { MEMBER_ACTIVE_THRESHOLD_MS } from "@/lib/services/identity-sync";
 import { toDomain } from "@/lib/services/_mapping";
 import { PropertySchema } from "@/lib/data/types/property";
 import {
@@ -514,4 +516,72 @@ export async function augmentRollupsWithOrgData(
     // instead of a bare "—". Any real handoff status still wins via bestStatus().
     rollup.confirmationStatus = bestStatus(handoffEntry?.statuses ?? []) || "draft";
   }
+}
+
+// Resolve the managing professional for each portfolio org so presence can
+// ignore their own /pro activity (they are org members for access, not clients).
+async function getManagerUserIdsForOrgs(
+  orgIds: string[],
+): Promise<Map<string, string>> {
+  if (orgIds.length === 0) return new Map();
+
+  const [clientRows, handoffRows] = await Promise.all([
+    db
+      .select({ orgId: clients.orgId, managerUserId: clients.managerUserId })
+      .from(clients)
+      .where(and(inArray(clients.orgId, orgIds), isNotNull(clients.orgId))),
+    db
+      .selectDistinct({
+        orgId: clientHandoffs.orgId,
+        managerUserId: clientHandoffs.managerUserId,
+      })
+      .from(clientHandoffs)
+      .where(inArray(clientHandoffs.orgId, orgIds)),
+  ]);
+
+  const managerByOrg = new Map<string, string>();
+  for (const row of clientRows) {
+    if (row.orgId) managerByOrg.set(row.orgId, row.managerUserId);
+  }
+  for (const row of handoffRows) {
+    if (!managerByOrg.has(row.orgId)) {
+      managerByOrg.set(row.orgId, row.managerUserId);
+    }
+  }
+  return managerByOrg;
+}
+
+// Returns the subset of orgIds that have at least one active member who was
+// seen within MEMBER_ACTIVE_THRESHOLD_MS. Empty input → empty set (no query).
+export async function getOrgIdsWithActiveMembers(
+  orgIds: string[],
+): Promise<Set<string>> {
+  if (orgIds.length === 0) return new Set();
+
+  const threshold = new Date(Date.now() - MEMBER_ACTIVE_THRESHOLD_MS);
+  const managerByOrg = await getManagerUserIdsForOrgs(orgIds);
+
+  const rows = await db
+    .select({
+      orgId: organizationMemberships.orgId,
+      userId: organizationMemberships.userId,
+    })
+    .from(organizationMemberships)
+    .innerJoin(users, eq(organizationMemberships.userId, users.id))
+    .where(
+      and(
+        inArray(organizationMemberships.orgId, orgIds),
+        eq(organizationMemberships.status, "active"),
+        gt(users.lastActiveAt, threshold),
+      ),
+    );
+
+  const activeOrgs = new Set<string>();
+  for (const row of rows) {
+    if (row.userId === managerByOrg.get(row.orgId)) {
+      continue;
+    }
+    activeOrgs.add(row.orgId);
+  }
+  return activeOrgs;
 }

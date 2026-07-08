@@ -27,6 +27,7 @@ export type ClientTab = {
   initials: string;
   avatarColor: string;
   health: ShellClient["health"];
+  hasActiveMember: boolean;
 };
 
 export type WorkspaceTab = DashboardTab | ClientTab;
@@ -52,6 +53,7 @@ function clientToTab(client: ShellClient): ClientTab {
     initials: client.initials,
     avatarColor: client.avatarColor,
     health: client.health,
+    hasActiveMember: client.hasActiveMember,
   };
 }
 
@@ -89,6 +91,19 @@ export function WorkspaceTabProvider({
   const [openTabs, setOpenTabs] = useState<WorkspaceTab[]>(() =>
     buildDefaultTabs(clients),
   );
+
+  // Keep open tabs in sync when the server refreshes client metadata (e.g.
+  // presence dots after a portfolio member logs in).
+  useEffect(() => {
+    setOpenTabs((current) =>
+      current.map((tab) => {
+        if (tab.kind === "dashboard") return tab;
+        const client = clients.find((c) => c.id === tab.id);
+        if (!client) return tab;
+        return clientToTab(client);
+      }),
+    );
+  }, [clients]);
 
   // Per-tab route memory (multitasking model "A"): each tab remembers the last
   // path visited within it, so switching clients and returning restores the

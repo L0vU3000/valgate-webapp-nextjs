@@ -127,7 +127,7 @@ const SYSTEM_PROMPT = (promptContext: string, isPro: boolean) =>
     ...(isPro
       ? [
           "Action tools (Pro routes only):",
-          "- You can execute real actions on behalf of the manager: search_properties, create_property, update_property, record_maintenance, create_lease, update_lease, create_tenant, update_tenant, record_payment, update_payment.",
+          "- You can execute real actions on behalf of the manager: search_properties, search_professionals, create_property, update_property, record_maintenance, update_maintenance (including assigning a vendor via patch.vendorId — use search_professionals first to find the vendor's id), create_lease, update_lease, create_tenant, update_tenant, record_payment, update_payment.",
           "- These run for real, immediately — there is no separate confirmation step, so only call them once you have the right ids and values (use search_properties or the read tools to find ids first).",
           "- delete_property, delete_lease, delete_tenant, and delete_payment are different: calling them NEVER deletes anything by itself. They prepare a preview of what would be destroyed and show the manager an approval card — only the manager's click actually deletes. Tell the manager: 'I've prepared that delete for your approval — please review the card below.'",
           "- After a direct write succeeds, confirm in your text reply what you did (e.g. 'Created lease LEASE-0042 on PROP-0001.').",
@@ -145,11 +145,10 @@ const SYSTEM_PROMPT = (promptContext: string, isPro: boolean) =>
   ].join("\n");
 
 // ---------------------------------------------------------------------------
-// Phase 4 — Reply engine with Claude tool-calling
+// Phase 4 — Reply engine with GPT tool-calling
 //
-// Priority: ANTHROPIC_API_KEY → Claude with tools
-//           OPENAI_API_KEY    → OpenAI without tools (existing path)
-//           neither           → deterministic fallback
+// Priority: OPENAI_API_KEY → gpt-4o-mini with tools
+//           no key          → deterministic fallback
 // ---------------------------------------------------------------------------
 
 async function generateAssistantReply(
@@ -162,16 +161,14 @@ async function generateAssistantReply(
   steps?: AiMessageStep[];
   proposedAction?: AiProposedAction;
 }> {
-  const anthropicKey = process.env.ANTHROPIC_API_KEY;
   const openaiKey = process.env.OPENAI_API_KEY;
   const isPro = context.pathname === "/pro" || context.pathname.startsWith("/pro/");
 
-  // --- Claude path (tool-use) ---
-  if (anthropicKey) {
+  if (openaiKey) {
     try {
-      const [{ generateText, stepCountIs }, { anthropic }] = await Promise.all([
+      const [{ generateText, stepCountIs }, { openai }] = await Promise.all([
         import("ai"),
-        import("@ai-sdk/anthropic"),
+        import("@ai-sdk/openai"),
       ]);
 
       const recent = history.slice(-20).map((m) => ({
@@ -182,7 +179,7 @@ async function generateAssistantReply(
       const tools = isPro ? PRO_TOOLS : CONSUMER_TOOLS;
 
       const result = await generateText({
-        model: anthropic("claude-sonnet-4-6"),
+        model: openai("gpt-4o-mini"),
         system: SYSTEM_PROMPT(context.promptContext, isPro),
         messages: [...recent, { role: "user", content: userMessage }],
         tools,
@@ -232,33 +229,8 @@ async function generateAssistantReply(
         proposedAction,
       };
     } catch (err) {
-      console.error("[ai-overlay] Anthropic error:", err);
-      // Fall through to OpenAI then deterministic
-    }
-  }
-
-  // --- OpenAI path (no tools) ---
-  if (openaiKey) {
-    try {
-      const [{ generateText }, { openai }] = await Promise.all([
-        import("ai"),
-        import("@ai-sdk/openai"),
-      ]);
-
-      const recent = history.slice(-20).map((m) => ({
-        role: m.role as "user" | "assistant",
-        content: m.content,
-      }));
-
-      const { text } = await generateText({
-        model: openai("gpt-4o-mini"),
-        system: SYSTEM_PROMPT(context.promptContext, isPro),
-        messages: [...recent, { role: "user", content: userMessage }],
-      });
-
-      return { content: text.trim() || "I couldn't generate a response. Please try again." };
-    } catch (err) {
       console.error("[ai-overlay] OpenAI error:", err);
+      // Fall through to deterministic
     }
   }
 
@@ -324,7 +296,7 @@ export async function getOverlayBootstrap(
       ? await listAiMessages(authCtx, resolvedSessionId)
       : [];
 
-    const agentMode: AiOverlayAgentMode = process.env.ANTHROPIC_API_KEY
+    const agentMode: AiOverlayAgentMode = process.env.OPENAI_API_KEY
       ? "full"
       : "basic";
 

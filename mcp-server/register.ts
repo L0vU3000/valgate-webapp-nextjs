@@ -9,11 +9,11 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { Ctx } from "@/lib/services/_mapping";
-import { listProperties } from "@/lib/services/properties";
 import { listWorkspacesForUser } from "./ctxFor";
 import { registerResources } from "./resources";
 import { registerWriteTools } from "./writes";
 import { registerRentalWriteTools } from "./writes-rental";
+import { VALGATE_TOOLS, type ReadOrWriteDef } from "./tool-defs";
 
 // The per-call context resolver. It receives the MCP request's `extra` object (which carries
 // `authInfo` on the authenticated HTTP path) and returns the Valgate Ctx to run the call as.
@@ -85,22 +85,57 @@ export function registerValgateMcp(server: McpServer, getCtx: GetCtx): void {
     async (_args, extra) => {
       try {
         const ctx = await getCtx(extra);
-        const properties = await listProperties(ctx);
-        // Drop the internal owner id (userId) from each row — it's an internal handle the AI
-        // never needs, so it's just noise in the tool output. This trim is MCP-local on purpose:
-        // listProperties() also feeds the website, so we shape the response here rather than
-        // changing the shared service.
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars -- destructure-omit: drop userId, keep the rest
-        const data = properties.map(({ userId, ...rest }) => rest);
+        const def = VALGATE_TOOLS.find((d) => d.name === "search_properties")! as ReadOrWriteDef;
+        const result = await def.run(ctx, {});
+        if (!result.ok) {
+          return {
+            content: [{ type: "text" as const, text: result.message }],
+            isError: true,
+          };
+        }
         return {
-          content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
-          structuredContent: { data },
+          content: [{ type: "text" as const, text: JSON.stringify(result.data, null, 2) }],
+          structuredContent: { data: result.data },
         };
       } catch (err) {
-        // Never return err.message to the client — log internally, return a generic string.
         console.error("[valgate-mcp] search_properties failed:", err);
         return {
           content: [{ type: "text" as const, text: "Could not load properties." }],
+          isError: true,
+        };
+      }
+    },
+  );
+
+  // Lets a caller resolve a vendor's id (needed by update_maintenance's patch.vendorId) from
+  // the workspace's professionals/vendor directory.
+  server.registerTool(
+    "search_professionals",
+    {
+      title: "Search professionals",
+      description:
+        "Find the professionals/vendors (contractors, inspectors, agents, etc.) in this Valgate workspace's directory. Returns each one's id, name, company, category, rating, and availability.",
+      inputSchema: z.object({}),
+    },
+    async (_args, extra) => {
+      try {
+        const ctx = await getCtx(extra);
+        const def = VALGATE_TOOLS.find((d) => d.name === "search_professionals")! as ReadOrWriteDef;
+        const result = await def.run(ctx, {});
+        if (!result.ok) {
+          return {
+            content: [{ type: "text" as const, text: result.message }],
+            isError: true,
+          };
+        }
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify(result.data, null, 2) }],
+          structuredContent: { data: result.data },
+        };
+      } catch (err) {
+        console.error("[valgate-mcp] search_professionals failed:", err);
+        return {
+          content: [{ type: "text" as const, text: "Could not load professionals." }],
           isError: true,
         };
       }
