@@ -9,6 +9,7 @@ import { useNotifications } from "@/lib/hooks/use-notifications";
 import { useInitialNotifications } from "@/components/layout/NotificationsContext";
 import type { PropertyListItem } from "@/lib/data/types/property";
 import { useAppHeaderProperties, useIsManager } from "./AppHeaderPropertiesContext";
+import { HelpMenu } from "./HelpMenu";
 import Link from "next/link";
 
 export function AppHeader({
@@ -73,6 +74,7 @@ export function AppHeader({
               Pro →
             </Link>
           )}
+          <HelpMenu />
           <div className="relative">
             <button
               ref={bellRef}
