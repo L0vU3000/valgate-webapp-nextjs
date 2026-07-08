@@ -1,10 +1,14 @@
 import { notFound } from "next/navigation";
 import { getClientPortfolioData } from "@/app/(pro)/pro/queries";
-import { ComplianceTable } from "@/app/(pro)/pro/dashboard/_components/ComplianceTable";
+import { ClientCompliancePage } from "../_components/ClientCompliancePage";
 
-// Compliance section of the manager's client workspace — the Dashboard's
-// ComplianceTable scoped to this one client. Manager cockpit view. Reuses
-// getClientPortfolioData.
+// Compliance section of the manager's client workspace — a client-scoped
+// certification timeline + safety-risk register + inspection log. Composes the
+// same widgets the global /pro/compliance page uses, over this one client's
+// slice. Reuses getClientPortfolioData (compliance surfaces derived there).
+
+// "Overdue" / "in Nd" horizon labels are computed relative to request time.
+export const dynamic = "force-dynamic";
 
 type PageProps = {
   params: Promise<{ clientId: string }>;
@@ -17,11 +21,5 @@ export default async function Page({ params }: PageProps) {
     notFound();
   }
 
-  return (
-    <main className="h-full overflow-y-auto bg-slate-50/50">
-      <div className="mx-auto flex max-w-[1440px] flex-col gap-6 px-4 py-6 sm:px-8 sm:py-8">
-        <ComplianceTable compliance={data.compliance} />
-      </div>
-    </main>
-  );
+  return <ClientCompliancePage data={data} />;
 }

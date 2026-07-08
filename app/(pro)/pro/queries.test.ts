@@ -485,6 +485,44 @@ describe("getClientPortfolioData", () => {
     for (const p of data.properties) expect(p.clientId).toBe(clientId);
     for (const w of data.workOrders) expect(w.clientId).toBe(clientId);
     for (const c of data.compliance) expect(c.clientId).toBe(clientId);
+    // Rent surfaces are derived over the same client-scoped slice.
+    for (const r of data.rentRoll) expect(r.clientId).toBe(clientId);
+    for (const o of data.overdue) expect(data.rentRoll).toContain(o);
+  });
+
+  it("scopes safety risks + inspections and reconciles the compliance summary", async () => {
+    const clientId = await firstClientId();
+    const data = await getClientPortfolioData(clientId);
+    expect(data).not.toBeNull();
+    if (!data) return;
+
+    // Safety risks + inspections are derived over the same client-scoped slice
+    // (the scoped ProContext now filters both, not just certificates).
+    for (const r of data.safetyRisks) expect(r.clientId).toBe(clientId);
+    for (const i of data.inspections) expect(i.clientId).toBe(clientId);
+
+    // Status-based partition: every cert is exactly one of Valid / Expiring /
+    // Expired, so the three summary counts always sum to the certificate total.
+    // This reads `cert.status`, NOT the date — the date-based daysLeft horizon
+    // buckets are DELIBERATELY not reconciled with this, so we do not assert
+    // any daysLeft-vs-status equality here.
+    const s = data.complianceSummary;
+    expect(s.validCount + s.expiringCount + s.expiredCount).toBe(
+      data.compliance.length,
+    );
+
+    // The open/resolved split tracks exactly the register rows.
+    expect(s.openRiskCount).toBe(
+      data.safetyRisks.filter((r) => r.status === "Open").length,
+    );
+    expect(s.resolvedRiskCount).toBe(
+      data.safetyRisks.filter((r) => r.status !== "Open").length,
+    );
+
+    // Failed-inspection count tracks exactly the failed rows.
+    expect(s.failedInspections).toBe(
+      data.inspections.filter((i) => i.status === "Failed").length,
+    );
   });
 
   it("matches the dashboard's rollup for the same client", async () => {
@@ -542,6 +580,76 @@ describe("getClientPortfolioData", () => {
     for (const point of data.financialSeries) {
       expectRealNumber(point.collected, `series ${point.month}`);
     }
+  });
+
+  it("derives a collection rate consistent with the rollup", async () => {
+    const clientId = await firstClientId();
+    const data = await getClientPortfolioData(clientId);
+    expect(data).not.toBeNull();
+    if (!data) return;
+
+    // collectionRate re-derives from the same scoped expected/collected the
+    // rollup uses, so the KPI strip and the rollup can't disagree.
+    const { monthlyExpected, monthlyCollected } = data.rollup;
+    expect(data.collectionRate).toBe(
+      monthlyExpected === 0
+        ? 0
+        : Math.round((monthlyCollected / monthlyExpected) * 100),
+    );
+    // Every expiring lease ends within the next 90 days (pinned now).
+    const now = Date.now();
+    for (const lease of data.expiring) {
+      expect(lease.endDate).toBeGreaterThanOrEqual(now - 1);
+      expect(lease.endDate).toBeLessThanOrEqual(now + 91 * 24 * 60 * 60 * 1000);
+    }
+  });
+
+  it("derives work-order counts + open cost consistent with the scoped rows", async () => {
+    const clientId = await firstClientId();
+    const data = await getClientPortfolioData(clientId);
+    expect(data).not.toBeNull();
+    if (!data) return;
+
+    // Each count tracks exactly the rows with that status (robust even when a
+    // Cancelled row is present — Cancelled is intentionally uncounted).
+    const { open, inProgress, resolved, urgentOpen } = data.workOrderCounts;
+    expect(data.workOrders.filter((w) => w.status === "Open").length).toBe(open);
+    expect(
+      data.workOrders.filter((w) => w.status === "InProgress").length,
+    ).toBe(inProgress);
+    expect(data.workOrders.filter((w) => w.status === "Resolved").length).toBe(
+      resolved,
+    );
+
+    // urgentOpen = non-closed Emergency/Urgent rows.
+    const urgent = data.workOrders.filter(
+      (w) =>
+        w.status !== "Resolved" &&
+        w.status !== "Cancelled" &&
+        (w.severity === "Emergency" || w.severity === "Urgent"),
+    ).length;
+    expect(urgentOpen).toBe(urgent);
+
+    // Open est. cost = sum of non-closed estimates.
+    const openCost = data.workOrders
+      .filter((w) => w.status !== "Resolved" && w.status !== "Cancelled")
+      .reduce((sum, w) => sum + (w.cost ?? 0), 0);
+    expect(data.totalOpenWorkOrderCost).toBe(openCost);
+  });
+
+  it("reuses the same trade-vendor directory as the global work-orders page", async () => {
+    const clientId = await firstClientId();
+    const [portfolio, global] = await Promise.all([
+      getClientPortfolioData(clientId),
+      getWorkOrdersPageData(),
+    ]);
+    expect(portfolio).not.toBeNull();
+    if (!portfolio) return;
+
+    // Both call the shared deriveWorkOrderSurfaces, and the vendor directory is
+    // org-wide (not client-scoped), so the two must be identical. This is the
+    // invariant that proves the extraction did not fork the vendor list.
+    expect(portfolio.workOrderVendors).toEqual(global.vendors);
   });
 });
 

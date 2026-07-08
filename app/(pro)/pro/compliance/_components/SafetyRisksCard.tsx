@@ -29,12 +29,16 @@ export function SafetyRisksCard({
   risks,
   title = "Open Safety Risks",
   emptyMessage = "No open safety risks.",
+  // On a single-client tab the client name repeats down every row, so the
+  // client Compliance tab hides it. The global page leaves it visible.
+  hideClient = false,
 }: {
   // Risks to render. The parent decides whether this list is open-only or
   // includes resolved rows (driven by the "Show resolved" toggle).
   risks: ProSafetyRiskRow[];
   title?: string;
   emptyMessage?: string;
+  hideClient?: boolean;
 }) {
   const router = useRouter();
 
@@ -76,7 +80,8 @@ export function SafetyRisksCard({
                     {risk.title}
                   </span>
                   <span className="truncate text-[11.5px] text-slate-500 dark:text-slate-400">
-                    {risk.propertyName} · {risk.clientName}
+                    {risk.propertyName}
+                    {hideClient ? "" : ` · ${risk.clientName}`}
                   </span>
                 </div>
                 {isResolved ? (
