@@ -3,6 +3,7 @@ import {
   filterSlashCommands,
   parseSlashQuery,
   SLASH_COMMANDS,
+  type SlashCommandGroup,
 } from "./slash-commands";
 
 describe("parseSlashQuery", () => {
@@ -35,11 +36,34 @@ describe("filterSlashCommands", () => {
     expect(result.length).toBe(SLASH_COMMANDS.length);
   });
 
-  it("groups results by category, with all 'ask' commands before all 'do' commands", () => {
+  it("groups results by domain, never interleaving two domains", () => {
     const result = filterSlashCommands("", true);
-    const lastAskIndex = result.map((c) => c.category).lastIndexOf("ask");
-    const firstDoIndex = result.findIndex((c) => c.category === "do");
-    expect(lastAskIndex).toBeLessThan(firstDoIndex);
+    const seen = new Set<SlashCommandGroup>();
+    let lastGroup: SlashCommandGroup | null = null;
+    for (const c of result) {
+      if (c.group !== lastGroup) {
+        expect(seen.has(c.group)).toBe(false); // a domain never reappears once it's closed
+        seen.add(c.group);
+        lastGroup = c.group;
+      }
+    }
+  });
+
+  it("within each domain, all 'ask' commands come before all 'do' commands", () => {
+    const result = filterSlashCommands("", true);
+    const byGroup = new Map<SlashCommandGroup, string[]>();
+    for (const c of result) {
+      const categories = byGroup.get(c.group) ?? [];
+      categories.push(c.category);
+      byGroup.set(c.group, categories);
+    }
+    for (const categories of byGroup.values()) {
+      const lastAskIndex = categories.lastIndexOf("ask");
+      const firstDoIndex = categories.indexOf("do");
+      if (lastAskIndex !== -1 && firstDoIndex !== -1) {
+        expect(lastAskIndex).toBeLessThan(firstDoIndex);
+      }
+    }
   });
 
   it("matches on command, title, and keywords", () => {

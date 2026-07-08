@@ -15,13 +15,28 @@
 
 export type SlashCommandCategory = "ask" | "do";
 
-// Shown as a section header above each group in the slash menu, in this order.
+// Shown as a sub-header (nested inside each domain group) in the slash menu.
 export const CATEGORY_LABELS: Record<SlashCommandCategory, string> = {
   ask: "Ask",
   do: "Do",
 };
 
 const CATEGORY_ORDER: SlashCommandCategory[] = ["ask", "do"];
+
+// Domain groups mirror the cockpit's own entity vocabulary (lib/services/*
+// and the /pro/* nav) rather than inventing a new taxonomy — the same split
+// a manager already sees in the sidebar. This is the primary grouping; "ask"
+// vs "do" nests inside each one as the secondary grouping.
+export type SlashCommandGroup = "properties" | "leases-tenants" | "rent" | "work-orders";
+
+export const GROUP_LABELS: Record<SlashCommandGroup, string> = {
+  properties: "Properties",
+  "leases-tenants": "Leases & Tenants",
+  rent: "Rent & Collections",
+  "work-orders": "Work Orders",
+};
+
+const GROUP_ORDER: SlashCommandGroup[] = ["properties", "leases-tenants", "rent", "work-orders"];
 
 export type SlashCommand = {
   /** The trigger the user types, including the leading slash. */
@@ -46,6 +61,8 @@ export type SlashCommand = {
    *         (the same tool the MCP connector exposes).
    */
   category: SlashCommandCategory;
+  /** Which domain section of the menu this command lives under. */
+  group: SlashCommandGroup;
 };
 
 export const SLASH_COMMANDS: SlashCommand[] = [
@@ -57,6 +74,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     keywords: ["arrears", "late", "unpaid", "collection"],
     scope: "all",
     category: "ask",
+    group: "rent",
   },
   {
     command: "/rent-roll",
@@ -66,6 +84,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     keywords: ["rent", "collected", "expected", "income"],
     scope: "all",
     category: "ask",
+    group: "rent",
   },
   {
     command: "/owner-statement",
@@ -75,6 +94,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     keywords: ["report", "statement", "owner", "monthly", "packet"],
     scope: "pro",
     category: "ask",
+    group: "rent",
   },
   {
     command: "/work-orders",
@@ -84,6 +104,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     keywords: ["maintenance", "repairs", "vendor", "tickets"],
     scope: "pro",
     category: "ask",
+    group: "work-orders",
   },
   {
     command: "/assign-vendor",
@@ -93,6 +114,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     keywords: ["vendor", "contractor", "dispatch", "maintenance"],
     scope: "pro",
     category: "do",
+    group: "work-orders",
   },
   {
     command: "/compliance",
@@ -102,6 +124,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     keywords: ["certificate", "inspection", "safety", "expiry", "risk"],
     scope: "all",
     category: "ask",
+    group: "properties",
   },
   {
     command: "/expiring",
@@ -111,6 +134,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     keywords: ["lease", "renewal", "ending", "vacancy"],
     scope: "all",
     category: "ask",
+    group: "leases-tenants",
   },
   {
     command: "/value",
@@ -120,6 +144,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     keywords: ["valuation", "worth", "price", "market"],
     scope: "all",
     category: "ask",
+    group: "properties",
   },
   {
     command: "/equity",
@@ -129,6 +154,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     keywords: ["equity", "ltv", "mortgage", "loan"],
     scope: "all",
     category: "ask",
+    group: "properties",
   },
   {
     command: "/reassign",
@@ -138,6 +164,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     keywords: ["reassign", "move", "client", "owner", "portfolio"],
     scope: "pro",
     category: "do",
+    group: "properties",
   },
 
   // ── MCP action tools — one entry per VALGATE_TOOLS non-destructive tool ──
@@ -150,6 +177,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     keywords: ["create", "new", "property", "add"],
     scope: "pro",
     category: "do",
+    group: "properties",
   },
   {
     command: "/edit-property",
@@ -159,6 +187,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     keywords: ["update", "change", "edit", "property", "modify"],
     scope: "pro",
     category: "do",
+    group: "properties",
   },
   {
     command: "/find-properties",
@@ -168,6 +197,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     keywords: ["search", "list", "find", "properties", "portfolio"],
     scope: "pro",
     category: "ask",
+    group: "properties",
   },
   {
     command: "/find-vendors",
@@ -177,6 +207,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     keywords: ["search", "list", "find", "vendor", "professional", "contractor", "directory"],
     scope: "pro",
     category: "ask",
+    group: "work-orders",
   },
   {
     command: "/add-lease",
@@ -186,6 +217,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     keywords: ["create", "new", "lease", "rental", "contract"],
     scope: "pro",
     category: "do",
+    group: "leases-tenants",
   },
   {
     command: "/edit-lease",
@@ -195,6 +227,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     keywords: ["update", "change", "edit", "lease", "modify"],
     scope: "pro",
     category: "do",
+    group: "leases-tenants",
   },
   {
     command: "/add-tenant",
@@ -204,6 +237,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     keywords: ["create", "new", "tenant", "add", "resident"],
     scope: "pro",
     category: "do",
+    group: "leases-tenants",
   },
   {
     command: "/edit-tenant",
@@ -213,6 +247,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     keywords: ["update", "change", "edit", "tenant", "modify"],
     scope: "pro",
     category: "do",
+    group: "leases-tenants",
   },
   {
     command: "/add-payment",
@@ -222,6 +257,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     keywords: ["record", "payment", "rent", "fee", "deposit", "add"],
     scope: "pro",
     category: "do",
+    group: "rent",
   },
   {
     command: "/edit-payment",
@@ -231,6 +267,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     keywords: ["update", "change", "edit", "payment", "modify"],
     scope: "pro",
     category: "do",
+    group: "rent",
   },
   {
     command: "/maintenance",
@@ -240,6 +277,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     keywords: ["maintenance", "repair", "issue", "log", "record"],
     scope: "pro",
     category: "do",
+    group: "work-orders",
   },
   {
     command: "/edit-maintenance",
@@ -249,6 +287,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     keywords: ["update", "change", "edit", "maintenance", "modify", "status"],
     scope: "pro",
     category: "do",
+    group: "work-orders",
   },
 ];
 
@@ -266,8 +305,9 @@ export function parseSlashQuery(input: string): string | null {
 /**
  * Filter the command set by the typed query. On a manager (/pro) route, pro
  * commands are included; on consumer routes they're hidden entirely. Results
- * are grouped by category ("ask" before "do") so the menu can render section
- * headers; within a category, original declaration order is preserved.
+ * are grouped by domain (GROUP_ORDER) so the menu can render section headers,
+ * and nested within each domain by category ("ask" before "do"); within a
+ * group+category pair, original declaration order is preserved.
  */
 export function filterSlashCommands(query: string, isPro: boolean): SlashCommand[] {
   const pool = SLASH_COMMANDS.filter((c) => isPro || c.scope === "all");
@@ -283,10 +323,14 @@ export function filterSlashCommands(query: string, isPro: boolean): SlashCommand
             c.keywords.some((k) => k.includes(q)),
         );
 
-  // Stable sort: group by category in CATEGORY_ORDER, preserve relative order within a category.
+  // Stable sort: group by domain first, then by category within the domain,
+  // preserving relative declaration order within a group+category pair.
   return matched
     .map((c, i) => ({ c, i }))
     .sort((a, b) => {
+      const agp = GROUP_ORDER.indexOf(a.c.group);
+      const bgp = GROUP_ORDER.indexOf(b.c.group);
+      if (agp !== bgp) return agp - bgp;
       const ap = CATEGORY_ORDER.indexOf(a.c.category);
       const bp = CATEGORY_ORDER.indexOf(b.c.category);
       return ap !== bp ? ap - bp : a.i - b.i;

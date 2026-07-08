@@ -12,6 +12,7 @@ import { glassToolbarButton } from "./glass-styles";
 import {
   CATEGORY_LABELS,
   filterSlashCommands,
+  GROUP_LABELS,
   parseSlashQuery,
   type SlashCommand,
 } from "./slash-commands";
@@ -372,11 +373,28 @@ export function AIChatPane({
                   transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
                   className="absolute bottom-full left-0 right-0 z-10 mb-2 max-h-72 overflow-y-auto rounded-xl border border-white/50 bg-white/85 p-1.5 shadow-xl backdrop-blur-xl dark:border-white/10 dark:bg-zinc-900/85"
                 >
-                  {slashMatches.map((cmd, i) => (
+                  {slashMatches.map((cmd, i) => {
+                    const prev = i > 0 ? slashMatches[i - 1] : null;
+                    const isNewGroup = !prev || prev.group !== cmd.group;
+                    const isNewCategory = isNewGroup || prev.category !== cmd.category;
+                    return (
                     <li key={cmd.command} role="presentation">
-                      {(i === 0 || slashMatches[i - 1].category !== cmd.category) && (
+                      {isNewGroup && (
                         <div
-                          className="px-3 pb-1 pt-2.5 text-[11px] font-semibold uppercase tracking-wide text-secondary first:pt-1"
+                          className="px-3 pb-0.5 pt-3 text-[12.5px] font-semibold text-foreground first:pt-1.5"
+                          aria-hidden="true"
+                        >
+                          {GROUP_LABELS[cmd.group]}
+                        </div>
+                      )}
+                      {isNewCategory && (
+                        <div
+                          className={cn(
+                            "px-3 pb-1 pt-1 text-[10.5px] font-semibold uppercase tracking-wide",
+                            cmd.category === "do"
+                              ? "text-amber-700/80 dark:text-amber-400/80"
+                              : "text-secondary",
+                          )}
                           aria-hidden="true"
                         >
                           {CATEGORY_LABELS[cmd.category]}
@@ -411,7 +429,8 @@ export function AIChatPane({
                         </span>
                       </button>
                     </li>
-                  ))}
+                    );
+                  })}
                 </motion.ul>
               )}
             </AnimatePresence>
