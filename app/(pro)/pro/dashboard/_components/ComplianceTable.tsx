@@ -1,6 +1,9 @@
 "use client";
 
+import Link from "next/link";
+import { Plus, ShieldCheck } from "lucide-react";
 import { WidgetCard } from "@/app/(pro)/pro/_components/WidgetCard";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { cn } from "@/components/ui/utils";
 import type { ProComplianceRow } from "../../queries";
 import type { CertificationStatus } from "@/lib/data/types/certification";
@@ -32,6 +35,27 @@ export function ComplianceTable({
 }: {
   compliance: ProComplianceRow[];
 }) {
+  if (compliance.length === 0) {
+    return (
+      <WidgetCard title="Compliance & Deadlines">
+        <EmptyState
+          icon={<ShieldCheck className="h-6 w-6" />}
+          title="No certificates tracked yet"
+          description="Add fire, electrical, and plumbing certificates so you're always ahead of the next renewal deadline."
+          action={
+            <Link
+              href="/pro/compliance"
+              className="inline-flex items-center justify-center gap-1.5 h-9 px-4 rounded-md bg-slate-900 text-white text-[13px] font-medium hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Add Certificate
+            </Link>
+          }
+        />
+      </WidgetCard>
+    );
+  }
+
   return (
     <WidgetCard title="Compliance & Deadlines">
       <table className="w-full text-left">
@@ -51,16 +75,6 @@ export function ComplianceTable({
           </tr>
         </thead>
         <tbody>
-          {compliance.length === 0 && (
-            <tr>
-              <td
-                colSpan={COLUMNS.length}
-                className="py-6 text-center text-[13px] text-slate-500 dark:text-slate-400"
-              >
-                No certifications on file.
-              </td>
-            </tr>
-          )}
           {compliance.map((item) => (
             <tr
               key={item.id}

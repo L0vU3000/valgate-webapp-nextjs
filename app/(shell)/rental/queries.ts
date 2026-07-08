@@ -1,5 +1,6 @@
 import "server-only";
 import { requireCtx } from "@/lib/auth/ctx";
+import type { Ctx } from "@/lib/services/_mapping";
 import { listLeases } from "@/lib/services/leases";
 import { listPayments } from "@/lib/services/payments";
 import { listMaintenanceItems } from "@/lib/services/maintenance-items";
@@ -72,8 +73,8 @@ export type RentalDashboardData = {
   leaseTableRows: LeaseTableRow[];
 };
 
-export async function getRentalDashboardData(): Promise<RentalDashboardData> {
-  const authCtx = await requireCtx();
+export async function getRentalDashboardData(ctxOverride?: Ctx): Promise<RentalDashboardData> {
+  const authCtx = ctxOverride ?? (await requireCtx());
   const [leases, payments, maintenance, properties, expenses] = await Promise.all([
     listLeases(authCtx),
     listPayments(authCtx),

@@ -630,3 +630,28 @@ export async function listPortfolioMembers(
 
   return { members, invitees };
 }
+
+// ─── Membership role lookup (authorization boundary) ───────────────────────────
+
+// Returns the manager's active membership role in a client's org, or null if they
+// have no active grant there. This is the SERVER-ONLY authorization boundary for
+// the "act on behalf" preview: the grant already lives as data (created by
+// approveAccessRequest), so we read it fresh on every request instead of trusting
+// any client-supplied role. `viewer` = read/propose only; `admin`/`owner` = write.
+export async function getMembershipRole(
+  orgId: string,
+  userId: string,
+): Promise<Ctx["orgRole"] | null> {
+  const [row] = await db
+    .select({ role: organizationMemberships.role })
+    .from(organizationMemberships)
+    .where(
+      and(
+        eq(organizationMemberships.orgId, orgId),
+        eq(organizationMemberships.userId, userId),
+        eq(organizationMemberships.status, "active"),
+      ),
+    )
+    .limit(1);
+  return (row?.role as Ctx["orgRole"]) ?? null;
+}

@@ -95,7 +95,12 @@ const middleware = hasClerk
       const { userId } = await auth();
       const hasInviteTicket = request.nextUrl.searchParams.has("__clerk_ticket");
       if (userId && isAuthEntryRoute(request) && !hasInviteTicket) {
-        return NextResponse.redirect(new URL("/launch", request.url));
+        // Forward redirect_url so /launch can send the user on to where they
+        // were actually headed instead of always landing on the role default.
+        const launchUrl = new URL("/launch", request.url);
+        const redirectUrl = request.nextUrl.searchParams.get("redirect_url");
+        if (redirectUrl) launchUrl.searchParams.set("redirect_url", redirectUrl);
+        return NextResponse.redirect(launchUrl);
       }
       // Redirect signed-out users hitting a protected route to /login (set via ClerkProvider signInUrl).
       if (!isPublicRoute(request)) await auth.protect();

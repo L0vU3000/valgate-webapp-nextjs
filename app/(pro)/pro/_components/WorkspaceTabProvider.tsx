@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -89,17 +90,38 @@ export function WorkspaceTabProvider({
     buildDefaultTabs(clients),
   );
 
+  // Per-tab route memory (multitasking model "A"): each tab remembers the last
+  // path visited within it, so switching clients and returning restores the
+  // section (e.g. Rental) instead of resetting to the client root.
+  const [lastPathByTab, setLastPathByTab] = useState<Record<string, string>>({});
+
   const activeTabId = routeToActiveTabId(pathname);
+
+  // Record the current path against whichever tab it belongs to.
+  useEffect(() => {
+    if (!activeTabId) {
+      return;
+    }
+    setLastPathByTab((prev) => {
+      if (prev[activeTabId] === pathname) {
+        return prev;
+      }
+      return { ...prev, [activeTabId]: pathname };
+    });
+  }, [pathname, activeTabId]);
+
+  // Falls back to the tab's root when no section has been visited yet.
+  const rootPathForTab = useCallback(
+    (tabId: string) =>
+      tabId === "dashboard" ? "/pro/dashboard" : `/pro/clients/${tabId}`,
+    [],
+  );
 
   const activateTab = useCallback(
     (tabId: string) => {
-      if (tabId === "dashboard") {
-        router.push("/pro/dashboard");
-        return;
-      }
-      router.push(`/pro/clients/${tabId}`);
+      router.push(lastPathByTab[tabId] ?? rootPathForTab(tabId));
     },
-    [router],
+    [router, lastPathByTab, rootPathForTab],
   );
 
   const openClientTab = useCallback(
@@ -119,9 +141,10 @@ export function WorkspaceTabProvider({
         return [...current, clientToTab(client)];
       });
 
-      router.push(`/pro/clients/${clientId}`);
+      // Restore the tab's last section if it was already open; else its root.
+      router.push(lastPathByTab[clientId] ?? `/pro/clients/${clientId}`);
     },
-    [clients, router],
+    [clients, router, lastPathByTab],
   );
 
   const closeTab = useCallback(

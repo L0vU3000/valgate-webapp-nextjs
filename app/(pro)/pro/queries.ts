@@ -6,6 +6,7 @@ import { getAiMessage } from "@/lib/services/ai-messages";
 import { listNotifications } from "@/lib/services/notifications";
 import { getFsUserId } from "@/lib/data/auth-shim";
 import { requireCtx } from "@/lib/auth/ctx";
+import { listActivitiesForScope } from "@/lib/services/activities";
 import { listManagedAccounts, getIsManager } from "@/lib/services/managers";
 import { listPortfolioMembers as svcListPortfolioMembers } from "@/lib/services/client-onboarding";
 import type { PortfolioMember, PortfolioInvitee } from "@/lib/services/client-onboarding";
@@ -207,9 +208,34 @@ export type ClientPortfolioData = {
   rollup: ClientRollup;
   properties: ProPropertyRow[];
   workOrders: ProWorkOrderRow[];
+  // Client-scoped work-order surfaces — the same shapes the global
+  // /pro/work-orders page renders, derived over this client's slice
+  // (see deriveWorkOrderSurfaces).
+  workOrderCounts: {
+    open: number;
+    inProgress: number;
+    resolved: number;
+    urgentOpen: number;
+  };
+  totalOpenWorkOrderCost: number;
+  workOrderVendors: WorkOrdersPageData["vendors"];
   compliance: ProComplianceRow[];
+  // Client-scoped compliance surfaces — the same shapes the global
+  // /pro/compliance page renders, derived over this client's slice (see
+  // deriveComplianceSurfaces). `compliance` above is the certification list;
+  // these add the book-level summary counts, the safety-risk register, and the
+  // inspection log for the same client.
+  complianceSummary: CompliancePageData["summary"];
+  safetyRisks: ProSafetyRiskRow[];
+  inspections: ProInspectionRow[];
   activity: ProActivityEvent[];
   financialSeries: CashflowPoint[];
+  // Client-scoped rent surfaces — the same shapes the global /pro/rent page
+  // renders, derived over this client's slice (see deriveRentSurfaces).
+  rentRoll: RentRollRow[];
+  overdue: RentRollRow[];
+  expiring: RentPageData["expiring"];
+  collectionRate: number;
   leasesExpiring90d: number;
   ownerStatement: OwnerStatement;
   // Clerk org id behind this client's portfolio, used by the "View as client"
@@ -535,15 +561,26 @@ export type CompliancePageData = {
   };
 };
 
-export async function getCompliancePageData(): Promise<CompliancePageData> {
-  const ctx = await loadProContext();
+// Certification/safety-risk/inspection/summary surfaces derived from any
+// ProContext slice. Shared by the global Compliance page (full ctx) and each
+// client's Compliance tab (client-scoped slice) so the two can never drift.
+// Mirrors deriveRentSurfaces / deriveWorkOrderSurfaces. The lookup maps on `ctx`
+// (propertyById/clientById) stay whole even on a scoped slice — only the row
+// arrays are filtered — so name resolution still works.
+type ComplianceSurfaces = {
+  certifications: ProComplianceRow[];
+  safetyRisks: ProSafetyRiskRow[];
+  inspections: ProInspectionRow[];
+  summary: CompliancePageData["summary"];
+};
 
+function deriveComplianceSurfaces(ctx: ProContext): ComplianceSurfaces {
   // Certifications — already joined + sorted by expiry in buildComplianceRows.
   const certifications = buildComplianceRows(ctx);
 
   // Safety risks — join each to its property/client, then sort by severity
   // (Critical first), breaking ties with the most recently raised first.
-  const allSafetyRiskRows = ctx.safetyRisks
+  const allSafetyRiskRows: ProSafetyRiskRow[] = ctx.safetyRisks
     .map((risk) => {
       const property = ctx.propertyById.get(risk.propertyId);
       const client = property?.clientId
@@ -568,16 +605,16 @@ export async function getCompliancePageData(): Promise<CompliancePageData> {
           safetyRiskSeverityRank(b.severity) || b.createdAt - a.createdAt,
     );
 
-  // We now return BOTH open and resolved risks so the compliance page's
-  // "Show resolved" toggle can reveal the resolved ones (read-only) without a
-  // second round-trip. The card defaults to open-only; the page filters this
-  // list client-side. `openRisks` is kept for the summary counts below so the
-  // KPI strip still reports the open/resolved split correctly.
+  // We return BOTH open and resolved risks so the compliance surface's "Show
+  // resolved" toggle can reveal the resolved ones (read-only) without a second
+  // round-trip. The card defaults to open-only; the page filters this list
+  // client-side. `openRisks` drives the summary counts so the KPI strip still
+  // reports the open/resolved split correctly.
   const openRisks = allSafetyRiskRows.filter((r) => r.status === "Open");
   const safetyRisks = allSafetyRiskRows;
 
   // Inspections — join each to its property/client, newest inspection first.
-  const inspections = ctx.inspections
+  const inspections: ProInspectionRow[] = ctx.inspections
     .map((inspection) => {
       const property = ctx.propertyById.get(inspection.propertyId);
       const client = property?.clientId
@@ -596,29 +633,17 @@ export async function getCompliancePageData(): Promise<CompliancePageData> {
     })
     .sort((a, b) => b.inspectedAt - a.inspectedAt);
 
-  // The clients that actually own at least one of these records, so the
-  // filter chips never offer a client with nothing to show.
-  const clientIdsWithRecords = new Set<string>();
-  for (const cert of certifications) clientIdsWithRecords.add(cert.clientId);
-  for (const risk of safetyRisks) clientIdsWithRecords.add(risk.clientId);
-  for (const inspection of inspections) {
-    clientIdsWithRecords.add(inspection.clientId);
-  }
-  const clients = ctx.clients
-    .filter((client) => clientIdsWithRecords.has(client.id))
-    .map((client) => ({ id: client.id, name: client.name }))
-    .sort((a, b) => a.name.localeCompare(b.name));
-
   return {
     certifications,
     safetyRisks,
     inspections,
-    clients,
     summary: {
-      // The three cert-status counts mirror the colored status pills on the
-      // page and sum to the total, so the KPI strip always reconciles with
-      // what the manager sees in the timeline (a cert flagged "Expiring"
-      // counts here even once its expiry date has slipped past).
+      // The three cert-status counts mirror the colored status pills and sum to
+      // the total, so the KPI strip always reconciles with what the manager
+      // sees in the timeline (a cert flagged "Expiring" counts here even once
+      // its expiry date has slipped past). This STATUS partition is deliberately
+      // NOT the same as the date-based daysLeft horizon buckets — do not "fix"
+      // that gap.
       expiredCount: certifications.filter((c) => c.status === "Expired").length,
       expiringCount: certifications.filter((c) => c.status === "Expiring")
         .length,
@@ -634,10 +659,51 @@ export async function getCompliancePageData(): Promise<CompliancePageData> {
   };
 }
 
+export async function getCompliancePageData(): Promise<CompliancePageData> {
+  const ctx = await loadProContext();
+
+  const { certifications, safetyRisks, inspections, summary } =
+    deriveComplianceSurfaces(ctx);
+
+  // The clients that actually own at least one of these records, so the
+  // filter chips never offer a client with nothing to show. This is
+  // global-page-only chrome (the single-client tab has no chip row), so it
+  // stays out of the shared helper.
+  const clientIdsWithRecords = new Set<string>();
+  for (const cert of certifications) clientIdsWithRecords.add(cert.clientId);
+  for (const risk of safetyRisks) clientIdsWithRecords.add(risk.clientId);
+  for (const inspection of inspections) {
+    clientIdsWithRecords.add(inspection.clientId);
+  }
+  const clients = ctx.clients
+    .filter((client) => clientIdsWithRecords.has(client.id))
+    .map((client) => ({ id: client.id, name: client.name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  return { certifications, safetyRisks, inspections, clients, summary };
+}
+
+// Maps an audit-log `entity` string onto a feed category. The three that line up
+// with synthesized events share their icon/color; everything else (property edits,
+// photos, documents, co-owners, change requests …) falls into "update".
+function categoryForEntity(entity: string): ProActivityEvent["category"] {
+  switch (entity) {
+    case "payment":
+      return "payment";
+    case "workOrder":
+      return "maintenance";
+    case "lease":
+      return "lease";
+    default:
+      return "update";
+  }
+}
+
 export async function getClientPortfolioData(
   clientId: string,
 ): Promise<ClientPortfolioData | null> {
   const ctx = await loadProContext();
+  const authCtx = await requireCtx();
   const monthStart = currentMonthStartUtc();
 
   // Resolve which properties this view owns. The synthetic own-portfolio id
@@ -647,7 +713,6 @@ export async function getClientPortfolioData(
   let belongsToView: (p: Property) => boolean;
 
   if (clientId === OWN_PORTFOLIO_ID) {
-    const authCtx = await requireCtx();
     const ownRollup = buildOwnPortfolioRollup(ctx, monthStart, authCtx.userId);
     client = ownRollup.client;
     belongsToView = (p) => !p.clientId;
@@ -685,6 +750,14 @@ export async function getClientPortfolioData(
         : undefined;
       return propertyId !== undefined && clientPropertyIds.has(propertyId);
     }),
+    // Safety risks + inspections were not scoped before — the compliance
+    // workspace needs all three entity families, not just certs.
+    safetyRisks: ctx.safetyRisks.filter((r) =>
+      clientPropertyIds.has(r.propertyId),
+    ),
+    inspections: ctx.inspections.filter((i) =>
+      clientPropertyIds.has(i.propertyId),
+    ),
   };
 
   // Resolve the Clerk org id behind this client (for the "View as client"
@@ -694,18 +767,77 @@ export async function getClientPortfolioData(
     viewAsClerkOrgId = await getClerkOrgIdForOrg(client.orgId);
   }
 
+  // Same rent-roll/overdue/expiring/collection-rate derivation the global
+  // /pro/rent page uses, over this client's scoped slice.
+  const rentSurfaces = deriveRentSurfaces(scoped, monthStart);
+
+  // Same work-order rows/counts/open-cost/vendor derivation the global
+  // /pro/work-orders page uses, over this client's scoped slice.
+  const workOrderSurfaces = deriveWorkOrderSurfaces(scoped);
+
+  // Same certification/safety-risk/inspection/summary derivation the global
+  // /pro/compliance page uses, over this client's scoped slice.
+  const complianceSurfaces = deriveComplianceSurfaces(scoped);
+
+  // Activity timeline = the real audit log (who/what/when) MERGED with the
+  // synthesized payment/work-order/lease events. Two complementary sources:
+  //   - audit rows  → actions taken (manager on-behalf edits, change requests …)
+  //   - synthesized → operational reality derived from records (covers seed data
+  //                   and anything not written through the audited path)
+  // Scope org-first (client.orgId), else by the client's property ids.
+  const auditRows = await listActivitiesForScope(
+    {
+      orgId: client.orgId ?? undefined,
+      propertyIds: [...clientPropertyIds],
+    },
+    50,
+  );
+  const auditEvents: ProActivityEvent[] = auditRows.map((row) => ({
+    id: `audit-${row.id}`,
+    category: categoryForEntity(row.entity),
+    description: row.description,
+    clientName: client.name,
+    // Only name a property we can resolve in this client's slice; never invent one.
+    propertyName: row.propertyId
+      ? (scoped.propertyById.get(row.propertyId)?.name ?? "")
+      : "",
+    timestamp: row.createdAt,
+    // "You" only when the actor is the signed-in manager. Otherwise omit — the
+    // audit log stores a raw Clerk id, and we never fabricate a display name.
+    actor: row.userId === authCtx.userId ? "You" : undefined,
+    source: "audit",
+  }));
+  const recordEvents: ProActivityEvent[] = buildActivityFeed(scoped, 50).map(
+    (event) => ({ ...event, source: "record" as const }),
+  );
+  // Merge, newest-first, cap. No fuzzy dedup in v1 — the two sources carry
+  // distinct `source`/icons and read as complementary.
+  const activity = [...auditEvents, ...recordEvents]
+    .sort((a, b) => b.timestamp - a.timestamp)
+    .slice(0, 50);
+
   return {
     rollup,
     properties: scoped.properties
       .map((p) => buildPropertyRow(p, ctx))
       .filter((r): r is ProPropertyRow => r !== null),
-    workOrders: scoped.maintenance
-      .map((m) => buildWorkOrderRow(m, ctx))
-      .filter((r): r is ProWorkOrderRow => r !== null)
-      .sort((a, b) => b.createdAt - a.createdAt),
-    compliance: buildComplianceRows(scoped),
-    activity: buildActivityFeed(scoped, 12),
+    workOrders: workOrderSurfaces.rows,
+    workOrderCounts: workOrderSurfaces.counts,
+    totalOpenWorkOrderCost: workOrderSurfaces.totalOpenCost,
+    workOrderVendors: workOrderSurfaces.vendors,
+    // `compliance` stays the certification list (byte-identical to
+    // buildComplianceRows(scoped)); the new fields add the summary + the
+    // safety-risk and inspection registers for the same client.
+    compliance: complianceSurfaces.certifications,
+    complianceSummary: complianceSurfaces.summary,
+    safetyRisks: complianceSurfaces.safetyRisks,
+    inspections: complianceSurfaces.inspections,
+    activity,
     financialSeries: buildCashflowSeries(scoped.payments, monthStart, 6),
+    rentRoll: rentSurfaces.rentRoll,
+    overdue: rentSurfaces.overdue,
+    expiring: rentSurfaces.expiring,
+    collectionRate: rentSurfaces.collectionRate,
     leasesExpiring90d: countLeasesExpiring(scoped.leases, 90),
     ownerStatement: buildOwnerStatement(client, scoped, monthStart),
     viewAsClerkOrgId,
@@ -716,10 +848,26 @@ export async function getClientPortfolioData(
 // (including its requireCtx guard) lives in lib/services/pro-dashboard.ts.
 export { resolveClientOrgForManager } from "@/lib/services/pro-dashboard";
 
-export async function getRentPageData(): Promise<RentPageData> {
-  const ctx = await loadProContext();
-  const monthStart = currentMonthStartUtc();
+// Rent-roll, overdue, and expiring-lease surfaces derived from any ProContext
+// slice. Shared by the global Rent & Collections page (full ctx) and each
+// client's Financials tab (client-scoped slice) so the two can never drift.
+// The lookup maps on `ctx` (propertyById/clientById/tenantById) stay whole even
+// on a scoped slice — only the row arrays are filtered — so name resolution
+// still works.
+type RentSurfaces = {
+  expected: number;
+  collected: number;
+  outstanding: number;
+  collectionRate: number;
+  rentRoll: RentRollRow[];
+  overdue: RentRollRow[];
+  expiring: RentPageData["expiring"];
+};
 
+function deriveRentSurfaces(
+  ctx: ProContext,
+  monthStart: number,
+): RentSurfaces {
   const rentRoll = ctx.leases
     .filter((l) => l.stage === "Signed" && l.endDate >= monthStart)
     .map((lease) => buildRentRollRow(lease, ctx, monthStart))
@@ -763,21 +911,39 @@ export async function getRentPageData(): Promise<RentPageData> {
     })
     .sort((a, b) => a.endDate - b.endDate);
 
+  return {
+    expected,
+    collected,
+    outstanding: Math.max(0, expected - collected),
+    collectionRate:
+      expected === 0 ? 0 : Math.round((collected / expected) * 100),
+    rentRoll,
+    overdue: rentRoll.filter(
+      (r) => r.rentStatus === "Overdue" || r.rentStatus === "Unpaid",
+    ),
+    expiring,
+  };
+}
+
+export async function getRentPageData(): Promise<RentPageData> {
+  const ctx = await loadProContext();
+  const monthStart = currentMonthStartUtc();
+
+  const surfaces = deriveRentSurfaces(ctx, monthStart);
+
   const activeProperties = ctx.properties.filter(isActiveProperty);
   const rented = activeProperties.filter((p) => p.status === "Rented").length;
   const vacant = activeProperties.filter((p) => p.status === "Vacant").length;
 
   return {
     monthLabel: monthLabelUtc(monthStart),
-    expected,
-    collected,
-    outstanding: Math.max(0, expected - collected),
-    collectionRate: expected === 0 ? 0 : Math.round((collected / expected) * 100),
-    rentRoll,
-    overdue: rentRoll.filter(
-      (r) => r.rentStatus === "Overdue" || r.rentStatus === "Unpaid",
-    ),
-    expiring,
+    expected: surfaces.expected,
+    collected: surfaces.collected,
+    outstanding: surfaces.outstanding,
+    collectionRate: surfaces.collectionRate,
+    rentRoll: surfaces.rentRoll,
+    overdue: surfaces.overdue,
+    expiring: surfaces.expiring,
     occupancy: {
       rented,
       vacant,
@@ -791,9 +957,26 @@ export async function getRentPageData(): Promise<RentPageData> {
   };
 }
 
-export async function getWorkOrdersPageData(): Promise<WorkOrdersPageData> {
-  const ctx = await loadProContext();
+// Work-order surfaces (sorted rows, status counts, open-cost total, and the
+// trade-vendor directory) derived from any ProContext slice. Shared by the
+// global Work Orders page (full ctx) and each client's Work Orders tab
+// (client-scoped slice) so the two can never drift. Mirrors deriveRentSurfaces.
+// The lookup maps on `ctx` (propertyById/clientById/professionalById) stay whole
+// even on a scoped slice — only the row arrays are filtered — so name and vendor
+// resolution still works.
+type WorkOrderSurfaces = {
+  rows: ProWorkOrderRow[];
+  counts: {
+    open: number;
+    inProgress: number;
+    resolved: number;
+    urgentOpen: number;
+  };
+  totalOpenCost: number;
+  vendors: WorkOrdersPageData["vendors"];
+};
 
+function deriveWorkOrderSurfaces(ctx: ProContext): WorkOrderSurfaces {
   const rows = ctx.maintenance
     .map((m) => buildWorkOrderRow(m, ctx))
     .filter((r): r is ProWorkOrderRow => r !== null)
@@ -825,20 +1008,32 @@ export async function getWorkOrdersPageData(): Promise<WorkOrdersPageData> {
     "Inspector",
   ];
 
+  const vendors = ctx.professionals
+    .filter((p) => tradeCategories.includes(p.category))
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      company: p.company,
+      category: p.category,
+      available: p.available,
+      rating: p.rating,
+    }));
+
+  return { rows, counts: { ...counts, urgentOpen }, totalOpenCost, vendors };
+}
+
+export async function getWorkOrdersPageData(): Promise<WorkOrdersPageData> {
+  const ctx = await loadProContext();
+
+  const surfaces = deriveWorkOrderSurfaces(ctx);
+
   return {
-    rows,
-    counts: { ...counts, urgentOpen },
-    totalOpenCost,
-    vendors: ctx.professionals
-      .filter((p) => tradeCategories.includes(p.category))
-      .map((p) => ({
-        id: p.id,
-        name: p.name,
-        company: p.company,
-        category: p.category,
-        available: p.available,
-        rating: p.rating,
-      })),
+    rows: surfaces.rows,
+    counts: surfaces.counts,
+    totalOpenCost: surfaces.totalOpenCost,
+    vendors: surfaces.vendors,
+    // Property picker for the New Work Order modal — global-page-only, since
+    // the client tab does not create orders inline. Stays out of the shared helper.
     properties: ctx.properties.filter(isActiveProperty).map((p) => ({
       id: p.id,
       name: p.name,

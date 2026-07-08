@@ -8,6 +8,7 @@ import { completePendingHandoffsForUser } from "@/lib/services/client-onboarding
 import { db } from "@/lib/db/client";
 import { users } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
+import { resolveRedirectUrl } from "@/app/(auth)/_lib/resolve-redirect-url";
 
 // /launch is the post-auth landing decider: managers go to the Pro cockpit,
 // owners go to their portfolio map. This avoids baking role logic into the
@@ -16,9 +17,15 @@ import { logger } from "@/lib/logger";
 // What could go wrong: requireCtx throws "unauthenticated" if the session
 // cookie isn't present yet — in practice Clerk finalize() sets the cookie
 // before redirecting here, so this is only reachable by authenticated users.
-export default async function LaunchPage() {
+export default async function LaunchPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ redirect_url?: string }>;
+}) {
   const { userId, orgId } = await auth();
   if (!userId) redirect("/login");
+
+  const { redirect_url: rawRedirectUrl } = await searchParams;
 
   if (!orgId) {
     const [user] = await db
@@ -30,6 +37,14 @@ export default async function LaunchPage() {
     const clerkUser = user ? null : await currentUser();
     const isManager =
       user?.isManager ?? clerkUser?.unsafeMetadata?.accountType === "manager";
+
+    // Carry the original redirect_url through the org-selection bounce by
+    // nesting it inside the /launch URL we send /login/tasks back to —
+    // once an org is active, /launch runs again below with the same
+    // rawRedirectUrl and can honor it directly.
+    const launchWithRedirect = rawRedirectUrl
+      ? `/launch?redirect_url=${encodeURIComponent(rawRedirectUrl)}`
+      : "/launch";
 
     if (isManager) {
       if (!user && clerkUser) {
@@ -48,17 +63,17 @@ export default async function LaunchPage() {
       } catch (err) {
         logger.error("launch: ensure manager home org failed", { error: String(err) });
       }
-      redirect(`/login/tasks?redirect_url=${encodeURIComponent("/launch")}`);
+      redirect(`/login/tasks?redirect_url=${encodeURIComponent(launchWithRedirect)}`);
     }
 
-    redirect("/login/tasks?redirect_url=%2Flaunch");
+    redirect(`/login/tasks?redirect_url=${encodeURIComponent(launchWithRedirect)}`);
   }
 
   const ctx = await requireCtx();
   const isManager = await getIsManager(ctx);
 
   if (isManager) {
-    redirect("/pro/dashboard");
+    redirect(resolveRedirectUrl(rawRedirectUrl, "/pro/dashboard"));
   } else {
     // Fallback: if the organizationInvitation.accepted Clerk webhook didn't fire
     // (or hasn't arrived yet), complete any pending handoffs for this user so the
@@ -71,6 +86,6 @@ export default async function LaunchPage() {
     } catch (err) {
       logger.warn("launch: completePendingHandoffsForUser failed", { error: String(err) });
     }
-    redirect("/");
+    redirect(resolveRedirectUrl(rawRedirectUrl, "/"));
   }
 }

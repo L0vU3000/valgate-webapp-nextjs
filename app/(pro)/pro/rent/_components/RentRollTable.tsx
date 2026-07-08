@@ -29,41 +29,83 @@ const COLUMNS = [
   { label: "Last Paid", width: "w-[8%]" },
 ] as const;
 
+// Status-filter tabs for the single-client Rent Roll (the global page uses the
+// client dropdown instead). "Overdue" covers both Overdue and Unpaid rows.
+export const RENT_STATUS_FILTERS = ["All", "Paid", "Overdue", "Pending"] as const;
+export type RentStatusFilter = (typeof RENT_STATUS_FILTERS)[number];
+
 export function RentRollTable({
   rows,
   clients,
   clientFilter,
   onClientFilterChange,
+  statusFilter,
+  onStatusFilterChange,
+  hideClient = false,
 }: {
   rows: RentRollRow[];
-  clients: Array<{ id: string; name: string }>;
-  clientFilter: string;
-  onClientFilterChange: (clientId: string) => void;
+  // Client dropdown (global /pro/rent). Omit on a single-client tab.
+  clients?: Array<{ id: string; name: string }>;
+  clientFilter?: string;
+  onClientFilterChange?: (clientId: string) => void;
+  // Status tabs (single-client Financials tab). Omit on the global page.
+  statusFilter?: RentStatusFilter;
+  onStatusFilterChange?: (status: RentStatusFilter) => void;
+  // Drop the Client column when every row is the same client (single-client
+  // tab) — it would just repeat one name down the table.
+  hideClient?: boolean;
 }) {
+  const showClientFilter =
+    clients !== undefined && onClientFilterChange !== undefined;
+  const showStatusFilter = onStatusFilterChange !== undefined;
+  const columns = hideClient
+    ? COLUMNS.filter((col) => col.label !== "Client")
+    : COLUMNS;
+
   return (
     <WidgetCard
       title="Rent Roll"
       headerRight={
-        <select
-          value={clientFilter}
-          onChange={(event) => onClientFilterChange(event.target.value)}
-          aria-label="Filter by client"
-          className="h-8 rounded-md border border-slate-200 bg-white px-2 text-[12.5px] text-slate-700 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-        >
-          <option value="all">All clients</option>
-          {clients.map((client) => (
-            <option key={client.id} value={client.id}>
-              {client.name}
-            </option>
-          ))}
-        </select>
+        showStatusFilter ? (
+          <div className="flex items-center gap-1">
+            {RENT_STATUS_FILTERS.map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => onStatusFilterChange(option)}
+                className={cn(
+                  "h-7 rounded-full px-2.5 text-[11.5px] font-medium transition-colors",
+                  option === (statusFilter ?? "All")
+                    ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
+                    : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800",
+                )}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
+        ) : showClientFilter ? (
+          <select
+            value={clientFilter ?? "all"}
+            onChange={(event) => onClientFilterChange!(event.target.value)}
+            aria-label="Filter by client"
+            className="h-8 rounded-md border border-slate-200 bg-white px-2 text-[12.5px] text-slate-700 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+          >
+            <option value="all">All clients</option>
+            {clients!.map((client) => (
+              <option key={client.id} value={client.id}>
+                {client.name}
+              </option>
+            ))}
+          </select>
+        ) : undefined
       }
     >
       <div className="overflow-x-auto">
         <table className="w-full text-left">
           <thead>
             <tr className="border-b border-slate-200 dark:border-slate-800">
-              {COLUMNS.map((col) => (
+              {columns.map((col) => (
                 <th
                   key={col.label}
                   className={cn(
@@ -80,7 +122,7 @@ export function RentRollTable({
             {rows.length === 0 && (
               <tr>
                 <td
-                  colSpan={COLUMNS.length}
+                  colSpan={columns.length}
                   className="py-6 text-center text-[13px] text-slate-500 dark:text-slate-400"
                 >
                   No active leases for this filter.
@@ -106,9 +148,11 @@ export function RentRollTable({
                 <td className="py-3 pr-3 text-[12.5px] text-slate-700 dark:text-slate-200">
                   {row.propertyName}
                 </td>
-                <td className="py-3 pr-3 text-[12px] text-slate-600 dark:text-slate-300">
-                  {row.clientName}
-                </td>
+                {!hideClient && (
+                  <td className="py-3 pr-3 text-[12px] text-slate-600 dark:text-slate-300">
+                    {row.clientName}
+                  </td>
+                )}
                 <td className="py-3 pr-3 text-[13px] font-medium tabular-nums text-slate-900 dark:text-slate-100">
                   {formatCurrencyFull(row.monthlyRent)}
                 </td>

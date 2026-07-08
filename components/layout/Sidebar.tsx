@@ -18,6 +18,8 @@ import {
   BookUser,
   LogOut,
   Briefcase,
+  Wrench,
+  ShieldCheck,
 } from "lucide-react";
 import { cn } from "../ui/utils";
 import { useIsManager } from "./AppHeaderPropertiesContext";
@@ -34,6 +36,8 @@ const sidebarNavItems = [
   { label: "Portfolio", path: "/portfolio", icon: LayoutGrid },
   { label: "Directory", path: "/directory", icon: BookUser },
   { label: "Rental", path: "/rental", icon: Key },
+  { label: "Work Orders", path: "/work-orders", icon: Wrench },
+  { label: "Compliance", path: "/compliance", icon: ShieldCheck },
   { label: "Analytics", path: "/analytics", icon: BarChart2 },
   { label: "Estate Planning", path: "/estate-planning", icon: Landmark },
   { label: "Pro", path: "/pro/dashboard", icon: Briefcase },
@@ -67,6 +71,13 @@ interface SidebarProps {
    * sidebar read as the client being previewed.
    */
   identity?: { displayName: string; initials: string; roleText: string };
+  /**
+   * Base path for preview navigation, e.g. `/pro/clients/CLI-0011/as-client`.
+   * When set (with isPreview), nav items route to `previewBasePath + item.path`
+   * instead of being inert, so the manager can browse the client's sections.
+   * Settings/profile stay inert even with this set — they're account-level.
+   */
+  previewBasePath?: string;
 }
 
 export function Sidebar({
@@ -76,6 +87,7 @@ export function Sidebar({
   onNavigate,
   isPreview = false,
   identity,
+  previewBasePath,
 }: SidebarProps) {
   const [expanded, setExpanded] = useState(false);
   const router = useRouter();
@@ -110,9 +122,16 @@ export function Sidebar({
   const isExpanded = isDrawer || expanded;
 
   const handleNavigate = (path: string) => {
-    // ponytail: preview only renders the client's Home, so nav is inert here.
-    // Full client-scoped navigation across owner routes is future work.
-    if (isPreview) return;
+    if (isPreview) {
+      // Preview browses the client's portfolio sections under previewBasePath.
+      // Settings/profile are account-level (no client user session) so they stay
+      // inert here; without a base path there's nowhere to go, so also inert.
+      if (!previewBasePath) return;
+      if (path.startsWith("/settings")) return;
+      router.push(previewBasePath + (path === "/" ? "" : path));
+      onNavigate?.();
+      return;
+    }
     router.push(path);
     onNavigate?.();
   };
@@ -193,12 +212,20 @@ export function Sidebar({
         {navItems.map((item) => {
           const Icon = item.icon;
           const isPro = item.label === "Pro";
-          // Preview always sits on the client's Home, so highlight that.
-          const isActive = isPreview
-            ? item.path === "/"
-            : item.path === "/"
-              ? pathname === "/"
-              : pathname.startsWith(item.path);
+          // Active-state: in preview, compare the pathname *relative to*
+          // previewBasePath (so `/pro/clients/X/as-client/rental` → `/rental`);
+          // otherwise compare the raw owner pathname.
+          let isActive: boolean;
+          if (isPreview) {
+            const rel =
+              previewBasePath && pathname.startsWith(previewBasePath)
+                ? pathname.slice(previewBasePath.length) || "/"
+                : "/";
+            isActive = item.path === "/" ? rel === "/" : rel.startsWith(item.path);
+          } else {
+            isActive =
+              item.path === "/" ? pathname === "/" : pathname.startsWith(item.path);
+          }
           return (
             <button
               key={item.label}

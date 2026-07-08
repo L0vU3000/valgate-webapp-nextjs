@@ -1,0 +1,5 @@
+schema: spec-driven
+created: 2026-07-07
+goal: Role-aware preview ctx + hybrid single-path write (record-and-apply) so
+  managers with write permission act instantly while every move leaves a
+  durable, queryable audit record — especially deletes.

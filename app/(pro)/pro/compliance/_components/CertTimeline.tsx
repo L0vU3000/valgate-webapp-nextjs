@@ -58,8 +58,12 @@ const HORIZON_GROUPS: HorizonGroup[] = [
 
 export function CertTimeline({
   certifications,
+  // On a single-client tab the client name repeats down every row, so the
+  // client Compliance tab hides it. The global page leaves it visible.
+  hideClient = false,
 }: {
   certifications: ProComplianceRow[];
+  hideClient?: boolean;
 }) {
   // Partition the rows into the four horizon buckets. A running counter
   // gives every visible row a continuous index so the entrance stagger
@@ -108,7 +112,8 @@ export function CertTimeline({
                           {cert.name}
                         </span>
                         <span className="truncate text-[11.5px] text-slate-500 dark:text-slate-400">
-                          {cert.propertyName} · {cert.clientName}
+                          {cert.propertyName}
+                          {hideClient ? "" : ` · ${cert.clientName}`}
                         </span>
                       </div>
                       <span className="shrink-0 text-[12px] tabular-nums text-slate-600 dark:text-slate-300">
