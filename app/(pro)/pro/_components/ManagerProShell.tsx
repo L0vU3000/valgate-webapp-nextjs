@@ -38,6 +38,7 @@ export function ManagerProShell({
     initials: c.initials,
     avatarColor: c.avatarBg,
     health: c.health,
+    hasActiveMember: c.hasActiveMember,
   }));
 
   // Valgate Agent overlay state. The overlay reads `pathname` so its context

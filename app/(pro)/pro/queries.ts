@@ -17,7 +17,9 @@ import {
   loadProContext,
   augmentRollupsWithOrgData,
   getClerkOrgIdForOrg,
+  getOrgIdsWithActiveMembers,
 } from "@/lib/services/pro-dashboard";
+import { stampLastActiveAt } from "@/lib/services/identity-sync";
 // Pure derivation helpers — moved to the services layer with the DB split.
 import {
   DAY,
@@ -252,6 +254,8 @@ export type ProShellData = {
     avatarBg: string;
     health: ClientHealth;
     propertyCount: number;
+    // True when at least one portfolio org member was active recently.
+    hasActiveMember: boolean;
   }>;
   openWorkOrders: number;
   urgentAlerts: number;
@@ -1050,6 +1054,8 @@ export { getInactiveClients } from "@/lib/services/pro-dashboard";
 
 export async function getProShellData(): Promise<ProShellData> {
   const authCtx = await requireCtx();
+  // Stamp this manager's activity so portfolio presence dots stay accurate.
+  await stampLastActiveAt(authCtx.userId);
   const [ctx, profile, rawAccounts, isManager, notifications] = await Promise.all([
     loadProContext(),
     getUserProfile(authCtx, authCtx.userId),
@@ -1069,6 +1075,11 @@ export async function getProShellData(): Promise<ProShellData> {
   const ownRollup = buildOwnPortfolioRollup(ctx, monthStart, authCtx.userId);
   rollups.unshift(ownRollup);
 
+  const portfolioOrgIds = rollups
+    .map((r) => r.client.orgId)
+    .filter((id): id is string => !!id);
+  const activeMemberOrgs = await getOrgIdsWithActiveMembers(portfolioOrgIds);
+
   const managerName = profile
     ? `${profile.firstName} ${profile.lastName}`.trim()
     : "Manager";
@@ -1084,6 +1095,9 @@ export async function getProShellData(): Promise<ProShellData> {
       avatarBg: r.client.avatarBg,
       health: r.health,
       propertyCount: r.propertyCount,
+      hasActiveMember: r.client.orgId
+        ? activeMemberOrgs.has(r.client.orgId)
+        : false,
     })),
     openWorkOrders: ctx.maintenance.filter(
       (m) => m.status !== "Resolved" && m.status !== "Cancelled",

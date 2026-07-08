@@ -1,5 +1,6 @@
 import { ShellLayout } from "@/components/layout/ShellLayout";
 import { requireCtx } from "@/lib/auth/ctx";
+import { stampLastActiveAt } from "@/lib/services/identity-sync";
 import { getIsManager, listManagedAccounts } from "@/lib/services/managers";
 import { listProperties } from "@/lib/services/properties";
 import { listNotifications } from "@/lib/services/notifications";
@@ -21,6 +22,8 @@ export default async function ShellGroupLayout({
   children: React.ReactNode;
 }) {
   const authCtx = await requireCtx();
+  // Track owner-side activity so managers see presence dots in the Pro sidebar.
+  await stampLastActiveAt(authCtx.userId);
 
   // Fetch manager status + granted accounts in parallel.
   // listManagedAccounts returns [] for non-managers so it's safe to always call.
