@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Wrench } from "lucide-react";
 import { WidgetCard } from "@/app/(pro)/pro/_components/WidgetCard";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { cn } from "@/components/ui/utils";
 import type { ProWorkOrderRow } from "../../queries";
 import type {
@@ -64,12 +65,24 @@ export function MaintenanceQueueCard({
         </>
       }
     >
+      {visible.length === 0 ? (
+        <EmptyState
+          icon={<Wrench className="h-6 w-6" />}
+          title="No open work orders"
+          description="Everything's running smoothly. Log a repair or vendor request the moment something needs attention."
+          action={
+            <Link
+              href="/pro/work-orders"
+              className="inline-flex items-center justify-center gap-1.5 h-9 px-4 rounded-md bg-slate-900 text-white text-[13px] font-medium hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Create Work Order
+            </Link>
+          }
+        />
+      ) : (
+        <>
       <ul className="flex flex-col">
-        {visible.length === 0 && (
-          <li className="py-4 text-center text-[13px] text-slate-500 dark:text-slate-400">
-            No open work orders.
-          </li>
-        )}
         {visible.map((item) => (
           <li
             key={item.id}
@@ -119,6 +132,8 @@ export function MaintenanceQueueCard({
         <Plus className="w-3.5 h-3.5" />
         Create Work Order
       </Link>
+        </>
+      )}
     </WidgetCard>
   );
 }

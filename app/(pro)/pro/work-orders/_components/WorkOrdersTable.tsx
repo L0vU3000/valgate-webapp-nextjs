@@ -48,9 +48,14 @@ const STATUS_PILL: Record<MaintenanceStatus, string> = {
 export function WorkOrdersTable({
   rows,
   vendors,
+  hideClient = false,
 }: {
   rows: ProWorkOrderRow[];
   vendors: WorkOrdersPageData["vendors"];
+  // On a single-client surface (the client Work Orders tab) the client name
+  // repeats down every row, so drop it from the subtitle. Mirrors
+  // RentRollTable's hideClient. The global multi-client page omits this.
+  hideClient?: boolean;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -113,7 +118,8 @@ export function WorkOrdersTable({
                       {row.title}
                     </span>
                     <span className="truncate text-[11.5px] text-slate-500 dark:text-slate-400">
-                      {row.propertyName} · {row.clientName} · opened{" "}
+                      {row.propertyName}
+                      {!hideClient && ` · ${row.clientName}`} · opened{" "}
                       {formatRelativeTime(row.createdAt)}
                       {row.cost !== undefined &&
                         ` · est. ${formatCurrencyFull(row.cost)}`}
