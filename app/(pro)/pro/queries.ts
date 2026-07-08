@@ -6,6 +6,7 @@ import { getAiMessage } from "@/lib/services/ai-messages";
 import { listNotifications } from "@/lib/services/notifications";
 import { getFsUserId } from "@/lib/data/auth-shim";
 import { requireCtx } from "@/lib/auth/ctx";
+import { listActivitiesForScope } from "@/lib/services/activities";
 import { listManagedAccounts, getIsManager } from "@/lib/services/managers";
 import { listPortfolioMembers as svcListPortfolioMembers } from "@/lib/services/client-onboarding";
 import type { PortfolioMember, PortfolioInvitee } from "@/lib/services/client-onboarding";
@@ -682,10 +683,27 @@ export async function getCompliancePageData(): Promise<CompliancePageData> {
   return { certifications, safetyRisks, inspections, clients, summary };
 }
 
+// Maps an audit-log `entity` string onto a feed category. The three that line up
+// with synthesized events share their icon/color; everything else (property edits,
+// photos, documents, co-owners, change requests …) falls into "update".
+function categoryForEntity(entity: string): ProActivityEvent["category"] {
+  switch (entity) {
+    case "payment":
+      return "payment";
+    case "workOrder":
+      return "maintenance";
+    case "lease":
+      return "lease";
+    default:
+      return "update";
+  }
+}
+
 export async function getClientPortfolioData(
   clientId: string,
 ): Promise<ClientPortfolioData | null> {
   const ctx = await loadProContext();
+  const authCtx = await requireCtx();
   const monthStart = currentMonthStartUtc();
 
   // Resolve which properties this view owns. The synthetic own-portfolio id
@@ -695,7 +713,6 @@ export async function getClientPortfolioData(
   let belongsToView: (p: Property) => boolean;
 
   if (clientId === OWN_PORTFOLIO_ID) {
-    const authCtx = await requireCtx();
     const ownRollup = buildOwnPortfolioRollup(ctx, monthStart, authCtx.userId);
     client = ownRollup.client;
     belongsToView = (p) => !p.clientId;
@@ -762,6 +779,43 @@ export async function getClientPortfolioData(
   // /pro/compliance page uses, over this client's scoped slice.
   const complianceSurfaces = deriveComplianceSurfaces(scoped);
 
+  // Activity timeline = the real audit log (who/what/when) MERGED with the
+  // synthesized payment/work-order/lease events. Two complementary sources:
+  //   - audit rows  → actions taken (manager on-behalf edits, change requests …)
+  //   - synthesized → operational reality derived from records (covers seed data
+  //                   and anything not written through the audited path)
+  // Scope org-first (client.orgId), else by the client's property ids.
+  const auditRows = await listActivitiesForScope(
+    {
+      orgId: client.orgId ?? undefined,
+      propertyIds: [...clientPropertyIds],
+    },
+    50,
+  );
+  const auditEvents: ProActivityEvent[] = auditRows.map((row) => ({
+    id: `audit-${row.id}`,
+    category: categoryForEntity(row.entity),
+    description: row.description,
+    clientName: client.name,
+    // Only name a property we can resolve in this client's slice; never invent one.
+    propertyName: row.propertyId
+      ? (scoped.propertyById.get(row.propertyId)?.name ?? "")
+      : "",
+    timestamp: row.createdAt,
+    // "You" only when the actor is the signed-in manager. Otherwise omit — the
+    // audit log stores a raw Clerk id, and we never fabricate a display name.
+    actor: row.userId === authCtx.userId ? "You" : undefined,
+    source: "audit",
+  }));
+  const recordEvents: ProActivityEvent[] = buildActivityFeed(scoped, 50).map(
+    (event) => ({ ...event, source: "record" as const }),
+  );
+  // Merge, newest-first, cap. No fuzzy dedup in v1 — the two sources carry
+  // distinct `source`/icons and read as complementary.
+  const activity = [...auditEvents, ...recordEvents]
+    .sort((a, b) => b.timestamp - a.timestamp)
+    .slice(0, 50);
+
   return {
     rollup,
     properties: scoped.properties
@@ -778,7 +832,7 @@ export async function getClientPortfolioData(
     complianceSummary: complianceSurfaces.summary,
     safetyRisks: complianceSurfaces.safetyRisks,
     inspections: complianceSurfaces.inspections,
-    activity: buildActivityFeed(scoped, 12),
+    activity,
     financialSeries: buildCashflowSeries(scoped.payments, monthStart, 6),
     rentRoll: rentSurfaces.rentRoll,
     overdue: rentSurfaces.overdue,

@@ -213,7 +213,23 @@ export function ClientPortfolioPage({
           </div>
         </div>
 
-        <ActivityFeed activity={data.activity} />
+        {/* Compact recent-activity snapshot — the full day-grouped timeline
+            (with the audit log) lives on the Activity tab. */}
+        <ActivityFeed activity={data.activity.slice(0, 5)} />
+        <Link
+          href={`/pro/clients/${rollup.client.id}/activity`}
+          className="group flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-5 py-4 transition-colors hover:bg-slate-50"
+        >
+          <div>
+            <p className="text-[14px] font-semibold text-slate-800">
+              View all activity
+            </p>
+            <p className="mt-0.5 text-[12.5px] text-slate-500">
+              Day-by-day timeline of payments, work orders, leases, and edits
+            </p>
+          </div>
+          <ArrowRight className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-hover:translate-x-0.5" />
+        </Link>
       </div>
     </main>
   );

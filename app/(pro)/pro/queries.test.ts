@@ -490,6 +490,31 @@ describe("getClientPortfolioData", () => {
     for (const o of data.overdue) expect(data.rentRoll).toContain(o);
   });
 
+  it("merges the audit log into a newest-first, honestly-attributed activity feed", async () => {
+    const clientId = await firstClientId();
+    const data = await getClientPortfolioData(clientId);
+    expect(data).not.toBeNull();
+    if (!data) return;
+
+    // Every event is tagged with its source and a known category, and the feed
+    // is capped and sorted newest-first (day grouping happens client-side).
+    const validCategories = ["payment", "maintenance", "lease", "update"];
+    expect(data.activity.length).toBeLessThanOrEqual(50);
+    for (let i = 1; i < data.activity.length; i++) {
+      expect(data.activity[i - 1].timestamp).toBeGreaterThanOrEqual(
+        data.activity[i].timestamp,
+      );
+    }
+    for (const event of data.activity) {
+      expect(validCategories).toContain(event.category);
+      expect(["record", "audit"]).toContain(event.source);
+      // Synthesized record-events never carry an actor; audit rows only ever
+      // resolve to "You" (the manager) — we never fabricate a display name.
+      if (event.source === "record") expect(event.actor).toBeUndefined();
+      if (event.actor !== undefined) expect(event.actor).toBe("You");
+    }
+  });
+
   it("scopes safety risks + inspections and reconciles the compliance summary", async () => {
     const clientId = await firstClientId();
     const data = await getClientPortfolioData(clientId);

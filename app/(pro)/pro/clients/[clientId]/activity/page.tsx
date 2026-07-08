@@ -20,7 +20,7 @@ export default async function Page({ params }: PageProps) {
   return (
     <main className="h-full overflow-y-auto bg-slate-50/50">
       <div className="mx-auto flex max-w-[1440px] flex-col gap-6 px-4 py-6 sm:px-8 sm:py-8">
-        <ActivityFeed activity={data.activity} />
+        <ActivityFeed activity={data.activity} grouped initialCount={20} />
       </div>
     </main>
   );
