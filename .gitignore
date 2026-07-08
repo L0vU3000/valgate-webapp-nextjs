@@ -52,6 +52,8 @@ next-env.d.ts
 
 # Conductor / AI tooling (local only, re-provisioned automatically)
 .agents/
+.agent/
+.opencode/
 .claude/skills/
 .codex/
 .cursor/
