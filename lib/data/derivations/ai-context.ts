@@ -159,7 +159,7 @@ export function buildWelcomeMessage(context: AiOverlayContext): string {
   if (context.pathname.startsWith("/pro") && context.portfolio) {
     const { stats, kpis } = context.portfolio;
     return [
-      "Manager cockpit — your whole book at a glance:",
+      `Welcome back, ${context.userName.split(" ")[0] || "there"} — here's your book at a glance:`,
       "",
       `- **${stats.totalProperties}** active properties`,
       `- **${stats.occupancyRate}%** occupancy (${stats.rentedCount} rented, ${stats.vacantCount} vacant)`,
