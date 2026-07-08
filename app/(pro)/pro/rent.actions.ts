@@ -3,27 +3,36 @@
 import { z } from "zod";
 import { createPayment, updatePayment } from "@/lib/services/payments";
 import { getLease, updateLease } from "@/lib/services/leases";
-import { requireCtx } from "@/lib/auth/ctx";
+import { payments, leases } from "@/lib/db/schema";
 import { logger } from "@/lib/logger";
 import { addUtcMonths } from "@/lib/format";
 import { logActivity } from "@/lib/services/activity";
+import { bustCache } from "@/lib/cache/bust";
+import { resolveOnBehalfForRow, type OnBehalf } from "./_lib/on-behalf";
+import { proposeChangeAction } from "./change-requests.actions";
 import { revalidatePro, type ProActionResult } from "./_lib/revalidate";
 
+// The ctx to READ entity data under: the client's org for accepted clients, the
+// manager's own org otherwise.
+function readCtxOf(routing: OnBehalf) {
+  return routing.audited ? routing.readCtx : routing.ctx;
+}
+
 // --- Rent & collections -----------------------------------------------------
+
+// Phase 2 (align-client-manager-parity): each write resolves the row's owning org
+// server-side. Own-portfolio / draft clients write directly; an accepted client's rows
+// flow through the audited change_requests path (full grant applies, viewer proposes).
 
 // `markRentPaid` is reversible from the UI (the Phase 4 "undo" tier). To keep
 // a single action for both directions, it takes an optional target `status`:
 //   - normal use: omit it → the record flips to "Paid".
 //   - undo: pass the record's PRIOR status (e.g. "Overdue") → it flips back.
-// The status is constrained to the real Payment status enum so the undo can
-// only ever restore a value the schema already allows.
 const markRentPaidSchema = z.object({
   paymentId: z.string().min(1),
   status: z.enum(["Paid", "Pending", "Failed", "Overdue"]).optional(),
 });
 
-// Marks an existing Pending/Overdue rent record as Paid (or, on undo, sets it
-// back to the status the caller supplies).
 export async function markRentPaid(input: {
   paymentId: string;
   status?: "Paid" | "Pending" | "Failed" | "Overdue";
@@ -31,16 +40,32 @@ export async function markRentPaid(input: {
   const parsed = markRentPaidSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid input." };
 
-  const authCtx = await requireCtx();
-  const updated = await updatePayment(authCtx, parsed.data.paymentId, {
-    status: parsed.data.status ?? "Paid",
-  });
+  const routing = await resolveOnBehalfForRow(payments, parsed.data.paymentId);
+  if (!routing) return { ok: false, error: "Could not update payment." };
+
+  const patch = { status: parsed.data.status ?? ("Paid" as const) };
+
+  if (routing.audited) {
+    const result = await proposeChangeAction({
+      clientId: routing.clientId,
+      entityType: "payment",
+      entityId: parsed.data.paymentId,
+      operation: "update",
+      patch,
+    });
+    if (!result.ok) return { ok: false, error: result.error ?? "Could not update payment." };
+    revalidatePro();
+    return { ok: true };
+  }
+
+  const updated = await updatePayment(routing.ctx, parsed.data.paymentId, patch);
   if (!updated) {
     logger.error("markRentPaid: payment not found", input);
     return { ok: false, error: "Could not update payment." };
   }
+  await bustCache("payments");
   try {
-    await logActivity(authCtx, {
+    await logActivity(routing.ctx, {
       entity: "payment",
       action: "updated",
       entityId: parsed.data.paymentId,
@@ -69,23 +94,43 @@ export async function logRentPayment(input: {
   const parsed = logRentPaymentSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid input." };
 
-  const authCtx = await requireCtx();
-  const lease = await getLease(authCtx, parsed.data.leaseId);
+  // Route on the parent lease — the new payment lands in the lease's owning org.
+  const routing = await resolveOnBehalfForRow(leases, parsed.data.leaseId);
+  if (!routing) return { ok: false, error: "Could not record payment." };
+
+  // Verify the lease exists under the resolved org (read scope).
+  const lease = await getLease(readCtxOf(routing), parsed.data.leaseId);
   if (!lease) {
     logger.error("logRentPayment: lease not found", input);
     return { ok: false, error: "Could not record payment." };
   }
 
-  await createPayment(authCtx, {
+  const patch = {
     leaseId: lease.id,
     date: Date.now(),
-    kind: "Rent",
+    kind: "Rent" as const,
     amount: parsed.data.amount,
     method: parsed.data.method,
-    status: "Paid",
-  });
+    status: "Paid" as const,
+  };
+
+  if (routing.audited) {
+    const result = await proposeChangeAction({
+      clientId: routing.clientId,
+      entityType: "payment",
+      entityId: null,
+      operation: "create",
+      patch,
+    });
+    if (!result.ok) return { ok: false, error: result.error ?? "Could not record payment." };
+    revalidatePro();
+    return { ok: true };
+  }
+
+  await createPayment(routing.ctx, patch);
+  await bustCache("payments");
   try {
-    await logActivity(authCtx, {
+    await logActivity(routing.ctx, {
       entity: "payment",
       action: "created",
       entityId: lease.id,
@@ -110,8 +155,10 @@ export async function renewLease(input: {
   const parsed = renewLeaseSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid input." };
 
-  const authCtx = await requireCtx();
-  const lease = await getLease(authCtx, parsed.data.leaseId);
+  const routing = await resolveOnBehalfForRow(leases, parsed.data.leaseId);
+  if (!routing) return { ok: false, error: "Could not renew lease." };
+
+  const lease = await getLease(readCtxOf(routing), parsed.data.leaseId);
   if (!lease) {
     logger.error("renewLease: lease not found", input);
     return { ok: false, error: "Could not renew lease." };
@@ -121,11 +168,23 @@ export async function renewLease(input: {
   // into the target month so a lease ending on the 31st can't silently drift
   // past its real anniversary (see lib/format.ts for the why).
   const newEndDate = addUtcMonths(lease.endDate, lease.termMonths);
+  const patch = { endDate: newEndDate, renewalStatus: "Renewed" as const };
 
-  await updateLease(authCtx, lease.id, {
-    endDate: newEndDate,
-    renewalStatus: "Renewed",
-  });
+  if (routing.audited) {
+    const result = await proposeChangeAction({
+      clientId: routing.clientId,
+      entityType: "lease",
+      entityId: parsed.data.leaseId,
+      operation: "update",
+      patch,
+    });
+    if (!result.ok) return { ok: false, error: result.error ?? "Could not renew lease." };
+    revalidatePro();
+    return { ok: true };
+  }
+
+  await updateLease(routing.ctx, lease.id, patch);
+  await bustCache("leases");
   revalidatePro();
   return { ok: true };
 }

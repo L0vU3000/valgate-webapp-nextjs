@@ -1,5 +1,6 @@
 import "server-only";
 import { requireCtx } from "@/lib/auth/ctx";
+import type { Ctx } from "@/lib/services/_mapping";
 import { listProfessionals } from "@/lib/services/professionals";
 
 export type Category =
@@ -34,8 +35,8 @@ export type DirectoryPageData = {
   categories: Category[];
 };
 
-export async function getDirectoryPageData(): Promise<DirectoryPageData> {
-  const authCtx = await requireCtx();
+export async function getDirectoryPageData(ctxOverride?: Ctx): Promise<DirectoryPageData> {
+  const authCtx = ctxOverride ?? (await requireCtx());
   const dbProfessionals = await listProfessionals(authCtx);
 
   const professionals: Professional[] = dbProfessionals.map((p) => ({

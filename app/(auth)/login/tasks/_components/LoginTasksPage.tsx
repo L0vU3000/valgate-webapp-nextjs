@@ -13,19 +13,7 @@ import { toast } from "sonner";
 import { AuthBrandPanel } from "@/components/auth/AuthBrandPanel";
 import { AuthFooter } from "@/components/auth/AuthFooter";
 import { resolveDefaultHomeOrgAction } from "../../../actions";
-
-const DEFAULT_REDIRECT = "/launch";
-
-function resolveRedirectUrl(raw: string | null): string {
-  if (!raw) return DEFAULT_REDIRECT;
-  try {
-    const parsed = new URL(raw, window.location.origin);
-    if (parsed.origin !== window.location.origin) return DEFAULT_REDIRECT;
-    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
-  } catch {
-    return raw.startsWith("/") ? raw : DEFAULT_REDIRECT;
-  }
-}
+import { resolveRedirectUrl } from "../../../_lib/resolve-redirect-url";
 
 export function LoginTasksPage() {
   const { isLoaded, session } = useSession();

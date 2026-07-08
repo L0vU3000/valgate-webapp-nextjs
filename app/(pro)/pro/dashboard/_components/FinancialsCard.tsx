@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Plus, DollarSign } from "lucide-react";
+import { EmptyState } from "@/components/ui/EmptyState";
 // The recharts chart loads lazily, client-only, so recharts is no longer in this card's — and
 // therefore the dashboard/rent/client-portfolio pages' — initial bundle. The card frame renders
 // instantly; only the chart area waits on the chunk (the skeleton fills the same h-32 box).
@@ -27,6 +28,38 @@ export function FinancialsCard({
   monthLabel: string;
 }) {
   const { collected, expected, outstanding, series } = financials;
+
+  // Nothing to chart yet — no leases and no payments on this portfolio.
+  const hasFinancials =
+    expected > 0 || collected > 0 || series.some((point) => point.collected > 0);
+
+  if (!hasFinancials) {
+    return (
+      <WidgetCard
+        title="Financials"
+        headerRight={
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[11.5px] font-medium">
+            {monthLabel}
+          </span>
+        }
+      >
+        <EmptyState
+          icon={<DollarSign className="h-6 w-6" />}
+          title="No rent tracked yet"
+          description="Add a lease and record the first payment to start seeing collections and a monthly cash-flow trend."
+          action={
+            <Link
+              href="/pro/rent"
+              className="inline-flex items-center justify-center gap-1.5 h-9 px-4 rounded-md bg-slate-900 text-white text-[13px] font-medium hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Record Payment
+            </Link>
+          }
+        />
+      </WidgetCard>
+    );
+  }
 
   // Guard the zero-expected case and clamp at 100% so a strong month
   // never overflows the bar.

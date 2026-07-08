@@ -9,8 +9,9 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { useSignIn, useClerk } from "@clerk/nextjs";
+import { useSignIn, useClerk, useUser } from "@clerk/nextjs";
 import { clerkErrorMessage } from "../../_lib/clerk-errors";
+import { resolveRedirectUrl } from "../../_lib/resolve-redirect-url";
 import { resolveDefaultHomeOrgAction } from "../../actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -99,6 +100,7 @@ export function LoginPage() {
   const searchParams = useSearchParams();
   const { signIn } = useSignIn();
   const { setActive } = useClerk();
+  const { isLoaded: isUserLoaded, isSignedIn } = useUser();
 
   useEffect(() => {
     const ticket = searchParams.get("__clerk_ticket");
@@ -106,6 +108,16 @@ export function LoginPage() {
     const query = searchParams.toString();
     router.replace(query ? `/accept-invitation?${query}` : "/accept-invitation");
   }, [router, searchParams]);
+
+  // Clerk throws "You're already signed in." if signIn.password() is called
+  // while a session already exists (e.g. middleware didn't catch a stale
+  // cookie, or the user followed a bookmarked /login?redirect_url= link).
+  // Rather than let that surface as a confusing form error, send them
+  // straight to where they were headed.
+  useEffect(() => {
+    if (!isUserLoaded || !isSignedIn) return;
+    router.replace(resolveRedirectUrl(searchParams.get("redirect_url")));
+  }, [isUserLoaded, isSignedIn, router, searchParams]);
 
   const form = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
@@ -198,6 +210,16 @@ export function LoginPage() {
   }
 
   const isSubmitting = form.formState.isSubmitting;
+
+  // Already signed in — the effect above is redirecting; show a spinner
+  // instead of flashing the password form.
+  if (isUserLoaded && isSignedIn) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-surface-page">
+        <Loader2 className="size-6 animate-spin text-muted-foreground" aria-label="Loading" />
+      </div>
+    );
+  }
 
   // ── Step 2: Device verification (needs_client_trust) ──
   if (step === "verify") {

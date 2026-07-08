@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-07-06
+goal: Manager can navigate a client's portfolio in preview, scoped to the
+  client's org, via nested route segments reusing existing section components.

@@ -138,11 +138,20 @@ export type ProComplianceRow = {
 
 export type ProActivityEvent = {
   id: string;
-  category: "payment" | "maintenance" | "lease";
+  // "update" covers audit-log events that aren't payment/maintenance/lease
+  // (property edits, photos, documents, change requests, …).
+  category: "payment" | "maintenance" | "lease" | "update";
   description: string;
   clientName: string;
   propertyName: string;
   timestamp: number;
+  // Present only on audit-log events with a known actor. "You" when the actor is
+  // the signed-in manager; otherwise omitted (we never fabricate a display name —
+  // only a raw Clerk id is stored). Synthesized record-events have no actor.
+  actor?: string;
+  // Where the event came from: a derived record (payment/lease/work-order) or the
+  // real audit log. Lets the feed label the two and keeps them visually distinct.
+  source?: "record" | "audit";
 };
 
 export type CashflowPoint = { month: string; collected: number };

@@ -34,7 +34,16 @@ const PORTFOLIO_TABLE_ANIMATION: TableAnimationConfig = {
 const provinces = ["All", ...CAMBODIA_PROVINCES];
 
 
-export function PortfolioPage({ data }: { data: PortfolioPageData }) {
+export function PortfolioPage({
+  data,
+  // readOnly hides controls that escape the "View as client" preview into the
+  // manager's own org (e.g. "Add Property" → /add-property). Defaults false so
+  // the real owner route is unchanged.
+  readOnly = false,
+}: {
+  data: PortfolioPageData;
+  readOnly?: boolean;
+}) {
   const { properties: activeProperties, archivedProperties, stats, kpis, archivedCount, soldCount, showArchived, canDelete } = data;
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -143,6 +152,7 @@ export function PortfolioPage({ data }: { data: PortfolioPageData }) {
                 Oversee and manage your complete real estate asset inventory across all regions.
               </p>
             </div>
+            {!readOnly && (
             <div className="shrink-0">
             <button
               onClick={() => router.push("/add-property")}
@@ -153,6 +163,7 @@ export function PortfolioPage({ data }: { data: PortfolioPageData }) {
               Add Property
             </button>
             </div>
+            )}
           </div>
 
           {/* KPI Cards — 2 cols on phone (4 cards = 2×2 grid, ~173px per card

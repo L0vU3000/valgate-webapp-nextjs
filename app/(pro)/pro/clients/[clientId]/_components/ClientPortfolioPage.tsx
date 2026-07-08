@@ -1,9 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { ClientPageHeader } from "./ClientPageHeader";
 import { ClientKpiBanner } from "./ClientKpiBanner";
 import { ClientContactCard } from "./ClientContactCard";
-import { OwnerStatementCard } from "./OwnerStatementCard";
 import { AlertsStrip } from "@/app/(pro)/pro/dashboard/_components/AlertsStrip";
 import { AssetsTable } from "@/app/(pro)/pro/dashboard/_components/AssetsTable";
 import { MaintenanceQueueCard } from "@/app/(pro)/pro/dashboard/_components/MaintenanceQueueCard";
@@ -13,7 +13,7 @@ import { ComplianceTable } from "@/app/(pro)/pro/dashboard/_components/Complianc
 import { ActivityFeed } from "@/app/(pro)/pro/dashboard/_components/ActivityFeed";
 import type { ClientPortfolioData } from "@/app/(pro)/pro/queries";
 import type { ChangeRequest } from "@/lib/services/change-requests";
-import { ClipboardList } from "lucide-react";
+import { ClipboardList, ArrowRight } from "lucide-react";
 
 // Composition for one client's portfolio page.
 // Reuses the dashboard widgets (they are data-shape generic) with the
@@ -130,10 +130,23 @@ export function ClientPortfolioPage({
         <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[65fr_35fr]">
           <div className="flex flex-col gap-6">
             <AssetsTable properties={data.properties} />
-            <OwnerStatementCard
-              statement={data.ownerStatement}
-              clientName={rollup.client.name}
-            />
+            {/* The full rent roll + owner-statement ledger live on the
+                Financials tab; the Overview links into it instead of
+                duplicating the whole statement here. */}
+            <Link
+              href={`/pro/clients/${rollup.client.id}/financials`}
+              className="group flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-5 py-4 transition-colors hover:bg-slate-50"
+            >
+              <div>
+                <p className="text-[14px] font-semibold text-slate-800">
+                  Financials &amp; owner statement
+                </p>
+                <p className="mt-0.5 text-[12.5px] text-slate-500">
+                  Rent roll, collections, and this month&apos;s owner statement
+                </p>
+              </div>
+              <ArrowRight className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-hover:translate-x-0.5" />
+            </Link>
           </div>
           <div className="flex flex-col gap-6">
             <FinancialsCard
@@ -155,15 +168,68 @@ export function ClientPortfolioPage({
             />
             {/* Manager's submitted change proposals for this client */}
             <ChangeRequestsCard requests={changeRequests} />
+            {/* The full work-order table with status tiles + vendor directory
+                lives on the Work Orders tab; the Overview shows the open-queue
+                snapshot and links into it. */}
             <MaintenanceQueueCard
-              queue={data.workOrders.filter((w) => w.status !== "Resolved")}
+              queue={data.workOrders.filter(
+                (w) => w.status !== "Resolved" && w.status !== "Cancelled",
+              )}
             />
+            <Link
+              href={`/pro/clients/${rollup.client.id}/work-orders`}
+              className="group flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-5 py-4 transition-colors hover:bg-slate-50"
+            >
+              <div>
+                <p className="text-[14px] font-semibold text-slate-800">
+                  View all work orders
+                </p>
+                <p className="mt-0.5 text-[12.5px] text-slate-500">
+                  Status tiles, the full table, and the vendor directory
+                </p>
+              </div>
+              <ArrowRight className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-hover:translate-x-0.5" />
+            </Link>
+            {/* The full compliance workspace — certification timeline, the
+                safety-risk register, and the inspection log — lives on the
+                Compliance tab; the Overview shows the certs snapshot and links
+                into it. */}
             <ComplianceTable compliance={data.compliance} />
+            <Link
+              href={`/pro/clients/${rollup.client.id}/compliance`}
+              className="group flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-5 py-4 transition-colors hover:bg-slate-50"
+            >
+              <div>
+                <p className="text-[14px] font-semibold text-slate-800">
+                  View full compliance
+                </p>
+                <p className="mt-0.5 text-[12.5px] text-slate-500">
+                  Certificate timeline, safety risks, and inspection history
+                </p>
+              </div>
+              <ArrowRight className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-hover:translate-x-0.5" />
+            </Link>
             <ClientContactCard client={rollup.client} />
           </div>
         </div>
 
-        <ActivityFeed activity={data.activity} />
+        {/* Compact recent-activity snapshot — the full day-grouped timeline
+            (with the audit log) lives on the Activity tab. */}
+        <ActivityFeed activity={data.activity.slice(0, 5)} />
+        <Link
+          href={`/pro/clients/${rollup.client.id}/activity`}
+          className="group flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-5 py-4 transition-colors hover:bg-slate-50"
+        >
+          <div>
+            <p className="text-[14px] font-semibold text-slate-800">
+              View all activity
+            </p>
+            <p className="mt-0.5 text-[12.5px] text-slate-500">
+              Day-by-day timeline of payments, work orders, leases, and edits
+            </p>
+          </div>
+          <ArrowRight className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-hover:translate-x-0.5" />
+        </Link>
       </div>
     </main>
   );

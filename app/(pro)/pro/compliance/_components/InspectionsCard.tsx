@@ -22,8 +22,12 @@ const STATUS_PILL: Record<InspectionStatus, string> = {
 
 export function InspectionsCard({
   inspections,
+  // On a single-client tab the client name repeats down every row, so the
+  // client Compliance tab hides it. The global page leaves it visible.
+  hideClient = false,
 }: {
   inspections: ProInspectionRow[];
+  hideClient?: boolean;
 }) {
   return (
     <WidgetCard title="Recent Inspections">
@@ -44,7 +48,8 @@ export function InspectionsCard({
                   {inspection.type}
                 </span>
                 <span className="truncate text-[11.5px] text-slate-500 dark:text-slate-400">
-                  {inspection.propertyName} · {inspection.clientName}
+                  {inspection.propertyName}
+                  {hideClient ? "" : ` · ${inspection.clientName}`}
                 </span>
               </div>
               <div className="flex shrink-0 flex-col items-end gap-1">

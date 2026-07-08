@@ -1,6 +1,7 @@
 import "server-only";
 import { getProperties } from "@/lib/data/properties";
 import { requireCtx } from "@/lib/auth/ctx";
+import type { Ctx } from "@/lib/services/_mapping";
 // Cut 3: read through the cross-request cache layer (unstable_cache) instead of
 // hitting the services directly. Same org-wide queries, now cached + tag-invalidated.
 import {
@@ -49,8 +50,8 @@ export type AnalyticsPageData = {
   period: string;
 };
 
-export async function getAnalyticsPageData(period = "12M"): Promise<AnalyticsPageData> {
-  const authCtx = await requireCtx();
+export async function getAnalyticsPageData(period = "12M", ctxOverride?: Ctx): Promise<AnalyticsPageData> {
+  const authCtx = ctxOverride ?? (await requireCtx());
   const window = periodToWindow(period);
   const [properties, payments, leases, maintenance, valuations, expenses] =
     await Promise.all([

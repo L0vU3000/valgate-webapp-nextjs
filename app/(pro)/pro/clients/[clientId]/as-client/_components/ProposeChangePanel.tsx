@@ -1,18 +1,19 @@
 "use client";
-// Full-screen "View as client" takeover + manager "Propose changes" panel (Pro-3.0).
-// The blue-glow frame signals the manager is previewing this client's view.
-// The "Propose changes" side panel now covers all Tier 1 entities (property,
-// lease, tenant, payment) across all operations (add / edit / remove).
+// Manager "Propose changes" side panel (Pro-3.0). Covers all Tier 1 entities
+// (property, lease, tenant, payment) across all operations (add / edit / remove).
+// Rendered by ClientPreviewShell so it persists across preview section navigation.
 import { useState, useTransition } from "react";
-import Link from "next/link";
-import { ArrowLeft, Eye, Pencil, X, Check, AlertTriangle } from "lucide-react";
-import { Sidebar } from "@/components/layout/Sidebar";
-import { HomePage } from "@/app/(shell)/_components/HomePage";
-import type { HomeProperty, PortfolioStats } from "@/app/(shell)/queries";
-import type { Document } from "@/lib/data/types/document";
+import { useRouter } from "next/navigation";
+import { Pencil, X, Check, AlertTriangle } from "lucide-react";
+import type { Property } from "@/lib/data/types/property";
 import type { Lease } from "@/lib/data/types/lease";
 import type { Tenant } from "@/lib/data/types/tenant";
 import type { Payment } from "@/lib/data/types/payment";
+import type { Certification } from "@/lib/data/types/certification";
+import type { Inspection } from "@/lib/data/types/inspection";
+import type { SafetyRisk } from "@/lib/data/types/safety-risk";
+import type { MaintenanceItem } from "@/lib/data/types/maintenance-item";
+import type { Professional } from "@/lib/data/types/professional";
 import { proposeChangeAction } from "@/app/(pro)/pro/change-requests.actions";
 import { toast } from "sonner";
 
@@ -23,7 +24,15 @@ const LABEL = "block text-[12px] font-semibold text-slate-600 mb-1";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type EntityType = "property" | "lease" | "tenant" | "payment";
+type EntityType =
+  | "property"
+  | "lease"
+  | "tenant"
+  | "payment"
+  | "certification"
+  | "inspection"
+  | "safety-risk"
+  | "maintenance-item";
 type OperationType = "update" | "create" | "delete";
 
 const ENTITY_LABELS: Record<EntityType, string> = {
@@ -31,6 +40,10 @@ const ENTITY_LABELS: Record<EntityType, string> = {
   lease: "Lease",
   tenant: "Tenant",
   payment: "Payment",
+  certification: "Certification",
+  inspection: "Inspection",
+  "safety-risk": "Safety risk",
+  "maintenance-item": "Work order",
 };
 
 const OP_LABELS: Record<OperationType, string> = {
@@ -110,7 +123,7 @@ function LeaseFormFields({
 }: {
   form: LeaseForm;
   onChange: (key: keyof LeaseForm, value: string) => void;
-  properties: HomeProperty[];
+  properties: Property[];
   showPropertyPicker: boolean;
 }) {
   return (
@@ -223,7 +236,7 @@ function TenantFormFields({
 }: {
   form: TenantForm;
   onChange: (key: keyof TenantForm, value: string) => void;
-  properties: HomeProperty[];
+  properties: Property[];
   showPropertyPicker: boolean;
 }) {
   return (
@@ -380,7 +393,7 @@ function PaymentFormFields({
   );
 }
 
-// ─── Property form (Phase 2 logic — preserved) ────────────────────────────────
+// ─── Property form ────────────────────────────────────────────────────────────
 
 const PROPERTY_STATUSES = [
   "Rented", "Vacant", "For Sale", "Sold", "Archived", "Owner-Occupied",
@@ -406,7 +419,7 @@ const EMPTY_PROPERTY_FORM: PropertyForm = {
   totalArea: "",
 };
 
-function initPropertyForm(p: HomeProperty): PropertyForm {
+function initPropertyForm(p: Property): PropertyForm {
   return {
     name: p.name ?? "",
     status: p.status ?? "",
@@ -419,7 +432,7 @@ function initPropertyForm(p: HomeProperty): PropertyForm {
 }
 
 // Only include fields that actually differ from the original.
-function buildPropertyPatch(form: PropertyForm, original: HomeProperty): Record<string, unknown> {
+function buildPropertyPatch(form: PropertyForm, original: Property): Record<string, unknown> {
   const patch: Record<string, unknown> = {};
   if (form.name.trim() && form.name.trim() !== original.name) patch.name = form.name.trim();
   if (form.status && form.status !== original.status) patch.status = form.status;
@@ -475,18 +488,462 @@ function PropertyFormFields({ form, onChange }: { form: PropertyForm; onChange: 
   );
 }
 
+// ─── Certification form ───────────────────────────────────────────────────────
+
+const CERTIFICATION_NAMES = ["Fire Safety Certificate", "Electrical Compliance", "Plumbing Certificate"] as const;
+const CERTIFICATION_STATUSES = ["Valid", "Expiring", "Expired"] as const;
+
+type CertificationForm = {
+  propertyId: string;
+  name: string;
+  status: string;
+  issuedAt: string;
+  expiresAt: string;
+  inspectorId: string;
+};
+
+const EMPTY_CERTIFICATION_FORM: CertificationForm = {
+  propertyId: "",
+  name: "Fire Safety Certificate",
+  status: "Valid",
+  issuedAt: "",
+  expiresAt: "",
+  inspectorId: "",
+};
+
+function initCertificationForm(cert: Certification): CertificationForm {
+  return {
+    propertyId: cert.propertyId,
+    name: cert.name,
+    status: cert.status,
+    issuedAt: toDateInput(cert.issuedAt),
+    expiresAt: toDateInput(cert.expiresAt),
+    inspectorId: cert.inspectorId,
+  };
+}
+
+function buildCertificationPatch(form: CertificationForm, operation: OperationType): Record<string, unknown> {
+  if (operation === "create") {
+    return {
+      propertyId: form.propertyId,
+      name: form.name,
+      status: form.status,
+      issuedAt: form.issuedAt ? new Date(form.issuedAt).getTime() : 0,
+      expiresAt: form.expiresAt ? new Date(form.expiresAt).getTime() : 0,
+      inspectorId: form.inspectorId,
+    };
+  }
+  const patch: Record<string, unknown> = {};
+  if (form.propertyId) patch.propertyId = form.propertyId;
+  if (form.name) patch.name = form.name;
+  if (form.status) patch.status = form.status;
+  if (form.issuedAt) patch.issuedAt = new Date(form.issuedAt).getTime();
+  if (form.expiresAt) patch.expiresAt = new Date(form.expiresAt).getTime();
+  if (form.inspectorId) patch.inspectorId = form.inspectorId;
+  return patch;
+}
+
+function CertificationFormFields({
+  form,
+  onChange,
+  properties,
+  professionals,
+  showPropertyPicker,
+}: {
+  form: CertificationForm;
+  onChange: (key: keyof CertificationForm, value: string) => void;
+  properties: Property[];
+  professionals: Professional[];
+  showPropertyPicker: boolean;
+}) {
+  return (
+    <div className="space-y-3">
+      {showPropertyPicker && (
+        <div>
+          <label className={LABEL} htmlFor="cf-propertyId">Property</label>
+          <select id="cf-propertyId" value={form.propertyId} onChange={(e) => onChange("propertyId", e.target.value)} className={INPUT}>
+            <option value="">— select property —</option>
+            {properties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+        </div>
+      )}
+      <div>
+        <label className={LABEL} htmlFor="cf-name">Name</label>
+        <select id="cf-name" value={form.name} onChange={(e) => onChange("name", e.target.value)} className={INPUT}>
+          {CERTIFICATION_NAMES.map((n) => <option key={n} value={n}>{n}</option>)}
+        </select>
+      </div>
+      <div>
+        <label className={LABEL} htmlFor="cf-status">Status</label>
+        <select id="cf-status" value={form.status} onChange={(e) => onChange("status", e.target.value)} className={INPUT}>
+          {CERTIFICATION_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+        </select>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={LABEL} htmlFor="cf-issued">Issued</label>
+          <input id="cf-issued" type="date" value={form.issuedAt} onChange={(e) => onChange("issuedAt", e.target.value)} className={INPUT} />
+        </div>
+        <div>
+          <label className={LABEL} htmlFor="cf-expires">Expires</label>
+          <input id="cf-expires" type="date" value={form.expiresAt} onChange={(e) => onChange("expiresAt", e.target.value)} className={INPUT} />
+        </div>
+      </div>
+      <div>
+        <label className={LABEL} htmlFor="cf-inspector">Inspector</label>
+        <select id="cf-inspector" value={form.inspectorId} onChange={(e) => onChange("inspectorId", e.target.value)} className={INPUT}>
+          <option value="">— select professional —</option>
+          {professionals.map((pro) => <option key={pro.id} value={pro.id}>{pro.name}</option>)}
+        </select>
+      </div>
+    </div>
+  );
+}
+
+// ─── Inspection form ──────────────────────────────────────────────────────────
+
+const INSPECTION_TYPES = ["Annual Fire Safety", "Electrical", "Plumbing"] as const;
+const INSPECTION_STATUSES = ["Passed", "Failed", "Satisfactory"] as const;
+
+type InspectionForm = {
+  propertyId: string;
+  inspectedAt: string;
+  type: string;
+  inspectorId: string;
+  status: string;
+  issues: string;
+};
+
+const EMPTY_INSPECTION_FORM: InspectionForm = {
+  propertyId: "",
+  inspectedAt: "",
+  type: "Annual Fire Safety",
+  inspectorId: "",
+  status: "Passed",
+  issues: "",
+};
+
+function initInspectionForm(insp: Inspection): InspectionForm {
+  return {
+    propertyId: insp.propertyId,
+    inspectedAt: toDateInput(insp.inspectedAt),
+    type: insp.type,
+    inspectorId: insp.inspectorId,
+    status: insp.status,
+    issues: String(insp.issues),
+  };
+}
+
+function buildInspectionPatch(form: InspectionForm, operation: OperationType): Record<string, unknown> {
+  if (operation === "create") {
+    return {
+      propertyId: form.propertyId,
+      inspectedAt: form.inspectedAt ? new Date(form.inspectedAt).getTime() : 0,
+      type: form.type,
+      inspectorId: form.inspectorId,
+      status: form.status,
+      issues: form.issues ? Number(form.issues) : 0,
+    };
+  }
+  const patch: Record<string, unknown> = {};
+  if (form.propertyId) patch.propertyId = form.propertyId;
+  if (form.inspectedAt) patch.inspectedAt = new Date(form.inspectedAt).getTime();
+  if (form.type) patch.type = form.type;
+  if (form.inspectorId) patch.inspectorId = form.inspectorId;
+  if (form.status) patch.status = form.status;
+  if (form.issues.trim()) patch.issues = Number(form.issues);
+  return patch;
+}
+
+function InspectionFormFields({
+  form,
+  onChange,
+  properties,
+  professionals,
+  showPropertyPicker,
+}: {
+  form: InspectionForm;
+  onChange: (key: keyof InspectionForm, value: string) => void;
+  properties: Property[];
+  professionals: Professional[];
+  showPropertyPicker: boolean;
+}) {
+  return (
+    <div className="space-y-3">
+      {showPropertyPicker && (
+        <div>
+          <label className={LABEL} htmlFor="if-propertyId">Property</label>
+          <select id="if-propertyId" value={form.propertyId} onChange={(e) => onChange("propertyId", e.target.value)} className={INPUT}>
+            <option value="">— select property —</option>
+            {properties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+        </div>
+      )}
+      <div>
+        <label className={LABEL} htmlFor="if-type">Type</label>
+        <select id="if-type" value={form.type} onChange={(e) => onChange("type", e.target.value)} className={INPUT}>
+          {INSPECTION_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+        </select>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={LABEL} htmlFor="if-inspected">Inspected</label>
+          <input id="if-inspected" type="date" value={form.inspectedAt} onChange={(e) => onChange("inspectedAt", e.target.value)} className={INPUT} />
+        </div>
+        <div>
+          <label className={LABEL} htmlFor="if-status">Status</label>
+          <select id="if-status" value={form.status} onChange={(e) => onChange("status", e.target.value)} className={INPUT}>
+            {INSPECTION_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+      </div>
+      <div>
+        <label className={LABEL} htmlFor="if-inspector">Inspector</label>
+        <select id="if-inspector" value={form.inspectorId} onChange={(e) => onChange("inspectorId", e.target.value)} className={INPUT}>
+          <option value="">— select professional —</option>
+          {professionals.map((pro) => <option key={pro.id} value={pro.id}>{pro.name}</option>)}
+        </select>
+      </div>
+      <div>
+        <label className={LABEL} htmlFor="if-issues">Issues found</label>
+        <input id="if-issues" type="number" min={0} value={form.issues} onChange={(e) => onChange("issues", e.target.value)} placeholder="0" className={INPUT} />
+      </div>
+    </div>
+  );
+}
+
+// ─── Safety risk form ─────────────────────────────────────────────────────────
+
+const SAFETY_RISK_SEVERITIES = ["Critical", "High", "Medium", "Low"] as const;
+const SAFETY_RISK_STATUSES = ["Open", "Resolved"] as const;
+
+type SafetyRiskForm = {
+  propertyId: string;
+  severity: string;
+  title: string;
+  description: string;
+  status: string;
+};
+
+const EMPTY_SAFETY_RISK_FORM: SafetyRiskForm = {
+  propertyId: "",
+  severity: "Medium",
+  title: "",
+  description: "",
+  status: "Open",
+};
+
+function initSafetyRiskForm(risk: SafetyRisk): SafetyRiskForm {
+  return {
+    propertyId: risk.propertyId,
+    severity: risk.severity,
+    title: risk.title,
+    description: risk.description,
+    status: risk.status,
+  };
+}
+
+function buildSafetyRiskPatch(form: SafetyRiskForm, operation: OperationType): Record<string, unknown> {
+  if (operation === "create") {
+    return {
+      propertyId: form.propertyId,
+      severity: form.severity,
+      title: form.title,
+      description: form.description,
+      status: form.status,
+    };
+  }
+  const patch: Record<string, unknown> = {};
+  if (form.propertyId) patch.propertyId = form.propertyId;
+  if (form.severity) patch.severity = form.severity;
+  if (form.title.trim()) patch.title = form.title.trim();
+  if (form.description.trim()) patch.description = form.description.trim();
+  if (form.status) patch.status = form.status;
+  return patch;
+}
+
+function SafetyRiskFormFields({
+  form,
+  onChange,
+  properties,
+  showPropertyPicker,
+}: {
+  form: SafetyRiskForm;
+  onChange: (key: keyof SafetyRiskForm, value: string) => void;
+  properties: Property[];
+  showPropertyPicker: boolean;
+}) {
+  return (
+    <div className="space-y-3">
+      {showPropertyPicker && (
+        <div>
+          <label className={LABEL} htmlFor="sf-propertyId">Property</label>
+          <select id="sf-propertyId" value={form.propertyId} onChange={(e) => onChange("propertyId", e.target.value)} className={INPUT}>
+            <option value="">— select property —</option>
+            {properties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+        </div>
+      )}
+      <div>
+        <label className={LABEL} htmlFor="sf-title">Title</label>
+        <input id="sf-title" type="text" value={form.title} onChange={(e) => onChange("title", e.target.value)} placeholder="e.g. Exposed wiring" className={INPUT} />
+      </div>
+      <div>
+        <label className={LABEL} htmlFor="sf-description">Description</label>
+        <textarea id="sf-description" value={form.description} onChange={(e) => onChange("description", e.target.value)} rows={3} placeholder="Describe the risk" className={INPUT} />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={LABEL} htmlFor="sf-severity">Severity</label>
+          <select id="sf-severity" value={form.severity} onChange={(e) => onChange("severity", e.target.value)} className={INPUT}>
+            {SAFETY_RISK_SEVERITIES.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className={LABEL} htmlFor="sf-status">Status</label>
+          <select id="sf-status" value={form.status} onChange={(e) => onChange("status", e.target.value)} className={INPUT}>
+            {SAFETY_RISK_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Maintenance item (work order) form ───────────────────────────────────────
+
+const MAINTENANCE_SEVERITIES = ["Emergency", "Urgent", "Standard"] as const;
+const MAINTENANCE_STATUSES = ["Open", "InProgress", "Resolved", "Cancelled"] as const;
+
+type MaintenanceForm = {
+  propertyId: string;
+  severity: string;
+  title: string;
+  status: string;
+  cost: string;
+  vendorId: string;
+};
+
+const EMPTY_MAINTENANCE_FORM: MaintenanceForm = {
+  propertyId: "",
+  severity: "Standard",
+  title: "",
+  status: "Open",
+  cost: "",
+  vendorId: "",
+};
+
+function initMaintenanceForm(item: MaintenanceItem): MaintenanceForm {
+  return {
+    propertyId: item.propertyId,
+    severity: item.severity,
+    title: item.title,
+    status: item.status,
+    cost: item.cost != null ? String(item.cost) : "",
+    vendorId: item.vendorId ?? "",
+  };
+}
+
+function buildMaintenancePatch(form: MaintenanceForm, operation: OperationType): Record<string, unknown> {
+  if (operation === "create") {
+    const patch: Record<string, unknown> = {
+      propertyId: form.propertyId,
+      severity: form.severity,
+      title: form.title,
+      status: form.status,
+    };
+    if (form.cost.trim()) patch.cost = Number(form.cost);
+    if (form.vendorId) patch.vendorId = form.vendorId;
+    return patch;
+  }
+  const patch: Record<string, unknown> = {};
+  if (form.propertyId) patch.propertyId = form.propertyId;
+  if (form.severity) patch.severity = form.severity;
+  if (form.title.trim()) patch.title = form.title.trim();
+  if (form.status) patch.status = form.status;
+  if (form.cost.trim()) patch.cost = Number(form.cost);
+  if (form.vendorId) patch.vendorId = form.vendorId;
+  return patch;
+}
+
+function MaintenanceFormFields({
+  form,
+  onChange,
+  properties,
+  professionals,
+  showPropertyPicker,
+}: {
+  form: MaintenanceForm;
+  onChange: (key: keyof MaintenanceForm, value: string) => void;
+  properties: Property[];
+  professionals: Professional[];
+  showPropertyPicker: boolean;
+}) {
+  return (
+    <div className="space-y-3">
+      {showPropertyPicker && (
+        <div>
+          <label className={LABEL} htmlFor="mf-propertyId">Property</label>
+          <select id="mf-propertyId" value={form.propertyId} onChange={(e) => onChange("propertyId", e.target.value)} className={INPUT}>
+            <option value="">— select property —</option>
+            {properties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+        </div>
+      )}
+      <div>
+        <label className={LABEL} htmlFor="mf-title">Title</label>
+        <input id="mf-title" type="text" value={form.title} onChange={(e) => onChange("title", e.target.value)} placeholder="e.g. Leaking roof" className={INPUT} />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={LABEL} htmlFor="mf-severity">Severity</label>
+          <select id="mf-severity" value={form.severity} onChange={(e) => onChange("severity", e.target.value)} className={INPUT}>
+            {MAINTENANCE_SEVERITIES.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className={LABEL} htmlFor="mf-status">Status</label>
+          <select id="mf-status" value={form.status} onChange={(e) => onChange("status", e.target.value)} className={INPUT}>
+            {MAINTENANCE_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+      </div>
+      <div>
+        <label className={LABEL} htmlFor="mf-cost">Cost ($, optional)</label>
+        <input id="mf-cost" type="number" min={0} value={form.cost} onChange={(e) => onChange("cost", e.target.value)} placeholder="0" className={INPUT} />
+      </div>
+      <div>
+        <label className={LABEL} htmlFor="mf-vendor">Vendor (optional)</label>
+        <select id="mf-vendor" value={form.vendorId} onChange={(e) => onChange("vendorId", e.target.value)} className={INPUT}>
+          <option value="">— none —</option>
+          {professionals.map((pro) => <option key={pro.id} value={pro.id}>{pro.name}</option>)}
+        </select>
+      </div>
+    </div>
+  );
+}
+
 // ─── Propose-changes panel ────────────────────────────────────────────────────
 
 type ProposePanelProps = {
   clientId: string;
-  properties: HomeProperty[];
+  // Full-grant manager → the same forms apply directly (auto-approved) instead of proposing.
+  // The write path is chosen SERVER-SIDE from the real grant; this prop only drives copy.
+  canWrite: boolean;
+  properties: Property[];
   leases: Lease[];
   tenants: Tenant[];
   payments: Payment[];
+  certifications: Certification[];
+  inspections: Inspection[];
+  safetyRisks: SafetyRisk[];
+  maintenanceItems: MaintenanceItem[];
+  professionals: Professional[];
   onClose: () => void;
 };
 
-function ProposeChangePanel({ clientId, properties, leases, tenants, payments, onClose }: ProposePanelProps) {
+export function ProposeChangePanel({ clientId, canWrite, properties, leases, tenants, payments, certifications, inspections, safetyRisks, maintenanceItems, professionals, onClose }: ProposePanelProps) {
+  const router = useRouter();
   const [entityType, setEntityType] = useState<EntityType>("property");
   const [operation, setOperation] = useState<OperationType>("update");
   const [isPending, startTransition] = useTransition();
@@ -496,6 +953,10 @@ function ProposeChangePanel({ clientId, properties, leases, tenants, payments, o
   const [selectedLeaseId, setSelectedLeaseId] = useState<string>(leases[0]?.id ?? "");
   const [selectedTenantId, setSelectedTenantId] = useState<string>(tenants[0]?.id ?? "");
   const [selectedPaymentId, setSelectedPaymentId] = useState<string>(payments[0]?.id ?? "");
+  const [selectedCertificationId, setSelectedCertificationId] = useState<string>(certifications[0]?.id ?? "");
+  const [selectedInspectionId, setSelectedInspectionId] = useState<string>(inspections[0]?.id ?? "");
+  const [selectedSafetyRiskId, setSelectedSafetyRiskId] = useState<string>(safetyRisks[0]?.id ?? "");
+  const [selectedMaintenanceId, setSelectedMaintenanceId] = useState<string>(maintenanceItems[0]?.id ?? "");
 
   // Per-entity form state.
   const [propertyForm, setPropertyForm] = useState<PropertyForm>(
@@ -509,6 +970,22 @@ function ProposeChangePanel({ clientId, properties, leases, tenants, payments, o
   );
   const [paymentForm, setPaymentForm] = useState<PaymentForm>(
     payments[0] ? initPaymentForm(payments[0]) : { ...EMPTY_PAYMENT_FORM, leaseId: leases[0]?.id ?? "" },
+  );
+  const [certificationForm, setCertificationForm] = useState<CertificationForm>(
+    certifications[0]
+      ? initCertificationForm(certifications[0])
+      : { ...EMPTY_CERTIFICATION_FORM, propertyId: properties[0]?.id ?? "", inspectorId: professionals[0]?.id ?? "" },
+  );
+  const [inspectionForm, setInspectionForm] = useState<InspectionForm>(
+    inspections[0]
+      ? initInspectionForm(inspections[0])
+      : { ...EMPTY_INSPECTION_FORM, propertyId: properties[0]?.id ?? "", inspectorId: professionals[0]?.id ?? "" },
+  );
+  const [safetyRiskForm, setSafetyRiskForm] = useState<SafetyRiskForm>(
+    safetyRisks[0] ? initSafetyRiskForm(safetyRisks[0]) : { ...EMPTY_SAFETY_RISK_FORM, propertyId: properties[0]?.id ?? "" },
+  );
+  const [maintenanceForm, setMaintenanceForm] = useState<MaintenanceForm>(
+    maintenanceItems[0] ? initMaintenanceForm(maintenanceItems[0]) : { ...EMPTY_MAINTENANCE_FORM, propertyId: properties[0]?.id ?? "" },
   );
 
   // ── Entity selector handlers (sync form state on selection change) ──
@@ -537,6 +1014,30 @@ function ProposeChangePanel({ clientId, properties, leases, tenants, payments, o
     if (p) setPaymentForm(initPaymentForm(p));
   }
 
+  function handleCertificationSelect(id: string) {
+    setSelectedCertificationId(id);
+    const c = certifications.find((x) => x.id === id);
+    if (c) setCertificationForm(initCertificationForm(c));
+  }
+
+  function handleInspectionSelect(id: string) {
+    setSelectedInspectionId(id);
+    const i = inspections.find((x) => x.id === id);
+    if (i) setInspectionForm(initInspectionForm(i));
+  }
+
+  function handleSafetyRiskSelect(id: string) {
+    setSelectedSafetyRiskId(id);
+    const r = safetyRisks.find((x) => x.id === id);
+    if (r) setSafetyRiskForm(initSafetyRiskForm(r));
+  }
+
+  function handleMaintenanceSelect(id: string) {
+    setSelectedMaintenanceId(id);
+    const m = maintenanceItems.find((x) => x.id === id);
+    if (m) setMaintenanceForm(initMaintenanceForm(m));
+  }
+
   // ── Entity type switch: reset operation to "update" if switching entity ──
 
   function handleEntityTypeChange(type: EntityType) {
@@ -558,7 +1059,7 @@ function ProposeChangePanel({ clientId, properties, leases, tenants, payments, o
           entityId = selectedPropertyId || null;
           patch = {};
         } else if (operation === "create") {
-          patch = buildPropertyPatch(propertyForm, {} as HomeProperty);
+          patch = buildPropertyPatch(propertyForm, {} as Property);
           entityId = null;
         } else {
           // update
@@ -594,8 +1095,7 @@ function ProposeChangePanel({ clientId, properties, leases, tenants, payments, o
           if (Object.keys(patch).length === 0) { toast.warning("No changes detected — update at least one field."); return; }
         }
 
-      } else {
-        // payment
+      } else if (entityType === "payment") {
         if (operation === "create") {
           patch = buildPaymentPatch(paymentForm, "create");
           entityId = null;
@@ -605,6 +1105,59 @@ function ProposeChangePanel({ clientId, properties, leases, tenants, payments, o
         } else {
           entityId = selectedPaymentId || null;
           patch = buildPaymentPatch(paymentForm, "update");
+          if (Object.keys(patch).length === 0) { toast.warning("No changes detected — update at least one field."); return; }
+        }
+
+      } else if (entityType === "certification") {
+        if (operation === "create") {
+          patch = buildCertificationPatch(certificationForm, "create");
+          entityId = null;
+        } else if (operation === "delete") {
+          entityId = selectedCertificationId || null;
+          patch = {};
+        } else {
+          entityId = selectedCertificationId || null;
+          patch = buildCertificationPatch(certificationForm, "update");
+          if (Object.keys(patch).length === 0) { toast.warning("No changes detected — update at least one field."); return; }
+        }
+
+      } else if (entityType === "inspection") {
+        if (operation === "create") {
+          patch = buildInspectionPatch(inspectionForm, "create");
+          entityId = null;
+        } else if (operation === "delete") {
+          entityId = selectedInspectionId || null;
+          patch = {};
+        } else {
+          entityId = selectedInspectionId || null;
+          patch = buildInspectionPatch(inspectionForm, "update");
+          if (Object.keys(patch).length === 0) { toast.warning("No changes detected — update at least one field."); return; }
+        }
+
+      } else if (entityType === "safety-risk") {
+        if (operation === "create") {
+          patch = buildSafetyRiskPatch(safetyRiskForm, "create");
+          entityId = null;
+        } else if (operation === "delete") {
+          entityId = selectedSafetyRiskId || null;
+          patch = {};
+        } else {
+          entityId = selectedSafetyRiskId || null;
+          patch = buildSafetyRiskPatch(safetyRiskForm, "update");
+          if (Object.keys(patch).length === 0) { toast.warning("No changes detected — update at least one field."); return; }
+        }
+
+      } else {
+        // maintenance-item (work order)
+        if (operation === "create") {
+          patch = buildMaintenancePatch(maintenanceForm, "create");
+          entityId = null;
+        } else if (operation === "delete") {
+          entityId = selectedMaintenanceId || null;
+          patch = {};
+        } else {
+          entityId = selectedMaintenanceId || null;
+          patch = buildMaintenancePatch(maintenanceForm, "update");
           if (Object.keys(patch).length === 0) { toast.warning("No changes detected — update at least one field."); return; }
         }
       }
@@ -619,7 +1172,13 @@ function ProposeChangePanel({ clientId, properties, leases, tenants, payments, o
 
       if (result.ok) {
         const opLabel = operation === "create" ? "addition" : operation === "delete" ? "removal" : "update";
-        toast.success(`${ENTITY_LABELS[entityType]} ${opLabel} proposal submitted. The client will be notified.`);
+        if (canWrite) {
+          toast.success(`${ENTITY_LABELS[entityType]} ${opLabel} applied. The client has been notified.`);
+          // Reflect the applied change in the preview without a full reload.
+          router.refresh();
+        } else {
+          toast.success(`${ENTITY_LABELS[entityType]} ${opLabel} proposal submitted. The client will be notified.`);
+        }
         onClose();
       } else {
         toast.error(result.error ?? "Failed to submit proposal. Please try again.");
@@ -678,18 +1237,82 @@ function ProposeChangePanel({ clientId, properties, leases, tenants, payments, o
       );
     }
 
-    // payment
-    if (payments.length === 0) return (
-      <p className="text-[13px] text-slate-400 italic">No payments in this portfolio.</p>
+    if (entityType === "payment") {
+      if (payments.length === 0) return (
+        <p className="text-[13px] text-slate-400 italic">No payments in this portfolio.</p>
+      );
+      return (
+        <div>
+          <label className={LABEL} htmlFor="er-payment">Payment</label>
+          <select id="er-payment" value={selectedPaymentId} onChange={(e) => handlePaymentSelect(e.target.value)} className={INPUT}>
+            {payments.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.kind} · ${p.amount} · {p.status}
+              </option>
+            ))}
+          </select>
+        </div>
+      );
+    }
+
+    if (entityType === "certification") {
+      if (certifications.length === 0) return (
+        <p className="text-[13px] text-slate-400 italic">No certifications in this portfolio.</p>
+      );
+      return (
+        <div>
+          <label className={LABEL} htmlFor="er-certification">Certification</label>
+          <select id="er-certification" value={selectedCertificationId} onChange={(e) => handleCertificationSelect(e.target.value)} className={INPUT}>
+            {certifications.map((c) => (
+              <option key={c.id} value={c.id}>{c.name || c.id}</option>
+            ))}
+          </select>
+        </div>
+      );
+    }
+
+    if (entityType === "inspection") {
+      if (inspections.length === 0) return (
+        <p className="text-[13px] text-slate-400 italic">No inspections in this portfolio.</p>
+      );
+      return (
+        <div>
+          <label className={LABEL} htmlFor="er-inspection">Inspection</label>
+          <select id="er-inspection" value={selectedInspectionId} onChange={(e) => handleInspectionSelect(e.target.value)} className={INPUT}>
+            {inspections.map((i) => (
+              <option key={i.id} value={i.id}>{i.type || i.id}</option>
+            ))}
+          </select>
+        </div>
+      );
+    }
+
+    if (entityType === "safety-risk") {
+      if (safetyRisks.length === 0) return (
+        <p className="text-[13px] text-slate-400 italic">No safety risks in this portfolio.</p>
+      );
+      return (
+        <div>
+          <label className={LABEL} htmlFor="er-safety-risk">Safety risk</label>
+          <select id="er-safety-risk" value={selectedSafetyRiskId} onChange={(e) => handleSafetyRiskSelect(e.target.value)} className={INPUT}>
+            {safetyRisks.map((r) => (
+              <option key={r.id} value={r.id}>{r.title || r.id}</option>
+            ))}
+          </select>
+        </div>
+      );
+    }
+
+    // maintenance-item (work order)
+    if (maintenanceItems.length === 0) return (
+      <p className="text-[13px] text-slate-400 italic">No work orders in this portfolio.</p>
     );
     return (
       <div>
-        <label className={LABEL} htmlFor="er-payment">Payment</label>
-        <select id="er-payment" value={selectedPaymentId} onChange={(e) => handlePaymentSelect(e.target.value)} className={INPUT}>
-          {payments.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.kind} · ${p.amount} · {p.status}
-            </option>
+        <label className={LABEL} htmlFor="er-maintenance">Work order</label>
+        <select id="er-maintenance" value={selectedMaintenanceId} onChange={(e) => handleMaintenanceSelect(e.target.value)} className={INPUT}>
+          {maintenanceItems.map((m) => (
+            <option key={m.id} value={m.id}>{m.title || m.id}</option>
           ))}
         </select>
       </div>
@@ -709,9 +1332,21 @@ function ProposeChangePanel({ clientId, properties, leases, tenants, payments, o
     } else if (entityType === "tenant") {
       const t = tenants.find((x) => x.id === selectedTenantId);
       entityLabel = t ? `${t.name} · ${t.unit}` : selectedTenantId;
-    } else {
+    } else if (entityType === "payment") {
       const p = payments.find((x) => x.id === selectedPaymentId);
       entityLabel = p ? `${p.kind} · $${p.amount}` : selectedPaymentId;
+    } else if (entityType === "certification") {
+      const c = certifications.find((x) => x.id === selectedCertificationId);
+      entityLabel = c ? c.name : selectedCertificationId;
+    } else if (entityType === "inspection") {
+      const i = inspections.find((x) => x.id === selectedInspectionId);
+      entityLabel = i ? i.type : selectedInspectionId;
+    } else if (entityType === "safety-risk") {
+      const r = safetyRisks.find((x) => x.id === selectedSafetyRiskId);
+      entityLabel = r ? r.title : selectedSafetyRiskId;
+    } else {
+      const m = maintenanceItems.find((x) => x.id === selectedMaintenanceId);
+      entityLabel = m ? m.title : selectedMaintenanceId;
     }
 
     return (
@@ -719,10 +1354,10 @@ function ProposeChangePanel({ clientId, properties, leases, tenants, payments, o
         <div className="flex items-start gap-2.5">
           <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
           <div>
-            <p className="text-[13px] font-semibold text-red-700">Propose removal</p>
+            <p className="text-[13px] font-semibold text-red-700">{canWrite ? "Remove entity" : "Propose removal"}</p>
             <p className="text-[12px] text-red-600 mt-0.5">
               <strong className="font-semibold">{entityLabel}</strong> will be permanently removed
-              if the client approves. This cannot be undone.
+              {canWrite ? " immediately" : " if the client approves"}. This cannot be undone.
             </p>
           </div>
         </div>
@@ -766,12 +1401,59 @@ function ProposeChangePanel({ clientId, properties, leases, tenants, payments, o
       );
     }
 
-    // payment
+    if (entityType === "payment") {
+      return (
+        <PaymentFormFields
+          form={paymentForm}
+          onChange={(k, v) => setPaymentForm((prev) => ({ ...prev, [k]: v }))}
+          leases={leases}
+        />
+      );
+    }
+
+    if (entityType === "certification") {
+      return (
+        <CertificationFormFields
+          form={certificationForm}
+          onChange={(k, v) => setCertificationForm((prev) => ({ ...prev, [k]: v }))}
+          properties={properties}
+          professionals={professionals}
+          showPropertyPicker={operation === "create"}
+        />
+      );
+    }
+
+    if (entityType === "inspection") {
+      return (
+        <InspectionFormFields
+          form={inspectionForm}
+          onChange={(k, v) => setInspectionForm((prev) => ({ ...prev, [k]: v }))}
+          properties={properties}
+          professionals={professionals}
+          showPropertyPicker={operation === "create"}
+        />
+      );
+    }
+
+    if (entityType === "safety-risk") {
+      return (
+        <SafetyRiskFormFields
+          form={safetyRiskForm}
+          onChange={(k, v) => setSafetyRiskForm((prev) => ({ ...prev, [k]: v }))}
+          properties={properties}
+          showPropertyPicker={operation === "create"}
+        />
+      );
+    }
+
+    // maintenance-item (work order)
     return (
-      <PaymentFormFields
-        form={paymentForm}
-        onChange={(k, v) => setPaymentForm((prev) => ({ ...prev, [k]: v }))}
-        leases={leases}
+      <MaintenanceFormFields
+        form={maintenanceForm}
+        onChange={(k, v) => setMaintenanceForm((prev) => ({ ...prev, [k]: v }))}
+        properties={properties}
+        professionals={professionals}
+        showPropertyPicker={operation === "create"}
       />
     );
   }
@@ -781,7 +1463,11 @@ function ProposeChangePanel({ clientId, properties, leases, tenants, payments, o
     (entityType === "property" && properties.length === 0) ||
     (entityType === "lease" && leases.length === 0 && operation !== "create") ||
     (entityType === "tenant" && tenants.length === 0 && operation !== "create") ||
-    (entityType === "payment" && payments.length === 0 && operation !== "create")
+    (entityType === "payment" && payments.length === 0 && operation !== "create") ||
+    (entityType === "certification" && certifications.length === 0 && operation !== "create") ||
+    (entityType === "inspection" && inspections.length === 0 && operation !== "create") ||
+    (entityType === "safety-risk" && safetyRisks.length === 0 && operation !== "create") ||
+    (entityType === "maintenance-item" && maintenanceItems.length === 0 && operation !== "create")
   );
 
   return (
@@ -790,7 +1476,7 @@ function ProposeChangePanel({ clientId, properties, leases, tenants, payments, o
       <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
         <div className="flex items-center gap-2">
           <Pencil className="h-4 w-4 text-blue-600" />
-          <h2 className="text-[15px] font-semibold text-slate-800">Propose changes</h2>
+          <h2 className="text-[15px] font-semibold text-slate-800">{canWrite ? "Edit portfolio" : "Propose changes"}</h2>
         </div>
         <button
           type="button"
@@ -804,7 +1490,9 @@ function ProposeChangePanel({ clientId, properties, leases, tenants, payments, o
 
       {/* Info banner */}
       <div className="shrink-0 mx-5 mt-4 rounded-lg bg-blue-50 border border-blue-200 px-3 py-2.5 text-[12px] text-blue-700">
-        Your proposal will be sent to the client for review. No changes are applied until they approve.
+        {canWrite
+          ? "You have full access. Changes apply immediately to the client's portfolio, and the client is notified of each one."
+          : "Your proposal will be sent to the client for review. No changes are applied until they approve."}
       </div>
 
       {/* Scrollable form body */}
@@ -814,7 +1502,7 @@ function ProposeChangePanel({ clientId, properties, leases, tenants, payments, o
         <div>
           <p className={LABEL}>Entity type</p>
           <div className="flex gap-1.5 flex-wrap">
-            {(["property", "lease", "tenant", "payment"] as EntityType[]).map((type) => (
+            {(["property", "lease", "tenant", "payment", "certification", "inspection", "safety-risk", "maintenance-item"] as EntityType[]).map((type) => (
               <button
                 key={type}
                 type="button"
@@ -879,7 +1567,15 @@ function ProposeChangePanel({ clientId, properties, leases, tenants, payments, o
         >
           <Check className="h-4 w-4" />
           {isPending
-            ? "Submitting…"
+            ? canWrite
+              ? "Applying…"
+              : "Submitting…"
+            : canWrite
+            ? operation === "delete"
+              ? "Remove now"
+              : operation === "create"
+              ? `Add ${ENTITY_LABELS[entityType].toLowerCase()}`
+              : "Save changes"
             : operation === "delete"
             ? "Submit removal proposal"
             : operation === "create"
@@ -894,115 +1590,6 @@ function ProposeChangePanel({ clientId, properties, leases, tenants, payments, o
           Cancel
         </button>
       </div>
-    </div>
-  );
-}
-
-// ─── Main component ───────────────────────────────────────────────────────────
-
-export function ClientViewPreview({
-  clientId,
-  clientName,
-  clientInitials,
-  properties,
-  portfolioStats,
-  documents,
-  leases,
-  tenants,
-  payments,
-}: {
-  clientId: string;
-  clientName: string;
-  clientInitials: string;
-  properties: HomeProperty[];
-  portfolioStats: PortfolioStats;
-  documents: Document[];
-  leases: Lease[];
-  tenants: Tenant[];
-  payments: Payment[];
-}) {
-  const [isDark, setIsDark] = useState(false);
-  const [proposeOpen, setProposeOpen] = useState(false);
-
-  // Show "Propose changes" only if the portfolio has at least one entity to work with.
-  const hasAnyEntities = properties.length > 0 || leases.length > 0 || tenants.length > 0 || payments.length > 0;
-
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-surface-base">
-      {/* Exit bar — tells the manager whose view this is and how to leave. */}
-      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-blue-200 bg-blue-50 px-4 py-2 dark:border-blue-900 dark:bg-blue-950/40">
-        <span className="inline-flex items-center gap-2 text-[13px] text-blue-800 dark:text-blue-200">
-          <Eye className="h-4 w-4 shrink-0" />
-          Viewing as <strong className="font-semibold">{clientName}</strong>
-          <span className="hidden text-blue-700/70 dark:text-blue-300/70 sm:inline">
-            — the portfolio exactly as this client sees it
-          </span>
-        </span>
-
-        <div className="flex items-center gap-2 shrink-0">
-          {hasAnyEntities && (
-            <button
-              type="button"
-              onClick={() => setProposeOpen(true)}
-              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-blue-300 bg-white px-3 text-[13px] font-medium text-blue-700 transition-[background-color,transform] hover:bg-blue-50 active:scale-[0.97] dark:border-blue-800 dark:bg-blue-950/60 dark:text-blue-300"
-            >
-              <Pencil className="h-3.5 w-3.5" />
-              Propose changes
-            </button>
-          )}
-
-          <Link
-            href={`/pro/clients/${clientId}`}
-            className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-blue-200 bg-white px-3 text-[13px] font-medium text-blue-700 transition-[background-color,transform] hover:bg-blue-50 active:scale-[0.97] dark:border-blue-900 dark:bg-blue-950/60 dark:text-blue-300 dark:hover:bg-blue-900/50"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Exit client view
-          </Link>
-        </div>
-      </div>
-
-      {/* Owner shell (rail sidebar + content) scoped to the client. */}
-      <div className="relative flex min-h-0 flex-1 overflow-hidden bg-surface-page">
-        <div className="hidden h-full sm:flex">
-          <Sidebar
-            isDark={isDark}
-            onToggleDark={() => setIsDark((d) => !d)}
-            onOpenAI={() => {}}
-            isPreview
-            identity={{
-              displayName: clientName,
-              initials: clientInitials,
-              roleText: "Owner",
-            }}
-          />
-        </div>
-
-        <main className="flex min-h-0 flex-1 flex-col overflow-hidden bg-surface-page">
-          <HomePage
-            initialProperties={properties}
-            portfolioStats={portfolioStats}
-            documents={documents}
-          />
-        </main>
-
-        {/* Inset blue glow framing the whole client view. */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 z-40 ring-4 ring-inset ring-blue-500/40 shadow-[inset_0_0_60px_rgba(37,99,235,0.18)]"
-        />
-      </div>
-
-      {/* Propose-changes side panel (renders on top of everything). */}
-      {proposeOpen && (
-        <ProposeChangePanel
-          clientId={clientId}
-          properties={properties}
-          leases={leases}
-          tenants={tenants}
-          payments={payments}
-          onClose={() => setProposeOpen(false)}
-        />
-      )}
     </div>
   );
 }
