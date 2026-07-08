@@ -72,11 +72,13 @@ function ProfessionalCard({
   index,
   onEdit,
   onDelete,
+  readOnly,
 }: {
   pro: Professional;
   index: number;
   onEdit: (pro: Professional) => void;
   onDelete: (pro: Professional) => Promise<ActionResult<void>>;
+  readOnly: boolean;
 }) {
   const badgeClass = CATEGORY_BADGE[pro.category];
   const [copied, setCopied] = useState(false);
@@ -201,34 +203,38 @@ function ProfessionalCard({
           <span className="font-semibold text-val-heading">{pro.linkedProperties}</span>
         </span>
         <div className="flex items-center gap-1">
-          {/* Edit — opens the Add wizard in edit mode, pre-filled with this contact. */}
-          <button
-            type="button"
-            onClick={() => onEdit(pro)}
-            className="size-8 rounded-full flex items-center justify-center text-slate-400 transition-all duration-150 hover:bg-slate-50 hover:text-[--val-primary-dark] active:scale-95"
-            aria-label={`Edit ${pro.name}`}
-            title="Edit"
-          >
-            <Pencil className="size-3.5" />
-          </button>
-          {/* Delete — confirm tier: irreversible removal of one directory entry. */}
-          <ConfirmAction
-            tier="confirm"
-            title={`Remove ${pro.name}?`}
-            description="This removes the contact from your directory. This can't be undone."
-            confirmLabel="Remove"
-            successMessage={`${pro.name} removed`}
-            onConfirm={() => onDelete(pro)}
-          >
-            <button
-              type="button"
-              className="size-8 rounded-full flex items-center justify-center text-slate-400 transition-all duration-150 hover:bg-rose-50 hover:text-rose-500 active:scale-95"
-              aria-label={`Remove ${pro.name}`}
-              title="Remove"
-            >
-              <Trash2 className="size-3.5" />
-            </button>
-          </ConfirmAction>
+          {!readOnly && (
+            <>
+              {/* Edit — opens the Add wizard in edit mode, pre-filled with this contact. */}
+              <button
+                type="button"
+                onClick={() => onEdit(pro)}
+                className="size-8 rounded-full flex items-center justify-center text-slate-400 transition-all duration-150 hover:bg-slate-50 hover:text-[--val-primary-dark] active:scale-95"
+                aria-label={`Edit ${pro.name}`}
+                title="Edit"
+              >
+                <Pencil className="size-3.5" />
+              </button>
+              {/* Delete — confirm tier: irreversible removal of one directory entry. */}
+              <ConfirmAction
+                tier="confirm"
+                title={`Remove ${pro.name}?`}
+                description="This removes the contact from your directory. This can't be undone."
+                confirmLabel="Remove"
+                successMessage={`${pro.name} removed`}
+                onConfirm={() => onDelete(pro)}
+              >
+                <button
+                  type="button"
+                  className="size-8 rounded-full flex items-center justify-center text-slate-400 transition-all duration-150 hover:bg-rose-50 hover:text-rose-500 active:scale-95"
+                  aria-label={`Remove ${pro.name}`}
+                  title="Remove"
+                >
+                  <Trash2 className="size-3.5" />
+                </button>
+              </ConfirmAction>
+            </>
+          )}
           <Link
             href={`/directory/${pro.id}`}
             className="flex items-center gap-0.5 text-[--val-primary-dark] text-xs font-semibold transition-all duration-150 hover:opacity-75 hover:gap-1 active:scale-95 ml-1"
@@ -242,7 +248,13 @@ function ProfessionalCard({
   );
 }
 
-export function ProfessionalDirectoryPage({ data }: { data: DirectoryPageData }) {
+export function ProfessionalDirectoryPage({
+  data,
+  readOnly = false,
+}: {
+  data: DirectoryPageData;
+  readOnly?: boolean;
+}) {
   const router = useRouter();
   const [activeCategory, setActiveCategory] = useState<Category>("All");
   const [searchQuery, setSearchQuery] = useState("");
@@ -335,28 +347,30 @@ export function ProfessionalDirectoryPage({ data }: { data: DirectoryPageData })
                 Manage and connect with your network of property service providers.
               </p>
             </div>
-            <div className="flex items-center gap-3 shrink-0 ml-4">
-              {/* Mobile: icon-only button */}
-              <button
-                type="button"
-                onClick={() => setAddWizardOpen(true)}
-                className="sm:hidden size-10 flex items-center justify-center rounded text-white shadow-sm transition-all duration-150 hover:opacity-90 active:scale-[0.98]"
-                style={{ background: "linear-gradient(168deg, var(--val-primary-dark) 0%, #2563eb 100%)" }}
-                aria-label="Add professional"
-              >
-                <Plus className="size-4" />
-              </button>
-              {/* Desktop: full label button */}
-              <button
-                type="button"
-                onClick={() => setAddWizardOpen(true)}
-                className="hidden sm:flex items-center gap-2 px-5 py-2.5 rounded text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:opacity-90 active:scale-[0.98]"
-                style={{ background: "linear-gradient(168deg, var(--val-primary-dark) 0%, #2563eb 100%)" }}
-              >
-                <Plus className="size-3.5" />
-                ADD PROFESSIONAL
-              </button>
-            </div>
+            {!readOnly && (
+              <div className="flex items-center gap-3 shrink-0 ml-4">
+                {/* Mobile: icon-only button */}
+                <button
+                  type="button"
+                  onClick={() => setAddWizardOpen(true)}
+                  className="sm:hidden size-10 flex items-center justify-center rounded text-white shadow-sm transition-all duration-150 hover:opacity-90 active:scale-[0.98]"
+                  style={{ background: "linear-gradient(168deg, var(--val-primary-dark) 0%, #2563eb 100%)" }}
+                  aria-label="Add professional"
+                >
+                  <Plus className="size-4" />
+                </button>
+                {/* Desktop: full label button */}
+                <button
+                  type="button"
+                  onClick={() => setAddWizardOpen(true)}
+                  className="hidden sm:flex items-center gap-2 px-5 py-2.5 rounded text-sm font-semibold text-white shadow-sm transition-all duration-150 hover:opacity-90 active:scale-[0.98]"
+                  style={{ background: "linear-gradient(168deg, var(--val-primary-dark) 0%, #2563eb 100%)" }}
+                >
+                  <Plus className="size-3.5" />
+                  ADD PROFESSIONAL
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Toolbar */}
@@ -456,6 +470,7 @@ export function ProfessionalDirectoryPage({ data }: { data: DirectoryPageData })
                 index={i}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
+                readOnly={readOnly}
               />
             ))}
             {filtered.length === 0 && (
@@ -516,11 +531,13 @@ export function ProfessionalDirectoryPage({ data }: { data: DirectoryPageData })
         </div>
       </div>
 
-      <AddProfessionalWizard
-        open={addWizardOpen}
-        onOpenChange={handleWizardOpenChange}
-        professional={editing}
-      />
+      {!readOnly && (
+        <AddProfessionalWizard
+          open={addWizardOpen}
+          onOpenChange={handleWizardOpenChange}
+          professional={editing}
+        />
+      )}
     </div>
   );
 }

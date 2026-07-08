@@ -14,6 +14,8 @@ export type ShellClient = {
   initials: string;
   avatarColor: string;
   health: ClientHealth;
+  // True when at least one portfolio org member was active recently.
+  hasActiveMember: boolean;
 };
 
 // Manager identity shown in the header and sidebar footer.
@@ -22,12 +24,15 @@ export type ShellManager = {
   initials: string;
 };
 
-// Health → status dot color, shared by sidebar, tabs, and tables.
+// Health → status dot color, shared by workspace tabs and tables.
 export const HEALTH_DOT: Record<ClientHealth, string> = {
   healthy: "bg-emerald-500",
   "needs-attention": "bg-amber-500",
   critical: "bg-red-500",
 };
+
+// Portfolio member presence dot — shown in the sidebar client list.
+export const PRESENCE_DOT_ACTIVE = "bg-emerald-500";
 
 // Sentinel client id for the manager's own book — exposed here so client
 // components can reference it without importing the server-only queries module.

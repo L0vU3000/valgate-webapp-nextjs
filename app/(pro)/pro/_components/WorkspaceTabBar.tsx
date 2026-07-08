@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Home, X, Plus, ChevronRight } from "lucide-react";
 import { cn } from "@/components/ui/utils";
 import { useWorkspaceTabs, type WorkspaceTab } from "./WorkspaceTabProvider";
-import { HEALTH_DOT } from "./pro-shell-types";
+import { PRESENCE_DOT_ACTIVE } from "./pro-shell-types";
 
 export function WorkspaceTabBar() {
   const {
@@ -230,13 +230,15 @@ function WorkspaceTabItem({
             >
               {tab.initials}
             </span>
-            <span
-              aria-hidden
-              className={cn(
-                "h-1.5 w-1.5 shrink-0 rounded-full",
-                HEALTH_DOT[tab.health],
-              )}
-            />
+            {tab.hasActiveMember && (
+              <span
+                aria-label="Portfolio member active"
+                className={cn(
+                  "h-1.5 w-1.5 shrink-0 rounded-full",
+                  PRESENCE_DOT_ACTIVE,
+                )}
+              />
+            )}
             <span className="min-w-0 truncate">{label}</span>
           </>
         )}

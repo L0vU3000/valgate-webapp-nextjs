@@ -2,10 +2,15 @@ import "server-only";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { clerkClient } from "@clerk/nextjs/server";
 import { db } from "@/lib/db/client";
-import { clientHandoffs, organizationMemberships, organizations, users } from "@/lib/db/schema";
+import { clientHandoffs, clients, organizationMemberships, organizations, users } from "@/lib/db/schema";
 import { getClientInvitationRedirectUrl } from "@/lib/app-origin";
 import { nextId, assertCanMutate, type Ctx } from "@/lib/services/_mapping";
-import { upsertOrg, upsertMembership, removeMembership } from "@/lib/services/identity-sync";
+import {
+  upsertOrg,
+  upsertMembership,
+  removeMembership,
+  isClientPortfolioMemberActive,
+} from "@/lib/services/identity-sync";
 import { assertOrgAdmin } from "@/lib/services/_crud";
 import { AccessError } from "@/lib/services/managers";
 import { createPropertyForOrg, bulkAssignProperties } from "@/lib/services/properties";
@@ -555,6 +560,8 @@ export type PortfolioMember = {
   email: string;
   role: PortfolioRole;
   isYou: boolean;
+  // True when this member was active within MEMBER_ACTIVE_THRESHOLD_MS.
+  isActive: boolean;
 };
 
 export type PortfolioInvitee = {
@@ -577,6 +584,21 @@ export async function listPortfolioMembers(
 ): Promise<{ members: PortfolioMember[]; invitees: PortfolioInvitee[] }> {
   await assertOrgAdmin(ctx, orgId);
 
+  const [managerRow] = await db
+    .select({ managerUserId: clients.managerUserId })
+    .from(clients)
+    .where(eq(clients.orgId, orgId))
+    .limit(1);
+  let managerUserId = managerRow?.managerUserId;
+  if (!managerUserId) {
+    const [handoffRow] = await db
+      .select({ managerUserId: clientHandoffs.managerUserId })
+      .from(clientHandoffs)
+      .where(eq(clientHandoffs.orgId, orgId))
+      .limit(1);
+    managerUserId = handoffRow?.managerUserId;
+  }
+
   const memberRows = await db
     .select({
       clerkUserId: users.clerkUserId,
@@ -584,6 +606,7 @@ export async function listPortfolioMembers(
       primaryEmail: users.primaryEmail,
       role: organizationMemberships.role,
       userId: organizationMemberships.userId,
+      lastActiveAt: users.lastActiveAt,
     })
     .from(organizationMemberships)
     .innerJoin(users, eq(users.id, organizationMemberships.userId))
@@ -600,6 +623,11 @@ export async function listPortfolioMembers(
     email: row.primaryEmail,
     role: orgRoleToPortfolioRole(row.role),
     isYou: row.userId === ctx.userId,
+    isActive: isClientPortfolioMemberActive(
+      row.lastActiveAt,
+      row.userId,
+      managerUserId,
+    ),
   }));
 
   const inviteeRows = await db

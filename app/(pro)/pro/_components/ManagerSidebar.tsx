@@ -23,6 +23,9 @@ import {
   ArrowLeft,
   ChevronDown,
   ChevronsUpDown,
+  BookUser,
+  BarChart2,
+  Landmark,
 } from "lucide-react";
 import { cn } from "@/components/ui/utils";
 import {
@@ -34,7 +37,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useWorkspaceTabs } from "./WorkspaceTabProvider";
 import {
-  HEALTH_DOT,
+  PRESENCE_DOT_ACTIVE,
   type ShellClient,
   type ShellManager,
 } from "./pro-shell-types";
@@ -53,16 +56,27 @@ const PRIMARY_NAV = [
 ] as const;
 
 // Client-workspace navigation (Client context): the manager's per-client
-// cockpit — the Dashboard cards scoped to one client (NOT the client's owner
-// views, which live behind "View as client"). `path` is appended to the client
-// base `/pro/clients/[id]`; Overview is the base itself (path "").
+// cockpit — the Dashboard cards scoped to one client. `path` is appended to
+// the client base `/pro/clients/[id]`; Overview is the base itself (path "").
+// Directory/Analytics/Estate Planning have no manager-cockpit equivalent, so
+// they route straight into the client's real "as-client" pages (the same
+// ones behind "View as client") instead of duplicating that page content.
+// Directory renders read-only there (professional writes aren't audited yet
+// — see align-client-manager-parity tasks.md 3.3).
 const CLIENT_SECTIONS = [
   { label: "Overview", icon: LayoutDashboard, path: "" },
   { label: "Properties", icon: Building2, path: "/properties" },
   { label: "Financials", icon: Banknote, path: "/financials" },
+  { label: "Directory", icon: BookUser, path: "/as-client/directory" },
   { label: "Work Orders", icon: Wrench, path: "/work-orders" },
   { label: "Compliance", icon: ShieldCheck, path: "/compliance" },
   { label: "Activity", icon: Activity, path: "/activity" },
+  { label: "Analytics", icon: BarChart2, path: "/as-client/analytics" },
+  {
+    label: "Estate Planning",
+    icon: Landmark,
+    path: "/as-client/estate-planning",
+  },
 ] as const;
 
 // Left sidebar of the Pro shell. Contextual (multitasking model "A"): in the
@@ -298,13 +312,15 @@ function PortfolioContextNav({
                 <span className="min-w-0 flex-1 truncate text-[13px] font-medium">
                   {client.name}
                 </span>
-                <span
-                  aria-hidden
-                  className={cn(
-                    "h-1.5 w-1.5 shrink-0 rounded-full",
-                    HEALTH_DOT[client.health],
-                  )}
-                />
+                {client.hasActiveMember && (
+                  <span
+                    aria-label="Portfolio member active"
+                    className={cn(
+                      "h-1.5 w-1.5 shrink-0 rounded-full",
+                      PRESENCE_DOT_ACTIVE,
+                    )}
+                  />
+                )}
                 {tabOpen && (
                   <Pin
                     aria-label="Open in workspace tab"
@@ -378,12 +394,12 @@ function ClientContextNav({
           </div>
           <div className="text-[11px] text-secondary">Client portfolio</div>
         </div>
-        {client && (
+        {client?.hasActiveMember && (
           <span
-            aria-hidden
+            aria-label="Portfolio member active"
             className={cn(
               "h-1.5 w-1.5 shrink-0 rounded-full",
-              HEALTH_DOT[client.health],
+              PRESENCE_DOT_ACTIVE,
             )}
           />
         )}

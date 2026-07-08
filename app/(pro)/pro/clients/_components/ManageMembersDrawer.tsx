@@ -25,6 +25,7 @@ import type { PortfolioMember, PortfolioInvitee } from "@/app/(pro)/pro/queries"
 import type { PortfolioRole } from "@/lib/services/client-onboarding";
 import type { ActionResult } from "@/app/actions/_result";
 import { proInputClass } from "@/app/(pro)/pro/_components/pro-modal";
+import { PRESENCE_DOT_ACTIVE } from "@/app/(pro)/pro/_components/pro-shell-types";
 
 // A loose email check — server is the real authority.
 function isValidEmail(v: string): boolean {
@@ -221,6 +222,12 @@ export function ManageMembersDrawer({
 
   if (!open) return null;
 
+  const onlineCount = members.filter((member) => member.isActive).length;
+  const sortedMembers = [...members].sort((a, b) => {
+    if (a.isActive === b.isActive) return 0;
+    return a.isActive ? -1 : 1;
+  });
+
   return (
     <>
       {/* Backdrop */}
@@ -259,10 +266,11 @@ export function ManageMembersDrawer({
               {members.length > 0 && (
                 <section>
                   <h3 className="mb-2.5 text-[11.5px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                    Members ({members.length})
+                    Members ({members.length}
+                    {onlineCount > 0 ? ` · ${onlineCount} online` : ""})
                   </h3>
                   <ul className="flex flex-col gap-1">
-                    {members.map((member) => (
+                    {sortedMembers.map((member) => (
                       <MemberRow
                         key={member.clerkUserId}
                         member={member}
@@ -388,18 +396,34 @@ function MemberRow({
   return (
     <li className="flex items-center justify-between gap-2 rounded-lg border border-slate-100 px-2.5 py-2 dark:border-slate-800">
       <div className="flex items-center gap-2.5">
-        <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-200 text-[11px] font-semibold text-slate-600 dark:bg-slate-700 dark:text-slate-300">
+        <span className="relative inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-200 text-[11px] font-semibold text-slate-600 dark:bg-slate-700 dark:text-slate-300">
           {initials(member.name, member.email)}
+          {member.isActive && (
+            <span
+              aria-hidden
+              className={cn(
+                "absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white dark:border-slate-900",
+                PRESENCE_DOT_ACTIVE,
+              )}
+            />
+          )}
         </span>
         <div className="flex flex-col leading-tight">
-          <span className="text-[12.5px] font-medium text-slate-800 dark:text-slate-100">
-            {member.name ?? member.email}
-            {member.isYou && (
-              <span className="ml-1.5 text-[11px] font-normal text-slate-400 dark:text-slate-500">
-                (You)
+          <div className="flex items-center gap-1.5">
+            <span className="text-[12.5px] font-medium text-slate-800 dark:text-slate-100">
+              {member.name ?? member.email}
+              {member.isYou && (
+                <span className="ml-1.5 text-[11px] font-normal text-slate-400 dark:text-slate-500">
+                  (You)
+                </span>
+              )}
+            </span>
+            {member.isActive && (
+              <span className="text-[10.5px] font-medium text-emerald-600 dark:text-emerald-400">
+                Online
               </span>
             )}
-          </span>
+          </div>
           {member.name && (
             <span className="text-[11px] text-slate-500 dark:text-slate-400">{member.email}</span>
           )}
