@@ -16,9 +16,12 @@ import {
   Command as CommandIcon,
   ArrowUpRight,
   MapPin,
+  Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
+import { getPropertyCoverUrl } from "@/app/actions/property-photos";
+import { pickHeroImage } from "@/lib/property-hero";
 import { cn } from "@/components/ui/utils";
 import { progressClass, progressBgClass, titleToVariant } from "@/lib/property-helpers";
 import type { HomeProperty, TitleVariant, PortfolioStats } from "@/app/(shell)/queries";
@@ -76,6 +79,9 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
   const [placeholderVisible, setPlaceholderVisible] = useState(true);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [isSatellite, setIsSatellite] = useState(false);
+  // Cover photo for the currently-open drawer, resolved lazily when a pin is selected
+  // (signed urls are short-lived, so we sign one on open rather than all up front).
+  const [drawerCover, setDrawerCover] = useState<{ id: string; url: string | null } | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const router = useRouter();
 
@@ -121,6 +127,18 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
     (closingKey ? initialProperties.find((p) => p.id === closingKey) : null);
   const isDrawerClosing = !selectedProperty && closingKey !== null;
 
+  // Drawer hero: real cover photo → the property's static map → placeholder (via the
+  // shared ladder). Replaces the old hardcoded stock image. The map url mirrors the
+  // overview hero's Mapbox static-image format.
+  const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+  const drawerMapUrl =
+    drawerProperty && mapboxToken && (drawerProperty.lat !== 0 || drawerProperty.lng !== 0)
+      ? `https://api.mapbox.com/styles/v1/mapbox/light-v11/static/pin-l+2563eb(${drawerProperty.lng},${drawerProperty.lat})/${drawerProperty.lng},${drawerProperty.lat},13,0/640x360@2x?access_token=${mapboxToken}`
+      : null;
+  const drawerCoverUrl =
+    drawerCover && drawerProperty && drawerCover.id === drawerProperty.id ? drawerCover.url : null;
+  const drawerHero = pickHeroImage(drawerCoverUrl, drawerMapUrl);
+
   const closeDrawer = useCallback(() => {
     const pin = selectedPin;
     if (!pin) return;
@@ -141,6 +159,17 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
     },
     [selectedPin, closeDrawer],
   );
+
+  // Resolve the selected property's cover photo when a drawer opens. A missing/expired
+  // cover resolves to null, so the drawer hero falls back to the map (then placeholder).
+  useEffect(() => {
+    if (!selectedPin) return;
+    let cancelled = false;
+    getPropertyCoverUrl(selectedPin).then((result) => {
+      if (!cancelled && result.ok) setDrawerCover({ id: selectedPin, url: result.data.url });
+    });
+    return () => { cancelled = true; };
+  }, [selectedPin]);
 
   return (
     <div className="flex flex-col flex-1 min-w-0 h-full">
@@ -298,11 +327,12 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
               <div className="h-1 w-9 rounded-full bg-white/60" />
             </div>
 
-            {/* Hero image with overlay info */}
+            {/* Hero image with overlay info — real cover photo, else the property's map */}
             <div className="relative shrink-0 overflow-hidden">
               <ImageWithFallback
-                src="https://images.unsplash.com/photo-1665691964802-956fc06b93cf?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxsdXh1cnklMjBob3VzZSUyMGRyaXZld2F5JTIwbmlnaHR8ZW58MXx8fHwxNzczNzM0NjE4fDA&ixlib=rb-4.1.0&q=80&w=1080"
-                alt={drawerProperty.name}
+                key={drawerHero?.src ?? "placeholder"}
+                src={drawerHero?.src ?? ""}
+                alt={drawerHero?.kind === "cover" ? `${drawerProperty.name} cover photo` : drawerProperty.name}
                 className="w-full h-44 object-cover [animation:card-image-reveal_0.5s_cubic-bezier(0.16,1,0.3,1)_0.15s_both]"
               />
               {/* Scrim gradient */}
@@ -328,15 +358,26 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
                 </span>
               </div>
               {/* Title overlay */}
-              <div className="absolute bottom-0 left-0 right-0 px-4 pb-3.5">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-white/70">{drawerProperty.code}</p>
-                <h3 className="text-[15px] sm:text-[18px] font-display font-semibold text-white leading-snug mt-0.5">{drawerProperty.name}</h3>
-                <div className="flex items-center gap-1 mt-1">
-                  <MapPin className="size-3 text-white/50 shrink-0" />
-                  <span className="text-xs text-white/65 truncate">
-                    {[drawerProperty.city, drawerProperty.province].filter(Boolean).join(", ")}
-                  </span>
+              <div className="absolute bottom-0 left-0 right-0 px-4 pb-3.5 flex items-end justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-white/70">{drawerProperty.code}</p>
+                  <h3 className="text-[15px] sm:text-[18px] font-display font-semibold text-white leading-snug mt-0.5">{drawerProperty.name}</h3>
+                  <div className="flex items-center gap-1 mt-1">
+                    <MapPin className="size-3 text-white/50 shrink-0" />
+                    <span className="text-xs text-white/65 truncate">
+                      {[drawerProperty.city, drawerProperty.province].filter(Boolean).join(", ")}
+                    </span>
+                  </div>
                 </div>
+                {/* Small edit-property button → overview with the edit wizard auto-opened */}
+                <button
+                  onClick={() => router.push(`/property/${drawerProperty.id}/overview?edit=1`)}
+                  aria-label="Edit property"
+                  className="shrink-0 inline-flex items-center gap-1.5 rounded-full bg-white/15 backdrop-blur-sm border border-white/25 text-white text-[11px] font-semibold px-2.5 py-1 hover:bg-white/25 active:scale-95 transition-[background-color,transform] duration-150"
+                >
+                  <Pencil className="size-3" />
+                  Edit
+                </button>
               </div>
             </div>
 
@@ -504,10 +545,17 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
             </div>
 
             {/* CTA */}
-            <div className="px-4 py-3 shrink-0 border-t border-border-default [animation:card-row-in_0.35s_cubic-bezier(0.16,1,0.3,1)_0.5s_both]">
+            <div className="px-4 py-3 shrink-0 border-t border-border-default flex items-center gap-2 [animation:card-row-in_0.35s_cubic-bezier(0.16,1,0.3,1)_0.5s_both]">
+              <button
+                onClick={() => router.push(`/property/${drawerProperty.id}/overview?edit=1`)}
+                aria-label="Edit property"
+                className="shrink-0 flex items-center justify-center size-10 rounded-lg border border-border-default text-secondary hover:bg-surface-tint hover:text-foreground active:scale-[0.98] transition-all duration-150"
+              >
+                <Pencil className="size-4" />
+              </button>
               <button
                 onClick={() => router.push(`/property/${drawerProperty.id}`)}
-                className="group w-full flex items-center justify-between px-4 py-2.5 rounded-lg bg-interactive-primary text-white text-sm font-medium hover:brightness-110 active:scale-[0.98] transition-all duration-150"
+                className="group flex-1 flex items-center justify-between px-4 py-2.5 rounded-lg bg-interactive-primary text-white text-sm font-medium hover:brightness-110 active:scale-[0.98] transition-all duration-150"
               >
                 View Property
                 <ArrowUpRight className="size-4 transition-transform duration-150 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />

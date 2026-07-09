@@ -9,5 +9,6 @@
   "lng": 104.9229,
   "createdAt": 1779356162887,
   "updatedAt": 1779356162887,
-  "clientId": "CLI-0101"
+  "clientId": "CLI-0101",
+  "orgId": "ORG-0001"
 }

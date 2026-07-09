@@ -1,15 +1,16 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   FileText, Wrench, Bell,
-  MoreHorizontal, Download, Pencil,
+  MoreHorizontal, Download, Pencil, Camera,
   DollarSign, AlertTriangle, Clock, UserCheck,
   Building2, Maximize2, Calendar, MapPin,
   BedDouble, Bath, Car, FileCheck,
   TrendingUp, TrendingDown,
-  Info, ArrowUpRight,
+  Info, ArrowUpRight, ClipboardList,
   type LucideIcon,
 } from "lucide-react";
 import { ProgressExplainerModal } from "@/components/portfolio/ProgressExplainerModal";
@@ -44,6 +45,9 @@ import { PropertyLayout } from "@/components/property/PropertyLayout";
 import { usePropertyShell } from "@/components/property/PropertyShellContext";
 import { StackedCardTable } from "@/components/ui/stacked-card-table";
 import { PropertyPhotoManager } from "./PropertyPhotoManager";
+import { SelectCoverPhotoModal } from "@/components/property/SelectCoverPhotoModal";
+import { getPropertyCoverUrl } from "@/app/actions/property-photos";
+import { pickHeroImage } from "@/lib/property-hero";
 
 /* ─── Helper types ────────────────────────────────────────────────────────── */
 
@@ -327,13 +331,42 @@ export function PropertyOverviewPage({
   // dismiss (and its undo) just shows/hides the row. NOTE: this resets on
   // reload by design until a real alerts/notifications-read backend exists.
   const [dismissedAlertIds, setDismissedAlertIds] = useState<Set<string | number>>(new Set());
+  // Cover photo: resolved lazily on mount (signed urls are short-lived, so we sign on
+  // render rather than threading one through the server props). null until loaded / if none.
+  const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const [coverModalOpen, setCoverModalOpen] = useState(false);
   const shell = usePropertyShell();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
     setReducedMotion(mq.matches);
     requestAnimationFrame(() => requestAnimationFrame(() => setMounted(true)));
   }, []);
+
+  // Fetch the signed cover url once on mount. A missing/expired cover resolves to null,
+  // so the hero cleanly falls back to the map.
+  useEffect(() => {
+    let cancelled = false;
+    getPropertyCoverUrl(property.id).then((result) => {
+      if (!cancelled && result.ok) setCoverUrl(result.data.url);
+    });
+    return () => { cancelled = true; };
+  }, [property.id]);
+
+  // Deep-link support: /property/[id]/overview?edit=1 auto-opens the edit wizard. This is
+  // how the home map drawer's "Edit property" button lands the owner straight into editing.
+  // Guarded so it fires ONCE per mount: saving inside the wizard calls router.refresh(),
+  // which hands useSearchParams() a fresh object — without this ref the effect would re-run
+  // and reopen the dialog the user just saved-and-closed.
+  const editParamHandledRef = useRef(false);
+  useEffect(() => {
+    if (editParamHandledRef.current) return;
+    if (searchParams.get("edit") === "1") {
+      editParamHandledRef.current = true;
+      shell?.openPropertyWizard();
+    }
+  }, [searchParams, shell]);
 
   const now = Date.now();
 
@@ -462,6 +495,9 @@ export function PropertyOverviewPage({
     ? `https://api.mapbox.com/styles/v1/mapbox/${mapStyleId}/static/pin-l+2563eb(${property.lng},${property.lat})/${property.lng},${property.lat},13,0/1280x360@2x?access_token=${mapboxToken}`
     : null;
 
+  // Hero image: cover photo → map → (null → plain dark backdrop). Shared with the home drawer.
+  const hero = pickHeroImage(coverUrl, heroMapUrl);
+
   /* ── KPI metrics ── */
   const metrics = [
     {
@@ -553,14 +589,14 @@ export function PropertyOverviewPage({
             strip stay near the top of the fold; tablet+ keeps the original
             360px immersive height. */}
         <div className="relative h-[240px] sm:h-[360px] overflow-hidden flex items-end">
-          {/* Map background */}
+          {/* Hero background — cover photo if set, otherwise the property's map */}
           <div className="absolute inset-0 bg-slate-900">
-            {heroMapUrl && (
+            {hero && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                key={heroMapUrl}
-                src={heroMapUrl}
-                alt=""
+                key={hero.src}
+                src={hero.src}
+                alt={hero.kind === "cover" ? `${property.name} cover photo` : ""}
                 className="absolute inset-0 w-full h-full object-cover object-center"
                 style={{
                   transform: reducedMotion ? undefined : mounted ? "scale(1)" : "scale(1.06)",
@@ -599,6 +635,15 @@ export function PropertyOverviewPage({
               </h1>
             </div>
             <div className="flex items-center gap-2.5 shrink-0" style={heroIn(340)}>
+              <button
+                type="button"
+                onClick={() => setCoverModalOpen(true)}
+                className="bg-white/10 backdrop-blur-sm border border-white/20 text-white text-[13px] font-semibold px-4 py-2 rounded flex items-center gap-2 hover:bg-white/20 active:scale-[0.97] transition-[background-color,transform] duration-150"
+                aria-label="Change cover photo"
+              >
+                <Camera className="w-3.5 h-3.5" />
+                Change cover
+              </button>
               <button
                 type="button"
                 onClick={() => shell?.openPropertyWizard()}
@@ -1190,7 +1235,7 @@ export function PropertyOverviewPage({
           </div>
           {recentActivities.length === 0 ? (
             <div className="px-5 py-10 flex flex-col items-center gap-2 text-center">
-              <span className="text-2xl select-none">📋</span>
+              <ClipboardList className="w-6 h-6 text-slate-300" />
               <p className="text-[13px] font-medium text-slate-500">No activity yet</p>
               <p className="text-[12px] text-slate-400">Actions like archiving, adding photos, or updating records will appear here.</p>
             </div>
@@ -1220,6 +1265,12 @@ export function PropertyOverviewPage({
       <ProgressExplainerModal
         open={progressExplainerOpen}
         onClose={() => setProgressExplainerOpen(false)}
+      />
+      <SelectCoverPhotoModal
+        propertyId={property.id}
+        open={coverModalOpen}
+        onOpenChange={setCoverModalOpen}
+        onCoverChanged={(next) => setCoverUrl(next?.url ?? null)}
       />
     </PropertyLayout>
   );
