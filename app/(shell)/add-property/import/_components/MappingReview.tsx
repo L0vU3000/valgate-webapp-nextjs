@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { AlertTriangle, ArrowRight, Loader2, MapPin } from "lucide-react";
+import { AlertTriangle, ArrowRight, FileSpreadsheet, Loader2, MapPin } from "lucide-react";
 import type { ColumnMapping, MappableField } from "@/lib/services/property-import";
 import type { FormData as WizardForm } from "@/app/_shared/add-property/types";
 
@@ -49,11 +49,13 @@ function rowIssues(form: WizardForm): string[] {
 
 export function MappingReview({
   mapping,
+  detectedSheet,
   initialCandidates,
   onImport,
   onCancel,
 }: {
   mapping: ColumnMapping;
+  detectedSheet: string | null;
   initialCandidates: Row[];
   onImport: (forms: WizardForm[]) => Promise<void>;
   onCancel: () => void;
@@ -83,6 +85,13 @@ export function MappingReview({
 
   return (
     <div>
+      {detectedSheet && (
+        <div className="mb-4 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          <FileSpreadsheet className="h-4 w-4 shrink-0" />
+          Found your properties in the <span className="font-semibold">&ldquo;{detectedSheet}&rdquo;</span> sheet.
+        </div>
+      )}
+
       {/* AI column match summary */}
       <div className="mb-6 rounded-xl border border-slate-200 bg-white p-4">
         <p className="mb-3 text-sm font-semibold text-slate-900">

@@ -1,90 +1,64 @@
 // Client-side spreadsheet parsing for the bulk property importer. Turns a user's uploaded CSV or
-// Excel file into a plain { headers, rows } shape the rest of the flow works with. Runs in the
-// browser (it takes a File), so no "server-only" here.
+// Excel file into raw per-sheet cell matrices — NO assumption about which sheet holds the properties
+// or which row is the header (real Valgate templates are multi-sheet with title/category rows on top).
+// An AI step downstream picks the property sheet + header row. Runs in the browser (takes a File).
 
 import Papa from "papaparse";
 // This version of read-excel-file has no root export; the main-thread browser build is at the
-// `/browser` subpath. `readSheet(file)` reads the first sheet and returns rows (arrays of cells),
-// first row = headers. (The default export returns per-sheet wrappers, not rows.)
-import { readSheet } from "read-excel-file/browser";
+// `/browser` subpath. Its default export reads the whole workbook and returns one wrapper per sheet
+// ({ sheet: name, data: rows }).
+import readXlsxFile from "read-excel-file/browser";
 
 export const MAX_IMPORT_ROWS = 100;
 
-export type ParsedSheet = {
-  headers: string[];
-  // One object per data row, keyed by header. Every value is a string (we normalise/parse later).
-  rows: Record<string, string>[];
-};
+// One worksheet as a raw matrix of trimmed string cells (rows × columns), header position unknown.
+export type SheetMatrix = { name: string; matrix: string[][] };
 
 export class SpreadsheetError extends Error {}
 
-// Detects CSV vs Excel by extension, parses accordingly, and enforces the row cap. Throws a
-// SpreadsheetError with a user-facing message on unsupported files or when the cap is exceeded.
-export async function parseSpreadsheet(file: File): Promise<ParsedSheet> {
+const cell = (c: unknown): string => String(c ?? "").trim();
+
+// Detect CSV vs Excel by extension and return every sheet as a raw string matrix.
+export async function parseWorkbook(file: File): Promise<SheetMatrix[]> {
   const name = file.name.toLowerCase();
-  let sheet: ParsedSheet;
+  let sheets: SheetMatrix[];
 
   if (name.endsWith(".csv")) {
-    sheet = await parseCsv(file);
+    sheets = [await parseCsv(file)];
   } else if (name.endsWith(".xlsx")) {
-    sheet = await parseXlsx(file);
+    sheets = await parseXlsx(file);
   } else {
     throw new SpreadsheetError("Unsupported file. Please upload a .csv or .xlsx spreadsheet.");
   }
 
-  if (sheet.headers.length === 0) {
-    throw new SpreadsheetError("That file has no column headers in its first row.");
+  // Keep only sheets that actually have some content.
+  const nonEmpty = sheets.filter((s) => s.matrix.some((row) => row.some((c) => c !== "")));
+  if (nonEmpty.length === 0) {
+    throw new SpreadsheetError("That file appears to be empty.");
   }
-  if (sheet.rows.length === 0) {
-    throw new SpreadsheetError("That file has headers but no data rows.");
-  }
-  if (sheet.rows.length > MAX_IMPORT_ROWS) {
-    throw new SpreadsheetError(
-      `That file has ${sheet.rows.length} rows. Bulk import currently supports up to ${MAX_IMPORT_ROWS} at a time — please split it and try again.`,
-    );
-  }
-  return sheet;
+  return nonEmpty;
 }
 
-function parseCsv(file: File): Promise<ParsedSheet> {
+function parseCsv(file: File): Promise<SheetMatrix> {
   return new Promise((resolve, reject) => {
-    Papa.parse<Record<string, string>>(file, {
-      header: true,
+    // header: false — we don't know which row is the header yet, so parse raw rows.
+    Papa.parse<string[]>(file, {
+      header: false,
       skipEmptyLines: true,
-      transformHeader: (h) => h.trim(),
       complete: (result) => {
-        const headers = (result.meta.fields ?? []).map((h) => h.trim()).filter(Boolean);
-        // Papa gives objects keyed by header; coerce every value to a trimmed string.
-        const rows = result.data
-          .map((row) => {
-            const out: Record<string, string> = {};
-            for (const h of headers) out[h] = String(row[h] ?? "").trim();
-            return out;
-          })
-          .filter((row) => Object.values(row).some((v) => v !== ""));
-        resolve({ headers, rows });
+        const matrix = result.data.map((row) => row.map(cell));
+        resolve({ name: file.name.replace(/\.csv$/i, ""), matrix });
       },
       error: (err) => reject(new SpreadsheetError(err.message)),
     });
   });
 }
 
-async function parseXlsx(file: File): Promise<ParsedSheet> {
-  // readSheet returns an array of rows, each row an array of cell values (first sheet).
-  const matrix = await readSheet(file);
-  if (matrix.length === 0) return { headers: [], rows: [] };
-
-  const headers = matrix[0]!.map((c) => String(c ?? "").trim());
-  const rows = matrix
-    .slice(1)
-    .map((cells) => {
-      const out: Record<string, string> = {};
-      headers.forEach((h, i) => {
-        if (h) out[h] = String(cells[i] ?? "").trim();
-      });
-      return out;
-    })
-    .filter((row) => Object.values(row).some((v) => v !== ""));
-
-  return { headers: headers.filter(Boolean), rows };
+async function parseXlsx(file: File): Promise<SheetMatrix[]> {
+  // Default export returns [{ sheet, data }] for every worksheet in the workbook.
+  const sheets = await readXlsxFile(file);
+  return sheets.map((s) => ({
+    name: s.sheet,
+    matrix: s.data.map((row) => row.map(cell)),
+  }));
 }

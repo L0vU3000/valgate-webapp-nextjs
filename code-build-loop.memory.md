@@ -13,3 +13,12 @@
 - **GOTCHA (cost me a tsc cycle):** the add-property wizard has TWO duplicate `types.ts` — `app/_shared/add-property/types.ts` (used by Step2/3/4 + shared helpers) AND `app/(shell)/add-property/_components/types.ts` (used by AddPropertyFlow + Step0NewOrDraft). They're structurally identical so cross-assignable — but editing the `method` union in only one diverges them and breaks Partial<FormData>/DraftRecord assignments. Always edit BOTH.
 - **Note:** `new FormData()` in a file that does `import type { FormData } from "./types"` correctly resolves to the DOM global (type-only import doesn't shadow the value). Verified via tsc + build.
 - **Verify:** interactive E2E (real scan → prefill → attach) left to the user — needs running app + login + OPENAI_API_KEY set + a sample document.
+
+## 2026-07-09 — Cycle 2 (import + scan) driven by REAL user files (first true E2E)
+- Ran the actual AI pipeline on a real multi-sheet Valgate workbook + a real handwritten Khmer land deed. Live E2E caught 3 issues static checks missed:
+  1. Import read only sheet 1 (VALUATION HISTORY) — real property data was in "MAIN INVENTORY" (sheet 11). Fix: AI picks the property sheet from previews of all sheets (parse-spreadsheet now returns ALL sheets as raw matrices via read-excel-file's DEFAULT export = per-sheet wrappers, not readSheet).
+  2. Asking the model for the header ROW index was off by one (returned the blank row 2, real headers on row 3) → empty import. Fix: AI picks only the SHEET; find the header row in CODE (findHeaderRow = fullest row within first 20 that has data below). Deterministic > model row-index.
+  3. Scan returned "Unknown" strings + "2000 square meters" (units) → junk prefill + failed numeric validation. Fix: harden prompt (null not placeholder, digits only) + clean() placeholders and numeric() unit-strip in scanToForm.
+- LESSON: happy-path CSV/sample tests hide real-file failure modes. Multi-sheet + multi-row-header + placeholder/units are the real-world shape. Test with a REAL user export early.
+- LESSON: put pure logic (extractRows, findHeaderRow) in its own dep-free module (extract-rows.ts), NOT in parse-spreadsheet.ts which imports read-excel-file/browser (won't import in node/vitest). Keeps it unit-testable.
+- Verified: tsc 0, eslint clean, 11/11 unit tests, next build passes. Real-file AI runs: workbook→MAIN INVENTORY/row3/6 props/sensible mapping; deed→clean nulls + digit-only area/price.

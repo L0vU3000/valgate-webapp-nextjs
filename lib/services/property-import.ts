@@ -100,6 +100,45 @@ export async function mapColumns(
   }
 }
 
+// A compact preview of one sheet: its name + the first several rows, used only for sheet detection.
+export type SheetPreview = { name: string; rows: string[][] };
+// Which sheet holds the properties. (The header ROW is found deterministically in code — see
+// findHeaderRow — because a model returns an unreliable, off-by-one row index.)
+export type SheetLayout = { sheetName: string };
+
+const layoutSchema = z.object({
+  sheetName: z.string().describe("Exact name of the sheet that is a register of individual properties"),
+});
+
+// Ask the model ONCE which sheet in a workbook is the property register. Real templates are multi-sheet
+// (valuations, tenants, leases, …) so "first sheet" is not safe to assume. Returns null when the AI is
+// unavailable or can't decide, so the caller can fall back to the first sheet. Only the sheet choice is
+// asked of the model — the header row is a code heuristic, since model row-index answers are off by one.
+export async function detectPropertyLayout(previews: SheetPreview[]): Promise<SheetLayout | null> {
+  if (!env.OPENAI_API_KEY) return null;
+  if (previews.length === 0) return null;
+
+  try {
+    const { object } = await generateObject({
+      model: openai("gpt-4o-mini"),
+      schema: layoutSchema,
+      prompt: [
+        "A workbook has multiple sheets. Identify the ONE sheet that is a register of individual real-estate",
+        "properties — one row per property, with columns like address, area, property type, or owner.",
+        "Do NOT pick sheets about tenants, leases, valuations, taxes, security, documents, or succession.",
+        "",
+        `Sheets (name + first rows): ${JSON.stringify(previews)}`,
+      ].join("\n"),
+    });
+    // Guard against a hallucinated sheet name.
+    if (!previews.some((p) => p.name === object.sheetName)) return null;
+    return object;
+  } catch (err) {
+    log.warn("property-import detectPropertyLayout failed", { err: String(err) });
+    return null;
+  }
+}
+
 // Coerce a free-text property type into one of the wizard's allowed enum values.
 function normalizeType(raw: string): string {
   const v = raw.toLowerCase();

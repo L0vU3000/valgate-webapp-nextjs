@@ -55,4 +55,32 @@ describe("scanToForm", () => {
     // A present field still comes through
     expect(patch.propertyName).toBe("Riverside Villa");
   });
+
+  it("blanks placeholder strings the model returns instead of null", () => {
+    const withPlaceholders: ExtractedProperty = {
+      ...full,
+      propertyName: "Unknown",
+      city: "N/A",
+      addressLine: "-",
+      ownershipStatus: "Not specified",
+    };
+    const patch = scanToForm(withPlaceholders);
+    expect(patch.propertyName).toBe("");
+    expect(patch.city).toBe("");
+    expect(patch.addressLine).toBe("");
+    expect(patch.ownershipStatus).toBe("");
+  });
+
+  it("strips units and separators from numeric fields so they pass wizard validation", () => {
+    const messy: ExtractedProperty = {
+      ...full,
+      totalArea: "2000 square meters",
+      currentMarketValue: "12,000,000",
+      bedrooms: "4 beds",
+    };
+    const patch = scanToForm(messy);
+    expect(patch.totalArea).toBe("2000");
+    expect(patch.currentMarketValue).toBe("12000000");
+    expect(patch.bedrooms).toBe("4");
+  });
 });

@@ -40,7 +40,10 @@ const EXTRACTION_PROMPT = [
   "This is a property document — a title deed, lease, listing, sale agreement, invoice, or similar.",
   "Extract the property's details into the given fields.",
   "Translate any non-English text (for example Khmer) into English.",
-  "Return null for any field the document does not clearly state — do NOT guess or infer a value.",
+  "Return null for any field the document does not clearly state — do NOT guess or infer a value,",
+  "and NEVER use a placeholder like \"Unknown\", \"N/A\", or \"-\"; use null instead.",
+  "For numeric fields (total area, prices, bedroom/bathroom/parking counts, year) return digits only —",
+  "no units, currency symbols, or thousands separators (e.g. \"2000\", not \"2,000 sq m\").",
 ].join(" ");
 
 // One model call: hand the raw file to gpt-4o-mini (it reads PDFs and images directly, no separate

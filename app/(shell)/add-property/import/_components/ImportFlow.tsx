@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { ChevronLeft, FileSpreadsheet, Loader2, UploadCloud } from "lucide-react";
 import { toast } from "sonner";
 import { AppHeader } from "@/components/layout/AppHeader";
-import { parseSpreadsheet, SpreadsheetError, MAX_IMPORT_ROWS, type ParsedSheet } from "@/app/_shared/add-property/_lib/parse-spreadsheet";
-import { mapSpreadsheetAction, bulkCreatePropertiesAction } from "@/app/actions/property-import";
+import { parseWorkbook, SpreadsheetError, MAX_IMPORT_ROWS } from "@/app/_shared/add-property/_lib/parse-spreadsheet";
+import { extractRows, findHeaderRow } from "@/app/_shared/add-property/_lib/extract-rows";
+import { detectLayoutAction, mapSpreadsheetAction, bulkCreatePropertiesAction } from "@/app/actions/property-import";
 import type { ColumnMapping } from "@/lib/services/property-import";
 import type { FormData as WizardForm } from "@/app/_shared/add-property/types";
 import { MappingReview } from "./MappingReview";
@@ -26,6 +27,7 @@ export function ImportFlow() {
 
   const [mapping, setMapping] = useState<ColumnMapping | null>(null);
   const [candidates, setCandidates] = useState<{ form: WizardForm; needsLocation: boolean }[]>([]);
+  const [detectedSheet, setDetectedSheet] = useState<string | null>(null);
   const [done, setDone] = useState<DoneState | null>(null);
 
   async function handleFile(file: File) {
@@ -34,21 +36,52 @@ export function ImportFlow() {
       setError("File too large. Maximum size is 20 MB.");
       return;
     }
-    let sheet: ParsedSheet;
+
+    // 1. Parse every sheet to a raw matrix (header position unknown).
+    let sheets;
     try {
-      sheet = await parseSpreadsheet(file);
+      sheets = await parseWorkbook(file);
     } catch (err) {
       setError(err instanceof SpreadsheetError ? err.message : "Could not read that file.");
       return;
     }
 
     setStage("mapping");
-    const res = await mapSpreadsheetAction(sheet.headers, sheet.rows);
+
+    // 2. Ask the AI which sheet holds the properties and where its header row is. Fall back to the
+    //    first sheet / row 0 if detection is unavailable.
+    const previews = sheets.map((s) => ({ name: s.name, rows: s.matrix.slice(0, 8) }));
+    const layoutRes = await detectLayoutAction(previews);
+    if (!layoutRes.ok) {
+      setError(layoutRes.error);
+      setStage("upload");
+      return;
+    }
+    const sheetName = layoutRes.data?.sheetName ?? sheets[0]!.name;
+    const chosen = sheets.find((s) => s.name === sheetName) ?? sheets[0]!;
+
+    // 3. Find the header row (code heuristic — the fullest row with data below it) and slice the sheet
+    //    from there into header-keyed rows.
+    const { headers, rows } = extractRows(chosen.matrix, findHeaderRow(chosen.matrix));
+    if (rows.length === 0) {
+      setError(`Found the "${chosen.name}" sheet but no property rows in it. Check the file and try again.`);
+      setStage("upload");
+      return;
+    }
+    if (rows.length > MAX_IMPORT_ROWS) {
+      setError(`The "${chosen.name}" sheet has ${rows.length} rows. Bulk import supports up to ${MAX_IMPORT_ROWS} at a time — please split it and try again.`);
+      setStage("upload");
+      return;
+    }
+
+    // 4. Map columns → candidate properties (unchanged).
+    const res = await mapSpreadsheetAction(headers, rows);
     if (!res.ok) {
       setError(res.error);
       setStage("upload");
       return;
     }
+    setDetectedSheet(chosen.name);
     setMapping(res.data.mapping);
     setCandidates(res.data.candidates.map((c) => ({ form: c.form, needsLocation: c.needsLocation })));
     setStage("review");
@@ -137,16 +170,17 @@ export function ImportFlow() {
           {stage === "mapping" && (
             <div className="flex flex-col items-center justify-center gap-3 py-24 text-slate-500">
               <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
-              <p className="text-sm">Reading your columns and matching them to Valgate&apos;s fields…</p>
+              <p className="text-sm">Finding your properties and matching columns to Valgate&apos;s fields…</p>
             </div>
           )}
 
           {stage === "review" && mapping && (
             <MappingReview
               mapping={mapping}
+              detectedSheet={detectedSheet}
               initialCandidates={candidates}
               onImport={handleImport}
-              onCancel={() => { setStage("upload"); setMapping(null); setCandidates([]); }}
+              onCancel={() => { setStage("upload"); setMapping(null); setCandidates([]); setDetectedSheet(null); }}
             />
           )}
 
@@ -175,7 +209,7 @@ export function ImportFlow() {
                   View portfolio
                 </button>
                 <button
-                  onClick={() => { setStage("upload"); setDone(null); setMapping(null); setCandidates([]); setError(null); }}
+                  onClick={() => { setStage("upload"); setDone(null); setMapping(null); setCandidates([]); setDetectedSheet(null); setError(null); }}
                   className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
                 >
                   Import another file

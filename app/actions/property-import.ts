@@ -10,9 +10,12 @@ import {
   applyMapping,
   geocodeCandidates,
   bulkCreateProperties,
+  detectPropertyLayout,
   type ColumnMapping,
   type ImportCandidate,
   type BulkCreateResult,
+  type SheetPreview,
+  type SheetLayout,
 } from "@/lib/services/property-import";
 import { log } from "@/lib/log";
 
@@ -20,6 +23,20 @@ export type MapSpreadsheetResult = {
   mapping: ColumnMapping;
   candidates: ImportCandidate[];
 };
+
+// Stage 1.5 of the importer (for multi-sheet workbooks): the AI picks which sheet holds the properties
+// and which row is its header. Returns null if it can't decide, so the client falls back to the first
+// sheet / row 0. Auth-gated; only sheet-name + first-rows previews are sent to the model.
+export async function detectLayoutAction(previews: SheetPreview[]): Promise<ActionResult<SheetLayout | null>> {
+  await requireCtx();
+  try {
+    const layout = await detectPropertyLayout(previews);
+    return { ok: true, data: layout };
+  } catch (err) {
+    log.warn("detectLayoutAction failed", { err: String(err) });
+    return { ok: false, error: "Could not read that workbook. Please try again." };
+  }
+}
 
 // Stage 2 of the importer: the AI matches columns once (from headers + a sample), code applies that
 // mapping to every row, then addresses are geocoded. Returns the mapping (shown to the user) plus the
