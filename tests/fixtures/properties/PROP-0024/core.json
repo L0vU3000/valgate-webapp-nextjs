@@ -1,0 +1,14 @@
+{
+  "id": "PROP-0024",
+  "userId": "demo-user",
+  "name": "BKK1 Riverside Residence 4B",
+  "code": "PROP-0024",
+  "type": "residential",
+  "status": "Rented",
+  "lat": 11.548,
+  "lng": 104.931,
+  "createdAt": 1779356162901,
+  "updatedAt": 1779356162901,
+  "clientId": "CLI-0107",
+  "orgId": "ORG-0001"
+}

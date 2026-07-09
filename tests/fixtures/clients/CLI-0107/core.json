@@ -1,0 +1,16 @@
+{
+  "id": "CLI-0107",
+  "userId": "demo-user",
+  "name": "Daren Manager",
+  "clientType": "Individual",
+  "initials": "DM",
+  "avatarBg": "bg-indigo-400",
+  "email": "daren.manager@gmail.com",
+  "phone": "+855 12 447 690",
+  "preferredContact": "Email",
+  "clientSince": 1746099052000,
+  "managementFeePct": 9,
+  "status": "Active",
+  "createdAt": 1746099052000,
+  "updatedAt": 1746099052000
+}

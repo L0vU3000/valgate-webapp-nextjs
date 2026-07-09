@@ -1,0 +1,14 @@
+{
+  "id": "PROP-0025",
+  "userId": "demo-user",
+  "name": "Toul Kork Shophouse 18",
+  "code": "PROP-0025",
+  "type": "commercial",
+  "status": "Vacant",
+  "lat": 11.585,
+  "lng": 104.889,
+  "createdAt": 1779356162902,
+  "updatedAt": 1779356162902,
+  "clientId": "CLI-0107",
+  "orgId": "ORG-0001"
+}
