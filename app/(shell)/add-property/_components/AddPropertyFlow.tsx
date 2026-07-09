@@ -9,8 +9,9 @@ import type { FormData } from "./types";
 import type { PropertyDraftSummary } from "@/lib/data/add-property-page";
 import { useDrafts } from "@/app/_shared/add-property/_lib/use-drafts";
 import { submitPropertyAction } from "../actions";
-import { getPropertyDraftAction, getDraftFileUrlAction } from "@/app/actions/property-drafts";
+import { getPropertyDraftAction, getDraftFileUrlAction, uploadDraftFileAction } from "@/app/actions/property-drafts";
 import type { DraftFileView } from "@/app/actions/property-drafts";
+import { toast } from "sonner";
 import dynamic from "next/dynamic";
 import { StepSkeleton } from "@/app/_shared/add-property/StepSkeleton";
 // Step 0 (the entry / draft-picker) and Step 1 (a lightweight type picker) render first,
@@ -93,6 +94,10 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
   const [stepErrors, setStepErrors] = useState<Record<string, string> | null>(null);
   const latestFormRef = useRef<FormData>(defaultForm);
   const successScrollRef = useRef<HTMLDivElement>(null);
+  // A scanned file waiting to be staged into the draft (a File isn't serializable, so it can't live
+  // in form/draft state). stagingScanRef guards against a double-stage if the effect re-runs.
+  const pendingScanFileRef = useRef<File | null>(null);
+  const stagingScanRef = useRef(false);
 
   useEffect(() => {
     if (step === 6) successScrollRef.current?.scrollTo({ top: 0 });
@@ -168,6 +173,57 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
     },
     [router, setActive],
   );
+
+  // A document scan finished: prefill the wizard with the extracted fields, hold the scanned file
+  // for staging, and drop the user at Step 2 (Basic Info) to review. Assigns a temp draft handle so
+  // autosave creates the server draft (the same mechanism as advanceToStep1).
+  const handleScanComplete = useCallback(
+    (patch: Partial<FormData>, file: File) => {
+      pendingScanFileRef.current = file;
+      const id = crypto.randomUUID();
+      setActive(id);
+      setForm({ ...defaultForm, ...patch, method: "scan" });
+      setStep(2);
+      router.replace(`/add-property?step=2`);
+    },
+    [router, setActive],
+  );
+
+  // Once the server draft exists (activeId became a DRFT- id), stage the pending scanned file into it
+  // via the existing IDOR-safe upload action, then reflect it in Step 4's document list. Runs once;
+  // a staging failure is non-fatal — the property and extracted fields are intact.
+  useEffect(() => {
+    if (!mounted || !activeId || !activeId.startsWith("DRFT-")) return;
+    if (!pendingScanFileRef.current || stagingScanRef.current) return;
+    const file = pendingScanFileRef.current;
+    const draftId = activeId;
+    stagingScanRef.current = true;
+    void (async () => {
+      try {
+        const fd = new FormData();
+        fd.append("file", file);
+        const res = await uploadDraftFileAction(draftId, "document", fd);
+        if (res.ok) {
+          const v = res.data;
+          setForm((f) => ({
+            ...f,
+            documents: [...(f.documents ?? []), v.name],
+            stagedDocuments: [
+              ...(f.stagedDocuments ?? []),
+              { id: v.id, name: v.name, mimeType: v.mimeType, sizeBytes: v.sizeBytes },
+            ],
+          }));
+        } else {
+          toast.error("Scanned, but attaching the file didn't finish. You can re-add it in Step 4.");
+        }
+      } catch {
+        toast.error("Scanned, but attaching the file didn't finish. You can re-add it in Step 4.");
+      } finally {
+        pendingScanFileRef.current = null;
+        stagingScanRef.current = false;
+      }
+    })();
+  }, [activeId, mounted]);
 
   const goNext = () => {
     // Step 2: property name is required; total area must be a valid number if provided
@@ -421,6 +477,7 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
                   draftsLoading={!mounted}
                   onResumeDraft={handleResumeDraft}
                   onDeleteDraft={remove}
+                  onScanComplete={handleScanComplete}
                   onLoadDemo={
                     process.env.NODE_ENV === "development"
                       ? handleLoadDemo

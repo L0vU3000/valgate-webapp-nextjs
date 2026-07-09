@@ -4,9 +4,9 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ConfirmAction } from "@/components/ui/confirm-action";
 import {
-  Camera,
-  Upload,
+  ScanLine,
   FileEdit,
+  FileSpreadsheet,
   ChevronLeft,
   Trash2,
   Home,
@@ -16,7 +16,11 @@ import {
   Factory,
   HardHat,
   MoreHorizontal,
+  Loader2,
 } from "lucide-react";
+import { scanToForm } from "@/app/_shared/add-property/_lib/scan-to-form";
+import type { ExtractedProperty } from "@/lib/services/document-scan";
+import { ALLOWED_MIME, MAX_BYTES } from "@/lib/upload-constants";
 
 const PROPERTY_TYPE_ICONS: Record<string, React.ElementType> = {
   residential: Home,
@@ -43,8 +47,6 @@ const PROPERTY_TYPE_GRADIENTS: Record<string, string> = {
 import { toast } from "sonner";
 import type { PropertyDraftSummary } from "@/lib/data/add-property-page";
 import type { FormData, DraftRecord } from "./types";
-
-const MAX_FILE_BYTES = 20 * 1024 * 1024;
 
 const DS = {
   textPrimary: "#14181B",
@@ -75,6 +77,7 @@ export function Step0NewOrDraft({
   draftsLoading,
   onResumeDraft,
   onDeleteDraft,
+  onScanComplete,
   onLoadDemo,
 }: {
   form: FormData;
@@ -85,67 +88,79 @@ export function Step0NewOrDraft({
   draftsLoading?: boolean;
   onResumeDraft: (id: string) => void;
   onDeleteDraft: (id: string) => void;
+  // Called after a document scan succeeds: the extracted wizard-form patch + the scanned File to
+  // attach. The parent prefills the wizard and stages the file into the draft.
+  onScanComplete: (patch: Partial<FormData>, file: File) => void;
   onLoadDemo?: () => void;
 }) {
   const router = useRouter();
-  const photoInputRef = useRef<HTMLInputElement>(null);
-  const uploadInputRef = useRef<HTMLInputElement>(null);
+  const scanInputRef = useRef<HTMLInputElement>(null);
+  const [scanning, setScanning] = useState(false);
 
   function handleManual() {
     setForm({ ...form, method: "manual" });
     onContinue();
   }
 
-  function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+  // "Scan a document": the merged photo/upload action. Validate against the same allowlist the draft
+  // staging enforces (so anything that scans can also attach), POST the file to the AI scan endpoint,
+  // and hand the extracted fields + the file up to the parent to prefill the wizard.
+  async function handleScanChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
+    e.target.value = "";
     if (!file) return;
-    if (file.size > MAX_FILE_BYTES) {
-      toast.error("File too large. Maximum size is 20 MB.");
-      e.target.value = "";
+    if (!ALLOWED_MIME.has(file.type)) {
+      toast.error("That file type isn't supported. Use a PDF or image.");
       return;
     }
-    setForm({ ...form, method: "photo", photoFile: file, photoFileName: file.name });
-    onContinue();
-  }
-
-  function handleUploadChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > MAX_FILE_BYTES) {
-      toast.error("File too large. Maximum size is 20 MB.");
-      e.target.value = "";
+    if (file.size > MAX_BYTES) {
+      toast.error("File too large. Maximum size is 10 MB.");
       return;
     }
-    setForm({ ...form, method: "upload", uploadFile: file, uploadFileName: file.name });
-    onContinue();
+    setScanning(true);
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      const res = await fetch("/api/add-property/scan", { method: "POST", body });
+      const json = (await res.json()) as { ok: boolean; extracted?: ExtractedProperty; error?: string };
+      if (!res.ok || !json.ok || !json.extracted) {
+        toast.error(json.error ?? "Could not read that document. Please try again or enter the details manually.");
+        return;
+      }
+      onScanComplete(scanToForm(json.extracted), file);
+    } catch {
+      toast.error("Could not read that document. Please try again.");
+    } finally {
+      setScanning(false);
+    }
   }
 
   const methods = [
     {
-      key: "photo" as const,
-      badge: "Coming soon",
-      badgeBg: DS.surfaceElevated,
-      badgeColor: DS.textDisabled,
-      icon: Camera,
-      iconBg: DS.surfaceElevated,
-      iconColor: DS.textDisabled,
-      title: "Take a photo",
-      desc: "Scan a title deed, lease, or listing — we'll read the details automatically",
-      onClick: () => photoInputRef.current?.click(),
-      disabled: true,
+      key: "import" as const,
+      badge: "New",
+      badgeBg: DS.blueTint,
+      badgeColor: DS.blue,
+      icon: FileSpreadsheet,
+      iconBg: DS.blueTint,
+      iconColor: DS.blue,
+      title: "Import from spreadsheet",
+      desc: "Have a Google Sheet or Excel of your properties? Upload it — we'll map and add them all",
+      onClick: () => { if (!scanning) router.push("/add-property/import"); },
+      disabled: scanning,
     },
     {
-      key: "upload" as const,
-      badge: "Coming soon",
-      badgeBg: DS.surfaceElevated,
-      badgeColor: DS.textDisabled,
-      icon: Upload,
-      iconBg: DS.surfaceElevated,
-      iconColor: DS.textDisabled,
-      title: "Upload document",
-      desc: "Drop a PDF or image from your device — we'll pull the details for you",
-      onClick: () => uploadInputRef.current?.click(),
-      disabled: true,
+      key: "scan" as const,
+      badge: "New",
+      badgeBg: DS.blueTint,
+      badgeColor: DS.blue,
+      icon: ScanLine,
+      iconBg: DS.blueTint,
+      iconColor: DS.blue,
+      title: "Scan a document",
+      desc: "Photograph or upload a title deed, lease, or listing — AI reads and fills in the details",
+      onClick: () => { if (!scanning) scanInputRef.current?.click(); },
+      disabled: scanning,
     },
     {
       key: "manual" as const,
@@ -157,8 +172,8 @@ export function Step0NewOrDraft({
       iconColor: DS.textPrimary,
       title: "Enter manually",
       desc: "No document? Answer a few questions step-by-step instead",
-      onClick: handleManual,
-      disabled: false,
+      onClick: () => { if (!scanning) handleManual(); },
+      disabled: scanning,
     },
   ];
 
@@ -219,20 +234,14 @@ export function Step0NewOrDraft({
         </p>
       </div>
 
+      {/* One input for the merged "Scan a document" action. On mobile the OS picker offers camera
+          and files; on desktop it's file browse. accept covers PDF + images. */}
       <input
-        ref={photoInputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        className="hidden"
-        onChange={handlePhotoChange}
-      />
-      <input
-        ref={uploadInputRef}
+        ref={scanInputRef}
         type="file"
         accept="application/pdf,image/*"
         className="hidden"
-        onChange={handleUploadChange}
+        onChange={handleScanChange}
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mb-8">
@@ -240,6 +249,20 @@ export function Step0NewOrDraft({
           <MethodCard key={m.key} method={m} isSelected={false} index={i} disabled={m.disabled} />
         ))}
       </div>
+
+      {scanning && (
+        <div
+          className="mb-8 flex items-center gap-3 rounded-xl border px-4 py-3"
+          style={{ borderColor: DS.blue, background: DS.blueTint }}
+          role="status"
+          aria-live="polite"
+        >
+          <Loader2 className="h-4 w-4 animate-spin" style={{ color: DS.blue }} />
+          <span style={{ fontSize: 14, color: DS.textPrimary }}>
+            Reading your document and filling in the details…
+          </span>
+        </div>
+      )}
 
       <p
         className="anim-enter"
