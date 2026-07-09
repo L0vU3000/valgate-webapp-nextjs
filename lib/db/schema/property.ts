@@ -58,6 +58,10 @@ export const properties = pgTable("properties", {
   // media / specs (kept TEXT per Zod contract)
   photoStorageIds: text("photo_storage_ids").array(),
   documentStorageIds: text("document_storage_ids").array(),
+  // The property's designated cover photo — a single storage id, chosen from any of the
+  // property's photos (gallery or a Photos document). Nullable: no cover → hero falls back
+  // to the map. Decoupled from photoStorageIds ordering on purpose (see property-cover-photo).
+  coverStorageId: text("cover_storage_id"),
   totalArea: text("total_area").notNull(),
   yearBuilt: text("year_built"),
   bedrooms: text("bedrooms"),

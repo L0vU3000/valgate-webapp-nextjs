@@ -13,7 +13,7 @@ export const stepLabels = [
 export type WizardStatus = "" | "Rented" | "Vacant" | "Owner-Occupied";
 
 export interface FormData {
-  method: "" | "photo" | "upload" | "manual";
+  method: "" | "photo" | "upload" | "manual" | "scan";
   propertyType: string;
   propertyName: string;
   status: WizardStatus;

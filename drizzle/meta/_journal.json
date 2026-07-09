@@ -169,6 +169,13 @@
       "when": 1782968500000,
       "tag": "0023_clients_contact_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1783100000000,
+      "tag": "0024_property_cover_storage_id",
+      "breakpoints": true
     }
   ]
 }

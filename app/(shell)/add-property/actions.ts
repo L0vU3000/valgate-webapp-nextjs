@@ -2,13 +2,10 @@
 
 import type { FormData as WizardForm } from "@/app/_shared/add-property/types";
 import { fullPropertySchema } from "@/app/_shared/add-property/schemas";
+import { mapWizardToProperty } from "@/app/_shared/add-property/map-to-property";
 import { createProperty } from "@/app/actions/properties";
 import { convertDraftToDocumentsAction } from "@/app/actions/property-drafts";
-import type { NewProperty } from "@/lib/data/types/property";
-import type { PropertyTypeChoice } from "@/lib/data/types/property";
 import { logger } from "@/lib/logger";
-
-const CAMBODIA_CENTROID: [number, number] = [104.991, 12.5657];
 
 export async function submitPropertyAction(
   form: WizardForm,
@@ -48,67 +45,4 @@ export async function submitPropertyAction(
     logger.error("submitPropertyAction failed", { err: String(err) });
     return { ok: false, error: "Failed to submit property. Please try again." };
   }
-}
-
-function mapWizardToProperty(form: WizardForm): NewProperty {
-  const buyNumeric =
-    parseCurrency(form.purchasePrice) ??
-    parseCurrency(form.currentMarketValue) ??
-    0;
-  const [lng, lat] = form.mapCenter ?? CAMBODIA_CENTROID;
-
-  return {
-    name: form.propertyName,
-    type: form.propertyType as PropertyTypeChoice,
-    status: form.status || "Vacant",
-    lat,
-    lng,
-
-    addressLine: form.addressLine || undefined,
-    addressLine2: form.addressLine2 || undefined,
-    city: form.city || undefined,
-    zip: form.zip || undefined,
-    country: form.country || undefined,
-    province: form.province || undefined,
-
-    purchasePrice: form.purchasePrice || undefined,
-    purchaseDate: parseDateMs(form.purchaseDate),
-    currentMarketValue: parseCurrency(form.currentMarketValue),
-    outstandingMortgage: parseCurrency(form.outstandingMortgage),
-    monthlyPayment: parseCurrency(form.monthlyPayment),
-    interestRate: parseFloatSafe(form.interestRate),
-    annualPropertyTax: parseCurrency(form.annualPropertyTax),
-    taxAssessmentValue: parseCurrency(form.taxAssessmentValue),
-    annualInsurance: parseCurrency(form.annualInsurance),
-    ownershipStatus: form.ownershipStatus || undefined,
-    buyNumeric,
-
-    photoStorageIds: form.photoFileName ? [form.photoFileName] : [],
-    documentStorageIds: form.uploadFileName ? [form.uploadFileName] : [],
-    totalArea: form.totalArea || "",
-    yearBuilt: form.yearBuilt || undefined,
-    bedrooms: form.bedrooms || undefined,
-    bathrooms: form.bathrooms || undefined,
-    parkingSpaces: form.parkingSpaces || undefined,
-    storageUnit: form.storageUnit || undefined,
-    title: "—",
-  };
-}
-
-function parseCurrency(value: string | undefined): number | undefined {
-  if (!value) return undefined;
-  const n = Number(value.replace(/[$,\s]/g, ""));
-  return Number.isFinite(n) ? n : undefined;
-}
-
-function parseFloatSafe(value: string | undefined): number | undefined {
-  if (!value) return undefined;
-  const n = parseFloat(value.replace(/[%\s]/g, ""));
-  return Number.isFinite(n) ? n : undefined;
-}
-
-function parseDateMs(value: string | undefined): number | undefined {
-  if (!value) return undefined;
-  const ms = new Date(value).getTime();
-  return Number.isFinite(ms) ? ms : undefined;
 }
