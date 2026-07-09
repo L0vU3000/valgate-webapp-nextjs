@@ -84,6 +84,19 @@ export async function updateProperty(ctx: Ctx, id: string, patch: PropertyPatch)
   return scopedUpdate(ctx, properties, id, { ...patch, updatedAt: Date.now() }, rowToProperty, true);
 }
 
+// Set (or clear) the property's cover photo. Passing null clears it so the hero falls
+// back to the map. Kept separate from updateProperty because PropertyPatch's Zod type
+// only allows string|undefined for coverStorageId — clearing needs an explicit null,
+// which scopedUpdate → convertRowToDb writes straight through as SQL NULL.
+// Org-scope + admin/member checks live inside scopedUpdate, so this is IDOR-safe.
+export async function setCoverPhoto(
+  ctx: Ctx,
+  id: string,
+  coverStorageId: string | null,
+): Promise<Property | null> {
+  return scopedUpdate(ctx, properties, id, { coverStorageId }, rowToProperty, true);
+}
+
 // Permanently deletes a property and all its children.
 //
 // Why it works in 3 steps — gather, delete, cleanup — and not the reverse:

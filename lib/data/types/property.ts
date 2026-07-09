@@ -93,6 +93,9 @@ export type PropertyFinance = z.infer<typeof PropertyFinanceSchema>;
 export const PropertyMediaSchema = z.object({
   photoStorageIds: z.array(z.string()).optional(),
   documentStorageIds: z.array(z.string()).optional(),
+  // Designated cover photo storage id (see property-cover-photo). Optional so existing
+  // properties with no cover parse fine; the hero falls back to the map when absent.
+  coverStorageId: z.string().optional(),
   totalArea: z.string(),
   yearBuilt: z.string().optional(),
   bedrooms: z.string().optional(),
