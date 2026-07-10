@@ -88,9 +88,10 @@ export function Step0NewOrDraft({
   draftsLoading?: boolean;
   onResumeDraft: (id: string) => void;
   onDeleteDraft: (id: string) => void;
-  // Called after a document scan succeeds: the extracted wizard-form patch + the scanned File to
-  // attach. The parent prefills the wizard and stages the file into the draft.
-  onScanComplete: (patch: Partial<FormData>, file: File) => void;
+  // Called after a document scan succeeds: the extracted wizard-form patch, the scanned File to
+  // attach, and the names of the fields the self-consistency runs disagreed on (low-confidence, for
+  // the wizard to flag). The parent prefills the wizard and stages the file into the draft.
+  onScanComplete: (patch: Partial<FormData>, file: File, lowConfidence: string[]) => void;
   onLoadDemo?: () => void;
 }) {
   const router = useRouter();
@@ -122,12 +123,17 @@ export function Step0NewOrDraft({
       const body = new FormData();
       body.append("file", file);
       const res = await fetch("/api/add-property/scan", { method: "POST", body });
-      const json = (await res.json()) as { ok: boolean; extracted?: ExtractedProperty; error?: string };
+      const json = (await res.json()) as {
+        ok: boolean;
+        extracted?: ExtractedProperty;
+        lowConfidence?: string[];
+        error?: string;
+      };
       if (!res.ok || !json.ok || !json.extracted) {
         toast.error(json.error ?? "Could not read that document. Please try again or enter the details manually.");
         return;
       }
-      onScanComplete(scanToForm(json.extracted), file);
+      onScanComplete(scanToForm(json.extracted), file, json.lowConfidence ?? []);
     } catch {
       toast.error("Could not read that document. Please try again.");
     } finally {
