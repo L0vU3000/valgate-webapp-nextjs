@@ -119,6 +119,33 @@ describe("assembleRows (field-first, two-sheet join)", () => {
     expect(rows[1]!.values.rent).toBe("");
   });
 
+  it("drops blank template rows that only carry a stray constant (no phantom records)", () => {
+    // Real-workbook case: the register has 2 real tenants then padding rows that are empty EXCEPT for a
+    // formula-filled "0" in the ID column — those must not become records.
+    const padded: SheetData = {
+      name: "TENANT PROFILE",
+      headers: ["TENANT ID", "Full Name / Company Name", "Email Address"],
+      rows: [
+        { "TENANT ID": "0", "Full Name / Company Name": "Chan Dara", "Email Address": "chan@ex.com" },
+        { "TENANT ID": "0", "Full Name / Company Name": "Emily Turner", "Email Address": "emily@ex.com" },
+        { "TENANT ID": "0", "Full Name / Company Name": "", "Email Address": "" }, // blank padding
+        { "TENANT ID": "0", "Full Name / Company Name": "", "Email Address": "" }, // blank padding
+      ],
+    };
+    const p: FieldPlan = {
+      primarySheet: "TENANT PROFILE",
+      joins: [],
+      sources: {
+        name: { sheet: "TENANT PROFILE", column: "Full Name / Company Name" },
+        email: { sheet: "TENANT PROFILE", column: "Email Address" },
+        unit: null, rent: null, status: null, phone: null, property: null,
+      },
+    };
+    const rows = assembleRows([padded], p, TENANT_FIELDS);
+    expect(rows).toHaveLength(2); // the 2 blank padding rows are dropped despite their "0" IDs
+    expect(rows.map((r) => r.values.name)).toEqual(["Chan Dara", "Emily Turner"]);
+  });
+
   it("handles a single-sheet workbook (no joins, every field on the primary sheet)", () => {
     const flat: SheetData = {
       name: "Tenants",

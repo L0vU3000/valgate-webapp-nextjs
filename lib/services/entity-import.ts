@@ -146,6 +146,10 @@ export async function planFieldSources(
         "",
         "Rules:",
         `- primarySheet = the sheet that lists one ${entityName} per row (the record register).`,
+        "- PREFER primarySheet for each field: if a suitable column exists IN primarySheet, source the field",
+        "  from there. Only source a field from another sheet (via a join) when primarySheet has NO suitable",
+        "  column for it. This keeps every record's own columns (name, contact, etc.) populated even for rows",
+        "  that have no matching row in a secondary sheet.",
         "- If a REQUIRED field's data lives in a DIFFERENT sheet, you MUST create a join for that sheet — never",
         "  leave a required field unsourced just to avoid joining. The sheet appears in joins telling us how to",
         "  match its rows to the primary sheet: joinColumn (in that sheet) equals primaryColumn (in primarySheet).",
@@ -298,7 +302,7 @@ export function assembleRows(sheets: SheetData[], plan: FieldPlan, fields: Field
     joinBySheet.set(join.sheet, { primaryColumn: join.primaryColumn, index });
   }
 
-  return primary.rows.map((primaryRow) => {
+  const assembled = primary.rows.map((primaryRow) => {
     const values: Record<string, string> = {};
     const missing: string[] = [];
 
@@ -323,4 +327,10 @@ export function assembleRows(sheets: SheetData[], plan: FieldPlan, fields: Field
 
     return { values, missing };
   });
+
+  // Drop rows that carry NO record data at all. Real workbooks pad the register with blank template
+  // rows that still hold a stray constant (e.g. a formula-filled "0" in an ID column), which slips past
+  // the raw empty-row filter and would otherwise become phantom records. A row with every mapped field
+  // empty is not a record.
+  return assembled.filter((row) => Object.values(row.values).some((v) => v !== ""));
 }
