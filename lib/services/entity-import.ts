@@ -130,10 +130,10 @@ export async function planFieldSources(
   try {
     const { object } = await generateObject({
       // The plan is ONE call per import but decides the correctness of the whole migration (which
-      // columns, which joins). It's reasoning-heavy — gpt-4o-mini was inconsistent on the join step —
-      // so use the stronger model here. temperature 0 makes the same workbook plan the same way.
-      model: openai("gpt-4o"),
-      temperature: 0,
+      // columns, which joins). It's reasoning-heavy — smaller models were inconsistent on the join
+      // step — so use GPT-5.5. No temperature: it's a reasoning model (temperature is unsupported);
+      // join determinism is guaranteed downstream in code by repairJoins, not by sampling.
+      model: openai("gpt-5.5"),
       schema: planSchema,
       prompt: [
         `You are migrating data from a client's multi-sheet workbook into Valgate's fixed "${entityName}" record.`,
