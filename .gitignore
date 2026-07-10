@@ -67,3 +67,6 @@ skills-lock.json
 
 # graphify knowledge-graph output (local navigation artifact, not a deliverable)
 graphify-out/
+
+# local runtime upload storage (property photos etc. written by the app, not repo content)
+public/_storage/
