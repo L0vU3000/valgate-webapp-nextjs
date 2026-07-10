@@ -7,8 +7,6 @@ import {
   ScanLine,
   FileEdit,
   FileSpreadsheet,
-  Users,
-  TrendingUp,
   ChevronLeft,
   Trash2,
   Home,
@@ -19,6 +17,7 @@ import {
   HardHat,
   MoreHorizontal,
   Loader2,
+  ArrowRight,
 } from "lucide-react";
 import { scanToForm } from "@/app/_shared/add-property/_lib/scan-to-form";
 import type { ExtractedProperty } from "@/lib/services/document-scan";
@@ -143,44 +142,25 @@ export function Step0NewOrDraft({
     }
   }
 
+  const importSubLinks = [
+    { label: "Properties", path: "/add-property/import" },
+    { label: "Tenants", path: "/add-property/import-tenants" },
+    { label: "Valuations", path: "/add-property/import-valuations" },
+  ];
+
   const methods = [
     {
       key: "import" as const,
-      badge: "New",
+      badge: "AI",
       badgeBg: DS.blueTint,
       badgeColor: DS.blue,
       icon: FileSpreadsheet,
       iconBg: DS.blueTint,
       iconColor: DS.blue,
       title: "Import from spreadsheet",
-      desc: "Have a Google Sheet or Excel of your properties? Upload it — we'll map and add them all",
-      onClick: () => { if (!scanning) router.push("/add-property/import"); },
-      disabled: scanning,
-    },
-    {
-      key: "import-tenants" as const,
-      badge: "New",
-      badgeBg: DS.blueTint,
-      badgeColor: DS.blue,
-      icon: Users,
-      iconBg: DS.blueTint,
-      iconColor: DS.blue,
-      title: "Import tenants",
-      desc: "Upload a client workbook — we'll read across every sheet and link each tenant to a property",
-      onClick: () => { if (!scanning) router.push("/add-property/import-tenants"); },
-      disabled: scanning,
-    },
-    {
-      key: "import-valuations" as const,
-      badge: "New",
-      badgeBg: DS.blueTint,
-      badgeColor: DS.blue,
-      icon: TrendingUp,
-      iconBg: DS.blueTint,
-      iconColor: DS.blue,
-      title: "Import valuations",
-      desc: "Upload a client workbook — we'll read each property's valuation history and link it to a property",
-      onClick: () => { if (!scanning) router.push("/add-property/import-valuations"); },
+      desc: "Upload one or more spreadsheets — Valgate AI reads every sheet, extracts properties, tenants, and valuations, and migrates everything in one go",
+      subLinks: importSubLinks,
+      onClick: () => {},
       disabled: scanning,
     },
     {
@@ -193,6 +173,7 @@ export function Step0NewOrDraft({
       iconColor: DS.blue,
       title: "Scan a document",
       desc: "Photograph or upload a title deed, lease, or listing — AI reads and fills in the details",
+      subLinks: undefined,
       onClick: () => { if (!scanning) scanInputRef.current?.click(); },
       disabled: scanning,
     },
@@ -206,6 +187,7 @@ export function Step0NewOrDraft({
       iconColor: DS.textPrimary,
       title: "Enter manually",
       desc: "No document? Answer a few questions step-by-step instead",
+      subLinks: undefined,
       onClick: () => { if (!scanning) handleManual(); },
       disabled: scanning,
     },
@@ -278,9 +260,9 @@ export function Step0NewOrDraft({
         onChange={handleScanChange}
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8">
         {methods.map((m, i) => (
-          <MethodCard key={m.key} method={m} isSelected={false} index={i} disabled={m.disabled} />
+          <MethodCard key={m.key} method={m} isSelected={false} index={i} disabled={m.disabled} router={router} />
         ))}
       </div>
 
@@ -385,6 +367,7 @@ function MethodCard({
   isSelected,
   index,
   disabled = false,
+  router,
 }: {
   method: {
     badge: string;
@@ -395,99 +378,159 @@ function MethodCard({
     iconColor: string;
     title: string;
     desc: string;
+    subLinks?: { label: string; path: string }[];
     onClick: () => void;
   };
   isSelected: boolean;
   index: number;
   disabled?: boolean;
+  router: ReturnType<typeof useRouter>;
 }) {
   const [hovered, setHovered] = useState(false);
   const [pressed, setPressed] = useState(false);
 
   const isHovered = hovered && !disabled;
   const isPressed = pressed && !disabled;
+  const hasSubLinks = method.subLinks && method.subLinks.length > 0;
 
   return (
     <div className="anim-enter h-full" style={{ animationDelay: `${130 + index * 70}ms` }}>
-      <button
-        onClick={() => { if (disabled) return; setHovered(false); setPressed(false); method.onClick(); }}
-        onMouseEnter={() => { if (!disabled) setHovered(true); }}
-        onMouseLeave={() => { setHovered(false); setPressed(false); }}
-        onMouseDown={() => { if (!disabled) setPressed(true); }}
-        onMouseUp={() => setPressed(false)}
-        disabled={disabled}
-        className="text-left w-full h-full flex flex-col"
+      <div
         style={{
           background: disabled ? DS.surfaceElevated : isSelected ? DS.blueTint : DS.surfaceBase,
           borderRadius: 16,
-          padding: "20px",
           border: isSelected
             ? `2px solid ${DS.blue}`
             : `1px solid ${isHovered ? "#93C5FD" : DS.border}`,
           transition:
-            "transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.15s ease, background 0.15s ease, box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
+            "border-color 0.15s ease, background 0.15s ease, box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
           fontFamily: DS.font,
-          cursor: disabled ? "not-allowed" : "pointer",
-          minHeight: 168,
           opacity: disabled ? 0.55 : 1,
-          transform: `scale(${isPressed ? 0.97 : isHovered ? 1.02 : 1})`,
           boxShadow: isSelected
             ? DS.selectedShadow
             : isHovered
             ? DS.hoverShadow
             : "none",
+          display: "flex",
+          flexDirection: "column",
+          height: "100%",
         }}
+        onMouseEnter={() => { if (!disabled) setHovered(true); }}
+        onMouseLeave={() => { setHovered(false); setPressed(false); }}
       >
-        <method.icon
+        <button
+          onClick={() => { if (disabled) return; setHovered(false); setPressed(false); if (!hasSubLinks) method.onClick(); }}
+          onMouseDown={() => { if (!disabled && !hasSubLinks) setPressed(true); }}
+          onMouseUp={() => setPressed(false)}
+          disabled={disabled || hasSubLinks}
+          className="text-left w-full flex flex-col"
           style={{
-            width: 22,
-            height: 22,
-            color: isSelected ? DS.blue : isHovered ? DS.textPrimary : method.iconColor,
-            marginBottom: 16,
-            flexShrink: 0,
-            transform: isHovered ? "scale(1.12)" : "scale(1)",
-            transition: "transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), color 0.15s ease",
-          }}
-        />
-        <p
-          style={{
-            fontSize: 15,
-            fontWeight: 600,
-            color: disabled ? DS.textDisabled : DS.textPrimary,
-            marginBottom: 6,
-            letterSpacing: "-0.15px",
-            lineHeight: 1.3,
+            padding: "20px",
+            cursor: disabled ? "not-allowed" : hasSubLinks ? "default" : "pointer",
+            minHeight: 148,
+            transform: `scale(${isPressed ? 0.97 : 1})`,
+            transition: "transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
+            background: "transparent",
+            borderRadius: "16px 16px 0 0",
           }}
         >
-          {method.title}
-        </p>
-        <p
-          style={{
-            fontSize: 13,
-            color: disabled ? DS.textDisabled : DS.textSecondary,
-            lineHeight: 1.5,
-            flex: 1,
-          }}
-        >
-          {method.desc}
-        </p>
-        <span
-          style={{
-            fontSize: 11,
-            fontWeight: 600,
-            color: method.badgeColor,
-            background: method.badgeBg,
-            borderRadius: 10,
-            padding: "3px 9px",
-            display: "inline-block",
-            marginTop: 14,
-            lineHeight: 1.4,
-            alignSelf: "flex-start",
-          }}
-        >
-          {method.badge}
-        </span>
-      </button>
+          <method.icon
+            style={{
+              width: 22,
+              height: 22,
+              color: isSelected ? DS.blue : isHovered ? DS.textPrimary : method.iconColor,
+              marginBottom: 16,
+              flexShrink: 0,
+              transform: isHovered ? "scale(1.12)" : "scale(1)",
+              transition: "transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), color 0.15s ease",
+            }}
+          />
+          <p
+            style={{
+              fontSize: 15,
+              fontWeight: 600,
+              color: disabled ? DS.textDisabled : DS.textPrimary,
+              marginBottom: 6,
+              letterSpacing: "-0.15px",
+              lineHeight: 1.3,
+            }}
+          >
+            {method.title}
+          </p>
+          <p
+            style={{
+              fontSize: 13,
+              color: disabled ? DS.textDisabled : DS.textSecondary,
+              lineHeight: 1.5,
+              flex: 1,
+            }}
+          >
+            {method.desc}
+          </p>
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 600,
+              color: method.badgeColor,
+              background: method.badgeBg,
+              borderRadius: 10,
+              padding: "3px 9px",
+              display: "inline-block",
+              marginTop: 14,
+              lineHeight: 1.4,
+              alignSelf: "flex-start",
+            }}
+          >
+            {method.badge}
+          </span>
+        </button>
+
+        {hasSubLinks && (
+          <div
+            style={{
+              borderTop: `1px solid ${DS.border}`,
+              padding: "12px 20px",
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 8,
+            }}
+          >
+            {method.subLinks!.map((link) => (
+              <button
+                key={link.path}
+                onClick={(e) => { e.stopPropagation(); if (!disabled) router.push(link.path); }}
+                disabled={disabled}
+                style={{
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: DS.blue,
+                  background: DS.blueTint,
+                  border: `1px solid #BFDBFE`,
+                  borderRadius: 20,
+                  padding: "4px 12px",
+                  cursor: disabled ? "not-allowed" : "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                  transition: "background 0.15s ease, border-color 0.15s ease, transform 0.15s cubic-bezier(0.16,1,0.3,1)",
+                  fontFamily: DS.font,
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLElement).style.background = "#DBEAFE";
+                  (e.currentTarget as HTMLElement).style.transform = "scale(1.04)";
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLElement).style.background = DS.blueTint;
+                  (e.currentTarget as HTMLElement).style.transform = "scale(1)";
+                }}
+              >
+                {link.label}
+                <ArrowRight style={{ width: 11, height: 11 }} />
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
