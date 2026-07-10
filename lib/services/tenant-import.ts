@@ -11,6 +11,11 @@ import {
   type FieldSpec,
   type AssembledRow,
 } from "@/lib/services/entity-import";
+// Property linkage is shared across importers; re-exported below so existing importers of
+// tenant-import keep resolving properties through the same names.
+import { resolveProperty, type PropertyMatch } from "@/lib/services/import-property-link";
+
+export { resolveProperty, type PropertyMatch };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tenant import — the thin, tenant-specific layer over the generic field-first
@@ -114,30 +119,6 @@ export function toTenantCandidate(assembled: AssembledRow): TenantCandidate {
     issues,
   };
 }
-
-// Match a workbook property value against the org's real properties by EXACT
-// (case-insensitive) name, code, or title. Returns the Valgate property id, or ""
-// when nothing matches. PURE.
-//
-// Deliberately exact-only: loose substring matching would silently auto-link a
-// tenant to the WRONG property (e.g. sheet value "Unit 10" matching a property
-// "Unit 1"), which corrupts data invisibly. An unmatched row is safe — the review
-// table flags it and shows a property picker, so the user resolves it explicitly.
-export function resolveProperty(rawProperty: string, properties: PropertyMatch[]): string {
-  const raw = rawProperty.trim().toLowerCase();
-  if (!raw) return "";
-
-  const match = properties.find(
-    (p) =>
-      p.name.trim().toLowerCase() === raw ||
-      (p.code ?? "").trim().toLowerCase() === raw ||
-      (p.title ?? "").trim().toLowerCase() === raw,
-  );
-  return match ? match.id : "";
-}
-
-// The minimal property fields resolveProperty needs (kept narrow for testability).
-export type PropertyMatch = { id: string; name: string; code?: string | null; title?: string | null };
 
 // Full pipeline for the map step: AI sources the tenant fields across the whole
 // workbook, we assemble + normalize rows, auto-match each to a property, and load
