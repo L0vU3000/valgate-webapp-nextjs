@@ -40,6 +40,29 @@ Prompt rules: "This is a property document (title deed, lease, listing, invoice,
 the property's details. **Translate any non-English text (e.g. Khmer) into English.** Return null for
 any field the document does not state — do not guess or infer."
 
+## Extraction accuracy — swappable model + self-consistency
+
+Khmer property deeds are often handwritten, and handwritten Khmer numerals read **unstably**: the same
+deed's area came back as 1200 / 2000 / null across identical calls. Two changes address this:
+
+- **Swappable model (`SCAN_MODEL` env var).** `scanModel()` in `document-scan.ts` maps the slug to a
+  provider — `claude*` → Anthropic, otherwise OpenAI — and `generateObject` + the Zod schema stay
+  identical, so a model swap is a one-line env change. The default is chosen **empirically**, not from
+  a leaderboard: no one has published frontier-VLM accuracy on Khmer, so the winning model is
+  unknowable until measured on real deeds. See `tasks.md` for the bench result.
+- **Self-consistency (`SCAN_SAMPLES`, default 3).** `scanDocument` runs the extraction N times in
+  parallel and `reconcileExtractions` (pure, unit-tested) votes per field: agree → keep; disagree →
+  keep the majority value and add the field to `lowConfidence`. The route returns `{ extracted,
+  lowConfidence }`; Step 2 flags the low-confidence fields for the user to confirm (AI drafts, human
+  confirms). Parallel runs mean the wall-clock cost is ~one call; scans are rare, so N× is cents.
+
+### Considered & rejected
+- **km-tokenizer-khmer** — a Khmer *tokenizer*. Nothing in this pipeline consumes token boundaries
+  (the vision model does OCR + translation + extraction end-to-end), so it has no consumer here.
+- **DeepSeek-OCR-2** — handwriting is its documented weak spot, its Khmer support is unconfirmed, it
+  runs only on a GPU endpoint, and it doesn't translate or extract fields — so it can't replace one
+  `generateObject` call that does all three.
+
 ## Why a route handler, not a server action
 
 The input is an uploaded file. A route handler takes multipart `FormData` with the `File` cleanly

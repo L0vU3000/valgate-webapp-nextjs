@@ -36,8 +36,10 @@ export async function POST(req: NextRequest) {
     }
 
     const fileBytes = new Uint8Array(await file.arrayBuffer());
-    const extracted = await scanDocument(fileBytes, file.type || "application/pdf");
-    return Response.json({ ok: true, extracted });
+    // Self-consistency scan: `extracted` is the reconciled result; `lowConfidence` names the fields the
+    // runs disagreed on, so the wizard can flag them for the user to review.
+    const { extracted, lowConfidence } = await scanDocument(fileBytes, file.type || "application/pdf");
+    return Response.json({ ok: true, extracted, lowConfidence });
   } catch (err) {
     log.error("add-property.scan.failed", err);
     return Response.json(
