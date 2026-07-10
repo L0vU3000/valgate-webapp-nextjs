@@ -92,6 +92,11 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
   const [uploadNotice, setUploadNotice] = useState<string | null>(null);
   const [successCoverUrl, setSuccessCoverUrl] = useState<string | undefined>(undefined);
   const [stepErrors, setStepErrors] = useState<Record<string, string> | null>(null);
+  // Scan review aids (transient — a UI hint, not persisted to the draft). `scanFilledFields` are the
+  // fields a document scan pre-filled; `scanLowFields` is the subset the self-consistency runs
+  // disagreed on, so Step 2 flags them for the user to double-check. Both clear per-field on edit.
+  const [scanFilledFields, setScanFilledFields] = useState<Set<string>>(() => new Set());
+  const [scanLowFields, setScanLowFields] = useState<Set<string>>(() => new Set());
   const latestFormRef = useRef<FormData>(defaultForm);
   const successScrollRef = useRef<HTMLDivElement>(null);
   // A scanned file waiting to be staged into the draft (a File isn't serializable, so it can't live
@@ -178,8 +183,19 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
   // for staging, and drop the user at Step 2 (Basic Info) to review. Assigns a temp draft handle so
   // autosave creates the server draft (the same mechanism as advanceToStep1).
   const handleScanComplete = useCallback(
-    (patch: Partial<FormData>, file: File) => {
+    (patch: Partial<FormData>, file: File, lowConfidence: string[]) => {
       pendingScanFileRef.current = file;
+      // Fields the scan actually populated (non-empty), so Step 2 can mark them "auto-filled".
+      const filled = new Set(
+        Object.entries(patch)
+          .filter(([, value]) => typeof value === "string" && value.trim() !== "")
+          .map(([key]) => key),
+      );
+      // Only flag low-confidence fields that have a value to review — a blank field the runs
+      // disagreed on is just an empty field the user fills normally.
+      const low = new Set(lowConfidence.filter((key) => filled.has(key)));
+      setScanFilledFields(filled);
+      setScanLowFields(low);
       const id = crypto.randomUUID();
       setActive(id);
       setForm({ ...defaultForm, ...patch, method: "scan" });
@@ -188,6 +204,22 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
     },
     [router, setActive],
   );
+
+  // The user reviewed a scan-filled field (edited it): drop its badges — it's confirmed now.
+  const reviewScanField = useCallback((key: string) => {
+    setScanFilledFields((prev) => {
+      if (!prev.has(key)) return prev;
+      const next = new Set(prev);
+      next.delete(key);
+      return next;
+    });
+    setScanLowFields((prev) => {
+      if (!prev.has(key)) return prev;
+      const next = new Set(prev);
+      next.delete(key);
+      return next;
+    });
+  }, []);
 
   // Once the server draft exists (activeId became a DRFT- id), stage the pending scanned file into it
   // via the existing IDOR-safe upload action, then reflect it in Step 4's document list. Runs once;
@@ -486,7 +518,16 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
                 />
               )}
               {step === 1 && <Step1PropertyType form={form} setForm={setForm} goNext={goNext} />}
-              {step === 2 && <Step2BasicInfo form={form} setForm={setForm} errors={stepErrors} />}
+              {step === 2 && (
+                <Step2BasicInfo
+                  form={form}
+                  setForm={setForm}
+                  errors={stepErrors}
+                  scanFilledFields={scanFilledFields}
+                  scanLowFields={scanLowFields}
+                  onReviewScanField={reviewScanField}
+                />
+              )}
               {step === 3 && <Step3Financial form={form} setForm={setForm} goNext={goNext} errors={stepErrors} />}
               {step === 4 && <Step4PhotosDocs form={form} setForm={setForm} draftId={activeId} />}
               {step === 5 && <Step5Review form={form} goToStep={(s) => setStep(s as Step)} />}
