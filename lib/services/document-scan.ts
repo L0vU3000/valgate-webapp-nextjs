@@ -46,12 +46,14 @@ const EXTRACTION_PROMPT = [
   "no units, currency symbols, or thousands separators (e.g. \"2000\", not \"2,000 sq m\").",
 ].join(" ");
 
-// One model call: hand the raw file to gpt-4o-mini (it reads PDFs and images directly, no separate
+// One model call: hand the raw file to gpt-4o (it reads PDFs and images directly, no separate
 // OCR step, and translates inline) and get back a validated ExtractedProperty. generateObject throws
 // if the model output doesn't match the schema, so callers never parse free-form text.
+// ponytail: gpt-4o over gpt-4o-mini — scans are rare/high-value, mini misread handwritten deed
+// numbers and gave different answers each run; the ~15-20x cost is negligible here.
 export async function scanDocument(fileBytes: Uint8Array, mimeType: string): Promise<ExtractedProperty> {
   const { object } = await generateObject({
-    model: openai("gpt-4o-mini"),
+    model: openai("gpt-4o"),
     schema: ExtractedPropertySchema,
     messages: [
       {
