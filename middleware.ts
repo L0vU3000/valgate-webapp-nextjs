@@ -74,6 +74,8 @@ const isPublicRoute = createRouteMatcher([
   // own OAuth bearer token, and everything under /.well-known/* is public discovery data.
   "/mcp(.*)",
   "/.well-known/(.*)",
+  // User manual — public documentation, accessible without signing in
+  "/docs(.*)",
 ]);
 
 // The bare sign-in/sign-up entry points only — NOT "/login(.*)" wildcard, which would also
