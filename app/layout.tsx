@@ -51,7 +51,7 @@ export default function RootLayout({
         "setup-mfa": "/login/tasks",
       }}
     >
-      <html lang="en">
+      <html lang="en" suppressHydrationWarning>
         <body className="antialiased">
           <Script
             src="https://mcp.figma.com/mcp/html-to-design/capture.js"

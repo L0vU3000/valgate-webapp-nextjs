@@ -22,6 +22,9 @@ e2e/test-results.json
 /.next/
 /out/
 
+# fumadocs-mdx generated output
+/.source/
+
 # production
 /build
 
