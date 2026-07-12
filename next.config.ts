@@ -1,7 +1,6 @@
 import type { NextConfig } from "next";
 import path from "path";
 import { fileURLToPath } from "url";
-import { createMDX } from "fumadocs-mdx/next";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -38,15 +37,6 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: __dirname,
   },
-  async redirects() {
-    return [
-      {
-        source: "/manager/:path*",
-        destination: "/pro/:path*",
-        permanent: false,
-      },
-    ];
-  },
 };
 
-export default createMDX()(nextConfig);
+export default nextConfig;

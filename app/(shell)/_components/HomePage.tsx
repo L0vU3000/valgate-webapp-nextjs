@@ -261,9 +261,9 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
           <div className="flex items-center gap-3 w-full sm:w-auto overflow-x-auto scrollbar-none -mx-4 sm:mx-0 px-4 sm:px-0 py-1">
             {[
               { label: "New Property", icon: Plus, action: () => router.push("/add-property") },
-              { label: "Analytics", icon: BarChart2, action: () => router.push("/analytics") },
+              { label: "Portfolio", icon: BarChart2, action: () => router.push("/portfolio") },
               { label: "Documents", icon: FileText, action: () => setCommandOpen(true) },
-              { label: "Tenants", icon: Users, action: () => router.push("/estate-planning") },
+              { label: "Rental", icon: Users, action: () => router.push("/rental") },
             ].map(({ label, icon: Icon, action }, i) => (
               <button
                 key={label}
