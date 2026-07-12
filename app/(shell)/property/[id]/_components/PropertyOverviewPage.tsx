@@ -240,7 +240,9 @@ function useCountUp(raw: string, duration: number, active: boolean): string {
   const isDecimal = raw.includes(".");
   const [display, setDisplay] = useState("0");
   useEffect(() => {
-    if (!active) { setDisplay(raw); return; }
+    // Non-numeric values (e.g. "—" for an unset price) can't animate —
+    // parseFloat gives NaN, which would render literally as "NaN". Show raw.
+    if (!active || !Number.isFinite(num)) { setDisplay(raw); return; }
     const start = performance.now();
     function tick(now: number) {
       const p = Math.min((now - start) / duration, 1);
