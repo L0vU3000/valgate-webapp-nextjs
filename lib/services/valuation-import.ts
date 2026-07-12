@@ -1,7 +1,8 @@
 import "server-only";
 import { listProperties } from "@/lib/services/properties";
 import { createPropertyValuation } from "@/lib/services/property-valuations";
-import { NewPropertyValuationSchema, MONTH_REGEX } from "@/lib/data/types/property-valuation";
+import { NewPropertyValuationSchema, MONTH_REGEX, type NewPropertyValuation } from "@/lib/data/types/property-valuation";
+import { persistCandidates } from "@/lib/services/ingestion/persist";
 import type { Ctx } from "@/lib/services/_mapping";
 import { log } from "@/lib/log";
 import { resolveProperty, type PropertyMatch } from "@/lib/services/import-property-link";
@@ -196,46 +197,50 @@ export type BulkCreateValuationsResult = {
 // property, a non-positive price, or a malformed month fails that row cleanly instead of corrupting
 // data. recordedAt falls back to the first of the reviewed month when the source date was unparseable.
 export async function bulkCreateValuations(ctx: Ctx, drafts: ValuationDraft[]): Promise<BulkCreateValuationsResult> {
-  let created = 0;
-  const failures: BulkCreateValuationsResult["failures"] = [];
-
   // propertyId is client-controlled (the review table sends whatever the picker held), so verify each
   // one really belongs to THIS org before writing — otherwise a crafted draft could hang a valuation
   // off another org's property id (IDOR). The picker only ever offers org properties, so a legitimate
   // import always passes this check.
   const orgPropertyIds = new Set((await listProperties(ctx)).map((p) => p.id));
 
-  for (let i = 0; i < drafts.length; i++) {
-    const draft = drafts[i]!;
-    const label = draft.month ? `${draft.month} valuation` : `Row ${i + 1}`;
-
-    if (!orgPropertyIds.has(draft.propertyId)) {
-      failures.push({
-        row: i,
-        label,
-        reason: draft.propertyId ? "That property isn't in your portfolio." : "No property selected.",
-      });
-      continue;
-    }
-
+  const candidates = drafts.map((draft, i) => {
+    let entity: NewPropertyValuation;
     try {
-      const input = NewPropertyValuationSchema.parse({
+      entity = NewPropertyValuationSchema.parse({
         propertyId: draft.propertyId,
         month: draft.month,
         price: draft.price,
         recordedAt: recordedAtForMonth(draft.recordedAt, draft.month),
       });
-      await createPropertyValuation(ctx, input);
-      created++;
     } catch (err) {
-      log.warn("valuation-import row create failed", { row: i, err: String(err) });
-      failures.push({
-        row: i,
-        label,
-        reason: "Could not be created — check the price and date.",
-      });
+      log.warn("valuation-import row validation failed", { row: i, err: String(err) });
+      entity = {
+        propertyId: draft.propertyId,
+        month: draft.month,
+        price: draft.price,
+        recordedAt: recordedAtForMonth(draft.recordedAt, draft.month),
+      };
     }
-  }
+    return {
+      id: crypto.randomUUID(),
+      entity,
+      source: { type: "spreadsheet" as const, row: i + 1 },
+      issues: [],
+      confidence: "high" as const,
+    };
+  });
 
-  return { created, failures };
+  const result = await persistCandidates(ctx, candidates, createPropertyValuation, {
+    idorCheck: async (entity) => orgPropertyIds.has(entity.propertyId),
+    entityName: (e) => e.month ? `${e.month} valuation` : "Valuation",
+  });
+
+  // Map the generic "Property not found" failure to the valuation-specific message.
+  const failures = result.failures.map((f) => ({
+    row: f.row,
+    label: f.name,
+    reason: f.reason.includes("not found") ? "That property isn't in your portfolio." : f.reason,
+  }));
+
+  return { created: result.created, failures };
 }

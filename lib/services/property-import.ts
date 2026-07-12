@@ -7,6 +7,7 @@ import { log } from "@/lib/log";
 import { defaultForm, type FormData as WizardForm, type WizardStatus } from "@/app/_shared/add-property/types";
 import { mapWizardToProperty } from "@/app/_shared/add-property/map-to-property";
 import { createProperty as svcCreateProperty } from "@/lib/services/properties";
+import { persistCandidates } from "@/lib/services/ingestion/persist";
 import type { Ctx } from "@/lib/services/_mapping";
 
 // The Valgate fields the AI can map a spreadsheet column onto. Drives both the AI response schema
@@ -149,7 +150,7 @@ export async function detectPropertyLayout(previews: SheetPreview[]): Promise<Sh
 }
 
 // Coerce a free-text property type into one of the wizard's allowed enum values.
-function normalizeType(raw: string): string {
+export function normalizeType(raw: string): string {
   const v = raw.toLowerCase();
   if (/resid|house|home|apartment|condo|flat|villa/.test(v)) return "residential";
   if (/multi|duplex|triplex|units?/.test(v)) return "multi-unit";
@@ -162,7 +163,7 @@ function normalizeType(raw: string): string {
 }
 
 // Coerce a free-text status into the wizard's allowed enum, defaulting to blank (-> "Vacant" later).
-function normalizeStatus(raw: string): WizardStatus {
+export function normalizeStatus(raw: string): WizardStatus {
   const v = raw.toLowerCase();
   if (/rent|leas|occupied.*tenant|tenant/.test(v)) return "Rented";
   if (/owner|self/.test(v)) return "Owner-Occupied";
@@ -279,29 +280,26 @@ export type BulkCreateResult = {
 // the others. A form without coordinates gets a last-chance geocode, then falls back to the centroid
 // inside mapWizardToProperty. Every field is validated by PropertySchema inside svcCreateProperty.
 export async function bulkCreateProperties(ctx: Ctx, forms: WizardForm[]): Promise<BulkCreateResult> {
-  let created = 0;
-  const failures: BulkCreateResult["failures"] = [];
-
-  for (let i = 0; i < forms.length; i++) {
-    const form = forms[i]!;
-    try {
+  // Last-chance geocode for any form without coordinates, then map to NewProperty.
+  const candidates = await Promise.all(
+    forms.map(async (form) => {
       let resolved = form;
       if (!resolved.mapCenter) {
         const address = [form.addressLine, form.city, form.province, form.country].filter(Boolean).join(", ");
         const center = address ? await geocodeAddress(address) : null;
         if (center) resolved = { ...form, mapCenter: center };
       }
-      await svcCreateProperty(ctx, mapWizardToProperty(resolved));
-      created++;
-    } catch (err) {
-      log.warn("property-import row create failed", { row: i, err: String(err) });
-      failures.push({
-        row: i,
-        name: form.propertyName || `Row ${i + 1}`,
-        reason: "Could not be created — check the required fields.",
-      });
-    }
-  }
+      return {
+        id: crypto.randomUUID(),
+        entity: mapWizardToProperty(resolved),
+        source: { type: "spreadsheet" as const },
+        issues: [],
+        confidence: "high" as const,
+      };
+    }),
+  );
 
-  return { created, failures };
+  return persistCandidates(ctx, candidates, svcCreateProperty, {
+    entityName: (e) => e.name || "Untitled",
+  });
 }
