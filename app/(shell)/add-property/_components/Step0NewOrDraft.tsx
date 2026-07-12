@@ -144,8 +144,8 @@ export function Step0NewOrDraft({
 
   const importSubLinks = [
     { label: "Properties", path: "/add-property/import" },
-    { label: "Tenants", path: "/add-property/import-tenants" },
-    { label: "Valuations", path: "/add-property/import-valuations" },
+    { label: "Tenants", path: "/add-property/import" },
+    { label: "Valuations", path: "/add-property/import" },
   ];
 
   const methods = [

@@ -173,7 +173,7 @@ export async function planFieldSources(
 }
 
 // Shape the model returns before we validate it against the real workbook.
-type RawPlan = {
+export type RawPlan = {
   primarySheet: string;
   joins: { sheet: string; joinColumn: string; primaryColumn: string }[];
   sources: Record<string, { sheet: string | null; column: string | null }>;
@@ -181,7 +181,7 @@ type RawPlan = {
 
 // Reject anything that does not point at a real sheet/column, so a hallucinated
 // name can never reach assembleRows. Returns null if the plan is unusable.
-function sanitizePlan(raw: RawPlan, sheets: SheetData[], fields: FieldSpec[]): FieldPlan | null {
+export function sanitizePlan(raw: RawPlan, sheets: SheetData[], fields: FieldSpec[]): FieldPlan | null {
   const byName = new Map(sheets.map((s) => [s.name, s]));
 
   const primary = byName.get(raw.primarySheet);

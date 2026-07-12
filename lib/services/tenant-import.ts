@@ -1,7 +1,8 @@
 import "server-only";
 import { listProperties } from "@/lib/services/properties";
 import { createTenant } from "@/lib/services/tenants";
-import { NewTenantSchema, type TenantStatus } from "@/lib/data/types/tenant";
+import { NewTenantSchema, type TenantStatus, type NewTenant } from "@/lib/data/types/tenant";
+import { persistCandidates } from "@/lib/services/ingestion/persist";
 import type { Ctx } from "@/lib/services/_mapping";
 import { log } from "@/lib/log";
 import {
@@ -171,15 +172,10 @@ export type BulkCreateTenantsResult = {
 // NewTenantSchema before insert, so a missing property or name fails that row
 // cleanly instead of corrupting data.
 export async function bulkCreateTenants(ctx: Ctx, drafts: TenantDraft[]): Promise<BulkCreateTenantsResult> {
-  let created = 0;
-  const failures: BulkCreateTenantsResult["failures"] = [];
-
-  for (let i = 0; i < drafts.length; i++) {
-    const draft = drafts[i]!;
+  const candidates = drafts.map((draft, i) => {
+    let entity: NewTenant;
     try {
-      // Fill required-but-empty fields with safe defaults so a sparse workbook row
-      // still imports (the review table already flagged them for the user).
-      const input = NewTenantSchema.parse({
+      entity = NewTenantSchema.parse({
         propertyId: draft.propertyId,
         name: draft.name,
         unit: draft.unit || "—",
@@ -188,17 +184,26 @@ export async function bulkCreateTenants(ctx: Ctx, drafts: TenantDraft[]): Promis
         email: draft.email || undefined,
         phone: draft.phone || undefined,
       });
-      await createTenant(ctx, input);
-      created++;
     } catch (err) {
-      log.warn("tenant-import row create failed", { row: i, err: String(err) });
-      failures.push({
-        row: i,
-        name: draft.name || `Row ${i + 1}`,
-        reason: draft.propertyId ? "Could not be created — check the required fields." : "No property selected.",
-      });
+      log.warn("tenant-import row validation failed", { row: i, err: String(err) });
+      entity = {
+        propertyId: draft.propertyId,
+        name: draft.name,
+        unit: draft.unit || "—",
+        rent: draft.rent,
+        status: draft.status,
+      };
     }
-  }
+    return {
+      id: crypto.randomUUID(),
+      entity,
+      source: { type: "spreadsheet" as const, row: i + 1 },
+      issues: [],
+      confidence: "high" as const,
+    };
+  });
 
-  return { created, failures };
+  return persistCandidates(ctx, candidates, createTenant, {
+    entityName: (e) => e.name || "Untitled",
+  });
 }
