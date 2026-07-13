@@ -33,19 +33,29 @@ import type { TenantStatus } from "@/lib/data/types/tenant";
 
 // ─── Zod schema ──────────────────────────────────────────────────────
 
+// One field→column mapping. `field` names which Valgate field this maps.
+//
+// NOTE: `sources` is an ARRAY, not a `z.record()`/map. OpenAI's strict
+// structured-output mode (which generateObject uses for gpt-4o-mini) rejects
+// open-ended objects — a record compiles to JSON-schema `additionalProperties`/
+// `propertyNames`, which the API refuses ("'propertyNames' is not permitted"),
+// so the whole call throws. An array of {field, sheet, column} is strict-safe.
 const fieldSourceSchema = z.object({
+  field: z.string(),
   sheet: z.string().nullable(),
   column: z.string().nullable(),
 });
 
 const entityPlanSchema = z.object({
   primarySheet: z.string(),
+  // Required (no .default) — strict mode needs every property present; the
+  // model returns [] when there are no cross-sheet joins.
   joins: z.array(z.object({
     sheet: z.string(),
     joinColumn: z.string(),
     primaryColumn: z.string(),
-  })).default([]),
-  sources: z.record(z.string(), fieldSourceSchema),
+  })),
+  sources: z.array(fieldSourceSchema),
 }).nullable();
 
 export const unifiedPlanSchema = z.object({
@@ -322,8 +332,11 @@ function buildPrompt(previews: SheetPreview[]): string {
     "Valgate tracks 14 entity types. For each one, look through the workbook's sheets and determine",
     "whether a sheet contains a register of that entity (one row per record). If found, return:",
     "- primarySheet: the sheet name",
-    "- sources: a map of each Valgate field to { sheet, column } where the data lives (null if not found)",
-    "- joins: if some fields live in a different sheet, how to link them back (joinColumn = primaryColumn)",
+    "- sources: an ARRAY of { field, sheet, column } — one entry per Valgate field you can locate.",
+    "  `field` is the Valgate field name; `sheet`/`column` are where its data lives (null if not found).",
+    "  Omit fields you cannot map at all. Return [] if the entity has no mappable fields.",
+    "- joins: an array describing how to link fields that live in a different sheet (joinColumn = primaryColumn).",
+    "  Return [] when every field lives in the primary sheet.",
     "",
     "If an entity type is NOT present in the workbook, return null for it.",
     "",
@@ -342,10 +355,12 @@ function buildPrompt(previews: SheetPreview[]): string {
 }
 
 export async function extractAll(previews: SheetPreview[]): Promise<UnifiedPlan> {
+  // No API key (e.g. demo mode): return an empty plan so the flow degrades to a
+  // "nothing detected" state rather than crashing. This is the ONLY silent path.
   if (!env.OPENAI_API_KEY) {
     const firstSheet = previews[0]?.name ?? "";
     return {
-      properties: { primarySheet: firstSheet, joins: [], sources: {} },
+      properties: { primarySheet: firstSheet, joins: [], sources: [] },
       tenants: null, valuations: null, leases: null, payments: null, expenses: null,
       coOwners: null, maintenance: null, inspections: null, certifications: null,
       safetyRisks: null, emergencyContacts: null, successors: null, landParcels: null,
@@ -360,14 +375,13 @@ export async function extractAll(previews: SheetPreview[]): Promise<UnifiedPlan>
     });
     return object;
   } catch (err) {
-    log.warn("unified-extract extractAll failed", { err: String(err) });
-    const firstSheet = previews[0]?.name ?? "";
-    return {
-      properties: { primarySheet: firstSheet, joins: [], sources: {} },
-      tenants: null, valuations: null, leases: null, payments: null, expenses: null,
-      coOwners: null, maintenance: null, inspections: null, certifications: null,
-      safetyRisks: null, emergencyContacts: null, successors: null, landParcels: null,
-    };
+    // Surface the real failure instead of pretending the workbook was empty.
+    // A silent empty-plan fallback here used to render as "couldn't find any
+    // records", which hid genuine errors (e.g. a bad schema rejected by the
+    // model API). The caller (extractAllAction) turns this into an honest
+    // "couldn't read that workbook, try again" message.
+    log.error("unified-extract extractAll failed", { err: String(err) });
+    throw err;
   }
 }
 
@@ -401,10 +415,17 @@ export async function applyPlan(
     const handler = entityHandlers[entityType];
     if (!handler) continue;
 
+    // The model returns sources as an array (strict-output safe); the
+    // deterministic apply layer wants a field→{sheet,column} record. Convert.
+    const sources: Record<string, { sheet: string | null; column: string | null }> = {};
+    for (const s of entityPlan.sources) {
+      sources[s.field] = { sheet: s.sheet, column: s.column };
+    }
+
     const raw: RawPlan = {
       primarySheet: entityPlan.primarySheet,
       joins: entityPlan.joins ?? [],
-      sources: entityPlan.sources,
+      sources,
     };
 
     const sanitized = sanitizePlan(raw, sheetData, handler.fieldSpecs);
