@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
+import dynamic from "next/dynamic";
+import { usePathname } from "next/navigation";
 import { Toaster } from "sonner";
 import { cn } from "../ui/utils";
 import {
@@ -11,6 +13,19 @@ import {
 import { Sidebar } from "./Sidebar";
 import { PhoneTopBar } from "./PhoneTopBar";
 import { ShellContext } from "./shell-context";
+import { AgentOverlayContext } from "./ai-overlay/agent-context";
+import {
+  FloatingAgentChat,
+  type FloatingOpenTrigger,
+} from "./ai-overlay/FloatingAgentChat";
+
+// The full AI overlay is a heavy client component (chat pane, doc viewer,
+// session sidebar), so load it lazily — the docked FloatingAgentChat is the
+// always-present entry point and is imported normally above.
+const AIOverlay = dynamic(
+  () => import("./AIOverlay").then((m) => m.AIOverlay),
+  { ssr: false },
+);
 
 export function ShellLayout({
   children,
@@ -20,8 +35,30 @@ export function ShellLayout({
   const [isDark, setIsDark] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
 
+  // AI assistant open-state, lifted here so any page in the shell can open it
+  // via the AgentOverlayContext. Mirrors the old Pro wiring, minus Pro.
+  const pathname = usePathname();
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiSessionId, setAiSessionId] = useState<string | undefined>(undefined);
+  // The docked panel fires on each count increment (a signal, not a boolean edge).
+  const [floatingTrigger, setFloatingTrigger] = useState<FloatingOpenTrigger>({
+    count: 0,
+  });
+
+  // Open the full overlay, optionally deep-linked to a session.
+  const openAI = useCallback((sessionId?: string) => {
+    setAiSessionId(sessionId);
+    setAiOpen(true);
+  }, []);
+
+  // Open the docked floating panel (increment the trigger count).
+  const openFloating = useCallback((sessionId?: string) => {
+    setFloatingTrigger((prev) => ({ count: prev.count + 1, sessionId }));
+  }, []);
+
   return (
     <ShellContext.Provider value={{ isDark }}>
+    <AgentOverlayContext.Provider value={{ openAI, openFloating }}>
       <div
         className={cn(
           "flex h-dvh w-full overflow-hidden bg-surface-page font-sans",
@@ -69,8 +106,23 @@ export function ShellLayout({
           </div>
         </main>
 
+        {/* Docked AI assistant — always present. Escalates to the full
+            overlay via openAI() from the AgentOverlayContext. */}
+        <FloatingAgentChat pathname={pathname} openTrigger={floatingTrigger} />
+
+        <AIOverlay
+          open={aiOpen}
+          onClose={() => {
+            setAiOpen(false);
+            setAiSessionId(undefined);
+          }}
+          pathname={pathname}
+          sessionId={aiSessionId}
+        />
+
         <Toaster position="bottom-right" richColors />
       </div>
+    </AgentOverlayContext.Provider>
     </ShellContext.Provider>
   );
 }

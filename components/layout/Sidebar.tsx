@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Home,
   LayoutGrid,
+  BarChart2,
   Settings,
   Sun,
   Moon,
@@ -27,6 +28,7 @@ const sidebarNavItems = [
   { label: "Home", path: "/", icon: Home },
   { label: "Portfolio", path: "/portfolio", icon: LayoutGrid },
   { label: "Rental", path: "/rental", icon: Key },
+  { label: "Analytics", path: "/analytics", icon: BarChart2 },
   { label: "Settings", path: "/settings", icon: Settings },
 ] as const;
 

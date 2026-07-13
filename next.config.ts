@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import path from "path";
 import { fileURLToPath } from "url";
+import { createMDX } from "fumadocs-mdx/next";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -39,4 +40,5 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// Wrap with fumadocs-mdx so the /docs manual (content/docs/**) compiles.
+export default createMDX()(nextConfig);

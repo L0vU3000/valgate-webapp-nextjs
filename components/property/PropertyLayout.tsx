@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
-import { ChevronLeft, MoreVertical, LayoutGrid, Eye, DollarSign, Key, Globe, Archive, Pencil, Bell } from "lucide-react";
+import { ChevronLeft, MoreVertical, LayoutGrid, Eye, DollarSign, Coins, Key, Globe, Archive, Pencil, Bell } from "lucide-react";
 import type { Property } from "@/lib/data/types/property";
 import { usePropertyShell } from "@/components/property/PropertyShellContext";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -15,6 +15,7 @@ import { useInitialNotifications } from "@/components/layout/NotificationsContex
 
 const tabs = [
   { key: "overview", label: "Overview", icon: LayoutGrid },
+  { key: "financials", label: "Financials", icon: Coins },
   { key: "documents", label: "Documents", icon: Eye },
   { key: "ownership", label: "Ownership", icon: Key },
   { key: "rental", label: "Rental", icon: DollarSign },
