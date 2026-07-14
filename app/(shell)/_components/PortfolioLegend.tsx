@@ -128,10 +128,12 @@ export function PortfolioLegend({
   }
 
   // Desktop layout — single-row glass pill.
+  // Sits at `bottom-24` (not `bottom-4`) so it clears the docked AI chat bar
+  // (`FloatingAgentChat`, ~56px tall at `bottom-4`) instead of overlapping it.
   return (
     <div
       data-no-drag
-      className="absolute bottom-4 z-10 flex justify-center transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]"
+      className="absolute bottom-24 z-10 flex justify-center transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]"
       style={{ left: 0, right: rightOffset }}
     >
       <div
