@@ -208,12 +208,14 @@ agent-loop/
 ## Current build position
 
 Eight pipelines are defined. `eslint-burndown`, `bug-fix`, `feature`, `test-coverage`, `qa`,
-and `pipeline-improve` have successful real runs. The first `pipeline-improve` proof made
-registry metadata drift fail across pipeline frontmatter and all three registry tables.
-`e2e-regression` is authored with its two-green-run proof deferred. `entity-scaffold` is
-authored behind an explicit product-scope and Plan approval gate; its first real proof waits
-for an approved entity ticket. The orchestrator remains a specification rather than an
-executable dispatcher.
+`pipeline-improve`, and `e2e-regression` have successful real runs. The first `pipeline-improve`
+proof made registry metadata drift fail across pipeline frontmatter and all three registry
+tables. The `e2e-regression` proof (run `2026-07-16-030754`) triaged nine active-suite failures
+by evidence — an Agentation-in-DEMO console leak fixed at the app, `/activity` scope-cut as a
+removed surface, three outdated-contract spec fixes, and five wizard/bulk-bar flakes quarantined
+with tickets — reaching two consecutive green runs. `entity-scaffold` is authored behind an
+explicit product-scope and Plan approval gate; its first real proof waits for an approved entity
+ticket. The orchestrator remains a specification rather than an executable dispatcher.
 
 Next: prove `entity-scaffold` on the first approved ordinary property-child entity, without
 using the pipeline to invent product schema. Everything runs on built-in primitives, so the

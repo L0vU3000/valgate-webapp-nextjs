@@ -3,6 +3,23 @@
 > What changed in the loop machinery and when. Newest first. One entry per change.
 > Format: `## [YYYY-MM-DD] <what changed>` + a line or two of why.
 
+## [2026-07-16] e2e-regression proven — two consecutive green runs
+Hand run `2026-07-16-030754` closed the paused e2e-regression proof. One shared run ID,
+maker (execute) ≠ verifier (eval, `sonnet`), human approval taken after Plan. Scope, ports,
+routes, and browser setup were derived from the current `playwright.config.ts` + App Router
+tree. First active-suite run: 25 passed / 9 failed; each failure reran 3× to classify.
+Dispositions by evidence: **product fix** — Agentation dev tooling mounted under DEMO_MODE and
+spammed `localhost:4747` console errors (gated off in `app/layout.tsx`, fixed P4);
+**removed surface** — `/activity` 404s, `activity.spec.ts` added to the config scope-cut
+(retained, not deleted); **outdated contract** — P3 `textContent`→`innerText`, C3 rewritten
+to the server "Save as Draft" flow, F5 to the "Actions for …" folder menu; **confirmed flakes
+quarantined** with tickets — G1/G2/G3 + D4 (FeatureUnlockWizard cold lazy-compile beats the 5s
+step wait) and F4 (fixed bulk-action bar never satisfies Playwright stability / JS relayout).
+Also added an animation-disable to the shared e2e fixture to stop an infinite `animate-ping`
+keeping fixed overlays perpetually "unstable". Independent Eval passed: two consecutive full
+runs 0-failed (26/17/0 · 25/18/0), machinery all good, Vitest 195/195, tsc 0, ESLint 55/0.
+No test deleted, no assertion weakened, no timeout widened, no ignore broadened.
+
 ## [2026-07-16] pipeline-improve added and proven on registry drift
 Added the eighth pipeline, `pipeline-improve` (`category: maintenance`,
 `type: pipeline-improve`), with a shared run ID, Plan approval stop, `opus` maker, `sonnet`

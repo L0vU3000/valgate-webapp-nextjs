@@ -146,21 +146,17 @@ test.describe('C — Add property', () => {
   test('C3: save draft → resume from Step 0', async ({ page }) => {
     test.info().annotations.push({ type: 'checklist', description: 'C3 — draft save/resume' })
 
-    await test.step('Start a new property and partially fill (autosaves a draft)', async () => {
+    await test.step('Name the property and Save as Draft', async () => {
       const nameField = await reachStep2(page)
-      // Typing a name on Step 2 autosaves the draft to localStorage under the active id.
       await nameField.fill('E2E Draft Property')
-      // The autosave is debounced — wait until the draft is actually persisted before
-      // navigating away, otherwise the goto can race ahead of the save and lose it.
-      await page.waitForFunction(
-        () => JSON.stringify(localStorage).includes('E2E Draft Property'),
-        undefined,
-        { timeout: 5_000 },
-      )
-    })
-
-    await test.step('Navigate away — simulates abandoning mid-flow', async () => {
-      await page.goto('/portfolio')
+      // Drafts persist server-side now (not localStorage): the footer "Save as Draft"
+      // button calls the draft server action, then redirects to /portfolio. Clicking it
+      // is the real "abandon mid-flow but keep it" path.
+      await page.getByRole('button', { name: /save as draft/i }).filter({ visible: true }).first().click()
+      // Persisting the draft navigates away from the plain wizard step: the app briefly
+      // stamps ?draftId=DRFT-NNNN into the URL and then lands on /portfolio. Either proves
+      // the save fired; the real persistence check is the resume row asserted below.
+      await expect(page).toHaveURL(/draftId=DRFT-|\/portfolio/, { timeout: 10_000 })
     })
 
     await test.step('Return to add-property → draft resume option shown on Step 0', async () => {
@@ -170,9 +166,10 @@ test.describe('C — Add property', () => {
       await dismissAdvisorModal(page)
 
       // Step 0 always renders the "Resume a draft" section, and our saved draft
-      // appears there by its name. Either confirms the resume affordance.
+      // appears there by its name. Use .first(): server drafts persist across runs, so
+      // repeated runs can leave several "E2E Draft Property" rows — one visible is enough.
       await expect(page.getByText(/resume a draft/i)).toBeVisible({ timeout: 8_000 })
-      await expect(page.getByText('E2E Draft Property')).toBeVisible({ timeout: 8_000 })
+      await expect(page.getByText('E2E Draft Property').first()).toBeVisible({ timeout: 8_000 })
     })
   })
 

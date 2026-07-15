@@ -64,6 +64,12 @@ export default defineConfig({
         // pipeline's disposition table (run 2026-07-15-163613).
         /\/directory\.spec\.ts/,
         /\/pro-.*\.spec\.ts/,
+        // scope-cut — the standalone /activity page was removed to the MVP core;
+        // its route now 404s (activity surfaces on the property overview instead).
+        // Retain activity.spec.ts in git as the old contract; exclude it from the
+        // active owner suite so its 404 isn't read as a regression. See the
+        // e2e-regression disposition table (run 2026-07-16-030754).
+        /\/activity\.spec\.ts/,
       ],
     },
 

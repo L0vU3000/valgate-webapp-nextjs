@@ -47,7 +47,7 @@ unattended without lying to itself.
 | `building` | [`entity-scaffold`](./entity-scaffold/pipeline.md) | `entity` | authored — training mode; proof waits for an approved ordinary property-child entity |
 | `testing` | [`test-coverage`](./test-coverage/pipeline.md) | `test` | ✅ proven by hand — `portfolio-shared.ts` 0%→100% coverage, 100% mutation score |
 | `testing` | [`qa`](./qa/pipeline.md) | `qa` | ✅ proven by hand — 8/8 flows; WebGL crash + duplicate React key fixed; 183/183 global tests |
-| `testing` | [`e2e-regression`](./e2e-regression/pipeline.md) | `e2e` | authored — proof deferred (scope-cut specs excluded; 2× green proof deferred) |
+| `testing` | [`e2e-regression`](./e2e-regression/pipeline.md) | `e2e` | ✅ proven by hand — run `2026-07-16-030754`: 9 failures triaged (Agentation-in-DEMO fixed, `/activity` scope-cut, P3/C3/F5 contract fixes, 5 wizard/bulk-bar flakes quarantined+ticketed); 2× green |
 | `maintenance` | [`pipeline-improve`](./pipeline-improve/pipeline.md) | `pipeline-improve` | ✅ proven by hand — registry drift rejected across 4 sources; 195/195 global tests |
 
 Every pipeline's `pipeline.md` has a **Verification technique** section recording the

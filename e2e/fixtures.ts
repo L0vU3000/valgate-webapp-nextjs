@@ -34,6 +34,28 @@ export const test = base.extend({
       ;(window as { __E2E__?: boolean }).__E2E__ = true
     })
 
+    // Stabilize motion for actionability. Some fixed overlays animate on mount
+    // (fade-slide-up) while an infinite `animate-ping` runs elsewhere on the page;
+    // together they keep Playwright's "element is stable" check from ever settling on
+    // the fixed bulk-action bar, so a click on it can hang until timeout. Zeroing
+    // animation/transition durations removes the motion without touching layout,
+    // colors, or any assertion — a standard e2e stabilization, not a weakened test.
+    await page.addInitScript(() => {
+      const style = document.createElement('style')
+      style.setAttribute('data-e2e-no-motion', 'true')
+      // Use `animation: none` (full removal), NOT `animation-duration: 0s`. Zeroing the
+      // duration of an *infinite* animation (Tailwind's animate-ping) makes it cycle every
+      // frame — constant repaint that keeps the fixed bulk bar perpetually "unstable".
+      // Removing the animation outright freezes it.
+      style.textContent = `
+        *, *::before, *::after {
+          animation: none !important;
+          transition: none !important;
+        }
+      `
+      document.documentElement.appendChild(style)
+    })
+
     // Layer 2 — hide any Clerk overlay that still renders, and unlock page pointer events.
     await page.addInitScript(() => {
       const style = document.createElement('style')

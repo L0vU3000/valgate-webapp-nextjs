@@ -97,6 +97,7 @@ select among pipelines within the supplied category; the current router requires
 ## Not built yet
 
 This file is the **spec**, not a running router. Multiple pipelines now have real proof, so
-the original one-pipeline prerequisite is satisfied. Complete the paused e2e-regression
-proof, then build the dispatcher to validate `category` + `type`, launch the selected
-workflow in an isolated worktree, record the outcome, and refresh the dashboard.
+the original one-pipeline prerequisite is satisfied. The paused e2e-regression proof is now
+complete (run `2026-07-16-030754`, two consecutive green runs). Next: build the dispatcher to
+validate `category` + `type`, launch the selected workflow in an isolated worktree, record the
+outcome, and refresh the dashboard.

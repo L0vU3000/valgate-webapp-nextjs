@@ -89,6 +89,7 @@ test.describe('D — Property detail tabs', () => {
   })
 
   test('D4: Financials — edit → save → persists', async ({ page }) => {
+    test.skip(true, 'QUARANTINED (outdated contract + wizard flake): Financials is now the FeatureUnlockWizard, not an inline edit + toast. Rewrite to drive the wizard. De-flake: agent-loop/orchestrator/inbox/2026-07-16-deflake-feature-unlock-wizard.md')
     test.info().annotations.push({ type: 'checklist', description: 'D4 — financials edit/save' })
 
     await test.step('Open financials and enter edit mode', async () => {

@@ -59,7 +59,11 @@ test.describe('P — Cross-cutting safety', () => {
 
     await test.step('Visit non-existent property and check body text', async () => {
       await page.goto('/property/PROP-NONEXISTENT/overview')
-      const bodyText = await page.locator('body').textContent()
+      // Use innerText (rendered, visible text) — NOT textContent. textContent also
+      // returns hidden inline Next.js RSC/flight <script> payloads, which legitimately
+      // contain "Error:" and stack-like tokens by framework design. The contract here is
+      // "no raw error leaks to the *visible* UI", so read what the user actually sees.
+      const bodyText = await page.locator('body').innerText()
       const rawErrorPatterns = [
         /Error: |at \w+ \(/,
         /NeonDbError|PostgresError/,

@@ -18,6 +18,39 @@ Template:
   pre-existing green signals, not just its own target metric.
 -->
 
+## [2026-07-16] e2e-regression maker: three fix attempts that first failed
+Run `2026-07-16-030754`. Each was caught by the maker's own focused rerun before eval, but
+they cost cycles and are worth not repeating:
+- **`animation-duration: 0s` made Playwright "not stable" WORSE, not better.** To stabilize a
+  fixed overlay for clicking I first zeroed animation *duration*. Tailwind's `animate-ping` is
+  `infinite`; duration 0 makes an infinite animation cycle every frame → constant repaint →
+  the fixed bulk bar stays perpetually unstable. Fix: `animation: none !important` (full
+  removal), never `animation-duration: 0s`, when killing motion for e2e.
+- **Asserting on a transient URL flaked (C3).** "Save as Draft" briefly stamps
+  `?draftId=DRFT-*` then redirects to `/portfolio`; asserting either exact URL raced the
+  redirect. Lesson: assert the durable outcome (the draft resumes on Step 0), tolerate the
+  transient URL with an either/or regex. Also `.first()` — server drafts persist across runs,
+  so a bare `getByText(name)` hits strict-mode once several accumulate.
+- **Guessed the wrong dialog role (F5).** Assumed `alertdialog`; the folder-delete confirm is
+  `role="dialog"` titled `Delete "{name}"?`. Lesson: read the live ARIA snapshot (a throwaway
+  probe spec) before rewriting a selector — do not port the old spec's assumed roles/labels.
+- **Prevention:** a spec pipeline's execute stage should drive the real flow with a temporary
+  probe spec (deleted before eval) to capture the current DOM, rather than statically guessing
+  selectors from a large component. Probes here nailed F4/F5/D4/C3 ground truth fast.
+
+## [2026-07-16] Dev-only client tooling leaked into DEMO/e2e (Agentation)
+- **Symptom:** e2e P4 ("no console errors") failed on two bare `net::ERR_CONNECTION_REFUSED`;
+  its host-based filter could not drop them (Chromium logs them without a URL). The refused
+  host was `localhost:4747` — the Agentation annotation daemon.
+- **Cause:** `AgentationProvider` gated its mount only on `NODE_ENV !== "development"`. DEMO_MODE
+  runs under `next dev` (NODE_ENV=development), so it mounted and probed an absent local daemon
+  (its overlay also had "Block page interactions" on, interfering with clicks).
+- **Fix:** gate the mount on `process.env.DEMO_MODE !== "true"` too (read server-side in the root
+  layout). P4 passed; Agentation no longer in the DOM.
+- **Prevention:** dev-only client instrumentation must exclude DEMO/e2e explicitly, not rely on
+  NODE_ENV alone; broadening the test's console filter to hide the noise would have masked real
+  failures and is forbidden by the pipeline.
+
 ## [2026-07-16] Registry drift passed the machinery self-check
 - **Symptom:** changing the `eslint-burndown` type in `categories.md` from `lint` to
   `lint-drift-proof` still produced `check-machinery: all good`.
