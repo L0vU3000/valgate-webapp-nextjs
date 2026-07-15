@@ -7,8 +7,6 @@
 > become a line in the offending pipeline's prompt (or `CLAUDE.md`) so the fix
 > propagates to every future run — not just this one.
 
-_No incidents yet. The first entries will come from the eslint-burndown by-hand run._
-
 <!--
 Template:
 
@@ -19,6 +17,34 @@ Template:
 - **Prevention:** every code pipeline's eval must assert *no regression* on all
   pre-existing green signals, not just its own target metric.
 -->
+
+## [2026-07-15] QA pipeline targeted stale ports and routes
+- **Symptom:** the authored run tried DEMO mode on port 3002 and defaulted to `/home` and
+  `/documents`, producing auth-suite confusion and 404s.
+- **Cause:** the pipeline copied older route assumptions instead of the current
+  `playwright.config.ts` and App Router tree.
+- **Fix:** DEMO QA now uses port 3001 and real routes rooted at `/` plus
+  `/property/PROP-0001/*`; port 3002 remains exclusive to the real-Clerk auth project.
+- **Prevention:** a browser pipeline's server and route defaults must be derived from the
+  repository's current runner config before its first drive.
+
+## [2026-07-15] Turbopack rejected worktree dependencies outside its root
+- **Symptom:** `npm run dev:e2e` panicked in the clean QA worktree before the app compiled.
+- **Cause:** `node_modules` was a symlink to the parent workspace, outside Turbopack's
+  allowed filesystem root.
+- **Fix:** installed physical dependencies in the disposable worktree with
+  `npm ci --ignore-scripts`.
+- **Prevention:** isolated Turbopack worktrees install their own dependencies; the QA
+  pipeline now says so explicitly.
+
+## [2026-07-15] Clean QA exploration bypassed independent eval
+- **Symptom:** `workflow.js` returned success immediately when explore reported zero
+  findings, despite the pipeline's maker/verifier guarantee.
+- **Cause:** the early return treated “nothing to fix” as “independently verified.”
+- **Fix:** clean runs now spawn a fresh-session eval agent and require flow, console,
+  network, suite, and TypeScript signals before returning clean.
+- **Prevention:** every terminal success path in a workflow must cross an independent
+  verifier, including no-op runs.
 
 ## [2026-07-15] Dashboard showed an empty summary for test-coverage
 - **Symptom:** the completed test-coverage run rendered as `pass ()` on the dashboard.

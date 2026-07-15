@@ -3,6 +3,19 @@
 > Why the loop is built the way it is. Newest first. One entry per load-bearing choice.
 > Format: `## [YYYY-MM-DD] <decision>` → **Context / Choice / Why / Revisit-if**.
 
+## [2026-07-15] QA reuses the repository's e2e browser contract
+- **Context:** generic browser sessions loaded Clerk's development overlays even though
+  server-side DEMO mode correctly bypasses auth. The existing Playwright fixture already
+  defines the project-approved browser setup.
+- **Choice:** QA explore and eval reproduce `e2e/fixtures.ts` exactly: block only
+  `**clerk.accounts.dev/**`, set `window.__E2E__ = true`, and inject its overlay CSS. The
+  blocked Clerk request is listed as test-rig noise; product errors remain failures.
+- **Why:** one browser contract prevents false failures without creating a broad allowlist
+  that could hide application regressions. Clean exploration runs still receive a separate
+  verifier pass.
+- **Revisit if:** DEMO mode stops mounting Clerk's client SDK; remove the exception from
+  the shared fixture and QA together.
+
 ## [2026-07-15] Mutation eval uses the target's dedicated test file
 - **Context:** the first `test-coverage` hand run proved StrykerJS 9.6.1 works with
   Vitest 4.1.10, but the original eval command specified only the product module.

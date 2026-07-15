@@ -16,7 +16,9 @@ A run **passes** only when ALL are true, verified by `eval` in a **fresh browser
 
 1. Every in-scope flow completes: the pages render their key landmarks (ARIA/structural
    check, not pixels) and the interactions the flow needs actually work.
-2. **Zero console errors** on every in-scope route (warnings are recorded, not failed).
+2. **Zero product console errors** on every in-scope route (warnings are recorded, not
+   failed). Requests deliberately blocked by the shared e2e fixture are recorded separately
+   as test-rig noise rather than hidden or counted as product failures.
 3. **No failed network requests** (4xx/5xx) triggered by normal flow usage — expected 401/403
    on auth-gated probes excepted.
 4. Global no-regression gates: `npx vitest run` green · `npx tsc --noEmit` 0 errors ·
@@ -60,21 +62,31 @@ Recorded in [`memory/decisions.md`](../../memory/decisions.md).
 
 ## App under test
 
-- Server: `npm run dev:e2e` — the DEMO_MODE owner session on port 3002 (proven by the e2e
-  rig; see memory `project_e2e_suite`). Reuse a server that's already up; start one if not.
+- Server: `npm run dev:e2e` — the DEMO_MODE owner session on port **3001**. Port 3002 is
+  reserved for the separate real-Clerk auth project. Reuse a server that's already up;
+  start one if not.
 - **Never `networkidle`** waits against the dev server (known hang); wait on selectors.
+- **Reuse the shared browser fixture behavior in `e2e/fixtures.ts`:** block
+  `**clerk.accounts.dev/**`, set `window.__E2E__ = true`, and inject its Clerk-overlay CSS.
+  The blocked hosted Clerk request is expected test-rig noise. Do not add broader ignore
+  rules for ordinary product requests or console errors.
 - Data: the app points at the **Neon dev branch** (`.env.local`). Flows that create rows use
   recognizable names (`QA-PIPELINE-*`) and clean up after themselves where a delete surface
   exists. Never prod, **never `seed:reset`**.
 
 ## Default route scope (a ticket can override)
 
-`/home` · `/property/[id]` (first seed property) · `/documents` · `/settings` ·
-add-property wizard opening step · the ownership wizard (regression: co-owner data-loss).
+`/` · `/property/PROP-0001/overview` · `/property/PROP-0001/documents` ·
+`/property/PROP-0001/ownership` · `/settings` · `/add-property` through the import-method
+step · the ownership wizard through its loaded structure step (regression: co-owner
+data-loss). A ticket can supply a different valid seed property ID.
 
 ## Guardrails
 
 - **Isolation:** run in a git worktree; one dev server per run.
+- **Turbopack worktrees need physical dependencies:** run `npm ci --ignore-scripts` inside
+  an isolated worktree. A `node_modules` symlink outside that worktree makes Turbopack
+  reject the project root.
 - **Bounds:** `max-iterations: 5`, `max-time: 60m`.
 - **Fix scope:** wiring/flow fixes only. A finding that needs product/design judgment is
   reported, not guessed at.

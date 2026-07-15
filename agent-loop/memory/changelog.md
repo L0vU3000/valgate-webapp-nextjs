@@ -3,6 +3,14 @@
 > What changed in the loop machinery and when. Newest first. One entry per change.
 > Format: `## [YYYY-MM-DD] <what changed>` + a line or two of why.
 
+## [2026-07-15] QA pipeline proven by hand
+Completed run `2026-07-15-160345` across six routes and two interactive flows. Fixed a
+WebGL capability crash and duplicate React keys; fresh-session verification passed 8/8
+flows with 183/183 tests, tsc 0, and eslint 55→55. Corrected the pipeline to DEMO port
+3001 and current nested property routes, reused the established browser fixture, required
+physical worktree dependencies for Turbopack, added network cleanliness to the workflow
+schema, and restored independent eval for clean exploration runs.
+
 ## [2026-07-15] test-coverage pipeline proven by hand
 Completed run `2026-07-15-152837` against `lib/services/portfolio-shared.ts`. Added 12
 focused tests; coverage moved 0%→100% across statements, branches, functions, and lines;

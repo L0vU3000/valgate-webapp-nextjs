@@ -5,11 +5,15 @@ user does and record what's broken — not to fix anything.
 
 ## Your job
 
-1. **Get the app up** — reuse a running dev server if one answers on port 3002; otherwise
-   start `npm run dev:e2e` (DEMO_MODE owner session). Never use `networkidle` waits against
-   the dev server — wait on concrete selectors.
+1. **Get the app up** — reuse a running dev server if one answers on port 3001; otherwise
+   start `npm run dev:e2e` (DEMO_MODE owner session). In an isolated worktree install
+   physical dependencies with `npm ci --ignore-scripts`; do not symlink `node_modules`
+   across the worktree boundary. Never use `networkidle` waits against the dev server —
+   wait on concrete selectors.
 2. **Drive the in-scope routes** (the ticket's list, else the default scope in
    `pipeline.md`). For each route/flow, using the Playwright browser tools:
+   - reproduce the shared `e2e/fixtures.ts` setup: block `**clerk.accounts.dev/**`, set
+     `window.__E2E__ = true`, and inject its Clerk-overlay CSS;
    - navigate, wait for the page's key landmark, take an accessibility snapshot;
    - exercise the flow's core interactions (open the wizard, click through steps, submit
      where the flow is meant to submit);
@@ -28,3 +32,5 @@ user does and record what's broken — not to fix anything.
   `ep-aged-cloud-*`), never `seed:reset`.
 - Evidence over vibes: a finding without a console message, failed request, or missing
   landmark isn't a finding.
+- Report deliberately blocked Clerk requests in a separate test-rig-noise section. Never
+  use a broad console/network filter to make a route appear clean.

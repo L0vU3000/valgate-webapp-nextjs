@@ -42,7 +42,7 @@ unattended without lying to itself.
 | [`eslint-burndown`](./eslint-burndown/pipeline.md) | `lint` | ✅ automated (Workflow), proven |
 | [`bug-fix`](./bug-fix/pipeline.md) | `bug` | ✅ proven by hand and automated on the co-owner data-loss ticket |
 | [`test-coverage`](./test-coverage/pipeline.md) | `test` | ✅ proven by hand — `portfolio-shared.ts` 0%→100% coverage, 100% mutation score |
-| [`qa`](./qa/pipeline.md) | `qa` | authored — verification = fresh-session re-drive + console/network capture; first run by hand pending |
+| [`qa`](./qa/pipeline.md) | `qa` | ✅ proven by hand — 8/8 flows; WebGL crash + duplicate React key fixed; 183/183 global tests |
 | [`e2e-regression`](./e2e-regression/pipeline.md) | `e2e` | authored — verification = rerun-triage + quarantine + 2× green; first run by hand pending |
 
 Every pipeline's `pipeline.md` has a **Verification technique** section recording the
