@@ -46,7 +46,7 @@ unattended without lying to itself.
 | `building` | [`feature`](./feature/pipeline.md) | `feature` | ✅ proven by hand — Sole-Ownership confirmed cleanup, acceptance tests red→green |
 | `testing` | [`test-coverage`](./test-coverage/pipeline.md) | `test` | ✅ proven by hand — `portfolio-shared.ts` 0%→100% coverage, 100% mutation score |
 | `testing` | [`qa`](./qa/pipeline.md) | `qa` | ✅ proven by hand — 8/8 flows; WebGL crash + duplicate React key fixed; 183/183 global tests |
-| `testing` | [`e2e-regression`](./e2e-regression/pipeline.md) | `e2e` | authored — first run paused after triage, before required reruns and 2× green |
+| `testing` | [`e2e-regression`](./e2e-regression/pipeline.md) | `e2e` | authored — proof deferred (scope-cut specs excluded; 2× green proof deferred) |
 
 Every pipeline's `pipeline.md` has a **Verification technique** section recording the
 researched choice of check and why it matches what that pipeline produces.

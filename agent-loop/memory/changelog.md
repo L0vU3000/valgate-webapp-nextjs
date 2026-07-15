@@ -3,6 +3,40 @@
 > What changed in the loop machinery and when. Newest first. One entry per change.
 > Format: `## [YYYY-MM-DD] <what changed>` + a line or two of why.
 
+## [2026-07-15] First wired surface shipped via the feature pipeline (WIRE-001)
+The pivot from building the machine to building the app: ran a wiring ticket through the
+already-proven `feature` pipeline (no new pipeline). Target surface — the `/settings` Profile
+"Security Recommendation" banner, which rendered a fabricated `securityNote` ending in the dummy
+literal `Next change suggested by Jan 15, 2024`. Hand run `2026-07-15-234f1656-securitynote` in a
+worktree: acceptance test `lib/security-note.test.ts` red for the right reason ("Cannot find module
+./security-note") → built pure `lib/security-note.ts` (`buildSecurityNote({ lastLogin, memberSince })`
++ `PASSWORD_ROTATION_DAYS`, deriving the date from a real `user_profiles` timestamp + policy, omitting
+the sentence when no anchor exists) → wired `app/(shell)/profile/queries.ts` to call it → green. A
+separate **sonnet** verifier (maker was opus) ruled PASS, independently reproducing the red state and
+confirming provenance: acceptance 4/4, suite 191/191, tsc 0, eslint 55→55, `Jan 15, 2024` gone from
+product code.
+
+**Did the feature pipeline fit wiring, or fight it?** Mostly fit — `explore` writing the acceptance
+test as the spec maps cleanly onto "prove the fake value is gone and the real one appears," and the
+red→green + global gates are exactly right. One friction point: the criteria say *render the surface
+with real seed data*, but this repo's vitest is node-only (no jsdom) and can't even import the query
+layer (Clerk `auth()` → `server-only` throws at import), so a literal DOM render is impossible. The
+honest altitude here was to extract the derivation into a pure function and test that — which also made
+the wiring cleaner. Data-provenance was expressible as ordinary acceptance assertions (derived date
+present + fabricated literal absent + omitted-when-empty). Conclusion: the `feature` pipeline covers
+wiring well enough that a dedicated `wiring` pipeline is **not** warranted yet (YAGNI). The one thing a
+future `wiring` pipeline would add is a first-class "no hardcoded value survives in the surface" grep
+check and a render harness — fold those into `feature`'s eval if wiring tickets become common.
+
+## [2026-07-15] e2e-regression authored; 2×-green proof deferred
+The first hand run triaged 15 failures and found none were product regressions: they were
+stale scope-cut specs (the Directory/Pro surfaces were cut to the MVP core, so their routes
+intentionally 404) plus a flaky S3 HEAD check that probes a fabricated key in a private
+bucket. Deferred the required reruns rather than chasing them. Excluded the Directory/Pro
+specs from the active owner-facing Playwright project (kept in git with a `scope-cut`
+comment) and defaulted `E2E_VERIFY_S3` off in `e2e/helpers/verify.ts`. Pipeline status:
+**authored — proof deferred.**
+
 ## [2026-07-15] feature pipeline built and proven by hand (Sole-Ownership confirmed cleanup)
 Sixth pipeline: `feature` (`category: building`, `type: feature`), copied from `bug-fix`
 with `explore` reshaped to *specify* — the ticket's acceptance criteria become failing
