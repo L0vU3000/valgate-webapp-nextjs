@@ -11,6 +11,10 @@ export default defineConfig({
   // tsconfigPaths reads the `@/* -> ./*` alias straight from tsconfig.json so
   // the query code's `@/lib/...` imports resolve without restating them here.
   plugins: [tsconfigPaths()],
+  // tsconfig.json sets `jsx: preserve` (Next.js compiles JSX itself), which leaves
+  // raw JSX in any imported .tsx module and breaks vitest's transform. Compile it
+  // with the automatic React runtime instead (Vite 8 transforms via oxc).
+  oxc: { jsx: { runtime: "automatic" } },
   resolve: {
     alias: {
       // The data layer imports `server-only`, which throws on import outside a

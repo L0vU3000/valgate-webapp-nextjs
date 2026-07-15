@@ -88,6 +88,11 @@ const OwnershipWizardSchema = z
 
 type OwnershipWizardValues = z.infer<typeof OwnershipWizardSchema>;
 
+// The co-owners step is hidden when the property is solely owned; a hidden
+// step expresses no intent about co-owners, so saves must not reconcile them.
+const coOwnersStepIsSkipped = (values: OwnershipWizardValues) =>
+  values.holdingType === "Sole Ownership";
+
 // ── Step renders ──────────────────────────────────────────────────────────────
 
 const HOLDING_TYPES = [
@@ -531,16 +536,14 @@ export const ownershipWizardConfig: WizardConfig<typeof OwnershipWizardSchema> =
         });
       }
 
-      // 3. Diff and reconcile co-owners
-      const currentResult = await listCoOwnersForPropertyAction(propertyId);
-      const currentCoOwners = currentResult.ok ? currentResult.data : [];
+      // 3. Diff and reconcile co-owners — only when the co-owners step was shown.
+      // A skipped step means the user never saw the co-owner list, so this save
+      // carries no intent about co-owners and must not create, update, or delete
+      // any (that delete-all is exactly the data loss QA hit).
+      if (!coOwnersStepIsSkipped(values)) {
+        const currentResult = await listCoOwnersForPropertyAction(propertyId);
+        const currentCoOwners = currentResult.ok ? currentResult.data : [];
 
-      if (values.holdingType === "Sole Ownership") {
-        // Remove all existing co-owners
-        for (const existing of currentCoOwners) {
-          await removeCoOwner(existing.id);
-        }
-      } else {
         const formCoOwnerIds = new Set(
           values.coOwners.filter((c) => c.id).map((c) => c.id!),
         );
@@ -568,10 +571,15 @@ export const ownershipWizardConfig: WizardConfig<typeof OwnershipWizardSchema> =
           }
         }
 
-        // Remove co-owners no longer in the form
-        for (const existing of currentCoOwners) {
-          if (!formCoOwnerIds.has(existing.id)) {
-            await removeCoOwner(existing.id);
+        // Remove co-owners the user deleted from the form. An empty list can't
+        // come from a valid non-sole edit (schema superRefine requires ≥1
+        // co-owner), so an empty list means the step was never populated —
+        // treat it as "no change".
+        if (values.coOwners.length > 0) {
+          for (const existing of currentCoOwners) {
+            if (!formCoOwnerIds.has(existing.id)) {
+              await removeCoOwner(existing.id);
+            }
           }
         }
       }
@@ -625,7 +633,7 @@ export const ownershipWizardConfig: WizardConfig<typeof OwnershipWizardSchema> =
         title: "Co-owners",
         description: "Add all parties with an ownership stake.",
         fields: ["coOwners"],
-        shouldSkip: (values) => values.holdingType === "Sole Ownership",
+        shouldSkip: coOwnersStepIsSkipped,
         render: ({ form, values }) => (
           <CoOwnersStep form={form} values={values} />
         ),
