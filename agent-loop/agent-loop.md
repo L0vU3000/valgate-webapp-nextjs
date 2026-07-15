@@ -215,7 +215,10 @@ by evidence — an Agentation-in-DEMO console leak fixed at the app, `/activity`
 removed surface, three outdated-contract spec fixes, and five wizard/bulk-bar flakes quarantined
 with tickets — reaching two consecutive green runs. `entity-scaffold` is authored behind an
 explicit product-scope and Plan approval gate; its first real proof waits for an approved entity
-ticket. The orchestrator remains a specification rather than an executable dispatcher.
+ticket. The orchestrator's routing + bookkeeping half is now executable code —
+`orchestrator/dispatch.mjs` validates each inbox item against the canonical registry, emits
+the dispatch plan in priority order, and records outcomes; the Workflow runtime still executes
+the selected `workflow.js`.
 
 Next: prove `entity-scaffold` on the first approved ordinary property-child entity, without
 using the pipeline to invent product schema. Everything runs on built-in primitives, so the

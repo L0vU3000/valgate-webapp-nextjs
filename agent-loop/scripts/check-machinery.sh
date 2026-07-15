@@ -8,6 +8,7 @@
 #   4. runs/ folders are gitignored (run state must never be committed)
 #   5. update-dashboard.sh actually parses a run folder (fixture round-trip)
 #   6. pipeline frontmatter agrees with all three registry tables
+#   7. the orchestrator dispatcher routes/validates inbox items against that registry
 # Run it after editing any workflow.js or the dashboard script:
 #   bash agent-loop/scripts/check-machinery.sh
 set -euo pipefail
@@ -80,6 +81,16 @@ if node scripts/check-pipeline-registry.mjs; then
   good "pipeline registry metadata agrees across all sources"
 else
   bad "pipeline registry metadata drifted"
+fi
+
+# --- orchestrator dispatcher -----------------------------------------------------
+# The router must accept well-formed items, reject category/type mismatches and unknown
+# types, order by priority, and record outcomes — all against the canonical registry.
+if node --test scripts/check-dispatch.regression.mjs > /dev/null; then
+  good "orchestrator dispatcher routes/validates inbox items"
+else
+  bad "orchestrator dispatcher regression check failed"
+  node --test scripts/check-dispatch.regression.mjs 2>&1 | sed 's/^/      /' || true
 fi
 
 # entity-scaffold is allowed to touch a development database, so its two approval gates are

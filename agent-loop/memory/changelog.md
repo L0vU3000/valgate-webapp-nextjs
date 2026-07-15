@@ -3,6 +3,21 @@
 > What changed in the loop machinery and when. Newest first. One entry per change.
 > Format: `## [YYYY-MM-DD] <what changed>` + a line or two of why.
 
+## [2026-07-16] Orchestrator dispatcher built (routing + bookkeeping half)
+Added `orchestrator/dispatch.mjs`: the deterministic router the spec had described but not
+built. One tick reads `inbox/*.md`, loads the routing table from the canonical `pipeline.md`
+frontmatter (reusing `validatePipelineRegistry`, so no second table to drift), validates each
+item's category+type, and emits the dispatch plan in priority order (`high`→`normal`→`low`).
+A category/type mismatch, unknown type, or missing frontmatter is returned invalid for
+correction, never guessed; a broken registry makes it refuse to route. `--record <file>
+pass|fail` moves a finished item to `done/`/`failed/` and appends to `dispatch-log.md`. It does
+NOT execute pipelines — a `workflow.js` runs on the Workflow runtime (harness), which a node
+process cannot invoke, so the dispatcher routes and records while the runtime executes. Added
+`scripts/check-dispatch.regression.mjs` (valid routing, mismatch/unknown/no-frontmatter
+rejection, priority order, archive-ignore, record-and-move) and wired it into
+`check-machinery.sh`. Machinery all good; the two open e2e de-flake tickets route to
+`e2e-regression`.
+
 ## [2026-07-16] e2e-regression proven — two consecutive green runs
 Hand run `2026-07-16-030754` closed the paused e2e-regression proof. One shared run ID,
 maker (execute) ≠ verifier (eval, `sonnet`), human approval taken after Plan. Scope, ports,

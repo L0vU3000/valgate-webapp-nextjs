@@ -94,10 +94,44 @@ select among pipelines within the supplied category; the current router requires
 - **Human at the two constraints:** you review the *plan* (start) and the *result* (end).
   Slide those inward only as a pipeline earns trust.
 
-## Not built yet
+## The dispatcher (built)
 
-This file is the **spec**, not a running router. Multiple pipelines now have real proof, so
-the original one-pipeline prerequisite is satisfied. The paused e2e-regression proof is now
-complete (run `2026-07-16-030754`, two consecutive green runs). Next: build the dispatcher to
-validate `category` + `type`, launch the selected workflow in an isolated worktree, record the
-outcome, and refresh the dashboard.
+The routing + bookkeeping half of the heartbeat is now executable:
+[`dispatch.mjs`](./dispatch.mjs). It is deterministic, zero-token code — the part of the loop
+that should never spend a model call.
+
+```
+node agent-loop/orchestrator/dispatch.mjs            # print the dispatch plan (dry run)
+node agent-loop/orchestrator/dispatch.mjs --json     # same plan, machine-readable
+node agent-loop/orchestrator/dispatch.mjs --record <file> <pass|fail> [--summary "..."]
+```
+
+What it does each tick:
+
+1. Loads the routing table from the **canonical source** — `pipeline.md` frontmatter, via the
+   same `validatePipelineRegistry` the machinery self-check uses (no second table to drift). If
+   the registry is broken it **refuses to route** and exits non-zero.
+2. Reads `inbox/*.md` (top-level only; `done/` and `failed/` are archives).
+3. Validates each item: frontmatter present, and the `type` selects a pipeline whose
+   `category` matches the item's. A category/type mismatch, an unknown type, or missing
+   frontmatter is returned as **invalid — for correction, never guessed**.
+4. Emits the dispatch plan in priority order (`high` → `normal` → `low`): item → pipeline →
+   `workflow.js`.
+5. `--record` moves a finished item into `done/` or `failed/` and appends the outcome to
+   `dispatch-log.md` (the bookkeeping half of steps e–f above).
+
+### The one boundary: it routes, it does not execute
+
+A pipeline is a `workflow.js` run by the built-in **Workflow runtime** (the harness), which a
+plain node process cannot invoke — and the system stays on
+[built-in primitives only](../memory/decisions.md) (no external daemon). So the dispatcher
+emits *which* workflow to run for *which* item; the runtime runs it and reports back via
+`--record`. This is precisely "the orchestrator routes; it does not do the work itself."
+
+### Still ahead
+
+- A scheduled trigger (`/loop` / `/schedule`) that calls `dispatch.mjs`, hands each routable
+  item's `workflow.js` to the Workflow runtime in an isolated worktree, then `--record`s the
+  outcome and refreshes the dashboard — closing the loop without a raw `while(true)`.
+- The advanced **factory-router agent** that replaces the static table with codebase-aware
+  pipeline + model-tier selection. Start with the table (done); earn the agent later.

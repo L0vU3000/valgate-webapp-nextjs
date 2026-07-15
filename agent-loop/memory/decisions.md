@@ -3,6 +3,25 @@
 > Why the loop is built the way it is. Newest first. One entry per load-bearing choice.
 > Format: `## [YYYY-MM-DD] <decision>` → **Context / Choice / Why / Revisit-if**.
 
+## [2026-07-16] The dispatcher routes and records; the runtime executes
+- **Context:** the orchestrator spec wanted a router that reads the inbox, selects a pipeline,
+  runs it in a worktree, records the outcome, and refreshes the board. But a pipeline is a
+  `workflow.js` executed by the built-in Workflow runtime (a harness capability), and the
+  system stays on built-in primitives only — a plain node process cannot launch a Workflow.
+- **Choice:** split the loop by what each half is good at. `dispatch.mjs` (deterministic,
+  zero-token code) owns the parts that must never spend a model call: read `inbox/*.md`,
+  validate category+type against the canonical `pipeline.md` frontmatter registry, order by
+  priority, and — via `--record` — move finished items and log outcomes. The Workflow runtime
+  owns execution; it runs the emitted `workflow.js` and reports back through `--record`.
+- **Why:** it matches the spec's own principle ("the orchestrator routes; it does not do the
+  work itself") and IndyDevDan's "code is the unsung hero" — routing/validation/bookkeeping is
+  fast, deterministic, and free, so it should be code, not an agent. Reusing
+  `validatePipelineRegistry` means the router and the docs registries can never describe
+  different systems. Refusing to route on a broken registry fails safe.
+- **Revisit if:** a scheduled trigger wires `dispatch.mjs` → Workflow runtime → `--record` into
+  one tick (the closing of the loop), or the static table is replaced by the codebase-aware
+  factory-router agent. Both are additive on top of this split.
+
 ## [2026-07-16] e2e stabilization = disable motion in the fixture, quarantine what stays flaky
 - **Context:** the e2e-regression proof (run `2026-07-16-030754`) hit clicks that hung on
   "element is not stable": an infinite `animate-ping` plus mount animations kept fixed overlays
