@@ -3,6 +3,17 @@
 > Why the loop is built the way it is. Newest first. One entry per load-bearing choice.
 > Format: `## [YYYY-MM-DD] <decision>` → **Context / Choice / Why / Revisit-if**.
 
+## [2026-07-15] Mutation eval uses the target's dedicated test file
+- **Context:** the first `test-coverage` hand run proved StrykerJS 9.6.1 works with
+  Vitest 4.1.10, but the original eval command specified only the product module.
+- **Choice:** every mutation check explicitly sets the target with `--mutate`, its focused
+  test with `--testFiles`, and the runner with `--testRunner vitest`. Per-test coverage,
+  bounded concurrency, and temp cleanup are also explicit.
+- **Why:** a target test should kill the target's mutants on its own. Pulling in the whole
+  suite can hide a weak focused test and makes the run slower and less reproducible.
+- **Revisit if:** a module legitimately needs an integration test spanning several files;
+  list those exact test files rather than falling back to the entire suite.
+
 ## [2026-07-15] eslint-burndown is pipeline #1 (training wheels)
 - **Context:** repo is healthy — `tsc` 0 errors, `vitest` 165/165 green, `eslint` 63
   warnings. Only lint has a real backlog.

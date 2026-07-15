@@ -78,12 +78,12 @@ fi
 # completed, then remove the fixture and regenerate again to restore reality.
 fixture="pipelines/zz-selfcheck/runs/0000-00-00-000000"
 mkdir -p "$fixture"
-printf 'verdict: pass\neslint: selfcheck\n' > "$fixture/eval.md"
+printf 'verdict: pass\ncoverage: selfcheck 0%% → 100%%\n' > "$fixture/eval.md"
 bash scripts/update-dashboard.sh > /dev/null
-if grep -q 'zz-selfcheck.*0000-00-00-000000.*pass' dashboard.md; then
-  good "update-dashboard.sh parses run folders (fixture round-trip)"
+if grep -q 'zz-selfcheck.*0000-00-00-000000.*pass.*coverage: selfcheck' dashboard.md; then
+  good "update-dashboard.sh parses verdict summaries (fixture round-trip)"
 else
-  bad "update-dashboard.sh did not surface the fixture run in dashboard.md"
+  bad "update-dashboard.sh did not surface the fixture verdict and summary"
 fi
 rm -rf "pipelines/zz-selfcheck"
 bash scripts/update-dashboard.sh > /dev/null

@@ -52,9 +52,13 @@ NOW=$(date "+%Y-%m-%d %H:%M")
     pipe=$(printf '%s' "$d" | cut -d/ -f2)
     run=$(basename "$d")
     verdict=$(grep -m1 '^verdict:' "${d}eval.md" | sed 's/verdict:[[:space:]]*//' || echo "?")
-    eslint=$(grep -m1 '^eslint:' "${d}eval.md" | sed 's/eslint:[[:space:]]*//' | cut -c1-28 || true)
+    summary=$(grep -m1 -E '^(coverage|eslint|suite|mutation):' "${d}eval.md" | cut -c1-96 || true)
     icon="✅"; [ "$verdict" = "fail" ] && icon="⛔"
-    echo "- ${icon} \`$pipe\` · run \`$run\` — ${verdict} (${eslint})"
+    if [ -n "$summary" ]; then
+      echo "- ${icon} \`$pipe\` · run \`$run\` — ${verdict} (${summary})"
+    else
+      echo "- ${icon} \`$pipe\` · run \`$run\` — ${verdict}"
+    fi
     done_any=$((done_any + 1))
   done
   [ "$done_any" -eq 0 ] && echo "- _none yet_"

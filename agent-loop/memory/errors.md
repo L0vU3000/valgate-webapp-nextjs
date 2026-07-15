@@ -20,6 +20,15 @@ Template:
   pre-existing green signals, not just its own target metric.
 -->
 
+## [2026-07-15] Dashboard showed an empty summary for test-coverage
+- **Symptom:** the completed test-coverage run rendered as `pass ()` on the dashboard.
+- **Cause:** `update-dashboard.sh` only looked for an `eslint:` line, but pipeline verdicts
+  expose different primary signals (`coverage:`, `suite:`, or `mutation:`).
+- **Fix:** choose the first meaningful summary field and omit parentheses when no summary
+  exists.
+- **Prevention:** the machinery self-check now round-trips a coverage-style verdict and
+  asserts both the verdict and summary appear.
+
 ## [2026-07-15] Workflow stage agents fragmented run folders
 - **Symptom:** after the automated run, a stray `runs/2026-07-15-03/` held only `plan.md`
   (no execute/eval). The dashboard read it as "🔄 Running" forever.

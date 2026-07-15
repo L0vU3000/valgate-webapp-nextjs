@@ -44,8 +44,11 @@ A run **passes** only when ALL are true:
   runs it and reads the score. The vitest runner (`@stryker-mutator/vitest-runner`, added in
   StrykerJS 7, actively maintained) uses perTest coverage analysis, so runs scoped to one
   module stay fast ([stryker-mutator.io vitest runner](https://stryker-mutator.io/docs/stryker-js/vitest-runner/)).
-- **Scope control:** always `--mutate 'lib/services/<target>.ts'` — never whole-repo mutation
-  runs; they're slow and this pipeline works one module at a time.
+- **Scope control:** always pair `--mutate 'lib/services/<target>.ts'` with
+  `--testFiles 'lib/services/<target>.test.ts'` and `--testRunner vitest`. This proves the
+  target's focused tests can kill its mutants without getting accidental help from the
+  rest of the suite. Never run whole-repo mutation; this pipeline works one module at a
+  time.
 
 Recorded in [`memory/decisions.md`](../../memory/decisions.md).
 

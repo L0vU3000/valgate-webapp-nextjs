@@ -40,8 +40,8 @@ unattended without lying to itself.
 | Pipeline | Type | Status |
 |---|---|---|
 | [`eslint-burndown`](./eslint-burndown/pipeline.md) | `lint` | ✅ automated (Workflow), proven |
-| [`bug-fix`](./bug-fix/pipeline.md) | `bug` | ✅ proven by hand on the co-owner data-loss ticket; automation run in progress |
-| [`test-coverage`](./test-coverage/pipeline.md) | `test` | authored — verification = coverage ↑ + Stryker mutation score; first run by hand pending |
+| [`bug-fix`](./bug-fix/pipeline.md) | `bug` | ✅ proven by hand and automated on the co-owner data-loss ticket |
+| [`test-coverage`](./test-coverage/pipeline.md) | `test` | ✅ proven by hand — `portfolio-shared.ts` 0%→100% coverage, 100% mutation score |
 | [`qa`](./qa/pipeline.md) | `qa` | authored — verification = fresh-session re-drive + console/network capture; first run by hand pending |
 | [`e2e-regression`](./e2e-regression/pipeline.md) | `e2e` | authored — verification = rerun-triage + quarantine + 2× green; first run by hand pending |
 

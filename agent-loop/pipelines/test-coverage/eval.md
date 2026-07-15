@@ -8,9 +8,23 @@ the maker**. Rule pass/fail on evidence. Do not suggest fixes, do not edit code 
 1. **New tests pass** — run the test file(s) `execute` recorded.
 2. **Coverage up** — `npx vitest run --coverage`; the target module's statement coverage is
    **strictly higher** than the baseline in `runs/<run-id>/explore.md`. Cite both numbers.
-3. **Mutation score** — run StrykerJS scoped to the target module
-   (`npx stryker run --mutate 'lib/services/<target>.ts'`); the score meets the threshold
-   committed in `runs/<run-id>/plan.md`. List surviving mutants in the evidence.
+3. **Mutation score** — run StrykerJS against only the target module and its dedicated
+   test file (replace both `<target>` placeholders):
+
+   ```sh
+   npx stryker run \
+     --mutate 'lib/services/<target>.ts' \
+     --testFiles 'lib/services/<target>.test.ts' \
+     --testRunner vitest \
+     --coverageAnalysis perTest \
+     --concurrency 2 \
+     --cleanTempDir always \
+     --reporters clear-text
+   ```
+
+   The score must meet the threshold committed in `runs/<run-id>/plan.md`. List
+   surviving mutants in the evidence. For a live-DB lane using a `*.db.test.ts`, point
+   `--testFiles` at that exact file and apply the lane's Neon-dev safety checks first.
 4. **Global gates** — `npx vitest run` whole suite green · `npx tsc --noEmit` 0 errors ·
    `npx eslint app lib components` no new warnings vs. the run's start.
 

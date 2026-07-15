@@ -3,6 +3,15 @@
 > What changed in the loop machinery and when. Newest first. One entry per change.
 > Format: `## [YYYY-MM-DD] <what changed>` + a line or two of why.
 
+## [2026-07-15] test-coverage pipeline proven by hand
+Completed run `2026-07-15-152837` against `lib/services/portfolio-shared.ts`. Added 12
+focused tests; coverage moved 0%→100% across statements, branches, functions, and lines;
+Stryker killed all 37 mutants (100%, threshold 80%). Full suite 180/180, tsc 0, eslint
+55→55. The run taught the pipeline to pin both `--testRunner vitest` and the target's
+dedicated `--testFiles` during mutation eval. Fixed the dashboard's hard-coded lint
+summary after this run exposed it, and added a coverage-verdict regression fixture to the
+machinery self-check.
+
 ## [2026-07-15] Dropped paseo-loop — built-in primitives only
 Removed the `paseo-loop` dependency (it needs the external Paseo daemon). Runtime is now
 the built-in `Workflow` (separate `execute`/`eval` agents, loop-until pass) + `/loop` for
