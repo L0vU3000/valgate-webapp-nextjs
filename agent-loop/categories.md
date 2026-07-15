@@ -22,7 +22,7 @@ continue to work with one stable layout.
 | `building` | Change the Valgate product: features, fixes, data wiring, backend entities, or interfaces. | `feature`, `bug-fix`, `entity-scaffold`, `wiring`, `migration`, `api-tool` | Approve the plan and review the finished result. |
 | `review` | Inspect an existing change or surface and produce evidence-backed findings. | `code-review`, `design-review`, `security-review`, `architecture-review` | Review findings; product or design judgment stays with the owner. |
 | `testing` | Improve or exercise the verification system itself, or run a dedicated health/regression pass. | `test-coverage`, `qa`, `e2e-regression` | Review quarantines, policy choices, and any product changes discovered during testing. |
-| `maintenance` | Perform bounded upkeep against a measurable backlog or health signal. | `eslint-burndown`, dependency maintenance, performance burndown | May become scheduled after the pipeline proves safe and bounded. |
+| `maintenance` | Perform bounded upkeep against a measurable backlog or health signal. | `eslint-burndown`, `pipeline-improve`, dependency maintenance, performance burndown | May become scheduled after the pipeline proves safe and bounded. |
 | `delivery` | Land, deploy, release, or monitor a verified change. | `landing`, `deploy`, `canary`, `release` | Explicit approval before irreversible or externally visible actions. |
 
 These are the top-level categories. Add a new category only when a new kind of work needs a
@@ -111,7 +111,8 @@ Until then, `type` remains the exact routing key.
 | `testing` | `qa` | `qa` |
 | `testing` | `e2e` | `e2e-regression` |
 | `maintenance` | `lint` | `eslint-burndown` |
+| `maintenance` | `pipeline-improve` | `pipeline-improve` |
 
 Planning, review, and delivery are defined categories with no registered pipeline yet.
 `entity-scaffold` is registered but remains in training mode until an approved entity ticket
-completes its first real run.
+completes its first real run. `pipeline-improve` remains human-gated after every Plan.

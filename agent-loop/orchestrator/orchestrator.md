@@ -53,6 +53,7 @@ pipelines. Today:
 | `testing` | `test` | [`pipelines/test-coverage`](../pipelines/test-coverage/pipeline.md) | new tests pass, module coverage strictly ↑, Stryker mutation score ≥ threshold, gates clean |
 | `testing` | `qa` | [`pipelines/qa`](../pipelines/qa/pipeline.md) | all in-scope flows re-driven green in a fresh browser session, 0 console errors, gates clean |
 | `testing` | `e2e` | [`pipelines/e2e-regression`](../pipelines/e2e-regression/pipeline.md) | e2e suite green ×2 consecutive, every failure fixed or quarantined+ticketed, gates clean |
+| `maintenance` | `pipeline-improve` | [`pipelines/pipeline-improve`](../pipelines/pipeline-improve/pipeline.md) | one focused machinery regression red→green, machinery + full repository gates clean |
 | `maintenance` | `perf` | _(future — `/optimisation-loop`)_ | metric hits target |
 
 An advanced version (later) replaces this table with a **factory-router agent** that reads

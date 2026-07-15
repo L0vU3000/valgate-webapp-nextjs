@@ -7,6 +7,7 @@
 #      model override on its eval stage
 #   4. runs/ folders are gitignored (run state must never be committed)
 #   5. update-dashboard.sh actually parses a run folder (fixture round-trip)
+#   6. pipeline frontmatter agrees with all three registry tables
 # Run it after editing any workflow.js or the dashboard script:
 #   bash agent-loop/scripts/check-machinery.sh
 set -euo pipefail
@@ -65,6 +66,22 @@ for dir in pipelines/*/; do
   grep -q "model: 'sonnet'" "$wf" || bad "$name: eval stage has no different-model override"
 done
 
+# --- registry metadata -----------------------------------------------------------
+# Frontmatter is the canonical routing metadata. The three human-readable registries must
+# repeat the same category/type/name triples exactly.
+if node --test scripts/check-pipeline-registry.regression.mjs > /dev/null; then
+  good "pipeline registry red-to-green regression check passes"
+else
+  bad "pipeline registry red-to-green regression check failed"
+  node --test scripts/check-pipeline-registry.regression.mjs 2>&1 | sed 's/^/      /' || true
+fi
+
+if node scripts/check-pipeline-registry.mjs; then
+  good "pipeline registry metadata agrees across all sources"
+else
+  bad "pipeline registry metadata drifted"
+fi
+
 # entity-scaffold is allowed to touch a development database, so its two approval gates are
 # load-bearing. Keep a small static regression check until its first real run adds stronger
 # runtime evidence.
@@ -90,6 +107,33 @@ if [ -f "$entity_workflow" ]; then
     bad "entity-scaffold: unproven training mode can be disabled"
   else
     good "entity-scaffold: training mode is locked on"
+  fi
+fi
+
+# pipeline-improve changes the machinery that guards every other pipeline. Its Plan approval,
+# maker/verifier model split, failure memory, and executable stop bounds are load-bearing.
+improve_workflow="pipelines/pipeline-improve/workflow.js"
+if [ -f "$improve_workflow" ]; then
+  grep -q -- '--approved-plan' "$improve_workflow" \
+    && good "pipeline-improve: Plan approval gate present" \
+    || bad "pipeline-improve: Plan approval gate missing"
+  grep -q "model: 'opus'" "$improve_workflow" \
+    && grep -q "model: 'sonnet'" "$improve_workflow" \
+    && good "pipeline-improve: maker and verifier models differ" \
+    || bad "pipeline-improve: maker/verifier model split missing"
+  grep -q 'MAX_ATTEMPTS' "$improve_workflow" \
+    && grep -q 'MAX_RUNTIME_MS' "$improve_workflow" \
+    && grep -q 'MAX_AGENT_CALLS' "$improve_workflow" \
+    && grep -q 'repeatCount >= 2' "$improve_workflow" \
+    && good "pipeline-improve: attempt, runtime, call, and no-progress bounds present" \
+    || bad "pipeline-improve: executable bounds are incomplete"
+  grep -q 'memory#' "$improve_workflow" \
+    && good "pipeline-improve: failure memory path present" \
+    || bad "pipeline-improve: failure memory path missing"
+  if grep -q 'training-off' "$improve_workflow"; then
+    bad "pipeline-improve: training mode can be disabled"
+  else
+    good "pipeline-improve: training mode is locked on"
   fi
 fi
 

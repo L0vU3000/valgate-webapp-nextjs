@@ -200,19 +200,20 @@ agent-loop/
 ├── dashboard.md           ← generated live view: running / queued / completed
 ├── resources/             ← the source library (8 authors)
 ├── orchestrator/          ← the router (spec) + inbox/ (work items)
-├── pipelines/
-│   └── eslint-burndown/   ← pipeline #1: explore → plan → execute → eval (+ workflow.js)
-├── scripts/               ← update-dashboard.sh (regenerates dashboard.md from state)
+├── pipelines/             ← eight peer explore → plan → execute → eval workflows
+├── scripts/               ← dashboard generation + machinery/registry checks
 └── memory/                ← changelog · decisions · errors (self-improvement)
 ```
 
 ## Current build position
 
-Seven pipelines are defined. `eslint-burndown`, `bug-fix`, `feature`, `test-coverage`, and
-`qa` have successful real runs. `e2e-regression` is authored with its two-green-run proof
-deferred. `entity-scaffold` is authored behind an explicit product-scope and plan approval
-gate; its first real proof waits for an approved entity ticket. The orchestrator remains a
-specification rather than an executable dispatcher.
+Eight pipelines are defined. `eslint-burndown`, `bug-fix`, `feature`, `test-coverage`, `qa`,
+and `pipeline-improve` have successful real runs. The first `pipeline-improve` proof made
+registry metadata drift fail across pipeline frontmatter and all three registry tables.
+`e2e-regression` is authored with its two-green-run proof deferred. `entity-scaffold` is
+authored behind an explicit product-scope and Plan approval gate; its first real proof waits
+for an approved entity ticket. The orchestrator remains a specification rather than an
+executable dispatcher.
 
 Next: prove `entity-scaffold` on the first approved ordinary property-child entity, without
 using the pipeline to invent product schema. Everything runs on built-in primitives, so the

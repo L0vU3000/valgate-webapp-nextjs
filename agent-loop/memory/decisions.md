@@ -3,6 +3,19 @@
 > Why the loop is built the way it is. Newest first. One entry per load-bearing choice.
 > Format: `## [YYYY-MM-DD] <decision>` → **Context / Choice / Why / Revisit-if**.
 
+## [2026-07-16] Pipeline frontmatter is canonical registry metadata
+- **Context:** category, routing type, and pipeline name were repeated in pipeline frontmatter,
+  `categories.md`, `pipelines/README.md`, and the orchestrator registry with no consistency
+  check. A controlled `lint` → `lint-drift-proof` edit still passed `check-machinery.sh`.
+- **Choice:** treat each `pipeline.md` frontmatter block as the canonical metadata. A deterministic
+  checker compares all three documented registries with every definition, rejects missing,
+  duplicate, extra, or mismatched entries, and runs inside the machinery self-check.
+- **Why:** the runtime routing key and human-facing documentation now fail together instead of
+  silently describing different systems. A temporary-copy regression fixture proves both the
+  rejected drifted state and the accepted matching state without changing live files.
+- **Revisit if:** registry tables become generated artifacts; keep the frontmatter validation and
+  replace projection comparison with generation plus a clean-diff assertion.
+
 ## [2026-07-16] Entity scaffolding cannot choose the product model
 - **Context:** the scope reduction left the current entity and field catalog under review.
   Automating "add whatever entity seems useful" would turn a coding pipeline into an

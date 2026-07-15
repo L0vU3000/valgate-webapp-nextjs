@@ -18,6 +18,36 @@ Template:
   pre-existing green signals, not just its own target metric.
 -->
 
+## [2026-07-16] Registry drift passed the machinery self-check
+- **Symptom:** changing the `eslint-burndown` type in `categories.md` from `lint` to
+  `lint-drift-proof` still produced `check-machinery: all good`.
+- **Cause:** `check-machinery.sh` checked pipeline anatomy, workflow syntax, shared run IDs,
+  model separation, ignored run state, and dashboard parsing, but never compared routing metadata.
+- **Fix:** added `check-pipeline-registry.mjs` and a temporary-copy red-to-green regression test,
+  then wired both into `check-machinery.sh`.
+- **Prevention:** pipeline frontmatter is canonical; `categories.md`, `pipelines/README.md`, and
+  the orchestrator registry must contain the same category/type/name triples.
+
+## [2026-07-16] Node regression filename entered the Vitest suite
+- **Symptom:** the focused Node check passed, but full Vitest failed after collecting
+  `check-pipeline-registry.test.mjs` and reporting that it contained no Vitest suite. All 195
+  product assertions still passed.
+- **Cause:** Vitest's discovery glob includes `*.test.mjs`, regardless of which test runner the
+  file imports.
+- **Fix:** renamed the focused harness to `check-pipeline-registry.regression.mjs`; the machinery
+  self-check still invokes it explicitly with `node --test`.
+- **Prevention:** runner-specific machinery checks use a suffix outside the repository's Vitest
+  discovery pattern unless they are written as Vitest suites.
+
+## [2026-07-16] Registry checker initially misread orchestrator link labels
+- **Symptom:** the first focused test reported all seven orchestrator entries missing and seven
+  extra entries named `pipelines/<name>`.
+- **Cause:** the orchestrator link label includes a `pipelines/` prefix while the pipeline README
+  link label is the bare pipeline name.
+- **Fix:** normalize Markdown link labels to their final path segment before comparison.
+- **Prevention:** the regression fixture copies and validates all four real source formats before
+  injecting drift, so a parser that misunderstands any current table fails before the red case.
+
 ## [2026-07-15] QA pipeline targeted stale ports and routes
 - **Symptom:** the authored run tried DEMO mode on port 3002 and defaulted to `/home` and
   `/documents`, producing auth-suite confusion and 404s.

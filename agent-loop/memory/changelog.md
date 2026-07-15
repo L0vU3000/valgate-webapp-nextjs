@@ -3,6 +3,15 @@
 > What changed in the loop machinery and when. Newest first. One entry per change.
 > Format: `## [YYYY-MM-DD] <what changed>` + a line or two of why.
 
+## [2026-07-16] pipeline-improve added and proven on registry drift
+Added the eighth pipeline, `pipeline-improve` (`category: maintenance`,
+`type: pipeline-improve`), with a shared run ID, Plan approval stop, `opus` maker, `sonnet`
+verifier, executable attempt/runtime/call/no-progress bounds, and failure memory. Hand run
+`2026-07-16-004245` proved the first improvement: a controlled registry mismatch passed the old
+machinery check; the new temporary-copy regression turns red on drift and green when restored,
+and frontmatter now agrees with all three registries. Independent Eval passed the focused check,
+machinery, 195/195 Vitest assertions, TypeScript with zero errors, and ESLint at 55 → 55.
+
 ## [2026-07-16] entity-scaffold pipeline authored behind a product-scope gate
 Added the seventh pipeline, `entity-scaffold` (`category: building`, `type: entity`). It handles
 one approved org-scoped property child through Zod, Drizzle, an additive generated migration,
