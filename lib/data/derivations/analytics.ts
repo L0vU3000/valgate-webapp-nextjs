@@ -50,6 +50,12 @@ export type DateWindow = { from: number; to: number };
 
 const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
+const UTC_MONTH_YEAR_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  month: "long",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
 const EXPENSE_COLORS: Record<string, string> = {
   Maintenance: "#2563eb",
   Utilities:   "#fbbf24",
@@ -89,6 +95,52 @@ function monthsInWindow(window: DateWindow): { start: number; end: number; label
   return out;
 }
 
+function isPaidRentWithinWindow(payment: Payment, window: DateWindow): boolean {
+  return (
+    payment.kind === "Rent" &&
+    payment.status === "Paid" &&
+    payment.date >= window.from &&
+    payment.date < window.to
+  );
+}
+
+function isExpenseWithinWindow(expense: Expense, window: DateWindow): boolean {
+  return expense.date >= window.from && expense.date < window.to;
+}
+
+function formatUtcMonthAndYear(timestamp: number): string {
+  return UTC_MONTH_YEAR_FORMATTER.format(new Date(timestamp)).toUpperCase();
+}
+
+export function computeRevenueTimelineLabel(
+  payments: Payment[],
+  expenses: Expense[],
+  window: DateWindow,
+): string | null {
+  const contributingDates: number[] = [];
+
+  for (const payment of payments) {
+    if (isPaidRentWithinWindow(payment, window)) {
+      contributingDates.push(payment.date);
+    }
+  }
+
+  for (const expense of expenses) {
+    if (isExpenseWithinWindow(expense, window)) {
+      contributingDates.push(expense.date);
+    }
+  }
+
+  if (contributingDates.length === 0) {
+    return null;
+  }
+
+  const earliestDate = Math.min(...contributingDates);
+  const latestDate = Math.max(...contributingDates);
+
+  return `${formatUtcMonthAndYear(earliestDate)} - ${formatUtcMonthAndYear(latestDate)}`;
+}
+
 export function computeRevenueSeries(
   payments: Payment[],
   expenses: Expense[],
@@ -96,11 +148,12 @@ export function computeRevenueSeries(
 ): RevenueDataPoint[] {
   const months = monthsInWindow(window);
   return months.map(({ start, end, label }) => {
+    const monthWindow: DateWindow = { from: start, to: end };
     const revenue = payments
-      .filter((p) => p.status === "Paid" && p.kind === "Rent" && p.date >= start && p.date < end)
+      .filter((payment) => isPaidRentWithinWindow(payment, monthWindow))
       .reduce((sum, p) => sum + (p.amount ?? 0), 0);
     const expenseTotal = expenses
-      .filter((e) => e.date >= start && e.date < end)
+      .filter((expense) => isExpenseWithinWindow(expense, monthWindow))
       .reduce((sum, e) => sum + e.amount, 0);
     return { month: label, revenue, expenses: expenseTotal };
   });

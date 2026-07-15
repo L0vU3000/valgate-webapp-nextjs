@@ -3,6 +3,16 @@
 > What changed in the loop machinery and when. Newest first. One entry per change.
 > Format: `## [YYYY-MM-DD] <what changed>` + a line or two of why.
 
+## [2026-07-15] Analytics timeline wired through the feature pipeline
+Hand run `2026-07-15-233502` rejected four already-wired starting candidates, then found a
+real stale claim on `/analytics`: `MARCH 2024 - AUGUST 2024` beside a chart built from
+service-backed payment and expense records. Explore wrote a seed-render acceptance test red;
+Execute added `computeRevenueTimelineLabel`, exposed one narrowed query field, and removed the
+adjacent stale `(YTD)` marker; a separate verifier passed focused 4/4, suite 195/195, tsc 0,
+and eslint 55→55. The `feature` pipeline fit wiring cleanly: its acceptance test expressed
+data provenance directly and its existing eval gates were sufficient, so a dedicated `wiring`
+pipeline is still not warranted.
+
 ## [2026-07-15] First wired surface shipped via the feature pipeline (WIRE-001)
 The pivot from building the machine to building the app: ran a wiring ticket through the
 already-proven `feature` pipeline (no new pipeline). Target surface — the `/settings` Profile
