@@ -128,10 +128,27 @@ plain node process cannot invoke — and the system stays on
 emits *which* workflow to run for *which* item; the runtime runs it and reports back via
 `--record`. This is precisely "the orchestrator routes; it does not do the work itself."
 
-### Still ahead
+## The heartbeat tick (built)
 
-- A scheduled trigger (`/loop` / `/schedule`) that calls `dispatch.mjs`, hands each routable
-  item's `workflow.js` to the Workflow runtime in an isolated worktree, then `--record`s the
-  outcome and refreshes the dashboard — closing the loop without a raw `while(true)`.
-- The advanced **factory-router agent** that replaces the static table with codebase-aware
-  pipeline + model-tier selection. Start with the table (done); earn the agent later.
+[`tick.mjs`](./tick.mjs) is one scheduled pass — the loop closed as far as built-in
+primitives allow. Trigger it on a cadence (never a raw `while(true)`):
+
+```
+/loop 30m node agent-loop/orchestrator/tick.mjs      # local
+# or a /schedule cloud routine running the same command
+```
+
+Each tick: plans (via `dispatch.mjs`) → refreshes the board → prints an **AGENT ACTIONS**
+block. The deterministic parts (plan + board) run in code; the one agent-in-the-loop step is
+explicit, because a node process cannot invoke the Workflow runtime. So the scheduler wakes an
+**agent**, the agent runs the tick, executes the printed `Workflow({ scriptPath })` calls (one
+worktree per run), and `--record`s each outcome. Invalid items are printed for correction and
+never routed; an idle inbox exits cleanly.
+
+### Deliberately deferred: the factory-router agent
+
+The advanced version replaces the static table with a codebase-aware agent that *picks* the
+pipeline + model tier. It is **not built, on purpose** — the type→pipeline table routes every
+current item correctly, so an LLM selector would be speculative machinery with nothing to
+decide yet. The ADR's guidance holds: start with the table (done); earn the agent when a real
+item can't be routed by type alone.

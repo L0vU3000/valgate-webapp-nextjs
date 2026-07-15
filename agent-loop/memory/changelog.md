@@ -3,6 +3,17 @@
 > What changed in the loop machinery and when. Newest first. One entry per change.
 > Format: `## [YYYY-MM-DD] <what changed>` + a line or two of why.
 
+## [2026-07-16] Orchestrator heartbeat tick built; factory-router deferred
+Added `orchestrator/tick.mjs` — one scheduled pass that composes the loop as far as built-in
+primitives allow: plan (via `dispatch.mjs`) → refresh the dashboard → print an AGENT ACTIONS
+block (the `Workflow({ scriptPath })` call + the `--record` command per routable item, in
+priority order). Deterministic parts run in code; the one agent-in-the-loop step is explicit,
+because a node process cannot invoke the Workflow runtime. Trigger with `/loop 30m node
+agent-loop/orchestrator/tick.mjs` or a `/schedule` routine — a scheduled heartbeat, never a raw
+while-true. The **factory-router agent** was deliberately NOT built: the static type→pipeline
+table routes every current item, so a codebase-aware LLM selector would be speculative
+machinery with nothing to decide — deferred until an item can't be routed by type alone.
+
 ## [2026-07-16] Orchestrator dispatcher built (routing + bookkeeping half)
 Added `orchestrator/dispatch.mjs`: the deterministic router the spec had described but not
 built. One tick reads `inbox/*.md`, loads the routing table from the canonical `pipeline.md`
