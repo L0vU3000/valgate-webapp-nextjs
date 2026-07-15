@@ -1,7 +1,6 @@
 import "server-only";
 
 import { tool } from "ai";
-import { z } from "zod";
 
 import { requireCtx } from "@/lib/auth/ctx";
 import { VALGATE_TOOLS, audit, type ValgateToolDef } from "@/mcp-server/tool-defs";

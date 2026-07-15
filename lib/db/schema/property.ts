@@ -4,7 +4,7 @@
 // dates→timestamptz (D7). Spec strings (total_area, year_built, …) kept TEXT to match
 // the Zod contract; properties.health dropped (Zod no longer has it).
 import {
-  pgTable, text, numeric, integer, boolean, doublePrecision, timestamp, pgEnum, index,
+  pgTable, text, numeric, boolean, doublePrecision, timestamp, pgEnum, index,
 } from "drizzle-orm/pg-core";
 import { organizations } from "./identity";
 

@@ -73,3 +73,10 @@ graphify-out/
 
 # local runtime upload storage (property photos etc. written by the app, not repo content)
 public/_storage/
+
+# agent-loop: per-run pipeline state is transient, not committed
+agent-loop/pipelines/*/runs/
+!agent-loop/pipelines/*/runs/.gitkeep
+
+# agent-loop: dashboard is a generated live view (regenerated from state)
+agent-loop/dashboard.md
