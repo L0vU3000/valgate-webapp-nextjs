@@ -3,6 +3,21 @@
 > Why the loop is built the way it is. Newest first. One entry per load-bearing choice.
 > Format: `## [YYYY-MM-DD] <decision>` → **Context / Choice / Why / Revisit-if**.
 
+## [2026-07-15] Categories organize peer pipelines without nesting them
+- **Context:** the system is expected to grow beyond its initial testing and maintenance
+  workflows into planning, product-building, review, and delivery pipelines. A flat type
+  list does not express the policy differences between those kinds of work.
+- **Choice:** every pipeline declares one of six categories: `planning`, `building`,
+  `review`, `testing`, `maintenance`, or `delivery`. Categories are metadata; pipeline
+  folders stay flat at `pipelines/<name>/`, and every pipeline keeps the shared
+  `explore → plan → execute → eval` anatomy.
+- **Why:** the orchestrator can apply category-level routing and human gates without
+  turning categories into parent workflows or breaking scripts that scan `pipelines/*/`.
+  Tests needed to ship a product change stay in that building pipeline's eval; standalone
+  testing pipelines remain available for dedicated verification work.
+- **Revisit if:** the flat folder layout becomes a navigation bottleneck large enough to
+  justify updating every dashboard, ignore, checker, registry, and workflow path together.
+
 ## [2026-07-15] QA reuses the repository's e2e browser contract
 - **Context:** generic browser sessions loaded Clerk's development overlays even though
   server-side DEMO mode correctly bypasses auth. The existing Playwright fixture already

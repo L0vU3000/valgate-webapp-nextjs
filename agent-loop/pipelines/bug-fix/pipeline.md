@@ -1,3 +1,9 @@
+---
+name: bug-fix
+category: building
+type: bug
+---
+
 # Pipeline: bug-fix
 
 > **Pipeline #2 — the real payoff.** Takes a bug ticket, reproduces it with a *failing test*,

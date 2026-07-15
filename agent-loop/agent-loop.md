@@ -4,7 +4,9 @@
 > find work, hand it to an agent, verify the result, record what happened, and decide
 > the next step — so Valgate work runs on a cadence instead of a keystroke.
 
-This is the home doc. Deep-dive sources and quotes live in [`resources/`](./resources/README.md).
+This is the home doc. Read [`categories.md`](./categories.md) for how the orchestrator
+organizes many peer pipelines across planning, building, review, testing, maintenance, and
+delivery. Deep-dive sources and quotes live in [`resources/`](./resources/README.md).
 
 ---
 
@@ -193,6 +195,7 @@ leverage work here (IndyDevDan's "build the system that builds the system").
 ```
 agent-loop/
 ├── agent-loop.md          ← this hub doc
+├── categories.md          ← pipeline categories + routing policy
 ├── skills-library.md      ← the installed loop toolkit we assemble from
 ├── dashboard.md           ← generated live view: running / queued / completed
 ├── resources/             ← the source library (8 authors)
@@ -203,11 +206,13 @@ agent-loop/
 └── memory/                ← changelog · decisions · errors (self-improvement)
 ```
 
-## Next step
+## Current build position
 
-The scaffold exists; nothing runs unattended yet. Prove the loop closes **by hand**:
-step through [`pipelines/eslint-burndown/`](./pipelines/eslint-burndown/pipeline.md)
-(explore → plan → execute → eval) and watch `eval` go red then green. Then run
-`execute ↔ eval` as a built-in **`Workflow`** (separate agents, loop-until pass), and only
-then build the orchestrator over many pipelines. Everything runs on built-in primitives —
-no external tools — so the system stays self-contained.
+Five pipelines are defined. `eslint-burndown` and `bug-fix` have automated proof;
+`test-coverage` and `qa` have successful real runs; `e2e-regression` is paused after its
+first triage pass and still needs focused reruns plus two consecutive green suites. The
+orchestrator remains a specification rather than an executable dispatcher.
+
+Next: complete the e2e-regression proof, then implement the category-aware orchestrator over
+the registry in [`orchestrator/orchestrator.md`](./orchestrator/orchestrator.md). Everything
+runs on built-in primitives, so the system stays independent of external agent daemons.

@@ -16,11 +16,12 @@ free — everything below the router already exists. Build it **after** one pipe
 every N minutes  (trigger: /loop or /schedule — NOT a raw while-true)
   1. read inbox/  →  any new *.md work items?
   2. for each new item:
-       a. pick a pipeline   (match item.type → pipelines/<name>/)
-       b. mark it in-progress   (move/annotate the item)
-       c. dispatch  →  run that pipeline in an isolated worktree
-       d. record outcome   →  memory/changelog.md (+ errors.md on failure)
-       e. move the item to done/ or failed/
+       a. validate category + type against the pipeline registry
+       b. pick a pipeline   (match item.type → pipelines/<name>/ inside that category)
+       c. mark it in-progress   (move/annotate the item)
+       d. dispatch  →  run that pipeline in an isolated worktree
+       e. record outcome   →  memory/changelog.md (+ errors.md on failure)
+       f. move the item to done/ or failed/
   3. refresh the board  →  run scripts/update-dashboard.sh
   4. sleep until next tick
 ```
@@ -39,16 +40,18 @@ pipeline registry, nothing more. It must never accumulate the full history of ev
 
 ## Routing table (pipeline registry)
 
-Grows as we add pipelines. Today:
+Categories define the broad work policy; `type` selects the exact peer pipeline. See
+[`categories.md`](../categories.md) for the category contract. The registry grows as we add
+pipelines. Today:
 
-| Item `type` | Pipeline | Verification (exit condition) |
-|---|---|---|
-| `lint` | [`pipelines/eslint-burndown`](../pipelines/eslint-burndown/pipeline.md) | `eslint` warning count strictly ↓, `tsc`+`vitest` still green |
-| `bug` | [`pipelines/bug-fix`](../pipelines/bug-fix/pipeline.md) | new regression test red→green, full suite + `tsc` + `eslint` clean |
-| `test` | [`pipelines/test-coverage`](../pipelines/test-coverage/pipeline.md) | new tests pass, module coverage strictly ↑, Stryker mutation score ≥ threshold, gates clean |
-| `qa` | [`pipelines/qa`](../pipelines/qa/pipeline.md) | all in-scope flows re-driven green in a fresh browser session, 0 console errors, gates clean |
-| `e2e` | [`pipelines/e2e-regression`](../pipelines/e2e-regression/pipeline.md) | e2e suite green ×2 consecutive, every failure fixed or quarantined+ticketed, gates clean |
-| `perf` | _(future — `/optimisation-loop`)_ | metric hits target |
+| Category | Item `type` | Pipeline | Verification (exit condition) |
+|---|---|---|---|
+| `maintenance` | `lint` | [`pipelines/eslint-burndown`](../pipelines/eslint-burndown/pipeline.md) | `eslint` warning count strictly ↓, `tsc`+`vitest` still green |
+| `building` | `bug` | [`pipelines/bug-fix`](../pipelines/bug-fix/pipeline.md) | new regression test red→green, full suite + `tsc` + `eslint` clean |
+| `testing` | `test` | [`pipelines/test-coverage`](../pipelines/test-coverage/pipeline.md) | new tests pass, module coverage strictly ↑, Stryker mutation score ≥ threshold, gates clean |
+| `testing` | `qa` | [`pipelines/qa`](../pipelines/qa/pipeline.md) | all in-scope flows re-driven green in a fresh browser session, 0 console errors, gates clean |
+| `testing` | `e2e` | [`pipelines/e2e-regression`](../pipelines/e2e-regression/pipeline.md) | e2e suite green ×2 consecutive, every failure fixed or quarantined+ticketed, gates clean |
+| `maintenance` | `perf` | _(future — `/optimisation-loop`)_ | metric hits target |
 
 An advanced version (later) replaces this table with a **factory-router agent** that reads
 the codebase and *picks* the pipeline + model tier by price/performance/speed. Start with
@@ -62,6 +65,7 @@ Work lands in [`inbox/`](./inbox/) as one Markdown file per item. Minimum shape:
 
 ```markdown
 ---
+category: maintenance # broad work policy; must match the registered pipeline
 type: lint            # matches a row in the routing table
 priority: normal      # low | normal | high
 created: 2026-07-15
@@ -70,7 +74,10 @@ created: 2026-07-15
 <one paragraph: what needs doing and what "done" looks like>
 ```
 
-The orchestrator only needs `type` to route. Everything else is for the pipeline.
+The orchestrator uses `category` to apply the broad routing and safety policy, then `type`
+to select the exact pipeline. A category/type mismatch is invalid and must be returned for
+correction rather than guessed. A future factory-router may accept an unspecified type and
+select among pipelines within the supplied category; the current router requires both.
 
 ---
 
@@ -86,6 +93,7 @@ The orchestrator only needs `type` to route. Everything else is for the pipeline
 
 ## Not built yet
 
-This file is the **spec**, not a running router. Build order: prove
-[`eslint-burndown`](../pipelines/eslint-burndown/pipeline.md) by hand → wire it to `/loop`
-→ only then generalize this into a real dispatcher (likely a `Workflow` script).
+This file is the **spec**, not a running router. Multiple pipelines now have real proof, so
+the original one-pipeline prerequisite is satisfied. Complete the paused e2e-regression
+proof, then build the dispatcher to validate `category` + `type`, launch the selected
+workflow in an isolated worktree, record the outcome, and refresh the dashboard.

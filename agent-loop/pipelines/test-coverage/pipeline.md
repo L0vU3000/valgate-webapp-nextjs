@@ -1,3 +1,9 @@
+---
+name: test-coverage
+category: testing
+type: test
+---
+
 # Pipeline: test-coverage
 
 > **Pipeline #3 — strengthens the substrate.** Picks an untested `lib/services/*` module and

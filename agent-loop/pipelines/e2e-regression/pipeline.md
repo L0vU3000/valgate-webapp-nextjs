@@ -1,3 +1,9 @@
+---
+name: e2e-regression
+category: testing
+type: e2e
+---
+
 # Pipeline: e2e-regression
 
 > **Pipeline #5 — keep the end-to-end signal trustworthy.** Runs the Playwright `e2e/`

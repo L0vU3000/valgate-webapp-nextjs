@@ -98,6 +98,24 @@ This project uses **Neon (serverless Postgres)** with **Drizzle ORM** as its bac
 > The `archive/convex/` directory is a legacy/parallel layer that the app does **not** call. Do not
 > add new backend code there or follow Convex patterns — use Neon + Drizzle services.
 
+## Agent-loop system
+
+For any request involving agent automation, pipeline design, workflow review,
+orchestration, scheduled work, or the agent-loop itself, start with these files in order:
+
+1. `agent-loop/agent-loop.md` — system entry point and operating principles.
+2. `agent-loop/categories.md` — pipeline categories and routing policy.
+3. `agent-loop/pipelines/README.md` — shared pipeline anatomy.
+4. `agent-loop/orchestrator/orchestrator.md` — inbox and dispatch contract.
+5. `agent-loop/memory/decisions.md` and `agent-loop/memory/errors.md` — decisions and lessons.
+
+Preserve the architecture unless the owner explicitly approves a redesign: many peer
+pipelines, organized by category, each owning `explore → plan → execute → eval` with a
+separate verifier. Testing required to ship a product change belongs in that building
+pipeline's `eval`; standalone testing pipelines handle dedicated test-health, QA,
+regression, and release work. The Obsidian category decision is
+`vault/decisions/agent-loop-pipeline-categories.md`.
+
 ## graphify
 
 This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.

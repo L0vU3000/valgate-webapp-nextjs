@@ -3,6 +3,13 @@
 > What changed in the loop machinery and when. Newest first. One entry per change.
 > Format: `## [YYYY-MM-DD] <what changed>` + a line or two of why.
 
+## [2026-07-15] Added pipeline categories and bound the agent entry points
+Added `categories.md` as the routing-policy source of truth; classified the five current
+pipelines; updated the orchestrator registry and inbox contract; and linked the decision
+through the Obsidian vault. The shared Claude Code and Codex instructions now send both
+agents to the agent-loop home, categories, pipeline contract, router, and memory before
+they reason about the system.
+
 ## [2026-07-15] QA pipeline proven by hand
 Completed run `2026-07-15-160345` across six routes and two interactive flows. Fixed a
 WebGL capability crash and duplicate React keys; fresh-session verification passed 8/8

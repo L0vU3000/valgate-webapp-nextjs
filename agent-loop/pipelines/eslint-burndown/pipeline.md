@@ -1,3 +1,9 @@
+---
+name: eslint-burndown
+category: maintenance
+type: lint
+---
+
 # Pipeline: eslint-burndown
 
 > **Training-wheels pipeline #1.** Drains ESLint warnings toward zero. Chosen because the

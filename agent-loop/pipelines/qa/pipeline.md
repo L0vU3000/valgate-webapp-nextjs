@@ -1,3 +1,9 @@
+---
+name: qa
+category: testing
+type: qa
+---
+
 # Pipeline: qa
 
 > **Pipeline #4 — the app as the user sees it.** Browser-drives key routes, finds broken
