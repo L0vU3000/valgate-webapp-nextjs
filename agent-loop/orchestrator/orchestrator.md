@@ -44,8 +44,11 @@ Grows as we add pipelines. Today:
 | Item `type` | Pipeline | Verification (exit condition) |
 |---|---|---|
 | `lint` | [`pipelines/eslint-burndown`](../pipelines/eslint-burndown/pipeline.md) | `eslint` warning count strictly ↓, `tsc`+`vitest` still green |
-| `bug` | _(pipeline #2 — not built yet)_ | a new regression test passes |
-| `perf` | _(pipeline #3 — `/optimisation-loop`)_ | metric hits target |
+| `bug` | [`pipelines/bug-fix`](../pipelines/bug-fix/pipeline.md) | new regression test red→green, full suite + `tsc` + `eslint` clean |
+| `test` | [`pipelines/test-coverage`](../pipelines/test-coverage/pipeline.md) | new tests pass, module coverage strictly ↑, Stryker mutation score ≥ threshold, gates clean |
+| `qa` | [`pipelines/qa`](../pipelines/qa/pipeline.md) | all in-scope flows re-driven green in a fresh browser session, 0 console errors, gates clean |
+| `e2e` | [`pipelines/e2e-regression`](../pipelines/e2e-regression/pipeline.md) | e2e suite green ×2 consecutive, every failure fixed or quarantined+ticketed, gates clean |
+| `perf` | _(future — `/optimisation-loop`)_ | metric hits target |
 
 An advanced version (later) replaces this table with a **factory-router agent** that reads
 the codebase and *picks* the pipeline + model tier by price/performance/speed. Start with

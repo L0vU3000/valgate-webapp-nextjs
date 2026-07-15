@@ -37,3 +37,24 @@ Template:
 - **Fix (now):** the shared-run-id fix means one folder per run, so this stops recurring.
 - **Prevention (later):** cross-check against the live workflow task list, or have the
   orchestrator delete/mark abandoned run folders when a workflow exits.
+
+## [2026-07-15] Vitest choked on the first-ever .tsx import (JSX left raw)
+- **Symptom:** the new regression test failed at import: "Failed to parse source … contains
+  invalid JS syntax … make sure to not set jsx to preserve."
+- **Cause:** tsconfig has `jsx: preserve` (Next.js compiles JSX itself) and the vitest suite
+  had never imported a component module before. Vite 8 transforms via **oxc**, so the
+  legacy `esbuild.jsx` option was a silent no-op — the first fix attempt did nothing.
+- **Fix:** `vitest.config.ts` → `oxc: { jsx: { runtime: "automatic" } }`.
+- **Prevention:** any pipeline test that imports a `.tsx` module needs this in place (it is
+  now); when a Vite option seems ignored, check whether Vite 8/rolldown replaced the
+  transformer (esbuild → oxc) before doubling down.
+
+## [2026-07-15] check-machinery false alarms: mktemp + ESM vs Workflow DSL
+- **Symptom:** the new self-check flagged every workflow.js as a syntax error.
+- **Cause (2):** macOS `mktemp` appends its random suffix AFTER the template (so the `.mjs`
+  extension was lost), and `node --check` on raw ESM rejects the Workflow DSL's legal
+  top-level `return` (the runtime wraps scripts in an async function).
+- **Fix:** temp dir + fixed `workflow.mjs` filename; wrap the script body in
+  `async function` (mirroring the runtime) before `node --check`.
+- **Prevention:** a checker must mirror the runtime's execution model, or it tests the
+  wrong thing. Both are baked into `scripts/check-machinery.sh` now.

@@ -41,3 +41,37 @@ Self-improvement loop caught 2 real issues on the first automated run: stage age
 invented separate run-ids (stray runs/03 fragment) and the dashboard misread it as running.
 Threaded a shared runId through workflow.js (explore mints it, all stages use it). Logged
 both in errors.md with prevention notes to fold into pipeline #2's authoring.
+
+## [2026-07-15] Scaffolded pipeline #2 (bug-fix) + queued the co-owner bug
+Built pipelines/bug-fix (explore=reproduce+failing test, plan, execute=maker,
+eval=separate verifier that requires the new test red→green + full suite/tsc/eslint clean).
+workflow.js threads a shared runId from the start (errors.md lesson applied). Queued the
+first ticket: co-owner data loss in the Ownership wizard (skipped Co-owners step wipes
+existing co-owners — data loss, DB-touching, Neon dev branch only). Registered `bug` in the
+orchestrator routing table.
+
+## [2026-07-15] bug-fix proven by hand; automation run started (Fable 5 executor session)
+Hand run 2026-07-15-140108: reproduced the co-owner data-loss (OwnershipUnlock
+`onSubmitData` deletes all co-owners whenever `holdingType === "Sole Ownership"` — the
+exact condition that *skips* the Co-owners step). Regression test
+`components/feature-unlock/pillars/OwnershipUnlock.test.ts` went red for the right reason
+(removeCoOwner called for COOWN-0001/0002) → fix (skip = no reconcile) → green; suite
+167/167, tsc 0, eslint 55→55. DB never touched (server actions mocked). Then reverted the
+source fix (patch kept at `.context/coowner-fix-hand-run.patch`) and launched
+`bug-fix/workflow.js` on the ticket — the automation independently reproduced the bug
+(incl. live trigger-state evidence on the Neon dev branch, read-only), wrote its own
+failing test (`tests/ownership-wizard-coowner-skip.test.ts`), and planned a stronger fix
+(also guards the empty-list reconcile path). Run 2026-07-15-140731 in progress.
+
+## [2026-07-15] Authored the three testing pipelines with researched verification
+`test-coverage` (`type: test`), `qa` (`type: qa`), `e2e-regression` (`type: e2e`) — each
+with the 4-stage + shared-run-id pattern, a workflow.js, and a researched "Verification
+technique" section in pipeline.md (choices + why in decisions.md). Registered all three in
+the orchestrator routing table. First by-hand runs still pending (the do-it-by-hand rule).
+
+## [2026-07-15] Machinery self-check added
+`scripts/check-machinery.sh`: validates every workflow.js parses (wrapped in an async fn —
+the Workflow DSL allows top-level return), meta/stage files present, shared run-id + eval
+model override present, runs/ gitignored, and round-trips a fixture run through
+update-dashboard.sh. Found two real bugs in itself while being built (macOS mktemp suffix,
+ESM vs DSL semantics) — logged in errors.md. All green.

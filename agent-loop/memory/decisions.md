@@ -45,3 +45,27 @@
 - **Choice:** orchestrator wakes on a cadence (`/loop` / `/schedule`), checks the inbox,
   dispatches, sleeps — it does not spin a raw `while(true)`.
 - **Why:** ~100x cheaper and safer; matches Anthropic's time-based/proactive loop types.
+
+## [2026-07-15] Verification techniques per testing pipeline (researched before authoring)
+- **Context:** the owner's rule — before writing any pipeline's eval, research the testing
+  technique that matches what the pipeline produces; the verification is load-bearing.
+- **Choices (full reasoning + sources in each pipeline.md "Verification technique"):**
+  - **bug-fix** → regression testing, TDD red→green: the failing test *is* the spec, and
+    eval re-runs it unmodified plus the global gates.
+  - **test-coverage** → coverage measurement (`@vitest/coverage-v8`; AST-remapped since
+    Vitest 3.2, Istanbul-accurate at 2–5× speed) **+ mutation testing** (StrykerJS
+    `vitest-runner`, scoped `--mutate` per module). Mutation chosen because coverage proves
+    lines ran, not that tests catch bugs. Stryker over agent-applied mutants because the
+    tool mutating keeps the **eval agent read-only** — an agent injecting mutants would
+    edit code and grade its own edits.
+  - **qa** → browser-driven interaction testing with **structural (ARIA-level) assertions +
+    console/network capture**, verified in a **fresh browser session**. Pixel visual
+    regression deliberately excluded: 2026 consensus is pixel baselines flake across
+    OS/GPU/font stacks unless env-pinned; we run on a dev machine.
+  - **e2e-regression** → **rerun-to-classify triage** (deterministic failure = regression,
+    varying = flake), **quarantine-not-delete** policy (blocking suite stays trustworthy),
+    trace evidence, exit = two consecutive full green runs.
+- **Revisit if:** Stryker fights vitest 4/Vite 8 in the hand run (fallback: scratch-worktree
+  mutations run by a *tool script*, still not the eval agent); a pinned CI image appears
+  (pixel checks become viable); the e2e suite grows past ~15 min (two full green runs get
+  too expensive — sample instead).

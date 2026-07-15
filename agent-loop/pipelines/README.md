@@ -39,4 +39,11 @@ unattended without lying to itself.
 
 | Pipeline | Type | Status |
 |---|---|---|
-| [`eslint-burndown`](./eslint-burndown/pipeline.md) | `lint` | scaffolded — awaiting by-hand run |
+| [`eslint-burndown`](./eslint-burndown/pipeline.md) | `lint` | ✅ automated (Workflow), proven |
+| [`bug-fix`](./bug-fix/pipeline.md) | `bug` | ✅ proven by hand on the co-owner data-loss ticket; automation run in progress |
+| [`test-coverage`](./test-coverage/pipeline.md) | `test` | authored — verification = coverage ↑ + Stryker mutation score; first run by hand pending |
+| [`qa`](./qa/pipeline.md) | `qa` | authored — verification = fresh-session re-drive + console/network capture; first run by hand pending |
+| [`e2e-regression`](./e2e-regression/pipeline.md) | `e2e` | authored — verification = rerun-triage + quarantine + 2× green; first run by hand pending |
+
+Every pipeline's `pipeline.md` has a **Verification technique** section recording the
+researched choice of check and why it matches what that pipeline produces.
