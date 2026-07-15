@@ -49,6 +49,7 @@ pipelines. Today:
 | `maintenance` | `lint` | [`pipelines/eslint-burndown`](../pipelines/eslint-burndown/pipeline.md) | `eslint` warning count strictly ↓, `tsc`+`vitest` still green |
 | `building` | `bug` | [`pipelines/bug-fix`](../pipelines/bug-fix/pipeline.md) | new regression test red→green, full suite + `tsc` + `eslint` clean |
 | `building` | `feature` | [`pipelines/feature`](../pipelines/feature/pipeline.md) | acceptance tests red→green, full suite + `tsc` + `eslint` clean |
+| `building` | `entity` | [`pipelines/entity-scaffold`](../pipelines/entity-scaffold/pipeline.md) | approved contract red→green, additive migration, tenant-safe live CRUD test, global gates clean |
 | `testing` | `test` | [`pipelines/test-coverage`](../pipelines/test-coverage/pipeline.md) | new tests pass, module coverage strictly ↑, Stryker mutation score ≥ threshold, gates clean |
 | `testing` | `qa` | [`pipelines/qa`](../pipelines/qa/pipeline.md) | all in-scope flows re-driven green in a fresh browser session, 0 console errors, gates clean |
 | `testing` | `e2e` | [`pipelines/e2e-regression`](../pipelines/e2e-regression/pipeline.md) | e2e suite green ×2 consecutive, every failure fixed or quarantined+ticketed, gates clean |

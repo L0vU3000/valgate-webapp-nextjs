@@ -3,6 +3,19 @@
 > Why the loop is built the way it is. Newest first. One entry per load-bearing choice.
 > Format: `## [YYYY-MM-DD] <decision>` → **Context / Choice / Why / Revisit-if**.
 
+## [2026-07-16] Entity scaffolding cannot choose the product model
+- **Context:** the scope reduction left the current entity and field catalog under review.
+  Automating "add whatever entity seems useful" would turn a coding pipeline into an
+  unsupervised product-model designer and could preserve concepts the owner intends to remove.
+- **Choice:** `entity-scaffold` accepts only one explicitly approved, ordinary organization-
+  scoped property child with a complete field contract. It refuses field-only changes,
+  identity/cross-org tables, join tables, self-references, backfills, UI work, and speculative
+  entities. Training mode stops after Plan for human approval before the first real build.
+- **Why:** this boundary keeps verification objective: contract completeness, additive migration,
+  organization isolation, live CRUD, and global gates. Product necessity remains a human decision.
+- **Revisit if:** a second entity shape repeats often enough to earn its own proven template, or
+  the entity/field review establishes a stable broader domain contract.
+
 ## [2026-07-15] Categories organize peer pipelines without nesting them
 - **Context:** the system is expected to grow beyond its initial testing and maintenance
   workflows into planning, product-building, review, and delivery pipelines. A flat type

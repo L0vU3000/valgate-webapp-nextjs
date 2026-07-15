@@ -65,6 +65,34 @@ for dir in pipelines/*/; do
   grep -q "model: 'sonnet'" "$wf" || bad "$name: eval stage has no different-model override"
 done
 
+# entity-scaffold is allowed to touch a development database, so its two approval gates are
+# load-bearing. Keep a small static regression check until its first real run adds stronger
+# runtime evidence.
+entity_workflow="pipelines/entity-scaffold/workflow.js"
+if [ -f "$entity_workflow" ]; then
+  grep -q 'MIGRATION_APPROVED' "$entity_workflow" \
+    && good "entity-scaffold: migration approval gate present" \
+    || bad "entity-scaffold: migration approval gate missing"
+  grep -q 'migrationSha256' "$entity_workflow" \
+    && good "entity-scaffold: approved migration digest is threaded" \
+    || bad "entity-scaffold: migration digest check missing"
+  grep -q 'replan#' "$entity_workflow" \
+    && good "entity-scaffold: eval failure returns to Plan" \
+    || bad "entity-scaffold: eval failure does not return to Plan"
+  grep -q 'memory#' "$entity_workflow" \
+    && good "entity-scaffold: failure memory path present" \
+    || bad "entity-scaffold: failure memory path missing"
+  grep -q "model: 'opus'" "$entity_workflow" \
+    && grep -q "model: 'sonnet'" "$entity_workflow" \
+    && good "entity-scaffold: maker and verifier models differ" \
+    || bad "entity-scaffold: maker/verifier model split missing"
+  if grep -q 'training-off' "$entity_workflow"; then
+    bad "entity-scaffold: unproven training mode can be disabled"
+  else
+    good "entity-scaffold: training mode is locked on"
+  fi
+fi
+
 # --- 4: run state must be gitignored --------------------------------------------
 probe="pipelines/eslint-burndown/runs/_ignore-probe"
 if git check-ignore -q "$probe"; then

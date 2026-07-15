@@ -44,6 +44,7 @@ unattended without lying to itself.
 | `maintenance` | [`eslint-burndown`](./eslint-burndown/pipeline.md) | `lint` | ✅ automated (Workflow), proven |
 | `building` | [`bug-fix`](./bug-fix/pipeline.md) | `bug` | ✅ proven by hand and automated on the co-owner data-loss ticket |
 | `building` | [`feature`](./feature/pipeline.md) | `feature` | ✅ proven by hand — Sole-Ownership confirmed cleanup, acceptance tests red→green |
+| `building` | [`entity-scaffold`](./entity-scaffold/pipeline.md) | `entity` | authored — training mode; proof waits for an approved ordinary property-child entity |
 | `testing` | [`test-coverage`](./test-coverage/pipeline.md) | `test` | ✅ proven by hand — `portfolio-shared.ts` 0%→100% coverage, 100% mutation score |
 | `testing` | [`qa`](./qa/pipeline.md) | `qa` | ✅ proven by hand — 8/8 flows; WebGL crash + duplicate React key fixed; 183/183 global tests |
 | `testing` | [`e2e-regression`](./e2e-regression/pipeline.md) | `e2e` | authored — proof deferred (scope-cut specs excluded; 2× green proof deferred) |

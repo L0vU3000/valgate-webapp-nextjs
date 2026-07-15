@@ -3,6 +3,14 @@
 > What changed in the loop machinery and when. Newest first. One entry per change.
 > Format: `## [YYYY-MM-DD] <what changed>` + a line or two of why.
 
+## [2026-07-16] entity-scaffold pipeline authored behind a product-scope gate
+Added the seventh pipeline, `entity-scaffold` (`category: building`, `type: entity`). It handles
+one approved org-scoped property child through Zod, Drizzle, an additive generated migration,
+service, Server Actions, seed fixture, and tenant-isolation integration tests. The workflow
+enforces a training stop after Plan and refuses speculative or structurally different entity
+work. No product entity was added: the current scope review has not approved one, so the first
+real proof remains pending instead of fabricating schema to exercise the machinery.
+
 ## [2026-07-15] Analytics timeline wired through the feature pipeline
 Hand run `2026-07-15-233502` rejected four already-wired starting candidates, then found a
 real stale claim on `/analytics`: `MARCH 2024 - AUGUST 2024` beside a chart built from

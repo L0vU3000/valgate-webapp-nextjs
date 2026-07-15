@@ -208,11 +208,12 @@ agent-loop/
 
 ## Current build position
 
-Five pipelines are defined. `eslint-burndown` and `bug-fix` have automated proof;
-`test-coverage` and `qa` have successful real runs; `e2e-regression` is paused after its
-first triage pass and still needs focused reruns plus two consecutive green suites. The
-orchestrator remains a specification rather than an executable dispatcher.
+Seven pipelines are defined. `eslint-burndown`, `bug-fix`, `feature`, `test-coverage`, and
+`qa` have successful real runs. `e2e-regression` is authored with its two-green-run proof
+deferred. `entity-scaffold` is authored behind an explicit product-scope and plan approval
+gate; its first real proof waits for an approved entity ticket. The orchestrator remains a
+specification rather than an executable dispatcher.
 
-Next: complete the e2e-regression proof, then implement the category-aware orchestrator over
-the registry in [`orchestrator/orchestrator.md`](./orchestrator/orchestrator.md). Everything
-runs on built-in primitives, so the system stays independent of external agent daemons.
+Next: prove `entity-scaffold` on the first approved ordinary property-child entity, without
+using the pipeline to invent product schema. Everything runs on built-in primitives, so the
+system stays independent of external agent daemons.
