@@ -3,6 +3,19 @@
 > What changed in the loop machinery and when. Newest first. One entry per change.
 > Format: `## [YYYY-MM-DD] <what changed>` + a line or two of why.
 
+## [2026-07-15] feature pipeline built and proven by hand (Sole-Ownership confirmed cleanup)
+Sixth pipeline: `feature` (`category: building`, `type: feature`), copied from `bug-fix`
+with `explore` reshaped to *specify* — the ticket's acceptance criteria become failing
+tests before any product code changes. Hand run 2026-07-15-213903: acceptance test
+("explicit Remove deletes exactly the saved co-owners") red for the right reason → built
+the confirm in `OwnershipUnlock.tsx` (schema flag `removeCoOwnersOnSoleSwitch`, Keep/Remove
+radios in the structure step, delete-only-on-explicit-true in the skipped-step branch) →
+eval (separate sonnet verifier) iteration 1 ruled fail on suite pollution (stale
+`.context/*-worktree-*` scratch repos matched vitest's glob), iteration 2 passed after the
+one-line `**/.context/**` exclude: acceptance 4/4 red→green, suite 187/187, tsc 0, eslint
+55→55. Registered `feature` in the routing table and pipelines README; ticket moved to
+done/.
+
 ## [2026-07-15] Added pipeline categories and bound the agent entry points
 Added `categories.md` as the routing-policy source of truth; classified the five current
 pipelines; updated the orchestrator registry and inbox contract; and linked the decision

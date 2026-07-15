@@ -62,6 +62,11 @@ const OwnershipWizardSchema = z
         }),
       )
       .default([]),
+
+    // Set only by the Sole-Ownership confirm in the structure step. Absent or
+    // false means Keep: existing co-owners survive the switch. Deletion needs
+    // an explicit true — never a default.
+    removeCoOwnersOnSoleSwitch: z.boolean().optional(),
   })
   .superRefine((vals, ctx) => {
     if (vals.holdingType !== "Sole Ownership") {
@@ -166,6 +171,52 @@ function StructureStep({
           </p>
         )}
       </div>
+
+      {/* Sole-Ownership confirm — the property still has saved co-owners.
+          Deleting them needs explicit consent; Keep is the default. */}
+      {values.holdingType === "Sole Ownership" &&
+        (() => {
+          const savedCoOwners = values.coOwners.filter((co) => co.id);
+          if (savedCoOwners.length === 0) return null;
+          const names = savedCoOwners.map((co) => co.name).join(", ");
+          const removeChosen = values.removeCoOwnersOnSoleSwitch === true;
+          return (
+            <div className="p-4 border border-amber-200 bg-amber-50/50 rounded-lg space-y-3">
+              <p className="text-sm text-val-heading">
+                This removes {savedCoOwners.length} co-owner
+                {savedCoOwners.length === 1 ? "" : "s"}: {names}.
+              </p>
+              <div className="flex flex-col gap-2">
+                <label className="flex items-center gap-2.5 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="soleOwnershipCoOwnerCleanup"
+                    checked={!removeChosen}
+                    onChange={() =>
+                      form.setValue("removeCoOwnersOnSoleSwitch", false)
+                    }
+                  />
+                  <span className="text-[13px] font-medium text-val-heading">
+                    Keep them
+                  </span>
+                </label>
+                <label className="flex items-center gap-2.5 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="soleOwnershipCoOwnerCleanup"
+                    checked={removeChosen}
+                    onChange={() =>
+                      form.setValue("removeCoOwnersOnSoleSwitch", true)
+                    }
+                  />
+                  <span className="text-[13px] font-medium text-val-heading">
+                    Remove them
+                  </span>
+                </label>
+              </div>
+            </div>
+          );
+        })()}
 
       {/* Distribution method (only when not sole) */}
       {values.holdingType && values.holdingType !== "Sole Ownership" && (
@@ -539,8 +590,18 @@ export const ownershipWizardConfig: WizardConfig<typeof OwnershipWizardSchema> =
       // 3. Diff and reconcile co-owners — only when the co-owners step was shown.
       // A skipped step means the user never saw the co-owner list, so this save
       // carries no intent about co-owners and must not create, update, or delete
-      // any (that delete-all is exactly the data loss QA hit).
-      if (!coOwnersStepIsSkipped(values)) {
+      // any (that delete-all is exactly the data loss QA hit). The single
+      // exception: the user switched to Sole Ownership and explicitly confirmed
+      // "Remove them" in the structure step — only then delete the saved rows.
+      if (coOwnersStepIsSkipped(values)) {
+        if (values.removeCoOwnersOnSoleSwitch === true) {
+          const currentResult = await listCoOwnersForPropertyAction(propertyId);
+          const currentCoOwners = currentResult.ok ? currentResult.data : [];
+          for (const existing of currentCoOwners) {
+            await removeCoOwner(existing.id);
+          }
+        }
+      } else {
         const currentResult = await listCoOwnersForPropertyAction(propertyId);
         const currentCoOwners = currentResult.ok ? currentResult.data : [];
 
@@ -606,7 +667,7 @@ export const ownershipWizardConfig: WizardConfig<typeof OwnershipWizardSchema> =
         key: "structure",
         title: "Ownership structure",
         description: "How is this property legally held?",
-        fields: ["holdingType", "distributionMethod"],
+        fields: ["holdingType", "distributionMethod", "removeCoOwnersOnSoleSwitch"],
         render: ({ form, values }) => (
           <StructureStep form={form} values={values} />
         ),

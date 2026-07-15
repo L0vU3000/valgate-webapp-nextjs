@@ -93,3 +93,24 @@ Template:
   `async function` (mirroring the runtime) before `node --check`.
 - **Prevention:** a checker must mirror the runtime's execution model, or it tests the
   wrong thing. Both are baked into `scripts/check-machinery.sh` now.
+
+## [2026-07-15] `feature` eval's whole-suite check failed on stale `.context/` worktrees
+- **Symptom:** run `2026-07-15-213903` (Sole-Ownership confirmed cleanup) had green
+  acceptance tests, 0 tsc errors, and 55/55 eslint warnings, but `npx vitest run` reported
+  `40 failed | 73 passed (113)` — a hard fail on the whole-suite gate.
+- **Cause:** two git-ignored scratch worktrees left over from earlier, unrelated pipeline
+  runs (`.context/e2e-worktree-20260715/`, `.context/qa-worktree-20260715/`) each contain a
+  full copy of `e2e/**`. `vitest.config.ts`'s `exclude: ["e2e/**", ...]` only matches a
+  top-level `e2e/` directory, not the nested `.context/*/e2e/**` paths, so Vitest tried to
+  execute Playwright `.spec.ts` files and choked on `test.describe()`/`test.use()` outside a
+  Playwright runner. All 553 actual test assertions passed; every one of the 40 "failed"
+  entries was a file-load failure in a leftover worktree, none in product code.
+- **Fix:** the maker applied prevention (b) in iteration 2 of the same run:
+  `vitest.config.ts` now excludes `**/.context/**`. Eval#2 re-ran the gates — suite
+  25 files / 187 tests green (exit 0), tsc 0, eslint 55/55 — and ruled pass. (Eval#1's
+  "553 tests passed" had itself been inflated by the `.context/` copies duplicating the
+  unit suite; the true product suite is 187.)
+- **Prevention:** either (a) clean up `.context/*-worktree-*` scratch directories once their
+  originating pipeline run finishes, or (b) add `**/.context/**` to `vitest.config.ts`'s
+  `exclude` list so leftover worktrees can never pollute the default suite run. Any pipeline
+  that spawns a disposable worktree under `.context/` should delete it on exit.
