@@ -3,6 +3,19 @@
 > What changed in the loop machinery and when. Newest first. One entry per change.
 > Format: `## [YYYY-MM-DD] <what changed>` + a line or two of why.
 
+## [2026-07-16] building category extended: wiring, migration, api-tool
+Added the three planned `building` pipelines beyond feature/bug-fix/entity-scaffold. `wiring` replaces
+mock/placeholder values on a surface with real data wired from `lib/services/*`, verified by
+value-traceability (every shown value cites a real schema field or derivation, no mocks remain).
+`migration` applies one additive schema change to an existing table — it reuses entity-scaffold's
+guardrails verbatim (dev Neon branch only, additive-only, the generate→approve→apply migration gate,
+hand-authored SQL, `db:check` graded vs baseline). `api-tool` wraps an existing service as one MCP
+tool through the `ctxFor()` seam, with authorization, input validation, and no-error-leakage weighted
+critical. All three mutate code/DB, so they run in a worktree on a dev branch with the shared 100-point
+scoring, maker≠verifier split, and rubric lock — mirroring `feature`/`entity-scaffold`. Registered
+across all four registry sources; `check-machinery.sh` green at 18 pipelines. Not yet run — proofs wait
+for real targets. `delivery` is now the only category with no registered pipeline.
+
 ## [2026-07-16] review category built: code-review, design-review, security-review, architecture-review
 Added the four `review` pipelines, leaving `delivery` as the only category with no registered
 pipeline. Each inspects a named target (a diff/branch for code and security, a surface for design, a

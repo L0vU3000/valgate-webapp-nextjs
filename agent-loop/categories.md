@@ -112,6 +112,9 @@ Until then, `type` remains the exact routing key.
 | `building` | `bug` | `bug-fix` |
 | `building` | `feature` | `feature` |
 | `building` | `entity` | `entity-scaffold` |
+| `building` | `wiring` | `wiring` |
+| `building` | `migration` | `migration` |
+| `building` | `api-tool` | `api-tool` |
 | `testing` | `test` | `test-coverage` |
 | `testing` | `qa` | `qa` |
 | `testing` | `e2e` | `e2e-regression` |

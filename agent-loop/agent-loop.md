@@ -200,15 +200,19 @@ agent-loop/
 ├── dashboard.md           ← generated live view: running / queued / completed
 ├── resources/             ← the source library (8 authors)
 ├── orchestrator/          ← the router (spec) + inbox/ (work items)
-├── pipelines/             ← fifteen peer explore → plan → execute → eval workflows
+├── pipelines/             ← eighteen peer explore → plan → execute → eval workflows
 ├── scripts/               ← dashboard generation + machinery/registry checks
 └── memory/                ← changelog · decisions · errors (self-improvement)
 ```
 
 ## Current build position
 
-Fifteen pipelines are defined. `eslint-burndown`, `bug-fix`, `feature`, `test-coverage`, `qa`,
-`pipeline-improve`, and `e2e-regression` have successful real runs. The `planning` category holds
+Eighteen pipelines are defined. `eslint-burndown`, `bug-fix`, `feature`, `test-coverage`, `qa`,
+`pipeline-improve`, and `e2e-regression` have successful real runs. The `building` category has
+gained three more authored pipelines — `wiring` (mock→real service wiring), `migration` (one
+additive, approval-gated schema change on a dev branch), and `api-tool` (wrap an existing service
+as an MCP tool via `ctxFor`) — mirroring `feature` and `entity-scaffold`'s worktree + dev-branch
+guardrails. The `planning` category holds
 three authored pipelines — `spec`, `research`, and `technical-plan` — read-only document-producers
 whose verification grades grounding, testability, and completeness rather than tests. The `review`
 category holds four — `code-review`, `design-review`, `security-review`, and `architecture-review`
