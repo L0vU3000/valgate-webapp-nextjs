@@ -58,6 +58,10 @@ unattended without lying to itself.
 | `planning` | [`spec`](./spec/pipeline.md) | `spec` | authored — planning template; read-only, first proof waits for a real request |
 | `planning` | [`research`](./research/pipeline.md) | `research` | authored — read-only cited-report; first proof waits for a real question |
 | `planning` | [`technical-plan`](./technical-plan/pipeline.md) | `technical-plan` | authored — read-only implementation plan; first proof waits for an approved scope |
+| `review` | [`code-review`](./code-review/pipeline.md) | `code-review` | authored — read-only verified findings on a diff/branch; first proof waits for a target |
+| `review` | [`design-review`](./design-review/pipeline.md) | `design-review` | authored — read-only visual/UX findings on a surface; first proof waits for a target |
+| `review` | [`security-review`](./security-review/pipeline.md) | `security-review` | authored — read-only vulnerability findings on a change; first proof waits for a target |
+| `review` | [`architecture-review`](./architecture-review/pipeline.md) | `architecture-review` | authored — read-only structural findings on a subsystem; first proof waits for a target |
 
 Every pipeline's `pipeline.md` has a **Verification technique** section recording the
 researched choice of check and why it matches what that pipeline produces.

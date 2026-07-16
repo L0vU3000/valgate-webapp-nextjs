@@ -57,6 +57,10 @@ pipelines. Today:
 | `planning` | `spec` | [`pipelines/spec`](../pipelines/spec/pipeline.md) | grounded spec: every reference resolves, criteria testable, scope bounded, not a duplicate, valid `approved: false` ticket drafted |
 | `planning` | `research` | [`pipelines/research`](../pipelines/research/pipeline.md) | cited report: every claim backed by a resolving source, question answered, uncertainty stated |
 | `planning` | `technical-plan` | [`pipelines/technical-plan`](../pipelines/technical-plan/pipeline.md) | grounded plan: references resolve, layers complete, sequenced, bounded, constraints respected |
+| `review` | `code-review` | [`pipelines/code-review`](../pipelines/code-review/pipeline.md) | verified findings: every reported issue reproduced with cited evidence, no false positives, scope covered |
+| `review` | `design-review` | [`pipelines/design-review`](../pipelines/design-review/pipeline.md) | verified visual/UX findings: each re-observed on the live surface, no false positives, scope covered |
+| `review` | `security-review` | [`pipelines/security-review`](../pipelines/security-review/pipeline.md) | verified vulnerabilities: each reproduced against the change with cited exploit path, no false positives |
+| `review` | `architecture-review` | [`pipelines/architecture-review`](../pipelines/architecture-review/pipeline.md) | verified structural findings: each cited edge/rule violation confirmed, no false positives, scope covered |
 | `maintenance` | `perf` | _(future — `/optimisation-loop`)_ | metric hits target |
 
 An advanced version (later) replaces this table with a **factory-router agent** that reads

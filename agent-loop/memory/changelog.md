@@ -3,6 +3,19 @@
 > What changed in the loop machinery and when. Newest first. One entry per change.
 > Format: `## [YYYY-MM-DD] <what changed>` + a line or two of why.
 
+## [2026-07-16] review category built: code-review, design-review, security-review, architecture-review
+Added the four `review` pipelines, leaving `delivery` as the only category with no registered
+pipeline. Each inspects a named target (a diff/branch for code and security, a surface for design, a
+subsystem for architecture) and produces **verified findings** — it does not fix; a fix routes to an
+`approved: false` building ticket. All read-only on the product (no worktree/DB), reusing the shared
+100-point scoring, maker≠verifier split, and rubric lock. Their distinct verification is **adversarial
+re-verification**: the independent verifier reproduces every reported finding — re-tracing the cited
+code, re-driving the live surface, re-confirming the exploit path or dependency edge — and drops any
+finding it cannot substantiate, so a false positive cannot pass. Engines are the installed gstack
+review skills (`/code-review`, `design-review`, `/cso`) and `graphify` for structure. Registered
+across all four registry sources; `check-machinery.sh` green at 15 pipelines. Not yet run — proofs
+wait for real targets.
+
 ## [2026-07-16] planning category built: spec, research, technical-plan (authored, unproven)
 Added the first three `planning` pipelines, closing the category's "no registered pipeline yet" gap.
 `spec` turns a vague request into a bounded, grounded, testable specification plus a drafted

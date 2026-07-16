@@ -3,6 +3,25 @@
 > Why the loop is built the way it is. Newest first. One entry per load-bearing choice.
 > Format: `## [YYYY-MM-DD] <decision>` → **Context / Choice / Why / Revisit-if**.
 
+## [2026-07-16] Review pipelines report verified findings, and verify by adversarial re-verification
+- **Context:** the `review` category (`code-review`, `design-review`, `security-review`,
+  `architecture-review`) inspects an existing change or surface. Its risk is not a weak fix — it makes
+  no fix — but a **false positive**: a confident finding that is not real wastes owner attention and
+  erodes trust in the loop.
+- **Choice:** review pipelines are read-only and produce findings only (a fix routes to a separate
+  `approved: false` building ticket). The independent verifier **adversarially re-verifies every
+  reported finding** — independently reproduces it (re-traces the cited code, re-drives the live
+  surface, re-confirms the exploit path or dependency edge) — and **drops any finding it cannot
+  substantiate**. The critical criteria are: every surviving finding reproduced with cited evidence,
+  zero unverified findings, justified severity, and declared scope covered.
+- **Why:** for a findings-producer the honest failure mode is a hallucinated issue, so the gate must
+  attack the findings, not just count them. Dropping unverified findings makes the maker≠verifier
+  split do the work it is best at — a skeptic re-deriving evidence — and keeps the owner's queue
+  free of noise. Fixing stays out of scope so a review never silently changes the product.
+- **Revisit if:** a review type needs to act on its findings within the same run (it should route to
+  a building pipeline instead), or reproduction is impossible for a class of finding (then that class
+  needs a different, still-objective verification, not an ungrounded assertion).
+
 ## [2026-07-16] Planning pipelines are read-only doc-producers verified by grounding, not tests
 - **Context:** the `planning` category (`spec`, `research`, `technical-plan`) breaks the
   building-pipeline mould — its product is a document, not code, so there is no test/tsc/DB gate on
