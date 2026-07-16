@@ -18,6 +18,73 @@ Template:
   pre-existing green signals, not just its own target metric.
 -->
 
+## [2026-07-16] entity-scaffold could not re-verify after a clean apply + non-code eval fail
+- **Symptom:** run `2026-07-16-111415` applied migration 0025 cleanly in attempt 1 (Phase B marked
+  `migration-status: applied`, live test 16/16) but eval failed on the pre-existing `db:check`
+  gate. After correcting that gate, re-running Invocation 3 stopped at the migration-checkpoint
+  with `prepared=false`: the checkpoint required `execute.md` to say `awaiting-approval`, but it now
+  said `applied`. The run was stuck — it could neither re-grade the already-correct artifact nor
+  advance.
+- **Cause:** the checkpoint precondition assumed the only reason to enter Apply-and-verify is a
+  never-yet-applied migration. It did not model "migration already applied at the approved digest,
+  eval failed for a reason unrelated to the SQL (a gate bug, a flaky global check)." The workflow's
+  intended recovery path (replan → Execute regenerates) assumes the fix is a *code* change; a
+  pipeline-definition fix leaves the applied artifact already correct with nothing to regenerate.
+- **Fix:** the migration-checkpoint now accepts a matching-digest migration that is *either*
+  awaiting-approval *or* already applied (digest must still equal the approved one), and Execute
+  Phase B treats an idempotent "already applied" `db:migrate` result as success. A digest mismatch
+  still fails closed.
+- **Prevention:** a checkpoint that guards "safe to proceed" should key on the invariant that makes
+  it safe (the approved artifact is present and unchanged — proven by digest), not on a transient
+  status label that a prior successful attempt legitimately advances past.
+
+## [2026-07-16] entity-scaffold eval failed the whole run on a pre-existing `db:check` collision
+- **Symptom:** run `2026-07-16-111415` (utility-accounts scaffold), attempt 1, verdict `fail`.
+  Every other check was green — contract red→green and unchanged, complete layers with a
+  verified IDOR guard (`assertPropertyInOrg`), migration `0025` read in full and confirmed
+  additive/idempotent/non-destructive, isolation pass, live-DB CRUD 16/16 with clean teardown,
+  suite 195/195, tsc 0, eslint 55→55 (all matching the Explore baseline). The sole failing gate
+  was the literal `npm run db:check` command. Result: no functional defect found, but the run
+  was bounced back to Plan.
+- **Cause (proven):** `db:check` (`drizzle-kit check`) aborts on a pre-existing snapshot-pointer
+  collision — `[drizzle/meta/0008_snapshot.json, drizzle/meta/0011_snapshot.json] are pointing
+  to a parent snapshot ... which is a collision` — reproduced live here, unchanged. It fails at
+  the 0008/0011 pointers *before it ever reads 0025's content*, so it gives no signal, positive
+  or negative, about the new migration. This is a known, already-accepted repo condition: the
+  headers of already-shipped `0023_clients_contact_fields.sql` and `0024_property_cover_storage_id.sql`
+  both say "Hand-authored because drizzle-kit generate is blocked by a pre-existing 0008/0011
+  snapshot collision," and `vault/decisions/drizzle-only-hand-authored-migrations.md` records
+  hand-authored SQL as a standing decision (drizzle-kit is unreliable here). eval.md's rule that
+  a pass requires every structured boolean to be true turned this tool-level, unrelated
+  limitation into a full `fail`.
+- **Fix:** none applied to product code — the migration is safe on manual inspection; per the
+  pipeline contract the verifier correctly refused to relax the gate and returned to Plan. The
+  corrective belongs in the pipeline definition, not this run's diff (see Prevention).
+- **Prevention:** the entity-scaffold migration gate must not depend on a whole-repo
+  `drizzle-kit check`, which is known-broken here and can never pass regardless of the new
+  migration's quality. Either (a) drop `db:check` from eval's required-boolean checklist and rely
+  on the manual additive/non-destructive inspection that eval already performs (grep for
+  `drop|truncate|rename` + full read of the new `.sql`), or (b) fix the underlying 0008/0011
+  snapshot collision once so `db:check` becomes a real signal again. Until then, a green
+  scaffold should not be bounced to Plan solely on this command.
+
+## [2026-07-16] entity-scaffold workflow.js threw at load: Date.now() banned by the runtime
+- **Symptom:** the first real `entity-scaffold` invocation failed instantly with 0 agents run —
+  `Error: Date.now() / new Date() are unavailable in workflow scripts (breaks resume)`. The
+  pipeline could not start at all.
+- **Cause:** `workflow.js` measured a 75-minute wall-clock window with `const STARTED_AT =
+  Date.now()` at module load and `Date.now() - STARTED_AT` in `budgetAvailable()`. The built-in
+  Workflow runtime forbids `Date.now()`/`new Date()` because a non-deterministic clock breaks
+  resume. The machinery self-check `node --check`s the wrapped script, which catches syntax but
+  not this runtime API restriction, so the bug survived to first run.
+- **Fix:** removed the wall-clock window (unimplementable — the runtime exposes no clock) and kept
+  the agent-call cap, which `pipeline.md` already names the enforceable local proxy. Wired the
+  declared 60k token ceiling to the runtime's real `budget.spent()` so the previously-unenforced
+  ceiling now bites when a token target is set.
+- **Prevention:** workflow scripts must not call `Date.now()`/`new Date()`/`Math.random()`; use
+  the runtime's `budget` for metering and pass any needed timestamp via `args`. The machinery
+  self-check should grep every `workflow.js` for these banned globals, since `node --check` won't.
+
 ## [2026-07-16] e2e-regression maker: three fix attempts that first failed
 Run `2026-07-16-030754`. Each was caught by the maker's own focused rerun before eval, but
 they cost cycles and are worth not repeating:

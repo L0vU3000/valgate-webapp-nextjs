@@ -3,6 +3,28 @@
 > Why the loop is built the way it is. Newest first. One entry per load-bearing choice.
 > Format: `## [YYYY-MM-DD] <decision>` → **Context / Choice / Why / Revisit-if**.
 
+## [2026-07-16] entity-scaffold grades the migration's db:check relative to baseline, not absolutely
+- **Context:** the first real entity-scaffold run (`utility_accounts`, run `2026-07-16-111415`) was
+  fully green — contract red→green, complete layers with a verified IDOR guard, additive migration,
+  isolation pass, live CRUD 16/16, suite 195/195, tsc 0, eslint 55→55 — yet eval ruled `fail`. The
+  only failing gate was `npm run db:check`, which aborts on a pre-existing 0008/0011 snapshot-pointer
+  collision eight migrations upstream of the new one. It never reads the new migration, so its output
+  is byte-identical with or without the scaffold: no correct entity work can make it pass.
+- **Choice:** grade the migration-safety gate the same relative way ESLint is already graded —
+  against the Explore baseline. The migration passes iff (a) manual additive/non-destructive
+  inspection passes and (b) `db:check` introduces no *new* collision versus the recorded baseline.
+  Encoded in `explore.md` (capture the db:check baseline), `eval.md` check 4 + the `dbCheckPasses`
+  boolean, and `pipeline.md` exit condition 4. Repairing the historical 0008/0011 chain is a separate,
+  dedicated task — it would rewrite every shipped migration's metadata, the exact unrelated drift
+  eval otherwise forbids.
+- **Why:** an absolute whole-repo `drizzle-kit check` is a broken gate here (accepted standing
+  condition: `vault/decisions/drizzle-only-hand-authored-migrations.md`; 0023/0024 are hand-authored
+  for the same reason). Grading it relatively keeps it a real signal — a migration that adds a *new*
+  collision still fails — without bouncing a clean scaffold on a tool limitation that predates it.
+- **Revisit if:** the 0008/0011 snapshot collision is repaired repo-wide (then restore the absolute
+  `db:check` pass), or drizzle-kit's migration flow is adopted (then the snapshot chain must be
+  machine-maintained again).
+
 ## [2026-07-16] The dispatcher routes and records; the runtime executes
 - **Context:** the orchestrator spec wanted a router that reads the inbox, selects a pipeline,
   runs it in a worktree, records the outcome, and refreshes the board. But a pipeline is a

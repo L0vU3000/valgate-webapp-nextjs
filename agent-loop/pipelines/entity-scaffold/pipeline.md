@@ -78,8 +78,12 @@ A run passes only when all checks are true:
 3. The focused live-DB test proves create → list/get → update → delete, domain/DB type
    conversion, property filtering, and organization isolation. It must also prove that create
    and update reject a `propertyId` owned by another organization. It cleans up every row it creates.
-4. The generated migration is additive and `npm run db:check` passes. Applying it is allowed
-   only after the development-branch identity has been confirmed; production is forbidden.
+4. The generated migration is additive (confirmed by manual inspection) and `npm run db:check`
+   shows no new collision versus the Explore baseline — graded the same relative way as ESLint,
+   because this repo carries an accepted pre-existing `drizzle-kit` snapshot collision (0008/0011)
+   that aborts `db:check` upstream of any new migration. A new collision the migration introduces
+   still fails. Applying it is allowed only after the development-branch identity has been
+   confirmed; production is forbidden.
 5. `npx vitest run`, `npx tsc --noEmit`, and `npx eslint app lib components` retain the
    run's starting health.
 

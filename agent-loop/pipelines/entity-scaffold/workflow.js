@@ -12,10 +12,12 @@ export const meta = {
 const P = 'agent-loop/pipelines/entity-scaffold'
 const RAW_ARGS = args || ''
 const MAX_ATTEMPTS = 4
-const MAX_RUNTIME_MS = 75 * 60 * 1000
 const MAX_AGENT_CALLS = 7
 const TOKEN_CEILING = 60000
-const STARTED_AT = Date.now()
+// ponytail: the Workflow runtime bans Date.now()/new Date() (they break resume) and exposes no
+// clock, so the 75-minute wall-clock window is not implementable here. pipeline.md already names
+// the agent-call cap as the enforceable local proxy; it is now joined by the runtime's real token
+// budget (the ceiling pipeline.md said "a future dispatcher must enforce at launch").
 
 let agentCalls = 0
 
@@ -33,9 +35,12 @@ function ticketPath() {
 }
 
 function budgetAvailable() {
-  const withinTime = Date.now() - STARTED_AT < MAX_RUNTIME_MS
   const withinAgentCalls = agentCalls < MAX_AGENT_CALLS
-  return withinTime && withinAgentCalls
+  // budget.total is null unless the caller set a token target; then remaining() is Infinity and
+  // this term is a no-op. When a target is set, respect the declared token ceiling too.
+  const declaredCeiling = Math.min(TOKEN_CEILING, budget.total || TOKEN_CEILING)
+  const withinTokens = !budget.total || budget.spent() < declaredCeiling
+  return withinAgentCalls && withinTokens
 }
 
 function recordAgentCall() {
@@ -125,7 +130,7 @@ if (MIGRATION_APPROVED && !PLAN_APPROVED) {
   return { built: false, reason: 'migration approved without plan approval' }
 }
 
-log(`bounds: ${MAX_ATTEMPTS} attempts · ${MAX_RUNTIME_MS / 60000} minutes · ${MAX_AGENT_CALLS} agent calls · ${TOKEN_CEILING} declared tokens`)
+log(`bounds: ${MAX_ATTEMPTS} attempts · ${MAX_AGENT_CALLS} agent calls · ${TOKEN_CEILING} declared tokens`)
 
 phase('Scope and plan')
 recordAgentCall()
@@ -208,8 +213,12 @@ recordAgentCall()
 const prepared = await agent(
   `You are a read-only migration checkpoint for entity-scaffold run ${RUN}. Read
    ${P}/runs/${RUN}/execute.md and the recorded migration. Return prepared=true and its exact
-   path and recorded SHA-256 only if execute.md marks it awaiting approval, the file exists,
-   and a fresh digest matches the recorded digest. Do not edit or apply anything.`,
+   path and recorded SHA-256 when the file exists, a fresh digest matches the recorded digest,
+   and execute.md marks the migration either awaiting-approval OR already applied at that same
+   digest. A matching-digest already-applied migration is safe to proceed with: this lets a run
+   that applied cleanly but failed eval for a non-migration reason be re-verified without
+   regenerating or re-approving the identical SQL. Return prepared=false only if the file is
+   missing or the digest differs from the approved one. Do not edit or apply anything.`,
   { label: 'migration-checkpoint', phase: 'Apply and verify', schema: PREPARED },
 )
 
@@ -225,7 +234,9 @@ await agent(
   `You are EXECUTE Phase B, the maker. Follow ${P}/execute.md for run ${RUN}. The human approved
    ${prepared.migrationPath} at SHA-256 ${prepared.migrationSha256}. Do not regenerate or edit
    source, tests, fixtures, snapshots, or SQL. Confirm the digest and development endpoint,
-   apply this exact migration, run schema assertion,
+   apply this exact migration (db:migrate is idempotent — if execute.md shows it was already
+   applied at this digest on a prior attempt, a "no pending migrations" / already-applied result
+   is success, not a failure; do not re-create or alter anything), run schema assertion,
    seed, and focused DB checks, then append attempt ${attempt} evidence to execute.md. Never use
    production, seed:reset, or ALLOW_DESTRUCTIVE_DB=1.`,
   { label: `execute-apply#${attempt}`, phase: 'Apply and verify', model: 'opus' },

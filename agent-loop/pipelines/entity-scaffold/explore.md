@@ -12,7 +12,10 @@ Your only edits are the focused test files and `runs/<run-id>/explore.md`.
    and an existing `*.db.test.ts`.
 3. Confirm the database URL targets the approved development Neon branch before any later
    write. Record only the endpoint/branch identity, never credentials.
-4. Record baseline results for the whole Vitest suite, TypeScript, and ESLint warning count.
+4. Record baseline results for the whole Vitest suite, TypeScript, the ESLint warning count, and
+   `npm run db:check` (capture its exact output — this repo has an accepted pre-existing 0008/0011
+   snapshot collision, so Eval grades the migration's `db:check` as "no *new* collision vs this
+   baseline," not an absolute pass).
 5. Write focused tests for the approved contract. They must fail because the entity scaffold
    is absent, not because the test harness is broken. Cover:
    - Zod create and patch validation;
