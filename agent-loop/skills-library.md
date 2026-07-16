@@ -48,6 +48,16 @@
 | **`/code-review` (`--fix`)** | reviews the diff for bugs + simplifications | An `eval` stage on any code-writing pipeline |
 | **`/qa`** | browser-drives routes, finds + fixes broken flows | An `eval` stage for UI pipelines |
 
+## Delivery capabilities — the domain workflows delivery pipelines wrap
+
+| Skill | What it owns | Delivery pipeline boundary |
+|---|---|---|
+| **`/ship`** | prepares, verifies, commits, pushes, and opens or updates a reviewed change | prerequisite for `landing`; landing never recreates change preparation |
+| **`/setup-deploy`** | persists platform, target, status, and health configuration | prerequisite for `deploy` when the target is not already unambiguous |
+| **`/land-and-deploy`** | readiness, merge, deploy, one-pass health verification, and approved revert handling | `landing` uses its landing portion; `deploy` uses its deploy portion; `release` consumes their verified records |
+| **`/canary`** | bounded post-deploy differential observation with screenshots and alerts | execution engine for `canary`; rollback remains a separate gate |
+| **`/document-release`** | pre-merge documentation and release-note accuracy | notes engine for `release`; already-landed work must bring verified notes rather than rewrite history |
+
 ## Orchestration primitives (built-in, not skills)
 
 | Tool | What it does | Use it for |

@@ -200,14 +200,14 @@ agent-loop/
 ├── dashboard.md           ← generated live view: running / queued / completed
 ├── resources/             ← the source library (8 authors)
 ├── orchestrator/          ← the router (spec) + inbox/ (work items)
-├── pipelines/             ← twenty peer explore → plan → execute → eval workflows
+├── pipelines/             ← twenty-four peer explore → plan → execute → eval workflows
 ├── scripts/               ← dashboard generation + machinery/registry checks
 └── memory/                ← changelog · decisions · errors (self-improvement)
 ```
 
 ## Current build position
 
-Twenty pipelines are defined. `eslint-burndown`, `bug-fix`, `feature`, `test-coverage`, `qa`,
+Twenty-four pipelines are defined. `eslint-burndown`, `bug-fix`, `feature`, `test-coverage`, `qa`,
 `pipeline-improve`, and `e2e-regression` have successful real runs. The `building` category has
 gained three more authored pipelines — `wiring` (mock→real service wiring), `migration` (one
 additive, approval-gated schema change on a dev branch), and `api-tool` (wrap an existing service
@@ -219,7 +219,12 @@ category holds four — `code-review`, `design-review`, `security-review`, and `
 — read-only findings-producers verified by adversarial re-verification (each reported finding must
 reproduce, or it is dropped). The maintenance category now also holds `dependency-maintenance`
 (approved npm backlog batches) and `performance-burndown` (fixed-recipe median measurement toward
-one target). Both are locked in training mode and await genuine work. The first `pipeline-improve` proof made registry
+one target). Both are locked in training mode and await genuine work. The delivery category now
+holds `landing`, `deploy`, `canary`, and `release`: approval-gated wrappers around installed `ship`,
+`setup-deploy`, `land-and-deploy`, `canary`, and `document-release` capabilities. They separate
+merge, deployment, observation/rollback, and release sign-off so one approval cannot silently
+authorize the next risk level. All four await genuine work and no live delivery proof was run during
+authoring. The first `pipeline-improve` proof made registry
 metadata drift fail across pipeline frontmatter and all three registry tables. The `e2e-regression` proof (run `2026-07-16-030754`) triaged nine active-suite failures
 by evidence — an Agentation-in-DEMO console leak fixed at the app, `/activity` scope-cut as a
 removed surface, three outdated-contract spec fixes, and five wizard/bulk-bar flakes quarantined
@@ -230,7 +235,6 @@ ticket. The orchestrator's routing + bookkeeping half is now executable code —
 the dispatch plan in priority order, and records outcomes; the Workflow runtime still executes
 the selected `workflow.js`.
 
-Next: prove the new maintenance pipelines only when genuine work reaches them. Before authoring
-`landing`, `deploy`, `canary`, and `release`, settle whether delivery should be approval-gated thin
-wrappers around the installed delivery workflow or independent implementations. Everything runs on
-built-in primitives, so the system stays independent of external agent daemons.
+Next: prove the new maintenance and delivery pipelines only when genuine work reaches them, starting
+delivery in a named non-production environment. Everything runs on built-in primitives, so the
+system stays independent of external agent daemons.

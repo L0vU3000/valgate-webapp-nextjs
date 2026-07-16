@@ -126,11 +126,17 @@ Until then, `type` remains the exact routing key.
 | `review` | `design-review` | `design-review` |
 | `review` | `security-review` | `security-review` |
 | `review` | `architecture-review` | `architecture-review` |
+| `delivery` | `landing` | `landing` |
+| `delivery` | `deploy` | `deploy` |
+| `delivery` | `canary` | `canary` |
+| `delivery` | `release` | `release` |
 
-Delivery is the one defined category with no registered pipeline yet. Planning has `spec`,
-`research`, and `technical-plan`; review has `code-review`, `design-review`, `security-review`,
-and `architecture-review`; maintenance now has `dependency-maintenance` and
-`performance-burndown` alongside its two proven pipelines. The two new maintenance pipelines are
-authored in locked training mode and await genuine work before proof.
+Delivery now has four approval-gated wrappers: `landing`, `deploy`, `canary`, and `release`.
+They delegate domain work to installed delivery capabilities and keep merge, deployment, rollback,
+production, and final release decisions behind explicit owner gates. Planning has `spec`,
+`research`, and `technical-plan`; review has `code-review`, `design-review`, `security-review`, and
+`architecture-review`; maintenance has `dependency-maintenance` and `performance-burndown` alongside
+its two proven pipelines. The new delivery and maintenance pipelines are authored in locked training
+mode and await genuine work before proof.
 `entity-scaffold` is registered but remains in training mode until an approved entity ticket
 completes its first real run. `pipeline-improve` remains human-gated after every Plan.

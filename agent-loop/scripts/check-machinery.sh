@@ -163,6 +163,62 @@ if [ -f "$improve_workflow" ]; then
   fi
 fi
 
+# Delivery wrappers coordinate external state, so their action-specific approval flags, locked
+# training posture, installed-capability boundaries, failure memory, and stop bounds are
+# load-bearing. These checks are structural only; they never invoke a delivery capability.
+for delivery_pipeline in landing deploy canary release; do
+  delivery_workflow="pipelines/$delivery_pipeline/workflow.js"
+  if [ ! -f "$delivery_workflow" ]; then
+    continue
+  fi
+
+  grep -q -- '--approved-plan' "$delivery_workflow" \
+    && good "$delivery_pipeline: Plan approval gate present" \
+    || bad "$delivery_pipeline: Plan approval gate missing"
+  grep -q "model: 'opus'" "$delivery_workflow" \
+    && grep -q "model: 'sonnet'" "$delivery_workflow" \
+    && good "$delivery_pipeline: maker and verifier models differ" \
+    || bad "$delivery_pipeline: maker/verifier model split missing"
+  grep -q 'MAX_ATTEMPTS' "$delivery_workflow" \
+    && grep -q 'MAX_AGENT_CALLS' "$delivery_workflow" \
+    && grep -q 'TOKEN_CEILING' "$delivery_workflow" \
+    && grep -q 'repeatCount >= 2' "$delivery_workflow" \
+    && good "$delivery_pipeline: attempt, call, token, and no-progress bounds present" \
+    || bad "$delivery_pipeline: executable bounds are incomplete"
+  grep -q 'memory#' "$delivery_workflow" \
+    && grep -q 'replan#' "$delivery_workflow" \
+    && good "$delivery_pipeline: failure memory and Eval-to-Plan route present" \
+    || bad "$delivery_pipeline: failure memory or Eval-to-Plan route missing"
+  if grep -q 'training-off' "$delivery_workflow"; then
+    bad "$delivery_pipeline: unproven training mode can be disabled"
+  else
+    good "$delivery_pipeline: training mode is locked on"
+  fi
+done
+
+grep -q -- '--approve-merge' pipelines/landing/workflow.js \
+  && grep -q 'land-and-deploy' pipelines/landing/workflow.js \
+  && good "landing: merge approval and installed landing capability present" \
+  || bad "landing: merge approval or installed landing capability missing"
+
+grep -q -- '--approve-deploy' pipelines/deploy/workflow.js \
+  && grep -q -- '--approve-production' pipelines/deploy/workflow.js \
+  && grep -q 'land-and-deploy' pipelines/deploy/workflow.js \
+  && good "deploy: deploy/production approvals and installed capability present" \
+  || bad "deploy: deploy/production approval or installed capability missing"
+
+grep -q -- '--approve-rollback' pipelines/canary/workflow.js \
+  && grep -q 'land-and-deploy' pipelines/canary/workflow.js \
+  && good "canary: rollback approval and installed rollback capability present" \
+  || bad "canary: rollback approval or installed rollback capability missing"
+
+grep -q -- '--approve-release' pipelines/release/workflow.js \
+  && grep -q -- '--final-signoff=' pipelines/release/workflow.js \
+  && grep -q 'document-release' pipelines/release/workflow.js \
+  && grep -q 'verified document-release, landing, deploy' pipelines/release/workflow.js \
+  && good "release: release approval, final sign-off, and verified prerequisite boundary present" \
+  || bad "release: release approval, final sign-off, or verified prerequisite boundary missing"
+
 # --- 4: run state must be gitignored --------------------------------------------
 probe="pipelines/eslint-burndown/runs/_ignore-probe"
 if git check-ignore -q "$probe"; then

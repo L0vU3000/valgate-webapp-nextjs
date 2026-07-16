@@ -138,3 +138,8 @@ work from `tasks.md`; `bug-fix` is next.
 ## [2026-07-16] shipped | Maintenance pipeline category completed
 Registered `dependency-maintenance` and `performance-burndown` as the nineteenth and twentieth
 agent-loop pipelines. Both remain approval-gated and await genuine work before proof.
+
+## [2026-07-17] decision | Delivery pipelines wrap installed capabilities
+Registered `landing`, `deploy`, `canary`, and `release` as risk-separated wrappers around installed
+delivery skills. Added [[delivery-pipelines-wrap-installed-capabilities]] and kept every live action
+behind explicit approval; all four await genuine work before proof.

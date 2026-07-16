@@ -3,6 +3,19 @@
 > What changed in the loop machinery and when. Newest first. One entry per change.
 > Format: `## [YYYY-MM-DD] <what changed>` + a line or two of why.
 
+## [2026-07-17] delivery category authored: landing, deploy, canary, release
+Added four approval-gated delivery wrappers, bringing the registry to 24 pipelines. `landing`
+verifies and merges one reviewed revision, `deploy` targets one landed commit and named environment,
+`canary` performs bounded differential observation with a separate rollback gate, and `release`
+attests notes plus delivery evidence before final owner sign-off on the release-record digest. The
+wrappers delegate domain work to installed `ship`, `setup-deploy`, `land-and-deploy`, `canary`, and
+`document-release` capabilities instead of duplicating provider or merge logic. All four use locked
+training approval, task-specific 100-point rubrics, rubric fingerprints, maker/verifier separation,
+Eval-to-Plan failure routing, attempt/call/token bounds, repeat-failure stops, and failure memory.
+They remain unproven until genuine work arrives; authoring performed no merge, deployment, canary,
+rollback, publication, or release action. `check-machinery.sh` passed with 24 pipelines agreeing
+across all four registry sources and the delivery-specific approval checks green.
+
 ## [2026-07-16] maintenance category completed: dependency and performance burndown
 Added `dependency-maintenance` and `performance-burndown`, bringing the registry to 20 pipelines.
 Dependency maintenance reduces npm outdated and audit findings through small approved batches, then

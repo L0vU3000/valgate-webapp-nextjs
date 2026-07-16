@@ -3,6 +3,28 @@
 > Why the loop is built the way it is. Newest first. One entry per load-bearing choice.
 > Format: `## [YYYY-MM-DD] <decision>` → **Context / Choice / Why / Revisit-if**.
 
+## [2026-07-17] Delivery pipelines are thin, risk-separated wrappers around installed capabilities
+- **Context:** the delivery category needed `landing`, `deploy`, `canary`, and `release`. The
+  installed `ship`, `setup-deploy`, `land-and-deploy`, `canary`, and `document-release` skills
+  already own change preparation, platform detection, merge/deploy mechanics, post-deploy
+  observation, rollback handling, and release-note checks. Reimplementing those commands inside four
+  pipelines would create a second delivery system and let one broad approval authorize unrelated
+  risk levels.
+- **Choice:** each delivery pipeline coordinates one boundary and delegates domain work to the
+  installed capability: landing stops after authoritative merged-state verification; deploy starts
+  from an already-landed commit and one named environment; canary is read-only by default and needs a
+  separate rollback approval; release attests notes + delivery evidence and needs a post-deploy owner
+  sign-off on the exact record digest. Every wrapper is locked in training mode, binds approval to an
+  immutable action identity, and returns failed Eval evidence to Plan. No wrapper publishes an
+  external release until a proven publication capability is added.
+- **Why:** the installed skills remain the single place that knows provider, merge queue, browser,
+  and documentation mechanics. Splitting approvals by action limits what a mistaken or stale approval
+  can change. The independent Eval checks authoritative remote/provider evidence instead of trusting
+  a successful command exit.
+- **Revisit if:** an installed capability adds stable first-class subcommands that replace the scoped
+  skill portions, a provider needs a delivery action none of the installed skills can express, or a
+  proven external release-publication capability is installed with its own approval and verification.
+
 ## [2026-07-16] Review pipelines report verified findings, and verify by adversarial re-verification
 - **Context:** the `review` category (`code-review`, `design-review`, `security-review`,
   `architecture-review`) inspects an existing change or surface. Its risk is not a weak fix — it makes

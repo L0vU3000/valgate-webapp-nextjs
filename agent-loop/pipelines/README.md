@@ -67,6 +67,10 @@ unattended without lying to itself.
 | `building` | [`wiring`](./wiring/pipeline.md) | `wiring` | authored — wires mock/placeholder values on a surface to real services; first proof waits for a target |
 | `building` | [`migration`](./migration/pipeline.md) | `migration` | authored — one additive DB migration, approval-gated on a dev branch; first proof waits for a change |
 | `building` | [`api-tool`](./api-tool/pipeline.md) | `api-tool` | authored — wraps an existing service as an MCP tool via `ctxFor`; first proof waits for a target |
+| `delivery` | [`landing`](./landing/pipeline.md) | `landing` | authored — verifies and lands one reviewed revision after an exact merge approval; first proof waits for a reviewed change |
+| `delivery` | [`deploy`](./deploy/pipeline.md) | `deploy` | authored — deploys one landed commit to one named environment after approval; first proof waits for a non-production target |
+| `delivery` | [`canary`](./canary/pipeline.md) | `canary` | authored — observes approved post-deploy signals and separately gates rollback; first proof waits for a defined deployment baseline |
+| `delivery` | [`release`](./release/pipeline.md) | `release` | authored — coordinates verified notes, delivery evidence, and final owner sign-off; first proof waits for a release candidate |
 
 Every pipeline's `pipeline.md` has a **Verification technique** section recording the
 researched choice of check and why it matches what that pipeline produces.

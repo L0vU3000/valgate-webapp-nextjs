@@ -203,6 +203,7 @@ so they open in Obsidian **and** render in plain Git viewers.
 - [[agent-loop-pipeline-categories]] — peer pipelines grouped for routing and policy
 - [[entity-scaffold-needs-approved-contract]] — entity automation requires an owner-approved field contract
 - [[task-specific-eval-scoring]] — Plan defines a locked 100-point rubric for each task
+- [[delivery-pipelines-wrap-installed-capabilities]] — delivery wrappers separate merge, deploy, rollback, and sign-off approvals
 
 ### Resources (references)
 - [[karpathy-llm-wiki-pattern]] — the LLM-maintained wiki pattern this vault is built on

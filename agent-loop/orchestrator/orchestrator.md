@@ -66,6 +66,10 @@ pipelines. Today:
 | `review` | `design-review` | [`pipelines/design-review`](../pipelines/design-review/pipeline.md) | verified visual/UX findings: each re-observed on the live surface, no false positives, scope covered |
 | `review` | `security-review` | [`pipelines/security-review`](../pipelines/security-review/pipeline.md) | verified vulnerabilities: each reproduced against the change with cited exploit path, no false positives |
 | `review` | `architecture-review` | [`pipelines/architecture-review`](../pipelines/architecture-review/pipeline.md) | verified structural findings: each cited edge/rule violation confirmed, no false positives, scope covered |
+| `delivery` | `landing` | [`pipelines/landing`](../pipelines/landing/pipeline.md) | exact reviewed revision merged into the approved base with current gates and authoritative remote evidence; no deployment action |
+| `delivery` | `deploy` | [`pipelines/deploy`](../pipelines/deploy/pipeline.md) | exact landed commit matched to the named environment's provider record and configured health evidence |
+| `delivery` | `canary` | [`pipelines/canary`](../pipelines/canary/pipeline.md) | approved signal window classified with differential evidence; persistent failures escalated or exact approved rollback verified |
+| `delivery` | `release` | [`pipelines/release`](../pipelines/release/pipeline.md) | notes, reviewed change, merge, deployment, and health evidence agree; exact release record receives final owner sign-off |
 An advanced version (later) replaces this table with a **factory-router agent** that reads
 the codebase and *picks* the pipeline + model tier by price/performance/speed. Start with
 the table.
