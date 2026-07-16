@@ -17,6 +17,11 @@ line is a mistake someone already made so you don't have to.
   account — it hijacks `ORG-0001`. It's a first-time bootstrap only.
 - **`drizzle-kit generate` is broken here** — hand-author migration SQL under
   `lib/db/migrations/` instead of relying on generate.
+- **Don't infer a "missing entity" from a missing schema filename.** Valuations
+  live in `property.ts` as `property_valuations` — there is no `valuation.ts`. Before
+  scaffolding any "new" entity, grep `lib/services/*`, `app/actions/*`, and the
+  `lib/data/derivations/*` for the concept, not just for a same-named table. A
+  `valuations` entity was nearly scaffolded as a duplicate on this premise.
 - **Migration `when` timestamps must be monotonic.** A hand-authored migration
   with a `when` larger than the next one makes drizzle **silently skip** the
   later one. A "Failed query / missing column" is then a *real* skipped

@@ -3,6 +3,18 @@
 > What changed in the loop machinery and when. Newest first. One entry per change.
 > Format: `## [YYYY-MM-DD] <what changed>` + a line or two of why.
 
+## [2026-07-16] Eval-scoring rollout closed at 6/8; entity-scaffold gate caught a duplicate
+Six of eight pipelines now have a real scored run under the task-specific method: bug-fix,
+eslint-burndown, test-coverage, qa, e2e-regression, and pipeline-improve — each maker≠verifier,
+fingerprint-locked, 100/100. The remaining two are product-gated, not machinery-gated: entity-scaffold
+needs an owner-approved genuinely-new entity, and feature needs a real feature ticket; neither can be
+manufactured without inventing product scope. An attempt to exercise entity-scaffold on a `valuations`
+entity was aborted at Explore when its duplicate-check found the live `property_valuations` entity
+already backs the Valuation pillar (`progress.ts` derivation) — the scope gate working as designed. The
+premise "the Valuation pillar has no backing table" came from inferring a gap from a missing schema
+filename; valuations live in `property.ts`. Lesson recorded in errors.md and vault gotchas: a real green
+requires a verified-new entity, never a forced one.
+
 ## [2026-07-16] pipeline-improve proven under task-specific scoring (run 2026-07-16-160702)
 Sixth rollout pipeline scored, and the first to harden the loop machinery itself under the new
 method. The improvement it selected: the `feature` workflow named two Eval facts (`rubricSha256`,

@@ -18,6 +18,24 @@ Template:
   pre-existing green signals, not just its own target metric.
 -->
 
+## [2026-07-16] entity-scaffold nearly scaffolded a duplicate of a live entity
+- **Symptom:** a `valuations` entity ticket — approved to "fill the Valuation Progress pillar,
+  which has no backing table" — reached Explore before it surfaced that the pillar is already
+  backed by a live `property_valuations` entity (`lib/db/schema/property.ts`,
+  `lib/services/property-valuations.ts`, `app/actions/property-valuations.ts`,
+  `PropertyValuationPage.tsx`, and the `progress.ts` "Valuation on file / 6+ months" derivation).
+- **Cause:** the entity was chosen by inferring a missing table from the absence of a dedicated
+  `valuation.ts` schema file. Valuations live inside `property.ts`, not a same-named file, so the
+  filename heuristic was wrong; the premise "no backing table" was false.
+- **Fix:** Explore's sibling-pattern + `graphify` scan flagged the existing `property-valuation`
+  files. The run was aborted before Plan; the stray `lib/services/valuations.db.test.ts` and the
+  invalid ticket were removed. No duplicate schema, migration, or service was created.
+- **Prevention:** entity-scaffold's scope gate must confirm the concept does not already exist
+  anywhere across `lib/db/schema/*`, `lib/services/*`, `app/actions/*`, and the derivations — not
+  merely that a same-named table is absent. Never infer a product gap from a missing filename; only
+  an owner-approved, verified-new entity clears the gate. The gate worked here — it refused a
+  forced green.
+
 ## [2026-07-16] Bug-fix Eval could pass evidence that existed only in prose
 - **Symptom:** the runtime harness supplied a 99/100 Eval with a new ESLint warning, or an Eval
   fingerprint different from Plan's lock, and `bug-fix/workflow.js` still returned `fixed: true`.
