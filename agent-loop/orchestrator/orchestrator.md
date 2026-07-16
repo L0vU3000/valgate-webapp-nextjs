@@ -57,6 +57,8 @@ pipelines. Today:
 | `testing` | `qa` | [`pipelines/qa`](../pipelines/qa/pipeline.md) | all in-scope flows re-driven green in a fresh browser session, 0 console errors, gates clean |
 | `testing` | `e2e` | [`pipelines/e2e-regression`](../pipelines/e2e-regression/pipeline.md) | e2e suite green ×2 consecutive, every failure fixed or quarantined+ticketed, gates clean |
 | `maintenance` | `pipeline-improve` | [`pipelines/pipeline-improve`](../pipelines/pipeline-improve/pipeline.md) | one focused machinery regression red→green, machinery + full repository gates clean |
+| `maintenance` | `dependency` | [`pipelines/dependency-maintenance`](../pipelines/dependency-maintenance/pipeline.md) | npm outdated+audit backlog strictly lower, approved versions landed, build + suite + types + lint green, behavior unchanged |
+| `maintenance` | `perf` | [`pipelines/performance-burndown`](../pipelines/performance-burndown/pipeline.md) | fixed-recipe median reaches target, behavior unchanged, suite + types + lint green |
 | `planning` | `spec` | [`pipelines/spec`](../pipelines/spec/pipeline.md) | grounded spec: every reference resolves, criteria testable, scope bounded, not a duplicate, valid `approved: false` ticket drafted |
 | `planning` | `research` | [`pipelines/research`](../pipelines/research/pipeline.md) | cited report: every claim backed by a resolving source, question answered, uncertainty stated |
 | `planning` | `technical-plan` | [`pipelines/technical-plan`](../pipelines/technical-plan/pipeline.md) | grounded plan: references resolve, layers complete, sequenced, bounded, constraints respected |
@@ -64,8 +66,6 @@ pipelines. Today:
 | `review` | `design-review` | [`pipelines/design-review`](../pipelines/design-review/pipeline.md) | verified visual/UX findings: each re-observed on the live surface, no false positives, scope covered |
 | `review` | `security-review` | [`pipelines/security-review`](../pipelines/security-review/pipeline.md) | verified vulnerabilities: each reproduced against the change with cited exploit path, no false positives |
 | `review` | `architecture-review` | [`pipelines/architecture-review`](../pipelines/architecture-review/pipeline.md) | verified structural findings: each cited edge/rule violation confirmed, no false positives, scope covered |
-| `maintenance` | `perf` | _(future — `/optimisation-loop`)_ | metric hits target |
-
 An advanced version (later) replaces this table with a **factory-router agent** that reads
 the codebase and *picks* the pipeline + model tier by price/performance/speed. Start with
 the table.

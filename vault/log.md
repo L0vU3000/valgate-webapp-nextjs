@@ -134,3 +134,7 @@ rubric; Eval passes only at threshold with zero critical failures.
 ## [2026-07-16] task | Eval scoring rollout checklist
 Added a per-pipeline checklist under `.context/todos/` and linked the planned real-run calibration
 work from `tasks.md`; `bug-fix` is next.
+
+## [2026-07-16] shipped | Maintenance pipeline category completed
+Registered `dependency-maintenance` and `performance-burndown` as the nineteenth and twentieth
+agent-loop pipelines. Both remain approval-gated and await genuine work before proof.

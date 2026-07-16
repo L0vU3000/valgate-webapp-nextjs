@@ -3,6 +3,17 @@
 > What changed in the loop machinery and when. Newest first. One entry per change.
 > Format: `## [YYYY-MM-DD] <what changed>` + a line or two of why.
 
+## [2026-07-16] maintenance category completed: dependency and performance burndown
+Added `dependency-maintenance` and `performance-burndown`, bringing the registry to 20 pipelines.
+Dependency maintenance reduces npm outdated and audit findings through small approved batches, then
+checks resolved versions, build, tests, types, lint, and behavior before a local checkpoint.
+Performance burndown locks one metric contract and measurement recipe, compares median-of-at-least-three
+samples against the last accepted best, and keeps a gain only when behavior and repository gates remain
+green. Both use worktree isolation, task-specific 100-point rubrics, rubric fingerprints,
+maker/verifier model separation, Eval→Plan failure routing, agent/token/attempt bounds, repeat-failure
+stops, and locked training approval before every change. Registered across all four sources and left
+unproven until genuine work arrives; no real proof or scored Eval run was manufactured.
+
 ## [2026-07-16] building category extended: wiring, migration, api-tool
 Added the three planned `building` pipelines beyond feature/bug-fix/entity-scaffold. `wiring` replaces
 mock/placeholder values on a surface with real data wired from `lib/services/*`, verified by

@@ -10,6 +10,8 @@ is the curated view.
 ---
 
 ## Unreleased
+- **agent-loop:** completed the maintenance library with approval-gated dependency and performance
+  burndown pipelines; both await genuine work before their first scored run.
 - **agent-loop:** proved task-specific bug-fix scoring end to end at 100/100 against a locked
   85 threshold, including deterministic low-score, critical-failure, fingerprint-drift, and
   return-to-Plan paths.
