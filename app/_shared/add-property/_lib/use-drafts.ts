@@ -27,6 +27,7 @@ interface UseDraftsReturn {
   mounted: boolean;
   setActive: (id: string) => void;
   upsert: (id: string, form: FormData, step: Step) => void;
+  saveNow: () => Promise<void>;
   remove: (id: string) => void;
   clearActive: () => void;
 }
@@ -83,6 +84,9 @@ export function useDrafts(): UseDraftsReturn {
   // True while a CREATE round-trip is in flight — stops a second debounce tick from minting
   // a duplicate draft before the first create returns its id. (requirement: no duplicate drafts)
   const creatingRef = useRef(false);
+  // Holds the in-flight CREATE round-trip so saveNow() can await it (a fire-and-forget debounced
+  // create can't be awaited via creatingRef alone).
+  const creatingPromiseRef = useRef<Promise<void> | null>(null);
   // Maps a temporary client id (the uuid AddPropertyFlow assigns before the first save) to the
   // server-minted DRFT id, so any late save against the temp id resolves to an UPDATE, not a CREATE.
   const idMapRef = useRef<Map<string, string>>(new Map());
@@ -118,16 +122,21 @@ export function useDrafts(): UseDraftsReturn {
     // id swap (the active-id change re-triggers autosave with the latest form).
     if (creatingRef.current) return;
     creatingRef.current = true;
-    try {
-      const res = await upsertPropertyDraftAction({ title, step: pending.step, form });
-      if (res.ok) {
-        idMapRef.current.set(pending.id, res.data.id); // temp → server, for any in-flight saves
-        upsertDraftState(res.data);
-        setActiveId(res.data.id);                       // swap active id → AddPropertyFlow reflects it into the URL
+    const createPromise = (async () => {
+      try {
+        const res = await upsertPropertyDraftAction({ title, step: pending.step, form });
+        if (res.ok) {
+          idMapRef.current.set(pending.id, res.data.id); // temp → server, for any in-flight saves
+          upsertDraftState(res.data);
+          setActiveId(res.data.id);                       // swap active id → AddPropertyFlow reflects it into the URL
+        }
+      } finally {
+        creatingRef.current = false;
+        creatingPromiseRef.current = null;
       }
-    } finally {
-      creatingRef.current = false;
-    }
+    })();
+    creatingPromiseRef.current = createPromise;
+    await createPromise;
   }, [upsertDraftState]);
 
   // Load drafts from the server on mount, after a one-time migration of any legacy local drafts.
@@ -181,6 +190,20 @@ export function useDrafts(): UseDraftsReturn {
     debounceRef.current = setTimeout(() => { void flush(); }, AUTOSAVE_DEBOUNCE_MS);
   }, [flush]);
 
+  // Awaitable persist: cancel the pending debounce and flush the latest edit now, resolving a temp
+  // id to its DRFT- server id and awaiting the server write. Save-as-Draft awaits this before
+  // navigating so a late create can't fire the URL-stamp effect and yank the route back to the wizard.
+  const saveNow = useCallback(async () => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
+    // If a debounced create is already in flight, let it finish so the temp id is mapped to its
+    // server id first — the flush below then runs as an UPDATE, not a duplicate CREATE.
+    if (creatingPromiseRef.current) await creatingPromiseRef.current;
+    await flush();
+  }, [flush]);
+
   // Deletes a draft from the server (S3 objects + rows) and from local display state.
   const remove = useCallback((id: string) => {
     const serverId = idMapRef.current.get(id) ?? id;
@@ -198,5 +221,5 @@ export function useDrafts(): UseDraftsReturn {
     setActiveId(null);
   }, []);
 
-  return { drafts, activeId, mounted, setActive, upsert, remove, clearActive };
+  return { drafts, activeId, mounted, setActive, upsert, saveNow, remove, clearActive };
 }
