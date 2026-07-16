@@ -1,0 +1,11 @@
+{
+  "id": "UTIL-0001",
+  "propertyId": "PROP-0001",
+  "provider": "EDC (Electricité du Cambodge)",
+  "utilityType": "electricity",
+  "accountNumber": "EDC-PP-104829",
+  "meterNumber": "MTR-55021",
+  "monthlyEstimate": 145.00,
+  "notes": "Main building supply",
+  "createdAt": 1774915200000
+}

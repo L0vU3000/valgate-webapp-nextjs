@@ -1,0 +1,1 @@
+- 2026-07-16-entity-utility-accounts.md -> pass (utility_accounts scaffolded on sandbox branch, eval pass (16/16 live, 195/195 suite, tsc 0, eslint 55))

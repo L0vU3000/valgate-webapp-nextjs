@@ -3,6 +3,17 @@
 > What changed in the loop machinery and when. Newest first. One entry per change.
 > Format: `## [YYYY-MM-DD] <what changed>` + a line or two of why.
 
+## [2026-07-16] entity-scaffold proven end-to-end (utility_accounts); 3 machinery bugs fixed
+First real product-proof of the entity-scaffold pipeline: the approved `utility_accounts` ticket
+was scaffolded through every backend layer on a throwaway Neon branch and verified green by a
+separate-model eval (contract red→green, IDOR guard, additive migration `0025`, live CRUD 16/16
+with clean teardown, suite 195/195, tsc 0, eslint 55). Run `2026-07-16-111415`, 2 attempts. Three
+machinery bugs surfaced on first real use and were fixed (details in `errors.md`): `workflow.js`
+threw at load on the runtime-banned `Date.now()`; the `db:check` gate bounced a clean scaffold on a
+pre-existing 0008/0011 snapshot collision (now graded relative to the Explore baseline, see
+`decisions.md`); and the migration-checkpoint could not re-verify after a clean apply + non-code
+eval fail (now accepts a matching-digest applied migration). The pipeline can now be run.
+
 ## [2026-07-16] Orchestrator heartbeat tick built; factory-router deferred
 Added `orchestrator/tick.mjs` — one scheduled pass that composes the loop as far as built-in
 primitives allow: plan (via `dispatch.mjs`) → refresh the dashboard → print an AGENT ACTIONS
