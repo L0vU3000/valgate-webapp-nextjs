@@ -22,8 +22,16 @@ Write `runs/<run-id>/plan.md` with:
    migration application, seeding, and live tests.
 5. Blast radius and rollback. Rollback means reverting the worktree before merge; do not emit
    a destructive down migration.
+6. A task-specific 100-point Eval rubric following [`../EVAL.md`](../EVAL.md). Weight the approved
+   entity contract and its highest-risk authorization/data behaviors most heavily. The unchanged
+   red→green contract, complete service/action layers, tenant isolation, additive migration,
+   approved development endpoint, live CRUD cleanup, full suite, TypeScript, and no new ESLint
+   warnings are critical. Set a pass threshold from 80–100.
 
 The plan must not add UI, import, MCP, cross-org, or change-request support. Stop if any of
 those are required for the entity's first useful slice.
 
 Training mode stops after this file is written. The human approves this exact plan before Execute.
+Return `rubricReady=true` and the exact `passThreshold` only when the scorecard totals 100 and
+preserves every critical backend and migration gate. After Eval begins, a scorecard or threshold
+change requires a new human approval.

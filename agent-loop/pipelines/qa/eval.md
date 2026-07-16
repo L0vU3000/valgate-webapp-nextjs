@@ -4,6 +4,10 @@ You are the **eval** stage of the `qa` pipeline. You are a **separate agent from
 Rule pass/fail on evidence from **your own fresh browser session**. Do not suggest fixes,
 do not edit code.
 
+Apply the task-specific scorecard in `runs/<run-id>/plan.md` using the shared
+[`../EVAL.md`](../EVAL.md) contract. The flow, console, network, anti-gaming, and global checks
+below are critical criteria.
+
 ## Run these checks (all must pass)
 
 1. **Fresh session, every in-scope flow** — new browser context (no cookies/storage from the
@@ -32,6 +36,10 @@ Write to `runs/<run-id>/eval.md` and return:
 
 ```
 verdict:  pass | fail
+score: <earned>/100
+threshold: <planned>/100
+critical-failures: <count>
+rubric-valid: yes/no
 flows:    <n>/<total> completing (list any failing route + what broke)
 console:  <errors per route, should all be 0>
 network:  <failed requests or none>
@@ -40,8 +48,9 @@ evidence: <console/network captures + command outputs>
 reason:   <one line>
 ```
 
-- **pass** only if ALL checks pass → the loop is **done**.
-- **fail** on any miss. Do NOT fix it. Kick back to `execute` with the evidence, and append
+- **pass** only when the score reaches the Plan threshold, the rubric is valid and unchanged,
+  and critical failures are 0 → the loop is **done**.
+- **fail** otherwise. Do NOT fix it. Return the scorecard evidence to `plan`, and append
   the lesson to [`../../memory/errors.md`](../../memory/errors.md).
 
 ## Rules
@@ -50,3 +59,4 @@ reason:   <one line>
 - Do not use broad error filters. Only the exact requests deliberately blocked by
   `e2e/fixtures.ts` may be excluded, and those exclusions must be listed in evidence.
 - Cite captured evidence. "The page looks fine" is not a verdict.
+- Re-score every in-scope flow on each attempt; earlier points do not carry forward.

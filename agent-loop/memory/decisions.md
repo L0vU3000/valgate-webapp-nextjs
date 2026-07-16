@@ -3,6 +3,89 @@
 > Why the loop is built the way it is. Newest first. One entry per load-bearing choice.
 > Format: `## [YYYY-MM-DD] <decision>` → **Context / Choice / Why / Revisit-if**.
 
+## [2026-07-16] eslint-burndown calibration: all-critical rubric, C1 banded for safe partial progress
+- **Context:** the second scored-rollout proof (run `2026-07-16-164426`, an 8-warning mechanical
+  batch). A lint batch has one product (fewer warnings) and one hard constraint (no behavior change),
+  so a generic weight spread does not fit — the interesting failure is a reduction achieved by
+  breaking something, not a low aggregate score.
+- **Choice:** make all five criteria critical (strictly-lower count, tsc 0, vitest green, scope/
+  anti-gaming, no-suppression), keep the default 85 threshold, and give C1 (the reduction) an
+  objective band so a strictly-lower-but-incomplete batch scores honest partial credit and routes
+  `return-to-plan` for the next batch rather than passing on a full clear it did not achieve.
+- **Why:** the critical gates, not the weight math, are what protect against a gamed reduction. A
+  deterministic negative case proved it: removing a *used* binding does not lower the warning count
+  (C1 grants nothing) and fails tsc (C2 critical) — a behavior-changing reduction is rewarded on no
+  axis and punished on two. Banding C1 keeps multi-batch burndown honest without softening any gate.
+- **Revisit if:** a batch mixes mechanical and judgement fixes such that a non-critical, genuinely
+  partial-credit criterion is warranted (then the all-critical shape is too blunt).
+
+## [2026-07-16] Keep 85 as the default threshold after the first scored bug-fix
+- **Context:** the first task-specific proof, bug-fix run `2026-07-16-144138`, used a locked
+  85/100 threshold and nine critical criteria. Deterministic cases showed that 84/100 returns to
+  Plan and 99/100 still fails when one critical criterion fails; the independent pass earned
+  100/100 with zero critical failures.
+- **Choice:** retain 85 as the recommended default. Give the task's user impact and root-cause
+  correction the two largest weights, then keep red→green, suite, TypeScript, and lint as critical
+  regardless of their smaller weights.
+- **Why:** 85 leaves room for predefined partial credit on non-critical work while critical gates
+  prevent averages from hiding a broken protection. This run was intentionally all-critical, so
+  its clean pass calibrates correctness of the decision rule, not the usefulness of partial credit.
+- **Revisit if:** several real tasks cluster at 80–84 despite acceptable outcomes, or repeated
+  85+ passes still need human rejection. Do not tune from synthetic scores alone.
+
+## [2026-07-16] Plan owns a locked, task-specific 100-point Eval rubric
+- **Context:** fixed boolean checklists protected regressions but could not express that a feature,
+  database entity, QA pass, and coverage task have different high-value outcomes. The owner chose
+  task-specific scoring determined during Plan.
+- **Choice:** every Plan writes a 100-point rubric with objective evidence, critical criteria, and a
+  threshold from 80–100 (default 85). Eval passes only at or above the threshold with zero critical
+  failures and a valid, unchanged rubric. Existing safety/regression gates remain critical. The
+  exact rubric section is SHA-256 fingerprinted and locked across automated retries.
+- **Why:** Plan is early enough to define success without knowing which criteria will be convenient
+  to pass. Critical gates prevent weighted averages from hiding security, data, or regression
+  failures. The fingerprint prevents moving the goalposts after a low score.
+- **Revisit if:** real runs show the 80–100 threshold range is poorly calibrated, or the Workflow
+  runtime gains a deterministic rubric parser that can validate weights without an agent.
+
+## [2026-07-16] Explicit per-stage models: Sonnet reads/plans, Opus makes, no Fable
+- **Context:** the first metrics harvest showed the drain — stages with no `model:` inherit the
+  session default, so `explore`/`plan` ran on Opus 1M (entity-scaffold: 313k + 280k tokens) and one
+  bug-fix run inherited `claude-fable-5` for its whole maker path. Unpinned = expensive and
+  non-deterministic (whatever the session happens to be).
+- **Choice:** pin an explicit Anthropic model on every stage of the 7 automatable pipelines:
+  `explore`/`plan`/`eval` → `sonnet`, `execute` → `opus`. Two models only; maker (Opus) ≠ verifier
+  (Sonnet) preserved. Bare aliases are used deliberately — they resolve to standard 200k context
+  (`claude-sonnet-5`, `claude-opus-4-8`), which is cheaper and leaner than the `[1m]` variants for
+  stage work that reads scoped graphify subgraphs, not whole repos. entity-scaffold is intentionally
+  left for a later pass — it was under active parallel edit this turn.
+- **Why:** explicit models kill Fable inheritance by construction and move the two biggest drains
+  (`explore`, `plan`) off Opus onto Sonnet — the largest token lever in the system — while keeping
+  the maker on Opus where build quality matters. The new ledger will show the before/after.
+- **Revisit if:** a run needs the 1M window (pin the full `claude-*-[1m]` id — but verify the runtime
+  accepts that string on `agent({model})`; the bare alias proved to strip `[1m]`), or the ledger
+  shows a stage under/over-modelled (Sonnet execute failing to converge → Opus; Opus explore wasteful
+  → already Sonnet).
+
+## [2026-07-16] Tuning telemetry is harvested, not instrumented
+- **Context:** to tune loops for cost/speed we need per-stage time + tokens, but Workflow scripts
+  can't touch the filesystem or read a clock (`Date.now()` is banned — it breaks resume), so
+  in-script capture is impossible. Investigation found the runtime already writes one JSON per run
+  at `~/.claude/projects/<project>/<session>/workflows/wf_*.json` with run-level cost
+  (`durationMs`, `totalTokens`, `totalToolCalls`) and a `workflowProgress[]` array carrying
+  `{ label, model, tokens, durationMs, toolCalls, attempt, queued/startedAt }` per stage.
+- **Choice:** don't instrument the 8 workflows at all. `orchestrator/metrics.mjs` reads those JSONs
+  (filtered to this repo by `scriptPath`), normalizes each finished run to one line in
+  `memory/run-metrics.jsonl`, and is invoked automatically from `dispatch.mjs --record` so the
+  ledger fills as real work runs. It keeps facts (cost + the run's `result` object); ratios are
+  derived by `--summary`. The golden rule is encoded by keeping the `result`/quality signal beside
+  every cost number: never cut cost without the paired quality baseline to hold constant.
+- **Why:** zero-token, zero-maintenance, and richer than hand-instrumentation could be (input+output
+  tokens, queue-wait, per-tool counts). First harvest of 8 existing runs immediately showed the
+  drain: entity-scaffold `explore` 313k and `plan` 280k tokens on Opus — the exact stages that
+  don't need it.
+- **Revisit if:** the runtime changes the wf JSON shape (update `toRow`), or the ledger grows large
+  enough to want rotation / a real store instead of append-only JSONL.
+
 ## [2026-07-16] entity-scaffold grades the migration's db:check relative to baseline, not absolutely
 - **Context:** the first real entity-scaffold run (`utility_accounts`, run `2026-07-16-111415`) was
   fully green — contract red→green, complete layers with a verified IDOR guard, additive migration,

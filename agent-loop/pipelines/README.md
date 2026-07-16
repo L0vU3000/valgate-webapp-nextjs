@@ -8,12 +8,16 @@ The [orchestrator](../orchestrator/orchestrator.md) routes work here. The
 [category contract](../categories.md) groups peer pipelines without changing their anatomy.
 The [skills library](../skills-library.md) provides the engines that run each stage.
 
+All pipelines use the shared [Eval scoring guide](./EVAL.md): Plan writes a task-specific
+100-point rubric before Execute, and the independent Eval agent applies it to evidence. A run
+passes only when it reaches the planned threshold and has zero critical failures.
+
 ## The four stages (separate agents — do NOT collapse into one skill)
 
 | Stage | Role | Context | Reads / Writes |
 |---|---|---|---|
 | `explore.md` | scout — understand the work, categorize it | read-only | writes findings to `runs/<id>/` |
-| `plan.md` | decide the approach + batch the work | read-only | writes a plan to `runs/<id>/` |
+| `plan.md` | decide the approach + task-specific Eval rubric | read-only | writes a plan and 100-point scorecard to `runs/<id>/` |
 | `execute.md` | **MAKER** — make the change | read-write, in a worktree | edits code |
 | `eval.md` | **VERIFIER** — decide pass/fail | read-only | pass → done; fail → back to `plan` |
 
@@ -33,6 +37,8 @@ unattended without lying to itself.
 - [ ] a **goal** with a machine-checkable **exit condition** (in `pipeline.md`)
 - [ ] `name`, `category`, and routing `type` metadata (in `pipeline.md` frontmatter)
 - [ ] an `eval` stage that is a **separate verifier** citing evidence
+- [ ] a Plan-authored **100-point Eval rubric** whose weights total 100, threshold is 80–100,
+      and safety/regression gates are critical
 - [ ] **guardrails**: worktree isolation; Neon dev branch (never prod / `seed:reset`)
 - [ ] **bounds**: max-iterations / max-time
 - [ ] **memory**: failures logged to [`../memory/errors.md`](../memory/errors.md)

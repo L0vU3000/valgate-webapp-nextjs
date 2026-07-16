@@ -25,6 +25,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { validatePipelineRegistry } from '../scripts/check-pipeline-registry.mjs'
+import { collectMetrics } from './metrics.mjs'
 
 const SCRIPT_DIRECTORY = dirname(fileURLToPath(import.meta.url))
 const DEFAULT_AGENT_LOOP_ROOT = resolve(SCRIPT_DIRECTORY, '..')
@@ -171,6 +172,16 @@ function runCli() {
     }
     const result = recordOutcome(root, file, outcome, summary)
     process.stdout.write(`recorded ${outcome}: moved to ${result.moved}\n`)
+    // Harvest the runtime's cost/quality telemetry for any finished run into the ledger. A
+    // hiccup here must never block the record itself — the outcome is already saved.
+    try {
+      const metrics = collectMetrics(root)
+      if (metrics.added > 0) {
+        process.stdout.write(`metrics: +${metrics.added} run(s) -> memory/run-metrics.jsonl\n`)
+      }
+    } catch (error) {
+      process.stderr.write(`metrics harvest skipped: ${error.message}\n`)
+    }
     return
   }
 

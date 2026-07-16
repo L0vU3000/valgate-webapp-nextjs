@@ -15,6 +15,12 @@ Write `runs/<run-id>/plan.md` with:
 5. The focused command, `check-machinery.sh`, full Vitest, TypeScript, and ESLint commands.
 6. Blast radius, rollback, and the evidence that will let Eval distinguish a stronger check
    from a renamed or weakened one.
+7. A task-specific 100-point Eval rubric following [`../EVAL.md`](../EVAL.md). Weight the selected
+   machinery protection and its controlled red→green proof most heavily. Exactly one improvement,
+   the focused regression, `check-machinery.sh`, global gates, preserved guardrails, and strict
+   scope are critical. Set a pass threshold from 80–100.
 
 Training mode stops after this file is written. Execute begins only after a human approves
 this exact Plan and resumes the same run with `--approved-plan`.
+Return `rubricReady=true` and the exact `passThreshold` only when the scorecard totals 100 and
+keeps every existing machinery guard critical. Any later rubric change needs new human approval.

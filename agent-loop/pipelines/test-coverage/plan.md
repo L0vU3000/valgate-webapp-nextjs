@@ -20,6 +20,11 @@ produce `runs/<run-id>/plan.md`:
    pure logic, lower it only with a written reason).
 4. **Escalate if needed** — if the module can't be tested without changing product code,
    say what's in the way and stop. That's a refactor ticket, not a test plan.
+5. **Eval rubric** — follow [`../EVAL.md`](../EVAL.md) and define a task-specific 100-point
+   scorecard. Weight the planned behaviors, coverage gain, and mutation threshold according to
+   the target module's risk. Honest passing tests, the committed mutation threshold, no product
+   code changes, the full suite, TypeScript, and no new ESLint warnings are critical. Set the pass
+   threshold from 80–100.
 
 ## Rules
 
@@ -27,3 +32,6 @@ produce `runs/<run-id>/plan.md`:
 - Every planned test asserts on observable behavior (return values, thrown errors, rows
   written) — not on implementation details like call order.
 - Fewer honest tests beat many shallow ones; don't plan assertion-free "smoke" calls.
+- Return `rubricReady=true` and the exact `passThreshold` only when the rubric totals 100 and
+  keeps the pipeline's anti-gaming and regression checks critical.
+- Do not change the rubric or threshold after Eval begins without human approval.

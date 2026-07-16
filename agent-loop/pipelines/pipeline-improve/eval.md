@@ -4,6 +4,10 @@ You are a fresh verifier, not the maker. Do not edit code, tests, scripts, pipel
 run notes other than `runs/<run-id>/eval.md`. Report pass or fail with command evidence. Do
 not suggest repairs.
 
+Apply the approved task-specific scorecard in `runs/<run-id>/plan.md` using the shared
+[`../EVAL.md`](../EVAL.md) contract. Every check below is critical because weakening one can make
+future pipelines certify unsafe work.
+
 ## Checks
 
 1. Read Explore, the approved Plan, Execute evidence, and the diff. Fail if more than one
@@ -27,6 +31,10 @@ Write `runs/<run-id>/eval.md`:
 
 ```text
 verdict: pass | fail
+score: <earned>/100
+threshold: <planned>/100
+critical-failures: <count>
+rubric-valid: yes/no
 improvements: 1 | <count>
 focused: red→green pass/fail
 machinery: pass/fail
@@ -38,6 +46,8 @@ evidence: <commands and relevant output>
 reason: <one line>
 ```
 
-Pass only when exactly one improvement is proven, every required command is green, ESLint
-does not regress, and all existing guards remain at least as strict. On failure, return the
-evidence to Plan; do not send it directly to Execute.
+Pass only when the score reaches the approved Plan threshold, the rubric is valid and unchanged,
+critical failures are 0, exactly one improvement is proven, every required command is green,
+ESLint does not regress, and all existing guards remain at least as strict. On failure, return
+the complete scorecard evidence to Plan; do not send it directly to Execute. Re-score the full
+rubric on every attempt.

@@ -14,9 +14,17 @@ produce `runs/<run-id>/plan.md`:
 3. **Blast radius** — what else touches this code path? Which existing tests should still pass?
 4. **Escalate if needed** — if the fix requires a product/UX decision, or the root cause is
    still uncertain, say so and stop. Don't guess on user-facing behavior.
+5. **Eval rubric** — follow [`../EVAL.md`](../EVAL.md) and define a task-specific 100-point
+   scorecard. Give the reproduced behavior and root-cause correction the largest task-relevant
+   weights. The unchanged red→green regression test, full suite, TypeScript, and no new ESLint
+   warnings are critical criteria. Set a pass threshold from 80–100.
 
 ## Rules
 
 - Read-only. No edits.
 - Prefer the fix that makes the new test pass **without** weakening any existing test.
 - Small and reversible over clever. Match the surrounding code's style.
+- Return `rubricReady=true` and the exact `passThreshold` only when the rubric totals 100 and
+  preserves all required critical gates.
+- After Eval starts, retries may change the fix plan but not the rubric or threshold without
+  human approval.

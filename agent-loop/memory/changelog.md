@@ -3,6 +3,107 @@
 > What changed in the loop machinery and when. Newest first. One entry per change.
 > Format: `## [YYYY-MM-DD] <what changed>` + a line or two of why.
 
+## [2026-07-16] pipeline-improve proven under task-specific scoring (run 2026-07-16-160702)
+Sixth rollout pipeline scored, and the first to harden the loop machinery itself under the new
+method. The improvement it selected: the `feature` workflow named two Eval facts (`rubricSha256`,
+`noNewEslintWarnings`) only in prose — its VERDICT schema, drift check, and success predicate never
+required or used them, so a 99-point Eval with a new ESLint warning or a drifted rubric fingerprint
+could still certify `built: true`. Explore's focused harness (`check-eval-scoring.regression.mjs`)
+reproduced this red at 12/15. One root-cause correction to `feature/workflow.js` only: added both
+facts to `VERDICT.required`+`properties`, made the Eval prompt demand them with cited evidence,
+added an Eval-drift stop (`rubricChangeNeedsApproval`) before the success predicate, strengthened
+the predicate to require fingerprint equality + no-new-warnings, and routed the failed scorecard +
+lint state to Plan (never Eval→Execute) — mirroring the already-hardened sibling `bug-fix`. Plan
+locked a 9-criterion all-critical rubric (SHA-256 `1e81255b…`, threshold 85) weighting false-success
+prevention (20) + the structured-evidence boundary (20) heaviest. A separate maker (this session)
+applied only the six planned hunks; an independent verifier recomputed both the rubric and the
+locked-harness checksums (unchanged: `315465cb…`), ran every gate, and scored 100/100, 0 critical
+failures (focused 15/15, machinery all-good, vitest 221/221, tsc 0, eslint 47≤55). Calibration: the
+locked harness proves the fix is deterministic — the same fixture that was 12/15 red is now 15/15
+green with the regression file cryptographically untouched, so the green cannot come from editing
+the test. Human-gated after Plan; owner approved before Execute.
+
+## [2026-07-16] e2e-regression proven under task-specific scoring (run 2026-07-16-173324)
+Fifth rollout pipeline scored, and the first to surface + fix a REAL deterministic regression under
+the new rubric. Full suite run 1: 1 failed (C3 add-property "save draft → resume"), 24 passed, 18
+skipped (5 ticketed quarantines + data guards). Triage: C3 reran 3×, failed 3/3 → deterministic
+regression, so quarantine forbidden. Root-caused live via the browser: Save-as-Draft called
+`router.push("/portfolio")` before the debounced draft-create resolved; the late `activeId → DRFT-`
+swap fired a URL-stamp effect hardcoded to `router.replace("/add-property?…")`, reverting the nav
+(and the un-awaited write could drop on unmount). Fix (app-side only): added an awaitable `saveNow()`
+to `useDrafts`, made `handleSaveAsDraft` await-persist-then-navigate, and guarded the stamp effect
+with a pathname check. Plan locked a rubric (SHA-256 `db86c1df…`, threshold 85) weighting the
+regression fix (25) + two-consecutive-green (30) heaviest and critical, with a critical anti-gaming
+gate (no masked clicks / weakened specs). Independent verifier scored 100/100: C3 green, full suite
+green ×2 (0 failed both), 5 quarantines still ticketed, vitest 221/221, tsc 0, eslint 47, no spec
+edited. Calibration: the rubric correctly refuses to quarantine a deterministic regression — a real
+fix (not a skip) was the only pass path, and the anti-gaming gate blocks a green bought by weakening
+a spec.
+
+## [2026-07-16] qa proven under task-specific scoring (run 2026-07-16-171034)
+Fourth rollout pipeline scored, and the first exercise of the "clean run still gets a Plan rubric +
+independent Eval" path. Drove the default 7-flow scope on the DEMO server (port 3001, Neon dev
+branch): all flows render, 0 product console errors, 0 failed network requests. Three findings, all
+below the error bar or needing product judgment, were escalated/recorded, not fixed (co-owner
+data-loss → bug-fix pipeline; Radix Dialog `aria-describedby` warning → needs copy; disabled
+spreadsheet import → intent unclear). Plan locked a per-flow user-impact-weighted rubric (SHA-256
+`e1730049…`, threshold 85) making flow-completion (30) + zero-console-errors (25) the heaviest
+critical criteria so a broken core flow or hydration error cannot be averaged away by low-impact
+routes — the calibration the ticket asked for. A fresh-session independent verifier re-drove all 7,
+independently reproduced findings 1–2, and scored 100/100, 0 critical failures (suite 221/221, tsc
+0, eslint 47). Failure mode is deterministic by construction: any product console error zeroes C2
+and is a critical failure regardless of the other 75 points. (Local env: Explore symlinked
+`/Applications/Google Chrome.app` → Playwright Chromium so the MCP browser could launch — kept for
+the remaining browser pipelines; removable.)
+
+## [2026-07-16] test-coverage proven under task-specific scoring (run 2026-07-16-165812)
+Third rollout pipeline scored. Target `lib/services/payment-import.ts` (0%→97.72% statements),
+26 DB-free tests (mocked collaborators) on the three regex normalizers, `toPaymentReviewRow`, and
+`bulkCreatePayments`. Plan locked a 100-pt rubric (SHA-256 `afd7c1c7…`, threshold 85) that weights
+mutation heaviest (30, critical ≥80%) and coverage light (15) so coverage cannot buy a pass.
+Independent verifier scored 100/100: mutation 80.72% (67/83 killed, scoped `payment-import.ts:20-79`),
+suite 221/221, tsc 0, eslint 47. Deterministic anti-gaming proof: a throwaway shallow test reached
+93.18% coverage but 2.41% mutation (72 survivors) — it clears the coverage criterion yet fails the
+critical mutation gate, confirming coverage points cannot hide weak mutation results.
+
+## [2026-07-16] eslint-burndown proven under task-specific scoring (run 2026-07-16-164426)
+Second pipeline in the Eval-scoring rollout to get a real scored run (after bug-fix). A mechanical
+batch of 8 unused import bindings (5× dead `NOT_IMPLEMENTED_UNTIL_B6`, 3× unused `scoped*` helpers)
+across 7 files, 55→47 warnings. Plan authored a 100-point all-critical rubric (SHA-256
+`63f88b18…`, threshold 85); a separate maker (opus) applied only the planned edits; an independent
+verifier (sonnet) recomputed the fingerprint, ran the checks, and scored 100/100, 0 critical
+failures (tsc 0, vitest 195/195). Deterministic anti-gaming case: removing a *used* binding
+(`requireMember`) does not lower the warning count (no C1 reward) and breaks tsc (C2 critical
+failure → fail) — confirming scoring cannot reward a behavior-changing reduction.
+
+## [2026-07-16] Task-specific Eval scoring across all pipelines
+Added a shared 100-point scoring contract. Every Plan now defines the task's weighted rubric and
+80–100 pass threshold; every independent Eval reports criterion scores and critical failures.
+Workflow code locks the rubric fingerprint, rejects below-threshold or critical-failure results,
+and returns failed scorecards to Plan. A machinery regression check covers all eight pipelines.
+Bug-fix run `2026-07-16-144138` supplied the real proof: two false-success paths reproduced red,
+the planned root-cause correction turned all eight runtime cases green, and independent Eval scored
+100/100 at the locked 85 threshold with zero critical failures (suite 195/195, tsc 0, ESLint 55→55).
+
+## [2026-07-16] Explicit per-stage models across 7 pipelines (Sonnet/Opus, no Fable)
+Pinned an Anthropic model on every stage of bug-fix, e2e-regression, eslint-burndown, feature, qa,
+test-coverage, pipeline-improve: `explore`/`plan`/`eval` → `sonnet`, `execute` → `opus`. Removes the
+top token drain (explore/plan were inheriting Opus 1M — 313k+280k tok/run on entity-scaffold) and
+kills Fable inheritance (one bug-fix run had run its whole maker path on `claude-fable-5`). Maker
+(Opus) ≠ verifier (Sonnet) preserved; machinery green. Bare aliases = standard 200k context (cheaper
+than `[1m]`) — deliberate for stage work on scoped context. entity-scaffold left for a later pass
+(under active parallel edit). See `decisions.md`.
+
+## [2026-07-16] Per-run tuning ledger — metrics harvested from runtime telemetry
+Added `orchestrator/metrics.mjs` + `scripts/check-metrics.regression.mjs` (wired into
+`check-machinery.sh`). The built-in Workflow runtime already writes per-stage cost (tokens,
+durationMs, toolCalls, model, attempt, queue-wait) to `~/.claude/projects/*/workflows/wf_*.json`;
+the collector normalizes each finished run to one JSON line in `memory/run-metrics.jsonl` and runs
+automatically from `dispatch.mjs --record`. `--summary` rolls up cost per pipeline and per stage.
+Zero workflow instrumentation (Workflow scripts can't touch fs or read a clock). First harvest of 8
+runs surfaced the drain: entity-scaffold explore 313k + plan 280k tokens on Opus. Every cost row
+carries the run's `result`/quality object so tuning holds output quality constant. See `decisions.md`.
+
 ## [2026-07-16] entity-scaffold proven end-to-end (utility_accounts); 3 machinery bugs fixed
 First real product-proof of the entity-scaffold pipeline: the approved `utility_accounts` ticket
 was scaffolded through every backend layer on a throwaway Neon branch and verified green by a

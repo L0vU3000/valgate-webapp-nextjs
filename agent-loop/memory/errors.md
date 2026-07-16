@@ -18,6 +18,18 @@ Template:
   pre-existing green signals, not just its own target metric.
 -->
 
+## [2026-07-16] Bug-fix Eval could pass evidence that existed only in prose
+- **Symptom:** the runtime harness supplied a 99/100 Eval with a new ESLint warning, or an Eval
+  fingerprint different from Plan's lock, and `bug-fix/workflow.js` still returned `fixed: true`.
+- **Cause:** the Eval prompt mentioned lint and the locked rubric, but `VERDICT` did not return
+  `noNewEslintWarnings` or `rubricSha256`; the deterministic exit predicate therefore had no facts
+  to enforce.
+- **Fix:** both values are now required structured fields. The exit predicate requires clean lint,
+  and an Eval-observed fingerprint or threshold change stops for human approval. Run
+  `2026-07-16-144138` reproduced the two failures and independently scored the correction 100/100.
+- **Prevention:** every critical check named in an Eval prompt must appear in the structured result,
+  participate in the runtime exit decision, and have a deterministic false-success regression case.
+
 ## [2026-07-16] entity-scaffold could not re-verify after a clean apply + non-code eval fail
 - **Symptom:** run `2026-07-16-111415` applied migration 0025 cleanly in attempt 1 (Phase B marked
   `migration-status: applied`, live test 16/16) but eval failed on the pre-existing `db:check`

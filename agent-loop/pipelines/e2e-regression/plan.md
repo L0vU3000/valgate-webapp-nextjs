@@ -16,6 +16,10 @@ Given `runs/<run-id>/explore.md` (the disposition table with traces), produce
    naming the spec, the signatures, and the suspected instability source).
 3. **Blast radius** — which other specs share the fixed code path; eval must see them pass.
 4. **Escalate if needed** — product-behavior questions are marked `escalate`, not guessed.
+5. **Eval rubric** — follow [`../EVAL.md`](../EVAL.md) and define a task-specific 100-point
+   scorecard. Allocate points across the actual regressions and flakes found in Explore. Fixed
+   regressions, two consecutive green runs, complete dispositions, anti-gaming checks, global
+   Vitest, TypeScript, and no new ESLint warnings are critical. Set a threshold from 80–100.
 
 ## Rules
 
@@ -23,3 +27,7 @@ Given `runs/<run-id>/explore.md` (the disposition table with traces), produce
 - Deleting a test is never in a plan. Weakening an assertion so a spec passes is never in
   a plan.
 - Small and reversible over clever.
+- Return `rubricReady=true` and the exact `passThreshold` only when the rubric totals 100 and
+  keeps every required regression and safety gate critical.
+- After Eval starts, preserve the rubric and threshold across retries unless a human approves a
+  change.

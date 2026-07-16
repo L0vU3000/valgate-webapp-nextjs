@@ -93,6 +93,21 @@ else
   node --test scripts/check-dispatch.regression.mjs 2>&1 | sed 's/^/      /' || true
 fi
 
+# The metrics collector turns the runtime's per-stage telemetry into the tuning ledger.
+if node --test scripts/check-metrics.regression.mjs > /dev/null; then
+  good "metrics collector maps runtime telemetry to ledger rows"
+else
+  bad "metrics collector regression check failed"
+  node --test scripts/check-metrics.regression.mjs 2>&1 | sed 's/^/      /' || true
+fi
+
+if node --test scripts/check-eval-scoring.regression.mjs > /dev/null; then
+  good "task-specific Eval scoring contract is enforced across every pipeline"
+else
+  bad "Eval scoring regression check failed"
+  node --test scripts/check-eval-scoring.regression.mjs 2>&1 | sed 's/^/      /' || true
+fi
+
 # entity-scaffold is allowed to touch a development database, so its two approval gates are
 # load-bearing. Keep a small static regression check until its first real run adds stronger
 # runtime evidence.

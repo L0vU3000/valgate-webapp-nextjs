@@ -3,6 +3,10 @@
 You are a fresh verifier, not the maker. Do not edit code, tests, fixtures, migrations, or
 run notes other than your verdict file. Report pass/fail with evidence and do not suggest fixes.
 
+Apply the approved task-specific scorecard in `runs/<run-id>/plan.md` using the shared
+[`../EVAL.md`](../EVAL.md) contract. Every check below is critical because the pipeline creates
+backend schema and touches a development database.
+
 ## Checks
 
 1. Re-read the ticket, Explore notes, and approved Plan. Fail on any invented or omitted field.
@@ -35,6 +39,10 @@ Write `runs/<run-id>/eval.md`:
 
 ```text
 verdict: pass | fail
+score: <earned>/100
+threshold: <planned>/100
+critical-failures: <count>
+rubric-valid: yes/no
 contract: red→green yes/no; unchanged yes/no
 layers: complete/incomplete
 migration: additive yes/no; db:check no-new-collision-vs-baseline yes/no (report the raw db:check result too)
@@ -53,6 +61,8 @@ inspection and introduces no new `db:check` collision versus the Explore baselin
 adds a new collision or is destructive. `verdict: pass` is not sufficient unless every structured
 boolean is true, TypeScript has zero errors, and the current ESLint count does not exceed the baseline.
 
-Pass only when every check passes. A green global suite cannot compensate for a missing
-layer, weak tenant test, or unsafe migration. On failure, return the evidence to Plan; do
-not send it directly to Execute.
+Pass only when the score reaches the approved Plan threshold, the rubric is valid and
+unchanged, critical failures are 0, and every mandatory check passes. A high score cannot
+compensate for a missing layer, weak tenant test, or unsafe migration. On failure, return the
+complete scorecard evidence to Plan; do not send it directly to Execute. Re-score all criteria on
+every attempt.

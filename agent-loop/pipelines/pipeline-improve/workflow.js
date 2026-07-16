@@ -42,7 +42,16 @@ function recordAgentCall() {
 
 const RESUME_RUN = optionValue('--resume=')
 const PLAN_APPROVED = hasArgument('--approved-plan')
-const EVIDENCE_HINT = RAW_ARGS
+// Provider-adaptive model tiers — Anthropic by default (the loop runs under Claude Code, so the
+// session is Claude). Pass `--provider=gpt` in args to route every stage to codex
+// (gpt-5.1-codex-max), effort as the cheap→deep gradient. READ=explore/plan, MAKE=execute,
+// VERIFY=eval (a separate agent either way, so maker!=verifier holds).
+const PROVIDER = /(^|\s)--provider=gpt(\s|$)/.test(RAW_ARGS) ? 'gpt' : 'anthropic'
+const TIER = PROVIDER === 'gpt'
+  ? { read: { agentType: 'codex', effort: 'low' }, make: { agentType: 'codex', effort: 'high' }, verify: { agentType: 'codex', effort: 'medium' } }
+  : { read: { model: 'sonnet' }, make: { model: 'opus' }, verify: { model: 'sonnet' } }
+
+const EVIDENCE_HINT = RAW_ARGS.replace(/\s*--provider=\S+/, '').trim()
   .split(/\s+/)
   .filter((part) => part && !part.startsWith('--'))
   .join(' ')
@@ -65,9 +74,12 @@ const EXPLORATION = {
 
 const PLAN = {
   type: 'object',
-  required: ['planReady'],
+  required: ['planReady', 'rubricReady', 'passThreshold', 'rubricSha256'],
   properties: {
     planReady: { type: 'boolean' },
+    rubricReady: { type: 'boolean' },
+    passThreshold: { type: 'number' },
+    rubricSha256: { type: 'string' },
     reason: { type: 'string' },
   },
 }
@@ -86,9 +98,13 @@ const EXECUTION = {
 
 const VERDICT = {
   type: 'object',
-  required: ['verdict', 'improvementCount', 'focusedRedGreen', 'machineryPasses', 'suiteGreen', 'tscErrors', 'eslintStart', 'eslintCurrent', 'guardsPreserved'],
+  required: ['verdict', 'score', 'passThreshold', 'criticalFailures', 'rubricValid', 'improvementCount', 'focusedRedGreen', 'machineryPasses', 'suiteGreen', 'tscErrors', 'eslintStart', 'eslintCurrent', 'guardsPreserved'],
   properties: {
     verdict: { enum: ['pass', 'fail'] },
+    score: { type: 'number' },
+    passThreshold: { type: 'number' },
+    criticalFailures: { type: 'number' },
+    rubricValid: { type: 'boolean' },
     improvementCount: { type: 'number' },
     focusedRedGreen: { type: 'boolean' },
     machineryPasses: { type: 'boolean' },
@@ -123,7 +139,7 @@ const exploration = await agent(
        machinery weakness. Mint one shared run-id with \`date "+%Y-%m-%d-%H%M%S"\`, create
        ${P}/runs/<run-id>, and write explore.md only. Return selected, runId, candidateId,
        improvement, focusedCommand, attempts=0, lastFailure='', repeatCount=0, and reason.`,
-  { label: 'explore', schema: EXPLORATION },
+  { label: 'explore', schema: EXPLORATION, ...TIER.read },
 )
 
 if (!exploration.selected) {
@@ -143,16 +159,18 @@ const plan = await agent(
   PLAN_APPROVED
     ? `You are the PLAN approval checkpoint for pipeline-improve run ${RUN}. Follow
        ${P}/plan.md. Read the existing plan.md and return planReady=true only when it names
-       one improvement, exact files, a deterministic red-to-green check, and preserved gates.
-       Do not edit the approved plan or tracked files.`
+       one improvement, exact files, a deterministic red-to-green check, preserved gates, and
+       a valid 100-point Eval rubric. Return rubricReady, passThreshold, and the SHA-256 of the
+       exact rubric section. Do not edit the approved plan or tracked files.`
     : `You are the read-only PLAN stage. Follow ${P}/plan.md. Read
        ${P}/runs/${RUN}/explore.md and write the exact one-improvement plan to
-       ${P}/runs/${RUN}/plan.md. Do not edit tracked files. Return whether the Plan is ready
-       for human review.`,
-  { label: 'plan', phase: 'Select and plan', schema: PLAN },
+       ${P}/runs/${RUN}/plan.md, including its task-specific 100-point Eval rubric. Hash the exact
+       rubric section with SHA-256. Do not edit tracked files. Return planReady, rubricReady,
+       passThreshold, rubricSha256, and whether the Plan is ready for human review.`,
+  { label: 'plan', phase: 'Select and plan', schema: PLAN, ...TIER.read },
 )
 
-if (!plan.planReady) {
+if (!plan.planReady || !plan.rubricReady || !plan.rubricSha256 || plan.passThreshold < 80 || plan.passThreshold > 100) {
   log(`STOP: Plan is incomplete — ${plan.reason || 'see run notes'}`)
   return { improved: false, reason: plan.reason, runId: RUN }
 }
@@ -172,7 +190,7 @@ const execution = await agent(
    regression check. Do not commit, touch product/database code, weaken any gate, or add another
    pipeline. Write execute.md and return implemented, improvementCount, focusedCheckPasses,
    changedFiles, and reason.`,
-  { label: `execute#${attempt}`, phase: 'Improve and verify', schema: EXECUTION, model: 'opus' },
+  { label: `execute#${attempt}`, phase: 'Improve and verify', schema: EXECUTION, ...TIER.make },
 )
 
 if (!execution.implemented || execution.improvementCount !== 1) {
@@ -185,11 +203,17 @@ const verdict = await agent(
   `You are EVAL, a fresh read-only verifier for pipeline-improve run ${RUN}, attempt ${attempt}.
    Follow ${P}/eval.md. Inspect the approved Plan and diff. Run ${exploration.focusedCommand},
    check-machinery.sh, full Vitest, TypeScript, and ESLint. Write eval.md and return evidence
-   only. Do not edit or suggest repairs.`,
-  { label: `eval#${attempt}`, phase: 'Improve and verify', schema: VERDICT, model: 'sonnet' },
+   only. Apply the approved rubric at SHA-256 ${plan.rubricSha256} and threshold
+   ${plan.passThreshold}/100. Return score, passThreshold, criticalFailures, rubricValid, and
+   the normal evidence. Do not edit or suggest repairs.`,
+  { label: `eval#${attempt}`, phase: 'Improve and verify', schema: VERDICT, ...TIER.verify },
 )
 
 const allChecksPass = verdict.verdict === 'pass'
+  && verdict.rubricValid
+  && verdict.passThreshold === plan.passThreshold
+  && verdict.score >= plan.passThreshold
+  && verdict.criticalFailures === 0
   && verdict.improvementCount === 1
   && verdict.focusedRedGreen
   && verdict.machineryPasses
@@ -203,7 +227,7 @@ if (allChecksPass) {
   return { improved: true, improvement: exploration.improvement, attempts: attempt, runId: RUN }
 }
 
-const failure = verdict.reason || verdict.evidence || 'verification failed'
+const failure = `score ${verdict.score}/${plan.passThreshold}, critical failures ${verdict.criticalFailures}: ${verdict.reason || verdict.evidence || 'verification failed'}`
 const repeatCount = failure === exploration.lastFailure ? exploration.repeatCount + 1 : 1
 
 if (!callBudgetAvailable()) {
@@ -217,7 +241,7 @@ await agent(
    Append one factual entry to agent-loop/memory/errors.md using its Symptom / Cause / Fix /
    Prevention format. Failure: ${failure}. Keep an unproven cause explicitly unknown and edit
    no other file.`,
-  { label: `memory#${attempt}`, phase: 'Improve and verify' },
+  { label: `memory#${attempt}`, phase: 'Improve and verify', ...TIER.read },
 )
 
 if (repeatCount >= 2) {
@@ -230,8 +254,10 @@ await agent(
   `You are PLAN after failed Eval for pipeline-improve run ${RUN}, attempt ${attempt}. Follow
    ${P}/plan.md. Failure: ${failure}. Revise plan.md without changing the one selected
    improvement. Record attempts=${attempt}, lastFailure=${failure}, and
-   repeatCount=${repeatCount}. Do not edit tracked files.`,
-  { label: `replan#${attempt}`, phase: 'Select and plan', schema: PLAN },
+   repeatCount=${repeatCount}. Preserve the Eval rubric byte-for-byte unless the revision
+   explicitly proposes a rubric change for human approval. Return planReady, rubricReady,
+   passThreshold, and rubricSha256. Do not edit tracked files.`,
+  { label: `replan#${attempt}`, phase: 'Select and plan', schema: PLAN, ...TIER.read },
 )
 
 log(`EVAL FAIL: review the revised Plan, then resume ${RUN} with --approved-plan.`)

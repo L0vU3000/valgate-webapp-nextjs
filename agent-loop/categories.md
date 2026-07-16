@@ -53,7 +53,9 @@ explore → plan → execute → eval
 ```
 
 An eval failure returns to `plan` so the next attempt incorporates the verifier's evidence.
-The maker and verifier remain separate agents.
+The maker and verifier remain separate agents. Plan also defines the task-specific 100-point
+rubric using [`pipelines/EVAL.md`](./pipelines/EVAL.md). Eval passes only when the score reaches
+the planned threshold and every critical criterion passes.
 
 ## Testing inside building pipelines
 

@@ -7,7 +7,7 @@ import { UserProfileSchema, type UserProfile } from "@/lib/data/types/user-profi
 import type { UserProfilePatch } from "@/lib/data/types/user-profile";
 import { toDomain, nextId, type Ctx } from "@/lib/services/_mapping";
 import { convertRowToDb } from "@/lib/db/column-classifier";
-import { scopedInsert, scopedUpdate, scopedDelete, requireMember } from "@/lib/services/_crud";
+import { scopedUpdate, requireMember } from "@/lib/services/_crud";
 
 const rowToUserProfile = (r: typeof userProfiles.$inferSelect): UserProfile =>
   UserProfileSchema.parse(toDomain(userProfiles, r)); // C6/C7

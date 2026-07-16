@@ -72,9 +72,12 @@ const SCOPE = {
 
 const PLAN = {
   type: 'object',
-  required: ['planReady'],
+  required: ['planReady', 'rubricReady', 'passThreshold', 'rubricSha256'],
   properties: {
     planReady: { type: 'boolean' },
+    rubricReady: { type: 'boolean' },
+    passThreshold: { type: 'number' },
+    rubricSha256: { type: 'string' },
     reason: { type: 'string' },
   },
 }
@@ -93,12 +96,17 @@ const PREPARED = {
 const VERDICT = {
   type: 'object',
   required: [
-    'verdict', 'contractGreen', 'layersComplete', 'migrationSafe', 'dbCheckPasses',
+    'verdict', 'score', 'passThreshold', 'criticalFailures', 'rubricValid',
+    'contractGreen', 'layersComplete', 'migrationSafe', 'dbCheckPasses',
     'isolationPasses', 'dbCrudPasses', 'cleanupPasses', 'suiteGreen', 'tscErrors',
     'eslintStart', 'eslintCurrent',
   ],
   properties: {
     verdict: { enum: ['pass', 'fail'] },
+    score: { type: 'number' },
+    passThreshold: { type: 'number' },
+    criticalFailures: { type: 'number' },
+    rubricValid: { type: 'boolean' },
     contractGreen: { type: 'boolean' },
     layersComplete: { type: 'boolean' },
     migrationSafe: { type: 'boolean' },
@@ -165,14 +173,17 @@ const plan = await agent(
   PLAN_APPROVED
     ? `You are the PLAN checkpoint for entity-scaffold run ${RUN}. Follow ${P}/plan.md.
        Read the existing ${P}/runs/${RUN}/plan.md. Return planReady=true only if that exact file
-       exists, is complete, and is consistent with Explore. Do not alter the approved plan.`
+       exists, is complete, is consistent with Explore, and contains a valid 100-point Eval
+       rubric. Return rubricReady, passThreshold, and the SHA-256 of the exact rubric section.
+       Do not alter the approved plan.`
     : `You are the PLAN stage. Follow ${P}/plan.md. Read ${P}/runs/${RUN}/explore.md and write
-       the exact plan to ${P}/runs/${RUN}/plan.md. Do not edit source or tests. Return whether
-       the plan is ready for human review.`,
+       the exact plan and task-specific 100-point Eval rubric to ${P}/runs/${RUN}/plan.md. Hash
+       the exact rubric section with SHA-256. Do not edit source or tests. Return planReady,
+       rubricReady, passThreshold, rubricSha256, and whether the plan is ready for human review.`,
   { label: 'plan', phase: 'Scope and plan', schema: PLAN },
 )
 
-if (!plan.planReady) {
+if (!plan.planReady || !plan.rubricReady || !plan.rubricSha256 || plan.passThreshold < 80 || plan.passThreshold > 100) {
   log(`STOP: Plan is incomplete — ${plan.reason || 'see run notes'}`)
   return { built: false, reason: plan.reason, runId: RUN }
 }
@@ -246,11 +257,17 @@ recordAgentCall()
 const verdict = await agent(
   `You are EVAL, a fresh read-only verifier. Follow ${P}/eval.md. Verify run ${RUN}, attempt
    ${attempt}. Inspect the approved migration and run the unchanged focused tests and every
-   global gate. Write ${P}/runs/${RUN}/eval.md and return evidence only. Do not fix or suggest fixes.`,
+   global gate. Apply the approved rubric at SHA-256 ${plan.rubricSha256} and threshold
+   ${plan.passThreshold}/100. Write ${P}/runs/${RUN}/eval.md and return score, passThreshold,
+   criticalFailures, rubricValid, and evidence only. Do not fix or suggest fixes.`,
   { label: `eval#${attempt}`, phase: 'Apply and verify', schema: VERDICT, model: 'sonnet' },
 )
 
 const allChecksPass = verdict.verdict === 'pass'
+  && verdict.rubricValid
+  && verdict.passThreshold === plan.passThreshold
+  && verdict.score >= plan.passThreshold
+  && verdict.criticalFailures === 0
   && verdict.contractGreen
   && verdict.layersComplete
   && verdict.migrationSafe
@@ -267,7 +284,7 @@ if (allChecksPass) {
   return { built: true, entityName: scope.entityName, attempts: attempt, runId: RUN }
 }
 
-const failure = verdict.reason || verdict.evidence || 'verification failed'
+const failure = `score ${verdict.score}/${plan.passThreshold}, critical failures ${verdict.criticalFailures}: ${verdict.reason || verdict.evidence || 'verification failed'}`
 const repeatCount = failure === scope.lastFailure ? scope.repeatCount + 1 : 1
 
 if (!budgetAvailable()) {
@@ -294,6 +311,8 @@ await agent(
   `You are PLAN after a failed entity-scaffold eval. Follow ${P}/plan.md. Run ${RUN}, attempt
    ${attempt}, failed with: ${failure}. Write a revised plan to ${P}/runs/${RUN}/plan.md and
    record lastFailure=${failure} with repeatCount=${repeatCount}. Do not edit source or tests.
+   Preserve the Eval rubric byte-for-byte unless the revision explicitly proposes a rubric
+   change for human approval. Return planReady, rubricReady, passThreshold, and rubricSha256.
    The revised plan requires a new human approval before Execute resumes.`,
   { label: `replan#${attempt}`, phase: 'Scope and plan', schema: PLAN },
 )
