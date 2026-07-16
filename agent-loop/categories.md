@@ -106,6 +106,9 @@ Until then, `type` remains the exact routing key.
 
 | Category | Type | Pipeline |
 |---|---|---|
+| `planning` | `spec` | `spec` |
+| `planning` | `research` | `research` |
+| `planning` | `technical-plan` | `technical-plan` |
 | `building` | `bug` | `bug-fix` |
 | `building` | `feature` | `feature` |
 | `building` | `entity` | `entity-scaffold` |
@@ -115,6 +118,7 @@ Until then, `type` remains the exact routing key.
 | `maintenance` | `lint` | `eslint-burndown` |
 | `maintenance` | `pipeline-improve` | `pipeline-improve` |
 
-Planning, review, and delivery are defined categories with no registered pipeline yet.
+Review and delivery are defined categories with no registered pipeline yet; planning now has
+`spec`, `research`, and `technical-plan` (authored, awaiting their first real run).
 `entity-scaffold` is registered but remains in training mode until an approved entity ticket
 completes its first real run. `pipeline-improve` remains human-gated after every Plan.

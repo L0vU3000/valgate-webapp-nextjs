@@ -200,17 +200,19 @@ agent-loop/
 ├── dashboard.md           ← generated live view: running / queued / completed
 ├── resources/             ← the source library (8 authors)
 ├── orchestrator/          ← the router (spec) + inbox/ (work items)
-├── pipelines/             ← eight peer explore → plan → execute → eval workflows
+├── pipelines/             ← eleven peer explore → plan → execute → eval workflows
 ├── scripts/               ← dashboard generation + machinery/registry checks
 └── memory/                ← changelog · decisions · errors (self-improvement)
 ```
 
 ## Current build position
 
-Eight pipelines are defined. `eslint-burndown`, `bug-fix`, `feature`, `test-coverage`, `qa`,
-`pipeline-improve`, and `e2e-regression` have successful real runs. The first `pipeline-improve`
-proof made registry metadata drift fail across pipeline frontmatter and all three registry
-tables. The `e2e-regression` proof (run `2026-07-16-030754`) triaged nine active-suite failures
+Eleven pipelines are defined. `eslint-burndown`, `bug-fix`, `feature`, `test-coverage`, `qa`,
+`pipeline-improve`, and `e2e-regression` have successful real runs. The `planning` category now
+holds three authored pipelines — `spec`, `research`, and `technical-plan` — read-only
+document-producers whose verification grades grounding, testability, and completeness rather than
+tests; they await their first real request. The first `pipeline-improve` proof made registry
+metadata drift fail across pipeline frontmatter and all three registry tables. The `e2e-regression` proof (run `2026-07-16-030754`) triaged nine active-suite failures
 by evidence — an Agentation-in-DEMO console leak fixed at the app, `/activity` scope-cut as a
 removed surface, three outdated-contract spec fixes, and five wizard/bulk-bar flakes quarantined
 with tickets — reaching two consecutive green runs. `entity-scaffold` is authored behind an

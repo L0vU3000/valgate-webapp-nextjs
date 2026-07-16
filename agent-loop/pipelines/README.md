@@ -55,6 +55,9 @@ unattended without lying to itself.
 | `testing` | [`qa`](./qa/pipeline.md) | `qa` | ✅ proven by hand — 8/8 flows; WebGL crash + duplicate React key fixed; 183/183 global tests |
 | `testing` | [`e2e-regression`](./e2e-regression/pipeline.md) | `e2e` | ✅ proven by hand — run `2026-07-16-030754`: 9 failures triaged (Agentation-in-DEMO fixed, `/activity` scope-cut, P3/C3/F5 contract fixes, 5 wizard/bulk-bar flakes quarantined+ticketed); 2× green |
 | `maintenance` | [`pipeline-improve`](./pipeline-improve/pipeline.md) | `pipeline-improve` | ✅ proven by hand — registry drift rejected across 4 sources; 195/195 global tests |
+| `planning` | [`spec`](./spec/pipeline.md) | `spec` | authored — planning template; read-only, first proof waits for a real request |
+| `planning` | [`research`](./research/pipeline.md) | `research` | authored — read-only cited-report; first proof waits for a real question |
+| `planning` | [`technical-plan`](./technical-plan/pipeline.md) | `technical-plan` | authored — read-only implementation plan; first proof waits for an approved scope |
 
 Every pipeline's `pipeline.md` has a **Verification technique** section recording the
 researched choice of check and why it matches what that pipeline produces.

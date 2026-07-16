@@ -3,6 +3,25 @@
 > Why the loop is built the way it is. Newest first. One entry per load-bearing choice.
 > Format: `## [YYYY-MM-DD] <decision>` → **Context / Choice / Why / Revisit-if**.
 
+## [2026-07-16] Planning pipelines are read-only doc-producers verified by grounding, not tests
+- **Context:** the `planning` category (`spec`, `research`, `technical-plan`) breaks the
+  building-pipeline mould — its product is a document, not code, so there is no test/tsc/DB gate on
+  the output, and "good idea / good plan" is a matter of taste the loop must not pretend to grade.
+- **Choice:** planning pipelines are **read-only** on the product — their only writes are the
+  document plus a drafted `approved: false` ticket under `runs/`. Their Eval grades only *objective*
+  properties: completeness of a fixed section contract; **grounding** (every cited file/service/
+  route/table resolves against real code via `graphify`/reads — an unresolved or invented reference
+  is a critical failure); testability of each acceptance criterion or claim; boundedness; and honesty
+  (unmade owner decisions surfaced, not invented). The owner approves the *content* after the
+  pipeline guarantees it is complete, grounded, and honest.
+- **Why:** grounding is the objective spine that makes verifying a document as airtight as it can be,
+  and it directly encodes the `valuations` near-miss — a spec that claims a gap must prove it. This
+  keeps maker≠verifier, the 100-point scoring, and the rubric-fingerprint lock intact while admitting
+  the human gate is load-bearing for the judgment code cannot do. Read-only also makes these the
+  safest pipelines: no worktree, no database branch.
+- **Revisit if:** a planning pipeline needs to write beyond `runs/` (it should not), or a new
+  checkable, objective property of plan quality emerges that the rubric should add as a criterion.
+
 ## [2026-07-16] eslint-burndown calibration: all-critical rubric, C1 banded for safe partial progress
 - **Context:** the second scored-rollout proof (run `2026-07-16-164426`, an 8-warning mechanical
   batch). A lint batch has one product (fewer warnings) and one hard constraint (no behavior change),

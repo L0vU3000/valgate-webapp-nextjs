@@ -3,6 +3,19 @@
 > What changed in the loop machinery and when. Newest first. One entry per change.
 > Format: `## [YYYY-MM-DD] <what changed>` + a line or two of why.
 
+## [2026-07-16] planning category built: spec, research, technical-plan (authored, unproven)
+Added the first three `planning` pipelines, closing the category's "no registered pipeline yet" gap.
+`spec` turns a vague request into a bounded, grounded, testable specification plus a drafted
+`approved: false` building ticket; `research` turns a question into an adversarially fact-checked
+cited report; `technical-plan` turns an approved scope into a grounded, sequenced implementation
+plan. All three are read-only on the product (only writes are documents under `runs/`), reuse the
+shared 100-point scoring, maker≠verifier split, and rubric-fingerprint lock, and verify grounding,
+testability, and completeness instead of tests — the anti-hallucination grounding check is the same
+discipline that caught the `valuations` duplicate. Registered across all four registry sources
+(frontmatter + `categories.md` + `README.md` + `orchestrator.md`); `check-machinery.sh` green at
+11 pipelines agreeing across 4 sources. Not yet run — proofs wait for real requests, per the
+directive to build the pipelines out for orchestration and test/optimize them as they are needed.
+
 ## [2026-07-16] Eval-scoring rollout closed at 6/8; entity-scaffold gate caught a duplicate
 Six of eight pipelines now have a real scored run under the task-specific method: bug-fix,
 eslint-burndown, test-coverage, qa, e2e-regression, and pipeline-improve — each maker≠verifier,
