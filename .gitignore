@@ -18,6 +18,12 @@ playwright-report/
 test-results/
 e2e/test-results.json
 
+# playwright-mcp browser session artifacts (console logs, screenshots)
+.playwright-mcp/
+
+# per-user Obsidian editor state (workspace/graph layout); vault notes are tracked
+vault/.obsidian/
+
 # next.js
 /.next/
 /out/
