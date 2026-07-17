@@ -212,6 +212,17 @@ describe.skipIf(!HAS_DB)("utility-accounts service (live DB)", () => {
     expect(updated?.notes).toBe("Rate revised for dry season");
   });
 
+  it("update with an empty patch is a no-op that returns the current row (no 'No values to set' throw)", async () => {
+    const created = await createUtilityAccount(ctxA, validInput());
+    createdIds.push(created.id);
+
+    // The partial patch schema accepts {}; this must not reach Drizzle's .set({}), which throws.
+    const updated = await updateUtilityAccount(ctxA, created.id, {});
+    expect(updated).not.toBeNull();
+    expect(updated?.id).toBe(created.id);
+    expect(updated?.provider).toBe(created.provider);
+  });
+
   // ── Live delete ────────────────────────────────────────────────────────────
   it("delete removes the row", async () => {
     const created = await createUtilityAccount(ctxA, validInput());

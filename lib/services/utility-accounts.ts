@@ -49,6 +49,10 @@ export async function createUtilityAccount(ctx: Ctx, input: unknown): Promise<Ut
 export async function updateUtilityAccount(ctx: Ctx, id: string, patch: unknown): Promise<UtilityAccount | null> {
   const data = UtilityAccountPatchSchema.parse(patch);
   if (data.propertyId !== undefined) await assertPropertyInOrg(ctx, data.propertyId);
+  // A no-op patch (the partial schema accepts {}) would reach Drizzle as .set({}), which throws
+  // "No values to set" — and this entity has no updatedAt column to keep the set non-empty. Treat
+  // an empty patch as a no-op: return the current row (org-scoped), or null if it isn't in the org.
+  if (Object.keys(data).length === 0) return getUtilityAccount(ctx, id);
   return scopedUpdate(ctx, utilityAccounts, id, data, rowToUtilityAccount, false);
 }
 

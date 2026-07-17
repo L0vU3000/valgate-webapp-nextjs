@@ -135,8 +135,14 @@ export function computeRevenueTimelineLabel(
     return null;
   }
 
-  const earliestDate = Math.min(...contributingDates);
-  const latestDate = Math.max(...contributingDates);
+  // Scan for min/max rather than Math.min(...contributingDates): spreading a large array as
+  // function arguments throws RangeError once a big portfolio has tens of thousands of records.
+  let earliestDate = contributingDates[0];
+  let latestDate = contributingDates[0];
+  for (const date of contributingDates) {
+    if (date < earliestDate) earliestDate = date;
+    if (date > latestDate) latestDate = date;
+  }
 
   return `${formatUtcMonthAndYear(earliestDate)} - ${formatUtcMonthAndYear(latestDate)}`;
 }
