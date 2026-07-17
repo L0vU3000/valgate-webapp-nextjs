@@ -113,6 +113,7 @@ function RailRow({
       <button
         ref={buttonRef}
         onClick={() => onSelect(property.id)}
+        aria-current={selected ? "true" : undefined}
         className={cn(
           "group relative w-full text-left px-3 py-2.5 flex flex-col gap-1 transition-colors duration-150",
           selected ? "bg-brand-subtle" : "hover:bg-surface-tint",
@@ -130,13 +131,18 @@ function RailRow({
             title={TYPE_LABEL[property.type]}
           >
             <TypeIcon className="size-3.5" />
+            {/* Type is shown by icon + color; give AT and color-blind users the word. */}
+            <span className="sr-only">{TYPE_LABEL[property.type]}</span>
           </span>
           <span className="text-sm font-medium text-foreground truncate">{property.name}</span>
           {/* Status dot (Rented / Vacant / …) */}
           <span
             className={cn("ml-auto size-2 rounded-full shrink-0", statusDotColor(property.status))}
             title={property.status}
-          />
+          >
+            {/* Status is shown by dot color alone; expose the word to AT (WCAG 1.4.1). */}
+            <span className="sr-only">{property.status}</span>
+          </span>
         </div>
 
         <div className="flex items-center gap-2 pl-8 min-w-0">
@@ -207,6 +213,7 @@ function RailBody({
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Find a property…"
+              aria-label="Find a property"
               className="flex-1 bg-transparent text-sm text-foreground placeholder:text-secondary outline-none min-w-0"
             />
             {query && (
@@ -373,6 +380,16 @@ export function PropertyRail({
     setMobileOpen(false);
   };
 
+  // A modal sheet must be dismissible by keyboard, not just by tapping the backdrop.
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [mobileOpen]);
+
   const bodyProps = {
     properties,
     selectedId,
@@ -447,9 +464,14 @@ export function PropertyRail({
       {mobileOpen && (
         <div className="sm:hidden absolute inset-0 z-30">
           <div className="absolute inset-0 bg-black/30" onClick={() => setMobileOpen(false)} />
-          <div className="absolute inset-x-0 bottom-0 h-[70dvh] rounded-t-2xl bg-surface-base border-t border-border-default flex flex-col overflow-hidden [animation:slide-in-up_0.3s_cubic-bezier(0.16,1,0.3,1)_both]">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="property-sheet-title"
+            className="absolute inset-x-0 bottom-0 h-[70dvh] rounded-t-2xl bg-surface-base border-t border-border-default flex flex-col overflow-hidden [animation:slide-in-up_0.3s_cubic-bezier(0.16,1,0.3,1)_both]"
+          >
             <div className="flex items-center justify-between px-4 py-3 border-b border-border-default shrink-0">
-              <h2 className="text-base font-semibold text-foreground">Properties</h2>
+              <h2 id="property-sheet-title" className="text-base font-semibold text-foreground">Properties</h2>
               <button
                 onClick={() => setMobileOpen(false)}
                 aria-label="Close"
