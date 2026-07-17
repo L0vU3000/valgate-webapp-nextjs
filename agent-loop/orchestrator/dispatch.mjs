@@ -21,7 +21,7 @@
 //                                                        # finalize a run: move + changelog
 
 import { existsSync, readFileSync, readdirSync, renameSync, mkdirSync, appendFileSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { validatePipelineRegistry } from '../scripts/check-pipeline-registry.mjs'
@@ -128,6 +128,14 @@ export function planDispatch(agentLoopRoot = DEFAULT_AGENT_LOOP_ROOT) {
 export function recordOutcome(agentLoopRoot, file, outcome, summary = '') {
   if (outcome !== 'pass' && outcome !== 'fail') {
     throw new Error(`outcome must be "pass" or "fail", got "${outcome}"`)
+  }
+
+  // `file` is an untrusted CLI argument that we join into paths and rename. An inbox item is
+  // always a plain filename directly under inbox/ (e.g. "10-lint-normal.md"), so anything with a
+  // directory part or "../" segment is either a bug or a traversal attempt — reject it before it
+  // can move a file outside the inbox.
+  if (file !== basename(file) || file === '.' || file === '..') {
+    throw new Error(`inbox item must be a plain filename, got "${file}"`)
   }
 
   const inboxDirectory = join(agentLoopRoot, 'orchestrator', 'inbox')

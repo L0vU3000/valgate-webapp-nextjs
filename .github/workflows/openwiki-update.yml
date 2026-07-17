@@ -22,7 +22,10 @@ jobs:
           node-version: "22"
 
       - name: Install OpenWiki
-        run: npm install --global openwiki
+        # Pin the version: this job holds contents:write + pull-requests:write and the
+        # OpenRouter/LangSmith secrets, so a compromised or breaking new release must not
+        # run automatically. Bump deliberately when adopting a new OpenWiki version.
+        run: npm install --global openwiki@0.2.0
 
       - name: Run OpenWiki
         run: openwiki code --update --print

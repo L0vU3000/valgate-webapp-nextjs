@@ -91,6 +91,16 @@ test('dispatcher routes valid items, rejects mismatches, orders by priority, rec
     const afterPlan = planDispatch(fixtureRoot)
     assert.equal(afterPlan.routable.length, 1, 'the recorded item is no longer pending')
     assert.equal(afterPlan.routable[0].file, '05-e2e-high.md')
+
+    // Security: a file argument with a directory part or "../" must be rejected before it can
+    // rename a file outside the inbox (path traversal).
+    for (const evil of ['../escape.md', 'sub/dir.md', '..', '/etc/passwd']) {
+      assert.throws(
+        () => recordOutcome(fixtureRoot, evil, 'pass'),
+        /plain filename/,
+        `traversal filename must be rejected: ${evil}`,
+      )
+    }
   } finally {
     rmSync(fixtureRoot, { force: true, recursive: true })
   }

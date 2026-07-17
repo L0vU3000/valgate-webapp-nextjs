@@ -1,11 +1,13 @@
-// GOAL (C9): the live schema matches the B1 spec — 34 tables, org_id on every domain
+// GOAL (C9): the live schema matches the B1 spec — 42 tables, org_id on every domain
 // table, all enum types present, FKs wired. Exits non-zero on any mismatch.
 import { db } from "@/lib/db/client";
 import { sql } from "drizzle-orm";
 
-const EXPECTED_TABLES = 35;
+// 42 base tables in the public schema, matching lib/db/schema/*. Bump this in the same
+// change that adds or drops a table so the assert stays an honest spec guard.
+const EXPECTED_TABLES = 42;
 const EXPECTED_ENUMS = 38;
-// 27 domain tables (all carry org_id NOT NULL per C3/D14) — the universal-org_id check.
+// 28 domain tables (all carry org_id NOT NULL per C3/D14) — the universal-org_id check.
 const DOMAIN_TABLES = [
   "properties", "land_parcels", "property_valuations",
   "tenants", "leases", "payments", "expenses",
