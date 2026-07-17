@@ -176,6 +176,11 @@ if [ -f "$improve_workflow" ]; then
   grep -q 'memory#' "$improve_workflow" \
     && good "pipeline-improve: failure memory path present" \
     || bad "pipeline-improve: failure memory path missing"
+  grep -q 'GATE RUNNER' "$improve_workflow" \
+    && grep -q 'evalCorroborates' "$improve_workflow" \
+    && grep -q 'objectiveGreen' "$improve_workflow" \
+    && good "pipeline-improve: independent gate runner corroborates the objective gates" \
+    || bad "pipeline-improve: eval-gate corroboration missing"
   if grep -q 'training-off' "$improve_workflow"; then
     bad "pipeline-improve: training mode can be disabled"
   else

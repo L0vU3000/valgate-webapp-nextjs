@@ -40,7 +40,10 @@ A run passes only when all checks are true:
 4. A fresh verifier proves the focused check fails on the controlled old/drifted condition and
    passes on the corrected condition.
 5. `bash agent-loop/scripts/check-machinery.sh`, `npx vitest run`, `npx tsc --noEmit`, and
-   `npx eslint app lib components` all retain or improve their starting health.
+   `npx eslint app lib components` all retain or improve their starting health — confirmed by an
+   independent gate-runner agent (separate from the rubric verifier), with ESLint measured against
+   Explore's pre-change baseline. The rubric verifier's self-report of these gates must match the
+   gate runner; a mismatch fails the run.
 6. No Eval check, regression gate, approval gate, database guardrail, or maker/verifier split
    is removed, skipped, relaxed, or made optional.
 
@@ -50,7 +53,12 @@ This pipeline uses a **focused regression fixture plus full machinery and reposi
 The focused fixture reproduces the selected machinery failure without editing the live
 worktree, then proves the new protection rejects that failure and accepts the valid state.
 The separate verifier inspects the diff and reruns the commands; the maker's report cannot
-serve as the verdict.
+serve as the verdict. Because `workflow.js` runs in the Workflow sandbox and cannot run shell
+commands itself, the objective gates are executed by a third agent — a mechanical gate runner
+with no rubric role — and the run passes only when the gate runner is green *and* the rubric
+verifier's independent self-report of those same gates matches it. This corroboration is the
+strongest fail-closed check available until a dispatcher can run the gates deterministically
+outside the sandbox.
 
 For the first proof, the selected weakness is pipeline-registry drift. Pipeline frontmatter
 is the canonical routing metadata, while `categories.md`, `pipelines/README.md`, and the

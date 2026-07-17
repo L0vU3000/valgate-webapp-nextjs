@@ -58,7 +58,7 @@ const EVIDENCE_HINT = RAW_ARGS.replace(/\s*--provider=\S+/, '').trim()
 
 const EXPLORATION = {
   type: 'object',
-  required: ['selected', 'runId', 'candidateId', 'improvement', 'focusedCommand', 'attempts', 'lastFailure', 'repeatCount'],
+  required: ['selected', 'runId', 'candidateId', 'improvement', 'focusedCommand', 'attempts', 'lastFailure', 'repeatCount', 'eslintBaseline'],
   properties: {
     selected: { type: 'boolean' },
     runId: { type: 'string' },
@@ -68,6 +68,9 @@ const EXPLORATION = {
     attempts: { type: 'number' },
     lastFailure: { type: 'string' },
     repeatCount: { type: 'number' },
+    // Independent ESLint warning baseline, captured before any change — so the "ESLint did not
+    // regress" gate compares against Explore's number, never a figure the verifier can inflate.
+    eslintBaseline: { type: 'number' },
     reason: { type: 'string' },
   },
 }
@@ -118,6 +121,23 @@ const VERDICT = {
   },
 }
 
+// Second, independent source for the objective gates. workflow.js runs in the Workflow sandbox
+// (no shell), so it cannot run the commands itself — the closest enforceable design is a separate
+// agent whose ONLY job is to run them and report raw results, then fail the run on any mismatch
+// with the Eval agent's self-report (fail-closed corroboration, not single-source trust).
+const GATES = {
+  type: 'object',
+  required: ['machineryPasses', 'vitestPassed', 'vitestTotal', 'tscErrors', 'eslintCount'],
+  properties: {
+    machineryPasses: { type: 'boolean' },
+    vitestPassed: { type: 'number' },
+    vitestTotal: { type: 'number' },
+    tscErrors: { type: 'number' },
+    eslintCount: { type: 'number' },
+    evidence: { type: 'string' },
+  },
+}
+
 if (PLAN_APPROVED && !RESUME_RUN) {
   log('STOP: --approved-plan requires --resume=<run-id> from the matching Plan.')
   return { improved: false, reason: 'approval has no prior run' }
@@ -132,13 +152,15 @@ const exploration = await agent(
     ? `You are the read-only EXPLORE checkpoint resuming pipeline-improve run ${RESUME_RUN}.
        Follow ${P}/explore.md. Read the existing run notes and latest eval only. Return the
        stored candidate, focused command, completed attempt count, last failure signature,
-       and repeat count. Use runId ${RESUME_RUN}; do not edit tracked files or mint a new run-id.`
+       repeat count, and the eslintBaseline recorded in explore.md. Use runId ${RESUME_RUN};
+       do not edit tracked files or mint a new run-id.`
     : `You are the read-only EXPLORE stage of pipeline-improve. Follow ${P}/explore.md.
        Evidence hint: ${EVIDENCE_HINT || '(none; rank memory and recent run evidence)'}.
        Read agent-loop memory and recent eval evidence. Select exactly one reproducible
-       machinery weakness. Mint one shared run-id with \`date "+%Y-%m-%d-%H%M%S"\`, create
-       ${P}/runs/<run-id>, and write explore.md only. Return selected, runId, candidateId,
-       improvement, focusedCommand, attempts=0, lastFailure='', repeatCount=0, and reason.`,
+       machinery weakness. Capture the starting ESLint warning count for \`app lib components\`.
+       Mint one shared run-id with \`date "+%Y-%m-%d-%H%M%S"\`, create ${P}/runs/<run-id>, and
+       write explore.md only. Return selected, runId, candidateId, improvement, focusedCommand,
+       attempts=0, lastFailure='', repeatCount=0, eslintBaseline, and reason.`,
   { label: 'explore', schema: EXPLORATION, ...TIER.read },
 )
 
@@ -209,6 +231,40 @@ const verdict = await agent(
   { label: `eval#${attempt}`, phase: 'Improve and verify', schema: VERDICT, ...TIER.verify },
 )
 
+// Independent gate runner — a THIRD agent (separate from maker and rubric-verifier) that only
+// runs the four objective commands and reports raw results. The verdict below trusts THESE
+// numbers for the mechanical gates, and separately requires the Eval agent's self-report to
+// agree with them; a disagreement means one agent did not actually run the gate, so we fail.
+recordAgentCall()
+const gates = await agent(
+  `You are the GATE RUNNER for pipeline-improve run ${RUN}, attempt ${attempt} — a mechanical
+   executor, not a judge. From the repo root run these EXACT commands and report only what they
+   produce. Make no rubric judgment and edit nothing:
+     1. bash agent-loop/scripts/check-machinery.sh   → machineryPasses = every line ok and exit 0
+     2. npx vitest run                                → vitestPassed / vitestTotal
+     3. npx tsc --noEmit                              → tscErrors = error count (0 if clean)
+     4. npx eslint app lib components                 → eslintCount = total warnings + errors
+   Return machineryPasses, vitestPassed, vitestTotal, tscErrors, eslintCount, and the raw
+   command evidence. You are an independent second source; do not read the Eval agent's notes.`,
+  { label: `gates#${attempt}`, phase: 'Improve and verify', schema: GATES, ...TIER.verify },
+)
+
+// Objective gates — sourced from the independent gate runner, not the rubric verifier. ESLint is
+// compared against Explore's pre-change baseline so the count can't be quietly rebased.
+const objectiveGreen = gates.machineryPasses
+  && gates.tscErrors === 0
+  && gates.vitestTotal > 0
+  && gates.vitestPassed === gates.vitestTotal
+  && gates.eslintCount <= exploration.eslintBaseline
+
+// Corroboration — the Eval agent independently ran the same gates; its self-report must match the
+// gate runner. A mismatch is fail-closed: it means at least one of them did not really run them.
+const evalCorroborates = verdict.machineryPasses === gates.machineryPasses
+  && verdict.tscErrors === gates.tscErrors
+  && verdict.suiteGreen === (gates.vitestPassed === gates.vitestTotal)
+
+// Judgment gates stay with the rubric verifier — score, criticality, scope, the focused
+// red→green proof, and that no guard was weakened.
 const allChecksPass = verdict.verdict === 'pass'
   && verdict.rubricValid
   && verdict.passThreshold === plan.passThreshold
@@ -216,18 +272,20 @@ const allChecksPass = verdict.verdict === 'pass'
   && verdict.criticalFailures === 0
   && verdict.improvementCount === 1
   && verdict.focusedRedGreen
-  && verdict.machineryPasses
-  && verdict.suiteGreen
-  && verdict.tscErrors === 0
-  && verdict.eslintCurrent <= verdict.eslintStart
   && verdict.guardsPreserved
+  && objectiveGreen
+  && evalCorroborates
 
 if (allChecksPass) {
-  log(`DONE: ${exploration.candidateId} passed independent verification.`)
+  log(`DONE: ${exploration.candidateId} passed independent verification and gate corroboration.`)
   return { improved: true, improvement: exploration.improvement, attempts: attempt, runId: RUN }
 }
 
-const failure = `score ${verdict.score}/${plan.passThreshold}, critical failures ${verdict.criticalFailures}: ${verdict.reason || verdict.evidence || 'verification failed'}`
+const gateSummary = `gates[machinery ${gates.machineryPasses ? 'ok' : 'FAIL'}, `
+  + `vitest ${gates.vitestPassed}/${gates.vitestTotal}, tsc ${gates.tscErrors}, `
+  + `eslint ${gates.eslintCount}/${exploration.eslintBaseline}]${evalCorroborates ? '' : ' EVAL↔GATE MISMATCH'}`
+const failure = `score ${verdict.score}/${plan.passThreshold}, critical failures ${verdict.criticalFailures}, `
+  + `${gateSummary}: ${verdict.reason || verdict.evidence || 'verification failed'}`
 const repeatCount = failure === exploration.lastFailure ? exploration.repeatCount + 1 : 1
 
 if (!callBudgetAvailable()) {

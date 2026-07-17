@@ -22,7 +22,9 @@ only write is `runs/<run-id>/explore.md`.
    - source evidence and recent-run evidence;
    - missing-protection reproduction and command output;
    - exact focused red-to-green signal;
-   - starting global baselines;
+   - starting global baselines, including the exact ESLint warning count returned as
+     `eslintBaseline` (the independent gate runner in Eval compares against this number, so it
+     must be the true pre-change count);
    - attempt count, last failure signature, and repeat count.
 
 ## Refuse fast
