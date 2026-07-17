@@ -10,6 +10,9 @@ is the curated view.
 ---
 
 ## Unreleased
+- **agent-loop:** completed the scheduled-orchestrator machinery — per-tick heartbeat + dashboard
+  liveness line, a half-open improvement digest that ranks the metrics ledger into one backlog, and
+  a work-item gate reusing the router's own parser + registry. Added the `/orchestrate` door.
 - **agent-loop:** completed the delivery library with approval-gated `landing`, `deploy`, `canary`,
   and `release` wrappers around installed delivery capabilities; all await genuine work before proof.
 - **agent-loop:** completed the maintenance library with approval-gated dependency and performance
