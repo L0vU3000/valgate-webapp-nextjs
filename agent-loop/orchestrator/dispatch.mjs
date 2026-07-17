@@ -134,7 +134,7 @@ export function recordOutcome(agentLoopRoot, file, outcome, summary = '') {
   // always a plain filename directly under inbox/ (e.g. "10-lint-normal.md"), so anything with a
   // directory part or "../" segment is either a bug or a traversal attempt — reject it before it
   // can move a file outside the inbox.
-  if (file !== basename(file) || file === '.' || file === '..') {
+  if (!file || file !== basename(file) || file === '.' || file === '..') {
     throw new Error(`inbox item must be a plain filename, got "${file}"`)
   }
 

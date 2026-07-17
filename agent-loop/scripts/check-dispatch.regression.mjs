@@ -94,7 +94,7 @@ test('dispatcher routes valid items, rejects mismatches, orders by priority, rec
 
     // Security: a file argument with a directory part or "../" must be rejected before it can
     // rename a file outside the inbox (path traversal).
-    for (const evil of ['../escape.md', 'sub/dir.md', '..', '/etc/passwd']) {
+    for (const evil of ['../escape.md', 'sub/dir.md', '..', '/etc/passwd', '']) {
       assert.throws(
         () => recordOutcome(fixtureRoot, evil, 'pass'),
         /plain filename/,
