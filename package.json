@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "postinstall": "fumadocs-mdx",
     "dev": "next dev --turbopack -H 0.0.0.0 -p 3001",
     "dev:e2e": "DEMO_MODE=true DEMO_ALLOW_WRITES=true NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY= CLERK_SECRET_KEY=sk_test_placeholder SITE_PASSWORD= next dev --turbopack -H 0.0.0.0 -p 3001",
     "dev:tunnel": "npx --yes cloudflared@latest tunnel --url http://127.0.0.1:3001",
