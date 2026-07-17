@@ -86,3 +86,9 @@ agent-loop/pipelines/*/runs/
 
 # agent-loop: dashboard is a generated live view (regenerated from state)
 agent-loop/dashboard.md
+
+# agent-loop: orchestrator poll-loop heartbeat (transient liveness stamp)
+agent-loop/orchestrator/.heartbeat
+
+# agent-loop: improvement backlog is a generated snapshot (regenerated each tick)
+agent-loop/memory/improvement-candidates.md

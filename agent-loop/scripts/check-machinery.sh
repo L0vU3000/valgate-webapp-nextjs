@@ -108,6 +108,26 @@ else
   node --test scripts/check-eval-scoring.regression.mjs 2>&1 | sed 's/^/      /' || true
 fi
 
+# The improvement digest projects the metrics ledger + eval scorecards into a ranked backlog —
+# the monitoring half of the feedback loop. It must rank real failures above cheap signals and
+# never flag a normal approval-gated pause.
+if node --test scripts/check-improvement-digest.regression.mjs > /dev/null; then
+  good "improvement digest ranks weaknesses and ignores approval pauses"
+else
+  bad "improvement digest regression check failed"
+  node --test scripts/check-improvement-digest.regression.mjs 2>&1 | sed 's/^/      /' || true
+fi
+
+# The work-item checker gates chat-drafted tasks before they reach the router. It must accept a
+# well-formed item and reject every under-specified one (bad type, mismatched category, no Done
+# line) using the SAME registry + frontmatter parser the router uses.
+if node --test scripts/check-work-item.regression.mjs > /dev/null; then
+  good "work-item checker accepts valid tasks and rejects under-specified ones"
+else
+  bad "work-item checker regression check failed"
+  node --test scripts/check-work-item.regression.mjs 2>&1 | sed 's/^/      /' || true
+fi
+
 # entity-scaffold is allowed to touch a development database, so its two approval gates are
 # load-bearing. Keep a small static regression check until its first real run adds stronger
 # runtime evidence.

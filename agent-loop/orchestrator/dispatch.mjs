@@ -34,8 +34,9 @@ const PRIORITY_RANK = { high: 0, normal: 1, low: 2 }
 
 // A work item's frontmatter is a small subset — never require a `name` (that is a pipeline
 // concept, not an inbox concept). Missing or malformed frontmatter is a validation result,
-// not a crash.
-function parseItemFrontmatter(markdown) {
+// not a crash. Exported so the work-item checker validates against the SAME parser the router
+// uses — one source of truth, no drift.
+export function parseItemFrontmatter(markdown) {
   const match = markdown.match(/^---\n([\s\S]*?)\n---/)
   if (!match) {
     return null

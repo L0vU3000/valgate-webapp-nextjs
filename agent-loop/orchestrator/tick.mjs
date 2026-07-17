@@ -13,6 +13,7 @@
 // the agent runs this tick, does the printed Workflow calls, then records each outcome.
 
 import { execFileSync } from 'node:child_process'
+import { writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -21,9 +22,29 @@ import { planDispatch } from './dispatch.mjs'
 const SCRIPT_DIRECTORY = dirname(fileURLToPath(import.meta.url))
 const AGENT_LOOP_ROOT = resolve(SCRIPT_DIRECTORY, '..')
 
+// Heartbeat: stamp every tick so the dashboard can show whether the poll loop is alive. The loop
+// is session-only, so nothing else on disk knows it is running — "when did it last tick" is the
+// honest signal (it reflects a real run, not just a registered schedule).
+function stampHeartbeat() {
+  const now = new Date()
+  const epochSeconds = Math.floor(now.getTime() / 1000)
+  writeFileSync(join(AGENT_LOOP_ROOT, 'orchestrator', '.heartbeat'), `${epochSeconds}\n${now.toISOString()}\n`)
+}
+
 function refreshDashboard() {
   try {
     execFileSync('bash', [join(AGENT_LOOP_ROOT, 'scripts', 'update-dashboard.sh')], { stdio: 'ignore' })
+    return true
+  } catch {
+    return false
+  }
+}
+
+// Half-open feedback loop: refresh the improvement backlog from the metrics ledger + eval
+// scorecards each tick. It only surfaces the signal — it never triggers a fix.
+function refreshImprovementDigest() {
+  try {
+    execFileSync('node', [join(AGENT_LOOP_ROOT, 'orchestrator', 'improvement-digest.mjs')], { stdio: 'ignore' })
     return true
   } catch {
     return false
@@ -39,10 +60,13 @@ if (!plan.registryOk) {
   process.stderr.write('tick: registry broken — not routing this tick\n')
   process.exitCode = 1
 } else {
+  stampHeartbeat()
   const board = refreshDashboard()
+  const digest = refreshImprovementDigest()
   process.stdout.write(
     `tick: ${plan.routable.length} routable, ${plan.invalid.length} invalid, `
-    + `board ${board ? 'refreshed' : 'refresh FAILED'}\n`,
+    + `board ${board ? 'refreshed' : 'refresh FAILED'}, `
+    + `improvement backlog ${digest ? 'refreshed' : 'refresh FAILED'}\n`,
   )
 
   for (const item of plan.invalid) {

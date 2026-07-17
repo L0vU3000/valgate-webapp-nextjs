@@ -17,6 +17,28 @@ NOW=$(date "+%Y-%m-%d %H:%M")
   echo "> Last updated: **$NOW**"
   echo
 
+  # --- Orchestrator poll loop: alive or not? -------------------------------------
+  # The tick stamps orchestrator/.heartbeat every run. Fresh stamp = the /loop poll is
+  # running; a stale or missing stamp = nobody is checking the inbox right now.
+  echo "## 🫀 Orchestrator loop"
+  ACTIVE_WITHIN=3900   # 65 min — a 30-min /loop plus scheduler jitter still reads as active
+  if [ -f orchestrator/.heartbeat ]; then
+    hb=$(head -1 orchestrator/.heartbeat)
+    age=$(( $(date +%s) - hb ))
+    if   [ "$age" -lt 90 ];   then ago="just now"
+    elif [ "$age" -lt 3600 ]; then ago="$((age / 60))m ago"
+    else                           ago="$((age / 3600))h $(((age % 3600) / 60))m ago"
+    fi
+    if [ "$age" -lt "$ACTIVE_WITHIN" ]; then
+      echo "- 🟢 **active** — last tick $ago"
+    else
+      echo "- ⚪ **idle** — last tick $ago (the \`/loop /orchestrate\` poll is not running)"
+    fi
+  else
+    echo "- ⚪ **never run** — start it with \`/loop 30m /orchestrate\`"
+  fi
+  echo
+
   # --- Running: a run folder that has started but has no eval verdict yet ---
   echo "## 🔄 Running"
   running=0
