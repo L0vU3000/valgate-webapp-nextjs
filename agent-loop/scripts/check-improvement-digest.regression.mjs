@@ -51,6 +51,34 @@ test('runCandidates flags failures but not approval-gated pauses', () => {
   assert.equal(candidates[0].severity, 100)
 })
 
+test('runCandidates distinguishes a 0-stage machinery startup crash from a modeling failure', () => {
+  // Both rows are real ledger instances of the same shape (0 agents, 0 stages, sub-second, 0
+  // tokens, status "failed") but from different pipelines on different days — the fix must key on
+  // that SHAPE, not on either literal runId or pipeline name.
+  const crashes = [
+    { pipeline: 'entity-scaffold', runId: 'wf_62308c33-024', status: 'failed', agentCount: 0, stages: [], durationMs: 8, totalTokens: 0, iterations: 0 },
+    { pipeline: 'pipeline-improve', runId: 'wf_550ba196-c2f', status: 'failed', agentCount: 0, stages: [], durationMs: 10, totalTokens: 0, iterations: 0 },
+  ]
+  for (const crash of crashes) {
+    const candidate = runCandidates([crash])[0]
+    assert.ok(candidate, `${crash.runId} must surface as a candidate`)
+    assert.equal(candidate.severity, 100, `${crash.runId} must rank at the hard-failure floor, not below`)
+    assert.match(
+      candidate.what,
+      /startup crash|before any agent ran|0 stages/i,
+      `${crash.runId} must read as a distinguishable startup crash, not the generic modeling failure`,
+    )
+  }
+
+  // A genuine hard failure that ran stages and burned tokens must still read the generic message —
+  // proving the fix keys on the crash shape, not on relabeling every failed run.
+  const hardFailure = runCandidates([
+    { pipeline: 'feature', runId: 'wf_real_fail', status: 'failed', agentCount: 2, stages: [{}, {}], durationMs: 640000, totalTokens: 190000, iterations: 0 },
+  ])[0]
+  assert.equal(hardFailure.severity, 100)
+  assert.equal(hardFailure.what, 'run failed (status: failed)')
+})
+
 test('runCandidates flags a cost outlier once a pipeline has enough runs', () => {
   const runs = [
     { pipeline: 'lint', runId: 'a', status: 'completed', agentCount: 3, stages: [{}], durationMs: 5000, totalTokens: 100, iterations: 1 },

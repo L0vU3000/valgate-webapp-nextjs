@@ -98,10 +98,21 @@ export function runCandidates(runs) {
     const reasons = []
     let severity = 0
 
+    // A machinery startup crash — 0 agents, 0 stages, sub-second — always records status "failed"
+    // (the Workflow runtime marks a load-time throw failed, not completed). Key on that SHAPE so it
+    // reads distinctly from a real modeling failure that burned tokens and ran stages, rather than
+    // vanishing into the generic "run failed" message. Checked independently of the status branch.
+    const looksLikeStartupCrash =
+      (run.agentCount || 0) === 0 && (run.stages || []).length === 0 && (run.durationMs || 0) < 1000
+
     if (run.status === 'failed') {
       severity = Math.max(severity, 100)
-      reasons.push('run failed (status: failed)')
-    } else if ((run.agentCount || 0) === 0 && (run.stages || []).length === 0 && (run.durationMs || 0) < 1000) {
+      if (looksLikeStartupCrash) {
+        reasons.push('machinery startup crash — 0 stages ran before any agent started')
+      } else {
+        reasons.push('run failed (status: failed)')
+      }
+    } else if (looksLikeStartupCrash) {
       // finished "completed" but did no work — an abort before the first stage.
       severity = Math.max(severity, 70)
       reasons.push('run aborted before doing any work')
