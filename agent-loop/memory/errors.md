@@ -18,6 +18,34 @@ Template:
   pre-existing green signals, not just its own target metric.
 -->
 
+## [2026-07-18] e2e-regression Eval failed a "zero-diff verification-only" run on disposition drift
+- **Symptom:** run `2026-07-18-194309`'s Plan/Execute claimed nothing needed fixing (Explore's
+  single run was `25 passed · 18 skipped · 0 failed`, execute made zero diffs). Eval's own two
+  independent fresh runs were both green (`26 passed · 17 skipped`, `unexpected:0, flaky:0`
+  both times, byte-identical to each other) but disagreed with Explore's skip count: 18 → 17.
+- **Cause:** `e2e/property-tabs.spec.ts` `D5` ("Rental — edit → save") is a *dynamic, in-test*
+  `test.skip(true, 'Rental tab has no edit mode or is not yet wired')`, gated on an 8s
+  visibility wait for an Edit button — not a static `test.skip('name', fn)` declaration and not
+  a genuine cross-spec ordering guard. Explore's disposition table lumped it in with the 13
+  "ordering guard" skips (specs needing state left behind by an earlier spec in the same serial
+  session) without distinguishing that a *timing-dependent* in-test skip can flip outcome
+  run-to-run for reasons unrelated to spec ordering. Explore also mis-labeled two adjacent
+  entries (`D3`, `D6`) as ordering guards when they are actually permanent, unconditional
+  `test.skip('name', fn)` declarations (`// unbuilt at audit time`) — those didn't drift, but
+  the mislabeling shows the disposition table's category boundaries weren't verified against
+  the actual spec source.
+- **Fix:** none applied — Eval does not fix, it returns to Plan. The locked rubric's C2
+  ("skip count drift ... → 0 pts AND critical failure") caught this correctly; score 80/100
+  against a 90 threshold, 1 critical failure, `next: return-to-plan`.
+- **Prevention:** a "verification-only, zero-diff" Explore/Plan pass is not a rubber stamp —
+  Eval must always re-derive the disposition table from its *own* fresh runs (never trust a
+  single upstream run's skip classification at face value), and future Explore stages should
+  split "skip" into three distinct categories when building a disposition table: (a) static/
+  permanent `test.skip('name', fn)`, (b) dynamic in-test `test.skip(cond, reason)` gated on
+  runtime UI state (timing-sensitive, prone to silent drift), and (c) genuine cross-spec
+  ordering guards (depend on state left by an earlier spec in the same serial session). Only
+  category (b) is the drift-prone one this run exposed.
+
 ## [2026-07-16] entity-scaffold nearly scaffolded a duplicate of a live entity
 - **Symptom:** a `valuations` entity ticket — approved to "fill the Valuation Progress pillar,
   which has no backing table" — reached Explore before it surfaced that the pillar is already

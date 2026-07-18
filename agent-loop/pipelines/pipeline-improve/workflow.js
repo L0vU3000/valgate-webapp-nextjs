@@ -11,10 +11,11 @@ export const meta = {
 const P = 'agent-loop/pipelines/pipeline-improve'
 const RAW_ARGS = args || ''
 const MAX_ATTEMPTS = 3
-const MAX_RUNTIME_MS = 45 * 60 * 1000
 const MAX_AGENT_CALLS = 8
 const TOKEN_CEILING = 45000
-const STARTED_AT = Date.now()
+// ponytail: the Workflow runtime bans Date.now()/new Date() (they break resume) and exposes no
+// clock, so the 45-minute wall-clock window is not implementable here. pipeline.md's agent-call
+// cap is the enforceable local proxy, joined by the runtime's real token budget.
 
 let agentCalls = 0
 
@@ -28,9 +29,12 @@ function optionValue(prefix) {
 }
 
 function callBudgetAvailable() {
-  const withinRuntime = Date.now() - STARTED_AT < MAX_RUNTIME_MS
   const withinCallCount = agentCalls < MAX_AGENT_CALLS
-  return withinRuntime && withinCallCount
+  // budget.total is null unless the caller set a token target; then remaining() is Infinity and
+  // this term is a no-op. When a target is set, respect the declared token ceiling too.
+  const declaredCeiling = Math.min(TOKEN_CEILING, budget.total || TOKEN_CEILING)
+  const withinTokens = !budget.total || budget.spent() < declaredCeiling
+  return withinCallCount && withinTokens
 }
 
 function recordAgentCall() {
@@ -143,7 +147,7 @@ if (PLAN_APPROVED && !RESUME_RUN) {
   return { improved: false, reason: 'approval has no prior run' }
 }
 
-log(`bounds: ${MAX_ATTEMPTS} attempts · ${MAX_RUNTIME_MS / 60000} minutes · ${MAX_AGENT_CALLS} agent calls · ${TOKEN_CEILING} declared tokens`)
+log(`bounds: ${MAX_ATTEMPTS} attempts · ${MAX_AGENT_CALLS} agent calls · ${TOKEN_CEILING} declared tokens`)
 
 phase('Select and plan')
 recordAgentCall()

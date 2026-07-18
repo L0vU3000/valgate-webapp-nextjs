@@ -194,10 +194,10 @@ if [ -f "$improve_workflow" ]; then
     && good "pipeline-improve: maker and verifier models differ" \
     || bad "pipeline-improve: maker/verifier model split missing"
   grep -q 'MAX_ATTEMPTS' "$improve_workflow" \
-    && grep -q 'MAX_RUNTIME_MS' "$improve_workflow" \
     && grep -q 'MAX_AGENT_CALLS' "$improve_workflow" \
+    && grep -q 'TOKEN_CEILING' "$improve_workflow" \
     && grep -q 'repeatCount >= 2' "$improve_workflow" \
-    && good "pipeline-improve: attempt, runtime, call, and no-progress bounds present" \
+    && good "pipeline-improve: attempt, call, token, and no-progress bounds present" \
     || bad "pipeline-improve: executable bounds are incomplete"
   grep -q 'memory#' "$improve_workflow" \
     && good "pipeline-improve: failure memory path present" \

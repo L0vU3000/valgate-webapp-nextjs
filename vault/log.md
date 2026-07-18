@@ -143,3 +143,20 @@ agent-loop pipelines. Both remain approval-gated and await genuine work before p
 Registered `landing`, `deploy`, `canary`, and `release` as risk-separated wrappers around installed
 delivery skills. Added [[delivery-pipelines-wrap-installed-capabilities]] and kept every live action
 behind explicit approval; all four await genuine work before proof.
+
+## [2026-07-18] decision | Consumer release plan authored
+Captured the single-owner, no-bug launch plan (6 phases: Pro teardown → known bugs →
+product polish → data correctness → security → no-bug gate → prod ops) in
+[[consumer-release-plan]]. Pro side is being removed entirely; iOS track planned
+separately (Capacitor-wrap recommended).
+
+## [2026-07-19] blocked | First supervised agent-loop shakedown halted at preflight
+Machinery was RED at the door — `check-machinery.sh` → `FAIL pipeline-improve: executable
+bounds are incomplete`, not the "all good" the brief assumed. Cause: an uncommitted edit to
+`pipelines/pipeline-improve/workflow.js` removed `MAX_RUNTIME_MS` (Workflow runtime bans
+`Date.now()`), but `check-machinery.sh:197` still greps for that literal token. Check and
+workflow are out of sync — a real machinery bug, so the run stopped per the shakedown rule.
+Also: the brief's inbox picture was stale — the documents-bulk-delete-bar item already ran
+(wf_752f0da4) and FAILED eval (80/90, critical anti-drift: property-tabs D5 skip→pass), now in
+`inbox/failed/`; only `feature-unlock-wizard` is genuinely queued. Wrote
+[[agent-loop-operator-preflight]] — the checklist that catches exactly this.
