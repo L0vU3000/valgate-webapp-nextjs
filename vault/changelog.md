@@ -10,6 +10,11 @@ is the curated view.
 ---
 
 ## Unreleased
+- **agent-loop:** the Plan-authored eval rubric is now history-aware — Plan reads `errors.md` +
+  recent eval failures into a "Prior failures reviewed" line and carries recurring ones forward
+  (critical for safety/regression misses), and each failure must leave a durable regression check.
+  A per-run rubric now stands on every past failure and grows a real-failure eval set. In the
+  shared `EVAL.md`, so it covers all pipelines at once.
 - **agent-loop:** the record doorway (`dispatch.mjs --record`) now re-verifies a claimed pass —
   a code-changing pipeline's pass is re-run through the fast objective gates (`check-machinery` +
   `tsc`) and downgraded to fail if they don't hold. One check for all 12 pipelines; only ever
