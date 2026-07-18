@@ -10,6 +10,13 @@ is the curated view.
 ---
 
 ## Unreleased
+- **agent-loop:** the record doorway (`dispatch.mjs --record`) now re-verifies a claimed pass —
+  a code-changing pipeline's pass is re-run through the fast objective gates (`check-machinery` +
+  `tsc`) and downgraded to fail if they don't hold. One check for all 12 pipelines; only ever
+  makes a verdict stricter. Follows the pipeline-improve eval hardening.
+- **agent-loop:** hardened pipeline-improve's Eval with an independent gate runner that
+  corroborates the objective gates (machinery/tsc/vitest/eslint) instead of trusting the verifier's
+  self-report; ESLint measured against Explore's baseline.
 - **agent-loop:** completed the scheduled-orchestrator machinery — per-tick heartbeat + dashboard
   liveness line, a half-open improvement digest that ranks the metrics ledger into one backlog, and
   a work-item gate reusing the router's own parser + registry. Added the `/orchestrate` door.
