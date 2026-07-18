@@ -20,6 +20,7 @@ Every `runs/<run-id>/plan.md` must contain this table:
 ## Eval rubric
 
 Pass threshold: 85/100
+Prior failures reviewed: <errors.md entry ids + recent eval ids carried forward, or "none relevant — <reason>">
 
 | Criterion | Weight | Critical? | Evidence | Full-credit rule | Partial-credit rule |
 |---|---:|:---:|---|---|---|
@@ -43,6 +44,13 @@ Rubric rules:
    the implementation plan, but changing the rubric requires explicit human approval.
 9. Plan hashes the exact `## Eval rubric` section with SHA-256 and returns that fingerprint to the
    workflow. Retries must return the same fingerprint unless a human approves a rubric change.
+10. **History-aware — a known failure is never silently dropped.** Before authoring the rubric,
+    Plan reads [`../memory/errors.md`](../memory/errors.md) and the most recent eval failures for
+    this pipeline's `type`, and fills the `Prior failures reviewed` line naming what it checked and
+    what it carried forward (or `none relevant` with a one-line reason — the human approver sees
+    this). Any past failure that could recur in this task becomes a criterion, marked **critical**
+    when the original miss was a safety, regression, authorization, data, or anti-gaming failure.
+    The fresh rubric is task-specific *and* stands on every past failure.
 
 ## How Eval scores
 
@@ -107,3 +115,11 @@ the loop exits.
 5. A fresh Eval agent scores the complete rubric again; points do not carry across attempts.
 6. The pipeline stops for human review when it reaches its attempt bound, repeats the same
    failure without progress, or needs a rubric change.
+
+**Durable artifact — the eval set grows from real failures.** Where a failed (or newly fixed)
+criterion is objectively checkable, the fix must leave a **permanent regression check** in the
+repo — a test, fixture, or machinery assertion — not only an `errors.md` note. `errors.md` holds
+the lesson; the persisted check is the enforcement, re-run by every future objective gate (and by
+the record doorway). This is how a Plan-authored, per-run rubric still accumulates a growing set of
+real-failure cases instead of resetting each run: rule 10 pulls that history *into* the next rubric,
+and this rule pushes each failure *out* into a durable check.

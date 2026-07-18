@@ -123,6 +123,17 @@ else
   node --test scripts/check-eval-scoring.regression.mjs 2>&1 | sed 's/^/      /' || true
 fi
 
+# The scoring contract must stay history-aware: Plan reads past failures into each fresh rubric
+# (rule 10 + the "Prior failures reviewed" line), and each failure leaves a durable regression
+# check. These two rules are what let a per-run rubric still grow from real failures.
+if grep -q 'Prior failures reviewed' pipelines/EVAL.md \
+  && grep -q 'History-aware' pipelines/EVAL.md \
+  && grep -q 'Durable artifact' pipelines/EVAL.md; then
+  good "Eval contract is history-aware (carries prior failures forward + leaves a durable check)"
+else
+  bad "Eval contract lost its history-aware rules (rule 10 / Prior failures reviewed / Durable artifact)"
+fi
+
 # The improvement digest projects the metrics ledger + eval scorecards into a ranked backlog —
 # the monitoring half of the feedback loop. It must rank real failures above cheap signals and
 # never flag a normal approval-gated pause.
