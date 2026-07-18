@@ -132,7 +132,15 @@ What it does each tick:
 4. Emits the dispatch plan in priority order (`high` → `normal` → `low`): item → pipeline →
    `workflow.js`.
 5. `--record` moves a finished item into `done/` or `failed/` and appends the outcome to
-   `dispatch-log.md` (the bookkeeping half of steps e–f above).
+   `dispatch-log.md` (the bookkeeping half of steps e–f above). A claimed **`pass`** on a
+   code-changing pipeline (`building` / `testing` / `maintenance`) is **re-verified here** before
+   it is trusted: the doorway re-runs the fast objective gates (`check-machinery.sh` + `tsc`) and
+   downgrades the record to `fail` if they don't actually hold. This is the one place every
+   pipeline's verdict passes through, so the check lives here once instead of in each sandboxed
+   `workflow.js`. It only ever makes a verdict stricter — a claimed `fail` is never upgraded, and
+   an environment that can't run the checks is skipped, not failed. `--skip-gate` bypasses it for
+   a quick manual record; read-only pipelines (`planning` / `review` / `delivery`) are recorded
+   as-is.
 
 ### The one boundary: it routes, it does not execute
 

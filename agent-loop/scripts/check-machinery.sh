@@ -93,6 +93,21 @@ else
   node --test scripts/check-dispatch.regression.mjs 2>&1 | sed 's/^/      /' || true
 fi
 
+# The record gate re-verifies a claimed PASS at the one doorway before trusting it. It must only
+# ever make a verdict stricter (pass→fail), never upgrade a fail, and skip when it cannot run.
+if node --test scripts/check-record-gate.regression.mjs > /dev/null; then
+  good "record gate re-verifies a claimed pass and only ever downgrades"
+else
+  bad "record gate regression check failed"
+  node --test scripts/check-record-gate.regression.mjs 2>&1 | sed 's/^/      /' || true
+fi
+# Tripwire: the doorway must actually call the objective gate — not just define it.
+if grep -q 'runFastGates' orchestrator/dispatch.mjs && grep -q 'decideRecord' orchestrator/dispatch.mjs; then
+  good "record gate is wired into --record (runFastGates + decideRecord)"
+else
+  bad "record gate is defined but not wired into --record"
+fi
+
 # The metrics collector turns the runtime's per-stage telemetry into the tuning ledger.
 if node --test scripts/check-metrics.regression.mjs > /dev/null; then
   good "metrics collector maps runtime telemetry to ledger rows"

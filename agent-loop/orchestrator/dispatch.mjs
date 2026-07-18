@@ -19,8 +19,13 @@
 //   node agent-loop/orchestrator/dispatch.mjs --json     # machine-readable plan
 //   node agent-loop/orchestrator/dispatch.mjs --record <file> <pass|fail> [--summary "..."]
 //                                                        # finalize a run: move + changelog
+//                                                        # a claimed PASS on a code-changing
+//                                                        # pipeline is re-verified here (fast
+//                                                        # objective gates); add --skip-gate to
+//                                                        # bypass for a quick manual record.
 
 import { existsSync, readFileSync, readdirSync, renameSync, mkdirSync, appendFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -159,6 +164,70 @@ export function recordOutcome(agentLoopRoot, file, outcome, summary = '') {
   return { moved: `inbox/${archiveName}/${file}` }
 }
 
+// --- Record gate: re-verify a claimed PASS at the one doorway --------------------------------
+// Every pipeline reports its verdict here, so this is the single place to turn "the sandboxed
+// pipeline SAID it passed" into "the machine CONFIRMED it passed" — once, for all pipelines, no
+// per-pipeline copy. It can only ever make a verdict STRICTER (downgrade pass→fail); it never
+// upgrades a fail, and an environment that can't run the checks is skipped, not failed.
+
+// Pipelines whose exit condition actually produces a compile/test-gateable change. Read-only
+// categories (planning, review) and external-state ones (delivery) have nothing local to re-run.
+export const GATE_BEARING_CATEGORIES = new Set(['building', 'testing', 'maintenance'])
+export function isGateBearing(category) {
+  return GATE_BEARING_CATEGORIES.has(category)
+}
+
+// The item's declared category, read from the still-present inbox file (before recordOutcome
+// moves it). Null when the file or its frontmatter is missing — the caller then skips the gate.
+export function itemCategory(agentLoopRoot, file) {
+  const source = join(agentLoopRoot, 'orchestrator', 'inbox', file)
+  if (!existsSync(source)) return null
+  const frontmatter = parseItemFrontmatter(readFileSync(source, 'utf8'))
+  return frontmatter?.category ?? null
+}
+
+// Run one objective check. A non-zero EXIT (error.status is a number) means it ran and failed —
+// a real signal. A spawn error (no status, e.g. ENOENT) means it could not run — not a failure.
+function runCheck(command, commandArgs, cwd) {
+  try {
+    execFileSync(command, commandArgs, { cwd, stdio: 'ignore' })
+    return { ran: true, passed: true }
+  } catch (error) {
+    if (typeof error.status === 'number') return { ran: true, passed: false }
+    return { ran: false, passed: false }
+  }
+}
+
+// The FAST objective subset: the loop's own machinery self-check + a TypeScript compile. The full
+// test suite is deliberately left out of the fast gate (it belongs to a later, opt-in `--full`).
+export function runFastGates(agentLoopRoot) {
+  const repoRoot = resolve(agentLoopRoot, '..')
+  const checks = {
+    machinery: runCheck('bash', [join(agentLoopRoot, 'scripts', 'check-machinery.sh')], agentLoopRoot),
+    tsc: runCheck('npx', ['tsc', '--noEmit'], repoRoot),
+  }
+  const executed = Object.entries(checks).filter(([, result]) => result.ran)
+  if (executed.length === 0) {
+    return { checked: false, passed: false, detail: 'no objective check could run (skipped)' }
+  }
+  const failed = executed.filter(([, result]) => !result.passed).map(([label]) => label)
+  return {
+    checked: true,
+    passed: failed.length === 0,
+    detail: failed.length ? `${failed.join(' + ')} failed` : 'machinery + tsc green',
+  }
+}
+
+// Pure decision: what outcome to actually record. Safe by construction — only a claimed PASS with
+// a gate that ran and FAILED is downgraded; every other case keeps the claimed outcome.
+export function decideRecord({ claimed, gate, skipGate }) {
+  if (claimed !== 'pass' || skipGate || !gate || !gate.checked) {
+    return { outcome: claimed, note: '' }
+  }
+  if (gate.passed) return { outcome: 'pass', note: '' }
+  return { outcome: 'fail', note: `verdict overruled by record gate: ${gate.detail}` }
+}
+
 function cliRoot() {
   const rootOption = process.argv.find((argument) => argument.startsWith('--root='))
   return rootOption ? resolve(rootOption.slice('--root='.length)) : DEFAULT_AGENT_LOOP_ROOT
@@ -175,12 +244,30 @@ function runCli() {
     const summaryIndex = args.indexOf('--summary')
     const summary = summaryIndex !== -1 ? args[summaryIndex + 1] : ''
     if (!file || !outcome) {
-      process.stderr.write('usage: --record <file> <pass|fail> [--summary "..."]\n')
+      process.stderr.write('usage: --record <file> <pass|fail> [--summary "..."] [--skip-gate]\n')
       process.exitCode = 1
       return
     }
-    const result = recordOutcome(root, file, outcome, summary)
-    process.stdout.write(`recorded ${outcome}: moved to ${result.moved}\n`)
+
+    // Re-verify a claimed PASS before trusting it. Only code-changing pipelines have objective
+    // gates; read-only ones are recorded as-is. --skip-gate bypasses for a quick manual record.
+    const skipGate = args.includes('--skip-gate')
+    const category = outcome === 'pass' && !skipGate ? itemCategory(root, file) : null
+    const gate = category && isGateBearing(category) ? runFastGates(root) : null
+    const decision = decideRecord({ claimed: outcome, gate, skipGate })
+    if (decision.outcome !== outcome) {
+      process.stderr.write(`record gate: claimed ${outcome} but ${gate.detail} — recording ${decision.outcome}\n`)
+    } else if (gate && gate.checked) {
+      process.stdout.write('record gate: objective checks green — pass confirmed\n')
+    } else if (outcome === 'pass' && !skipGate) {
+      process.stdout.write(`record gate: skipped (${gate ? gate.detail : 'read-only pipeline'})\n`)
+    }
+    const finalSummary = decision.note
+      ? (summary ? `${decision.note} | claimed: ${summary}` : decision.note)
+      : summary
+
+    const result = recordOutcome(root, file, decision.outcome, finalSummary)
+    process.stdout.write(`recorded ${decision.outcome}: moved to ${result.moved}\n`)
     // Harvest the runtime's cost/quality telemetry for any finished run into the ledger. A
     // hiccup here must never block the record itself — the outcome is already saved.
     try {
