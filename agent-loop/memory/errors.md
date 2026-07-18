@@ -18,6 +18,32 @@ Template:
   pre-existing green signals, not just its own target metric.
 -->
 
+## [2026-07-19] First supervised e2e-regression run surfaced two machinery gaps + one incomplete diagnosis
+- **Context:** first human-at-the-gates end-to-end run (run `2026-07-19-005931`, de-flake feature-unlock
+  wizard). Verdict FAIL 76/100 vs 85, 1 critical (skip-drift). The *loop worked* — the independent
+  verifier refused to pass a run where the fix was incomplete and a known drift recurred — but three
+  distinct things are worth carrying forward.
+- **Gap 1 — `if (triage.suiteGreen)` short-circuits a de-flake ticket.** `workflow.js` routes a
+  suite that reports green into the verification-only path. For a de-flake ticket the suite is green
+  ONLY because the target tests are still `test.skip`-quarantined, so the automated flow would record
+  a "pass" **without ever applying the fix or un-skipping**. Run by hand this time so it was caught;
+  the automated explore stage must un-skip the ticketed tests before measuring `suiteGreen`, or the
+  workflow must treat "green with the ticket's own quarantines intact" as not-done.
+- **Gap 2 — `--record` from the worktree does not reach the live branch.** Recording inside the
+  pipeline's worktree (per the operator protocol, so the doorway runs tsc/check-machinery in that
+  tree) leaves the inbox move + dispatch-log line on a throwaway branch; the **live tree still shows
+  the item queued** and the next tick would re-route it. Fix used: re-record in the live tree so the
+  bookkeeping is durable. The automated flow needs an explicit worktree→live propagation of the
+  record (or record against the live tree while gating in the worktree).
+- **Diagnosis miss (product signal, not machinery):** the ticket's "cold-compile race" root cause was
+  incomplete. Warming fired in both eval runs, yet G1 hit a hard 30s timeout and G2 hit a **real
+  in-app "Couldn't save your changes" validation error** — a likely product bug, not a timing flake.
+  Filed as `2026-07-19-coowner-wizard-save-failure.md` (bug). D5 (Rental) drifted skip→pass again
+  (the 2026-07-18 precedent); filed as `2026-07-19-deflake-rental-tab-d5.md` (e2e).
+- **Prevention:** a "verification-only pass" is never valid while the ticket's own quarantines are
+  still in place; record durably against the live branch; and an eval fail with a real in-app error
+  spawns a scoped follow-up rather than a blind return-to-plan against a locked rubric it can't satisfy.
+
 ## [2026-07-18] e2e-regression Eval failed a "zero-diff verification-only" run on disposition drift
 - **Symptom:** run `2026-07-18-194309`'s Plan/Execute claimed nothing needed fixing (Explore's
   single run was `25 passed · 18 skipped · 0 failed`, execute made zero diffs). Eval's own two

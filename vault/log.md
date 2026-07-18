@@ -160,3 +160,15 @@ Also: the brief's inbox picture was stale — the documents-bulk-delete-bar item
 (wf_752f0da4) and FAILED eval (80/90, critical anti-drift: property-tabs D5 skip→pass), now in
 `inbox/failed/`; only `feature-unlock-wizard` is genuinely queued. Wrote
 [[agent-loop-operator-preflight]] — the checklist that catches exactly this.
+
+## [2026-07-19] shakedown | First supervised agent-loop e2e-regression run — loop verified, item FAILed
+Ran the first human-at-the-gates end-to-end pass on `feature-unlock-wizard` (run
+`2026-07-19-005931`) after the preflight machinery fix. Staged by hand (the e2e-regression
+workflow has no built-in plan gate) in worktree `e2e-run/feature-unlock-20260719-005654`:
+explore→plan→[approve]→execute(opus)→eval(sonnet). Verdict FAIL 76/100 vs 85, 1 critical
+(D5 skip-drift). The machinery passed its own test — the independent verifier correctly
+rejected an incomplete fix. Two machinery gaps caught (verification-only short-circuits
+de-flake tickets; worktree `--record` doesn't reach the live branch) and one real product
+signal (G2 co-owner-wizard save error) — all in [[agent-loop-operator-preflight]] follow-ups
+and agent-loop/memory/errors.md. Filed 2 follow-up inbox items (coowner-wizard save bug,
+D5 Rental de-flake).
