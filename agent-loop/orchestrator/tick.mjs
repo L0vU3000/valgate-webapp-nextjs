@@ -84,11 +84,14 @@ if (!plan.registryOk) {
       } else {
         process.stdout.write(`  1. no workflow.js — run agent-loop/pipelines/${item.pipeline}/{explore,plan,execute,eval}.md by hand\n`)
       }
-      process.stdout.write(`  2. node agent-loop/orchestrator/dispatch.mjs --record ${item.file} <pass|fail> --summary "<one line>"\n`)
+      process.stdout.write(`  2. record against the LIVE tree — a record made inside the run's worktree is abandoned with that branch:\n`)
+      process.stdout.write(`       FAIL -> from the live workspace: node agent-loop/orchestrator/dispatch.mjs --record ${item.file} fail --summary "<one line>"\n`)
+      process.stdout.write(`       PASS -> land the worktree's change onto the live branch first, then --record ${item.file} pass from the live tree (the doorway re-runs the gates in your cwd, so they must see the landed change)\n`)
     }
     process.stdout.write(
       '\nBounds: honor each pipeline.md max-iterations / max-time; isolate per worktree; '
-      + 'development DB only, never seed:reset. Pipelines with a Plan/approval gate stop for you.\n',
+      + 'development DB only, never seed:reset; record the outcome against the live tree. '
+      + 'Pipelines with a Plan/approval gate stop for you.\n',
     )
   }
 }

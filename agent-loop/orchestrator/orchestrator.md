@@ -140,7 +140,11 @@ What it does each tick:
    `workflow.js`. It only ever makes a verdict stricter — a claimed `fail` is never upgraded, and
    an environment that can't run the checks is skipped, not failed. `--skip-gate` bypasses it for
    a quick manual record; read-only pipelines (`planning` / `review` / `delivery`) are recorded
-   as-is.
+   as-is. **Record against the live tree, not the run's worktree** — a record written inside the
+   worktree moves the item and appends the log on a throwaway branch, so the live inbox still shows
+   the item queued and the next tick re-routes it. On a `fail` (code abandoned) record from the live
+   workspace; on a `pass` land the worktree's change onto the live branch first, then record from the
+   live tree so the doorway re-runs its gates against the landed change.
 
 ### The one boundary: it routes, it does not execute
 
