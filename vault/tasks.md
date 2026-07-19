@@ -30,6 +30,9 @@ prune periodically).
   orchestrator. QA is now proven.
 
 ## Planned
+- **Consumer web release (single-owner, no-bug launch).** Full 6-phase plan in
+  [[consumer-release-plan]]: Pro teardown → known bugs → product polish → data
+  correctness → security → no-bug gate → prod ops. Pro side removed entirely.
 - **Prove task-specific Eval scoring across all eight agent-loop pipelines.** The scoring contract
   is wired everywhere; real-run calibration starts with `bug-fix`, followed by the remaining
   pipelines. Checklist: [eval-scoring-rollout.md](../.context/todos/eval-scoring-rollout.md).
