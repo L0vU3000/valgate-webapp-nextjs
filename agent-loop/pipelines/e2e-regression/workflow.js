@@ -23,12 +23,13 @@ const TIER = PROVIDER === 'gpt'
   ? { read: { agentType: 'codex', effort: 'low' }, make: { agentType: 'codex', effort: 'high' }, verify: { agentType: 'codex', effort: 'medium' } }
   : { read: { model: 'sonnet' }, make: { model: 'opus' }, verify: { model: 'sonnet' } }
 
-const TRIAGE = { type: 'object', required: ['runId', 'suiteGreen', 'regressionCount', 'flakeCount'],
+const TRIAGE = { type: 'object', required: ['runId', 'suiteGreen', 'regressionCount', 'flakeCount', 'ticketedQuarantinesUnskipped'],
   properties: {
     runId: { type: 'string' },
     suiteGreen: { type: 'boolean' },
     regressionCount: { type: 'number' },
     flakeCount: { type: 'number' },
+    ticketedQuarantinesUnskipped: { type: 'boolean' },
     note: { type: 'string' },
   } }
 
@@ -68,7 +69,7 @@ const triage = await agent(
 
 const RUN = triage.runId
 
-if (triage.suiteGreen) {
+if (triage.suiteGreen && triage.ticketedQuarantinesUnskipped) {
   const cleanPlan = await agent(
     `You are the PLAN stage for a verification-only e2e-regression run. Follow ${P}/plan.md.
      Write \`${P}/runs/${RUN}/plan.md\` with no product/spec changes and a task-specific
@@ -97,6 +98,10 @@ if (triage.suiteGreen) {
     cleanVerdict.dispositionsComplete && cleanVerdict.tscErrors === 0
   log(`run ${RUN} — independently scored ${cleanVerdict.score}/${cleanPlan.passThreshold}; ${clean ? 'PASS' : 'FAIL'}.`)
   return { clean, score: cleanVerdict.score, runId: RUN }
+}
+
+if (triage.suiteGreen) {
+  log(`run ${RUN} — suite is green but an open de-flake ticket's test is still skipped (ticketedQuarantinesUnskipped=false); refusing the clean path and entering the Fix loop to lift the quarantine.`)
 }
 
 log(`run ${RUN} — ${triage.regressionCount} regression(s), ${triage.flakeCount} flake(s). Entering fix loop.`)

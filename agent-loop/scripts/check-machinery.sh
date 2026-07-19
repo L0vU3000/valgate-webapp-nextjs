@@ -154,6 +154,16 @@ else
   node --test scripts/check-work-item.regression.mjs 2>&1 | sed 's/^/      /' || true
 fi
 
+# e2e-regression must not trust a green suite alone: a run whose open de-flake ticket names a test
+# still test.skip-quarantined reports green only because the target never ran. The clean path must
+# require explore's ticketedQuarantinesUnskipped flag too, or fail closed into the Fix loop.
+if node --test scripts/check-e2e-regression-workflow.regression.mjs > /dev/null; then
+  good "e2e-regression clean path requires lifted ticketed quarantines (no green-but-skipped false pass)"
+else
+  bad "e2e-regression clean-path regression check failed"
+  node --test scripts/check-e2e-regression-workflow.regression.mjs 2>&1 | sed 's/^/      /' || true
+fi
+
 # entity-scaffold is allowed to touch a development database, so its two approval gates are
 # load-bearing. Keep a small static regression check until its first real run adds stronger
 # runtime evidence.
