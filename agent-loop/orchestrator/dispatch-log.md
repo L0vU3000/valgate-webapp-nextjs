@@ -4,3 +4,4 @@
 - 2026-07-16-deflake-feature-unlock-wizard.md -> fail (eval 76/100 vs 85 (run 2026-07-19-005931): warm-compile fired but G1 (30s timeout) & G2 (real in-app co-owner save error) not green x2; D5 skip-drift tripped critical E; fix incomplete. Follow-ups filed: coowner-wizard-save-failure (bug), deflake-rental-tab-d5 (e2e))
   see memory/errors.md
 - 2026-07-18-entity-scaffold-startup-crash.md -> pass (pipeline-improve 2026-07-19-015254 Eval-passed (improved:true): landed e2e-regression suiteGreen false-pass guard — TRIAGE schema field + gate tightened to require ticketedQuarantinesUnskipped + regression wired into check-machinery. Original Date.now crash already fixed out-of-band (320d1fc7); reintro-guard deferred. check-machinery green, exact 4-file scope.)
+- 2026-07-19-orchestrator-item-claim-lock.md -> pass (atomic inbox claim-lock; eval 100/100, gate-runner+eval GREEN, red reproduced; 231/231 vitest, tsc 0, eslint 47)
