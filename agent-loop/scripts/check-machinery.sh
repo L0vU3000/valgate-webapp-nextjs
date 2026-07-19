@@ -108,6 +108,14 @@ else
   bad "record gate is defined but not wired into --record"
 fi
 
+# Tripwire: the item-claim lock must actually be wired into the CLI, not just defined — otherwise
+# two concurrent ticks can still re-dispatch the same inbox item between dispatch and record.
+if grep -q 'claimItem' orchestrator/dispatch.mjs && grep -q -- "'--claim'" orchestrator/dispatch.mjs; then
+  good "item-claim lock is wired into --claim (claimItem called from runCli)"
+else
+  bad "item-claim lock is defined but not wired into --claim"
+fi
+
 # The metrics collector turns the runtime's per-stage telemetry into the tuning ledger.
 if node --test scripts/check-metrics.regression.mjs > /dev/null; then
   good "metrics collector maps runtime telemetry to ledger rows"

@@ -17,6 +17,14 @@
 // Usage:
 //   node agent-loop/orchestrator/dispatch.mjs            # print the dispatch plan
 //   node agent-loop/orchestrator/dispatch.mjs --json     # machine-readable plan
+//   node agent-loop/orchestrator/dispatch.mjs --claim <file>
+//                                                        # mark an item in-progress (atomic move
+//                                                        # into inbox/in-progress/) so a second
+//                                                        # concurrent tick cannot re-dispatch it.
+//   node agent-loop/orchestrator/dispatch.mjs --reclaim <file>
+//                                                        # return a STALE claim to the inbox so it
+//                                                        # can be dispatched again (refuses a claim
+//                                                        # younger than the staleness threshold).
 //   node agent-loop/orchestrator/dispatch.mjs --record <file> <pass|fail> [--summary "..."]
 //                                                        # finalize a run: move + changelog
 //                                                        # a claimed PASS on a code-changing
@@ -24,7 +32,7 @@
 //                                                        # objective gates); add --skip-gate to
 //                                                        # bypass for a quick manual record.
 
-import { existsSync, readFileSync, readdirSync, renameSync, mkdirSync, appendFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, renameSync, mkdirSync, appendFileSync, statSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -129,6 +137,17 @@ export function planDispatch(agentLoopRoot = DEFAULT_AGENT_LOOP_ROOT) {
   }
 }
 
+// `file` is an untrusted CLI argument that we join into paths and rename. An inbox item is
+// always a plain filename directly under inbox/ (e.g. "10-lint-normal.md"), so anything with a
+// directory part or "../" segment is either a bug or a traversal attempt — reject it before it
+// can move a file outside the inbox. Shared by recordOutcome, claimItem, and reclaimItem so the
+// guard cannot drift between the three places that rename an inbox item.
+function assertPlainInboxFilename(file) {
+  if (!file || file !== basename(file) || file === '.' || file === '..') {
+    throw new Error(`inbox item must be a plain filename, got "${file}"`)
+  }
+}
+
 // Bookkeeping half of the heartbeat: after the runtime finishes a run, move the item into
 // its archive and append the outcome to memory. Additive appends + a file move only.
 export function recordOutcome(agentLoopRoot, file, outcome, summary = '') {
@@ -136,16 +155,14 @@ export function recordOutcome(agentLoopRoot, file, outcome, summary = '') {
     throw new Error(`outcome must be "pass" or "fail", got "${outcome}"`)
   }
 
-  // `file` is an untrusted CLI argument that we join into paths and rename. An inbox item is
-  // always a plain filename directly under inbox/ (e.g. "10-lint-normal.md"), so anything with a
-  // directory part or "../" segment is either a bug or a traversal attempt — reject it before it
-  // can move a file outside the inbox.
-  if (!file || file !== basename(file) || file === '.' || file === '..') {
-    throw new Error(`inbox item must be a plain filename, got "${file}"`)
-  }
+  assertPlainInboxFilename(file)
 
   const inboxDirectory = join(agentLoopRoot, 'orchestrator', 'inbox')
-  const source = join(inboxDirectory, file)
+  // An item may have been claimed (moved to inbox/in-progress/) between dispatch and record, so
+  // look there first and fall back to the top-level inbox for a never-claimed item. This fallback
+  // is a no-op for the common, never-claimed case — the top-level path is used exactly as before.
+  const claimedSource = join(inboxDirectory, 'in-progress', file)
+  const source = existsSync(claimedSource) ? claimedSource : join(inboxDirectory, file)
   if (!existsSync(source)) {
     throw new Error(`inbox item not found: ${file}`)
   }
@@ -164,6 +181,57 @@ export function recordOutcome(agentLoopRoot, file, outcome, summary = '') {
   return { moved: `inbox/${archiveName}/${file}` }
 }
 
+// --- Item claim: mark an item in-progress atomically at dispatch time ------------------------
+// orchestrator.md step 2c requires the router to "mark it in-progress" between selecting an item
+// and recording its outcome. Without that, two concurrent ticks re-read the same top-level inbox
+// and both dispatch the same item (proven live: two back-to-back planDispatch() calls return the
+// identical routable set). claimItem closes that window by MOVING the item into inbox/in-progress/
+// with a single renameSync — an atomic filesystem operation, so two near-simultaneous claimers
+// cannot both succeed (the loser hits ENOENT on the already-moved source). Because inboxItemFiles
+// lists only top-level *.md files, a claimed item is invisible to the next planDispatch() for
+// free, by the exact same invariant that already hides done/ and failed/.
+export function claimItem(agentLoopRoot, file) {
+  assertPlainInboxFilename(file)
+  const inboxDirectory = join(agentLoopRoot, 'orchestrator', 'inbox')
+  const source = join(inboxDirectory, file)
+  if (!existsSync(source)) {
+    throw new Error(`inbox item not found: ${file}`)
+  }
+  const inProgressDirectory = join(inboxDirectory, 'in-progress')
+  mkdirSync(inProgressDirectory, { recursive: true })
+  renameSync(source, join(inProgressDirectory, file))
+  return { moved: `inbox/in-progress/${file}` }
+}
+
+// A crashed or abandoned run must not wedge an item in inbox/in-progress/ forever. Staleness is a
+// wall-clock threshold on the claimed file's mtime. Checked pipelines/*/pipeline.md max-time
+// bounds: pipeline-improve/test-coverage/eslint-burndown 45m; bug-fix/feature/api-tool/qa/wiring
+// 60m; e2e-regression 90m (the largest). The threshold is the largest bound plus slack — not any
+// one pipeline's own bound — because a claim does not record which pipeline owns it.
+export const STALE_CLAIM_MS = 120 * 60 * 1000 // 120 minutes: 90m largest pipeline bound + 30m slack
+
+// Deliberate, explicit recovery verb (not automatic inside planDispatch, which stays pure): return
+// a STALE claimed item to the top-level inbox so it can be dispatched again. Refuses to touch a
+// claim younger than the threshold, so an in-flight run is never yanked out from under itself.
+export function reclaimItem(agentLoopRoot, file, staleMs = STALE_CLAIM_MS) {
+  assertPlainInboxFilename(file)
+  const inboxDirectory = join(agentLoopRoot, 'orchestrator', 'inbox')
+  const source = join(inboxDirectory, 'in-progress', file)
+  if (!existsSync(source)) {
+    throw new Error(`claimed inbox item not found: ${file}`)
+  }
+  const ageMs = Date.now() - statSync(source).mtimeMs
+  if (ageMs < staleMs) {
+    throw new Error(`claim on "${file}" is ${Math.round(ageMs / 60000)}m old, not stale (threshold ${Math.round(staleMs / 60000)}m)`)
+  }
+  // Reclaiming is a heuristic (mtime, not a live liveness signal), so it must never happen
+  // silently — a loud stderr line makes a misfire (a still-running claim wrongly returned to the
+  // inbox) visible in tick output instead of causing an invisible double-claim.
+  process.stderr.write(`reclaim: ${file} claimed ${Math.round(ageMs / 60000)}m ago (> stale threshold ${Math.round(staleMs / 60000)}m) — returning to inbox\n`)
+  renameSync(source, join(inboxDirectory, file))
+  return { moved: `inbox/${file}` }
+}
+
 // --- Record gate: re-verify a claimed PASS at the one doorway --------------------------------
 // Every pipeline reports its verdict here, so this is the single place to turn "the sandboxed
 // pipeline SAID it passed" into "the machine CONFIRMED it passed" — once, for all pipelines, no
@@ -180,7 +248,11 @@ export function isGateBearing(category) {
 // The item's declared category, read from the still-present inbox file (before recordOutcome
 // moves it). Null when the file or its frontmatter is missing — the caller then skips the gate.
 export function itemCategory(agentLoopRoot, file) {
-  const source = join(agentLoopRoot, 'orchestrator', 'inbox', file)
+  const inboxDirectory = join(agentLoopRoot, 'orchestrator', 'inbox')
+  // Same claimed-first, top-level-second resolution as recordOutcome: a claimed item lives under
+  // in-progress/, an unclaimed one directly under inbox/. No-op for the never-claimed case.
+  const claimedSource = join(inboxDirectory, 'in-progress', file)
+  const source = existsSync(claimedSource) ? claimedSource : join(inboxDirectory, file)
   if (!existsSync(source)) return null
   const frontmatter = parseItemFrontmatter(readFileSync(source, 'utf8'))
   return frontmatter?.category ?? null
@@ -236,6 +308,47 @@ function cliRoot() {
 function runCli() {
   const args = process.argv.slice(2)
   const root = cliRoot()
+
+  // Claim an item in-progress before running its workflow, so a second concurrent tick cannot
+  // re-dispatch it. Atomic move via claimItem; the traversal guard applies exactly as it does to
+  // --record.
+  const claimIndex = args.indexOf('--claim')
+  if (claimIndex !== -1) {
+    const file = args[claimIndex + 1]
+    if (!file) {
+      process.stderr.write('usage: --claim <file>\n')
+      process.exitCode = 1
+      return
+    }
+    try {
+      const result = claimItem(root, file)
+      process.stdout.write(`claimed: moved to ${result.moved}\n`)
+    } catch (error) {
+      process.stderr.write(`claim failed: ${error.message}\n`)
+      process.exitCode = 1
+    }
+    return
+  }
+
+  // Return a STALE claim to the inbox so it can be dispatched again. Refuses a claim that is not
+  // yet past the staleness threshold (mirroring the --record usage-error pattern on rejection).
+  const reclaimIndex = args.indexOf('--reclaim')
+  if (reclaimIndex !== -1) {
+    const file = args[reclaimIndex + 1]
+    if (!file) {
+      process.stderr.write('usage: --reclaim <file>\n')
+      process.exitCode = 1
+      return
+    }
+    try {
+      const result = reclaimItem(root, file)
+      process.stdout.write(`reclaimed: moved to ${result.moved}\n`)
+    } catch (error) {
+      process.stderr.write(`reclaim failed: ${error.message}\n`)
+      process.exitCode = 1
+    }
+    return
+  }
 
   const recordIndex = args.indexOf('--record')
   if (recordIndex !== -1) {

@@ -7,6 +7,7 @@ import {
   readdirSync,
   rmSync,
   statSync,
+  utimesSync,
   writeFileSync,
 } from 'node:fs'
 import { tmpdir as operatingSystemTemporaryDirectory } from 'node:os'
@@ -14,7 +15,14 @@ import { dirname, join, resolve } from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 
-import { planDispatch, recordOutcome } from '../orchestrator/dispatch.mjs'
+import {
+  claimItem,
+  itemCategory,
+  planDispatch,
+  reclaimItem,
+  recordOutcome,
+  STALE_CLAIM_MS,
+} from '../orchestrator/dispatch.mjs'
 
 const SCRIPT_DIRECTORY = dirname(fileURLToPath(import.meta.url))
 const SOURCE_ROOT = resolve(SCRIPT_DIRECTORY, '..')
@@ -100,6 +108,109 @@ test('dispatcher routes valid items, rejects mismatches, orders by priority, rec
         /plain filename/,
         `traversal filename must be rejected: ${evil}`,
       )
+    }
+  } finally {
+    rmSync(fixtureRoot, { force: true, recursive: true })
+  }
+})
+
+test('claiming an item hides it from the next dispatch; a stale claim is reclaimable; a claimed item still records', () => {
+  const fixtureRoot = mkdtempSync(join(operatingSystemTemporaryDirectory(), 'dispatch-claim-'))
+
+  try {
+    copyRegistryFixture(fixtureRoot)
+    const inbox = join(fixtureRoot, 'orchestrator', 'inbox')
+    mkdirSync(inbox, { recursive: true })
+
+    // A single well-formed, routable item on a real registry pair (maintenance/lint ->
+    // eslint-burndown). The whole claim lifecycle plays out against just this one item.
+    writeItem(inbox, '10-lint-normal.md', { category: 'maintenance', type: 'lint', priority: 'normal', created: '2026-07-19' })
+
+    // Baseline: the item is routable before any claim.
+    const before = planDispatch(fixtureRoot)
+    assert.ok(
+      before.routable.some((item) => item.file === '10-lint-normal.md'),
+      'the fixture item must be routable before it is claimed',
+    )
+
+    // (1) After claimItem, the very next planDispatch() must EXCLUDE the item from BOTH routable
+    // AND invalid — a claimed item is neither pending work nor a validation error, it is in-flight.
+    const claim = claimItem(fixtureRoot, '10-lint-normal.md')
+    assert.equal(claim.moved, 'inbox/in-progress/10-lint-normal.md')
+    assert.ok(
+      existsSync(join(inbox, 'in-progress', '10-lint-normal.md')),
+      'claimed item must physically move into inbox/in-progress/',
+    )
+    assert.ok(
+      !existsSync(join(inbox, '10-lint-normal.md')),
+      'claimed item must no longer sit at the top-level inbox',
+    )
+
+    const afterClaim = planDispatch(fixtureRoot)
+    assert.ok(
+      !afterClaim.routable.some((item) => item.file === '10-lint-normal.md'),
+      'a claimed item must not appear in the next dispatch routable list',
+    )
+    assert.ok(
+      !afterClaim.invalid.some((item) => item.file === '10-lint-normal.md'),
+      'a claimed item must not appear in the next dispatch invalid list either',
+    )
+
+    // (2) reclaimItem on a FRESH claim must throw — an in-flight run must not be yanked out.
+    assert.throws(
+      () => reclaimItem(fixtureRoot, '10-lint-normal.md'),
+      /not stale/,
+      'a fresh claim must not be reclaimable',
+    )
+    assert.ok(
+      existsSync(join(inbox, 'in-progress', '10-lint-normal.md')),
+      'a rejected reclaim must leave the item claimed',
+    )
+
+    // (3) Backdate the claimed file's mtime past STALE_CLAIM_MS. reclaimItem must now succeed and
+    // return the item to the top-level inbox, where it is routable again.
+    const stalePast = new Date(Date.now() - STALE_CLAIM_MS - 60 * 1000)
+    utimesSync(join(inbox, 'in-progress', '10-lint-normal.md'), stalePast, stalePast)
+    const reclaim = reclaimItem(fixtureRoot, '10-lint-normal.md')
+    assert.equal(reclaim.moved, 'inbox/10-lint-normal.md')
+    assert.ok(
+      existsSync(join(inbox, '10-lint-normal.md')),
+      'a stale claim must be returned to the top-level inbox',
+    )
+    assert.ok(
+      !existsSync(join(inbox, 'in-progress', '10-lint-normal.md')),
+      'a reclaimed item must leave inbox/in-progress/',
+    )
+    const afterReclaim = planDispatch(fixtureRoot)
+    assert.ok(
+      afterReclaim.routable.some((item) => item.file === '10-lint-normal.md'),
+      'a reclaimed item must be routable again',
+    )
+
+    // (4) A CLAIMED item must still resolve for --record: itemCategory reads its frontmatter from
+    // in-progress/, and recordOutcome archives it into done/ (not "inbox item not found").
+    claimItem(fixtureRoot, '10-lint-normal.md')
+    assert.equal(
+      itemCategory(fixtureRoot, '10-lint-normal.md'),
+      'maintenance',
+      'itemCategory must resolve a claimed item from in-progress/',
+    )
+    const recorded = recordOutcome(fixtureRoot, '10-lint-normal.md', 'pass', 'green')
+    assert.equal(recorded.moved, 'inbox/done/10-lint-normal.md')
+    assert.ok(
+      existsSync(join(inbox, 'done', '10-lint-normal.md')),
+      'a claimed item recorded pass must land in done/',
+    )
+    assert.ok(
+      !existsSync(join(inbox, 'in-progress', '10-lint-normal.md')),
+      'a recorded claimed item must leave inbox/in-progress/',
+    )
+
+    // The traversal guard still protects the claim/reclaim rename paths, exactly as it does
+    // recordOutcome — the guard is shared, so it cannot drift between the three.
+    for (const evil of ['../escape.md', 'sub/dir.md', '..', '']) {
+      assert.throws(() => claimItem(fixtureRoot, evil), /plain filename/, `claim must reject ${evil}`)
+      assert.throws(() => reclaimItem(fixtureRoot, evil), /plain filename/, `reclaim must reject ${evil}`)
     }
   } finally {
     rmSync(fixtureRoot, { force: true, recursive: true })
