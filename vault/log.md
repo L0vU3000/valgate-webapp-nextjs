@@ -172,3 +172,16 @@ de-flake tickets; worktree `--record` doesn't reach the live branch) and one rea
 signal (G2 co-owner-wizard save error) — all in [[agent-loop-operator-preflight]] follow-ups
 and agent-loop/memory/errors.md. Filed 2 follow-up inbox items (coowner-wizard save bug,
 D5 Rental de-flake).
+
+## [2026-07-19] shakedown | Second supervised run PASSED — and exposed a concurrency gap
+Ran `entity-scaffold-startup-crash` through pipeline-improve (run `2026-07-19-023118`) under the
+gated protocol: explore→plan→[approve]→execute(opus)→eval(sonnet)→independent gate-runner. Eval
+100/100 vs 85, gate-runner corroborated (machinery green, vitest 231/231, tsc 0, eslint 47). The
+fix — shape-based startup-crash detection in `improvement-digest.mjs` — landed as `1882c2cc`, the
+clean-PASS half of the shakedown (the e2e run proved honest FAIL; this proved honest PASS with a
+3-agent fail-closed check). Recording exposed a real machinery gap: a PARALLEL run
+(`2026-07-19-015254`) had already claimed the same ticket and made a different valid fix — the
+orchestrator has no in-progress claim/lock, so concurrent ticks duplicate work. Filed
+[[2026-07-19-orchestrator-item-claim-lock]]. Two worktree-setup gotchas also logged: fresh
+worktrees lack fumadocs-generated `.source` (breaks tsc), and node_modules symlink panics Turbopack
+(use npm ci). See [[agent-loop-operator-preflight]].
