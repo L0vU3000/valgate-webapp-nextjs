@@ -4,6 +4,7 @@ import { requireCtx } from "@/lib/auth/ctx";
 import { env } from "@/lib/env";
 import { getMyUserProfile } from "@/lib/services/user-profiles";
 import { type UserProfile } from "@/lib/data/types/user-profile";
+import { buildSecurityNote } from "@/lib/security-note";
 
 function titleCase(s: string): string {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
@@ -85,7 +86,7 @@ export async function getProfilePageData(): Promise<ProfilePageData> {
       { label: "Timezone", value: profile?.timezone || "—" },
       { label: "Currency", value: profile?.currency || "—" },
     ],
-    securityNote: "Your profile is currently secure. To maintain high account safety, we recommend changing your password every 90 days. Next change suggested by Jan 15, 2024.",
+    securityNote: buildSecurityNote({ lastLogin, memberSince }),
     // Pre-fill the edit form with the Clerk-derived core fields so the user doesn't re-type them.
     rawProfile: { ...(profile ?? {}), firstName, lastName, email, role },
   };

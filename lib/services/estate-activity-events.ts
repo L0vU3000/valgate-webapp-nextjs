@@ -3,7 +3,7 @@ import { and, asc, desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { estateActivityEvents } from "@/lib/db/schema";
 import { EstateActivityEventSchema, type EstateActivityEvent } from "@/lib/data/types/estate-activity-event";
-import type { NewEstateActivityEvent, EstateActivityEventPatch } from "@/lib/data/types/estate-activity-event";
+import type { NewEstateActivityEvent } from "@/lib/data/types/estate-activity-event";
 import { toDomain, type Ctx } from "@/lib/services/_mapping";
 import { scopedInsert, scopedDelete } from "@/lib/services/_crud";
 

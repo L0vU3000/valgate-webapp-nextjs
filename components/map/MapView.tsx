@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import Supercluster from "supercluster";
 import { env } from "@/lib/env";
 import { useShellContext } from "@/components/layout/shell-context";
+import { createMapIfSupported } from "@/components/map/map-support";
 import type { Property } from "@/lib/data/types/property";
 
 const CAMBODIA_CENTER: [number, number] = [104.9, 12.5];
@@ -32,6 +33,7 @@ export function MapView({
 }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
+  const [isMapUnavailable, setIsMapUnavailable] = useState(false);
   const activeMarkersRef = useRef<Map<string, mapboxgl.Marker>>(new Map());
   const pinMarkersRef = useRef<Map<string, mapboxgl.Marker>>(new Map());
   const clusterIndex = useRef<Supercluster | null>(null);
@@ -61,7 +63,7 @@ export function MapView({
     );
     clusterIndex.current = index;
 
-    const map = new mapboxgl.Map({
+    const map = createMapIfSupported({
       container: containerRef.current,
       style: isSatellite
         ? "mapbox://styles/mapbox/satellite-streets-v12"
@@ -74,6 +76,13 @@ export function MapView({
       bearing: -17.6,
       antialias: true,
     });
+
+    if (!map) {
+      containerRef.current.replaceChildren();
+      setIsMapUnavailable(true);
+      onMapLoaded?.();
+      return;
+    }
 
     mapRef.current = map;
     let destroyed = false;
@@ -474,6 +483,15 @@ export function MapView({
       ref={containerRef}
       className={className}
       style={{ width: "100%", height: "100%" }}
-    />
+    >
+      {isMapUnavailable ? (
+        <div
+          role="status"
+          className="flex h-full w-full items-center justify-center bg-muted/40 px-6 text-center text-sm text-muted-foreground"
+        >
+          Map preview unavailable
+        </div>
+      ) : null}
+    </div>
   );
 }

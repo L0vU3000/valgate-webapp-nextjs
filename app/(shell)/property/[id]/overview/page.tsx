@@ -3,7 +3,7 @@ import { PropertyShellProvider } from "@/components/property/PropertyShellContex
 import { PropertyOverviewPage } from "../_components/PropertyOverviewPage";
 import { getPropertyByIdParam } from "@/lib/data/properties";
 import { getPropertyForOrg } from "@/lib/services/properties";
-import { computeProgressDetails, type ProgressContext } from "@/lib/data/derivations/progress";
+import { computeProgressDetails } from "@/lib/data/derivations/progress";
 import { getProgressContext } from "@/lib/data/progress-context";
 import { getOverviewPageData } from "./queries";
 import { resolveCrossOrgCtx } from "@/lib/auth/cross-org";

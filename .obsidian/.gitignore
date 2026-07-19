@@ -1,0 +1,5 @@
+# Obsidian per-machine state — keep shared config, ignore local churn
+workspace.json
+workspace-mobile.json
+cache
+/plugins/*/data.json

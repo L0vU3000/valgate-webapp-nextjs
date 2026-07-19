@@ -92,7 +92,9 @@ export function formatDate(ts: number): string {
  * Relative time from a Unix ms timestamp: "2m ago", "3h ago", "Yesterday", "Feb 14"
  */
 export function formatRelativeTime(createdAt: number): string {
-  const diff = Date.now() - createdAt;
+  // Clamp to 0: a just-created row's DB timestamp can be a few seconds ahead of
+  // the client clock (normal skew), which would otherwise render "-1m ago".
+  const diff = Math.max(0, Date.now() - createdAt);
   const minutes = Math.floor(diff / 60_000);
   const hours = Math.floor(diff / 3_600_000);
   const days = Math.floor(diff / 86_400_000);

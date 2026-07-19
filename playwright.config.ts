@@ -52,10 +52,25 @@ export default defineConfig({
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
-      // auth specs (e2e/auth/*) need the real-Clerk rig and only run under the
-      // 'auth' project (PLAYWRIGHT_AUTH=1). Without this, the DEMO chromium
-      // project globs them in and they time out — see test:e2e:auth.
-      testIgnore: /\/auth\//,
+      testIgnore: [
+        // auth specs (e2e/auth/*) need the real-Clerk rig and only run under the
+        // 'auth' project (PLAYWRIGHT_AUTH=1). Without this, the DEMO chromium
+        // project globs them in and they time out — see test:e2e:auth.
+        /\/auth\//,
+        // scope-cut — excluded until product returns. The Directory and Pro
+        // surfaces were cut to the MVP core, so their routes intentionally 404.
+        // Keep the specs in git as the old contract; don't let their 404s read
+        // as regressions in the active owner-facing suite. See the e2e-regression
+        // pipeline's disposition table (run 2026-07-15-163613).
+        /\/directory\.spec\.ts/,
+        /\/pro-.*\.spec\.ts/,
+        // scope-cut — the standalone /activity page was removed to the MVP core;
+        // its route now 404s (activity surfaces on the property overview instead).
+        // Retain activity.spec.ts in git as the old contract; exclude it from the
+        // active owner suite so its 404 isn't read as a regression. See the
+        // e2e-regression disposition table (run 2026-07-16-030754).
+        /\/activity\.spec\.ts/,
+      ],
     },
 
     // ── Auth suite (real Clerk, port 3002) ────────────────────────────────────

@@ -3,10 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { useShellContext } from "@/components/layout/shell-context";
 import {
   X,
-  ChevronUp,
   BarChart2,
   Map as MapIcon,
   Users,
@@ -18,7 +16,6 @@ import {
   MapPin,
   Pencil,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { getPropertyCoverUrl } from "@/app/actions/property-photos";
 import { pickHeroImage } from "@/lib/property-hero";
@@ -28,8 +25,7 @@ import type { HomeProperty, TitleVariant, PortfolioStats } from "@/app/(shell)/q
 import type { Document } from "@/lib/data/types/document";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { CommandPalette } from "@/components/home/CommandPalette";
-import { PropertyTable } from "@/components/portfolio/PropertyTable";
-import type { TableAnimationConfig } from "@/components/portfolio/PropertyTable";
+import { PropertyRail } from "./PropertyRail";
 import { PortfolioLegend } from "./PortfolioLegend";
 import type mapboxgl from "mapbox-gl";
 
@@ -49,15 +45,6 @@ const titleClasses: Record<TitleVariant, string> = {
   none: "text-secondary",
 };
 
-const HOME_TABLE_ANIMATION: TableAnimationConfig = {
-  containerDuration: 250,
-  containerDelay: 0,
-  rowDuration: 300,
-  rowStagger: 15,
-  progressBarDelay: 80,
-  progressBarStagger: 20,
-};
-
 const triggerPlaceholders = [
   "Search properties, documents, tenants...",
   "Find: Phnom Penh land plots",
@@ -71,9 +58,7 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
 
   const [selectedPin, setSelectedPin] = useState<string | null>(null);
   const [closingKey, setClosingKey] = useState<string | null>(null);
-  const [hoveredProperty, setHoveredProperty] = useState<string | null>(null);
-  const [tableOpen, setTableOpen] = useState(false);
-  const [tableOpenCount, setTableOpenCount] = useState(0);
+  const [railOpen, setRailOpen] = useState(true);
   const [commandOpen, setCommandOpen] = useState(false);
   const [placeholderIdx, setPlaceholderIdx] = useState(0);
   const [placeholderVisible, setPlaceholderVisible] = useState(true);
@@ -107,10 +92,6 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
     }, 3500);
     return () => clearInterval(id);
   }, []);
-
-  useEffect(() => {
-    if (tableOpen) setTableOpenCount((n) => n + 1);
-  }, [tableOpen]);
 
   const runCommand = useCallback((command: () => void) => {
     setCommandOpen(false);
@@ -158,6 +139,20 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
       }
     },
     [selectedPin, closeDrawer],
+  );
+
+  // Selecting a property from the left rail: open its detail drawer and fly the map
+  // to its pin. Properties without real coordinates (0/0) just open the drawer.
+  const flyToProperty = useCallback(
+    (id: string) => {
+      const property = initialProperties.find((p) => p.id === id);
+      setClosingKey(null);
+      setSelectedPin(id);
+      if (property && mapRef.current && (property.lat !== 0 || property.lng !== 0)) {
+        mapRef.current.flyTo({ center: [property.lng, property.lat], zoom: 15, duration: 600 });
+      }
+    },
+    [initialProperties],
   );
 
   // Resolve the selected property's cover photo when a drawer opens. A missing/expired
@@ -209,6 +204,15 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
           className="absolute inset-0"
         />
 
+        {/* Left property rail — collapsible list to find + locate a property on the map */}
+        <PropertyRail
+          properties={initialProperties}
+          selectedId={selectedPin}
+          onSelect={flyToProperty}
+          open={railOpen}
+          onToggle={() => setRailOpen((open) => !open)}
+        />
+
         {/* Command Palette Trigger.
             Phone: container takes full width below the safe-area top (drawer pushes up from bottom, doesn't compete with this trigger).
             Tablet+: shrinks to make room for the right-anchored property sidebar when one is selected. */}
@@ -217,9 +221,10 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
           className={cn(
             "absolute z-10 flex justify-center transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] px-4 sm:px-0",
             "top-[calc(env(safe-area-inset-top)+24px)] sm:top-6 left-0 right-0",
-            // Desktop drawer sits on the right — shrink the trigger area so it
-            // stays centered in the remaining map space. On mobile the drawer
-            // is a bottom sheet, so the offset only applies from `sm:` up.
+            // The left rail and the right drawer each carve into the trigger's space so
+            // it stays centered in the remaining map area. Both offsets can apply at once.
+            // On mobile the rail/drawer are sheets, so the offsets only apply from `sm:` up.
+            railOpen && "sm:left-80",
             selectedProperty && "sm:right-80",
           )}
         >
@@ -261,9 +266,9 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
           <div className="flex items-center gap-3 w-full sm:w-auto overflow-x-auto scrollbar-none -mx-4 sm:mx-0 px-4 sm:px-0 py-1">
             {[
               { label: "New Property", icon: Plus, action: () => router.push("/add-property") },
-              { label: "Analytics", icon: BarChart2, action: () => router.push("/analytics") },
+              { label: "Portfolio", icon: BarChart2, action: () => router.push("/portfolio") },
               { label: "Documents", icon: FileText, action: () => setCommandOpen(true) },
-              { label: "Tenants", icon: Users, action: () => router.push("/estate-planning") },
+              { label: "Rental", icon: Users, action: () => router.push("/rental") },
             ].map(({ label, icon: Icon, action }, i) => (
               <button
                 key={label}
@@ -563,61 +568,6 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
             </div>
           </div>
         )}
-      </div>
-
-      {/* Properties table */}
-      <div className="bg-surface-base border-t border-border-default shrink-0">
-        <div
-          className="flex items-center justify-between px-4 sm:px-6 py-2.5 cursor-pointer group hover:bg-surface-tint transition-colors duration-150"
-          onClick={() => setTableOpen(!tableOpen)}
-        >
-          <h2 className="text-[18px] sm:text-[24px] font-bold font-display text-foreground">
-            Properties
-          </h2>
-          <ChevronUp
-            className={cn(
-              "size-5 text-secondary group-hover:text-foreground transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
-              tableOpen ? "rotate-180" : "rotate-0",
-            )}
-          />
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={(e) => { e.stopPropagation(); router.push("/portfolio"); }}
-          >
-            Full List
-          </Button>
-        </div>
-
-        {/* Accordion wrapper — grid-rows trick for smooth open/close */}
-        <div
-          className={cn(
-            "grid transition-[grid-template-rows] duration-[350ms] ease-[cubic-bezier(0.4,0,0.2,1)]",
-            tableOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
-          )}
-        >
-          <div className="overflow-hidden">
-            <div className="mx-auto w-full max-w-[1200px]">
-              <PropertyTable
-                pageRows={initialProperties}
-                pageStart={0}
-                filtered={initialProperties}
-                properties={initialProperties}
-                mounted={tableOpen}
-                navigate={(path) => router.push(path)}
-                totalPages={1}
-                safePage={1}
-                goToPage={() => {}}
-                onClearFilters={() => {}}
-                animationConfig={HOME_TABLE_ANIMATION}
-                showProgressExplainer={false}
-                sortKey={null}
-                sortDir="asc"
-                onSort={() => {}}
-              />
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );

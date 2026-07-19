@@ -120,8 +120,8 @@ const SYSTEM_PROMPT = (promptContext: string, isPro: boolean) =>
     "",
     "Data access:",
     "- You have full access to the user's portfolio data in the context below.",
-    "- Use your READ tools (getDashboardOverview, getRentCollection, getWorkOrders, getComplianceOverview, getClientPortfolio) when you need current, structured figures for accuracy.",
-    "- Use context data for general questions; use tools when the manager needs exact live numbers.",
+    "- Use the search_properties tool to look up a specific property by name or address when you need its exact live details.",
+    "- Use context data for general questions; use the lookup tool when the owner needs exact live numbers.",
     "- Never say you don't have access to data that is present in the context. If you can derive the answer from the context, do so.",
     "",
     ...(isPro

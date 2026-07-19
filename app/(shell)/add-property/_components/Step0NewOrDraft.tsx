@@ -497,7 +497,7 @@ function MethodCard({
           >
             {method.subLinks!.map((link) => (
               <button
-                key={link.path}
+                key={link.label}
                 onClick={(e) => { e.stopPropagation(); if (!disabled) router.push(link.path); }}
                 disabled={disabled}
                 style={{

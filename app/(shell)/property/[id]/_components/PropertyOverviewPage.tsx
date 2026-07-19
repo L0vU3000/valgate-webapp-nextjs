@@ -10,7 +10,7 @@ import {
   Building2, Maximize2, Calendar, MapPin,
   BedDouble, Bath, Car, FileCheck,
   TrendingUp, TrendingDown,
-  Info, ArrowUpRight, ClipboardList,
+  Info, ArrowUpRight,
   type LucideIcon,
 } from "lucide-react";
 import { ProgressExplainerModal } from "@/components/portfolio/ProgressExplainerModal";
@@ -42,6 +42,7 @@ import { formatCurrency, formatCurrencyFull, formatRelativeTime } from "@/lib/fo
 import type { Activity } from "@/lib/data/types/activity";
 import { TYPE_LABEL, TYPE_ICON } from "@/lib/property-helpers";
 import { PropertyLayout } from "@/components/property/PropertyLayout";
+import { PropertyActivityPanel } from "@/components/property/PropertyActivityPanel";
 import { usePropertyShell } from "@/components/property/PropertyShellContext";
 import { StackedCardTable } from "@/components/ui/stacked-card-table";
 import { PropertyPhotoManager } from "./PropertyPhotoManager";
@@ -240,7 +241,9 @@ function useCountUp(raw: string, duration: number, active: boolean): string {
   const isDecimal = raw.includes(".");
   const [display, setDisplay] = useState("0");
   useEffect(() => {
-    if (!active) { setDisplay(raw); return; }
+    // Non-numeric values (e.g. "—" for an unset price) can't animate —
+    // parseFloat gives NaN, which would render literally as "NaN". Show raw.
+    if (!active || !Number.isFinite(num)) { setDisplay(raw); return; }
     const start = performance.now();
     function tick(now: number) {
       const p = Math.min((now - start) / duration, 1);
@@ -1118,6 +1121,11 @@ export function PropertyOverviewPage({
               {/* Photo manager — add / delete / set-cover on this property's photos */}
               <PropertyPhotoManager propertyId={property.id} />
 
+              {/* Read-only activity panel (Phase 5). Rows are fetched server-side in the
+                  overview page's queries (listActivities(ctx, propertyId)) and passed down
+                  as recentActivities — no client fetch. Right rail on desktop. */}
+              <PropertyActivityPanel activities={recentActivities} />
+
             </div>
           </div>
 
@@ -1221,39 +1229,6 @@ export function PropertyOverviewPage({
             </div>
           )}
 
-        </div>
-      </div>
-
-      {/* ─── Recent activity panel ────────────────────────────────── */}
-      <div className="px-4 sm:px-6 pb-10 max-w-7xl mx-auto w-full">
-        <div className="rounded-xl border border-slate-100 bg-white shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-            <h3 className="text-[13px] font-semibold text-slate-700">Recent activity</h3>
-            {recentActivities.length > 0 && (
-              <span className="text-[11px] text-slate-400">Showing latest {recentActivities.length}</span>
-            )}
-          </div>
-          {recentActivities.length === 0 ? (
-            <div className="px-5 py-10 flex flex-col items-center gap-2 text-center">
-              <ClipboardList className="w-6 h-6 text-slate-300" />
-              <p className="text-[13px] font-medium text-slate-500">No activity yet</p>
-              <p className="text-[12px] text-slate-400">Actions like archiving, adding photos, or updating records will appear here.</p>
-            </div>
-          ) : (
-            <ul className="divide-y divide-slate-50">
-              {recentActivities.map((event) => (
-                <li key={event.id} className="px-5 py-3 flex items-start gap-3">
-                  <span className="mt-0.5 flex-shrink-0 w-1.5 h-1.5 rounded-full bg-slate-300 mt-2" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[12px] text-slate-700 truncate">{event.description}</p>
-                    <p className="text-[11px] text-slate-400 mt-0.5">
-                      {event.entity} · {formatRelativeTime(event.createdAt)}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
         </div>
       </div>
 

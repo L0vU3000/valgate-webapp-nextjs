@@ -9,20 +9,13 @@ import {
   Home,
   LayoutGrid,
   BarChart2,
-  Landmark,
   Settings,
   Sun,
   Moon,
   Key,
-  Sparkles,
-  BookUser,
   LogOut,
-  Briefcase,
-  Wrench,
-  ShieldCheck,
 } from "lucide-react";
 import { cn } from "../ui/utils";
-import { useIsManager } from "./AppHeaderPropertiesContext";
 
 // Maps a Clerk org role ("org:admin") to a friendly label ("Admin").
 function roleLabel(role: string | null | undefined): string {
@@ -34,20 +27,14 @@ function roleLabel(role: string | null | undefined): string {
 const sidebarNavItems = [
   { label: "Home", path: "/", icon: Home },
   { label: "Portfolio", path: "/portfolio", icon: LayoutGrid },
-  { label: "Directory", path: "/directory", icon: BookUser },
   { label: "Rental", path: "/rental", icon: Key },
-  { label: "Work Orders", path: "/work-orders", icon: Wrench },
-  { label: "Compliance", path: "/compliance", icon: ShieldCheck },
   { label: "Analytics", path: "/analytics", icon: BarChart2 },
-  { label: "Estate Planning", path: "/estate-planning", icon: Landmark },
-  { label: "Pro", path: "/pro/dashboard", icon: Briefcase },
   { label: "Settings", path: "/settings", icon: Settings },
 ] as const;
 
 interface SidebarProps {
   isDark: boolean;
   onToggleDark: () => void;
-  onOpenAI: () => void;
   /**
    * Render mode:
    * - "rail" (default): the desktop sidebar (collapsible w-16 ↔ w-52)
@@ -59,35 +46,12 @@ interface SidebarProps {
    * the parent can close the Sheet on navigation.
    */
   onNavigate?: () => void;
-  /**
-   * Preview mode for the manager's "View as client" route. When set, the
-   * sidebar shows the *client's* identity (not the signed-in manager), hides
-   * the manager-only "Pro" item and the sign-out control, forces "Home" active,
-   * and makes nav items inert (the preview only renders the client's home).
-   */
-  isPreview?: boolean;
-  /**
-   * Identity to show in preview mode instead of the Clerk user. Lets the
-   * sidebar read as the client being previewed.
-   */
-  identity?: { displayName: string; initials: string; roleText: string };
-  /**
-   * Base path for preview navigation, e.g. `/pro/clients/CLI-0011/as-client`.
-   * When set (with isPreview), nav items route to `previewBasePath + item.path`
-   * instead of being inert, so the manager can browse the client's sections.
-   * Settings/profile stay inert even with this set — they're account-level.
-   */
-  previewBasePath?: string;
 }
 
 export function Sidebar({
   isDark,
-  onOpenAI,
   variant = "rail",
   onNavigate,
-  isPreview = false,
-  identity,
-  previewBasePath,
 }: SidebarProps) {
   const [expanded, setExpanded] = useState(false);
   const router = useRouter();
@@ -95,43 +59,21 @@ export function Sidebar({
   const { user } = useUser();
   const { membership } = useOrganization();
   const { signOut } = useClerk();
-  // Pro (== manager) status, same source the header pill reads.
-  const isManager = useIsManager();
 
-  // In preview mode use the supplied client identity; otherwise the Clerk user.
   const displayName =
-    identity?.displayName ||
     user?.fullName ||
     user?.primaryEmailAddress?.emailAddress ||
     "Account";
   const initials =
-    identity?.initials ||
     ((user?.firstName?.[0] ?? "") + (user?.lastName?.[0] ?? "")).toUpperCase() ||
     displayName.charAt(0).toUpperCase();
-  const roleText = identity ? identity.roleText : roleLabel(membership?.role);
-
-  // "Pro" is a Pro-only (== manager) entry point. Show it only to Pro users,
-  // and never in the client preview. Standard users must not see a button that
-  // would 404 at /pro (the route + header pill are already gated the same way).
-  const navItems = sidebarNavItems.filter(
-    (item) => item.label !== "Pro" || (isManager && !isPreview),
-  );
+  const roleText = roleLabel(membership?.role);
 
   const isDrawer = variant === "drawer";
   // Drawer is always fully expanded; rail keeps the collapse toggle.
   const isExpanded = isDrawer || expanded;
 
   const handleNavigate = (path: string) => {
-    if (isPreview) {
-      // Preview browses the client's portfolio sections under previewBasePath.
-      // Settings/profile are account-level (no client user session) so they stay
-      // inert here; without a base path there's nowhere to go, so also inert.
-      if (!previewBasePath) return;
-      if (path.startsWith("/settings")) return;
-      router.push(previewBasePath + (path === "/" ? "" : path));
-      onNavigate?.();
-      return;
-    }
     router.push(path);
     onNavigate?.();
   };
@@ -209,46 +151,19 @@ export function Sidebar({
 
       {/* Nav items */}
       <nav className="flex flex-col gap-1 px-2 py-3 flex-1 overflow-y-auto">
-        {navItems.map((item) => {
+        {sidebarNavItems.map((item) => {
           const Icon = item.icon;
-          const isPro = item.label === "Pro";
-          // Active-state: in preview, compare the pathname *relative to*
-          // previewBasePath (so `/pro/clients/X/as-client/rental` → `/rental`);
-          // otherwise compare the raw owner pathname.
-          let isActive: boolean;
-          if (isPreview) {
-            const rel =
-              previewBasePath && pathname.startsWith(previewBasePath)
-                ? pathname.slice(previewBasePath.length) || "/"
-                : "/";
-            isActive = item.path === "/" ? rel === "/" : rel.startsWith(item.path);
-          } else {
-            isActive =
-              item.path === "/" ? pathname === "/" : pathname.startsWith(item.path);
-          }
+          const isActive =
+            item.path === "/" ? pathname === "/" : pathname.startsWith(item.path);
           return (
             <button
               key={item.label}
               onClick={() => handleNavigate(item.path)}
               className={cn(
                 "flex items-center gap-3 h-11 px-3 rounded-xl text-sm transition-colors",
-                isPro
-                  ? isExpanded
-                    ? cn(
-                        "border font-medium text-[#2563eb]",
-                        isActive
-                          ? "border-[#2563eb] bg-[#e4efff]"
-                          : "border-[#c3c6d7] bg-surface-base hover:bg-[#e4efff] hover:border-[#2563eb]",
-                      )
-                    : cn(
-                        "font-medium text-[#2563eb]",
-                        isActive ? "bg-[#e4efff]" : "hover:bg-[#e4efff]",
-                      )
-                  : cn(
-                      isActive
-                        ? "bg-surface-tint text-foreground font-medium"
-                        : "text-secondary hover:bg-surface-tint hover:text-foreground",
-                    ),
+                isActive
+                  ? "bg-surface-tint text-foreground font-medium"
+                  : "text-secondary hover:bg-surface-tint hover:text-foreground",
                 !isExpanded && "justify-center px-0",
               )}
               title={!isExpanded ? item.label : undefined}
@@ -258,35 +173,6 @@ export function Sidebar({
             </button>
           );
         })}
-
-        {/* AI Overlay button */}
-        <div className="mt-auto pt-3">
-          <button
-            type="button"
-            onClick={() => {
-              onOpenAI();
-              onNavigate?.();
-            }}
-            className={cn(
-              "group flex w-full items-center gap-2.5 rounded-xl border border-border-default bg-surface-base text-sm font-medium text-foreground transition-[background-color,border-color,box-shadow] duration-200",
-              "hover:border-interactive-primary/35 hover:bg-surface-tint",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-interactive-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-base",
-              "active:scale-[0.98]",
-              isExpanded ? "h-11 px-3" : "mx-auto size-11 justify-center",
-            )}
-            title={!isExpanded ? "Valgate Agent" : undefined}
-          >
-            <span
-              className={cn(
-                "flex shrink-0 items-center justify-center rounded-lg bg-interactive-primary/[0.08] text-interactive-primary transition-colors duration-200 group-hover:bg-interactive-primary/[0.12]",
-                isExpanded ? "size-7" : "size-8",
-              )}
-            >
-              <Sparkles className="size-3.5" strokeWidth={2} />
-            </span>
-            {isExpanded && <span className="truncate">Valgate Agent</span>}
-          </button>
-        </div>
       </nav>
 
       {/* Dark mode + user avatar */}
@@ -299,11 +185,7 @@ export function Sidebar({
             "flex h-11 cursor-not-allowed items-center gap-3 rounded-xl px-3 text-sm text-secondary/45",
             !isExpanded && "justify-center px-0",
           )}
-          title={
-            !isExpanded
-              ? "Theme switching coming soon"
-              : "Theme switching coming soon"
-          }
+          title="Theme switching coming soon"
         >
           {isDark ? (
             <Sun className="size-5 shrink-0" />
@@ -332,20 +214,17 @@ export function Sidebar({
             </div>
           )}
         </button>
-        {/* No sign-out in preview — it would log the *manager* out. */}
-        {!isPreview && (
-          <button
-            onClick={() => signOut({ redirectUrl: "/login" })}
-            className={cn(
-              "flex h-11 items-center gap-3 rounded-xl px-3 text-sm text-secondary hover:bg-surface-tint hover:text-foreground transition-colors",
-              !isExpanded && "justify-center px-0",
-            )}
-            title={!isExpanded ? "Sign out" : undefined}
-          >
-            <LogOut className="size-5 shrink-0" />
-            {isExpanded && <span>Sign out</span>}
-          </button>
-        )}
+        <button
+          onClick={() => signOut({ redirectUrl: "/login" })}
+          className={cn(
+            "flex h-11 items-center gap-3 rounded-xl px-3 text-sm text-secondary hover:bg-surface-tint hover:text-foreground transition-colors",
+            !isExpanded && "justify-center px-0",
+          )}
+          title={!isExpanded ? "Sign out" : undefined}
+        >
+          <LogOut className="size-5 shrink-0" />
+          {isExpanded && <span>Sign out</span>}
+        </button>
       </div>
     </div>
   );

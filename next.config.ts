@@ -38,15 +38,7 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: __dirname,
   },
-  async redirects() {
-    return [
-      {
-        source: "/manager/:path*",
-        destination: "/pro/:path*",
-        permanent: false,
-      },
-    ];
-  },
 };
 
+// Wrap with fumadocs-mdx so the /docs manual (content/docs/**) compiles.
 export default createMDX()(nextConfig);

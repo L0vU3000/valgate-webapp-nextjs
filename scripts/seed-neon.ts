@@ -24,6 +24,7 @@ import { CertificationSchema } from "@/lib/data/types/certification";
 import { SafetyRiskSchema } from "@/lib/data/types/safety-risk";
 import { EmergencyContactSchema } from "@/lib/data/types/emergency-contact";
 import { MaintenanceItemSchema } from "@/lib/data/types/maintenance-item";
+import { UtilityAccountSchema } from "@/lib/data/types/utility-account";
 import { PropertyValuationSchema } from "@/lib/data/types/property-valuation";
 import { OwnershipRecordSchema } from "@/lib/data/types/ownership-record";
 import { OwnershipDocumentSchema } from "@/lib/data/types/ownership-document";
@@ -70,6 +71,7 @@ const PLAN: Entry[] = [
   { dir: "safety-risks", table: s.safetyRisks, schema: SafetyRiskSchema },
   { dir: "emergency-contacts", table: s.emergencyContacts, schema: EmergencyContactSchema },
   { dir: "maintenance-items", table: s.maintenanceItems, schema: MaintenanceItemSchema },
+  { dir: "utility-accounts", table: s.utilityAccounts, schema: UtilityAccountSchema },
   { dir: "property-valuations", table: s.propertyValuations, schema: PropertyValuationSchema },
   { dir: "ownership-records", table: s.ownershipRecords, schema: OwnershipRecordSchema },
   { dir: "ownership-documents", table: s.ownershipDocuments, schema: OwnershipDocumentSchema },
@@ -89,7 +91,7 @@ const ALL_TABLES = [
   s.organizations, s.users, s.organizationMemberships, s.idCounters,
   s.properties, s.landParcels, s.propertyValuations, s.tenants, s.leases, s.payments, s.expenses,
   s.folders, s.documents, s.inspections, s.certifications, s.safetyRisks, s.emergencyContacts,
-  s.maintenanceItems, s.coOwners, s.ownershipRecords, s.ownershipDocuments, s.ownershipHistory,
+  s.maintenanceItems, s.utilityAccounts, s.coOwners, s.ownershipRecords, s.ownershipDocuments, s.ownershipHistory,
   s.successors, s.successorPropertyAssignments, s.estateActivityEvents, s.professionals,
   s.userProfiles, s.notifications, s.notificationPreferences,
   s.pillarVerifications, s.verificationEvidence, s.verificationEvents,
