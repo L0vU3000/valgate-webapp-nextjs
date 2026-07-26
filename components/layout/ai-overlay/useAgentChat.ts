@@ -84,6 +84,11 @@ export function useAgentChat(pathname: string) {
       setMessages(created.data.messages);
     }
 
+    // After the block above, a session id is always set (we either had one, or
+    // created one and returned early on failure). This guard makes that explicit
+    // for TypeScript so `sessionId` narrows from `string | null` to `string`.
+    if (!sessionId) return;
+
     setInputValue("");
     setIsSending(true);
 

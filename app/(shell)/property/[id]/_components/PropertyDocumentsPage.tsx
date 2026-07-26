@@ -26,7 +26,6 @@ import {
   ChevronRight,
   Check,
   CheckCircle2,
-  AlertCircle,
   RefreshCw,
   Trash2,
   FolderInput,

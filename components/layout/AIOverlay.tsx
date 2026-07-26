@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Menu, PanelRight } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/components/ui/utils";

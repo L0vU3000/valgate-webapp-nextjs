@@ -1,16 +1,19 @@
-// GOAL (C9): the live schema matches the B1 spec — 34 tables, org_id on every domain
+// GOAL (C9): the live schema matches the B1 spec — 42 tables, org_id on every domain
 // table, all enum types present, FKs wired. Exits non-zero on any mismatch.
 import { db } from "@/lib/db/client";
 import { sql } from "drizzle-orm";
 
-const EXPECTED_TABLES = 34;
-const EXPECTED_ENUMS = 37;
-// 27 domain tables (all carry org_id NOT NULL per C3/D14) — the universal-org_id check.
+// 42 base tables in the public schema, matching lib/db/schema/*. Bump this in the same
+// change that adds or drops a table so the assert stays an honest spec guard.
+const EXPECTED_TABLES = 42;
+const EXPECTED_ENUMS = 38;
+// 28 domain tables (all carry org_id NOT NULL per C3/D14) — the universal-org_id check.
 const DOMAIN_TABLES = [
   "properties", "land_parcels", "property_valuations",
   "tenants", "leases", "payments", "expenses",
   "folders", "documents",
   "inspections", "certifications", "safety_risks", "emergency_contacts", "maintenance_items",
+  "utility_accounts",
   "co_owners", "ownership_records", "ownership_documents", "ownership_history",
   "successors", "successor_property_assignments", "estate_activity_events",
   "professionals", "user_profiles",
@@ -33,7 +36,7 @@ async function main() {
   check("table count", tables.rows.length === EXPECTED_TABLES, `${tables.rows.length} (want ${EXPECTED_TABLES})`);
 
   const missing = DOMAIN_TABLES.filter((t) => !names.has(t));
-  check("domain tables present", missing.length === 0, missing.length ? `missing: ${missing.join(", ")}` : "all 27");
+  check("domain tables present", missing.length === 0, missing.length ? `missing: ${missing.join(", ")}` : "all 28");
 
   const orgCols = await db.execute(sql`
     SELECT table_name FROM information_schema.columns
@@ -41,7 +44,7 @@ async function main() {
   `);
   const orgTables = new Set(orgCols.rows.map((r) => r.table_name as string));
   const noOrg = DOMAIN_TABLES.filter((t) => !orgTables.has(t));
-  check("org_id NOT NULL on all domain tables", noOrg.length === 0, noOrg.length ? `missing: ${noOrg.join(", ")}` : "27/27");
+  check("org_id NOT NULL on all domain tables", noOrg.length === 0, noOrg.length ? `missing: ${noOrg.join(", ")}` : "28/28");
 
   const enums = await db.execute(sql`
     SELECT typname FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace

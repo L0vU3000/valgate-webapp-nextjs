@@ -30,6 +30,16 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -f graphify-out/graph.json ] && graphify update . >/dev/null 2>&1 || true"
+          }
+        ]
+      }
     ]
   }
 }

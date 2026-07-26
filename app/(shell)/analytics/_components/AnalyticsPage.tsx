@@ -80,7 +80,7 @@ export function AnalyticsPage({ data, period }: { data: AnalyticsPageData; perio
   useEffect(() => { setMounted(true); }, []);
 
   const {
-    revenueData, kpiCards, leasePipeline, capitalGrowth,
+    revenueData, timelineLabel, kpiCards, leasePipeline, capitalGrowth,
     maintenanceSpend, savedReports, expenseBreakdown, expenseBreakdownTotal,
   } = data;
 
@@ -231,7 +231,7 @@ export function AnalyticsPage({ data, period }: { data: AnalyticsPageData; perio
               <div className="flex flex-wrap items-start sm:items-center justify-between gap-2 px-4 sm:px-6 pt-5 sm:pt-6 pb-4 border-b border-slate-50">
                 <div>
                   <h2 className="text-[18px] sm:text-[24px] font-bold text-val-heading font-display">
-                    Revenue vs Expenses (YTD)
+                    Revenue vs Expenses ({activePeriod})
                   </h2>
                   <p className="text-[12px] text-slate-400">Comparative analysis across all assets</p>
                 </div>
@@ -259,7 +259,9 @@ export function AnalyticsPage({ data, period }: { data: AnalyticsPageData; perio
                 </div>
                 <div className="flex items-center justify-between mt-3">
                   <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">TIMELINE ZOOM</span>
-                  <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">MARCH 2024 - AUGUST 2024</span>
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">
+                    {timelineLabel ?? "NO ACTIVITY IN SELECTED PERIOD"}
+                  </span>
                 </div>
               </div>
             </div>

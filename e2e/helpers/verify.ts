@@ -33,6 +33,16 @@ export async function assertActivityRow(entity: string, action: string): Promise
 }
 
 export async function assertS3ObjectGone(storageId: string): Promise<void> {
+  // The default e2e document helper creates only a database row with a fabricated storage
+  // id; it does not upload an object. A HEAD request for that id cannot prove deletion and
+  // private buckets may answer 403 for missing objects. Run this external integration check
+  // only in an environment that explicitly provisions an e2e storage object first — so it is
+  // off by default and opts in via E2E_VERIFY_S3=true.
+  if (process.env.E2E_VERIFY_S3 !== 'true') {
+    console.log(`[SKIP] S3 check for ${storageId} — E2E_VERIFY_S3 is not true`)
+    return
+  }
+
   const bucket = process.env.STORAGE_BUCKET
   if (!bucket) {
     console.log(`[SKIP] S3 check for ${storageId} — STORAGE_BUCKET not in .env.e2e`)

@@ -58,7 +58,11 @@ export default function RootLayout({
             strategy="lazyOnload"
           />
           {children}
-          <AgentationProvider />
+          {/* Agentation is dev-only annotation tooling that probes a local daemon on
+              :4747. DEMO_MODE runs under `next dev` (NODE_ENV=development) but has no such
+              daemon, so mounting it there spams the console with connection-refused errors
+              (and breaks the e2e "no console errors" check). Skip it in DEMO_MODE. */}
+          {process.env.DEMO_MODE !== "true" && <AgentationProvider />}
         </body>
       </html>
     </ClerkProvider>

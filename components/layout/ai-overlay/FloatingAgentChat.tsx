@@ -21,7 +21,7 @@ import { cn } from "@/components/ui/utils";
 import { AIMessageBubble, AIThinkingIndicator } from "./AIMessageBubble";
 import { useAgentChat } from "./useAgentChat";
 import { createSession, refreshOverlayContext } from "@/lib/actions/ai-overlay.actions";
-import { useProAgent } from "@/app/(pro)/pro/_components/ProAgentContext";
+import { useAgentOverlay } from "./agent-context";
 import {
   CATEGORY_LABELS,
   filterSlashCommands,
@@ -47,7 +47,7 @@ export function FloatingAgentChat({ pathname, openTrigger }: FloatingAgentChatPr
   const [showSessions, setShowSessions] = useState(false);
   const [showArtifacts, setShowArtifacts] = useState(false);
   const bootstrappedRef = useRef(false);
-  const { openAI } = useProAgent();
+  const { openAI } = useAgentOverlay();
   const chat = useAgentChat(pathname);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);

@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { env } from "@/lib/env";
 import { useShellContext } from "@/components/layout/shell-context";
+import { createMapIfSupported } from "@/components/map/map-support";
 
 const DEFAULT_ZOOM = 15;
 
@@ -27,6 +28,7 @@ export function PropertyDetailMap({
 }: PropertyDetailMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
+  const [isMapUnavailable, setIsMapUnavailable] = useState(false);
   const markerRef = useRef<mapboxgl.Marker | null>(null);
   const { isDark } = useShellContext();
   const center: [number, number] = [lng, lat];
@@ -59,7 +61,7 @@ export function PropertyDetailMap({
 
     mapboxgl.accessToken = env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
-    const map = new mapboxgl.Map({
+    const map = createMapIfSupported({
       container: containerRef.current,
       style: isDark
         ? "mapbox://styles/mapbox/dark-v11"
@@ -68,6 +70,13 @@ export function PropertyDetailMap({
       zoom,
       attributionControl: false,
     });
+
+    if (!map) {
+      containerRef.current.replaceChildren();
+      setIsMapUnavailable(true);
+      onLoad?.();
+      return;
+    }
 
     map.addControl(new mapboxgl.AttributionControl({ compact: true }), "bottom-left");
     mapRef.current = map;
@@ -109,6 +118,15 @@ export function PropertyDetailMap({
   }, [isDark]);
 
   return (
-    <div ref={containerRef} className={className} style={{ width: "100%", height: "100%" }} />
+    <div ref={containerRef} className={className} style={{ width: "100%", height: "100%" }}>
+      {isMapUnavailable ? (
+        <div
+          role="status"
+          className="flex h-full w-full items-center justify-center bg-muted/40 px-6 text-center text-sm text-muted-foreground"
+        >
+          Map preview unavailable
+        </div>
+      ) : null}
+    </div>
   );
 }

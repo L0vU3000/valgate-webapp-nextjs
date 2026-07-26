@@ -8,6 +8,7 @@ export * from "./property-drafts";
 export * from "./rental";
 export * from "./documents";
 export * from "./safety";
+export * from "./utilities";
 export * from "./ownership";
 export * from "./estate";
 export * from "./people";

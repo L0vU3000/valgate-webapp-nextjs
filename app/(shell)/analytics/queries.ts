@@ -13,6 +13,7 @@ import {
 } from "@/lib/data/cached-reads";
 import {
   computeRevenueSeries,
+  computeRevenueTimelineLabel,
   computeKpiCards,
   computeLeasePipeline,
   computeCapitalGrowth,
@@ -40,6 +41,7 @@ export type {
 
 export type AnalyticsPageData = {
   revenueData: RevenueDataPoint[];
+  timelineLabel: string | null;
   kpiCards: KpiCard[];
   leasePipeline: LeasePipelineItem[];
   capitalGrowth: CapitalGrowthItem[];
@@ -68,6 +70,7 @@ export async function getAnalyticsPageData(period = "12M", ctxOverride?: Ctx): P
 
   return {
     revenueData: computeRevenueSeries(payments, expenses, window),
+    timelineLabel: computeRevenueTimelineLabel(payments, expenses, window),
     kpiCards: computeKpiCards(properties, payments, leases, maintenance, expenses, window),
     leasePipeline: computeLeasePipeline(leases),
     capitalGrowth: computeCapitalGrowth(properties, valuations),

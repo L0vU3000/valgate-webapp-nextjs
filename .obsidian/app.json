@@ -1,0 +1,19 @@
+{
+  "alwaysUpdateLinks": true,
+  "newLinkFormat": "relative",
+  "useMarkdownLinks": false,
+  "attachmentFolderPath": "vault/resources/attachments",
+  "userIgnoreFilters": [
+    "node_modules/",
+    ".next/",
+    ".git/",
+    "dist/",
+    "build/",
+    "coverage/",
+    "playwright-report/",
+    "test-results/",
+    "graphify-out/",
+    ".vercel/",
+    "public/data/"
+  ]
+}

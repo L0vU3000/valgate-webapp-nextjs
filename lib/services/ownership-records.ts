@@ -6,6 +6,7 @@ import { OwnershipRecordSchema, type OwnershipRecord } from "@/lib/data/types/ow
 import type { NewOwnershipRecord, OwnershipRecordPatch } from "@/lib/data/types/ownership-record";
 import { toDomain, type Ctx } from "@/lib/services/_mapping";
 import { scopedInsert, scopedUpdate, scopedDelete } from "@/lib/services/_crud";
+import { logActivity } from "@/lib/services/activity";
 
 const rowToOwnershipRecord = (r: typeof ownershipRecords.$inferSelect): OwnershipRecord =>
   OwnershipRecordSchema.parse(toDomain(ownershipRecords, r)); // C6/C7
@@ -32,7 +33,25 @@ export async function createOwnershipRecord(ctx: Ctx, input: NewOwnershipRecord)
 }
 
 export async function updateOwnershipRecord(ctx: Ctx, id: string, patch: OwnershipRecordPatch): Promise<OwnershipRecord | null> {
-  return scopedUpdate(ctx, ownershipRecords, id, patch, rowToOwnershipRecord, true);
+  const updated = await scopedUpdate(ctx, ownershipRecords, id, patch, rowToOwnershipRecord, true);
+
+  // Best-effort activity log. Only fires on a definitive success (scopedUpdate returns null
+  // for a missing / cross-org id), wrapped so a failed audit write can never fail the update.
+  if (updated) {
+    try {
+      await logActivity(ctx, {
+        entity: "ownership",
+        action: "updated",
+        entityId: updated.id,
+        propertyId: updated.propertyId,
+        summary: "Updated ownership details",
+      });
+    } catch (err) {
+      console.error("logActivity failed (ownership.updated)", err);
+    }
+  }
+
+  return updated;
 }
 
 export async function deleteOwnershipRecord(ctx: Ctx, id: string): Promise<void> {

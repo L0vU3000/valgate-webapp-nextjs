@@ -69,7 +69,7 @@ function mediaFromFiles(files: DraftFileView[]): Partial<FormData> {
 export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { drafts: localDrafts, activeId, mounted, setActive, upsert, remove, clearActive } =
+  const { drafts: localDrafts, activeId, mounted, setActive, upsert, saveNow, remove, clearActive } =
     useDrafts();
 
   const hasUrlParams = !!(searchParams.get("draftId") || searchParams.get("step"));
@@ -154,6 +154,9 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
   // step param and everything else stay as-is.
   useEffect(() => {
     if (!mounted || !activeId || !activeId.startsWith("DRFT-")) return;
+    // Only stamp while still on the wizard: a create resolving after Save-as-Draft has navigated
+    // away must never replace the URL back to /add-property.
+    if (window.location.pathname !== "/add-property") return;
     const params = new URLSearchParams(window.location.search);
     if (params.get("draftId") === activeId) return;
     params.set("draftId", activeId);
@@ -380,9 +383,14 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
     router.replace(`/add-property?step=${step}&draftId=${id}`);
   }
 
-  function handleSaveAsDraft() {
+  async function handleSaveAsDraft() {
+    // Persist the draft BEFORE navigating: capture the current form/step, then await the write so a
+    // temp id is resolved to its DRFT- server id and the URL is already stamped. If we navigated
+    // first, a late create resolving here would fire the URL-stamp effect and yank the route back to
+    // the wizard. Awaiting also guarantees the typed name is saved, so resume is deterministic.
     if (activeId) {
       upsert(activeId, form, step);
+      await saveNow();
     }
     router.push("/portfolio");
   }

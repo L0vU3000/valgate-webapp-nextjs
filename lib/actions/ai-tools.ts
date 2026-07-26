@@ -1,171 +1,9 @@
 import "server-only";
 
 import { tool } from "ai";
-import { z } from "zod";
 
 import { requireCtx } from "@/lib/auth/ctx";
-import {
-  getProDashboardData,
-  getRentPageData,
-  getWorkOrdersPageData,
-  getCompliancePageData,
-  getClientPortfolioData,
-} from "@/app/(pro)/pro/queries";
 import { VALGATE_TOOLS, audit, type ValgateToolDef } from "@/mcp-server/tool-defs";
-
-// ---------------------------------------------------------------------------
-// READ tools — thin summaries over the Pro query layer so the AI can give
-// grounded answers. The system prompt already carries the full portfolio
-// context; these tools are called when the AI needs structured data that
-// matches a specific page (rent roll, work orders, etc.) for accuracy and
-// to produce Activity-pane trace rows.
-// ponytail: compact return payloads only — full ProDashboardData is too large.
-// ---------------------------------------------------------------------------
-
-export const getDashboardOverview = tool({
-  description:
-    "Get the Pro manager dashboard overview: KPIs (total book value, occupancy, rent collection), alert counts, and work order counts.",
-  inputSchema: z.object({}),
-  execute: async () => {
-    const data = await getProDashboardData();
-    return {
-      kpis: {
-        totalValueFormatted: data.kpis.totalValueFormatted,
-        propertyCount: data.kpis.propertyCount,
-        clientCount: data.kpis.clientCount,
-        occupancyRate: data.kpis.occupancyRate,
-        monthlyExpected: data.kpis.monthlyExpected,
-        monthlyCollected: data.kpis.monthlyCollected,
-        collectionRate: data.kpis.collectionRate,
-        monthLabel: data.kpis.monthLabel,
-      },
-      alerts: {
-        urgent: data.alerts.filter((a) => a.severity === "urgent").length,
-        warning: data.alerts.filter((a) => a.severity === "warning").length,
-        topAlerts: data.alerts.slice(0, 5).map((a) => a.label),
-      },
-      workOrders: data.workOrders.counts,
-      occupancy: data.occupancy,
-    };
-  },
-});
-
-export const getRentCollection = tool({
-  description:
-    "Get the current month's rent collection data: expected vs collected amounts, overdue leases, and expiring leases. Use this to answer questions about rent, overdue tenants, or payment status.",
-  inputSchema: z.object({}),
-  execute: async () => {
-    const data = await getRentPageData();
-    return {
-      monthLabel: data.monthLabel,
-      expected: data.expected,
-      collected: data.collected,
-      outstanding: data.outstanding,
-      collectionRate: data.collectionRate,
-      overdueCount: data.overdue.length,
-      overdue: data.overdue.map((r) => ({
-        propertyName: r.propertyName,
-        clientName: r.clientName,
-        tenantName: r.tenantName,
-        unit: r.unit,
-        monthlyRent: r.monthlyRent,
-        rentStatus: r.rentStatus,
-        leaseId: r.leaseId,
-        paymentId: r.paymentId,
-      })),
-      expiringCount: data.expiring.length,
-      expiring: data.expiring.map((e) => ({
-        propertyName: e.propertyName,
-        clientName: e.clientName,
-        tenantName: e.tenantName,
-        daysLeft: e.daysLeft,
-        monthlyRent: e.monthlyRent,
-        leaseId: e.leaseId,
-      })),
-    };
-  },
-});
-
-export const getWorkOrders = tool({
-  description:
-    "Get the work orders queue: open, in-progress, and resolved counts, plus the list of active work orders with their severity and assigned vendor.",
-  inputSchema: z.object({}),
-  execute: async () => {
-    const data = await getWorkOrdersPageData();
-    return {
-      counts: data.counts,
-      totalOpenCost: data.totalOpenCost,
-      queue: data.rows
-        .filter((r) => r.status !== "Resolved")
-        .slice(0, 20)
-        .map((r) => ({
-          id: r.id,
-          title: r.title,
-          severity: r.severity,
-          status: r.status,
-          propertyName: r.propertyName,
-          clientName: r.clientName,
-          vendorName: r.vendorName,
-          cost: r.cost,
-        })),
-    };
-  },
-});
-
-export const getComplianceOverview = tool({
-  description:
-    "Get compliance overview: certificate expiry status, open safety risks, and inspection results. Use for questions about expired/expiring certificates or open risks.",
-  inputSchema: z.object({}),
-  execute: async () => {
-    const data = await getCompliancePageData();
-    return {
-      summary: data.summary,
-      expiring: data.certifications
-        .filter((c) => c.status === "Expiring" || c.status === "Expired")
-        .slice(0, 10)
-        .map((c) => ({
-          name: c.name,
-          status: c.status,
-          dueLabel: c.dueLabel,
-          propertyName: c.propertyName,
-          clientName: c.clientName,
-        })),
-      openRisks: data.safetyRisks.slice(0, 10).map((r) => ({
-        id: r.id,
-        title: r.title,
-        severity: r.severity,
-        propertyName: r.propertyName,
-        clientName: r.clientName,
-      })),
-    };
-  },
-});
-
-export const getClientPortfolio = tool({
-  description:
-    "Get detailed data for a specific client's portfolio: properties, rent roll, work orders, and compliance. Use when the manager asks about a specific owner-client.",
-  inputSchema: z.object({
-    clientId: z.string().describe("The client ID, e.g. CLIENT-0001"),
-  }),
-  execute: async ({ clientId }) => {
-    const data = await getClientPortfolioData(clientId);
-    if (!data) return { error: `Client ${clientId} not found.` };
-    return {
-      name: data.rollup.client.name,
-      propertyCount: data.rollup.propertyCount,
-      totalValueFormatted: data.rollup.totalValueFormatted,
-      occupancyRate: data.rollup.occupancyRate,
-      monthlyExpected: data.rollup.monthlyExpected,
-      monthlyCollected: data.rollup.monthlyCollected,
-      outstanding: data.rollup.outstanding,
-      health: data.rollup.health,
-      alertCount: data.rollup.alerts.length,
-      topAlerts: data.rollup.alerts.slice(0, 3).map((a) => a.label),
-      workOrderCount: data.workOrders.filter((w) => w.status !== "Resolved").length,
-      leasesExpiring90d: data.leasesExpiring90d,
-    };
-  },
-});
 
 // ---------------------------------------------------------------------------
 // Real action tools — built from the shared VALGATE_TOOLS registry
@@ -229,11 +67,6 @@ function toolFor(name: string) {
 // The full tool set for Pro routes — passed to generateText. Reads for grounded answers, direct
 // writes (create/update/record execute immediately), and gated deletes (propose → human approves).
 export const PRO_TOOLS = {
-  getDashboardOverview,
-  getRentCollection,
-  getWorkOrders,
-  getComplianceOverview,
-  getClientPortfolio,
   search_properties: toolFor("search_properties"),
   search_professionals: toolFor("search_professionals"),
   create_property: toolFor("create_property"),
@@ -254,11 +87,12 @@ export const PRO_TOOLS = {
 
 // READ-only tools for non-Pro routes (no writes — property owners can't mutate via chat).
 export const CONSUMER_TOOLS = {
-  getDashboardOverview,
-  getRentCollection,
-  getWorkOrders,
-  getComplianceOverview,
-  getClientPortfolio,
+  // Single-owner chat gets one read-only lookup tool. The 5 old read tools were
+  // Pro/manager-scoped (dashboard, rent roll, work orders, compliance, clients)
+  // and were removed with the Pro cut. Richer owner-scoped tools + MCP write
+  // tools are a tracked follow-up; for now the assistant answers mainly from the
+  // portfolio context in its system prompt.
+  search_properties: toolFor("search_properties"),
 };
 
 // Human-readable label for each tool name — shown in the Activity pane.

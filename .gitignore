@@ -18,6 +18,12 @@ playwright-report/
 test-results/
 e2e/test-results.json
 
+# playwright-mcp browser session artifacts (console logs, screenshots)
+.playwright-mcp/
+
+# per-user Obsidian editor state (workspace/graph layout); vault notes are tracked
+vault/.obsidian/
+
 # next.js
 /.next/
 /out/
@@ -73,3 +79,16 @@ graphify-out/
 
 # local runtime upload storage (property photos etc. written by the app, not repo content)
 public/_storage/
+
+# agent-loop: per-run pipeline state is transient, not committed
+agent-loop/pipelines/*/runs/
+!agent-loop/pipelines/*/runs/.gitkeep
+
+# agent-loop: dashboard is a generated live view (regenerated from state)
+agent-loop/dashboard.md
+
+# agent-loop: orchestrator poll-loop heartbeat (transient liveness stamp)
+agent-loop/orchestrator/.heartbeat
+
+# agent-loop: improvement backlog is a generated snapshot (regenerated each tick)
+agent-loop/memory/improvement-candidates.md
