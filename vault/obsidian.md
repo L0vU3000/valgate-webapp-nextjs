@@ -208,6 +208,8 @@ so they open in Obsidian **and** render in plain Git viewers.
 ### Resources (references)
 - [[karpathy-llm-wiki-pattern]] — the LLM-maintained wiki pattern this vault is built on
 - [[agent-loop-system]] — the `agent-loop/` orchestrator + pipelines (agentic engineering)
+- [[inspiration]] — running list of external design inspiration
+- [[copperlane-ai]] — AI mortgage origination platform, landing-page design reference
 
 ---
 

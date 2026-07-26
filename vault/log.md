@@ -185,3 +185,5 @@ orchestrator has no in-progress claim/lock, so concurrent ticks duplicate work. 
 [[2026-07-19-orchestrator-item-claim-lock]]. Two worktree-setup gotchas also logged: fresh
 worktrees lack fumadocs-generated `.source` (breaks tsc), and node_modules symlink panics Turbopack
 (use npm ci). See [[agent-loop-operator-preflight]].
+
+## [2026-07-27] ingest | Copperlane.ai design inspiration
