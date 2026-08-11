@@ -765,8 +765,8 @@ export async function handleInvitationAccepted(clerkInvitationId: string): Promi
   };
 
   try {
-    // Resolve the SAME home org the manager lands in by default (via /launch →
-    // ensureManagerHomeOrganizationForClerkUser), and create it if this manager
+    // Resolve the SAME home org a manager is provisioned into by default
+    // (ensureManagerHomeOrganizationForClerkUser), and create it if this manager
     // never had one (legacy accounts onboarded before the home-org concept).
     // Using a different heuristic here was the bug: it could pick an orphaned
     // test org with no client_handoffs/access_requests row, which the manager
@@ -814,9 +814,10 @@ export async function handleInvitationAccepted(clerkInvitationId: string): Promi
 
 // ─── Client-side acceptance fallback ──────────────────────────────────────────
 //
-// Called from /launch when the Clerk webhook (organizationInvitation.accepted)
-// hasn't fired or wasn't delivered yet. Without this fallback, handoffs stay
-// "pending" forever and the manager never receives the notification.
+// Fallback for when the Clerk webhook (organizationInvitation.accepted) hasn't fired or
+// wasn't delivered yet — without it, handoffs would stay "pending" forever and the manager
+// would never receive the notification. Currently unused: its former caller (the post-auth
+// decider page) was removed; kept for API compatibility.
 //
 // Finds all pending handoffs where the user's email matches, then delegates to
 // the same handleInvitationAccepted logic the webhook would have called.

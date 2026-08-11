@@ -11,7 +11,7 @@ import { z } from "zod";
 import { toast } from "sonner";
 import { useSignIn, useClerk, useUser } from "@clerk/nextjs";
 import { clerkErrorMessage } from "../../_lib/clerk-errors";
-import { resolveRedirectUrl } from "../../_lib/resolve-redirect-url";
+import { resolveRedirectUrl, resolveLoginRedirectTarget } from "../../_lib/resolve-redirect-url";
 import { resolveDefaultHomeOrgAction } from "../../actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -63,26 +63,27 @@ const SHOW_GOOGLE = false;
 async function completeSignIn(
   signIn: ReturnType<typeof useSignIn>["signIn"],
   setActive: ReturnType<typeof useClerk>["setActive"],
+  redirectTarget: string,
 ) {
   await signIn!.finalize({
     navigate: async ({ decorateUrl }) => {
       // Pre-selecting the user's default org is a convenience, NOT a gate. finalize() has
       // already activated the session by the time navigate runs, so if resolving or
       // activating the org fails we must still redirect — otherwise the user is left
-      // signed-in but stranded on /login. /launch resolves the org server-side anyway.
+      // signed-in but stranded on /login.
       try {
         const { clerkOrgId } = await resolveDefaultHomeOrgAction();
         if (clerkOrgId) {
           await setActive({ organization: clerkOrgId });
         }
       } catch (err) {
-        console.error("[login] default-org activation failed; continuing to /launch", err);
+        console.error(`[login] default-org activation failed; continuing to ${redirectTarget}`, err);
       }
 
-      const url = decorateUrl("/launch");
+      const url = decorateUrl(redirectTarget);
       // Hard navigation (not router.push) so the server re-evaluates auth with the freshly
-      // activated session — a soft nav can land on /launch before the session is readable
-      // server-side and bounce back to /login.
+      // activated session — a soft nav can land on the target before the session is
+      // readable server-side and bounce back to /login.
       window.location.href = url;
     },
   });
@@ -142,7 +143,7 @@ export function LoginPage() {
       }
 
       if (signIn!.status === "complete") {
-        await completeSignIn(signIn, setActive);
+        await completeSignIn(signIn, setActive, resolveLoginRedirectTarget(searchParams));
       } else if (signIn!.status === "needs_client_trust") {
         // Clerk doesn't recognise this device — send a verification code to the email.
         const { error: sendError } = await signIn!.mfa.sendEmailCode();
@@ -183,7 +184,7 @@ export function LoginPage() {
         return;
       }
       if (signIn!.status === "complete") {
-        await completeSignIn(signIn, setActive);
+        await completeSignIn(signIn, setActive, resolveLoginRedirectTarget(searchParams));
       } else {
         toast.error("Verification could not be completed. Please try again.");
       }

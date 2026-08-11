@@ -41,7 +41,7 @@ async function finalizeSession(
 ) {
   await auth.finalize({
     navigate: ({ decorateUrl }) => {
-      const url = decorateUrl("/launch");
+      const url = decorateUrl("/app");
       if (url.startsWith("http")) {
         window.location.href = url;
       } else {
@@ -99,10 +99,10 @@ function AcceptInvitationContent() {
     };
   }, [token]);
 
-  // Existing user with an active session — send them to the portfolio launcher.
+  // Existing user with an active session — send them into the app.
   useEffect(() => {
     if (accountStatus === "complete" || organization) {
-      router.replace("/launch");
+      router.replace("/app");
     }
   }, [accountStatus, organization, router]);
 

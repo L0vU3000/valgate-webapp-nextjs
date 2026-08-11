@@ -1,6 +1,7 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { resolveAuthEntryRedirect } from "@/app/(auth)/_lib/resolve-redirect-url";
 
 // The MCP HTTP server (/mcp) and ALL of its OAuth discovery metadata under /.well-known/*
 // (protected-resource, authorization-server, openid-configuration) are public: /mcp validates its
@@ -79,9 +80,9 @@ const isPublicRoute = createRouteMatcher([
 ]);
 
 // The bare sign-in/sign-up entry points only — NOT "/login(.*)" wildcard, which would also
-// catch /login/tasks (the manager onboarding step that /launch itself redirects signed-in
-// users to). A signed-in user landing on these two exact routes already has a session, so
-// send them to /launch to resolve where they left off instead of showing the form again.
+// catch /login/tasks (a manager onboarding step reached via Clerk's taskUrls, not this
+// redirect). A signed-in user landing on these two exact routes already has a session, so
+// send them to /app (or their intended redirect_url) instead of showing the form again.
 const isAuthEntryRoute = createRouteMatcher(["/login", "/register"]);
 
 async function mcpRateLimitOnly(request: NextRequest): Promise<NextResponse> {
@@ -97,12 +98,10 @@ const middleware = hasClerk
       const { userId } = await auth();
       const hasInviteTicket = request.nextUrl.searchParams.has("__clerk_ticket");
       if (userId && isAuthEntryRoute(request) && !hasInviteTicket) {
-        // Forward redirect_url so /launch can send the user on to where they
-        // were actually headed instead of always landing on the role default.
-        const launchUrl = new URL("/launch", request.url);
+        // Resolve the intended destination ourselves — there is no separate post-auth
+        // decider page anymore. Same same-origin-only validation as the client-side auth flows.
         const redirectUrl = request.nextUrl.searchParams.get("redirect_url");
-        if (redirectUrl) launchUrl.searchParams.set("redirect_url", redirectUrl);
-        return NextResponse.redirect(launchUrl);
+        return NextResponse.redirect(resolveAuthEntryRedirect(request.url, redirectUrl));
       }
       // Redirect signed-out users hitting a protected route to /login (set via ClerkProvider signInUrl).
       if (!isPublicRoute(request)) await auth.protect();

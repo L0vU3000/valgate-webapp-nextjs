@@ -81,9 +81,9 @@ test.describe.serial('Section A — Auth flow UI', () => {
   //
   // Runs FIRST so SHARED.email is populated before A1 / A2 / A6 need it.
   // The email uses Date.now() to stay unique across repeated test runs.
-  // After OTP verification, Clerk's signUp.finalize() redirects to "/".
+  // After OTP verification, Clerk's signUp.finalize() redirects to "/app".
   // -------------------------------------------------------------------------
-  test('A5 — register: fill form → OTP 424242 → land on /', async ({ page }) => {
+  test('A5 — register: fill form → OTP 424242 → land on /app', async ({ page }) => {
     // The +clerk_test suffix tells the Clerk dev instance to accept OTP 424242
     // without sending a real email. Date.now() keeps the address unique.
     SHARED.email = `e2e-${Date.now()}+clerk_test@example.com`
@@ -137,11 +137,11 @@ test.describe.serial('Section A — Auth flow UI', () => {
     // After .fill('424242') the button becomes enabled.
     await page.getByRole('button', { name: 'Verify & continue' }).click()
 
-    // ── Step 3: confirm redirect to / ───────────────────────────────────────
+    // ── Step 3: confirm redirect to /app ────────────────────────────────────
 
-    // signUp.finalize() → router.push('/').
+    // signUp.finalize() → router.push('/app').
     // Allow 15 s for the redirect + React hydration to complete.
-    await expect(page).toHaveURL('/', { timeout: 15_000 })
+    await expect(page).toHaveURL('/app', { timeout: 15_000 })
   })
 
   // -------------------------------------------------------------------------
@@ -151,7 +151,7 @@ test.describe.serial('Section A — Auth flow UI', () => {
   // On a fresh browser context, Clerk always shows the device-trust OTP step
   // after password entry — we handle that with OTP 424242.
   // -------------------------------------------------------------------------
-  test('A1 — login (valid): email + password + OTP → /', async ({ page }) => {
+  test('A1 — login (valid): email + password + OTP → /app', async ({ page }) => {
     await page.goto('/login')
 
     // ── Step 1: enter email and password ────────────────────────────────────
@@ -182,8 +182,8 @@ test.describe.serial('Section A — Auth flow UI', () => {
 
     // ── Step 3: confirm we reached the app ──────────────────────────────────
 
-    // signIn.finalize() → router.push('/').
-    await expect(page).toHaveURL('/', { timeout: 15_000 })
+    // signIn.finalize() → router.push('/app').
+    await expect(page).toHaveURL('/app', { timeout: 15_000 })
   })
 
   // -------------------------------------------------------------------------
@@ -260,10 +260,10 @@ test.describe.serial('Section A — Auth flow UI', () => {
     // Submit — triggers verifyCode() + submitPassword() + finalize()
     await page.getByRole('button', { name: 'Reset password' }).click()
 
-    // ── Step 3: confirm redirect to / ───────────────────────────────────────
+    // ── Step 3: confirm redirect to /app ────────────────────────────────────
 
-    // signIn.finalize() → router.push('/').
-    await expect(page).toHaveURL('/', { timeout: 15_000 })
+    // signIn.finalize() → router.push('/app').
+    await expect(page).toHaveURL('/app', { timeout: 15_000 })
   })
 
   // -------------------------------------------------------------------------

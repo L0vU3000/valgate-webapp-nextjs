@@ -161,7 +161,7 @@ function NoWorkspaceState() {
           Claude to connect to. Set up your workspace, then come back to connect.
         </p>
         <Button asChild className="mt-6 h-11 w-full">
-          <Link href="/launch">Open Valgate</Link>
+          <Link href="/app">Open Valgate</Link>
         </Button>
       </div>
     </ConsentCard>

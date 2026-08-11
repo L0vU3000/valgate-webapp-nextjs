@@ -157,10 +157,9 @@ export function RegisterPage() {
       // Clerk's "Create first organization automatically" setting creates + activates the
       // owner's org during sign-up for non-manager accounts.
       // navigate callback is required — Clerk needs it to handle Safari ITP cookie redirects.
-      // /launch reads is_manager and redirects each account type to the right landing page.
       await signUp.finalize({
         navigate: ({ decorateUrl }) => {
-          const url = decorateUrl("/launch");
+          const url = decorateUrl("/app");
           if (url.startsWith("http")) {
             window.location.href = url;
           } else {

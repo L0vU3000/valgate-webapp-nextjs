@@ -39,12 +39,12 @@ export default function RootLayout({
 }>) {
   return (
     // Custom auth pages live at /login and /register (headless Clerk). The fallback redirect URLs
-    // send users to the authed home ("/") after sign-in/up when no explicit redirect is set.
+    // send users to the authed home ("/app") after sign-in/up when no explicit redirect is set.
     <ClerkProvider
       signInUrl="/login"
       signUpUrl="/register"
-      signInFallbackRedirectUrl="/launch"
-      signUpFallbackRedirectUrl="/launch"
+      signInFallbackRedirectUrl="/app"
+      signUpFallbackRedirectUrl="/app"
       taskUrls={{
         "choose-organization": "/login/tasks",
         "reset-password": "/login/tasks",
