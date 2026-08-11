@@ -133,7 +133,7 @@ export async function insertAccessNotification(input: {
   userId: string;
   title: string;
   description: string;
-  linkTo: string;
+  linkTo?: string;
 }): Promise<void> {
   const id = await nextId("NOTIF");
   await db.insert(notifications).values({
@@ -144,7 +144,7 @@ export async function insertAccessNotification(input: {
     title: input.title,
     description: input.description,
     read: false,
-    linkTo: input.linkTo,
+    linkTo: input.linkTo ?? null,
   });
 }
 
@@ -287,7 +287,6 @@ export async function onboardClientPortfolio(
       userId: ctx.userId,
       title: "Invitation sent",
       description: `Invitation sent to ${input.name}`,
-      linkTo: "/pro/clients",
     });
   } catch (err) {
     logger.error("onboardClientPortfolio: notification failed", { error: String(err) });
@@ -533,7 +532,6 @@ export async function handleBounce(email: string, bounceType: string): Promise<v
       userId: handoff.managerUserId,
       title: "Invitation bounced",
       description: `Invitation to ${email} bounced`,
-      linkTo: "/pro/clients",
     });
   } catch (err) {
     logger.error("handleBounce: notification failed", { error: String(err), handoffId: handoff.id });
@@ -804,7 +802,6 @@ export async function handleInvitationAccepted(clerkInvitationId: string): Promi
         // When the client renamed themselves, append the change so it's visible in the
         // same notification the manager already gets for the acceptance.
         description: nameChangeNote ? `${baseDescription} ${nameChangeNote}` : baseDescription,
-        linkTo: "/pro/clients",
       });
     }
   } catch (err) {

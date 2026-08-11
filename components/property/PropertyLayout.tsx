@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { NotificationsPanel, type NotificationsPanelHandle } from "@/components/layout/NotificationsPanel";
 import { useNotifications } from "@/lib/hooks/use-notifications";
 import { useInitialNotifications } from "@/components/layout/NotificationsContext";
+import { resolveNotificationDestination } from "@/lib/navigation/notification-destination";
 
 const tabs = [
   { key: "overview", label: "Overview", icon: LayoutGrid },
@@ -147,7 +148,8 @@ export function PropertyLayout({ activeTab, children, property, progress, onProg
                 onMarkAllRead={markAllRead}
                 onNotificationClick={(n) => {
                   markAsRead(n.id);
-                  if (n.linkTo) router.push(n.linkTo);
+                  const destination = resolveNotificationDestination(n.linkTo);
+                  if (destination) router.push(destination);
                   panelRef.current?.close();
                 }}
                 onClose={() => setNotificationsOpen(false)}
@@ -243,7 +245,8 @@ export function PropertyLayout({ activeTab, children, property, progress, onProg
                 onMarkAllRead={markAllRead}
                 onNotificationClick={(n) => {
                   markAsRead(n.id);
-                  if (n.linkTo) router.push(n.linkTo);
+                  const destination = resolveNotificationDestination(n.linkTo);
+                  if (destination) router.push(destination);
                   panelRef.current?.close();
                 }}
                 onClose={() => setNotificationsOpen(false)}

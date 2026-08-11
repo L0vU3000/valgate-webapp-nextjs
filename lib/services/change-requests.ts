@@ -218,7 +218,6 @@ export async function approveChangeRequest(ctx: Ctx, id: string): Promise<void> 
       userId: cr.managerUserId,
       title: "Change request approved",
       description: `Your proposed ${cr.entityType} ${opLabel} was approved and applied.`,
-      linkTo: `/pro/clients`,
     });
   } catch {
     // Notification failure must never block the approval.
@@ -263,7 +262,6 @@ export async function rejectChangeRequest(ctx: Ctx, id: string): Promise<void> {
       userId: cr.managerUserId,
       title: "Change request declined",
       description: `Your proposed ${cr.entityType} ${opLabel} was declined by the owner.`,
-      linkTo: `/pro/clients`,
     });
   } catch {
     // Notification failure must never block the rejection.

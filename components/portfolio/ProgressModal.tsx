@@ -106,9 +106,9 @@ function PillarRow({ pillar, index, animate }: { pillar: ProgressPillar; index: 
                 {check.label}
               </span>
             </div>
-            {!check.done && (
+            {!check.done && pillar.href && (
               <button
-                onClick={() => router.push(pillar.href)}
+                onClick={() => router.push(pillar.href!)}
                 className="shrink-0 text-[11px] font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-full transition-colors duration-150 whitespace-nowrap"
               >
                 Add →

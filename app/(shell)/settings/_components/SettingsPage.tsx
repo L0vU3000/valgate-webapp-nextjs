@@ -8,7 +8,6 @@ import {
   Download,
   User,
   Shield,
-  BadgeCheck,
   Users,
   Database,
   AlertTriangle,
@@ -20,7 +19,7 @@ import { RequiredMark } from "@/components/ui/required-mark";
 import { AppHeader } from "@/components/layout/AppHeader";
 import type { SettingsPageData, NotifChannels } from "../queries";
 import type { ProfilePageData } from "../../profile/queries";
-import { saveNotificationPreference, saveUserPreferences, setManagerMode } from "../actions";
+import { saveNotificationPreference, saveUserPreferences } from "../actions";
 import { ManagersSection } from "./ManagersSection";
 import { ConnectClaudeSection } from "./ConnectClaudeSection";
 import { ProfileSection } from "./ProfileSection";
@@ -31,7 +30,6 @@ import { ProfileSection } from "./ProfileSection";
 type SectionId =
   | "profile"
   | "security"
-  | "account-type"
   | "managers"
   | "data-privacy"
   | "danger"
@@ -50,7 +48,6 @@ type NavItem = {
 const NAV_ITEMS: NavItem[] = [
   { id: "profile", label: "Profile", icon: User, group: "account" },
   { id: "security", label: "Security", icon: Shield, group: "account" },
-  { id: "account-type", label: "Account type", icon: BadgeCheck, group: "account" },
   { id: "managers", label: "Managers", icon: Users, group: "account", adminOnly: true },
   { id: "data-privacy", label: "Data & Privacy", icon: Database, group: "account" },
   { id: "danger", label: "Danger zone", icon: AlertTriangle, group: "account" },
@@ -121,7 +118,6 @@ export function SettingsPage({
             <div key={active} className="flex-1 min-w-0" style={{ animation: "fade-slide-up 0.3s ease-out both" }}>
               {active === "profile" && <ProfileSection data={profileData} />}
               {active === "security" && <SecuritySection />}
-              {active === "account-type" && <AccountTypeSection initialIsManager={data.isManager} />}
               {active === "managers" && data.managersData && <ManagersSection initialData={data.managersData} />}
               {active === "data-privacy" && <DataPrivacySection />}
               {active === "danger" && <DangerZoneSection />}
@@ -270,98 +266,6 @@ function SecuritySection() {
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-/* ─── Account type (Standard | Pro) ─────────────────────────────────────── */
-
-function AccountTypeSection({ initialIsManager }: { initialIsManager: boolean }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const [, startTransition] = useTransition();
-  const [isManager, setIsManager] = useState(initialIsManager);
-
-  // Standard ⇄ Pro. "Pro" == the is_manager flag underneath; it unlocks the Pro
-  // cockpit (sidebar item, header pill, /pro route). Optimistic + self-serve:
-  // flip immediately, persist in the background, roll back if the write fails.
-  const handleAccountTypeChange = (nextIsPro: boolean) => {
-    if (nextIsPro === isManager) return;
-    setIsManager(nextIsPro);
-    startTransition(() =>
-      void setManagerMode(nextIsPro).then((result) => {
-        if (!result.ok) {
-          setIsManager(!nextIsPro); // roll back the optimistic flip
-          return;
-        }
-        // Downgrade guard: if we just left Pro while inside the cockpit, move
-        // out to a Standard-safe route. No-op today (this control lives in
-        // /settings) but preserves the invariant if surfaced elsewhere.
-        if (!nextIsPro && pathname.startsWith("/pro")) {
-          router.push("/");
-        }
-      }),
-    );
-  };
-
-  return (
-    <div className="flex flex-col gap-6">
-      <SectionHeader
-        title="Account type"
-        description="Choose the experience that fits how you use Valgate. You can switch at any time."
-      />
-      <div className="bg-white border border-[#d1d5db] rounded-[12px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] p-4 sm:p-[25px] flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-        <div className="flex flex-col gap-1">
-          <p className="font-sans font-medium text-[14px] leading-[20px] text-foreground">
-            {isManager ? "Pro" : "Standard"}
-          </p>
-          <p className="font-sans text-[13px] leading-[18px] text-tertiary max-w-[520px]">
-            Standard is the owner experience for managing your own portfolio. Pro unlocks the
-            Pro cockpit for managing portfolios on behalf of owners, and adds a Pro entry point
-            to your sidebar and header.
-          </p>
-        </div>
-        <AccountTypeControl isPro={isManager} onChange={handleAccountTypeChange} />
-      </div>
-    </div>
-  );
-}
-
-/**
- * Standard | Pro segmented control. Two visible options; the selected one is
- * filled white with the label in brand blue (blue stays precious — it only
- * marks the active choice). Reads as "choose who you are", not a feature toggle.
- */
-function AccountTypeControl({ isPro, onChange }: { isPro: boolean; onChange: (nextIsPro: boolean) => void }) {
-  const options: { label: string; value: boolean }[] = [
-    { label: "Standard", value: false },
-    { label: "Pro", value: true },
-  ];
-  return (
-    <div
-      role="radiogroup"
-      aria-label="Account type"
-      className="inline-flex shrink-0 items-center gap-1 rounded-[10px] border border-[#d1d5db] bg-[#f5f6f7] p-1"
-    >
-      {options.map((opt) => {
-        const selected = opt.value === isPro;
-        return (
-          <button
-            key={opt.label}
-            type="button"
-            role="radio"
-            aria-checked={selected}
-            onClick={() => onChange(opt.value)}
-            className={`h-9 rounded-[7px] px-5 font-sans text-[14px] font-medium transition-all duration-150 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb] ${
-              selected
-                ? "bg-white text-[#2563eb] shadow-[0_1px_2px_rgba(0,0,0,0.06)]"
-                : "text-slate-500 hover:text-slate-700"
-            }`}
-          >
-            {opt.label}
-          </button>
-        );
-      })}
     </div>
   );
 }

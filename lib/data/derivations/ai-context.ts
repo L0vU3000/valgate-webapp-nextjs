@@ -262,7 +262,7 @@ export async function buildAiOverlayContext(
   let property: AiOverlayContext["property"] = null;
   let client: AiOverlayContext["client"] = null;
   let portfolioBars: AiPortfolioBar[] = [];
-  let yieldHref = "/analytics";
+  let yieldHref = "/portfolio";
   let header: AiOverlayHeader = {
     title: "Valgate Intelligence",
     subtitle: null,
@@ -294,7 +294,7 @@ export async function buildAiOverlayContext(
   }
 
   if (propertyId) {
-    yieldHref = `/property/${propertyId}/financials`;
+    yieldHref = `/property/${propertyId}/valuation`;
     const prop = await getPropertyByIdParam(propertyId);
     if (prop) {
       const address = formatAddress({
@@ -331,7 +331,7 @@ export async function buildAiOverlayContext(
   // route we surface book-wide context; on /pro/clients/<id> we narrow the
   // header, the asset bars, and the scoped documents to that one owner-client.
   if (isProRoute) {
-    yieldHref = "/pro/dashboard";
+    yieldHref = "/portfolio";
 
     // Reuse the book already loaded by listClientRecords in the Promise.all
     // above (identical ClientRecordSummary shape, same manager scoping) instead
@@ -351,7 +351,7 @@ export async function buildAiOverlayContext(
         propertyCount: clientProperties.length,
         managementFeePct: clientRecord.managementFeePct ?? null,
       };
-      yieldHref = `/pro/clients/${clientRecord.id}`;
+      yieldHref = "/portfolio";
       portfolioBars = clientProperties
         .filter((p) => p.buyNumeric > 0)
         .sort((a, b) => b.buyNumeric - a.buyNumeric)

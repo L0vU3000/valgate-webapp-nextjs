@@ -9,7 +9,7 @@ export type ProgressPillar = {
   weight: number;
   score: number;
   contribution: number;
-  href: string;
+  href?: string;
   checks: ProgressCheck[];
   verified?: boolean;
 };

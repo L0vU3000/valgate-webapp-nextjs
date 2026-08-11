@@ -984,29 +984,48 @@ export function PropertyOverviewPage({
                     />
                   </div>
                   <div className="flex flex-col gap-0 -mx-2">
-                    {progressDetails.pillars.map((pillar, i) => (
-                      <Link
-                        key={pillar.key}
-                        href={pillar.href}
-                        className="group flex items-center gap-2 py-1.5 px-2 hover:bg-slate-50 rounded transition-colors"
-                      >
-                        <span className="text-[11px] text-slate-500 group-hover:text-val-heading transition-colors truncate min-w-0 flex-1">
-                          {pillar.name}
-                        </span>
-                        <div className="w-12 h-[3px] bg-slate-100 rounded-full overflow-hidden shrink-0">
+                    {progressDetails.pillars.map((pillar, i) => {
+                      const pillarContent = (
+                        <>
+                          <span className="text-[11px] text-slate-500 group-hover:text-val-heading transition-colors truncate min-w-0 flex-1">
+                            {pillar.name}
+                          </span>
+                          <div className="w-12 h-[3px] bg-slate-100 rounded-full overflow-hidden shrink-0">
+                            <div
+                              className={`h-full rounded-full ${pillarBarClass(pillar.score)}`}
+                              style={{
+                                width: mounted ? `${pillar.score}%` : "0%",
+                                transition: `width 550ms cubic-bezier(0.16,1,0.3,1) ${200 + i * 30}ms`,
+                              }}
+                            />
+                          </div>
+                          <span className={`text-[11px] font-semibold tabular-nums shrink-0 w-7 text-right ${pillar.score === 100 ? "text-emerald-500" : pillar.score > 0 ? "text-blue-600" : "text-slate-300"}`}>
+                            {pillar.score}%
+                          </span>
+                        </>
+                      );
+
+                      if (!pillar.href) {
+                        return (
                           <div
-                            className={`h-full rounded-full ${pillarBarClass(pillar.score)}`}
-                            style={{
-                              width: mounted ? `${pillar.score}%` : "0%",
-                              transition: `width 550ms cubic-bezier(0.16,1,0.3,1) ${200 + i * 30}ms`,
-                            }}
-                          />
-                        </div>
-                        <span className={`text-[11px] font-semibold tabular-nums shrink-0 w-7 text-right ${pillar.score === 100 ? "text-emerald-500" : pillar.score > 0 ? "text-blue-600" : "text-slate-300"}`}>
-                          {pillar.score}%
-                        </span>
-                      </Link>
-                    ))}
+                            key={pillar.key}
+                            className="group flex items-center gap-2 py-1.5 px-2 rounded"
+                          >
+                            {pillarContent}
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <Link
+                          key={pillar.key}
+                          href={pillar.href}
+                          className="group flex items-center gap-2 py-1.5 px-2 hover:bg-slate-50 rounded transition-colors"
+                        >
+                          {pillarContent}
+                        </Link>
+                      );
+                    })}
                   </div>
                   <div className="pt-1 border-t border-slate-100">
                     <button

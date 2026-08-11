@@ -90,7 +90,7 @@ export function computeProgressDetails(p: Property, ctx: ProgressContext): Progr
       key: "financials",
       name: "Financials",
       weight: 30,
-      href: `/property/${pid}/financials`,
+      href: `/property/${pid}/valuation`,
       checks: [
         { label: "Purchase price set", done: p.buyNumeric > 0 },
         { label: "Purchase date set", done: !!p.purchaseDate },
@@ -132,7 +132,6 @@ export function computeProgressDetails(p: Property, ctx: ProgressContext): Progr
       key: "safety",
       name: "Safety",
       weight: 10,
-      href: `/property/${pid}/safety`,
       checks: [
         { label: "Inspection on file", done: inspections.length > 0 },
         { label: "No expired certifications", done: certifications.length > 0 && certifications.every((c) => c.status !== "Expired") },
@@ -144,7 +143,6 @@ export function computeProgressDetails(p: Property, ctx: ProgressContext): Progr
       key: "estate",
       name: "Estate Planning",
       weight: 5,
-      href: `/estate-planning`,
       checks: [
         { label: "Beneficiary assigned", done: successorAssign.length > 0 },
         { label: "Estate plan verified", done: p.estateVerified === true },

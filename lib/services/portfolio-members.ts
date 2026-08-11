@@ -264,7 +264,6 @@ export async function createClientPortfolioWithInvitees(
       userId: ctx.userId,
       title,
       description,
-      linkTo: "/pro/clients",
     });
   } catch (err) {
     logger.error("createClientPortfolioWithInvitees: notification failed", { error: String(err) });
