@@ -9,6 +9,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { motion, useReducedMotion, animate, useAnimate } from "motion/react";
 import type { FormData } from "./types";
+import { getAddMoreDetailsHref } from "./cta-destination";
 import { env } from "@/lib/env";
 import { Spinner } from "@/components/ui/spinner";
 
@@ -663,7 +664,7 @@ export function Step6Success({ form, coverUrl }: { form: FormData; coverUrl?: st
               Go to My Portfolio
             </motion.button>
             <motion.button
-              onClick={() => router.back()}
+              onClick={() => router.push(getAddMoreDetailsHref(form.confirmedCode))}
               className="flex items-center gap-1 py-2 text-[#004ac6] text-[14px] font-medium leading-5 hover:text-[#003a9e] transition-colors"
               whileHover={reduced ? {} : { x: 2 }}
               transition={{ duration: 0.15, ease: easeOutQuint }}

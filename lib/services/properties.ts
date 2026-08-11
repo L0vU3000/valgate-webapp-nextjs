@@ -84,6 +84,27 @@ export async function updateProperty(ctx: Ctx, id: string, patch: PropertyPatch)
   return scopedUpdate(ctx, properties, id, { ...patch, updatedAt: Date.now() }, rowToProperty, true);
 }
 
+// Cross-org variant of updateProperty, used by the Pro add-property wizard to update a
+// property that lives in a managed client's org (targetOrgId) rather than the caller's own.
+// scopedUpdate hardcodes WHERE org_id = ctx.orgId, which would never match a property in a
+// different org, so this mirrors createPropertyForOrg's explicit-org pattern instead.
+// Authorization: assertOrgAdmin verifies the caller is an admin of the target org.
+export async function updatePropertyForOrg(
+  ctx: Ctx,
+  targetOrgId: string,
+  id: string,
+  patch: PropertyPatch,
+): Promise<Property | null> {
+  assertCanMutate();
+  await assertOrgAdmin(ctx, targetOrgId);
+  const dbPatch = convertRowToDb(properties, { ...patch, updatedAt: Date.now() });
+  const [row] = await db.update(properties)
+    .set(dbPatch as never)
+    .where(and(eq(properties.orgId, targetOrgId), eq(properties.id, id)))
+    .returning();
+  return row ? rowToProperty(row) : null;
+}
+
 // Set (or clear) the property's cover photo. Passing null clears it so the hero falls
 // back to the map. Kept separate from updateProperty because PropertyPatch's Zod type
 // only allows string|undefined for coverStorageId — clearing needs an explicit null,
