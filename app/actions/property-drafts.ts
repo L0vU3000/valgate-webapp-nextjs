@@ -4,7 +4,7 @@ import { z } from "zod";
 import { requireCtx } from "@/lib/auth/ctx";
 import type { ActionResult } from "@/app/actions/_result";
 import { revalidateFeTag } from "@/app/actions/_result";
-import { presignUpload, resolveDocumentUrl } from "@/lib/services/storage";
+import { presignUpload, resolveDocumentUrl, describeFailedUpload } from "@/lib/services/storage";
 import { ALLOWED_MIME, MAX_BYTES } from "@/lib/upload-constants";
 import {
   listPropertyDrafts,
@@ -179,7 +179,11 @@ export async function uploadDraftFileAction(
     for (const [key, value] of Object.entries(presigned.fields)) body.append(key, value);
     body.append("file", file);
     const uploadRes = await fetch(presigned.url, { method: "POST", body });
-    if (!uploadRes.ok) return { ok: false, error: "Could not upload file to storage" };
+    if (!uploadRes.ok) {
+      const bodyText = await uploadRes.text().catch(() => "");
+      console.error("uploadDraftFileAction: S3 rejected upload", describeFailedUpload(uploadRes, bodyText));
+      return { ok: false, error: "Could not upload file to storage" };
+    }
     // 3. Record the draft-file row pointing at the stored object.
     const staged = await stageDraftFile(ctx, draftId, {
       kind,
