@@ -117,7 +117,7 @@ export function LoginPage() {
   // straight to where they were headed.
   useEffect(() => {
     if (!isUserLoaded || !isSignedIn) return;
-    router.replace(resolveRedirectUrl(searchParams.get("redirect_url")));
+    router.replace(resolveRedirectUrl(searchParams.get("redirect_url"), window.location.origin));
   }, [isUserLoaded, isSignedIn, router, searchParams]);
 
   const form = useForm<LoginValues>({
@@ -143,7 +143,7 @@ export function LoginPage() {
       }
 
       if (signIn!.status === "complete") {
-        await completeSignIn(signIn, setActive, resolveLoginRedirectTarget(searchParams));
+        await completeSignIn(signIn, setActive, resolveLoginRedirectTarget(searchParams, window.location.origin));
       } else if (signIn!.status === "needs_client_trust") {
         // Clerk doesn't recognise this device — send a verification code to the email.
         const { error: sendError } = await signIn!.mfa.sendEmailCode();
@@ -184,7 +184,7 @@ export function LoginPage() {
         return;
       }
       if (signIn!.status === "complete") {
-        await completeSignIn(signIn, setActive, resolveLoginRedirectTarget(searchParams));
+        await completeSignIn(signIn, setActive, resolveLoginRedirectTarget(searchParams, window.location.origin));
       } else {
         toast.error("Verification could not be completed. Please try again.");
       }

@@ -20,7 +20,8 @@ export function LoginTasksPage() {
   const { setActive } = useClerk();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectUrl = resolveRedirectUrl(searchParams.get("redirect_url"));
+  const currentOrigin = typeof window !== "undefined" ? window.location.origin : "";
+  const redirectUrl = resolveRedirectUrl(searchParams.get("redirect_url"), currentOrigin);
   const [resolving, setResolving] = useState(false);
   const attemptedDefaultOrgRef = useRef(false);
 
