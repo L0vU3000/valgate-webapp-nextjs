@@ -132,33 +132,31 @@ lint rule.
   `/contact`, `/api/webhooks/clerk`, `/mcp`, `/.well-known/*`, `/__clerk`, `/docs`. Middleware also
   contains a stale `/api/mcp` public matcher, but no `app/api/mcp/route.ts` exists. Everything else
   calls `auth.protect()`, redirecting unauthenticated visitors to `/login`.
-- `/login`/`/register` while already signed in → edge-redirected to `/launch`.
+- `/login`/`/register` while already signed in → edge-redirected to a validated same-origin
+  `redirect_url` when present, otherwise `/app`.
 - Identity-mirror writes are centralized in `lib/services/identity-sync.ts`. The verified Clerk webhook
   (`app/api/webhooks/clerk/route.ts`) handles Clerk-originated lifecycle events; `lib/auth/ctx.ts` and
   `ctxFromMcpAuth` provide JIT fallbacks, while invitation/membership workflows in services such as
   `managers.ts`, `portfolio-members.ts`, and `client-invitations.ts` mirror successful Clerk operations
   eagerly rather than waiting for the webhook.
 
-### The `/launch` route does not exist — current, live defect
+### The former `/launch` defect is fixed
 
-No `app/**/launch/page.tsx` exists anywhere, and `next.config.ts` has no `redirects()` entry for it.
-Yet `/launch` is the default post-auth destination wired into at least seven call sites:
-`middleware.ts:102,105` (signed-in visitors to `/login`/`/register` edge-redirected there);
-`app/layout.tsx:46-47` (Clerk `signInFallbackRedirectUrl`/`signUpFallbackRedirectUrl` both `"/launch"`);
-`app/(auth)/_lib/resolve-redirect-url.ts:1` (`DEFAULT_REDIRECT = "/launch"` for login/register/accept-invitation);
-`.../login/_components/LoginPage.tsx:82` and `.../register/_components/RegisterPage.tsx:163` (client
-navigates to `/launch` on success); `.../accept-invitation/_components/AcceptInvitationPage.tsx:44,105`
-(same, after invite accept); `.../oauth-consent/_components/OAuthConsentPage.tsx:164` (literal
-`<Link href="/launch">`); `lib/services/client-invitations.ts:768,817` (comments reference org-resolution
-mirroring `/launch`).
+The deleted `/launch` decider is no longer part of the active flow. `/app` is the permanent
+authenticated home route (`app/(shell)/app/page.tsx`); bare `/` temporarily renders the same `HomePage`
+until the public-launch marketing phase replaces it.
 
-Source comments (`app/(shell)/layout.tsx:38-40`, `middleware.ts:82-84`) describe `/launch` as a
-"decider" routing managers to `/pro/dashboard` and others into the shell, also handling `/login/tasks`
-— neither exists in `app/`. `app/(shell)/page.tsx` (literal `/`) independently renders `HomePage` and
-works regardless. **This is a currently broken flow, not hypothetical**: every sign-in, sign-up, and
-invitation-acceptance path redirects to a route Next.js has nothing registered for (default 404, no
-`app/not-found.tsx` — see §7). Any change touching auth entry should restore `/launch` or repoint these
-seven call sites.
+Clerk fallback redirects in `app/layout.tsx`, the login/register/invitation clients, OAuth consent,
+and signed-in auth-entry handling in `middleware.ts` now resolve to `/app`. The shared
+`app/(auth)/_lib/resolve-redirect-url.ts` helper preserves relative and same-origin deep links but rejects
+external, protocol-relative, and auth-loop destinations. A source audit finds no literal `/launch`
+references under `app/`, `lib/`, `components/`, or `middleware.ts`, and the production route table emits
+`/app`.
+
+This removes the old manager-vs-owner decider intentionally: the Pro cockpit was cut, identity mirroring
+is covered by Clerk webhooks plus the `requireCtx()` JIT fallback, and the handoff completion behavior was
+specific to the removed Pro flow. Do not reintroduce `/launch`; new post-auth paths should target `/app`
+or pass through the shared redirect resolver.
 
 ## 5. Authorization and org/property scoping
 
@@ -238,26 +236,27 @@ Neither commit touched `entity-import.ts`, `import-property-link.ts`, or `ingest
 
 Per `.github/workflows/ci.yml`, CI runs exactly three blocking jobs on every push and on PRs into
 `valgate-webapp-nextjs-v1.0.2`/`main`: **`test`**, **`typecheck`**, **`lint`**. **No `next build` job**
-(a production build needs the Mapbox token, and the project already sets `ignoreBuildErrors`, so per
-the workflow comment it "would add CI minutes while catching nothing the checks below don't"). **No E2E
-job.** The CI `test` job requires `DATABASE_URL` from GitHub Secrets both for import-time env validation
+(a production build needs the Mapbox token). `typescript.ignoreBuildErrors` has been removed, so a manual
+or Vercel production build now performs a real type check; CI still relies on its separate `typecheck`
+job rather than building. **No E2E job.** The CI `test` job requires `DATABASE_URL` from GitHub Secrets
+both for import-time env validation
 and because a subset of `tests/authz/*` accesses the live Neon development branch, even though separately
 named `*.db.test.ts` files are excluded.
 
 | Gate | Command | Scope | Does NOT prove |
 |---|---|---|---|
 | `test` | `npm test` (`vitest run`) | Vitest unit/service tests plus `tests/authz/*` (**mixed mocked and live-Neon coverage**); excludes `e2e/**`, disabled `**/queries.test.ts` (pre-Neon), `**/*.db.test.ts` | DB behavior outside the included authz integration subset; UI/browser behavior; no `/launch`-style navigation bug caught here |
-| `typecheck` | `npx tsc --noEmit` | Whole repo | Runtime correctness; string-literal route paths (`href="/launch"` typechecks fine though the route doesn't exist — no App Router href type-checking); Zod/AI-provider runtime compatibility (`194d1da`); prompt-text correctness (`e299e46`) |
+| `typecheck` | `npx tsc --noEmit` | Whole repo | Runtime correctness; string-literal route paths are not App Router route-checked, so a missing destination can still typecheck; Zod/AI-provider runtime compatibility (`194d1da`); prompt-text correctness (`e299e46`) |
 | `lint` | `npm run lint` (`eslint app lib components`) | Only `app/`, `lib/`, `components/` — excludes `archive/convex/` and Figma-generated `imports/` | Logic/authz correctness; anything outside the three linted dirs |
 | `test:db` | `vitest run --config vitest.config.db.ts` | DB-integration tests (`**/*.db.test.ts`) | **Not run in CI** — local-only, needs live `DATABASE_URL` |
-| `test:e2e` | `playwright test` (`e2e/**/*.spec.ts`) | Real browser flows incl. `e2e/auth/*.spec.ts` (login/register/manager-routing/role-IDOR) | **Not run in CI.** This is the only layer that could catch the `/launch` defect (§4) — `e2e/auth/section-a.spec.ts` asserts `toHaveURL('/', ...)` after login, which would fail if actually run. Being local-only, that failure is invisible to CI. |
-| build | `next build --turbopack` (not in CI) | — | `next.config.ts:27-32` sets both `eslint.ignoreDuringBuilds` and `typescript.ignoreBuildErrors` — even a manual local build silently succeeds through type errors and lint violations. `tsc --noEmit` in CI is the only real type gate. |
+| `test:e2e` | `playwright test` (`e2e/**/*.spec.ts`) | Real browser flows incl. `e2e/auth/*.spec.ts` (login/register/manager-routing/role-IDOR) | **Not run in CI.** This is the layer that would have caught the former `/launch` defect (§4); `e2e/auth/section-a.spec.ts` now asserts `/app` after registration, login, and password reset. Being local-only, regressions remain invisible to CI until the suite is run manually. |
+| build | `next build --turbopack` (not in CI) | Production compilation, route emission, and TypeScript validation | `eslint.ignoreDuringBuilds` remains enabled, so build does not enforce lint. It also does not prove browser behavior, auth redirect completion, external-service compatibility, or database correctness. |
 
 **Net effect**: a green `test`+`typecheck`+`lint` run proves the codebase compiles, is statically
 well-typed, and passes Vitest unit/service/authz tests — it proves **nothing** about whether a
 page renders, a redirect target exists, a third-party API accepts a request shape, or a real user can
-complete a flow end-to-end. The `/launch` defect (§4) is a concrete example none of the three gates can
-detect.
+complete a flow end-to-end. The former `/launch` defect (§4) is a concrete example none of the three
+gates detected before it shipped.
 
 ## 9. Security-sensitive paths and anti-patterns to avoid
 
