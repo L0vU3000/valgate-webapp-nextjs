@@ -75,6 +75,7 @@ const isPublicRoute = createRouteMatcher([
   // own OAuth bearer token, and everything under /.well-known/* is public discovery data.
   "/mcp(.*)",
   "/.well-known/(.*)",
+  "/",
 ]);
 
 // The bare sign-in/sign-up entry points only — NOT "/login(.*)" wildcard, which would also
@@ -100,6 +101,9 @@ const middleware = hasClerk
         // decider page anymore. Same same-origin-only validation as the client-side auth flows.
         const redirectUrl = request.nextUrl.searchParams.get("redirect_url");
         return NextResponse.redirect(resolveAuthEntryRedirect(request.url, redirectUrl));
+      }
+      if (userId && request.nextUrl.pathname === "/") {
+        return NextResponse.redirect(new URL("/app", request.url));
       }
       // Redirect signed-out users hitting a protected route to /login (set via ClerkProvider signInUrl).
       if (!isPublicRoute(request)) await auth.protect();
