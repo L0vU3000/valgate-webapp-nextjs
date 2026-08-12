@@ -10,7 +10,6 @@ import {
   Users,
   Bell,
   SlidersHorizontal,
-  Sparkles,
 } from "lucide-react";
 import { RequiredMark } from "@/components/ui/required-mark";
 import { AppHeader } from "@/components/layout/AppHeader";
@@ -18,7 +17,6 @@ import type { SettingsPageData, NotifChannels } from "../queries";
 import type { ProfilePageData } from "../../profile/queries";
 import { saveNotificationPreference, saveUserPreferences } from "../actions";
 import { ManagersSection } from "./ManagersSection";
-import { ConnectClaudeSection } from "./ConnectClaudeSection";
 import { ProfileSection } from "./ProfileSection";
 
 // Section identifiers. `group` splits the left-nav into Account (the user) and
@@ -29,8 +27,7 @@ type SectionId =
   | "security"
   | "managers"
   | "notifications"
-  | "preferences"
-  | "connect-claude";
+  | "preferences";
 
 type NavItem = {
   id: SectionId;
@@ -46,16 +43,13 @@ const NAV_ITEMS: NavItem[] = [
   { id: "managers", label: "Managers", icon: Users, group: "account", adminOnly: true },
   { id: "notifications", label: "Notifications", icon: Bell, group: "app" },
   { id: "preferences", label: "Preferences", icon: SlidersHorizontal, group: "app" },
-  { id: "connect-claude", label: "Connect Claude", icon: Sparkles, group: "app" },
 ];
 
 export function SettingsPage({
   data,
-  mcpUrl,
   profileData,
 }: {
   data: SettingsPageData;
-  mcpUrl: string;
   profileData: ProfilePageData;
 }) {
   const router = useRouter();
@@ -123,7 +117,6 @@ export function SettingsPage({
                   timezoneOptions={data.timezoneOptions}
                 />
               )}
-              {active === "connect-claude" && <ConnectClaudeSection mcpUrl={mcpUrl} />}
             </div>
           </div>
         </div>
