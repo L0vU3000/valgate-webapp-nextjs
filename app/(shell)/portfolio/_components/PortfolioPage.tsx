@@ -248,12 +248,13 @@ export function PortfolioPage({
             goToPage={goToPage}
             onClearFilters={clearAllFilters}
             animationConfig={PORTFOLIO_TABLE_ANIMATION}
-            showArchived={false}
+            showArchived={archivedFilter}
             canDelete={canDelete}
             refresh={() => router.refresh()}
             sortKey={sortKey}
             sortDir={sortDir}
             onSort={handleSort}
+            hideAddPropertyCta={readOnly}
           />
 
           {/* Footer — sold / archived counts */}

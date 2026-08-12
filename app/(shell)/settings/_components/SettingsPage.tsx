@@ -5,12 +5,9 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Check,
   Smartphone,
-  Download,
   User,
   Shield,
   Users,
-  Database,
-  AlertTriangle,
   Bell,
   SlidersHorizontal,
   Sparkles,
@@ -31,8 +28,6 @@ type SectionId =
   | "profile"
   | "security"
   | "managers"
-  | "data-privacy"
-  | "danger"
   | "notifications"
   | "preferences"
   | "connect-claude";
@@ -49,8 +44,6 @@ const NAV_ITEMS: NavItem[] = [
   { id: "profile", label: "Profile", icon: User, group: "account" },
   { id: "security", label: "Security", icon: Shield, group: "account" },
   { id: "managers", label: "Managers", icon: Users, group: "account", adminOnly: true },
-  { id: "data-privacy", label: "Data & Privacy", icon: Database, group: "account" },
-  { id: "danger", label: "Danger zone", icon: AlertTriangle, group: "account" },
   { id: "notifications", label: "Notifications", icon: Bell, group: "app" },
   { id: "preferences", label: "Preferences", icon: SlidersHorizontal, group: "app" },
   { id: "connect-claude", label: "Connect Claude", icon: Sparkles, group: "app" },
@@ -119,8 +112,6 @@ export function SettingsPage({
               {active === "profile" && <ProfileSection data={profileData} />}
               {active === "security" && <SecuritySection />}
               {active === "managers" && data.managersData && <ManagersSection initialData={data.managersData} />}
-              {active === "data-privacy" && <DataPrivacySection />}
-              {active === "danger" && <DangerZoneSection />}
               {active === "notifications" && (
                 <NotificationsSection rows={data.notificationRows} defaultNotifications={data.defaultNotifications} />
               )}
@@ -163,7 +154,6 @@ function NavGroup({
       {items.map((item) => {
         const Icon = item.icon;
         const isActive = active === item.id;
-        const isDanger = item.id === "danger";
         return (
           <button
             key={item.id}
@@ -172,12 +162,8 @@ function NavGroup({
             aria-current={isActive ? "page" : undefined}
             className={`flex items-center gap-2.5 h-10 px-3 rounded-lg text-[14px] whitespace-nowrap transition-colors duration-150 shrink-0 ${
               isActive
-                ? isDanger
-                  ? "bg-[#fff1f2] text-[#e11d48] font-semibold"
-                  : "bg-[#eef1f6] text-foreground font-semibold"
-                : isDanger
-                  ? "text-[#e11d48]/80 hover:bg-[#fff1f2]"
-                  : "text-slate-500 hover:bg-[#f5f6f7] hover:text-foreground"
+                ? "bg-[#eef1f6] text-foreground font-semibold"
+                : "text-slate-500 hover:bg-[#f5f6f7] hover:text-foreground"
             }`}
           >
             <Icon className="size-4 shrink-0" />
@@ -385,53 +371,6 @@ function PreferencesSection({
               options={timezoneOptions}
             />
           </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ─── Data & Privacy ────────────────────────────────────────────────────── */
-
-function DataPrivacySection() {
-  return (
-    <div className="flex flex-col gap-6">
-      <SectionHeader title="Data & Privacy" description="Manage your data exports and historical activity logs." />
-      <div className="bg-white border border-[#d1d5db] rounded-[12px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] p-4 sm:p-[25px]">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex flex-col gap-1">
-            <h3 className="font-display font-semibold text-[15px] sm:text-[18px] text-val-heading">Export Activity Log</h3>
-            <p className="font-sans text-[14px] leading-[20px] text-tertiary">
-              Download a full history of your account actions in CSV format.
-            </p>
-          </div>
-          <button className="flex items-center gap-2 border border-[#d1d5db] rounded-[8px] px-[17px] py-[9px] font-sans font-medium text-[14px] leading-[20px] text-val-heading hover:bg-[#f5f6f7] hover:border-[#b0b8c4] active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb] transition-all duration-150 shrink-0 cursor-pointer">
-            <Download className="w-4 h-4" />
-            Export Data
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ─── Danger zone ───────────────────────────────────────────────────────── */
-
-function DangerZoneSection() {
-  return (
-    <div className="flex flex-col gap-6">
-      <SectionHeader title="Danger zone" description="Irreversible actions regarding your account and stored data." danger />
-      <div className="bg-[#fff1f2] border border-[#fecdd3] rounded-[12px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] p-4 sm:p-[25px]">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex flex-col gap-1">
-            <h3 className="font-display font-semibold text-[15px] sm:text-[18px] text-[#881337]">Delete Account</h3>
-            <p className="font-sans text-[14px] leading-[20px] text-[#9f1239]/75">
-              Once you delete your account, there is no going back. Please be certain.
-            </p>
-          </div>
-          <button className="bg-[#e11d48] text-white font-sans font-medium text-[14px] leading-[20px] px-6 py-2 rounded-[8px] hover:bg-[#be123c] active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e11d48] transition-all duration-150 shrink-0 whitespace-nowrap cursor-pointer">
-            Delete Account
-          </button>
         </div>
       </div>
     </div>

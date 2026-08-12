@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, ChevronsUpDown, Info, MoreHorizontal, Eye, Pencil, Archive, ArchiveRestore, Trash2 } from "lucide-react";
-import { TYPE_ICON, TYPE_COLOR, TYPE_LABEL, typeBadgeClasses, statusBadgeClasses, titleBadgeClasses, progressDotColor } from "../../lib/property-helpers";
+import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, ChevronsUpDown, Info, MoreHorizontal, Eye, Pencil, Archive, ArchiveRestore, Trash2, Building2, Plus } from "lucide-react";
+import { TYPE_ICON, TYPE_COLOR, TYPE_LABEL, typeBadgeClasses, statusBadgeClasses, titleBadgeClasses, progressDotColor, getPropertyTableEmptyStateKind } from "../../lib/property-helpers";
 import type { PropertyListItem } from "@/lib/data/types/property";
 import {
   restorePropertyAction,
@@ -107,6 +107,9 @@ interface PropertyTableProps {
   sortKey: SortKey | null;
   sortDir: "asc" | "desc";
   onSort: (key: SortKey) => void;
+  // Hides the "Add Property" CTA in the first-use empty state — for read-only contexts
+  // (e.g. a manager's "view as client" preview) that don't offer property creation.
+  hideAddPropertyCta?: boolean;
 }
 
 export function PropertyTable({
@@ -128,13 +131,62 @@ export function PropertyTable({
   sortKey,
   sortDir,
   onSort,
+  hideAddPropertyCta = false,
 }: PropertyTableProps) {
   const cfg = animationConfig ?? DEFAULT_ANIMATION_CONFIG;
+  const emptyStateKind = getPropertyTableEmptyStateKind({
+    pageRowsCount: pageRows.length,
+    totalCount: properties.length,
+    showArchived,
+  });
   const [progressProperty, setProgressProperty] = useState<PropertyListItem | null>(null);
   const [explainerForcedOpen, setExplainerForcedOpen] = useState(false);
   const { visible: showExplainerOnce, dismiss: dismissExplainerOnce } = useDismissable("vg_progress_explainer_seen", { delay: 800 });
   const showExplainer = showProgressExplainer && (showExplainerOnce || explainerForcedOpen);
   const handleCloseExplainer = () => { dismissExplainerOnce(); setExplainerForcedOpen(false); };
+
+  // Empty state is identical on mobile and desktop (only the wrapping container differs),
+  // so we render its contents once and reuse them in both branches. Distinguishes a
+  // brand-new owner (first-use) from filters hiding everything (filtered-empty) from an
+  // empty archived view (archived-empty) — see getPropertyTableEmptyStateKind.
+  const renderEmptyStateContent = () => {
+    if (emptyStateKind === "archived-empty") {
+      return <p className="text-[14px] text-slate-400">No archived properties.</p>;
+    }
+    if (emptyStateKind === "first-use") {
+      return (
+        <>
+          <Building2 className="w-8 h-8 text-slate-300 mx-auto mb-3" />
+          <p className="text-[14px] font-medium text-val-heading">No properties yet</p>
+          <p className="text-[13px] text-slate-400 mt-1">
+            Add your first property to start building your portfolio.
+          </p>
+          {!hideAddPropertyCta && (
+            <button
+              onClick={() => navigate("/add-property")}
+              className="mt-4 inline-flex items-center gap-2 px-4 py-2 text-white text-[14px] font-semibold rounded shadow-[0_4px_6px_-1px_rgba(0,74,198,0.25),0_2px_4px_-2px_rgba(0,74,198,0.15)] hover:opacity-90 active:scale-[0.97] transition-all duration-150"
+              style={{ background: "linear-gradient(168deg, var(--val-primary-dark) 0%, #2563eb 100%)" }}
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Add Property
+            </button>
+          )}
+        </>
+      );
+    }
+    // filtered-empty
+    return (
+      <>
+        <p className="text-[14px] text-slate-400">No properties match your filters.</p>
+        <button
+          onClick={onClearFilters}
+          className="mt-3 text-[14px] text-blue-600 font-medium hover:underline"
+        >
+          Clear all filters
+        </button>
+      </>
+    );
+  };
 
   // Pagination is identical on mobile and desktop, so we render it once
   // and reuse the JSX in both branches. Kept as a render helper rather than
@@ -205,17 +257,7 @@ export function PropertyTable({
     >
       {pageRows.length === 0 ? (
         <div className="bg-white rounded-xl border border-slate-200 py-16 px-6 text-center">
-          <p className="text-[14px] text-slate-400">
-            {showArchived ? "No archived properties." : "No properties match your filters."}
-          </p>
-          {!showArchived && (
-            <button
-              onClick={onClearFilters}
-              className="mt-3 text-[14px] text-blue-600 font-medium hover:underline"
-            >
-              Clear all filters
-            </button>
-          )}
+          {renderEmptyStateContent()}
         </div>
       ) : (
         <div className="flex flex-col gap-3">
@@ -288,7 +330,7 @@ export function PropertyTable({
                     <SortableHeader label="Progress" sortK="progress" current={sortKey} dir={sortDir} onSort={onSort} />
                     <button
                       onClick={(e) => { e.stopPropagation(); setExplainerForcedOpen(true); }}
-                      className="w-4 h-4 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors duration-150 ml-0.5"
+                      className="w-10 h-10 -my-3 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors duration-150"
                       aria-label="What is Progress?"
                     >
                       <Info className="w-3.5 h-3.5" />
@@ -306,17 +348,7 @@ export function PropertyTable({
             {pageRows.length === 0 ? (
               <tr>
                 <td colSpan={11} className="py-20 text-center">
-                  <p className="text-[14px] text-slate-400">
-                    {showArchived ? "No archived properties." : "No properties match your filters."}
-                  </p>
-                  {!showArchived && (
-                    <button
-                      onClick={onClearFilters}
-                      className="mt-3 text-[14px] text-blue-600 font-medium hover:underline"
-                    >
-                      Clear all filters
-                    </button>
-                  )}
+                  {renderEmptyStateContent()}
                 </td>
               </tr>
             ) : (
