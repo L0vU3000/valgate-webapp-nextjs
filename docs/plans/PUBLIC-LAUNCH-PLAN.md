@@ -63,28 +63,46 @@ Removed by the cut: the Pro/manager cockpit, AI chat overlay, analytics, complia
 work orders, professional directory, estate planning, the schema diagram tool, and the
 Fumadocs user manual.
 
-### The core problem
+### The core problem — RESOLVED 2026-08-12
 
-**The app currently cannot be logged into.** The cut deleted `app/launch/page.tsx`, but
-`/launch` is still the destination every authentication path redirects to. This is the
-single highest-priority item in this plan and is fixed in Phase 1, Step 1.
+**The app could not be logged into.** The cut deleted `app/launch/page.tsx` while leaving
+`/launch` as the destination every authentication path redirected to.
+
+**Fixed** in commits `c68771f6`, `4347e2e7`, `2717b4cf`, `cb72c663`. Independently verified
+2026-08-12: `tsc` 0 errors, lint 0 errors, build green, and a live runtime check of every
+route — `/`, `/app`, `/portfolio`, `/rental`, `/settings`, `/profile`, `/add-property`,
+`/login`, `/register` all return 200; `/launch` and every cut route correctly 404.
 
 ---
 
-## Phase 1 — Make the app usable
+## Phase 1 — Make the app usable ✅ COMPLETE
 
 **Goal:** a person can sign up, get into the app, and never hit a 404 by clicking
 something in the UI.
 
-**Estimated effort:** half a day.
+**Status:** done and verified 2026-08-12. Steps 1.1–1.3 below are retained as the record of
+what changed and why; **the file:line tables describe the original defect, not work still to
+do.** Step 1.4 (manual smoke test) is still worth running against a real Clerk session — the
+runtime check above used DEMO_MODE, which bypasses Clerk and therefore does not exercise the
+actual sign-in redirect.
 
-**Definition of done:** you can sign up with a fresh email, land on the home page, add a
-property with a photo, view it, sign out, and sign back in — and every link in the
-sidebar, header and command palette leads somewhere real.
+⚠️ **The implemented landing route is `/app`, not `/` as originally specified below.** See the
+note in Step 1.1. `/app` is the permanent authenticated home; `/` currently serves the same
+page as a temporary alias until the marketing site takes the root.
 
 ---
 
-### Step 1.1 — Restore the post-authentication landing path 🔴 BLOCKER
+### Step 1.1 — Restore the post-authentication landing path ✅ DONE (target changed to `/app`)
+
+> **What actually shipped differs from this step as written.** The redirect target is **`/app`**,
+> not `/`. A new `app/(shell)/app/page.tsx` is the permanent authenticated home, and `/` aliases
+> it for now.
+>
+> This is the better call and supersedes the spec below: it lets the marketing page take `/` in
+> Phase 2.1 without revisiting a single redirect target. Appendix C item 2 is decided accordingly.
+>
+> **Read every `→ "/"` in the table below as `→ "/app"`.** `ARCHITECTURE-PRIMER.md` and the code
+> are the current truth.
 
 #### What is broken
 
@@ -293,18 +311,18 @@ with its own layout — and add its path to `isPublicRoute` in `middleware.ts` s
 Content, at minimum: what Valgate does, who it is for, two or three screenshots, and a
 prominent "Get started" that goes to `/register`.
 
-You will need to decide what `/` resolves to. Two options:
+**What `/` resolves to is already decided — Option A.** The authenticated home is `/app`
+(shipped in Step 1.1), and `/` currently serves the same page only as a temporary alias.
 
-- **Option A (recommended):** `/` serves the marketing page to signed-out visitors, and
-  the middleware redirects signed-in users to the app home. This is the conventional
-  pattern and gives you a clean marketing URL.
-- **Option B:** marketing lives at a separate path and `/` stays the app. Simpler to
-  build, but means your domain root is a login wall — bad for a public launch.
+So this step is now a straight substitution rather than a decision:
 
-Note this interacts with Step 1.1: if you choose Option A, the post-auth redirect should
-target the app home rather than bare `/`. Decide this before Phase 3.
+1. Build the marketing page and let it take over `/`
+2. Delete the `/` alias in `app/(shell)/page.tsx` — `/app` is already the redirect target
+   everywhere, so **no redirect target needs revisiting**
+3. Add `/`, `/privacy` and `/terms` to `isPublicRoute` in `middleware.ts`
+4. Have the middleware send signed-in visitors from `/` to `/app`
 
-This is your area of expertise — no further prescription here.
+This is your area of expertise — no further prescription on the page itself.
 
 #### Verify
 
@@ -684,7 +702,7 @@ These are yours, not mine. Each one changes the work.
 | # | Decision | Recommendation |
 |---|---|---|
 | 1 | **Is production currently live with the pre-cut app, and are there real users on Pro features?** | Check Vercel and Neon before anything else. This determines whether Phase 3 is a launch or a migration. Blocking. |
-| 2 | **Does `/` serve marketing or the app?** (Step 2.1) | Marketing at `/`, signed-in users redirected to the app home. Conventional, and a login wall at your domain root is bad for a public launch. Affects Step 1.1's redirect target — decide before Phase 3. |
+| 2 | ~~**Does `/` serve marketing or the app?**~~ ✅ **DECIDED 2026-08-12** | **Marketing at `/`, app at `/app`.** Already implemented: `/app` is the permanent authenticated home and every post-auth redirect targets it. `/` serves the same page as a temporary alias until the marketing page replaces it in Step 2.1. Nothing further to decide; do not reopen without changing the redirect targets too. |
 | 3 | **Keep, hide, or cut the MCP surface?** (Step 2.4) | Keep but hide. It works, costs nothing to run, and is not part of the consumer story. |
 | 4 | **Who reviews the privacy policy and terms?** (Step 2.2) | Someone qualified. You are storing identifiable financial and property data and sending document contents to OpenAI. |
 | 5 | **Does encryption-at-rest need to happen before launch?** | The branch is named `encryption` but contains none. Neon encrypts at rest by default and S3 can be configured to; application-level field encryption is a much larger project. If it was a launch requirement, say so — it is not in this plan and would add substantially to it. |
@@ -693,16 +711,24 @@ These are yours, not mine. Each one changes the work.
 
 ## Summary
 
-| Phase | Work | Effort | Blocking? |
+| Phase | Work | Effort | Status |
 |---|---|---|---|
-| **1** | Fix `/launch`, remove dead links, restore type-check gate, smoke test | ~half a day | 🔴 Yes — app is unusable without it |
-| **2** | Landing page, privacy + terms, E2E run, MCP decision | 1–2 days | 🟡 Yes for a *public* launch |
-| **3** | Rotate password, Clerk prod, domain, env vars, migrate, deploy, smoke test | ~half a day + DNS wait | 🔴 Yes |
-| **4** | Monitoring, lint cleanup, RLS, authz fix, housekeeping | ongoing | No |
+| **1** | Fix `/launch`, remove dead links, restore type-check gate, smoke test | ~half a day | ✅ **DONE** — verified 2026-08-12 |
+| **2** | Landing page, privacy + terms, E2E run, MCP decision | 1–2 days | ⬜ Next. Unblocked |
+| **3** | Rotate password, Clerk prod, domain, env vars, migrate, deploy, smoke test | ~half a day + DNS wait | 🔴 **Blocked on Appendix C item 1** |
+| **4** | Monitoring, lint cleanup, RLS, authz fix, housekeeping | ongoing | ⬜ Post-launch |
 
-**Realistic total: 2–4 days of focused work.** The critical path runs through the Clerk
-production instance in Step 3.2, because of DNS — start that early and do other work while
-it propagates.
+**Remaining: 2–3 days of focused work.** The critical path runs through the Clerk production
+instance in Step 3.2, because of DNS — start that early and do other work while it propagates.
 
-The single most important thing in this document: **Step 1.1.** Until `/launch` is fixed,
-nobody can log into Valgate at all.
+**The one open question is Appendix C item 1: is production currently live with the pre-cut
+app?** Nobody has checked. If it is, Phase 3 is a feature removal on a live site rather than a
+launch, and needs a comms plan before it runs. Everything else is unblocked.
+
+### Known, deliberately not fixed
+
+- `tests/authz/manager-act-on-behalf.test.ts` and `tests/authz/parity-registry.test.ts` fail
+  with a 5s timeout. **Pre-existing** — verified by running them at `e299e466`, before any
+  Phase 1 work. Not a regression; do not chase it as one.
+- `lib/actions/ai-overlay-utils.ts` and `lib/data/derivations/ai-context.ts` still reference
+  `/pro`. Nothing imports `ai-overlay-utils.ts` — orphaned by the MVP cut, not user-facing.
