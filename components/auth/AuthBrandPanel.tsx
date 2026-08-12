@@ -81,30 +81,17 @@ export function AuthBrandPanel() {
               className="absolute size-2.5 rounded-full bg-interactive-primary opacity-50 anim-enter"
               style={{ left: "58%", top: "65%", animationDelay: "1050ms" }}
             />
-
-            {/* Floating data card */}
-            <div className="anim-enter absolute bottom-6 right-4 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg px-3 py-2">
-              <p className="text-[10px] font-semibold text-white leading-tight">127 active listings</p>
-              <p className="text-[10px] text-white/60 mt-0.5">94% occupancy</p>
-              <svg width="80" height="18" viewBox="0 0 80 18" className="mt-1" aria-hidden="true">
-                <polyline
-                  points="0,14 13,10 26,12 39,6 52,8 65,4 80,2"
-                  fill="none"
-                  stroke="rgba(96,165,250,0.8)"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </div>
           </div>
         </div>
       </div>
 
-      {/* Trust strip */}
-      <div className="relative shrink-0">
-        <p className="text-xs font-semibold tracking-widest uppercase text-white/60 text-center">
-          SOC 2 Type II · 500+ portfolios · 99.9% uptime
+      {/* Value proposition */}
+      <div className="relative shrink-0 space-y-1.5">
+        <p className="text-sm font-semibold text-white text-center">
+          Keep every property record in one place
+        </p>
+        <p className="text-xs text-white/60 text-center">
+          Documents, ownership details, location, and progress—organized around each property.
         </p>
       </div>
     </div>
