@@ -5,8 +5,17 @@ import "server-only";
  * Set NEXT_PUBLIC_APP_URL in .env.local for local dev, e.g. http://localhost:3001
  */
 export function getAppOrigin(): string {
-  if (process.env.NEXT_PUBLIC_APP_URL) {
-    return process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
+  const url = process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/+$/, "");
+
+  if (process.env.NODE_ENV === "production") {
+    if (!url) {
+      throw new Error("NEXT_PUBLIC_APP_URL is required in production");
+    }
+    return url;
+  }
+
+  if (url) {
+    return url;
   }
   if (process.env.VERCEL_URL) {
     return `https://${process.env.VERCEL_URL}`;
