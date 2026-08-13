@@ -2,7 +2,7 @@ import "server-only";
 import { createSuccessor } from "@/lib/services/successors";
 import { persistCandidates } from "@/lib/services/ingestion/persist";
 import { parseFloatSafe } from "@/app/_shared/add-property/map-to-property";
-import type { PropertyMatch } from "@/lib/services/import-property-link";
+
 import type { FieldSpec, AssembledRow } from "@/lib/services/entity-import";
 import type { Ctx } from "@/lib/services/_mapping";
 import type { ReviewRow, BulkResult, IngestionCandidate } from "@/lib/services/ingestion/types";
@@ -37,7 +37,7 @@ function deriveInitials(name: string): string {
   return name.slice(0, 2).toUpperCase() || "?";
 }
 
-export function toSuccessorReviewRow(assembled: AssembledRow, _matches: PropertyMatch[]): ReviewRow {
+export function toSuccessorReviewRow(assembled: AssembledRow): ReviewRow {
   const v = assembled.values;
   const issues: string[] = [...assembled.missing.map((m) => `Missing ${m}`)];
   return {
