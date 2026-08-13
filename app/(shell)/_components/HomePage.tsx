@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { useShellContext } from "@/components/layout/shell-context";
 import {
   X,
   ChevronUp,
@@ -71,9 +70,7 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
 
   const [selectedPin, setSelectedPin] = useState<string | null>(null);
   const [closingKey, setClosingKey] = useState<string | null>(null);
-  const [hoveredProperty, setHoveredProperty] = useState<string | null>(null);
   const [tableOpen, setTableOpen] = useState(false);
-  const [tableOpenCount, setTableOpenCount] = useState(0);
   const [commandOpen, setCommandOpen] = useState(false);
   const [placeholderIdx, setPlaceholderIdx] = useState(0);
   const [placeholderVisible, setPlaceholderVisible] = useState(true);
@@ -107,10 +104,6 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
     }, 3500);
     return () => clearInterval(id);
   }, []);
-
-  useEffect(() => {
-    if (tableOpen) setTableOpenCount((n) => n + 1);
-  }, [tableOpen]);
 
   const runCommand = useCallback((command: () => void) => {
     setCommandOpen(false);

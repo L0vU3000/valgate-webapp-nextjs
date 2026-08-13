@@ -398,10 +398,7 @@ export function PropertyOverviewPage({
   });
 
   /* ── Gross Yield ── */
-  const grossYield =
-    latestValuation && latestValuation.price > 0 && monthlyIncome > 0
-      ? (monthlyIncome * 12 / latestValuation.price) * 100
-      : 0;
+  // This was previously calculated as grossYield but is currently unused in the UI.
 
   /* ── Alerts ── */
   const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
