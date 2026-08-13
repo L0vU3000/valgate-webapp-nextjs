@@ -1,36 +1,78 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Valgate
 
-## Getting Started
+Valgate is a property portfolio management web app for owners (consumer release) with Clerk auth, Neon data, photos/documents, map, email/storage integrations.
 
-First, run the development server:
+## Local Development
 
-```bash
-npm run dev
-# or
-yarn dev 
-# or
-pnpm dev
-# or
-bun dev
-```
+### Prerequisites
+- Node.js
+- npm
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Setup & Run
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
+2. Start the development server:
+   ```bash
+   npm run dev
+   ```
+3. Access the application at: [http://localhost:3001](http://localhost:3001)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Release Gates & Verification
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Before any deployment, the following gates **must** pass:
+- **Build**: `npm run build`
+- **Test**: `npm run test`
+- **Lint**: `npm run lint`
+- **Local Preview**: `npm run test:preview`
 
-## Learn More
+## Production Deployment Guide
 
-To learn more about Next.js, take a look at the following resources:
+Refer to the detailed owner-only checklist: [docs/migration/PROD-DEPLOY-CHECKLIST.md](docs/migration/PROD-DEPLOY-CHECKLIST.md).
+**Warning**: The MCP sections in that checklist are historical and are superseded by the current consumer posture.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 1. Environment Configuration
+Ensure all required variables are set in your production environment. Optional product integrations must be configured if enabled. Do not commit secrets or values to version control.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- **Database**: `DATABASE_URL`
+- **Maps**: `NEXT_PUBLIC_MAPBOX_TOKEN`
+- **Identity**: Clerk public, server, and webhook variables
+- **App Identity**: `NEXT_PUBLIC_APP_URL` (**Required: App fails closed if missing in production**)
+- **Storage**: Storage integration variables
+- **Email**: Resend integration variables
+- **Infrastructure**: Upstash variables, `CRON_SECRET`
 
-## Deploy on Vercel
+### 2. Database Migration Safety
+Follow this sequence strictly to prevent data loss:
+1. Verify connectivity: `npm run db:ping`
+2. Apply migrations: `npm run db:migrate`
+3. **CRITICAL**: Do not run seed/reset in production.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### 3. Deployment Sequence
+1. Run all release gates.
+2. Human operator provisions and reviews production Clerk, DNS, Neon, and Vercel settings.
+3. rotate the exposed production database password before trusting the environment.
+4. Execute the database migration sequence (`db:ping` then `db:migrate`).
+5. Deploy application only after **explicit approval**.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### 4. Rollback Procedure
+In the event of a critical failure:
+1. redeploy known-good release.
+2. Choose a DB recovery action only with owner approval.
+
+### 5. Post-Deploy Smoke Tests
+- Verify sign-up and sign-in flows.
+- Confirm empty owner state for new accounts.
+- Add a property and upload a document/photo (if corresponding integrations are configured).
+- Verify sign-out and sign-in.
+- Test error paths.
+- **Note**: MCP features are not included in this release.
+
+## Consumer Release Posture
+
+This release follows a strict consumer-release posture:
+- **UI**: Settings UI is hidden.
+- **Backend**: MCP backend deferred.
+- **Security**: MCP_ALLOW_ANY_OAUTH_CLIENT must not be set.
+- **Future Enablement**: MCP features may be restored only after an explicit OAuth allowlisting/consent/privacy/security review.
