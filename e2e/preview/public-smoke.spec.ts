@@ -7,11 +7,11 @@
  * preview URL.
  *
  * Run with:
- *   PLAYWRIGHT_BASE_URL="https://<preview>.vercel.app" \
+ *   PLAYWRIGHT_BASE_URL="https://<preview>.vercel.app" \\
  *     npx playwright test --config playwright.preview.config.ts e2e/preview/public-smoke.spec.ts
  */
 import { test, expect } from './fixtures'
-import { findForbiddenCopy } from './lib/preview-checks'
+import { findForbiddenCopy, assertNoUnexpectedFailures } from './lib/preview-checks'
 
 // Terms from B2B/marketplace copy that was deliberately removed from the
 // consumer-facing product (see commits e16c836 "remove B2B profile residue",
@@ -36,14 +36,6 @@ const FORBIDDEN_LANDING_COPY = [
   'enterprise plan',
   'advisor',
 ] as const
-
-async function assertNoUnexpectedFailures(pageErrors: string[], failedResponses: { url: string; status: number }[]) {
-  expect(pageErrors, `uncaught page errors: ${JSON.stringify(pageErrors)}`).toEqual([])
-  expect(
-    failedResponses,
-    `unexpected failed responses: ${JSON.stringify(failedResponses)}`,
-  ).toEqual([])
-}
 
 test.describe('Preview public smoke', () => {
   test('/ — landing loads, has required public controls, no stale B2B/marketplace copy', async ({

@@ -1,7 +1,4 @@
-/**
- * Pure helpers for the preview-smoke suite. No Playwright/browser APIs here so
- * they can be unit-tested directly (see preview-checks.test.ts).
- */
+import { expect } from '@playwright/test';
 
 /** Minimal shape of the env vars these helpers read — lets tests pass plain objects. */
 export type PreviewEnv = Record<string, string | undefined>;
@@ -22,6 +19,14 @@ export function requireBaseUrl(env: PreviewEnv): string {
     );
   }
   return raw;
+}
+
+export async function assertNoUnexpectedFailures(pageErrors: string[], failedResponses: { url: string; status: number }[]) {
+  expect(pageErrors, `uncaught page errors: ${JSON.stringify(pageErrors)}`).toEqual([])
+  expect(
+    failedResponses,
+    `unexpected failed responses: ${JSON.stringify(failedResponses)}`,
+  ).toEqual([])
 }
 
 // Known third-party noise that shows up on real preview deployments but is not

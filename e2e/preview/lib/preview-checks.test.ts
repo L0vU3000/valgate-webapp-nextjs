@@ -5,6 +5,8 @@ import {
   isIgnorablePreviewNoiseUrl,
   requireBaseUrl,
 } from "./preview-checks";
+import fs from "node:fs";
+import path from "node:path";
 
 describe("requireBaseUrl", () => {
   it("returns the trimmed URL when PLAYWRIGHT_BASE_URL is set", () => {
@@ -82,5 +84,39 @@ describe("findForbiddenWords", () => {
     expect(findForbiddenWords("Update your profile and preferences.", ["claude", "mcp", "ai", "connect"])).toEqual(
       [],
     );
+  });
+});
+
+describe("Static Regression: Preview Smoke Failure Tracking", () => {
+  const specDir = path.resolve(__dirname, "..");
+  const publicSpecPath = path.join(specDir, "public-smoke.spec.ts");
+  const authSpecPath = path.join(specDir, "authenticated-smoke.spec.ts");
+
+  it("enforces shared assertNoUnexpectedFailures usage and error tracking in authenticated smoke", () => {
+    const publicSpec = fs.readFileSync(publicSpecPath, "utf8");
+    const authSpec = fs.readFileSync(authSpecPath, "utf8");
+
+    // 1. Both specs import shared exported assertNoUnexpectedFailures
+    expect(publicSpec).toContain("import {");
+    expect(publicSpec).toContain("assertNoUnexpectedFailures");
+    expect(publicSpec).toContain("from './lib/preview-checks'");
+
+    expect(authSpec).toContain("import {");
+    expect(authSpec).toContain("assertNoUnexpectedFailures");
+    expect(authSpec).toContain("from './lib/preview-checks'");
+
+    // 2. Public smoke calls it 3 times
+    const publicCalls = (publicSpec.match(/await assertNoUnexpectedFailures/g) || []).length;
+    expect(publicCalls).toBe(3);
+
+    // 3. Authenticated smoke calls it 5 times
+    const authCalls = (authSpec.match(/await assertNoUnexpectedFailures/g) || []).length;
+    expect(authCalls).toBe(5);
+
+    // 4. Authenticated test callbacks destructure both pageErrors and failedResponses
+    // We look for the test callback pattern: async ({ ..., pageErrors, failedResponses }) => {
+    const authTestCallbacks = authSpec.match(/test\(['"].*?['"],\s*async\s*\(\s*\{[^}]*?pageErrors[^}]*?failedResponses[^}]*?\}\s*\)\s*=>/g) || [];
+    // The authenticated smoke spec has 5 tests.
+    expect(authTestCallbacks.length).toBe(5);
   });
 });
