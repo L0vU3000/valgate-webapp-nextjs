@@ -58,7 +58,7 @@ const CLERK_SECRET_KEY = process.env.CLERK_SECRET_KEY
 
 // ─── Safety checks ────────────────────────────────────────────────────────────
 
-if (!CLERK_SECRET_KEY || CLERK_SECRET_KEY === 'sk_test_REPLACE_ME') {
+if (!CLERK_SECRET_KEY || CLERK_SECRET_KEY === 'demo-no-clerk') {
   console.error('\n❌  CLERK_SECRET_KEY is not configured.')
   console.error('    Fill in .env.e2e-auth with your test Clerk instance keys.')
   console.error('    (Go to dashboard.clerk.com → your dev app → API Keys)\n')

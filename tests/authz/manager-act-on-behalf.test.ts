@@ -25,7 +25,7 @@ vi.mock("@/lib/env", () => ({
     DEMO_MODE: false,
     DEMO_ALLOW_WRITES: false,
     DATABASE_URL: process.env.DATABASE_URL ?? "",
-    CLERK_SECRET_KEY: "sk_test_placeholder",
+    CLERK_SECRET_KEY: "demo-no-clerk",
     NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "pk_test_placeholder",
   },
 }));

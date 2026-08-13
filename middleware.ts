@@ -2,6 +2,7 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { resolveAuthEntryRedirect } from "@/app/(auth)/_lib/resolve-redirect-url";
+import { isRealClerkKey } from "@/lib/auth/clerk-check";
 
 // The MCP HTTP server (/mcp) and ALL of its OAuth discovery metadata under /.well-known/*
 // (protected-resource, authorization-server, openid-configuration) are public: /mcp validates its
@@ -47,10 +48,8 @@ function checkMcpIpRateLimit(request: NextRequest): NextResponse | null {
 // by reading .env.local from disk, bypassing any process.env override set by the launch
 // script (e.g. dev:e2e-auth). CLERK_SECRET_KEY is a server-only var read from live
 // process.env, so it correctly reflects the runtime mode.
-// DEMO_MODE: sk_test_placeholder → hasClerk=false. Real Clerk: sk_test_/sk_live_ → true.
-const hasClerk =
-  Boolean(process.env.CLERK_SECRET_KEY) &&
-  process.env.CLERK_SECRET_KEY !== "sk_test_placeholder";
+// DEMO_MODE: demo-no-clerk → hasClerk=false. Real Clerk: sk_test_/sk_live_ → true.
+const hasClerk = isRealClerkKey(process.env.CLERK_SECRET_KEY);
 
 // Routes reachable WITHOUT being signed in: the auth pages, the Clerk webhook, and
 // Clerk's own frontend API routes. Everything else requires a session (auth.protect → /login).
