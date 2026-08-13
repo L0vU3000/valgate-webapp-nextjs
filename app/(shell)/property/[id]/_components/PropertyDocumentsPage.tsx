@@ -608,7 +608,11 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
   function toggleSelectFile(id: string) {
     setSelectedFiles((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
       return next;
     });
   }
@@ -1578,7 +1582,11 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
                             onToggle={(id) =>
                               setExpandedNodes((prev) => {
                                 const next = new Set(prev);
-                                next.has(id) ? next.delete(id) : next.add(id);
+                                if (next.has(id)) {
+                                  next.delete(id);
+                                } else {
+                                  next.add(id);
+                                }
                                 return next;
                               })
                             }
@@ -1933,7 +1941,11 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
                             onToggle={(id) =>
                               setMoveExpandedNodes((prev) => {
                                 const next = new Set(prev);
-                                next.has(id) ? next.delete(id) : next.add(id);
+                                if (next.has(id)) {
+                                  next.delete(id);
+                                } else {
+                                  next.add(id);
+                                }
                                 return next;
                               })
                             }
@@ -2401,7 +2413,7 @@ function ListView({
               <tr
                 key={f.id}
                 onClick={() => selectMode ? onToggleFile(f.id) : onOpen(f.id)}
-                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectMode ? onToggleFile(f.id) : onOpen(f.id); } }}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (selectMode) { onToggleFile(f.id); } else { onOpen(f.id); } } }}
                 tabIndex={0}
                 className={`border-t border-slate-100 cursor-pointer transition-colors duration-100 focus-visible:outline-none focus-visible:bg-blue-50/60 ${
                   isChecked && selectMode ? "bg-blue-50/50" : "hover:bg-blue-50/30"
