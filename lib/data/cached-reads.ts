@@ -43,27 +43,6 @@ import type { UserProfile } from "@/lib/data/types/user-profile";
 import type { Property } from "@/lib/data/types/property";
 import type { Professional } from "@/lib/data/types/professional";
 
-function propertyKey(propertyId?: string): string {
-  return propertyId ?? "__all__";
-}
-
-// Read-through cache helper backed by Upstash Redis.
-//
-// Checks Upstash for a cached result first. On a miss it runs the provided query
-// function (a raw service call — not unstable_cache), stores the result in Upstash
-// with a 1h safety-net TTL, and registers the Redis key in a per-tag tracking set
-// so bustCache can find and delete it on the next mutation.
-//
-// The cache key format is: read:<tag>:<orgId>:<propertyId|__all__>
-// This matches the tenant-scoped tagging strategy used by Phase 3 (unstable_cache).
-//
-// When redis is null (env vars unset), falls through to the raw query with no caching.
-// This means entities moved to readThrough lose their unstable_cache layer in dev —
-// that is intentional; Upstash is the single cache of record for these entities.
-//
-// What can go wrong: if the Upstash get/set fails the error is caught and the query
-// runs against Neon directly so the UI still loads. A set failure means the next read
-// is also a miss (no stale data risk, just extra Neon load until the key is written).
 async function readThrough<T>(
   tag: string,
   orgId: string,

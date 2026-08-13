@@ -117,7 +117,7 @@ type EntityHandler = {
 };
 
 // Property handler
-function toPropertyReviewRow(a: AssembledRow, _m: PropertyMatch[]): ReviewRow {
+function toPropertyReviewRow(a: AssembledRow, _matches: PropertyMatch[]): ReviewRow {
   const v = a.values;
   const issues: string[] = [];
   if (!v.propertyName) issues.push("Missing name");

@@ -26,7 +26,6 @@ import {
   ChevronRight,
   Check,
   CheckCircle2,
-  AlertCircle,
   RefreshCw,
   Trash2,
   FolderInput,
@@ -332,12 +331,11 @@ interface Props {
   canDelete?: boolean;
 }
 
-export function PropertyDocumentsPage({ property, userId, documents: dbDocuments = [], folders: dbFolders = [], docThumbUrls = {}, canDelete = false }: Props) {
+export function PropertyDocumentsPage({ property, documents: dbDocuments = [], folders: dbFolders = [], docThumbUrls = {}, canDelete = false }: Props) {
   const folderTree = buildFolderTree(dbFolders);
 
   const router = useRouter();
   const [viewMode, setViewMode] = useState<ViewMode>("list");
-  const [activeFolder, setActiveFolder] = useState("All Documents");
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
   // Stores the id of the document currently open in the detail view (null = browse view).
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);

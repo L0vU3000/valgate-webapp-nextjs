@@ -3,10 +3,10 @@ import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { successorPropertyAssignments } from "@/lib/db/schema";
 import { EstateAssignmentSchema, type EstateAssignment } from "@/lib/data/types/successor-property-assignment";
-import type { NewEstateAssignment, EstateAssignmentPatch } from "@/lib/data/types/successor-property-assignment";
+import type { NewEstateAssignment } from "@/lib/data/types/successor-property-assignment";
 import { getSuccessor } from "@/lib/services/successors";
 import { toDomain, type Ctx } from "@/lib/services/_mapping";
-import { scopedInsert, scopedUpdate, scopedDelete, requireMember } from "@/lib/services/_crud";
+import { scopedInsert, scopedDelete, requireMember } from "@/lib/services/_crud";
 
 const rowToEstateAssignment = (r: typeof successorPropertyAssignments.$inferSelect): EstateAssignment =>
   EstateAssignmentSchema.parse(toDomain(successorPropertyAssignments, r)); // C6/C7

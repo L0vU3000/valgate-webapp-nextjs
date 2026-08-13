@@ -588,6 +588,6 @@ export async function buildAiOverlayContext(
 }
 
 export function toClientContext(context: AiOverlayContext): AiOverlayClientContext {
-  const { promptContext: _removed, ...clientContext } = context;
+  const { promptContext: _promptContext, ...clientContext } = context;
   return clientContext;
 }

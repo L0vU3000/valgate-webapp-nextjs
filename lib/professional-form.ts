@@ -103,7 +103,6 @@ export function buildProfessionalInitials(name: string): string {
 
 export function formDataToNewProfessional(
   data: AddProfessionalFormData,
-  now: number = Date.now(),
 ): NewProfessional {
   const email = data.email.trim();
   const phone = data.phone.trim();
