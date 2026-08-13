@@ -727,7 +727,7 @@ launch, and needs a comms plan before it runs. Everything else is unblocked.
 
 ### Known, deliberately not fixed
 
-- `tests/authz/manager-act-on-behalf.test.ts` and `tests/authz/parity-registry.test.ts` fail
+- `tests/authz/manager-act-on-behalf.db.test.ts` and `tests/authz/parity-registry.db.test.ts` fail
   with a 5s timeout. **Pre-existing** — verified by running them at `e299e466`, before any
   Phase 1 work. Not a regression; do not chase it as one.
 - `lib/actions/ai-overlay-utils.ts` and `lib/data/derivations/ai-context.ts` still reference

@@ -26,6 +26,7 @@ export default defineConfig({
       // Playwright specs use `.spec.ts` too; vitest would try to run them and
       // fail ("test.describe() not expected here"). They run via `npm run test:e2e`.
       "e2e/**",
+      "**/.worktrees/**",
       // TODO(M5): rework for Neon. This file imports the real Pro query functions,
       // which call requireCtx() -> Clerk auth() -> `server-only` and throw at IMPORT
       // time in node/vitest. Written for the pre-Neon file-seed era; excluded until

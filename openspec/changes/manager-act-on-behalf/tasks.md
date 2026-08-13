@@ -26,7 +26,7 @@
 
 ## 5. Verify & close
 
-- [x] 5.1 Authz suite (`tests/authz/manager-act-on-behalf.test.ts`): full-grant manager applies (approved row + entity written); viewer-grant rejected by `requireAdmin`; absent grant floors to null; delete leaves a tombstone. 5/5 green; full authz suite 47/47 green.
+- [x] 5.1 Authz suite (`tests/authz/manager-act-on-behalf.db.test.ts`): full-grant manager applies (approved row + entity written); viewer-grant rejected by `requireAdmin`; absent grant floors to null; delete leaves a tombstone. 5/5 green; full authz suite 47/47 green.
 - [ ] 5.2 Live QA: as a full-grant manager, create/edit/delete each Tier 1 entity in the preview → applied instantly, `change_requests` row `approved` with `decidedByUserId = manager`, client notified — **requires the user (running app + a real full-grant manager session)**
 - [ ] 5.3 Live QA: as a viewer-grant manager, same actions → pending rows, client approval still required — **requires the user (running app + a real viewer-grant manager session)**
 - [x] 5.4 `tsc` + `eslint` clean; `graphify update .` — all green

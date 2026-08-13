@@ -4,10 +4,10 @@ import path from "node:path";
 
 const TARGET_FILES = [
   "middleware.ts",
-  "tests/authz/org-scoping-idor.test.ts",
-  "tests/authz/manager-access.test.ts",
-  "tests/authz/parity-registry.test.ts",
-  "tests/authz/manager-act-on-behalf.test.ts",
+  "tests/authz/org-scoping-idor.db.test.ts",
+  "tests/authz/manager-access.db.test.ts",
+  "tests/authz/parity-registry.db.test.ts",
+  "tests/authz/manager-act-on-behalf.db.test.ts",
 ];
 
 describe("Clerk Sentinel Cleanup Static Analysis", () => {

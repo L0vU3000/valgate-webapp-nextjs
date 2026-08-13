@@ -32,7 +32,7 @@ Cover one mutation + one read per a few core entities so the pattern is proven:
   - [ ] same with `'member'` → **expect throw**.
   - [ ] same with `'admin'` and `'owner'` → **succeeds**.
   - [ ] `scopedInsert`/`scopedUpdate` with `'viewer'` → **expect throw** (needs ≥ member).
-- [ ] Add `tests/authz/org-scoping-idor.test.ts`:
+- [ ] Add tests/authz/org-scoping-idor.db.test.ts:
   - [ ] Seed a property under **ORG-A** (via the db helper).
   - [ ] Read it with `Ctx.orgId = 'ORG-B'` → **expect null / not found**.
   - [ ] Update it with `Ctx.orgId = 'ORG-B'` → **expect throw / 0 rows affected**.
@@ -42,7 +42,7 @@ Cover one mutation + one read per a few core entities so the pattern is proven:
 
 ## Files
 
-- New: `tests/authz/role-gating.test.ts`, `tests/authz/org-scoping-idor.test.ts`.
+- New: tests/authz/role-gating.test.ts, tests/authz/org-scoping-idor.db.test.ts.
 - Reuse: `e2e/helpers/db.ts` (`createThrowawayProperty`, `cleanup`) — or the raw `pg`/Drizzle client from
   `lib/db/client.ts` for direct row setup against the dev branch.
 - Reference (read, don't change): `lib/services/_crud.ts` (RANK = `{viewer:0, member:1, admin:2, owner:3}`),
