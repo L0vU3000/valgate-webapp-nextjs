@@ -1,6 +1,5 @@
 import type { ZodTypeAny, z } from "zod";
 // UseFormReturn requires FieldValues; pillar files use concrete types, here we use any.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 import type { UseFormReturn } from "react-hook-form";
 
 export type WizardStepRenderCtx<TSchema extends ZodTypeAny> = {
