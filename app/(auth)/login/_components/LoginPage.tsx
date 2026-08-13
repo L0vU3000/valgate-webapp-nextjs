@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { useSignIn, useClerk, useUser } from "@clerk/nextjs";
 import { clerkErrorMessage } from "../../_lib/clerk-errors";
 import { resolveRedirectUrl, resolveLoginRedirectTarget } from "../../_lib/resolve-redirect-url";
+import { activateDefaultOrgWithRetry } from "../../_lib/activate-default-org";
 import { resolveDefaultHomeOrgAction } from "../../actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -73,8 +74,11 @@ async function completeSignIn(
       // signed-in but stranded on /login.
       try {
         const { clerkOrgId } = await resolveDefaultHomeOrgAction();
-        if (clerkOrgId) {
-          await setActive({ organization: clerkOrgId });
+        const { success } = await activateDefaultOrgWithRetry({ clerkOrgId, setActive });
+        if (!success) {
+          console.error("[login] default-org activation exhausted retries; continuing without pre-selected org", {
+            redirectTarget,
+          });
         }
       } catch (err) {
         console.error(`[login] default-org activation failed; continuing to ${redirectTarget}`, err);
