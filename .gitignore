@@ -46,6 +46,14 @@ yarn-error.log*
 playwright/.clerk/
 .env.e2e-auth
 
+# Preview-smoke E2E — artifacts from playwright.preview.config.ts (HTML/JSON
+# reports, traces, screenshots, videos) and any locally-supplied authenticated
+# storageState file (contains a real preview session — never commit it).
+preview-artifacts/
+playwright/.preview-state/
+playwright/.clerk-preview/
+*.preview-storage-state.json
+
 # vercel
 .vercel
 
