@@ -44,6 +44,12 @@ export const verifyLimiter = makeLimiter("rl:verify", 5, "1 m", 60_000);
 // so only authenticated traffic counts against the quota).
 export const mcpLimiter = makeLimiter("rl:mcp", 60, "1 m", 60_000);
 
+// HTTP API v1 (read-only): 120 / minute / user. Looser than mcpLimiter since every route on
+// this surface is a plain read (no write amplification risk), but still bounded so a buggy or
+// abusive client can't hammer the DB unthrottled. Keyed on the resolved internal userId (see
+// lib/api/v1/auth.ts), after auth succeeds — unauthenticated requests never reach the limiter.
+export const apiReadLimiter = makeLimiter("rl:api-v1-read", 120, "1 m", 60_000);
+
 // Fail-CLOSED for sensitive edges: a Redis/network error blocks rather than fails open.
 export async function allowed(limiter: Limiter, id: string): Promise<boolean> {
   try {

@@ -38,6 +38,12 @@ export type CtxResolveOptions = {
   // Phase 4 writes set this: a create/update/delete must land in the org the caller intends, so
   // guessing is forbidden. Reads leave it false and accept the primary-org default below.
   requireExplicitOrg?: boolean;
+  // When true (the default), an unknown Clerk user (no existing Valgate row) is JIT-provisioned
+  // via provisionMcpUser — this is /mcp's existing bootstrap-on-first-request behavior and stays
+  // the default so /mcp callers are unaffected. Set false to refuse an unknown user instead of
+  // provisioning: the read-only HTTP API v1 surface (lib/api/v1/auth.ts) passes false, because a
+  // plain read must never have the side effect of creating a user/org/membership row.
+  provisionIfMissing?: boolean;
 };
 
 // Bootstrap a brand-new Clerk user the first time they hit /mcp, before the Clerk webhook
@@ -119,7 +125,7 @@ export async function ctxFromMcpAuth(
   clerkUserId: string,
   options: CtxResolveOptions = {},
 ): Promise<Ctx> {
-  const { requestedOrgId, requireExplicitOrg = false } = options;
+  const { requestedOrgId, requireExplicitOrg = false, provisionIfMissing = true } = options;
   // 1) Clerk user id → our internal USR-* id.
   let [userRow] = await db
     .select({ id: users.id })
@@ -127,6 +133,14 @@ export async function ctxFromMcpAuth(
     .where(eq(users.clerkUserId, clerkUserId))
     .limit(1);
   if (!userRow) {
+    if (!provisionIfMissing) {
+      // Read-only caller (API v1): an unknown user must never trigger a Clerk lookup or a
+      // provisioning write. Same generic error as every other resolution failure below.
+      console.error(
+        "[valgate-mcp] ctxFromMcpAuth: unknown user with provisionIfMissing=false — refusing without provisioning",
+      );
+      throw new Error("unauthenticated");
+    }
     // First time this Clerk user has hit /mcp: the webhook may never have fired for them (a
     // tunnel/dev environment, or an AI-client-only user who never opened the web app). Bootstrap
     // their Valgate row + org membership(s) from Clerk directly, then re-read below as normal.

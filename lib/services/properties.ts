@@ -1,6 +1,7 @@
 import "server-only"; // C1
-import { and, asc, count, eq, inArray } from "drizzle-orm";
+import { and, asc, count, eq, gt, inArray, or } from "drizzle-orm";
 import { db } from "@/lib/db/client";
+import { encodeCursor, decodeCursor } from "@/lib/pagination/cursor";
 import {
   properties, leases, payments, documents,
   tenants, expenses, landParcels, propertyValuations,
@@ -25,6 +26,67 @@ export async function listProperties(ctx: Ctx): Promise<Property[]> {
     .orderBy(asc(properties.createdAt), asc(properties.id))
     .limit(500)
   return rows.map(rowToProperty);
+}
+
+// Cursor shape for listPropertiesPage — the same (createdAt, id) tuple listProperties already
+// orders by, so pagination is a straight "give me rows after this tuple" query (never fetch-then-
+// slice). id is a tie-breaker for same-millisecond createdAt collisions.
+type PropertyPageCursor = { createdAt: number; id: string };
+const CURSOR_KEYS: (keyof PropertyPageCursor)[] = ["createdAt", "id"];
+
+export type PropertyPage = { items: Property[]; nextCursor: string | null };
+
+// HTTP API v1's paginated list (GET /api/v1/properties). Keeps listProperties's 500-row cap
+// untouched for existing callers; this is the real, opaque-cursor, org-scoped alternative for
+// a caller that needs to walk an org's full property set page by page.
+export async function listPropertiesPage(
+  ctx: Ctx,
+  opts: { limit: number; cursor?: string | null },
+): Promise<PropertyPage> {
+  const { limit, cursor } = opts;
+  const conditions = [eq(properties.orgId, ctx.orgId)]; // C3
+
+  if (cursor) {
+    const decoded = decodeCursor<PropertyPageCursor>(cursor, CURSOR_KEYS);
+    // decodeCursor only proves the two keys are present; a tampered/foreign cursor can still
+    // carry the wrong runtime types (or a JSON number that overflowed to Infinity/-Infinity on
+    // parse). Validate exactly before it ever reaches a query: createdAt must be a finite
+    // nonnegative number, id a nonempty string. No DB round-trip happens for a rejected cursor.
+    if (
+      !decoded ||
+      typeof decoded.createdAt !== "number" ||
+      !Number.isFinite(decoded.createdAt) ||
+      decoded.createdAt < 0 ||
+      typeof decoded.id !== "string" ||
+      decoded.id.length === 0
+    ) {
+      throw new Error("invalid_cursor");
+    }
+    const afterCreatedAt = new Date(decoded.createdAt);
+    conditions.push(
+      or(
+        gt(properties.createdAt, afterCreatedAt),
+        and(eq(properties.createdAt, afterCreatedAt), gt(properties.id, decoded.id)),
+      )!,
+    );
+  }
+
+  // Fetch one extra row past `limit` so "is there a next page" never needs a second
+  // round-trip (and never fetch-then-slice: only limit+1 rows ever leave the DB).
+  const rows = await db.select().from(properties)
+    .where(and(...conditions))
+    .orderBy(asc(properties.createdAt), asc(properties.id))
+    .limit(limit + 1);
+
+  const hasMore = rows.length > limit;
+  const items = (hasMore ? rows.slice(0, limit) : rows).map(rowToProperty);
+
+  const last = items[items.length - 1];
+  const nextCursor = hasMore && last
+    ? encodeCursor<PropertyPageCursor>({ createdAt: last.createdAt, id: last.id })
+    : null;
+
+  return { items, nextCursor };
 }
 
 export async function getProperty(ctx: Ctx, id: string): Promise<Property | null> {
