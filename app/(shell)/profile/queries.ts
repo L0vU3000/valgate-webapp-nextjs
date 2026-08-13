@@ -4,6 +4,9 @@ import { requireCtx } from "@/lib/auth/ctx";
 import { env } from "@/lib/env";
 import { getMyUserProfile } from "@/lib/services/user-profiles";
 import { type UserProfile } from "@/lib/data/types/user-profile";
+import { buildProfilePresentation, type ProfileField, type ProfileFieldWithIcon } from "./presentation";
+
+export type { ProfileField, ProfileFieldWithIcon };
 
 function titleCase(s: string): string {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
@@ -14,15 +17,6 @@ function formatDate(v: string | number | null | undefined): string {
     ? new Date(v).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
     : "—";
 }
-
-export type ProfileField = {
-  label: string;
-  value: string;
-};
-
-export type ProfileFieldWithIcon = ProfileField & {
-  iconKey: "Mail" | "Phone" | "MapPin";
-};
 
 export type ProfilePageData = {
   initials: string;
@@ -63,29 +57,23 @@ export async function getProfilePageData(): Promise<ProfilePageData> {
     ((firstName[0] ?? "") + (lastName[0] ?? "")).toUpperCase() ||
     (email[0]?.toUpperCase() ?? "—");
 
+  const presentation = buildProfilePresentation({
+    firstName,
+    lastName,
+    email,
+    phone: profile?.phone,
+    language: profile?.language,
+    timezone: profile?.timezone,
+    currency: profile?.currency,
+  });
+
   return {
     initials,
     fullName,
     role: role || "—",
     memberSince: formatDate(memberSince),
     lastLogin: formatDate(lastLogin),
-    personalInfo: [
-      { label: "First Name", value: firstName || "—" },
-      { label: "Last Name", value: lastName || "—" },
-      { label: "Job Title", value: profile?.jobTitle || "—" },
-      { label: "Employee ID", value: profile?.employeeId || "—" },
-    ],
-    contactFields: [
-      { label: "Email Address", value: email || "—", iconKey: "Mail" },
-      { label: "Phone Number", value: profile?.phone || "—", iconKey: "Phone" },
-      { label: "Office Location", value: profile?.officeLocation || "—", iconKey: "MapPin" },
-    ],
-    preferences: [
-      { label: "Language", value: profile?.language || "—" },
-      { label: "Timezone", value: profile?.timezone || "—" },
-      { label: "Currency", value: profile?.currency || "—" },
-    ],
-    securityNote: "Your profile is currently secure. To maintain high account safety, we recommend changing your password every 90 days. Next change suggested by Jan 15, 2024.",
+    ...presentation,
     // Pre-fill the edit form with the Clerk-derived core fields so the user doesn't re-type them.
     rawProfile: { ...(profile ?? {}), firstName, lastName, email, role },
   };

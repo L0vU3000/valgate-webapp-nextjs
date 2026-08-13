@@ -414,7 +414,7 @@ export function LoginPage() {
                       <FormControl>
                         <Input
                           type="email"
-                          placeholder="you@company.com"
+                          placeholder="you@example.com"
                           autoComplete="email"
                           aria-required="true"
                           {...field}

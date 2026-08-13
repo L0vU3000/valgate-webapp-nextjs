@@ -236,12 +236,12 @@ export function RegisterPage() {
                   style={{ "--auth-delay": "130ms" } as React.CSSProperties}
                 >
                   <Label htmlFor="email" className="text-sm font-medium text-text-secondary">
-                    Work Email
+                    Email
                   </Label>
                   <Input
                     id="email"
                     type="email"
-                    placeholder="john@company.com"
+                    placeholder="jane@example.com"
                     autoComplete="email"
                     aria-required="true"
                     aria-invalid={!!errors.email}

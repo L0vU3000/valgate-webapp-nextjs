@@ -149,7 +149,7 @@ export function PortfolioPage({
               </div>
               <h1 className="text-[28px] sm:text-[40px] font-extrabold text-val-heading tracking-tight leading-tight sm:leading-10">Portfolio</h1>
               <p className="text-[14px] sm:text-[15px] text-slate-500 mt-2">
-                Oversee and manage your complete real estate asset inventory across all regions.
+                Oversee and manage every property record you own, all in one place.
               </p>
             </div>
             {!readOnly && (
