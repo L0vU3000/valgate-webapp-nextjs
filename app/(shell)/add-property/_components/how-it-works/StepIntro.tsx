@@ -14,7 +14,7 @@ const STEP_GRADIENTS: [string, string][] = [
 /**
  * StepIntro
  *
- * The "List your property with confidence." landing screen shown on first
+ * The "Add your property to Valgate." landing screen shown on first
  * visit to /add-property. Two layouts in one component:
  *
  *  - Phone (< lg): single scrollable column — eyebrow → headline → body →
@@ -62,17 +62,16 @@ export function StepIntro({ onStart }: { onStart: () => void }) {
             className="mb-5 font-extrabold leading-[1.05] tracking-[-0.03em] text-[#1a1c1c]"
             style={{ fontSize: "clamp(1.75rem, 1.4rem + 1.5vw, 2.625rem)" }}
           >
-            List your
+            Add your
             <br />
-            property with
+            property to
             <br />
-            confidence.
+            Valgate.
           </h1>
 
           <p className="mb-6 max-w-[360px] text-[15px] leading-[1.65] text-[#434655] lg:mb-9">
-            Join thousands of hosts earning on Valgate. Our streamlined
-            process makes it easy to set up your listing, optimize your
-            pricing, and start welcoming guests.
+            Add your property details, save supporting documents, and keep
+            everything organized in one place.
           </p>
 
           {/* Desktop inline CTA — hidden on phone; the phone gets a sticky

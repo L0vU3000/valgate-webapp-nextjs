@@ -172,7 +172,7 @@ export function Step0NewOrDraft({
       iconBg: DS.blueTint,
       iconColor: DS.blue,
       title: "Scan a document",
-      desc: "Photograph or upload a title deed, lease, or listing — AI reads and fills in the details",
+      desc: "Photograph or upload a title deed or lease — AI reads and fills in the details",
       subLinks: undefined,
       onClick: () => { if (!scanning) scanInputRef.current?.click(); },
       disabled: scanning,

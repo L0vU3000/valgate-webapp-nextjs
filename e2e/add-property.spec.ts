@@ -4,7 +4,7 @@
  * The real wizard at /add-property is a multi-stage flow, not a single form:
  *
  *   Landing (StepIntro)  → "Get Started"
- *   Step 0 (method)      → "Enter manually"  (an AdvisorModal may pop up first)
+ *   Step 0 (method)      → "Enter manually"
  *   Gate 1 (How it works)→ "Continue"
  *   Step 1 (type)        → click a type card, e.g. "Residential House" (auto-advances)
  *   Step 2 (location)    → Property Name (placeholder "e.g. Skyline Luxury Lofts") → footer "Continue"
@@ -35,27 +35,15 @@ async function clickContinue(page: Page) {
   await page.getByRole('button', { name: CONTINUE }).filter({ visible: true }).first().click()
 }
 
-// Step 0 may be covered by the AdvisorModal ("Set up with an Advisor / Set up on my own"),
-// which opens ~800ms after Step 0 mounts and whose backdrop intercepts clicks. Dismiss it
-// via the secondary CTA if it appears, then we're free to interact with Step 0.
-async function dismissAdvisorModal(page: Page) {
-  const ownBtn = page.getByRole('button', { name: /set up on my own/i })
-  if (await ownBtn.isVisible({ timeout: 2_000 }).catch(() => false)) {
-    await ownBtn.click()
-  }
-}
-
-// Dismiss the landing screen and the advisor modal, then click "Enter manually"
-// and pass through the first "How it works" gate to land on Step 1 (property type).
+// From the landing screen, "Get Started" reveals Step 0 directly (no interstitial),
+// then click "Enter manually" and pass through the first "How it works" gate to
+// land on Step 1 (property type).
 async function reachStep1(page: Page) {
   await page.goto('/add-property')
   await expect(page).not.toHaveURL(/\/login/)
 
-  // Landing → reveal Step 0
+  // Landing → reveal Step 0 directly
   await page.getByRole('button', { name: /get started/i }).first().click()
-
-  // Step 0 — clear the advisor modal, then choose the manual path
-  await dismissAdvisorModal(page)
   await page.getByRole('button', { name: /enter manually/i }).click()
 
   // Gate 1 — "Step 1 of 3: Tell us about your property"
@@ -73,6 +61,26 @@ async function reachStep2(page: Page) {
 }
 
 test.describe('C — Add property', () => {
+  test('C0: landing → Step 0 with no advisor dialog, "Enter manually" reaches the wizard', async ({ page }) => {
+    test.info().annotations.push({ type: 'checklist', description: 'C0 — no advisor interstitial' })
+
+    await test.step('Landing "Get Started" reveals Step 0 directly — no dialog in between', async () => {
+      await page.goto('/add-property')
+      await expect(page).not.toHaveURL(/\/login/)
+      await page.getByRole('button', { name: /get started/i }).first().click()
+
+      // Step 0 is a plain method-choice screen, not gated behind an interstitial.
+      await expect(page.getByRole('alertdialog').or(page.getByRole('dialog'))).toHaveCount(0)
+      await expect(page.getByRole('button', { name: /enter manually/i })).toBeVisible({ timeout: 5_000 })
+    })
+
+    await test.step('"Enter manually" → Gate 1 → Step 1 (property type)', async () => {
+      await page.getByRole('button', { name: /enter manually/i }).click()
+      await clickContinue(page) // Gate 1
+      await expect(page.getByRole('button', { name: /residential house/i })).toBeVisible({ timeout: 10_000 })
+    })
+  })
+
   test('C1: full multi-step flow → success screen with property code', async ({ page }) => {
     test.info().annotations.push({ type: 'checklist', description: 'C1 — full flow to success' })
 
@@ -165,9 +173,8 @@ test.describe('C — Add property', () => {
 
     await test.step('Return to add-property → draft resume option shown on Step 0', async () => {
       await page.goto('/add-property')
-      // A fresh visit shows the landing screen first; dismiss it to reach Step 0.
+      // A fresh visit shows the landing screen first; "Get Started" reveals Step 0 directly.
       await page.getByRole('button', { name: /get started/i }).first().click()
-      await dismissAdvisorModal(page)
 
       // Step 0 always renders the "Resume a draft" section, and our saved draft
       // appears there by its name. Either confirms the resume affordance.
@@ -182,7 +189,6 @@ test.describe('C — Add property', () => {
     await test.step('Reach Step 0 and check a draft exists (requires C3 to have run)', async () => {
       await page.goto('/add-property')
       await page.getByRole('button', { name: /get started/i }).first().click()
-      await dismissAdvisorModal(page)
       if (!(await page.getByText('E2E Draft Property').isVisible({ timeout: 5_000 }).catch(() => false))) {
         test.skip(true, 'No draft present — run C3 first')
         return
