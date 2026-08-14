@@ -77,6 +77,21 @@ const isPublicRoute = createRouteMatcher([
   "/",
 ]);
 
+// API v1 (/api/v1/*) is NOT publicly accessible — kept separate from isPublicRoute so "public"
+// keeps meaning "no auth required". Every handler under lib/api/v1/auth.ts authenticates the
+// caller itself via resolveApiV1Ctx() (an Authorization: Bearer session token) and returns its
+// own JSON 401. These routes must bypass ONLY auth.protect()'s browser-session redirect/rewrite:
+// left in place, auth.protect() rewrites an unauthenticated bearer request to an HTML 404
+// (x-clerk-auth-reason: protect-rewrite) before the handler ever runs, breaking the documented
+// JSON error contract.
+export const isApiV1Route = createRouteMatcher(["/api/v1(.*)"]);
+
+// True when a request must skip auth.protect()'s browser-session redirect: either a route that's
+// genuinely public, or an API v1 route whose handler performs its own bearer-token auth.
+export function shouldSkipAuthProtect(request: NextRequest): boolean {
+  return isPublicRoute(request) || isApiV1Route(request);
+}
+
 // The bare sign-in/sign-up entry points only — NOT "/login(.*)" wildcard, which would also
 // catch /login/tasks (a manager onboarding step reached via Clerk's taskUrls, not this
 // redirect). A signed-in user landing on these two exact routes already has a session, so
@@ -105,7 +120,7 @@ const middleware = hasClerk
         return NextResponse.redirect(new URL("/app", request.url));
       }
       // Redirect signed-out users hitting a protected route to /login (set via ClerkProvider signInUrl).
-      if (!isPublicRoute(request)) await auth.protect();
+      if (!shouldSkipAuthProtect(request)) await auth.protect();
     })
   : mcpRateLimitOnly;
 
