@@ -125,7 +125,11 @@ export function LoginPage() {
   // straight to where they were headed.
   useEffect(() => {
     if (!isUserLoaded || !isSignedIn) return;
-    router.replace(resolveRedirectUrl(searchParams.get("redirect_url"), window.location.origin));
+    router.replace(
+      resolveFinalizeNavigateDestination(
+        resolveRedirectUrl(searchParams.get("redirect_url"), window.location.origin),
+      ),
+    );
   }, [isUserLoaded, isSignedIn, router, searchParams]);
 
   const form = useForm<LoginValues>({
