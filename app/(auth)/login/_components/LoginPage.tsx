@@ -9,7 +9,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { useSignIn, useClerk, useUser } from "@clerk/nextjs";
+import { useSignIn, useUser } from "@clerk/nextjs";
 import {
   determineAuthStep,
   factorDisplayName,
@@ -18,9 +18,11 @@ import {
   UsableFactor,
 } from "./auth-flow-helper";
 import { clerkErrorMessage } from "../../_lib/clerk-errors";
-import { resolveRedirectUrl, resolveLoginRedirectTarget } from "../../_lib/resolve-redirect-url";
-import { activateDefaultOrgWithRetry } from "../../_lib/activate-default-org";
-import { resolveDefaultHomeOrgAction } from "../../actions";
+import {
+  resolveRedirectUrl,
+  resolveLoginRedirectTarget,
+  resolveFinalizeNavigateDestination,
+} from "../../_lib/resolve-redirect-url";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
@@ -70,32 +72,26 @@ const SHOW_GOOGLE = false;
 
 async function completeSignIn(
   signIn: ReturnType<typeof useSignIn>["signIn"],
-  setActive: ReturnType<typeof useClerk>["setActive"],
+  router: ReturnType<typeof useRouter>,
   redirectTarget: string,
 ) {
   await signIn!.finalize({
-    navigate: async ({ decorateUrl }) => {
-      // Pre-selecting the user's default org is a convenience, NOT a gate. finalize() has
-      // already activated the session by the time navigate runs, so if resolving or
-      // activating the org fails we must still redirect — otherwise the user is left
-      // signed-in but stranded on /login.
-      try {
-        const { clerkOrgId } = await resolveDefaultHomeOrgAction();
-        const { success } = await activateDefaultOrgWithRetry({ clerkOrgId, setActive });
-        if (!success) {
-          console.error("[login] default-org activation exhausted retries; continuing without pre-selected org", {
-            redirectTarget,
-          });
-        }
-      } catch (err) {
-        console.error(`[login] default-org activation failed; continuing to ${redirectTarget}`, err);
+    // Clerk's docs: navigate() runs just before the session (and any Organization) is set, so
+    // it must not depend on the new session being readable yet — no server actions, no
+    // setActive() here. The session param IS readable at this point; branch on its
+    // currentTask (choose-organization / setup-mfa / reset-password) to decide where to land.
+    // /login/tasks waits for the session to actually go active before resolving that task.
+    navigate: async ({ session, decorateUrl }) => {
+      const destination = resolveFinalizeNavigateDestination(Boolean(session?.currentTask), redirectTarget);
+      const url = decorateUrl(destination);
+      // decorateUrl may return an external (Safari ITP) URL, which requires a hard navigation;
+      // otherwise a soft nav is safe since /login/tasks and the redirect target both wait for
+      // (or re-derive from) the session Clerk is about to activate.
+      if (url.startsWith("http")) {
+        window.location.href = url;
+      } else {
+        router.push(url);
       }
-
-      const url = decorateUrl(redirectTarget);
-      // Hard navigation (not router.push) so the server re-evaluates auth with the freshly
-      // activated session — a soft nav can land on the target before the session is
-      // readable server-side and bounce back to /login.
-      window.location.href = url;
     },
   });
 }
@@ -113,7 +109,6 @@ export function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { signIn } = useSignIn();
-  const { setActive } = useClerk();
   const { isLoaded: isUserLoaded, isSignedIn } = useUser();
 
   useEffect(() => {
@@ -186,7 +181,7 @@ export function LoginPage() {
 
       if (result.step === "password") {
         if (signIn!.status === "complete") {
-          await completeSignIn(signIn, setActive, resolveLoginRedirectTarget(searchParams, window.location.origin));
+          await completeSignIn(signIn, router, resolveLoginRedirectTarget(searchParams, window.location.origin));
         } else {
           toast.error("Sign-in could not be completed. Please try again.");
         }
@@ -251,7 +246,7 @@ export function LoginPage() {
         return;
       }
       if (signIn!.status === "complete") {
-        await completeSignIn(signIn, setActive, resolveLoginRedirectTarget(searchParams, window.location.origin));
+        await completeSignIn(signIn, router, resolveLoginRedirectTarget(searchParams, window.location.origin));
       } else {
         toast.error("Verification could not be completed. Please try again.");
       }

@@ -75,3 +75,15 @@ export function resolveAuthEntryRedirect(requestUrl: string, redirectUrlParam: s
 export function resolveLoginRedirectTarget(searchParams: URLSearchParams, currentOrigin: string): string {
   return resolveRedirectUrl(searchParams.get("redirect_url"), currentOrigin);
 }
+
+// signIn.finalize()'s navigate callback fires just before the session (and any Organization)
+// is actually set — per Clerk's docs, it must not depend on the new session being readable yet
+// (server actions, setActive(), etc. all race the activation this callback precedes). The only
+// thing safe to branch on is the SessionResource the callback itself receives: if it carries a
+// currentTask (e.g. choose-organization), the session is pending and must land on /login/tasks,
+// which waits for a real active session before resolving the task; otherwise it's fully active
+// and can go straight to the already-validated redirect target.
+export function resolveFinalizeNavigateDestination(hasCurrentTask: boolean, redirectTarget: string): string {
+  if (!hasCurrentTask) return redirectTarget;
+  return `/login/tasks?redirect_url=${encodeURIComponent(redirectTarget)}`;
+}

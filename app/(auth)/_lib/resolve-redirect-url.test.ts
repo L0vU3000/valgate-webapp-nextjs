@@ -11,7 +11,12 @@
 // return just pathname+search+hash — never the absolute URL itself.
 
 import { describe, it, expect } from "vitest";
-import { resolveRedirectUrl, resolveAuthEntryRedirect, resolveLoginRedirectTarget } from "./resolve-redirect-url";
+import {
+  resolveRedirectUrl,
+  resolveAuthEntryRedirect,
+  resolveLoginRedirectTarget,
+  resolveFinalizeNavigateDestination,
+} from "./resolve-redirect-url";
 
 const ORIGIN = "http://localhost:3000";
 
@@ -167,5 +172,34 @@ describe("resolveLoginRedirectTarget", () => {
 
   it("rejects an auth-loop redirect_url and falls back to /app", () => {
     expect(resolveLoginRedirectTarget(new URLSearchParams("redirect_url=%2Flogin"), ORIGIN)).toBe("/app");
+  });
+});
+
+describe("resolveFinalizeNavigateDestination", () => {
+  // Post-MFA regression: signIn.finalize()'s navigate() callback runs just before Clerk sets
+  // the session/Organization, per Clerk's docs — so it must never await server actions or
+  // setActive() that depend on the new session being readable yet. The only thing safe to
+  // branch on is the currentTask carried by the session the callback itself receives: pending
+  // (choose-organization / setup-mfa / reset-password) must land on /login/tasks, which waits
+  // for a real active session before resolving the task; otherwise go straight to the
+  // already-validated redirect target.
+  it("returns the redirect target unchanged when there is no current task", () => {
+    expect(resolveFinalizeNavigateDestination(false, "/app")).toBe("/app");
+  });
+
+  it("preserves a deep-link redirect target's query and hash when there is no current task", () => {
+    expect(resolveFinalizeNavigateDestination(false, "/property/123?tab=documents#top")).toBe(
+      "/property/123?tab=documents#top",
+    );
+  });
+
+  it("routes to /login/tasks with the target URL-encoded when a task is pending", () => {
+    expect(resolveFinalizeNavigateDestination(true, "/app")).toBe("/login/tasks?redirect_url=%2Fapp");
+  });
+
+  it("URL-encodes the target's query and hash when a task is pending", () => {
+    expect(resolveFinalizeNavigateDestination(true, "/property/123?tab=documents#top")).toBe(
+      `/login/tasks?redirect_url=${encodeURIComponent("/property/123?tab=documents#top")}`,
+    );
   });
 });
