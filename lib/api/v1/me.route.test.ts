@@ -8,9 +8,16 @@ import { apiError } from "./http";
 // (no userId/orgId leaked), rate-limited -> 429 (the auth seam's response is passed through).
 // ---------------------------------------------------------------------------
 
-const { resolveApiV1CtxMock, getMeProfileMock } = vi.hoisted(() => ({
+const { resolveApiV1CtxMock, getMeProfileMock, loggerMock } = vi.hoisted(() => ({
   resolveApiV1CtxMock: vi.fn(),
   getMeProfileMock: vi.fn(),
+  loggerMock: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+    child: vi.fn().mockReturnThis(),
+  },
 }));
 
 vi.mock("./auth", () => ({
@@ -19,6 +26,10 @@ vi.mock("./auth", () => ({
 
 vi.mock("@/lib/services/me", () => ({
   getMeProfile: getMeProfileMock,
+}));
+
+vi.mock("@/lib/logger", () => ({
+  logger: loggerMock,
 }));
 
 import { GET } from "@/app/api/v1/me/route";
@@ -66,6 +77,7 @@ describe("GET /api/v1/me", () => {
     expect(res.status).toBe(401);
     const body = await res.json();
     expect(body).toEqual({ error: { code: "unauthorized", message: expect.any(String) } });
+    expect(loggerMock.info).toHaveBeenCalledWith("api-v1-me: profile-missing");
   });
 
   it("returns exactly the public MeDto fields on success — no userId/orgId leaked", async () => {

@@ -7,10 +7,17 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // stable { error: { code, message } } shape and never leaks a caught error's message.
 // ---------------------------------------------------------------------------
 
-const { authMock, ctxFromMcpAuthMock, allowedMock } = vi.hoisted(() => ({
+const { authMock, ctxFromMcpAuthMock, allowedMock, loggerMock } = vi.hoisted(() => ({
   authMock: vi.fn(),
   ctxFromMcpAuthMock: vi.fn(),
   allowedMock: vi.fn(),
+  loggerMock: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+    child: vi.fn().mockReturnThis(),
+  },
 }));
 
 vi.mock("@clerk/nextjs/server", () => ({
@@ -24,6 +31,10 @@ vi.mock("@/mcp-server/ctxFor", () => ({
 vi.mock("@/lib/ratelimit", () => ({
   apiReadLimiter: { limit: vi.fn() },
   allowed: allowedMock,
+}));
+
+vi.mock("@/lib/logger", () => ({
+  logger: loggerMock,
 }));
 
 import { resolveApiV1Ctx } from "./auth";
@@ -48,6 +59,7 @@ describe("resolveApiV1Ctx", () => {
     expect(body).toEqual({ error: { code: "unauthorized", message: expect.any(String) } });
     expect(ctxFromMcpAuthMock).not.toHaveBeenCalled();
     expect(allowedMock).not.toHaveBeenCalled();
+    expect(loggerMock.info).toHaveBeenCalledWith("api-v1-auth: missing-clerk-user");
   });
 
   it("uses acceptsToken: session_token so a Bearer session token (not just a cookie) is accepted", async () => {
@@ -71,6 +83,7 @@ describe("resolveApiV1Ctx", () => {
     expect(body.error.code).toBe("unauthorized");
     expect(JSON.stringify(body)).not.toContain("super secret internal detail");
     expect(allowedMock).not.toHaveBeenCalled();
+    expect(loggerMock.info).toHaveBeenCalledWith("api-v1-auth: identity-resolution-failed");
   });
 
   it("returns 429 when the dedicated read-API rate limiter rejects the resolved user", async () => {
