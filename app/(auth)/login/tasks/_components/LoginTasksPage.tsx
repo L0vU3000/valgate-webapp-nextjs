@@ -31,7 +31,7 @@ export function LoginTasksPage() {
   const attemptedDefaultOrgRef = useRef(false);
 
   useEffect(() => {
-    if (!isLoaded || !isAuthLoaded || !isOrgListLoaded) return;
+    if (!isLoaded || !isAuthLoaded || !isOrgListLoaded || userMemberships?.isLoading || userMemberships?.data === undefined) return;
 
     if (!session) {
       router.replace("/login");
