@@ -10,6 +10,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
 import { useSignIn, useClerk, useUser } from "@clerk/nextjs";
+import {
+  determineAuthStep,
+  factorDisplayName,
+  factorRequiresSend,
+  AuthStep,
+  UsableFactor,
+} from "./auth-flow-helper";
 import { clerkErrorMessage } from "../../_lib/clerk-errors";
 import { resolveRedirectUrl, resolveLoginRedirectTarget } from "../../_lib/resolve-redirect-url";
 import { activateDefaultOrgWithRetry } from "../../_lib/activate-default-org";
@@ -95,7 +102,9 @@ async function completeSignIn(
 
 export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
-  const [step, setStep] = useState<"password" | "verify">("password");
+  const [step, setStep] = useState<AuthStep>("password");
+  const [mfaFactor, setMfaFactor] = useState<UsableFactor | undefined>();
+  const [mfaChoices, setMfaChoices] = useState<UsableFactor[] | undefined>();
   const [submittedEmail, setSubmittedEmail] = useState("");
   const [code, setCode] = useState("");
   const [verifying, setVerifying] = useState(false);
@@ -137,6 +146,30 @@ export function LoginPage() {
     return () => clearInterval(t);
   }, [resendIn]);
 
+  // Prepares and enters verify-mfa for a chosen second factor. Code factors (email/phone) must
+  // have a code sent before we ask the user to enter one; TOTP and backup codes are already in
+  // the user's possession and must never be "sent". Returns false if sending the code failed,
+  // so callers (chooser + single-factor auto-advance) can stay on their current step.
+  async function beginMfaFactor(chosenFactor: UsableFactor) {
+    if (factorRequiresSend(chosenFactor.strategy)) {
+      const { error: sendError } =
+        chosenFactor.strategy === "phone_code"
+          ? await signIn!.mfa.sendPhoneCode()
+          : await signIn!.mfa.sendEmailCode();
+      if (sendError) {
+        toast.error(clerkErrorMessage(sendError, "Could not send the verification code."));
+        return false;
+      }
+      setResendIn(45);
+    } else {
+      setResendIn(0);
+    }
+    setCode("");
+    setMfaFactor(chosenFactor);
+    setStep("verify-mfa");
+    return true;
+  }
+
   // Step 1: password auth
   async function onSubmit(values: LoginValues) {
     try {
@@ -146,9 +179,18 @@ export function LoginPage() {
         return;
       }
 
-      if (signIn!.status === "complete") {
-        await completeSignIn(signIn, setActive, resolveLoginRedirectTarget(searchParams, window.location.origin));
-      } else if (signIn!.status === "needs_client_trust") {
+      const result = determineAuthStep({
+        status: signIn!.status,
+        supportedSecondFactors: signIn!.supportedSecondFactors,
+      });
+
+      if (result.step === "password") {
+        if (signIn!.status === "complete") {
+          await completeSignIn(signIn, setActive, resolveLoginRedirectTarget(searchParams, window.location.origin));
+        } else {
+          toast.error("Sign-in could not be completed. Please try again.");
+        }
+      } else if (result.step === "verify-client-trust") {
         // Clerk doesn't recognise this device — send a verification code to the email.
         const { error: sendError } = await signIn!.mfa.sendEmailCode();
         if (sendError) {
@@ -156,33 +198,54 @@ export function LoginPage() {
           return;
         }
         setSubmittedEmail(values.email);
-        setStep("verify");
+        setStep("verify-client-trust");
         setResendIn(45);
-      } else if (signIn!.status === "needs_second_factor") {
-        // The account has an extra authentication factor (e.g. an authenticator
-        // app) explicitly enabled. We do not yet build that second-factor step,
-        // so rather than dead-ending the user on a screen we never render, we
-        // keep them on the password form and tell them clearly what to do next.
-        // (The device-trust email flow above is a separate, supported path —
-        // only an explicitly-enabled MFA factor reaches here.)
-        toast.error(
-          "This account has extra login security enabled, which isn't supported here yet. Reach out to support to sign in.",
-        );
-      } else {
-        toast.error("Sign-in could not be completed. Please try again.");
+      } else if (result.step === "unsupported-mfa") {
+        setSubmittedEmail(values.email);
+        setStep("unsupported-mfa");
+      } else if (result.step === "verify-mfa") {
+        setSubmittedEmail(values.email);
+        setMfaChoices(undefined);
+        await beginMfaFactor(result.factor);
+      } else if (result.step === "select-mfa") {
+        setSubmittedEmail(values.email);
+        setMfaChoices(result.factors);
+        setStep("select-mfa");
       }
     } catch (err) {
       toast.error(clerkErrorMessage(err, "Invalid email or password."));
     }
   }
 
-  // Step 2: device trust verification via email code
+  // Step 2: MFA verification (Client Trust or Second Factor)
   async function handleVerify(e: React.FormEvent) {
     e.preventDefault();
-    if (code.length < 6) return;
+    const trimmedCode = code.trim();
+    const isBackupCode = step === "verify-mfa" && mfaFactor?.strategy === "backup_code";
+    // Backup codes are opaque strings, not fixed-length numeric OTPs — only require non-empty.
+    if (isBackupCode ? trimmedCode.length === 0 : code.length < 6) return;
     setVerifying(true);
     try {
-      const { error } = await signIn!.mfa.verifyEmailCode({ code });
+      let error;
+      if (step === "verify-client-trust") {
+        const res = await signIn!.mfa.verifyEmailCode({ code });
+        error = res.error;
+      } else if (step === "verify-mfa" && mfaFactor) {
+        if (mfaFactor.strategy === "totp") {
+          const res = await signIn!.mfa.verifyTOTP({ code });
+          error = res.error;
+        } else if (mfaFactor.strategy === "backup_code") {
+          const res = await signIn!.mfa.verifyBackupCode({ code: trimmedCode });
+          error = res.error;
+        } else if (mfaFactor.strategy === "email_code") {
+          const res = await signIn!.mfa.verifyEmailCode({ code });
+          error = res.error;
+        } else if (mfaFactor.strategy === "phone_code") {
+          const res = await signIn!.mfa.verifyPhoneCode({ code });
+          error = res.error;
+        }
+      }
+
       if (error) {
         toast.error(clerkErrorMessage(error, "That code didn't work. Please try again."));
         return;
@@ -202,7 +265,10 @@ export function LoginPage() {
   async function handleResend() {
     if (resendIn > 0) return;
     try {
-      const { error } = await signIn!.mfa.sendEmailCode();
+      const { error } =
+        step === "verify-mfa" && mfaFactor?.strategy === "phone_code"
+          ? await signIn!.mfa.sendPhoneCode()
+          : await signIn!.mfa.sendEmailCode();
       if (error) {
         toast.error(clerkErrorMessage(error, "Could not resend the code."));
         return;
@@ -227,7 +293,7 @@ export function LoginPage() {
   }
 
   // ── Step 2: Device verification (needs_client_trust) ──
-  if (step === "verify") {
+  if (step === "verify-client-trust") {
     return (
       <div className="flex flex-col min-h-dvh w-full font-sans bg-[#eef4ff]">
         <div className="flex flex-1 items-center justify-center px-4 py-6 sm:px-6 sm:py-12 overflow-y-auto">
@@ -327,6 +393,248 @@ export function LoginPage() {
                 </div>
               </div>
             </form>
+          </div>
+        </div>
+        <AuthFooter />
+      </div>
+    );
+  }
+
+  // ── Step 2: Choose a second factor (needs_second_factor, multiple usable methods) ──
+  if (step === "select-mfa" && mfaChoices) {
+    return (
+      <div className="flex flex-col min-h-dvh w-full font-sans bg-[#eef4ff]">
+        <div className="flex flex-1 items-center justify-center px-4 py-6 sm:px-6 sm:py-12 overflow-y-auto">
+          <div className="auth-animate flex flex-col items-center w-full max-w-[480px]">
+            <div
+              className="bg-white border border-[#c3c6d7] rounded-xl shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] px-12 py-12 flex flex-col items-center w-full"
+              data-auth-item
+              style={{ "--auth-delay": "0ms" } as React.CSSProperties}
+            >
+              <h2 className="text-[30px] font-bold text-val-heading font-display leading-[36px] text-center mb-4">
+                Choose a verification method
+              </h2>
+
+              <p className="text-center text-base leading-[26px] mb-8 text-[#434655]">
+                Your account has more than one two-step verification method available.
+              </p>
+
+              <div role="group" aria-label="Verification method" className="w-full flex flex-col gap-3 mb-6">
+                {mfaChoices.map((choice) => (
+                  <button
+                    key={choice.strategy}
+                    type="button"
+                    onClick={() => beginMfaFactor(choice)}
+                    disabled={verifying}
+                    className="w-full text-left px-6 py-4 rounded-lg border border-[#c3c6d7] hover:bg-val-bg-tint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <span className="block text-sm font-semibold text-val-heading">
+                      {factorDisplayName(choice.strategy)}
+                    </span>
+                    {choice.safeIdentifier && (
+                      <span className="block text-xs text-[#737686] mt-1">{choice.safeIdentifier}</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              <div className="w-full h-px bg-[#c3c6d7] mb-6" />
+
+              <button
+                type="button"
+                onClick={() => { setStep("password"); setMfaChoices(undefined); setMfaFactor(undefined); }}
+                className="text-sm font-medium text-[#434655] hover:underline"
+              >
+                Back to sign in
+              </button>
+            </div>
+          </div>
+        </div>
+        <AuthFooter />
+      </div>
+    );
+  }
+
+  // ── Step 2: Second-factor verification (needs_second_factor, single usable method) ──
+  if (step === "verify-mfa" && mfaFactor) {
+    const isBackupCode = mfaFactor.strategy === "backup_code";
+    const isCodeReady = isBackupCode ? code.trim().length > 0 : code.length === 6;
+    const canResend = mfaFactor.strategy === "email_code" || mfaFactor.strategy === "phone_code";
+
+    return (
+      <div className="flex flex-col min-h-dvh w-full font-sans bg-[#eef4ff]">
+        <div className="flex flex-1 items-center justify-center px-4 py-6 sm:px-6 sm:py-12 overflow-y-auto">
+          <div className="auth-animate flex flex-col items-center w-full max-w-[480px]">
+
+            <form
+              onSubmit={handleVerify}
+              className="bg-white border border-[#c3c6d7] rounded-xl shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] px-12 py-12 flex flex-col items-center w-full"
+              data-auth-item
+              style={{ "--auth-delay": "0ms" } as React.CSSProperties}
+            >
+              {/* Icon */}
+              <div className="relative size-20 mb-8 shrink-0">
+                <div className="auth-success-icon size-20 rounded-full bg-[#e4efff] flex items-center justify-center">
+                  <Mail className="size-8 text-[--val-primary-dark]" />
+                </div>
+                <div className="auth-success-badge absolute -bottom-1 -right-1 size-8 rounded-full bg-[#10b981] border-4 border-white flex items-center justify-center">
+                  <Check className="size-3 text-white" strokeWidth={3} />
+                </div>
+              </div>
+
+              <h2 className="text-[30px] font-bold text-val-heading font-display leading-[36px] text-center mb-4">
+                {factorDisplayName(mfaFactor.strategy)}
+              </h2>
+
+              <div className="text-center text-base leading-[26px] mb-8">
+                {mfaFactor.strategy === "totp" && (
+                  <p className="text-[#434655]">Enter the 6-digit code from your authenticator app</p>
+                )}
+                {mfaFactor.strategy === "backup_code" && (
+                  <p className="text-[#434655]">Enter one of your unused backup codes</p>
+                )}
+                {mfaFactor.strategy === "email_code" && (
+                  <>
+                    <p className="text-[#434655]">Enter the 6-digit code we sent to</p>
+                    <p>
+                      <span className="font-semibold text-val-heading">
+                        {mfaFactor.safeIdentifier ?? submittedEmail}
+                      </span>
+                    </p>
+                  </>
+                )}
+                {mfaFactor.strategy === "phone_code" && (
+                  <>
+                    <p className="text-[#434655]">Enter the 6-digit code we sent to</p>
+                    <p>
+                      <span className="font-semibold text-val-heading">
+                        {mfaFactor.safeIdentifier ?? "your phone"}
+                      </span>
+                    </p>
+                  </>
+                )}
+              </div>
+
+              {isBackupCode ? (
+                <Input
+                  type="text"
+                  inputMode="text"
+                  autoComplete="one-time-code"
+                  autoFocus
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  placeholder="Backup code"
+                  aria-label="Backup code"
+                  className="mb-8 text-center"
+                />
+              ) : (
+                <InputOTP
+                  maxLength={6}
+                  value={code}
+                  onChange={setCode}
+                  containerClassName="mb-8"
+                  autoFocus
+                >
+                  <InputOTPGroup>
+                    <InputOTPSlot index={0} />
+                    <InputOTPSlot index={1} />
+                    <InputOTPSlot index={2} />
+                    <InputOTPSlot index={3} />
+                    <InputOTPSlot index={4} />
+                    <InputOTPSlot index={5} />
+                  </InputOTPGroup>
+                </InputOTP>
+              )}
+
+              <Button
+                type="submit"
+                className="auth-submit-btn w-full h-12 text-base font-semibold rounded-md flex items-center justify-center gap-2 mb-6"
+                disabled={verifying || !isCodeReady}
+              >
+                {verifying ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" aria-hidden />
+                    Verifying…
+                  </>
+                ) : (
+                  "Verify & sign in"
+                )}
+              </Button>
+
+              <div className="w-full flex flex-col gap-4">
+                {canResend && (
+                  <div className="w-full bg-val-bg-tint rounded-lg px-6 py-4 flex items-center justify-center gap-3">
+                    <span className="text-sm font-medium text-[#434655]">Didn&apos;t receive it?</span>
+                    <button
+                      type="button"
+                      onClick={handleResend}
+                      disabled={resendIn > 0}
+                      className="text-sm font-semibold text-[--val-primary-dark] hover:underline transition-colors duration-150 disabled:text-[#737686] disabled:no-underline disabled:cursor-not-allowed"
+                    >
+                      {mfaFactor.strategy === "phone_code" ? "Resend the text" : "Resend the email"}
+                    </button>
+                    {resendIn > 0 && (
+                      <div className="bg-[#d8e3f4] rounded px-2 py-0.5">
+                        <span className="text-xs text-[#737686] font-mono">
+                          0:{String(resendIn).padStart(2, "0")}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="w-full h-px bg-[#c3c6d7]" />
+
+                <div className="flex justify-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCode("");
+                      setMfaFactor(undefined);
+                      setStep(mfaChoices ? "select-mfa" : "password");
+                    }}
+                    className="text-sm font-medium text-[#434655] hover:underline"
+                  >
+                    {mfaChoices ? "Use a different method" : "Back to sign in"}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+        <AuthFooter />
+      </div>
+    );
+  }
+
+  // ── Step 2: Second factor Clerk reports but this UI cannot collect (e.g. email_link only) ──
+  if (step === "unsupported-mfa") {
+    return (
+      <div className="flex flex-col min-h-dvh w-full font-sans bg-[#eef4ff]">
+        <div className="flex flex-1 items-center justify-center px-4 py-6 sm:px-6 sm:py-12 overflow-y-auto">
+          <div className="auth-animate flex flex-col items-center w-full max-w-[480px]">
+            <div
+              className="bg-white border border-[#c3c6d7] rounded-xl shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] px-12 py-12 flex flex-col items-center w-full"
+              data-auth-item
+              style={{ "--auth-delay": "0ms" } as React.CSSProperties}
+            >
+              <h2 className="text-[30px] font-bold text-val-heading font-display leading-[36px] text-center mb-4">
+                Additional verification needed
+              </h2>
+
+              <p className="text-center text-base leading-[26px] mb-8 text-[#434655]">
+                Your account&apos;s two-step verification method isn&apos;t supported on this sign-in page yet.
+                Please contact support to finish signing in.
+              </p>
+
+              <button
+                type="button"
+                onClick={() => setStep("password")}
+                className="text-sm font-medium text-[#434655] hover:underline"
+              >
+                Back to sign in
+              </button>
+            </div>
           </div>
         </div>
         <AuthFooter />
