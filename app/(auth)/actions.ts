@@ -15,7 +15,6 @@ export async function resolveDefaultHomeOrgAction(): Promise<{ clerkOrgId: strin
 
   try {
     const clerkOrgId = await resolveDefaultHomeOrgForClerkUser(userId);
-    logger.info("default_home_org_resolution_v1", { hasUserId: true, hasHomeOrg: Boolean(clerkOrgId) });
     return { clerkOrgId };
   } catch (err) {
     logger.error("resolveDefaultHomeOrgAction failed", { error: String(err) });

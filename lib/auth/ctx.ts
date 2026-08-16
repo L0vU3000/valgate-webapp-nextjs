@@ -8,7 +8,7 @@ import { users, organizations } from "@/lib/db/schema";
 import { env } from "@/lib/env";
 import { upsertOrg, upsertUser, upsertMembership, ourOrgId, ourUserId, normaliseRole } from "@/lib/services/identity-sync";
 import type { Ctx } from "@/lib/services/_mapping";
-import { logger } from "@/lib/logger";
+
 
 // C2: the ONLY caller of auth(). Every action calls requireCtx(); services take Ctx.
 
@@ -27,11 +27,6 @@ async function resolveCtx(): Promise<Ctx> {
   const { userId, orgId, orgRole } = await auth();
   if (!userId || !orgId) {
     // no null-org path (D14)
-    logger.error("auth_context_missing_v1", {
-      hasUserId: !!userId,
-      hasOrgId: !!orgId,
-      hasOrgRole: !!orgRole,
-    });
     throw new Error("unauthenticated");
   }
 
