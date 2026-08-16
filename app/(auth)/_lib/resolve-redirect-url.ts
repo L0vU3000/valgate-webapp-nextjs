@@ -78,12 +78,29 @@ export function resolveLoginRedirectTarget(searchParams: URLSearchParams, curren
 
 // signIn.finalize()'s navigate callback fires just before the session (and any Organization)
 // is actually set — per Clerk's docs, it must not depend on the new session being readable yet
-// (server actions, setActive(), etc. all race the activation this callback precedes). The only
-// thing safe to branch on is the SessionResource the callback itself receives: if it carries a
-// currentTask (e.g. choose-organization), the session is pending and must land on /login/tasks,
-// which waits for a real active session before resolving the task; otherwise it's fully active
-// and can go straight to the already-validated redirect target.
-export function resolveFinalizeNavigateDestination(hasCurrentTask: boolean, redirectTarget: string): string {
-  if (!hasCurrentTask) return redirectTarget;
+// (server actions, setActive(), etc. all race the activation this callback precedes). So this
+// never branches on the session itself: every successful finalize lands on /login/tasks, which
+// waits for a real active session before deciding whether a task needs resolving (e.g.
+// choose-organization defaulting an org) or the session is already fully active and can go
+// straight through to redirectTarget.
+export function resolveFinalizeNavigateDestination(redirectTarget: string): string {
   return `/login/tasks?redirect_url=${encodeURIComponent(redirectTarget)}`;
+}
+
+export type LoginTaskAction = "redirect" | "activate-default-org" | "render-task";
+
+// /login/tasks lands here for every finalize() navigation now, once the Clerk session (and its
+// currentTask, if any) has actually loaded. A session with no pending task and an already-active
+// org is fully resolved — go straight to redirectUrl. A session with no pending task and no
+// active org, or one explicitly carrying a choose-organization task, needs the default-org
+// activation flow. Anything else (reset-password, setup-mfa, ...) is a task that must render its
+// own UI rather than have an org activated on its behalf.
+export function resolveLoginTaskAction(session: {
+  currentTaskKey: string | null;
+  lastActiveOrganizationId: string | null;
+}): LoginTaskAction {
+  if (!session.currentTaskKey) {
+    return session.lastActiveOrganizationId ? "redirect" : "activate-default-org";
+  }
+  return session.currentTaskKey === "choose-organization" ? "activate-default-org" : "render-task";
 }

@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import { AuthBrandPanel } from "@/components/auth/AuthBrandPanel";
 import { AuthFooter } from "@/components/auth/AuthFooter";
 import { resolveDefaultHomeOrgAction } from "../../../actions";
-import { resolveRedirectUrl } from "../../../_lib/resolve-redirect-url";
+import { resolveRedirectUrl, resolveLoginTaskAction } from "../../../_lib/resolve-redirect-url";
 
 export function LoginTasksPage() {
   const { isLoaded, session } = useSession();
@@ -33,12 +33,17 @@ export function LoginTasksPage() {
       return;
     }
 
-    if (!session.currentTask) {
+    const action = resolveLoginTaskAction({
+      currentTaskKey: session.currentTask?.key ?? null,
+      lastActiveOrganizationId: session.lastActiveOrganizationId ?? null,
+    });
+
+    if (action === "redirect") {
       router.replace(redirectUrl);
       return;
     }
 
-    if (session.currentTask.key !== "choose-organization" || attemptedDefaultOrgRef.current) {
+    if (action === "render-task" || attemptedDefaultOrgRef.current) {
       return;
     }
 

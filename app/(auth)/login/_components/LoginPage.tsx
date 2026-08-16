@@ -78,11 +78,11 @@ async function completeSignIn(
   await signIn!.finalize({
     // Clerk's docs: navigate() runs just before the session (and any Organization) is set, so
     // it must not depend on the new session being readable yet — no server actions, no
-    // setActive() here. The session param IS readable at this point; branch on its
-    // currentTask (choose-organization / setup-mfa / reset-password) to decide where to land.
-    // /login/tasks waits for the session to actually go active before resolving that task.
-    navigate: async ({ session, decorateUrl }) => {
-      const destination = resolveFinalizeNavigateDestination(Boolean(session?.currentTask), redirectTarget);
+    // setActive() here. Every finalize lands on /login/tasks, which waits for the session to
+    // actually go active before deciding whether a task needs resolving or it's safe to
+    // continue straight to redirectTarget.
+    navigate: async ({ decorateUrl }) => {
+      const destination = resolveFinalizeNavigateDestination(redirectTarget);
       const url = decorateUrl(destination);
       // decorateUrl may return an external (Safari ITP) URL, which requires a hard navigation;
       // otherwise a soft nav is safe since /login/tasks and the redirect target both wait for
