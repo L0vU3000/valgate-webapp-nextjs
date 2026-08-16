@@ -198,42 +198,47 @@ describe("resolveFinalizeNavigateDestination", () => {
 describe("resolveLoginTaskAction", () => {
   // Regression: the deployed revision routed a completed session straight to the safe target
   // whenever currentTask was absent, without checking for an active org. A session that
-  // finishes email MFA with no active org (lastActiveOrganizationId falsy) then hit requireCtx
+  // finishes email MFA with no active org (activeOrganizationId falsy) then hit requireCtx
   // downstream with no orgId and threw "unauthenticated". /login/tasks must activate a default
   // org in that case, not redirect.
   it("redirects when there is no pending task and an org is already active", () => {
     expect(
-      resolveLoginTaskAction({ currentTaskKey: null, lastActiveOrganizationId: "org_123" }),
+      resolveLoginTaskAction({ currentTaskKey: null, activeOrganizationId: "org_123" }),
     ).toBe("redirect");
   });
 
+  // Deployed regression: after successful MFA, the diagnostic logged
+  // auth_context_missing_v1 {"hasUserId":true,"hasOrgId":false,"hasOrgRole":false}. The browser's
+  // SessionResource.lastActiveOrganizationId can stay populated from a prior session even though
+  // the actual active Clerk organization (the orgId claim) is absent, so it is not proof of an
+  // active org and must never be the source for activeOrganizationId here — only the real claim.
   it("activates a default org when there is no pending task and no active org", () => {
     expect(
-      resolveLoginTaskAction({ currentTaskKey: null, lastActiveOrganizationId: null }),
+      resolveLoginTaskAction({ currentTaskKey: null, activeOrganizationId: null }),
     ).toBe("activate-default-org");
   });
 
   it("activates a default org for an explicit choose-organization task", () => {
     expect(
-      resolveLoginTaskAction({ currentTaskKey: "choose-organization", lastActiveOrganizationId: null }),
+      resolveLoginTaskAction({ currentTaskKey: "choose-organization", activeOrganizationId: null }),
     ).toBe("activate-default-org");
   });
 
   it("activates a default org for choose-organization even if an org happens to already be active", () => {
     expect(
-      resolveLoginTaskAction({ currentTaskKey: "choose-organization", lastActiveOrganizationId: "org_123" }),
+      resolveLoginTaskAction({ currentTaskKey: "choose-organization", activeOrganizationId: "org_123" }),
     ).toBe("activate-default-org");
   });
 
   it("renders the task UI for other pending tasks such as reset-password", () => {
     expect(
-      resolveLoginTaskAction({ currentTaskKey: "reset-password", lastActiveOrganizationId: null }),
+      resolveLoginTaskAction({ currentTaskKey: "reset-password", activeOrganizationId: null }),
     ).toBe("render-task");
   });
 
   it("renders the task UI for other pending tasks such as setup-mfa", () => {
     expect(
-      resolveLoginTaskAction({ currentTaskKey: "setup-mfa", lastActiveOrganizationId: "org_123" }),
+      resolveLoginTaskAction({ currentTaskKey: "setup-mfa", activeOrganizationId: "org_123" }),
     ).toBe("render-task");
   });
 });

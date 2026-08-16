@@ -95,12 +95,17 @@ export type LoginTaskAction = "redirect" | "activate-default-org" | "render-task
 // active org, or one explicitly carrying a choose-organization task, needs the default-org
 // activation flow. Anything else (reset-password, setup-mfa, ...) is a task that must render its
 // own UI rather than have an org activated on its behalf.
+//
+// activeOrganizationId must come from the actual Clerk auth claims (useAuth().orgId), never from
+// SessionResource.lastActiveOrganizationId — that field can stay populated in the browser from a
+// prior session even when the current session has no active org, which used to send users
+// straight to redirectUrl with no orgId claim and fail downstream with "unauthenticated".
 export function resolveLoginTaskAction(session: {
   currentTaskKey: string | null;
-  lastActiveOrganizationId: string | null;
+  activeOrganizationId: string | null;
 }): LoginTaskAction {
   if (!session.currentTaskKey) {
-    return session.lastActiveOrganizationId ? "redirect" : "activate-default-org";
+    return session.activeOrganizationId ? "redirect" : "activate-default-org";
   }
   return session.currentTaskKey === "choose-organization" ? "activate-default-org" : "render-task";
 }

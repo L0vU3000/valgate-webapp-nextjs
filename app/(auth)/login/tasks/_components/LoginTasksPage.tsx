@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
+  useAuth,
   useSession,
   useClerk,
   TaskResetPassword,
@@ -17,6 +18,7 @@ import { resolveRedirectUrl, resolveLoginTaskAction } from "../../../_lib/resolv
 
 export function LoginTasksPage() {
   const { isLoaded, session } = useSession();
+  const { isLoaded: isAuthLoaded, orgId } = useAuth();
   const { setActive } = useClerk();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -26,7 +28,7 @@ export function LoginTasksPage() {
   const attemptedDefaultOrgRef = useRef(false);
 
   useEffect(() => {
-    if (!isLoaded) return;
+    if (!isLoaded || !isAuthLoaded) return;
 
     if (!session) {
       router.replace("/login");
@@ -35,7 +37,7 @@ export function LoginTasksPage() {
 
     const action = resolveLoginTaskAction({
       currentTaskKey: session.currentTask?.key ?? null,
-      lastActiveOrganizationId: session.lastActiveOrganizationId ?? null,
+      activeOrganizationId: orgId ?? null,
     });
 
     if (action === "redirect") {
@@ -79,7 +81,7 @@ export function LoginTasksPage() {
     return () => {
       cancelled = true;
     };
-  }, [isLoaded, session, router, redirectUrl, setActive]);
+  }, [isLoaded, isAuthLoaded, session, orgId, router, redirectUrl, setActive]);
 
   if (!isLoaded || !session?.currentTask || resolving) {
     return (
