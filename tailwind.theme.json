@@ -1,0 +1,112 @@
+{
+  "theme": {
+    "extend": {
+      "colors": {
+        "primary": "#2563eb",
+        "primary-foreground": "#ffffff",
+        "brand-primary": "#004ac6",
+        "interactive-primary": "#2563eb",
+        "interactive-primary-hover": "#1d4ed8",
+        "interactive-primary-text": "#ffffff",
+        "interactive-secondary": "#f5f6f7",
+        "interactive-secondary-hover": "#e8eaed",
+        "interactive-secondary-text": "#14181b",
+        "surface-page": "#f5f6f7",
+        "surface-sunken": "#e8eaed",
+        "surface-base": "#ffffff",
+        "surface-tint": "#eef2f8",
+        "text-primary": "#14181b",
+        "text-secondary": "#515d66",
+        "text-tertiary": "#6b7684",
+        "text-link": "#2563eb",
+        "border-default": "#d1d5db",
+        "border-subtle": "#e8eaed",
+        "focus": "#2563eb",
+        "destructive": "#e11d48",
+        "destructive-foreground": "#ffffff",
+        "success": "#059669",
+        "warning": "#f59e0b",
+        "danger": "#e11d48",
+        "info": "#0284c7"
+      },
+      "fontFamily": {
+        "display": [
+          "Geist, ui-sans-serif, system-ui, sans-serif"
+        ],
+        "title": [
+          "Geist, ui-sans-serif, system-ui, sans-serif"
+        ],
+        "body": [
+          "Geist, ui-sans-serif, system-ui, sans-serif"
+        ],
+        "data": [
+          "Geist, ui-sans-serif, system-ui, sans-serif"
+        ],
+        "label": [
+          "Geist, ui-sans-serif, system-ui, sans-serif"
+        ],
+        "badge": [
+          "Geist, ui-sans-serif, system-ui, sans-serif"
+        ]
+      },
+      "fontSize": {
+        "display": [
+          "1.5rem",
+          {
+            "letterSpacing": "-0.02em",
+            "fontWeight": "700"
+          }
+        ],
+        "title": [
+          "1.25rem",
+          {
+            "fontWeight": "600"
+          }
+        ],
+        "body": [
+          "1rem",
+          {
+            "fontWeight": "400"
+          }
+        ],
+        "data": [
+          "0.875rem",
+          {
+            "fontWeight": "400"
+          }
+        ],
+        "label": [
+          "0.75rem",
+          {
+            "letterSpacing": "0.05em",
+            "fontWeight": "600"
+          }
+        ],
+        "badge": [
+          "0.625rem",
+          {
+            "letterSpacing": "0.1em",
+            "fontWeight": "600"
+          }
+        ]
+      },
+      "borderRadius": {
+        "xs": "2px",
+        "sm": "4px",
+        "md": "6px",
+        "lg": "10px",
+        "xl": "14px"
+      },
+      "spacing": {
+        "1": "4px",
+        "2": "8px",
+        "3": "12px",
+        "4": "16px",
+        "5": "20px",
+        "6": "24px",
+        "8": "32px",
+        "10": "40px"
+      }
+    }
+  }
+}
