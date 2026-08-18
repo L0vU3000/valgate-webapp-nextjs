@@ -1,93 +1,174 @@
 name: CI
 
-# CI: three blocking gates.
-#
-#   - `test`      runs the Vitest query-layer suite. It is the contract guard
-#                 for "every number traces to a real seed field/derivation".
-#   - `lint`      `npm run lint`, scoped to the source we hand-write
-#                 (app / lib / components), at zero errors. It does NOT lint the
-#                 parked Convex backend or the Figma-generated `imports/` tree —
-#                 those carry their own large debt and are a separate cleanup;
-#                 gating UI work on them would be wrong.
-#   - `typecheck` `tsc --noEmit` across the whole repo, at zero errors. (Unlike
-#                 lint this is repo-wide, since a type error anywhere can break a
-#                 build; the 7 pre-existing errors were fixed to get here.)
-#
-# All three block merge. There is intentionally no `next build` job: a
-# production build needs the Mapbox token and the project sets
-# `ignoreBuildErrors`, so it would add CI minutes while catching nothing the
-# checks below don't.
-
-# The test job hits the shared Neon DEV branch, and global-setup/teardown delete
-# E2E% rows at the start of a run. Two concurrent runs on the same ref could wipe
-# each other's in-flight rows, so serialise per-ref (newest wins).
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
-
 on:
   push:
-    # Run on every working branch so authors get feedback before opening a PR.
-    branches:
-      - "**"
+    branches-ignore: [main]
   pull_request:
-    # Gate the two long-lived integration branches.
-    branches:
-      - valgate-webapp-nextjs-v1.0.2
-      - main
+    branches: [main]
+
+# A new push to the same branch cancels the older run. Matters more than
+# usual here: the Mac is a single runner, so stale queued iOS jobs would
+# block the current one behind them.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  test:
-    name: test (required)
+  # ---------------------------------------------------------------
+  # Secret scan first — cheap, and a leak makes everything else moot.
+  # Complements GitHub push protection at the platform layer.
+  # ---------------------------------------------------------------
+  secrets:
+    name: Secret scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@v4
         with:
-          # Match the local toolchain (Node 22).
-          node-version: 22
-          cache: npm
-      - name: Install dependencies
-        run: npm ci
-      # The seed JSON is committed under public/data, so the query-layer tests
-      # read it in CI with zero extra setup.
-      - name: Run tests
-        run: npm test
+          fetch-depth: 0        # full history for a meaningful scan
+      - uses: gitleaks/gitleaks-action@v2
         env:
-          # Neon DEV branch — same connection string as local .env.local. Required
-          # by lib/env.ts at import time AND used by the tests/authz integration suite.
-          # Add it in: repo Settings -> Secrets and variables -> Actions -> DATABASE_URL.
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          # Required by lib/env.ts (min length 1). Node-env tests never render a map,
-          # so a dummy value is fine; NEXT_PUBLIC_* is public anyway.
-          NEXT_PUBLIC_MAPBOX_TOKEN: ci-mapbox-token-not-used
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  typecheck:
-    name: typecheck (required)
+  # ---------------------------------------------------------------
+  # Everything that can run on Linux runs on Linux. Fast and cheap.
+  # ---------------------------------------------------------------
+  web:
+    name: Web (typecheck, lint, unit)
     runs-on: ubuntu-latest
-    # Blocking: the repo is at zero tsc errors.
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-      - name: Install dependencies
-        run: npm ci
-      - name: Type-check
-        run: npx tsc --noEmit
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm }
 
-  lint:
-    name: lint (required)
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+
+  appcore:
+    name: AppCore (Swift on Linux)
     runs-on: ubuntu-latest
-    # Blocking: `npm run lint` is scoped to app/lib/components and is green.
+    container: swift:6.0
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@v4
+      # Includes swift-snapshot-testing .dump/.json assertions, which
+      # run fine on Linux. Only image snapshots need a simulator.
+      - name: Check for AppCore
+        id: appcore-check
+        run: |
+          if [[ -d "ios/Packages/AppCore" ]]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::ios/Packages/AppCore not found — skipping AppCore job"
+          fi
+      - name: Build and test
+        if: steps.appcore-check.outputs.exists == 'true'
+        working-directory: ios/Packages/AppCore
+        run: |
+          swift build
+          swift test
+
+  e2e:
+    name: E2E + visual regression
+    runs-on: ubuntu-latest
+    needs: web
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: app_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/app_test
+      CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
+      CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+      E2E_CLERK_USER_EMAIL: ${{ secrets.E2E_CLERK_USER_EMAIL }}
+      E2E_CLERK_USER_PASSWORD: ${{ secrets.E2E_CLERK_USER_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm }
+
+      - run: pnpm install --frozen-lockfile
+
+      # Pin the browser build. Screenshot baselines are sensitive to
+      # renderer version — an unpinned upgrade produces diffs that look
+      # like regressions but aren't.
+      - run: pnpm exec playwright install --with-deps chromium
+
+      - name: Migrate and seed
+        run: pnpm db:migrate && pnpm db:seed
+
+      # Production build. Baselines must be captured against the same
+      # thing CI runs, or every screenshot assertion drifts.
+      - run: pnpm build
+      - run: pnpm exec playwright test
+
+      # The report contains the actual/expected/diff triptych — this is
+      # how a visual failure gets reviewed on a phone.
+      - uses: actions/upload-artifact@v4
+        if: failure()
         with:
-          node-version: 22
-          cache: npm
-      - name: Install dependencies
-        run: npm ci
-      - name: Lint
-        run: npm run lint
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+  # ---------------------------------------------------------------
+  # Mac-only work, on the self-hosted runner.
+  #
+  # DISABLED: the self-hosted macOS runner is not registered yet.
+  # The Mac executor is still being set up (see MAC_SETUP_TASK.md
+  # in /docs). Re-enable this job once the runner is online.
+  # ---------------------------------------------------------------
+  # ios:
+  #   name: iOS (build + test)
+  #   runs-on: [self-hosted, macOS, xcode]
+  #   timeout-minutes: 45
+  #   steps:
+  #     # Explicit ref: the self-hosted runner's workspace persists between
+  #     # jobs, so never assume a clean or correct checkout.
+  #     - uses: actions/checkout@v4
+  #       with:
+  #         ref: ${{ github.sha }}
+  #         clean: true
+  #
+  #     - name: Environment
+  #       run: |
+  #         echo "PATH=/opt/homebrew/bin:$PATH" >> "$GITHUB_ENV"
+  #         xcodebuild -version
+  #
+  #     - name: Generate project
+  #       working-directory: ios
+  #       run: mise exec -- tuist generate --no-open
+  #
+  #     # `set -o pipefail` is load-bearing: without it the exit status
+  #     # comes from xcsift, not xcodebuild, and every build "passes".
+  #     - name: Build and test
+  #       working-directory: ios
+  #       run: |
+  #         set -o pipefail
+  #         xcodebuild test \\
+  #           -workspace MyApp.xcworkspace \\
+  #           -scheme MyApp \\
+  #           -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \\
+  #           -resultBundlePath TestResults.xcresult \\
+  #           | xcsift
+  #
+  #     # Contains failed image-snapshot attachments alongside the logs.
+  #     - uses: actions/upload-artifact@v4
+  #       if: failure()
+  #       with:
+  #         name: xcresult
+  #         path: ios/TestResults.xcresult
+  #         retention-days: 7
