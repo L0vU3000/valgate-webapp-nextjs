@@ -19,6 +19,7 @@ export async function GET() {
     if (!profile) {
       // A resolved Ctx with no matching profile row is treated the same as "not authenticated" —
       // never a distinct signal (404/500) that could tell a caller their Ctx half-resolved.
+      logger.info("api-v1-me: profile-missing");
       return apiError(401, "unauthorized", "Authentication required.");
     }
 

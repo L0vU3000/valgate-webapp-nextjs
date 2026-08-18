@@ -5,6 +5,7 @@ import { ctxFromMcpAuth } from "@/mcp-server/ctxFor";
 import { apiReadLimiter, allowed } from "@/lib/ratelimit";
 import type { Ctx } from "@/lib/services/_mapping";
 import { apiError } from "./http";
+import { logger } from "@/lib/logger";
 
 // The single auth seam for every HTTP API v1 route (additive, read-only surface).
 //
@@ -16,10 +17,11 @@ export type ApiV1AuthResult = { ok: true; ctx: Ctx } | { ok: false; response: Ne
 
 export async function resolveApiV1Ctx(): Promise<ApiV1AuthResult> {
   // acceptsToken: "session_token" accepts a standard Clerk session token carried either as
-  // an `Authorization: Bearer` header or the session cookie — not cookie-only.
+  // an `Authorization: *** header or the session cookie — not cookie-only.
   const clerkAuth = await auth({ acceptsToken: "session_token" });
   const clerkUserId = clerkAuth.userId;
   if (!clerkUserId) {
+    logger.info("api-v1-auth: missing-clerk-user");
     return { ok: false, response: apiError(401, "unauthorized", "Authentication required.") };
   }
 
@@ -31,6 +33,7 @@ export async function resolveApiV1Ctx(): Promise<ApiV1AuthResult> {
     ctx = await ctxFromMcpAuth(clerkUserId, { provisionIfMissing: false });
   } catch {
     // Never leak *why* (unknown user, no membership, …) — same generic 401 either way.
+    logger.info("api-v1-auth: identity-resolution-failed");
     return { ok: false, response: apiError(401, "unauthorized", "Authentication required.") };
   }
 
