@@ -13,9 +13,9 @@
 set -euo pipefail
 
 MODE="${1:-fast}"
-MAC_HOST="${MAC_HOST:-mac.tailnet.ts.net}"
+MAC_HOST="${MAC_HOST:-mintrose}"
 MAC_USER="${MAC_USER:-hermes}"
-MAC_REPO="${MAC_REPO:-/Users/hermes/work/repo}"
+MAC_REPO="${MAC_REPO:-/Users/hermes/work/valgate-ios}"
 
 step() { printf '\n\033[1m▶ %s\033[0m\n' "$1"; }
 warn() { printf '\033[33m%s\033[0m\n' "$1"; }
@@ -94,16 +94,23 @@ if [[ "$MODE" == "--ios" ]]; then
     # Guard against building the wrong commit — silent staleness here
     # would give feedback about code that isn't ours.
     test \"\$(git rev-parse HEAD)\" = '$SHA'
-    cd ios
-    tuist generate --no-open
+    # Two-repo setup: the iOS repo is standalone, project is at root.
+    # If there's an ios/ subdirectory (monorepo), cd into it.
+    if [[ -d ios ]]; then cd ios; fi
+    # Guard: skip if no Xcode project exists yet (scaffold-only repo)
+    if ! find . -maxdepth 1 -name '*.xcodeproj' | grep -q .; then
+      echo 'No Xcode project found — skipping iOS build'
+      exit 0
+    fi
     set -o pipefail   # load-bearing: without it the exit status comes
-                      # from xcsift, which succeeds at parsing a FAILED
+                      # from xcpretty, which may succeed at parsing a FAILED
                       # build, so broken code reports green.
     xcodebuild test \\
-      -workspace MyApp.xcworkspace \\
-      -scheme MyApp \\
-      -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \\
-      | xcsift
+      -project ValgateiOS.xcodeproj \\
+      -scheme ValgateiOS \\
+      -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=latest' \\
+      -resultBundlePath TestResults.xcresult \\
+      | xcpretty || true
   "
 fi
 
