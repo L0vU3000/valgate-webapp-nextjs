@@ -9,6 +9,7 @@ import { env } from "@/lib/env";
 import { upsertOrg, upsertUser, upsertMembership, ourOrgId, ourUserId, normaliseRole } from "@/lib/services/identity-sync";
 import type { Ctx } from "@/lib/services/_mapping";
 
+
 // C2: the ONLY caller of auth(). Every action calls requireCtx(); services take Ctx.
 
 const DEMO_CTX: Ctx = { userId: "USR-0001", orgId: "ORG-0001", orgRole: "owner" };
@@ -24,7 +25,10 @@ async function resolveCtx(): Promise<Ctx> {
   }
 
   const { userId, orgId, orgRole } = await auth();
-  if (!userId || !orgId) throw new Error("unauthenticated"); // no null-org path (D14)
+  if (!userId || !orgId) {
+    // no null-org path (D14)
+    throw new Error("unauthenticated");
+  }
 
   // JIT: ensure mirror rows exist so ourOrgId/ourUserId resolvers find them.
   // Webhook is the authoritative steady-state writer; this bootstraps dev + handles missed events (D-J).

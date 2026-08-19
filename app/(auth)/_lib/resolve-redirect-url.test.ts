@@ -11,7 +11,13 @@
 // return just pathname+search+hash — never the absolute URL itself.
 
 import { describe, it, expect } from "vitest";
-import { resolveRedirectUrl, resolveAuthEntryRedirect, resolveLoginRedirectTarget } from "./resolve-redirect-url";
+import {
+  resolveRedirectUrl,
+  resolveAuthEntryRedirect,
+  resolveLoginRedirectTarget,
+  resolveFinalizeNavigateDestination,
+  resolveLoginTaskAction,
+} from "./resolve-redirect-url";
 
 const ORIGIN = "http://localhost:3000";
 
@@ -167,5 +173,72 @@ describe("resolveLoginRedirectTarget", () => {
 
   it("rejects an auth-loop redirect_url and falls back to /app", () => {
     expect(resolveLoginRedirectTarget(new URLSearchParams("redirect_url=%2Flogin"), ORIGIN)).toBe("/app");
+  });
+});
+
+describe("resolveFinalizeNavigateDestination", () => {
+  // Post-MFA regression: signIn.finalize()'s navigate() callback runs just before Clerk sets
+  // the session/Organization, per Clerk's docs — so it must never await server actions or
+  // setActive() that depend on the new session being readable yet, and the callback's session
+  // param can't be trusted for branching either (a completed session with no active org — e.g.
+  // after email MFA — looks task-free here even though it still needs org activation). So every
+  // finalize routes through /login/tasks unconditionally; /login/tasks itself decides, once the
+  // session is actually loaded, whether to activate a default org or continue straight through.
+  it("routes to /login/tasks with the target URL-encoded", () => {
+    expect(resolveFinalizeNavigateDestination("/app")).toBe("/login/tasks?redirect_url=%2Fapp");
+  });
+
+  it("URL-encodes a deep-link target's query and hash", () => {
+    expect(resolveFinalizeNavigateDestination("/property/123?tab=documents#top")).toBe(
+      `/login/tasks?redirect_url=${encodeURIComponent("/property/123?tab=documents#top")}`,
+    );
+  });
+});
+
+describe("resolveLoginTaskAction", () => {
+  // Regression: the deployed revision routed a completed session straight to the safe target
+  // whenever currentTask was absent, without checking for an active org. A session that
+  // finishes email MFA with no active org (activeOrganizationId falsy) then hit requireCtx
+  // downstream with no orgId and threw "unauthenticated". /login/tasks must activate a default
+  // org in that case, not redirect.
+  it("redirects when there is no pending task and an org is already active", () => {
+    expect(
+      resolveLoginTaskAction({ currentTaskKey: null, activeOrganizationId: "org_123" }),
+    ).toBe("redirect");
+  });
+
+  // Deployed regression: after successful MFA, the diagnostic logged
+  // auth_context_missing_v1 {"hasUserId":true,"hasOrgId":false,"hasOrgRole":false}. The browser's
+  // SessionResource.lastActiveOrganizationId can stay populated from a prior session even though
+  // the actual active Clerk organization (the orgId claim) is absent, so it is not proof of an
+  // active org and must never be the source for activeOrganizationId here — only the real claim.
+  it("activates a default org when there is no pending task and no active org", () => {
+    expect(
+      resolveLoginTaskAction({ currentTaskKey: null, activeOrganizationId: null }),
+    ).toBe("activate-default-org");
+  });
+
+  it("activates a default org for an explicit choose-organization task", () => {
+    expect(
+      resolveLoginTaskAction({ currentTaskKey: "choose-organization", activeOrganizationId: null }),
+    ).toBe("activate-default-org");
+  });
+
+  it("activates a default org for choose-organization even if an org happens to already be active", () => {
+    expect(
+      resolveLoginTaskAction({ currentTaskKey: "choose-organization", activeOrganizationId: "org_123" }),
+    ).toBe("activate-default-org");
+  });
+
+  it("renders the task UI for other pending tasks such as reset-password", () => {
+    expect(
+      resolveLoginTaskAction({ currentTaskKey: "reset-password", activeOrganizationId: null }),
+    ).toBe("render-task");
+  });
+
+  it("renders the task UI for other pending tasks such as setup-mfa", () => {
+    expect(
+      resolveLoginTaskAction({ currentTaskKey: "setup-mfa", activeOrganizationId: "org_123" }),
+    ).toBe("render-task");
   });
 });

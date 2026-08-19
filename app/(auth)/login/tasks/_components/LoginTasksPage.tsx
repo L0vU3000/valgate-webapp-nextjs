@@ -3,8 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
+  useAuth,
   useSession,
   useClerk,
+  useOrganizationList,
   TaskResetPassword,
   TaskSetupMFA,
 } from "@clerk/nextjs";
@@ -12,33 +14,41 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { AuthBrandPanel } from "@/components/auth/AuthBrandPanel";
 import { AuthFooter } from "@/components/auth/AuthFooter";
-import { resolveDefaultHomeOrgAction } from "../../../actions";
-import { resolveRedirectUrl } from "../../../_lib/resolve-redirect-url";
+import { selectBestOrganization } from "../../../_lib/org-utils";
+import { resolveRedirectUrl, resolveLoginTaskAction } from "../../../_lib/resolve-redirect-url";
 
 export function LoginTasksPage() {
   const { isLoaded, session } = useSession();
+  const { isLoaded: isAuthLoaded, orgId } = useAuth();
   const { setActive } = useClerk();
+  const { isLoaded: isOrgListLoaded, userMemberships } = useOrganizationList({ userMemberships: true });
   const router = useRouter();
   const searchParams = useSearchParams();
   const currentOrigin = typeof window !== "undefined" ? window.location.origin : "";
   const redirectUrl = resolveRedirectUrl(searchParams.get("redirect_url"), currentOrigin);
   const [resolving, setResolving] = useState(false);
+  const [isOrgUnavailable, setIsOrgUnavailable] = useState(false);
   const attemptedDefaultOrgRef = useRef(false);
 
   useEffect(() => {
-    if (!isLoaded) return;
+    if (!isLoaded || !isAuthLoaded || !isOrgListLoaded || userMemberships?.isLoading || userMemberships?.data === undefined) return;
 
     if (!session) {
       router.replace("/login");
       return;
     }
 
-    if (!session.currentTask) {
+    const action = resolveLoginTaskAction({
+      currentTaskKey: session.currentTask?.key ?? null,
+      activeOrganizationId: orgId ?? null,
+    });
+
+    if (action === "redirect") {
       router.replace(redirectUrl);
       return;
     }
 
-    if (session.currentTask.key !== "choose-organization" || attemptedDefaultOrgRef.current) {
+    if (action === "render-task" || attemptedDefaultOrgRef.current) {
       return;
     }
 
@@ -48,21 +58,20 @@ export function LoginTasksPage() {
     async function activateDefaultOrg() {
       setResolving(true);
       try {
-        const { clerkOrgId } = await resolveDefaultHomeOrgAction();
+        const bestOrgId = selectBestOrganization(userMemberships?.data);
         if (cancelled) return;
 
-        if (!clerkOrgId) {
-          toast.error("We could not open your workspace. Please try signing in again.");
-          router.replace("/login");
+        if (!bestOrgId) {
+          setIsOrgUnavailable(true);
           return;
         }
 
-        await setActive({ organization: clerkOrgId });
+        await setActive({ organization: bestOrgId });
         if (!cancelled) router.replace(redirectUrl);
       } catch {
         if (!cancelled) {
           toast.error("We could not open your workspace. Please try signing in again.");
-          router.replace("/login");
+          setIsOrgUnavailable(true);
         }
       } finally {
         if (!cancelled) setResolving(false);
@@ -74,7 +83,30 @@ export function LoginTasksPage() {
     return () => {
       cancelled = true;
     };
-  }, [isLoaded, session, router, redirectUrl, setActive]);
+  }, [isLoaded, isAuthLoaded, isOrgListLoaded, session, orgId, router, redirectUrl, setActive, userMemberships]);
+
+  if (isOrgUnavailable) {
+    return (
+      <div className="flex min-h-dvh w-full font-sans">
+        <div className="flex flex-1">
+          <AuthBrandPanel />
+          <div className="flex flex-1 items-center justify-center bg-surface-base px-4 py-6 sm:px-6 sm:py-12 lg:px-24 overflow-y-auto">
+            <div className="w-full max-w-[440px] text-center space-y-4">
+              <h1 className="text-2xl font-semibold text-foreground">Workspace unavailable</h1>
+              <p className="text-muted-foreground">
+                We couldn&apos;t find an active workspace associated with your account.
+                Please contact your administrator for access.
+              </p>
+              <div className="pt-4">
+                {/* Sign out removed to prevent login loop */}
+              </div>
+            </div>
+          </div>
+        </div>
+        <AuthFooter />
+      </div>
+    );
+  }
 
   if (!isLoaded || !session?.currentTask || resolving) {
     return (
