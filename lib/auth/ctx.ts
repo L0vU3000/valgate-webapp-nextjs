@@ -15,11 +15,12 @@ import type { Ctx } from "@/lib/services/_mapping";
 const DEMO_CTX: Ctx = { userId: "USR-0001", orgId: "ORG-0001", orgRole: "owner" };
 
 async function resolveCtx(): Promise<Ctx> {
-  if (env.DEMO_MODE) {
+  if (env.DEMO_MODE || process.env.STAGING_DEMO_MODE === "true") {
     // DEMO_CTX grants unauthenticated ORG-0001 owner access — refuse it anywhere real auth could
     // exist: production, or a real Clerk key configured (DEMO_MODE left on by mistake). (M1, D9)
-    if (process.env.NODE_ENV === "production") throw new Error("DEMO_MODE refused in production");
-    if (isRealClerkKey(env.CLERK_SECRET_KEY))
+    // Staging preview exception: STAGING_DEMO_MODE=true bypasses both checks for Tailscale previews.
+    if (process.env.NODE_ENV === "production" && process.env.STAGING_DEMO_MODE !== "true") throw new Error("DEMO_MODE refused in production");
+    if (isRealClerkKey(env.CLERK_SECRET_KEY) && process.env.STAGING_DEMO_MODE !== "true")
       throw new Error("DEMO_MODE refused when a real CLERK_SECRET_KEY is set");
     return DEMO_CTX;
   }
