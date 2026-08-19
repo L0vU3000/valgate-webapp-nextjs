@@ -3,7 +3,7 @@
 
 import { requireCtx } from "@/lib/auth/ctx";
 import type { ActionResult } from "@/app/actions/_result";
-import { revalidateFeTag, NOT_IMPLEMENTED_UNTIL_B6 } from "@/app/actions/_result";
+import { revalidateFeTag } from "@/app/actions/_result";
 import { NewTenantSchema, TenantPatchSchema } from "@/lib/data/types/tenant";
 import type { Tenant } from "@/lib/data/types/tenant";
 import {

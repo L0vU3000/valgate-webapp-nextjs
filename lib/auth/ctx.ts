@@ -1,5 +1,6 @@
 import "server-only"; // C1
 import { cache } from "react";
+import { isRealClerkKey } from "@/lib/auth/clerk-check";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
@@ -7,6 +8,7 @@ import { users, organizations } from "@/lib/db/schema";
 import { env } from "@/lib/env";
 import { upsertOrg, upsertUser, upsertMembership, ourOrgId, ourUserId, normaliseRole } from "@/lib/services/identity-sync";
 import type { Ctx } from "@/lib/services/_mapping";
+
 
 // C2: the ONLY caller of auth(). Every action calls requireCtx(); services take Ctx.
 
@@ -17,13 +19,16 @@ async function resolveCtx(): Promise<Ctx> {
     // DEMO_CTX grants unauthenticated ORG-0001 owner access — refuse it anywhere real auth could
     // exist: production, or a real Clerk key configured (DEMO_MODE left on by mistake). (M1, D9)
     if (process.env.NODE_ENV === "production") throw new Error("DEMO_MODE refused in production");
-    if (env.CLERK_SECRET_KEY && env.CLERK_SECRET_KEY !== "sk_test_placeholder")
+    if (isRealClerkKey(env.CLERK_SECRET_KEY))
       throw new Error("DEMO_MODE refused when a real CLERK_SECRET_KEY is set");
     return DEMO_CTX;
   }
 
   const { userId, orgId, orgRole } = await auth();
-  if (!userId || !orgId) throw new Error("unauthenticated"); // no null-org path (D14)
+  if (!userId || !orgId) {
+    // no null-org path (D14)
+    throw new Error("unauthenticated");
+  }
 
   // JIT: ensure mirror rows exist so ourOrgId/ourUserId resolvers find them.
   // Webhook is the authoritative steady-state writer; this bootstraps dev + handles missed events (D-J).

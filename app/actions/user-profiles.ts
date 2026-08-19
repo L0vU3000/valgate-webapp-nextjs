@@ -3,7 +3,7 @@
 
 import { requireCtx } from "@/lib/auth/ctx";
 import type { ActionResult } from "@/app/actions/_result";
-import { revalidateFeTag, NOT_IMPLEMENTED_UNTIL_B6 } from "@/app/actions/_result";
+import { revalidateFeTag } from "@/app/actions/_result";
 import { UserProfilePatchSchema } from "@/lib/data/types/user-profile";
 import type { UserProfile } from "@/lib/data/types/user-profile";
 import { upsertUserProfile as svcUpsert } from "@/lib/services/user-profiles";

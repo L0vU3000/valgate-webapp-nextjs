@@ -215,7 +215,7 @@ export function PropertyPhotoManager({ propertyId }: { propertyId: string }) {
                     <button
                       type="button"
                       onClick={() => void handleSetCover(photo.storageId)}
-                      className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-white/90 text-slate-700 hover:bg-white active:scale-95 transition-[background-color,transform]"
+                      className="inline-flex items-center justify-center w-10 h-10 rounded-md bg-white/90 text-slate-700 hover:bg-white active:scale-95 transition-[background-color,transform]"
                       aria-label="Set as cover photo"
                       title="Set as cover"
                     >
@@ -241,7 +241,7 @@ export function PropertyPhotoManager({ propertyId }: { propertyId: string }) {
                   >
                     <button
                       type="button"
-                      className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-white/90 text-rose-600 hover:bg-white active:scale-95 transition-[background-color,transform]"
+                      className="inline-flex items-center justify-center w-10 h-10 rounded-md bg-white/90 text-rose-600 hover:bg-white active:scale-95 transition-[background-color,transform]"
                       aria-label="Delete photo"
                       title="Delete"
                     >

@@ -5,24 +5,18 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Check,
   Smartphone,
-  Download,
   User,
   Shield,
-  BadgeCheck,
   Users,
-  Database,
-  AlertTriangle,
   Bell,
   SlidersHorizontal,
-  Sparkles,
 } from "lucide-react";
 import { RequiredMark } from "@/components/ui/required-mark";
 import { AppHeader } from "@/components/layout/AppHeader";
 import type { SettingsPageData, NotifChannels } from "../queries";
 import type { ProfilePageData } from "../../profile/queries";
-import { saveNotificationPreference, saveUserPreferences, setManagerMode } from "../actions";
+import { saveNotificationPreference, saveUserPreferences } from "../actions";
 import { ManagersSection } from "./ManagersSection";
-import { ConnectClaudeSection } from "./ConnectClaudeSection";
 import { ProfileSection } from "./ProfileSection";
 
 // Section identifiers. `group` splits the left-nav into Account (the user) and
@@ -31,13 +25,9 @@ import { ProfileSection } from "./ProfileSection";
 type SectionId =
   | "profile"
   | "security"
-  | "account-type"
   | "managers"
-  | "data-privacy"
-  | "danger"
   | "notifications"
-  | "preferences"
-  | "connect-claude";
+  | "preferences";
 
 type NavItem = {
   id: SectionId;
@@ -50,22 +40,16 @@ type NavItem = {
 const NAV_ITEMS: NavItem[] = [
   { id: "profile", label: "Profile", icon: User, group: "account" },
   { id: "security", label: "Security", icon: Shield, group: "account" },
-  { id: "account-type", label: "Account type", icon: BadgeCheck, group: "account" },
   { id: "managers", label: "Managers", icon: Users, group: "account", adminOnly: true },
-  { id: "data-privacy", label: "Data & Privacy", icon: Database, group: "account" },
-  { id: "danger", label: "Danger zone", icon: AlertTriangle, group: "account" },
   { id: "notifications", label: "Notifications", icon: Bell, group: "app" },
   { id: "preferences", label: "Preferences", icon: SlidersHorizontal, group: "app" },
-  { id: "connect-claude", label: "Connect Claude", icon: Sparkles, group: "app" },
 ];
 
 export function SettingsPage({
   data,
-  mcpUrl,
   profileData,
 }: {
   data: SettingsPageData;
-  mcpUrl: string;
   profileData: ProfilePageData;
 }) {
   const router = useRouter();
@@ -121,10 +105,7 @@ export function SettingsPage({
             <div key={active} className="flex-1 min-w-0" style={{ animation: "fade-slide-up 0.3s ease-out both" }}>
               {active === "profile" && <ProfileSection data={profileData} />}
               {active === "security" && <SecuritySection />}
-              {active === "account-type" && <AccountTypeSection initialIsManager={data.isManager} />}
               {active === "managers" && data.managersData && <ManagersSection initialData={data.managersData} />}
-              {active === "data-privacy" && <DataPrivacySection />}
-              {active === "danger" && <DangerZoneSection />}
               {active === "notifications" && (
                 <NotificationsSection rows={data.notificationRows} defaultNotifications={data.defaultNotifications} />
               )}
@@ -136,7 +117,6 @@ export function SettingsPage({
                   timezoneOptions={data.timezoneOptions}
                 />
               )}
-              {active === "connect-claude" && <ConnectClaudeSection mcpUrl={mcpUrl} />}
             </div>
           </div>
         </div>
@@ -167,7 +147,6 @@ function NavGroup({
       {items.map((item) => {
         const Icon = item.icon;
         const isActive = active === item.id;
-        const isDanger = item.id === "danger";
         return (
           <button
             key={item.id}
@@ -176,12 +155,8 @@ function NavGroup({
             aria-current={isActive ? "page" : undefined}
             className={`flex items-center gap-2.5 h-10 px-3 rounded-lg text-[14px] whitespace-nowrap transition-colors duration-150 shrink-0 ${
               isActive
-                ? isDanger
-                  ? "bg-[#fff1f2] text-[#e11d48] font-semibold"
-                  : "bg-[#eef1f6] text-foreground font-semibold"
-                : isDanger
-                  ? "text-[#e11d48]/80 hover:bg-[#fff1f2]"
-                  : "text-slate-500 hover:bg-[#f5f6f7] hover:text-foreground"
+                ? "bg-[#eef1f6] text-foreground font-semibold"
+                : "text-slate-500 hover:bg-[#f5f6f7] hover:text-foreground"
             }`}
           >
             <Icon className="size-4 shrink-0" />
@@ -270,98 +245,6 @@ function SecuritySection() {
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-/* ─── Account type (Standard | Pro) ─────────────────────────────────────── */
-
-function AccountTypeSection({ initialIsManager }: { initialIsManager: boolean }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const [, startTransition] = useTransition();
-  const [isManager, setIsManager] = useState(initialIsManager);
-
-  // Standard ⇄ Pro. "Pro" == the is_manager flag underneath; it unlocks the Pro
-  // cockpit (sidebar item, header pill, /pro route). Optimistic + self-serve:
-  // flip immediately, persist in the background, roll back if the write fails.
-  const handleAccountTypeChange = (nextIsPro: boolean) => {
-    if (nextIsPro === isManager) return;
-    setIsManager(nextIsPro);
-    startTransition(() =>
-      void setManagerMode(nextIsPro).then((result) => {
-        if (!result.ok) {
-          setIsManager(!nextIsPro); // roll back the optimistic flip
-          return;
-        }
-        // Downgrade guard: if we just left Pro while inside the cockpit, move
-        // out to a Standard-safe route. No-op today (this control lives in
-        // /settings) but preserves the invariant if surfaced elsewhere.
-        if (!nextIsPro && pathname.startsWith("/pro")) {
-          router.push("/");
-        }
-      }),
-    );
-  };
-
-  return (
-    <div className="flex flex-col gap-6">
-      <SectionHeader
-        title="Account type"
-        description="Choose the experience that fits how you use Valgate. You can switch at any time."
-      />
-      <div className="bg-white border border-[#d1d5db] rounded-[12px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] p-4 sm:p-[25px] flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-        <div className="flex flex-col gap-1">
-          <p className="font-sans font-medium text-[14px] leading-[20px] text-foreground">
-            {isManager ? "Pro" : "Standard"}
-          </p>
-          <p className="font-sans text-[13px] leading-[18px] text-tertiary max-w-[520px]">
-            Standard is the owner experience for managing your own portfolio. Pro unlocks the
-            Pro cockpit for managing portfolios on behalf of owners, and adds a Pro entry point
-            to your sidebar and header.
-          </p>
-        </div>
-        <AccountTypeControl isPro={isManager} onChange={handleAccountTypeChange} />
-      </div>
-    </div>
-  );
-}
-
-/**
- * Standard | Pro segmented control. Two visible options; the selected one is
- * filled white with the label in brand blue (blue stays precious — it only
- * marks the active choice). Reads as "choose who you are", not a feature toggle.
- */
-function AccountTypeControl({ isPro, onChange }: { isPro: boolean; onChange: (nextIsPro: boolean) => void }) {
-  const options: { label: string; value: boolean }[] = [
-    { label: "Standard", value: false },
-    { label: "Pro", value: true },
-  ];
-  return (
-    <div
-      role="radiogroup"
-      aria-label="Account type"
-      className="inline-flex shrink-0 items-center gap-1 rounded-[10px] border border-[#d1d5db] bg-[#f5f6f7] p-1"
-    >
-      {options.map((opt) => {
-        const selected = opt.value === isPro;
-        return (
-          <button
-            key={opt.label}
-            type="button"
-            role="radio"
-            aria-checked={selected}
-            onClick={() => onChange(opt.value)}
-            className={`h-9 rounded-[7px] px-5 font-sans text-[14px] font-medium transition-all duration-150 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb] ${
-              selected
-                ? "bg-white text-[#2563eb] shadow-[0_1px_2px_rgba(0,0,0,0.06)]"
-                : "text-slate-500 hover:text-slate-700"
-            }`}
-          >
-            {opt.label}
-          </button>
-        );
-      })}
     </div>
   );
 }
@@ -481,53 +364,6 @@ function PreferencesSection({
               options={timezoneOptions}
             />
           </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ─── Data & Privacy ────────────────────────────────────────────────────── */
-
-function DataPrivacySection() {
-  return (
-    <div className="flex flex-col gap-6">
-      <SectionHeader title="Data & Privacy" description="Manage your data exports and historical activity logs." />
-      <div className="bg-white border border-[#d1d5db] rounded-[12px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] p-4 sm:p-[25px]">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex flex-col gap-1">
-            <h3 className="font-display font-semibold text-[15px] sm:text-[18px] text-val-heading">Export Activity Log</h3>
-            <p className="font-sans text-[14px] leading-[20px] text-tertiary">
-              Download a full history of your account actions in CSV format.
-            </p>
-          </div>
-          <button className="flex items-center gap-2 border border-[#d1d5db] rounded-[8px] px-[17px] py-[9px] font-sans font-medium text-[14px] leading-[20px] text-val-heading hover:bg-[#f5f6f7] hover:border-[#b0b8c4] active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2563eb] transition-all duration-150 shrink-0 cursor-pointer">
-            <Download className="w-4 h-4" />
-            Export Data
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ─── Danger zone ───────────────────────────────────────────────────────── */
-
-function DangerZoneSection() {
-  return (
-    <div className="flex flex-col gap-6">
-      <SectionHeader title="Danger zone" description="Irreversible actions regarding your account and stored data." danger />
-      <div className="bg-[#fff1f2] border border-[#fecdd3] rounded-[12px] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] p-4 sm:p-[25px]">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex flex-col gap-1">
-            <h3 className="font-display font-semibold text-[15px] sm:text-[18px] text-[#881337]">Delete Account</h3>
-            <p className="font-sans text-[14px] leading-[20px] text-[#9f1239]/75">
-              Once you delete your account, there is no going back. Please be certain.
-            </p>
-          </div>
-          <button className="bg-[#e11d48] text-white font-sans font-medium text-[14px] leading-[20px] px-6 py-2 rounded-[8px] hover:bg-[#be123c] active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e11d48] transition-all duration-150 shrink-0 whitespace-nowrap cursor-pointer">
-            Delete Account
-          </button>
         </div>
       </div>
     </div>

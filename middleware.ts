@@ -1,6 +1,8 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { resolveAuthEntryRedirect } from "@/app/(auth)/_lib/resolve-redirect-url";
+import { isRealClerkKey } from "@/lib/auth/clerk-check";
 
 // The MCP HTTP server (/mcp) and ALL of its OAuth discovery metadata under /.well-known/*
 // (protected-resource, authorization-server, openid-configuration) are public: /mcp validates its
@@ -46,10 +48,8 @@ function checkMcpIpRateLimit(request: NextRequest): NextResponse | null {
 // by reading .env.local from disk, bypassing any process.env override set by the launch
 // script (e.g. dev:e2e-auth). CLERK_SECRET_KEY is a server-only var read from live
 // process.env, so it correctly reflects the runtime mode.
-// DEMO_MODE: sk_test_placeholder → hasClerk=false. Real Clerk: sk_test_/sk_live_ → true.
-const hasClerk =
-  Boolean(process.env.CLERK_SECRET_KEY) &&
-  process.env.CLERK_SECRET_KEY !== "sk_test_placeholder";
+// DEMO_MODE: demo-no-clerk → hasClerk=false. Real Clerk: sk_test_/sk_live_ → true.
+const hasClerk = isRealClerkKey(process.env.CLERK_SECRET_KEY);
 
 // Routes reachable WITHOUT being signed in: the auth pages, the Clerk webhook, and
 // Clerk's own frontend API routes. Everything else requires a session (auth.protect → /login).
@@ -74,12 +74,28 @@ const isPublicRoute = createRouteMatcher([
   // own OAuth bearer token, and everything under /.well-known/* is public discovery data.
   "/mcp(.*)",
   "/.well-known/(.*)",
+  "/",
 ]);
 
+// API v1 (/api/v1/*) is NOT publicly accessible — kept separate from isPublicRoute so "public"
+// keeps meaning "no auth required". Every handler under lib/api/v1/auth.ts authenticates the
+// caller itself via resolveApiV1Ctx() (an Authorization: Bearer session token) and returns its
+// own JSON 401. These routes must bypass ONLY auth.protect()'s browser-session redirect/rewrite:
+// left in place, auth.protect() rewrites an unauthenticated bearer request to an HTML 404
+// (x-clerk-auth-reason: protect-rewrite) before the handler ever runs, breaking the documented
+// JSON error contract.
+export const isApiV1Route = createRouteMatcher(["/api/v1(.*)"]);
+
+// True when a request must skip auth.protect()'s browser-session redirect: either a route that's
+// genuinely public, or an API v1 route whose handler performs its own bearer-token auth.
+export function shouldSkipAuthProtect(request: NextRequest): boolean {
+  return isPublicRoute(request) || isApiV1Route(request);
+}
+
 // The bare sign-in/sign-up entry points only — NOT "/login(.*)" wildcard, which would also
-// catch /login/tasks (the manager onboarding step that /launch itself redirects signed-in
-// users to). A signed-in user landing on these two exact routes already has a session, so
-// send them to /launch to resolve where they left off instead of showing the form again.
+// catch /login/tasks (a manager onboarding step reached via Clerk's taskUrls, not this
+// redirect). A signed-in user landing on these two exact routes already has a session, so
+// send them to /app (or their intended redirect_url) instead of showing the form again.
 const isAuthEntryRoute = createRouteMatcher(["/login", "/register"]);
 
 async function mcpRateLimitOnly(request: NextRequest): Promise<NextResponse> {
@@ -95,15 +111,16 @@ const middleware = hasClerk
       const { userId } = await auth();
       const hasInviteTicket = request.nextUrl.searchParams.has("__clerk_ticket");
       if (userId && isAuthEntryRoute(request) && !hasInviteTicket) {
-        // Forward redirect_url so /launch can send the user on to where they
-        // were actually headed instead of always landing on the role default.
-        const launchUrl = new URL("/launch", request.url);
+        // Resolve the intended destination ourselves — there is no separate post-auth
+        // decider page anymore. Same same-origin-only validation as the client-side auth flows.
         const redirectUrl = request.nextUrl.searchParams.get("redirect_url");
-        if (redirectUrl) launchUrl.searchParams.set("redirect_url", redirectUrl);
-        return NextResponse.redirect(launchUrl);
+        return NextResponse.redirect(resolveAuthEntryRedirect(request.url, redirectUrl));
+      }
+      if (userId && request.nextUrl.pathname === "/") {
+        return NextResponse.redirect(new URL("/app", request.url));
       }
       // Redirect signed-out users hitting a protected route to /login (set via ClerkProvider signInUrl).
-      if (!isPublicRoute(request)) await auth.protect();
+      if (!shouldSkipAuthProtect(request)) await auth.protect();
     })
   : mcpRateLimitOnly;
 

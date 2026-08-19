@@ -102,8 +102,33 @@ This project uses **Neon (serverless Postgres)** with **Drizzle ORM** as its bac
 
 This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
 
+**`graphify-out/` is gitignored** — it is a 20MB local artifact, not a deliverable, so a fresh
+clone or workspace will not have it. **Build it once before doing anything else:**
+
+```bash
+graphify update .     # AST-only, no API cost, ~1 min. Expect ~12k nodes on this repo.
+```
+
+⚠️ Sanity-check the node count in the output. A commit touching only `.md` files can make the
+hook rebuild the graph from *those files alone*, leaving a graph of ~100 doc nodes that answers
+every code question with documentation headings. If `graphify query "how does a server action
+reach the database"` returns no `lib/` or `app/` nodes, the graph is clobbered — re-run
+`graphify update .`.
+
 Rules:
 - For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
-- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
+- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing. (Not generated on this repo today — skip it.)
 - Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
 - After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
+- `graph.html` is skipped on this repo — the graph exceeds the 5,000-node viz limit. Not a failure.
+
+## vault/ (Obsidian)
+
+`vault/` is the Obsidian knowledge base — read it before starting work, not after getting stuck.
+Start with `vault/vision.md`, `vault/roadmap.md`, `vault/tasks.md`, then `vault/decisions/` for the
+*why* behind current architecture (`ruthless-mvp-cut`, `neon-not-convex`, `mcp-reuse-services-ctxfor`,
+`drizzle-only-hand-authored-migrations`). `vault/resources/gotchas.md` and `runbook.md` are the
+operational memory.
+
+⚠️ The vault is also maintained on the `valgate-dev` branch. Before editing it here, check whether
+that copy has moved ahead, or the two will diverge.

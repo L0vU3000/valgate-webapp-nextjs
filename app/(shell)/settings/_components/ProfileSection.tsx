@@ -24,11 +24,8 @@ export function ProfileSection({ data }: { data: ProfilePageData }) {
   const [formState, setFormState] = useState({
     firstName: data.rawProfile.firstName || "",
     lastName: data.rawProfile.lastName || "",
-    jobTitle: data.rawProfile.jobTitle || "",
-    employeeId: data.rawProfile.employeeId || "",
     email: data.rawProfile.email || "",
     phone: data.rawProfile.phone || "",
-    officeLocation: data.rawProfile.officeLocation || "",
     language: data.rawProfile.language || "",
     timezone: data.rawProfile.timezone || "",
     currency: data.rawProfile.currency || "",
@@ -46,11 +43,8 @@ export function ProfileSection({ data }: { data: ProfilePageData }) {
     setFormState({
       firstName: data.rawProfile.firstName || "",
       lastName: data.rawProfile.lastName || "",
-      jobTitle: data.rawProfile.jobTitle || "",
-      employeeId: data.rawProfile.employeeId || "",
       email: data.rawProfile.email || "",
       phone: data.rawProfile.phone || "",
-      officeLocation: data.rawProfile.officeLocation || "",
       language: data.rawProfile.language || "",
       timezone: data.rawProfile.timezone || "",
       currency: data.rawProfile.currency || "",
@@ -132,8 +126,6 @@ export function ProfileSection({ data }: { data: ProfilePageData }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 p-4 sm:p-6">
           <Field label="First Name" value={isEditing ? formState.firstName : data.personalInfo[0].value} isEditing={isEditing} onChange={(v) => setFormState((s) => ({ ...s, firstName: v }))} />
           <Field label="Last Name" value={isEditing ? formState.lastName : data.personalInfo[1].value} isEditing={isEditing} onChange={(v) => setFormState((s) => ({ ...s, lastName: v }))} />
-          <Field label="Job Title" value={isEditing ? formState.jobTitle : data.personalInfo[2].value} isEditing={isEditing} onChange={(v) => setFormState((s) => ({ ...s, jobTitle: v }))} />
-          <Field label="Employee ID" value={isEditing ? formState.employeeId : data.personalInfo[3].value} isEditing={isEditing} onChange={(v) => setFormState((s) => ({ ...s, employeeId: v }))} />
         </div>
       </InfoCard>
 
@@ -144,7 +136,6 @@ export function ProfileSection({ data }: { data: ProfilePageData }) {
             <FieldWithIcon label="Email Address" value={isEditing ? formState.email : data.contactFields[0].value} iconKey="Mail" isEditing={isEditing} onChange={(v) => setFormState((s) => ({ ...s, email: v }))} />
           </div>
           <FieldWithIcon label="Phone Number" value={isEditing ? formState.phone : data.contactFields[1].value} iconKey="Phone" isEditing={isEditing} onChange={(v) => setFormState((s) => ({ ...s, phone: v }))} />
-          <FieldWithIcon label="Office Location" value={isEditing ? formState.officeLocation : data.contactFields[2].value} iconKey="MapPin" isEditing={isEditing} onChange={(v) => setFormState((s) => ({ ...s, officeLocation: v }))} />
         </div>
       </InfoCard>
 

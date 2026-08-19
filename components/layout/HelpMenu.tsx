@@ -5,16 +5,12 @@ import {
   HelpCircle,
   MessageSquare,
   Sparkles,
-  BookOpen,
-  Keyboard,
 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuShortcut,
 } from "../ui/dropdown-menu";
 import { WhatsNewModal } from "./WhatsNewModal";
 import {
@@ -25,14 +21,8 @@ import {
 // localStorage key holding the newest changelog version this browser has seen.
 const LAST_SEEN_KEY = "valgate:changelog:last-seen";
 
-// Placeholder destinations. Send Feedback opens the user's mail client; Docs and
-// Keyboard Shortcuts are wired as real links so the affordance works, pointing at
-// "#" until a user manual / shortcuts reference exists.
-// ponytail: swap these three for real URLs when the destinations ship.
 const FEEDBACK_MAILTO =
   "mailto:feedback@valgate.co?subject=Valgate%20feedback";
-const DOCS_HREF = "#";
-const SHORTCUTS_HREF = "#";
 
 // Header Help (?) menu, shared by the Standard and Pro shells. Owns the
 // "What's new" modal open state and the localStorage-backed unread dot.
@@ -98,20 +88,6 @@ export function HelpMenu() {
           >
             <Sparkles className="mr-2 h-4 w-4 text-secondary" />
             Changelog
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem asChild>
-            <a href={DOCS_HREF} target="_blank" rel="noreferrer">
-              <BookOpen className="mr-2 h-4 w-4 text-secondary" />
-              Docs
-            </a>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <a href={SHORTCUTS_HREF}>
-              <Keyboard className="mr-2 h-4 w-4 text-secondary" />
-              Keyboard Shortcuts
-              <DropdownMenuShortcut>⌘K</DropdownMenuShortcut>
-            </a>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

@@ -45,6 +45,39 @@ export async function presignUpload(
   return { url, fields, storageId };
 }
 
+const MAX_LOGGED_BODY_LENGTH = 2000;
+
+// Tags an S3 error XML body can carry that let you reconstruct/replay a signed request.
+// Everything else (Code, Message, RequestId, ...) is safe diagnostic info and survives.
+const SENSITIVE_S3_ERROR_TAGS = [
+  "AWSAccessKeyId",
+  "SignatureProvided",
+  "StringToSign",
+  "StringToSignBytes",
+  "CanonicalRequest",
+  "Policy",
+];
+
+function redactAwsSigningMaterial(body: string): string {
+  return SENSITIVE_S3_ERROR_TAGS.reduce(
+    (out, tag) => out.replace(new RegExp(`<${tag}>[\\s\\S]*?</${tag}>`, "g"), `<${tag}>[redacted]</${tag}>`),
+    body,
+  );
+}
+
+// Formats a failed S3 POST response for server-side diagnostic logging: bounded length,
+// signing/policy material redacted. Never include the presigned URL or POST fields (policy,
+// credential, signature) here — those belong to the caller and must stay out of logs.
+export function describeFailedUpload(
+  res: { status: number; statusText: string },
+  body: string,
+): { status: number; statusText: string; body: string } {
+  const redacted = redactAwsSigningMaterial(body);
+  const bounded =
+    redacted.length > MAX_LOGGED_BODY_LENGTH ? `${redacted.slice(0, MAX_LOGGED_BODY_LENGTH)}…[truncated]` : redacted;
+  return { status: res.status, statusText: res.statusText, body: bounded };
+}
+
 export async function resolveDocumentUrl(storageId: string): Promise<string> {
   if (storageId.startsWith("_storage/")) return `/${storageId}`;
   const { client, bucket } = getS3();

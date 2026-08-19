@@ -133,7 +133,7 @@ export async function insertAccessNotification(input: {
   userId: string;
   title: string;
   description: string;
-  linkTo: string;
+  linkTo?: string;
 }): Promise<void> {
   const id = await nextId("NOTIF");
   await db.insert(notifications).values({
@@ -144,7 +144,7 @@ export async function insertAccessNotification(input: {
     title: input.title,
     description: input.description,
     read: false,
-    linkTo: input.linkTo,
+    linkTo: input.linkTo ?? null,
   });
 }
 
@@ -287,7 +287,6 @@ export async function onboardClientPortfolio(
       userId: ctx.userId,
       title: "Invitation sent",
       description: `Invitation sent to ${input.name}`,
-      linkTo: "/pro/clients",
     });
   } catch (err) {
     logger.error("onboardClientPortfolio: notification failed", { error: String(err) });
@@ -533,7 +532,6 @@ export async function handleBounce(email: string, bounceType: string): Promise<v
       userId: handoff.managerUserId,
       title: "Invitation bounced",
       description: `Invitation to ${email} bounced`,
-      linkTo: "/pro/clients",
     });
   } catch (err) {
     logger.error("handleBounce: notification failed", { error: String(err), handoffId: handoff.id });
@@ -765,8 +763,8 @@ export async function handleInvitationAccepted(clerkInvitationId: string): Promi
   };
 
   try {
-    // Resolve the SAME home org the manager lands in by default (via /launch →
-    // ensureManagerHomeOrganizationForClerkUser), and create it if this manager
+    // Resolve the SAME home org a manager is provisioned into by default
+    // (ensureManagerHomeOrganizationForClerkUser), and create it if this manager
     // never had one (legacy accounts onboarded before the home-org concept).
     // Using a different heuristic here was the bug: it could pick an orphaned
     // test org with no client_handoffs/access_requests row, which the manager
@@ -804,7 +802,6 @@ export async function handleInvitationAccepted(clerkInvitationId: string): Promi
         // When the client renamed themselves, append the change so it's visible in the
         // same notification the manager already gets for the acceptance.
         description: nameChangeNote ? `${baseDescription} ${nameChangeNote}` : baseDescription,
-        linkTo: "/pro/clients",
       });
     }
   } catch (err) {
@@ -814,9 +811,10 @@ export async function handleInvitationAccepted(clerkInvitationId: string): Promi
 
 // ─── Client-side acceptance fallback ──────────────────────────────────────────
 //
-// Called from /launch when the Clerk webhook (organizationInvitation.accepted)
-// hasn't fired or wasn't delivered yet. Without this fallback, handoffs stay
-// "pending" forever and the manager never receives the notification.
+// Fallback for when the Clerk webhook (organizationInvitation.accepted) hasn't fired or
+// wasn't delivered yet — without it, handoffs would stay "pending" forever and the manager
+// would never receive the notification. Currently unused: its former caller (the post-auth
+// decider page) was removed; kept for API compatibility.
 //
 // Finds all pending handoffs where the user's email matches, then delegates to
 // the same handleInvitationAccepted logic the webhook would have called.

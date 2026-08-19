@@ -100,3 +100,22 @@ export function progressBgClass(progress: number) {
   if (progress >= 40) return "bg-status-warning";
   return "bg-status-danger";
 }
+
+export type PropertyTableEmptyStateKind = "none" | "archived-empty" | "first-use" | "filtered-empty";
+
+// Distinguishes a brand-new owner with zero properties (first-use) from an
+// existing portfolio that filters have reduced to zero rows (filtered-empty) —
+// the two need different copy and CTAs, not the same "no matches" message.
+export function getPropertyTableEmptyStateKind({
+  pageRowsCount,
+  totalCount,
+  showArchived,
+}: {
+  pageRowsCount: number;
+  totalCount: number;
+  showArchived: boolean;
+}): PropertyTableEmptyStateKind {
+  if (pageRowsCount > 0) return "none";
+  if (showArchived) return "archived-empty";
+  return totalCount === 0 ? "first-use" : "filtered-empty";
+}

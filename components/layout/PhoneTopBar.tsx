@@ -10,6 +10,7 @@ import {
 } from "@/components/layout/NotificationsPanel";
 import { useNotifications } from "@/lib/hooks/use-notifications";
 import { useInitialNotifications } from "@/components/layout/NotificationsContext";
+import { resolveNotificationDestination } from "@/lib/navigation/notification-destination";
 
 /**
  * PhoneTopBar
@@ -134,7 +135,8 @@ export function PhoneTopBar({ onMenu }: PhoneTopBarProps) {
               onMarkAllRead={markAllRead}
               onNotificationClick={(n) => {
                 markAsRead(n.id);
-                if (n.linkTo) router.push(n.linkTo);
+                const destination = resolveNotificationDestination(n.linkTo);
+                if (destination) router.push(destination);
                 panelRef.current?.close();
               }}
               onClose={() => setNotificationsOpen(false)}

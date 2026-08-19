@@ -27,12 +27,6 @@ export interface PropertyOption {
   status: PropertyOptionStatus;
 }
 
-const PROPERTY_STATUS_CONFIG: Record<PropertyOptionStatus, { label: string; className: string }> = {
-  complete: { label: "Complete", className: "bg-[#ecfdf5] text-[#065f46]" },
-  pending: { label: "In Review", className: "bg-[#fffbeb] text-[#92400e]" },
-  action: { label: "Action Required", className: "bg-[#fff1f2] text-[#881337]" },
-  draft: { label: "Drafted", className: "bg-[#f0f9ff] text-[#0369a1]" },
-};
 
 interface FeatureUnlockWizardProps<TSchema extends ZodTypeAny> {
   config: WizardConfig<TSchema>;
@@ -66,7 +60,6 @@ export function FeatureUnlockWizard<TSchema extends ZodTypeAny>({
   const [selectedPropertyId, setSelectedPropertyId] = useState(propertyId);
   const [propertySearch, setPropertySearch] = useState("");
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const form = useForm<FormValues>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(config.schema as any) as any,
@@ -95,7 +88,7 @@ export function FeatureUnlockWizard<TSchema extends ZodTypeAny>({
       .catch(() => {
         setPhase("load-error");
       });
-  }, [config, form, activePropertyId, startAt]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [config, form, activePropertyId, startAt]);
 
   useEffect(() => {
     if (!open) return;
@@ -107,7 +100,7 @@ export function FeatureUnlockWizard<TSchema extends ZodTypeAny>({
     } else {
       loadData();
     }
-  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const currentValues = form.watch();
   const allSteps = config.steps;

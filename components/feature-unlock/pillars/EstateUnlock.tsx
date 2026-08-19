@@ -115,7 +115,12 @@ function BeneficiariesStep({
                 Beneficiary {index + 1}
               </span>
               {fields.length > 1 && (
-                <button type="button" onClick={() => remove(index)} className="text-slate-400 hover:text-red-600">
+                <button
+                  type="button"
+                  onClick={() => remove(index)}
+                  aria-label={`Remove beneficiary ${index + 1}`}
+                  className="text-slate-400 hover:text-red-600"
+                >
                   <Trash2 className="w-4 h-4" />
                 </button>
               )}

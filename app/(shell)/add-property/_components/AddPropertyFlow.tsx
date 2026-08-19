@@ -45,7 +45,6 @@ const Step6Success = dynamic(
 import { FlowFooter } from "@/app/_shared/add-property/FlowFooter";
 import { HowItWorksGate } from "./how-it-works";
 import { StepIntro } from "./how-it-works/StepIntro";
-import { AdvisorModal } from "./AdvisorModal";
 
 // Rebuilds the form's media fields (display names + staged references) from a draft's staged
 // files, split by kind. Used when resuming a draft so Step 4 shows the already-uploaded files.
@@ -76,7 +75,6 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
   const [preFlowStage, setPreFlowStage] = useState<"landing" | null>(
     () => hasUrlParams ? null : "landing",
   );
-  const [advisorModalOpen, setAdvisorModalOpen] = useState(false);
   // walkthroughGate: 1-indexed gate number currently shown, null = no gate
   const [walkthroughGate, setWalkthroughGate] = useState<number | null>(null);
   // track which interstitial gates have already been seen (skip on back-nav)
@@ -107,15 +105,6 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
   useEffect(() => {
     if (step === 6) successScrollRef.current?.scrollTo({ top: 0 });
   }, [step]);
-
-  // Delay modal until Step0 page animations have settled (~800ms)
-  useEffect(() => {
-    if (preFlowStage !== null || hasUrlParams) return;
-    const t = setTimeout(() => setAdvisorModalOpen(true), 800);
-    return () => clearTimeout(t);
-  // hasUrlParams is stable for the component's lifetime
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [preFlowStage]);
 
   // Hydrate from URL params once localStorage drafts are loaded
   useEffect(() => {
@@ -470,19 +459,6 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
           </div>
         )}
 
-
-        {/* Advisor modal — shown over Step0 on first visit. On phone it
-            renders as a full-screen bottom sheet via PhoneSheet; on
-            tablet+ it's a centered dialog. Radix handles its own
-            mount/unmount + close animation, so we drop AnimatePresence. */}
-        {step === 0 && (
-          <AdvisorModal
-            open={advisorModalOpen}
-            onOpenChange={setAdvisorModalOpen}
-            onSetupWithAdvisor={() => setAdvisorModalOpen(false)}
-            onSetupOwn={() => setAdvisorModalOpen(false)}
-          />
-        )}
 
         {/* Content */}
         {step === 6 ? (

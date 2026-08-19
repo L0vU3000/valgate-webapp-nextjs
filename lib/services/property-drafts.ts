@@ -10,6 +10,13 @@ import { assertCanMutate } from "@/lib/services/_mapping";
 // call sites below short and unchanged after the v1.0.2 merge renamed it.
 import { deleteStorageObject as deleteObject } from "@/lib/services/storage";
 import { createDocument as svcCreateDocument, createDocumentForOrg as svcCreateDocumentForOrg } from "@/lib/services/documents";
+import {
+  getProperty as svcGetProperty,
+  updateProperty as svcUpdateProperty,
+  getPropertyForOrg as svcGetPropertyForOrg,
+  updatePropertyForOrg as svcUpdatePropertyForOrg,
+} from "@/lib/services/properties";
+import { computePhotoMergePatch } from "@/lib/services/property-photo-merge";
 import { log } from "@/lib/log";
 
 // ---------------------------------------------------------------------------
@@ -265,8 +272,18 @@ export async function convertDraftToDocuments(
 ): Promise<number> {
   assertCanMutate();
   requireMember(ctx);
-  // Scoped to the caller's own draft (IDOR guard) — you can only convert files you staged.
+
   const files = await listDraftFiles(ctx, draftId);
+  const photos = files.filter((f) => f.kind === "photo");
+
+  if (photos.length > 0) {
+    const prop = await svcGetProperty(ctx, propertyId);
+    if (prop) {
+      const patch = computePhotoMergePatch(prop.photoStorageIds ?? [], prop.coverStorageId, photos.map((f) => f.storageId));
+      if (patch) await svcUpdateProperty(ctx, propertyId, patch);
+    }
+  }
+
   for (const file of files) {
     await svcCreateDocument(ctx, {
       propertyId,
@@ -274,11 +291,11 @@ export async function convertDraftToDocuments(
       kind: file.kind,
       mimeType: file.mimeType ?? undefined,
       sizeBytes: file.sizeBytes ?? undefined,
-      storageId: file.storageId, // SAME S3 object — reused verbatim, no re-upload
+      storageId: file.storageId,
       uploadedAt: Date.now(),
     });
   }
-  // Rows only — never deleteObject here (see deleteDraftRowsOnly).
+
   await deleteDraftRowsOnly(ctx, draftId);
   return files.length;
 }
@@ -302,7 +319,18 @@ export async function convertDraftToDocumentsForOrg(
 ): Promise<number> {
   assertCanMutate();
   requireMember(ctx);
+
   const files = await listDraftFiles(ctx, draftId);
+  const photos = files.filter((f) => f.kind === "photo");
+
+  if (photos.length > 0) {
+    const prop = await svcGetPropertyForOrg(targetOrgId, propertyId);
+    if (prop) {
+      const patch = computePhotoMergePatch(prop.photoStorageIds ?? [], prop.coverStorageId, photos.map((f) => f.storageId));
+      if (patch) await svcUpdatePropertyForOrg(ctx, targetOrgId, propertyId, patch);
+    }
+  }
+
   for (const file of files) {
     await svcCreateDocumentForOrg(ctx, targetOrgId, {
       propertyId,
@@ -310,10 +338,11 @@ export async function convertDraftToDocumentsForOrg(
       kind: file.kind,
       mimeType: file.mimeType ?? undefined,
       sizeBytes: file.sizeBytes ?? undefined,
-      storageId: file.storageId, // SAME S3 object — reused verbatim, no re-upload
+      storageId: file.storageId,
       uploadedAt: Date.now(),
     });
   }
+
   await deleteDraftRowsOnly(ctx, draftId);
   return files.length;
 }

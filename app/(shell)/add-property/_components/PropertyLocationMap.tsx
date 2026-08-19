@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { env } from "@/lib/env";
+import { logger } from "@/lib/logger";
 
 const DEFAULT_ZOOM = 13;
 
@@ -25,6 +26,11 @@ export function PropertyLocationMap({
   const markerRef = useRef<mapboxgl.Marker | null>(null);
   const isDragRef = useRef(false);
   const prevCenterRef = useRef<[number, number]>(center);
+  // Mapbox throws "Failed to initialize WebGL" when the browser has no WebGL
+  // (old hardware, some VMs, hardened browsers). Uncaught in this effect it
+  // white-screens the whole wizard, so we catch it and fall back gracefully —
+  // the user can still proceed with the address/coords they already entered.
+  const [mapFailed, setMapFailed] = useState(false);
 
   // Init map once
   useEffect(() => {
@@ -32,13 +38,21 @@ export function PropertyLocationMap({
 
     mapboxgl.accessToken = env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
-    const map = new mapboxgl.Map({
-      container: containerRef.current,
-      style: "mapbox://styles/mapbox/light-v11",
-      center,
-      zoom: DEFAULT_ZOOM,
-      attributionControl: false,
-    });
+    let map: mapboxgl.Map;
+    try {
+      map = new mapboxgl.Map({
+        container: containerRef.current,
+        style: "mapbox://styles/mapbox/light-v11",
+        center,
+        zoom: DEFAULT_ZOOM,
+        attributionControl: false,
+      });
+    } catch (err) {
+      logger.error("PropertyLocationMap: map init failed", { err });
+      setMapFailed(true);
+      onLoad?.(); // unblock the wizard — don't leave it waiting on a map that won't load
+      return;
+    }
 
     map.addControl(new mapboxgl.AttributionControl({ compact: true }), "bottom-right");
     mapRef.current = map;
@@ -104,6 +118,20 @@ export function PropertyLocationMap({
     map.flyTo({ center, zoom: DEFAULT_ZOOM, duration: 800 });
     marker.setLngLat(center);
   }, [center]);
+
+  if (mapFailed) {
+    return (
+      <div
+        className={className}
+        style={{ width: "100%", height: "100%" }}
+      >
+        <div className="flex h-full w-full items-center justify-center bg-surface-tint px-6 text-center text-sm text-secondary">
+          Map preview isn&apos;t available on this device. You can still continue —
+          your address and location are saved.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div ref={containerRef} className={className} style={{ width: "100%", height: "100%" }} />

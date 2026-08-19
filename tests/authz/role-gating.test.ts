@@ -151,7 +151,7 @@ describe("scopedDelete — role boundary via full function call", () => {
   it("succeeds for admin — role gate opens, mocked DB delete resolves", async () => {
     // Boundary: admin (rank 2) >= admin threshold.
     // The mocked db.delete().where() resolves — scopedDelete returns void.
-    // Proves the gate opens; actual row deletion is confirmed in org-scoping-idor.test.ts.
+    // Proves the gate opens; actual row deletion is confirmed in org-scoping-idor.db.test.ts.
     await expect(
       scopedDelete(adminCtx, properties, "PROP-FAKE-ADMIN")
     ).resolves.toBeUndefined();

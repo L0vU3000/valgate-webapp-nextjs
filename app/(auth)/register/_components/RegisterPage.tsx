@@ -4,9 +4,9 @@ import Image from "next/image";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Eye, EyeOff, ArrowRight, Mail, Check, ArrowLeft, Loader2, Building2, Briefcase } from "lucide-react";
+import { Eye, EyeOff, ArrowRight, Mail, Check, ArrowLeft, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { useSignUp, useClerk } from "@clerk/nextjs";
+import { useSignUp } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,17 +34,12 @@ function getPasswordStrength(password: string): {
 
 const STRENGTH_COLORS = ["", "bg-red-400", "bg-amber-400", "bg-blue-500", "bg-green-500"];
 
-// The two roles a new user can pick at sign-up. Stored in Clerk unsafeMetadata
-// on first creation; the webhook copies it to users.is_manager in Neon.
-type AccountType = "owner" | "manager";
-
 type FieldErrors = Partial<Record<"fullName" | "email" | "password" | "confirmPassword" | "agreed", string>>;
 
 export function RegisterPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { signUp } = useSignUp();
-  const clerk = useClerk();
 
   // Org invitation tickets belong on the dedicated accept flow.
   useEffect(() => {
@@ -55,8 +50,6 @@ export function RegisterPage() {
   }, [router, searchParams]);
 
   const [step, setStep] = useState<"form" | "verify">("form");
-  // Owner is the default — the vast majority of sign-ups are property owners.
-  const [accountType, setAccountType] = useState<AccountType>("owner");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -104,8 +97,6 @@ export function RegisterPage() {
         firstName: parts[0],
         lastName: parts.slice(1).join(" ") || undefined,
         legalAccepted: agreed,
-        // accountType is copied to users.is_manager by the webhook when the user is created.
-        unsafeMetadata: { accountType },
       });
       if (error) {
         toast.error(clerkErrorMessage(error, "Could not create your account. Please try again."));
@@ -125,7 +116,7 @@ export function RegisterPage() {
     }
   }
 
-  // Step 2: verify the code, sign in, then create + activate the user's personal workspace (D2).
+  // Step 2: verify the code, then sign in and finalize (D2).
   async function handleVerify(e: React.FormEvent) {
     e.preventDefault();
     if (code.length < 6) return;
@@ -141,26 +132,12 @@ export function RegisterPage() {
         return;
       }
 
-      // Managers need a personal home org (their Pro cockpit workspace). Create and
-      // activate it before finalize() so the session is not stuck on choose-organization.
-      if (accountType === "manager") {
-        try {
-          const firstName = fullName.trim().split(/\s+/)[0] || "Manager";
-          const org = await clerk.createOrganization({ name: `${firstName}'s Workspace` });
-          await clerk.setActive({ organization: org.id });
-        } catch (err) {
-          toast.error(clerkErrorMessage(err, "Could not create your manager workspace. Please try again."));
-          return;
-        }
-      }
-
       // Clerk's "Create first organization automatically" setting creates + activates the
       // owner's org during sign-up for non-manager accounts.
       // navigate callback is required — Clerk needs it to handle Safari ITP cookie redirects.
-      // /launch reads is_manager and redirects each account type to the right landing page.
       await signUp.finalize({
         navigate: ({ decorateUrl }) => {
-          const url = decorateUrl("/launch");
+          const url = decorateUrl("/app");
           if (url.startsWith("http")) {
             window.location.href = url;
           } else {
@@ -232,66 +209,6 @@ export function RegisterPage() {
 
               <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
 
-                {/* ── Account type picker — owner (default) or manager ── */}
-                <div
-                  className="flex flex-col gap-2"
-                  data-auth-item
-                  style={{ "--auth-delay": "60ms" } as React.CSSProperties}
-                >
-                  <Label className="text-sm font-medium text-text-secondary">
-                    I am a…
-                  </Label>
-                  <div className="grid grid-cols-2 gap-3">
-                    {/* Owner card */}
-                    <button
-                      type="button"
-                      onClick={() => setAccountType("owner")}
-                      aria-pressed={accountType === "owner"}
-                      className={`flex flex-col items-start gap-2 rounded-xl border-2 px-4 py-3.5 text-left transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[--val-primary-dark] ${
-                        accountType === "owner"
-                          ? "border-[--val-primary-dark] bg-[#e4efff]"
-                          : "border-[#c3c6d7] bg-white hover:border-[#a5b0cc]"
-                      }`}
-                    >
-                      <Building2
-                        className={`size-5 ${accountType === "owner" ? "text-[--val-primary-dark]" : "text-[#737686]"}`}
-                      />
-                      <div>
-                        <p className={`text-sm font-semibold leading-tight ${accountType === "owner" ? "text-[--val-primary-dark]" : "text-foreground"}`}>
-                          Property Owner
-                        </p>
-                        <p className="text-[11px] leading-[15px] text-[#737686] mt-0.5">
-                          I own properties
-                        </p>
-                      </div>
-                    </button>
-
-                    {/* Manager card */}
-                    <button
-                      type="button"
-                      onClick={() => setAccountType("manager")}
-                      aria-pressed={accountType === "manager"}
-                      className={`flex flex-col items-start gap-2 rounded-xl border-2 px-4 py-3.5 text-left transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[--val-primary-dark] ${
-                        accountType === "manager"
-                          ? "border-[--val-primary-dark] bg-[#e4efff]"
-                          : "border-[#c3c6d7] bg-white hover:border-[#a5b0cc]"
-                      }`}
-                    >
-                      <Briefcase
-                        className={`size-5 ${accountType === "manager" ? "text-[--val-primary-dark]" : "text-[#737686]"}`}
-                      />
-                      <div>
-                        <p className={`text-sm font-semibold leading-tight ${accountType === "manager" ? "text-[--val-primary-dark]" : "text-foreground"}`}>
-                          Portfolio Manager
-                        </p>
-                        <p className="text-[11px] leading-[15px] text-[#737686] mt-0.5">
-                          I manage for others
-                        </p>
-                      </div>
-                    </button>
-                  </div>
-                </div>
-
                 <div
                   className="flex flex-col gap-2"
                   data-auth-item
@@ -319,12 +236,12 @@ export function RegisterPage() {
                   style={{ "--auth-delay": "130ms" } as React.CSSProperties}
                 >
                   <Label htmlFor="email" className="text-sm font-medium text-text-secondary">
-                    Work Email
+                    Email
                   </Label>
                   <Input
                     id="email"
                     type="email"
-                    placeholder="john@company.com"
+                    placeholder="jane@example.com"
                     autoComplete="email"
                     aria-required="true"
                     aria-invalid={!!errors.email}
@@ -357,8 +274,7 @@ export function RegisterPage() {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-foreground transition-colors duration-150 focus-visible:outline-none rounded"
-                      tabIndex={-1}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-foreground transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[--val-primary-dark] focus-visible:ring-offset-2 rounded"
                       aria-label={showPassword ? "Hide password" : "Show password"}
                     >
                       <span className="relative flex size-4 items-center justify-center">

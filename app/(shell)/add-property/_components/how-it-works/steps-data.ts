@@ -10,8 +10,8 @@ export const HOW_IT_WORKS_STEPS = [
     placeholderBg: "#d1fae5",
   },
   {
-    title: "Review and add to Valgate",
-    desc: "Review your listing details and publish it to start receiving bookings.",
+    title: "Review and add to your records",
+    desc: "Review your property details, then save it to your Valgate records.",
     placeholderBg: "#ede9fe",
   },
 ] as const;

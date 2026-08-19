@@ -3,7 +3,7 @@
 
 import { requireCtx } from "@/lib/auth/ctx";
 import type { ActionResult } from "@/app/actions/_result";
-import { revalidateFeTag, NOT_IMPLEMENTED_UNTIL_B6 } from "@/app/actions/_result";
+import { revalidateFeTag } from "@/app/actions/_result";
 import { NewEmergencyContactSchema, EmergencyContactPatchSchema } from "@/lib/data/types/emergency-contact";
 import type { EmergencyContact } from "@/lib/data/types/emergency-contact";
 import {

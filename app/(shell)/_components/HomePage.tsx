@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { useShellContext } from "@/components/layout/shell-context";
 import {
   X,
   ChevronUp,
@@ -71,9 +70,7 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
 
   const [selectedPin, setSelectedPin] = useState<string | null>(null);
   const [closingKey, setClosingKey] = useState<string | null>(null);
-  const [hoveredProperty, setHoveredProperty] = useState<string | null>(null);
   const [tableOpen, setTableOpen] = useState(false);
-  const [tableOpenCount, setTableOpenCount] = useState(0);
   const [commandOpen, setCommandOpen] = useState(false);
   const [placeholderIdx, setPlaceholderIdx] = useState(0);
   const [placeholderVisible, setPlaceholderVisible] = useState(true);
@@ -107,10 +104,6 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
     }, 3500);
     return () => clearInterval(id);
   }, []);
-
-  useEffect(() => {
-    if (tableOpen) setTableOpenCount((n) => n + 1);
-  }, [tableOpen]);
 
   const runCommand = useCallback((command: () => void) => {
     setCommandOpen(false);
@@ -261,9 +254,9 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
           <div className="flex items-center gap-3 w-full sm:w-auto overflow-x-auto scrollbar-none -mx-4 sm:mx-0 px-4 sm:px-0 py-1">
             {[
               { label: "New Property", icon: Plus, action: () => router.push("/add-property") },
-              { label: "Analytics", icon: BarChart2, action: () => router.push("/analytics") },
+              { label: "Portfolio", icon: BarChart2, action: () => router.push("/portfolio") },
               { label: "Documents", icon: FileText, action: () => setCommandOpen(true) },
-              { label: "Tenants", icon: Users, action: () => router.push("/estate-planning") },
+              { label: "Rental", icon: Users, action: () => router.push("/rental") },
             ].map(({ label, icon: Icon, action }, i) => (
               <button
                 key={label}

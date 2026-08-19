@@ -26,7 +26,6 @@ import {
   ChevronRight,
   Check,
   CheckCircle2,
-  AlertCircle,
   RefreshCw,
   Trash2,
   FolderInput,
@@ -332,12 +331,11 @@ interface Props {
   canDelete?: boolean;
 }
 
-export function PropertyDocumentsPage({ property, userId, documents: dbDocuments = [], folders: dbFolders = [], docThumbUrls = {}, canDelete = false }: Props) {
+export function PropertyDocumentsPage({ property, documents: dbDocuments = [], folders: dbFolders = [], docThumbUrls = {}, canDelete = false }: Props) {
   const folderTree = buildFolderTree(dbFolders);
 
   const router = useRouter();
   const [viewMode, setViewMode] = useState<ViewMode>("list");
-  const [activeFolder, setActiveFolder] = useState("All Documents");
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
   // Stores the id of the document currently open in the detail view (null = browse view).
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
@@ -610,7 +608,11 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
   function toggleSelectFile(id: string) {
     setSelectedFiles((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
       return next;
     });
   }
@@ -1580,7 +1582,11 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
                             onToggle={(id) =>
                               setExpandedNodes((prev) => {
                                 const next = new Set(prev);
-                                next.has(id) ? next.delete(id) : next.add(id);
+                                if (next.has(id)) {
+                                  next.delete(id);
+                                } else {
+                                  next.add(id);
+                                }
                                 return next;
                               })
                             }
@@ -1935,7 +1941,11 @@ export function PropertyDocumentsPage({ property, userId, documents: dbDocuments
                             onToggle={(id) =>
                               setMoveExpandedNodes((prev) => {
                                 const next = new Set(prev);
-                                next.has(id) ? next.delete(id) : next.add(id);
+                                if (next.has(id)) {
+                                  next.delete(id);
+                                } else {
+                                  next.add(id);
+                                }
                                 return next;
                               })
                             }
@@ -2403,7 +2413,7 @@ function ListView({
               <tr
                 key={f.id}
                 onClick={() => selectMode ? onToggleFile(f.id) : onOpen(f.id)}
-                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectMode ? onToggleFile(f.id) : onOpen(f.id); } }}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (selectMode) { onToggleFile(f.id); } else { onOpen(f.id); } } }}
                 tabIndex={0}
                 className={`border-t border-slate-100 cursor-pointer transition-colors duration-100 focus-visible:outline-none focus-visible:bg-blue-50/60 ${
                   isChecked && selectMode ? "bg-blue-50/50" : "hover:bg-blue-50/30"

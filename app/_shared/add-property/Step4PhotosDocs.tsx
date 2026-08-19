@@ -155,7 +155,6 @@ export function Step4PhotosDocs({
     }
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [docViewerIndex]);
 
   const commitPhotos = useCallback((refs: StagedFileRef[]) => {

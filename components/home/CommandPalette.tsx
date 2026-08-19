@@ -4,11 +4,8 @@ import {
   Search,
   Plus,
   FileText,
-  BarChart2,
   LayoutGrid,
-  Map as MapIcon,
   Settings,
-  Users,
   UserCircle,
   Building,
 } from "lucide-react";
@@ -184,10 +181,7 @@ export function CommandPalette({
             <CommandGroup heading="Navigate">
               {[
                 { label: "Add Property", icon: Plus, path: "/add-property" },
-                { label: "Analytics", icon: BarChart2, path: "/analytics" },
                 { label: "All Properties", icon: LayoutGrid, path: "/portfolio" },
-                { label: "Map View", icon: MapIcon, path: "/map" },
-                { label: "Succession Planning", icon: Users, path: "/estate-planning" },
                 { label: "Settings", icon: Settings, path: "/settings" },
                 { label: "Profile", icon: UserCircle, path: "/settings?section=profile" },
               ].map(({ label, icon: Icon, path }, i) => (

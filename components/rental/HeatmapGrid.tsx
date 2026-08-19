@@ -100,7 +100,11 @@ export function HeatmapGrid({ data }: { data: PropertyCluster[] }) {
         <h2 className="text-[18px] sm:text-[24px] font-bold text-white">
           Portfolio Occupancy
         </h2>
-        <button className="rounded p-1 text-slate-400 transition-colors duration-150 hover:bg-slate-800 hover:text-slate-200 active:scale-95">
+        <button
+          type="button"
+          aria-label="Portfolio occupancy options"
+          className="rounded p-1 text-slate-400 transition-colors duration-150 hover:bg-slate-800 hover:text-slate-200 active:scale-95"
+        >
           <MoreVertical className="h-4 w-4" />
         </button>
       </div>
