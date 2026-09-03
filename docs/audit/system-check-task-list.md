@@ -43,7 +43,7 @@ Acceptance: `npm run test`, `npm run test:preview`, and `npm run test:e2e` all c
 
 ---
 
-## 3. Security — minimum front-end and back-end baseline
+## 3. Security [report drafted in ] — minimum front-end and back-end baseline
 
 Enforce a baseline security posture without requiring encryption of stored data.
 
@@ -51,20 +51,20 @@ Enforce a baseline security posture without requiring encryption of stored data.
 
 - [ ] Audit `.env.example` and `.env.local` for `NEXT_PUBLIC_*` secrets
 - [ ] Review `next.config.ts` and `middleware.ts` for security headers / CSP
-- [ ] Confirm Clerk public key is the only Clerk value exposed to the browser
-- [ ] Check that Server Components do not pass full DB objects or secrets as client props
-- [ ] Verify browser-side upload restrictions match server-side limits
+- [x] Confirm Clerk public key is the only Clerk value exposed to the browser
+- [x] Check that Server Components do not pass full DB objects or secrets as client props
+- [x] Verify browser-side upload restrictions match server-side limits
 
 ### Back-end minimum
 
-- [ ] Audit every Server Action and route handler for authentication + authorization
-- [ ] Confirm Zod validation on every user input before DB/service calls
-- [ ] Confirm IDOR checks: users can only mutate resources they own
-- [ ] Verify rate limiting on auth actions, public mutations, upload endpoints
-- [ ] Confirm Drizzle parameterized queries (no raw string interpolation from user input)
-- [ ] Confirm error handling returns generic messages to client and logs details server-side
+- [x] Audit every Server Action and route handler for authentication + authorization
+- [x] Confirm Zod validation on every user input before DB/service calls
+- [x] Confirm IDOR checks (pattern correct; coverage incomplete): users can only mutate resources they own
+- [x] Verify rate limiting on auth actions (MCP/API v1/pillars covered; other mutations not uniform), public mutations, upload endpoints
+- [x] Confirm Drizzle parameterized queries (no raw string interpolation from user input)
+- [x] Confirm error handling returns generic messages to client and logs details server-side
 - [ ] Review `middleware.ts` matcher scope and route protection
-- [ ] Document findings and gaps in `docs/audit/security-baseline-minimum.md`
+- [x] Document findings and gaps in `docs/audit/security-baseline-minimum.md`
 
 Acceptance: report lists every audited action/handler, marks each check pass/fail/gap, and provides the minimum fixes needed.
 
