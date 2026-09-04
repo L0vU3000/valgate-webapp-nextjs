@@ -8,14 +8,12 @@ import { PillarVerificationSchema, type Pillar, type PillarVerification } from "
 import { toDomain, nextId, type Ctx } from "@/lib/services/_mapping";
 import { requireMember } from "@/lib/services/_crud";
 import { assertCanMutate } from "@/lib/services/_mapping";
+import { nextStatus } from "@/lib/services/verification-state-machine";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 const rowToVerification = (r: typeof pillarVerifications.$inferSelect): PillarVerification =>
   PillarVerificationSchema.parse(toDomain(pillarVerifications, r));
-
-// Allowed from-states for submitVerification (v1 self-attest runs submit→approve in one tx).
-const SUBMIT_FROM = new Set(["unverified", "rejected", "revoked"]);
 
 async function projectLegacy(
   tx: Tx,
@@ -72,7 +70,9 @@ export async function submitVerification(
         eq(pillarVerifications.propertyId, propertyId),
         eq(pillarVerifications.pillar, pillar),
       ));
-    if (existing && !SUBMIT_FROM.has(existing.status)) throw new Error("illegal transition");
+    if (existing) {
+      nextStatus(existing.status, "submit"); // throws on illegal transition
+    }
 
     // 2. Upsert to verified (onConflict on uq_property_pillar)
     const [vrf] = await tx.insert(pillarVerifications).values({
@@ -143,7 +143,8 @@ export async function revokeVerification(
         eq(pillarVerifications.propertyId, propertyId),
         eq(pillarVerifications.pillar, pillar),
       ));
-    if (!existing || existing.status !== "verified") throw new Error("illegal transition");
+    if (!existing) throw new Error("illegal transition");
+    nextStatus(existing.status, "revoke"); // throws on illegal transition
 
     const [vrf] = await tx.update(pillarVerifications)
       .set({ status: "revoked", decidedAt: now, decidedBy: ctx.userId })
