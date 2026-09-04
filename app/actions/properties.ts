@@ -20,7 +20,7 @@ import {
 } from "@/lib/services/properties";
 import { submitVerification, revokeVerification } from "@/lib/services/verification";
 import type { Pillar } from "@/lib/data/types/pillar-verification";
-import { verifyLimiter, allowed } from "@/lib/ratelimit";
+import { verifyLimiter, allowed, actionLimiter, requireAllowedAction } from "@/lib/ratelimit";
 import { log } from "@/lib/log";
 import {
   getFinancialsWizardInitial,
@@ -34,6 +34,11 @@ export async function createProperty(data: unknown): Promise<ActionResult<Proper
   const parsed = NewPropertySchema.safeParse(data);
   if (!parsed.success) return { ok: false, error: "Invalid property" };
   const ctx = await requireCtx();
+  const rateError = await requireAllowedAction(actionLimiter, ctx.userId);
+  if (rateError) {
+    log.warn("ratelimit.block", { edge: "createProperty", userId: ctx.userId });
+    return { ok: false, error: rateError };
+  }
   try {
     const result = await svcCreateProperty(ctx, parsed.data);
     revalidateFeTag("properties");
@@ -66,6 +71,11 @@ export async function updateProperty(id: string, patch: unknown): Promise<Action
   const parsed = PropertyPatchSchema.safeParse(patch);
   if (!parsed.success) return { ok: false, error: "Invalid property" };
   const ctx = await requireCtx();
+  const rateError = await requireAllowedAction(actionLimiter, ctx.userId);
+  if (rateError) {
+    log.warn("ratelimit.block", { edge: "updateProperty", userId: ctx.userId });
+    return { ok: false, error: rateError };
+  }
   try {
     const result = await svcUpdateProperty(ctx, id, parsed.data);
     if (!result) return { ok: false, error: "Property not found" };
@@ -80,6 +90,11 @@ export async function updateProperty(id: string, patch: unknown): Promise<Action
 
 export async function deleteProperty(id: string): Promise<ActionResult<void>> {
   const ctx = await requireCtx();
+  const rateError = await requireAllowedAction(actionLimiter, ctx.userId);
+  if (rateError) {
+    log.warn("ratelimit.block", { edge: "deleteProperty", userId: ctx.userId });
+    return { ok: false, error: rateError };
+  }
   try {
     await svcDeleteProperty(ctx, id);
     revalidateFeTag("properties");

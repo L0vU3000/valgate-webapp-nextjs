@@ -50,6 +50,16 @@ export const mcpLimiter = makeLimiter("rl:mcp", 60, "1 m", 60_000);
 // lib/api/v1/auth.ts), after auth succeeds — unauthenticated requests never reach the limiter.
 export const apiReadLimiter = makeLimiter("rl:api-v1-read", 120, "1 m", 60_000);
 
+// Shared mutation limiter for CRUD/server actions. 30/min/user is generous for real UI use
+// but tight enough to stop basic abuse of imports, uploads, and destructive actions.
+export const actionLimiter = makeLimiter("rl:action", 30, "1 m", 60_000);
+
+// Convenience wrapper that returns a generic ActionResult-style error string.
+export async function requireAllowedAction(limiter: Limiter, id: string): Promise<string | null> {
+  const ok = await allowed(limiter, id);
+  return ok ? null : "Too many attempts. Try again shortly.";
+}
+
 // Fail-CLOSED for sensitive edges: a Redis/network error blocks rather than fails open.
 export async function allowed(limiter: Limiter, id: string): Promise<boolean> {
   try {

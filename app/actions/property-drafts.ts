@@ -6,6 +6,8 @@ import type { ActionResult } from "@/app/actions/_result";
 import { revalidateFeTag } from "@/app/actions/_result";
 import { presignUpload, resolveDocumentUrl, describeFailedUpload } from "@/lib/services/storage";
 import { ALLOWED_MIME, MAX_BYTES } from "@/lib/upload-constants";
+import { actionLimiter, requireAllowedAction } from "@/lib/ratelimit";
+import { log } from "@/lib/log";
 import {
   listPropertyDrafts,
   getPropertyDraft,
