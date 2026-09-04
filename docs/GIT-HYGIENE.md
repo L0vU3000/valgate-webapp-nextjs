@@ -5,8 +5,8 @@ truth and feature work never strays.
 
 ## Diagram
 
-- [Git Hygiene State Machine](https://excalidraw.com/#json=s0R02rVGJpt_qw91L0WVD,Lu_tcruMSPcNx60aws7-HA) — simple flow: branch → confirm → merge/rebase → no strays.
-- [Valgate Multi-Team Feature Flow](https://excalidraw.com/#json=oLVSDSRTPlxJQOy9d3gIz,piK38M32lFJcXFJKz2j9TQ) — full iOS / Web / Backend scenario map with failure paths.
+- [Git Hygiene State Machine](https://excalidraw.com/#json=gDQCKvyxIGe1QTiI9boXQ,dhlsj5RuSKqFQVssHNC6Zg) — simple flow: branch → confirm → merge/rebase → no strays.
+- [Valgate Multi-Team Feature Flow](https://excalidraw.com/#json=a9LZKoM_wrTYoJ4fII1dj,kcutsGVFMkUDN_agIgr4iA) — full iOS / Web / Backend scenario map with failure paths.
 
 ## 1. Trunk
 

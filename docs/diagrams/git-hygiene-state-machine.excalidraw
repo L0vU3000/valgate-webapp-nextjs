@@ -4,423 +4,1311 @@
   "source": "hermes-agent",
   "elements": [
     {
-      "type": "rectangle",
-      "id": "main",
-      "x": 400,
-      "y": 100,
-      "width": 240,
-      "height": 80,
-      "roundness": { "type": 3 },
-      "backgroundColor": "#b2f2bb",
-      "fillStyle": "solid",
-      "strokeWidth": 2,
-      "boundElements": [
-        { "id": "t_main", "type": "text" },
-        { "id": "a_create", "type": "arrow" },
-        { "id": "a_merge", "type": "arrow" },
-        { "id": "a_rebase", "type": "arrow" }
-      ]
-    },
-    {
       "type": "text",
-      "id": "t_main",
-      "x": 420,
-      "y": 130,
-      "width": 200,
-      "height": 25,
-      "text": "main / trunk",
-      "fontSize": 22,
+      "id": "title",
+      "x": 80,
+      "y": 50,
+      "width": 420.0,
+      "height": 32,
+      "text": "Git Hygiene State Machine",
+      "fontSize": 28,
       "fontFamily": 1,
       "strokeColor": "#1e1e1e",
-      "textAlign": "center",
-      "verticalAlign": "middle",
-      "containerId": "main",
-      "originalText": "main / trunk",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "originalText": "Git Hygiene State Machine",
       "autoResize": true
     },
     {
-      "type": "diamond",
-      "id": "decision",
-      "x": 430,
-      "y": 260,
-      "width": 180,
-      "height": 120,
-      "backgroundColor": "#fff3bf",
+      "type": "text",
+      "id": "subtitle",
+      "x": 80,
+      "y": 90,
+      "width": 470.4,
+      "height": 20,
+      "text": "Branch \u2192 confirm \u2192 merge back to main / no strays",
+      "fontSize": 16,
+      "fontFamily": 1,
+      "strokeColor": "#5c5c5c",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "originalText": "Branch \u2192 confirm \u2192 merge back to main / no strays",
+      "autoResize": true
+    },
+    {
+      "type": "line",
+      "id": "trunk_line",
+      "x": 150,
+      "y": 400,
+      "width": 1250,
+      "height": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          1250,
+          0
+        ]
+      ],
+      "strokeColor": "#2f9e44",
+      "strokeWidth": 4,
+      "roughness": 1
+    },
+    {
+      "type": "line",
+      "id": "trunk_arrow",
+      "x": 1400,
+      "y": 400,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -10.392304845413264,
+          5.999999999999999
+        ],
+        [
+          -10.392304845413264,
+          -5.999999999999999
+        ],
+        [
+          0,
+          0
+        ]
+      ],
+      "strokeColor": "#2f9e44",
+      "strokeWidth": 2,
+      "fillStyle": "solid",
+      "backgroundColor": "#2f9e44",
+      "roughness": 1
+    },
+    {
+      "type": "ellipse",
+      "id": "main_0",
+      "x": 128,
+      "y": 378,
+      "width": 44,
+      "height": 44,
+      "backgroundColor": "#2f9e44",
       "fillStyle": "solid",
       "strokeWidth": 2,
+      "roughness": 1,
       "boundElements": [
-        { "id": "t_decision", "type": "text" },
-        { "id": "a_create", "type": "arrow" },
-        { "id": "a_merge", "type": "arrow" },
-        { "id": "a_rebase", "type": "arrow" },
-        { "id": "a_confirm", "type": "arrow" }
+        {
+          "id": "t_main_0",
+          "type": "text"
+        }
       ]
     },
     {
       "type": "text",
-      "id": "t_decision",
-      "x": 440,
-      "y": 300,
+      "id": "t_main_0",
+      "x": 70,
+      "y": 360,
       "width": 160,
-      "height": 45,
-      "text": "Feature confirmed?",
-      "fontSize": 18,
+      "height": 24,
+      "text": "v1.0",
+      "fontSize": 14,
       "fontFamily": 1,
       "strokeColor": "#1e1e1e",
       "textAlign": "center",
       "verticalAlign": "middle",
-      "containerId": "decision",
-      "originalText": "Feature confirmed?",
+      "containerId": "main_0",
+      "originalText": "v1.0",
       "autoResize": true
     },
     {
-      "type": "rectangle",
-      "id": "feature",
-      "x": 120,
-      "y": 280,
-      "width": 220,
-      "height": 90,
-      "roundness": { "type": 3 },
-      "backgroundColor": "#a5d8ff",
+      "type": "ellipse",
+      "id": "main_1",
+      "x": 378,
+      "y": 378,
+      "width": 44,
+      "height": 44,
+      "backgroundColor": "#2f9e44",
       "fillStyle": "solid",
       "strokeWidth": 2,
+      "roughness": 1,
       "boundElements": [
-        { "id": "t_feature", "type": "text" },
-        { "id": "a_create", "type": "arrow" },
-        { "id": "a_confirm", "type": "arrow" }
+        {
+          "id": "t_main_1",
+          "type": "text"
+        }
       ]
     },
     {
       "type": "text",
-      "id": "t_feature",
-      "x": 135,
-      "y": 305,
-      "width": 190,
-      "height": 45,
-      "text": "Feature branch / worktree",
-      "fontSize": 18,
+      "id": "t_main_1",
+      "x": 320,
+      "y": 360,
+      "width": 160,
+      "height": 24,
+      "text": "v1.1",
+      "fontSize": 14,
       "fontFamily": 1,
       "strokeColor": "#1e1e1e",
       "textAlign": "center",
       "verticalAlign": "middle",
-      "containerId": "feature",
-      "originalText": "Feature branch / worktree",
+      "containerId": "main_1",
+      "originalText": "v1.1",
       "autoResize": true
     },
     {
-      "type": "rectangle",
-      "id": "stray",
-      "x": 120,
-      "y": 480,
-      "width": 220,
-      "height": 90,
-      "roundness": { "type": 3 },
-      "backgroundColor": "#ffc9c9",
+      "type": "ellipse",
+      "id": "main_2",
+      "x": 628,
+      "y": 378,
+      "width": 44,
+      "height": 44,
+      "backgroundColor": "#2f9e44",
       "fillStyle": "solid",
       "strokeWidth": 2,
+      "roughness": 1,
       "boundElements": [
-        { "id": "t_stray", "type": "text" }
+        {
+          "id": "t_main_2",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_main_2",
+      "x": 570,
+      "y": 360,
+      "width": 160,
+      "height": 24,
+      "text": "v1.2",
+      "fontSize": 14,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "main_2",
+      "originalText": "v1.2",
+      "autoResize": true
+    },
+    {
+      "type": "ellipse",
+      "id": "main_3",
+      "x": 878,
+      "y": 378,
+      "width": 44,
+      "height": 44,
+      "backgroundColor": "#2f9e44",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "roughness": 1,
+      "boundElements": [
+        {
+          "id": "t_main_3",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_main_3",
+      "x": 820,
+      "y": 360,
+      "width": 160,
+      "height": 24,
+      "text": "v1.3",
+      "fontSize": 14,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "main_3",
+      "originalText": "v1.3",
+      "autoResize": true
+    },
+    {
+      "type": "ellipse",
+      "id": "main_4",
+      "x": 1128,
+      "y": 378,
+      "width": 44,
+      "height": 44,
+      "backgroundColor": "#2f9e44",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "roughness": 1,
+      "boundElements": [
+        {
+          "id": "t_main_4",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_main_4",
+      "x": 1070,
+      "y": 360,
+      "width": 160,
+      "height": 24,
+      "text": "v1.4",
+      "fontSize": 14,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "main_4",
+      "originalText": "v1.4",
+      "autoResize": true
+    },
+    {
+      "type": "ellipse",
+      "id": "main_5",
+      "x": 1378,
+      "y": 378,
+      "width": 44,
+      "height": 44,
+      "backgroundColor": "#2f9e44",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "roughness": 1,
+      "boundElements": [
+        {
+          "id": "t_main_5",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_main_5",
+      "x": 1320,
+      "y": 360,
+      "width": 160,
+      "height": 24,
+      "text": "v1.5",
+      "fontSize": 14,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "main_5",
+      "originalText": "v1.5",
+      "autoResize": true
+    },
+    {
+      "type": "text",
+      "id": "main_label",
+      "x": 1420,
+      "y": 435,
+      "width": 48.0,
+      "height": 24,
+      "text": "main",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "strokeColor": "#2f9e44",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "originalText": "main",
+      "autoResize": true
+    },
+    {
+      "type": "line",
+      "id": "branch1_curve",
+      "x": 400,
+      "y": 400,
+      "width": 500,
+      "height": 0,
+      "points": [
+        [
+          0.0,
+          0.0
+        ],
+        [
+          12.9344,
+          26.496000000000002
+        ],
+        [
+          27.6352,
+          50.784
+        ],
+        [
+          43.9488,
+          72.86399999999999
+        ],
+        [
+          61.721599999999995,
+          92.73599999999999
+        ],
+        [
+          80.80000000000003,
+          110.40000000000003
+        ],
+        [
+          101.03040000000001,
+          125.856
+        ],
+        [
+          122.25920000000002,
+          139.104
+        ],
+        [
+          144.33280000000002,
+          150.14399999999998
+        ],
+        [
+          167.0976,
+          158.976
+        ],
+        [
+          190.40000000000003,
+          165.60000000000002
+        ],
+        [
+          214.08640000000003,
+          170.01600000000002
+        ],
+        [
+          238.0032,
+          172.22400000000002
+        ],
+        [
+          261.9968,
+          172.22400000000002
+        ],
+        [
+          285.9136,
+          170.016
+        ],
+        [
+          309.6,
+          165.60000000000002
+        ],
+        [
+          332.90240000000006,
+          158.976
+        ],
+        [
+          355.6672,
+          150.144
+        ],
+        [
+          377.74080000000004,
+          139.104
+        ],
+        [
+          398.9696,
+          125.856
+        ],
+        [
+          419.20000000000005,
+          110.4
+        ],
+        [
+          438.2784,
+          92.736
+        ],
+        [
+          456.0512,
+          72.86399999999999
+        ],
+        [
+          472.3648,
+          50.78399999999998
+        ],
+        [
+          487.06559999999996,
+          26.496000000000024
+        ],
+        [
+          500.0,
+          0.0
+        ]
+      ],
+      "strokeColor": "#ae3ec9",
+      "strokeWidth": 3,
+      "roughness": 2
+    },
+    {
+      "type": "ellipse",
+      "id": "b1_start",
+      "x": 515,
+      "y": 605,
+      "width": 50,
+      "height": 50,
+      "backgroundColor": "#ae3ec9",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "roughness": 1,
+      "boundElements": [
+        {
+          "id": "t_b1_start",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_b1_start",
+      "x": 460,
+      "y": 665,
+      "width": 160,
+      "height": 24,
+      "text": "Feature-1 start",
+      "fontSize": 16,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "b1_start",
+      "originalText": "Feature-1 start",
+      "autoResize": true
+    },
+    {
+      "type": "ellipse",
+      "id": "b1_merge",
+      "x": 735,
+      "y": 605,
+      "width": 50,
+      "height": 50,
+      "backgroundColor": "#ae3ec9",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "roughness": 1,
+      "boundElements": [
+        {
+          "id": "t_b1_merge",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_b1_merge",
+      "x": 680,
+      "y": 665,
+      "width": 160,
+      "height": 24,
+      "text": "merged",
+      "fontSize": 16,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "b1_merge",
+      "originalText": "merged",
+      "autoResize": true
+    },
+    {
+      "type": "line",
+      "id": "branch1_line",
+      "x": 540,
+      "y": 630,
+      "width": 220,
+      "height": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          220,
+          0
+        ]
+      ],
+      "strokeColor": "#ae3ec9",
+      "strokeWidth": 4,
+      "roughness": 1
+    },
+    {
+      "type": "line",
+      "id": "b1_arrow",
+      "x": 760,
+      "y": 630,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          10.392304845413264,
+          -5.999999999999999
+        ],
+        [
+          10.392304845413266,
+          5.9999999999999964
+        ],
+        [
+          0,
+          0
+        ]
+      ],
+      "strokeColor": "#ae3ec9",
+      "strokeWidth": 2,
+      "fillStyle": "solid",
+      "backgroundColor": "#ae3ec9",
+      "roughness": 1
+    },
+    {
+      "type": "text",
+      "id": "b1_files",
+      "x": 480,
+      "y": 700,
+      "width": 109.2,
+      "height": 17,
+      "text": "+ feature-1.ts",
+      "fontSize": 13,
+      "fontFamily": 1,
+      "strokeColor": "#ae3ec9",
+      "textAlign": "center",
+      "verticalAlign": "top",
+      "originalText": "+ feature-1.ts",
+      "autoResize": true
+    },
+    {
+      "type": "text",
+      "id": "b1_merge_files",
+      "x": 680,
+      "y": 700,
+      "width": 148.2,
+      "height": 17,
+      "text": "feature-1.ts merged",
+      "fontSize": 13,
+      "fontFamily": 1,
+      "strokeColor": "#ae3ec9",
+      "textAlign": "center",
+      "verticalAlign": "top",
+      "originalText": "feature-1.ts merged",
+      "autoResize": true
+    },
+    {
+      "type": "line",
+      "id": "branch2_curve",
+      "x": 650,
+      "y": 400,
+      "width": 500,
+      "height": 0,
+      "points": [
+        [
+          0.0,
+          0.0
+        ],
+        [
+          12.9344,
+          -24.192000000000004
+        ],
+        [
+          27.6352,
+          -46.368
+        ],
+        [
+          43.9488,
+          -66.52799999999999
+        ],
+        [
+          61.721599999999995,
+          -84.672
+        ],
+        [
+          80.80000000000003,
+          -100.80000000000004
+        ],
+        [
+          101.03040000000001,
+          -114.912
+        ],
+        [
+          122.25920000000002,
+          -127.00800000000001
+        ],
+        [
+          144.33280000000002,
+          -137.08799999999997
+        ],
+        [
+          167.0976,
+          -145.152
+        ],
+        [
+          190.40000000000003,
+          -151.20000000000002
+        ],
+        [
+          214.08640000000003,
+          -155.23200000000003
+        ],
+        [
+          238.0032,
+          -157.248
+        ],
+        [
+          261.9968,
+          -157.248
+        ],
+        [
+          285.9136,
+          -155.23199999999997
+        ],
+        [
+          309.6,
+          -151.20000000000002
+        ],
+        [
+          332.90240000000006,
+          -145.15200000000002
+        ],
+        [
+          355.6672,
+          -137.088
+        ],
+        [
+          377.74080000000004,
+          -127.00800000000001
+        ],
+        [
+          398.9696,
+          -114.91199999999999
+        ],
+        [
+          419.20000000000005,
+          -100.8
+        ],
+        [
+          438.2784,
+          -84.672
+        ],
+        [
+          456.0512,
+          -66.52799999999999
+        ],
+        [
+          472.3648,
+          -46.367999999999974
+        ],
+        [
+          487.06559999999996,
+          -24.19200000000002
+        ],
+        [
+          500.0,
+          0.0
+        ]
+      ],
+      "strokeColor": "#339af0",
+      "strokeWidth": 3,
+      "roughness": 2
+    },
+    {
+      "type": "ellipse",
+      "id": "b2_start",
+      "x": 765,
+      "y": 165,
+      "width": 50,
+      "height": 50,
+      "backgroundColor": "#339af0",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "roughness": 1,
+      "boundElements": [
+        {
+          "id": "t_b2_start",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_b2_start",
+      "x": 710,
+      "y": 150,
+      "width": 160,
+      "height": 24,
+      "text": "Feature-2 start",
+      "fontSize": 16,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "b2_start",
+      "originalText": "Feature-2 start",
+      "autoResize": true
+    },
+    {
+      "type": "ellipse",
+      "id": "b2_merge",
+      "x": 985,
+      "y": 165,
+      "width": 50,
+      "height": 50,
+      "backgroundColor": "#339af0",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "roughness": 1,
+      "boundElements": [
+        {
+          "id": "t_b2_merge",
+          "type": "text"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "t_b2_merge",
+      "x": 930,
+      "y": 150,
+      "width": 160,
+      "height": 24,
+      "text": "merged",
+      "fontSize": 16,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "b2_merge",
+      "originalText": "merged",
+      "autoResize": true
+    },
+    {
+      "type": "line",
+      "id": "branch2_line",
+      "x": 790,
+      "y": 190,
+      "width": 220,
+      "height": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          220,
+          0
+        ]
+      ],
+      "strokeColor": "#339af0",
+      "strokeWidth": 4,
+      "roughness": 1
+    },
+    {
+      "type": "line",
+      "id": "b2_arrow",
+      "x": 1010,
+      "y": 190,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          10.392304845413264,
+          -5.999999999999999
+        ],
+        [
+          10.392304845413266,
+          5.9999999999999964
+        ],
+        [
+          0,
+          0
+        ]
+      ],
+      "strokeColor": "#339af0",
+      "strokeWidth": 2,
+      "fillStyle": "solid",
+      "backgroundColor": "#339af0",
+      "roughness": 1
+    },
+    {
+      "type": "text",
+      "id": "b2_files",
+      "x": 730,
+      "y": 130,
+      "width": 117.0,
+      "height": 17,
+      "text": "+ feature-2.tsx",
+      "fontSize": 13,
+      "fontFamily": 1,
+      "strokeColor": "#339af0",
+      "textAlign": "center",
+      "verticalAlign": "top",
+      "originalText": "+ feature-2.tsx",
+      "autoResize": true
+    },
+    {
+      "type": "text",
+      "id": "b2_merge_files",
+      "x": 930,
+      "y": 130,
+      "width": 156.0,
+      "height": 17,
+      "text": "feature-2.tsx merged",
+      "fontSize": 13,
+      "fontFamily": 1,
+      "strokeColor": "#339af0",
+      "textAlign": "center",
+      "verticalAlign": "top",
+      "originalText": "feature-2.tsx merged",
+      "autoResize": true
+    },
+    {
+      "type": "line",
+      "id": "stray_curve",
+      "x": 900,
+      "y": 400,
+      "width": 180,
+      "height": 170,
+      "points": [
+        [
+          0.0,
+          0.0
+        ],
+        [
+          9.504000000000001,
+          21.760640000000002
+        ],
+        [
+          18.816000000000003,
+          41.50912
+        ],
+        [
+          27.935999999999996,
+          59.345279999999995
+        ],
+        [
+          36.86399999999999,
+          75.36895999999999
+        ],
+        [
+          45.60000000000001,
+          89.68000000000002
+        ],
+        [
+          54.144000000000005,
+          102.37824
+        ],
+        [
+          62.496,
+          113.56352000000001
+        ],
+        [
+          70.65599999999999,
+          123.33567999999998
+        ],
+        [
+          78.624,
+          131.79456000000002
+        ],
+        [
+          86.4,
+          139.04000000000002
+        ],
+        [
+          93.984,
+          145.17184
+        ],
+        [
+          101.376,
+          150.28992
+        ],
+        [
+          108.576,
+          154.49408
+        ],
+        [
+          115.584,
+          157.88416
+        ],
+        [
+          122.4,
+          160.56
+        ],
+        [
+          129.024,
+          162.62144
+        ],
+        [
+          135.45600000000002,
+          164.16832
+        ],
+        [
+          141.69599999999997,
+          165.30048
+        ],
+        [
+          147.744,
+          166.11776
+        ],
+        [
+          153.60000000000002,
+          166.72000000000003
+        ],
+        [
+          159.26399999999998,
+          167.20704
+        ],
+        [
+          164.736,
+          167.67872
+        ],
+        [
+          170.01600000000002,
+          168.23487999999998
+        ],
+        [
+          175.10399999999998,
+          168.97536
+        ],
+        [
+          180.0,
+          170.0
+        ]
+      ],
+      "strokeColor": "#f03e3e",
+      "strokeWidth": 3,
+      "roughness": 2
+    },
+    {
+      "type": "ellipse",
+      "id": "stray",
+      "x": 1052,
+      "y": 542,
+      "width": 56,
+      "height": 56,
+      "backgroundColor": "#f03e3e",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "roughness": 1,
+      "boundElements": [
+        {
+          "id": "t_stray",
+          "type": "text"
+        }
       ]
     },
     {
       "type": "text",
       "id": "t_stray",
-      "x": 135,
-      "y": 505,
-      "width": 190,
-      "height": 45,
-      "text": "STRAY BRANCH / worktree",
+      "x": 1000,
+      "y": 610,
+      "width": 160,
+      "height": 24,
+      "text": "STRAY",
       "fontSize": 18,
       "fontFamily": 1,
       "strokeColor": "#1e1e1e",
       "textAlign": "center",
       "verticalAlign": "middle",
       "containerId": "stray",
-      "originalText": "STRAY BRANCH / worktree",
+      "originalText": "STRAY",
       "autoResize": true
     },
     {
-      "type": "arrow",
-      "id": "a_create",
-      "x": 400,
-      "y": 180,
-      "width": 160,
-      "height": 100,
-      "points": [[0, 0], [-160, 100]],
-      "endArrowhead": "arrow",
+      "type": "line",
+      "id": "stray_arrow",
+      "x": 1080,
+      "y": 570,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -11.59110991546882,
+          -3.1058285412302498
+        ],
+        [
+          -3.1058285412302515,
+          -11.591109915468818
+        ],
+        [
+          0,
+          0
+        ]
+      ],
+      "strokeColor": "#f03e3e",
       "strokeWidth": 2,
-      "boundElements": [{ "id": "t_a_create", "type": "text" }],
-      "startBinding": { "elementId": "main", "fixedPoint": [0, 1] },
-      "endBinding": { "elementId": "feature", "fixedPoint": [0.5, 0] }
+      "fillStyle": "solid",
+      "backgroundColor": "#f03e3e",
+      "roughness": 1
     },
     {
       "type": "text",
-      "id": "t_a_create",
-      "x": 290,
-      "y": 215,
-      "width": 120,
-      "height": 20,
-      "text": "create branch",
-      "fontSize": 14,
+      "id": "stray1",
+      "x": 1120,
+      "y": 480,
+      "width": 109.2,
+      "height": 17,
+      "text": "old / unmerged",
+      "fontSize": 13,
       "fontFamily": 1,
-      "strokeColor": "#1e1e1e",
+      "strokeColor": "#f03e3e",
       "textAlign": "center",
-      "verticalAlign": "middle",
-      "containerId": "a_create",
-      "originalText": "create branch",
+      "verticalAlign": "top",
+      "originalText": "old / unmerged",
       "autoResize": true
     },
     {
-      "type": "arrow",
-      "id": "a_confirm",
-      "x": 340,
-      "y": 325,
-      "width": 90,
-      "height": 0,
-      "points": [[0, 0], [90, 0]],
-      "endArrowhead": "arrow",
-      "strokeWidth": 2,
-      "boundElements": [{ "id": "t_a_confirm", "type": "text" }],
-      "startBinding": { "elementId": "feature", "fixedPoint": [1, 0.5] },
-      "endBinding": { "elementId": "decision", "fixedPoint": [0, 0.5] }
-    },
-    {
       "type": "text",
-      "id": "t_a_confirm",
-      "x": 355,
-      "y": 305,
-      "width": 80,
-      "height": 20,
-      "text": "confirm?",
-      "fontSize": 14,
+      "id": "stray2",
+      "x": 1120,
+      "y": 500,
+      "width": 101.39999999999999,
+      "height": 17,
+      "text": "no recent log",
+      "fontSize": 13,
       "fontFamily": 1,
-      "strokeColor": "#1e1e1e",
+      "strokeColor": "#f03e3e",
       "textAlign": "center",
-      "verticalAlign": "middle",
-      "containerId": "a_confirm",
-      "originalText": "confirm?",
-      "autoResize": true
-    },
-    {
-      "type": "arrow",
-      "id": "a_merge",
-      "x": 520,
-      "y": 260,
-      "width": 0,
-      "height": 80,
-      "points": [[0, 0], [0, -80]],
-      "endArrowhead": "arrow",
-      "strokeWidth": 2,
-      "strokeStyle": "solid",
-      "boundElements": [{ "id": "t_a_merge", "type": "text" }],
-      "startBinding": { "elementId": "decision", "fixedPoint": [0.5, 0] },
-      "endBinding": { "elementId": "main", "fixedPoint": [0.5, 1] }
-    },
-    {
-      "type": "text",
-      "id": "t_a_merge",
-      "x": 530,
-      "y": 235,
-      "width": 100,
-      "height": 20,
-      "text": "yes: merge",
-      "fontSize": 14,
-      "fontFamily": 1,
-      "strokeColor": "#1e1e1e",
-      "textAlign": "center",
-      "verticalAlign": "middle",
-      "containerId": "a_merge",
-      "originalText": "yes: merge",
-      "autoResize": true
-    },
-    {
-      "type": "arrow",
-      "id": "a_rebase",
-      "x": 610,
-      "y": 320,
-      "width": 80,
-      "height": 0,
-      "points": [[0, 0], [80, 0]],
-      "endArrowhead": "arrow",
-      "strokeWidth": 2,
-      "strokeStyle": "dashed",
-      "boundElements": [{ "id": "t_a_rebase", "type": "text" }],
-      "startBinding": { "elementId": "decision", "fixedPoint": [1, 0.5] },
-      "endBinding": null
-    },
-    {
-      "type": "text",
-      "id": "t_a_rebase",
-      "x": 625,
-      "y": 300,
-      "width": 80,
-      "height": 20,
-      "text": "yes: rebase",
-      "fontSize": 14,
-      "fontFamily": 1,
-      "strokeColor": "#1e1e1e",
-      "textAlign": "center",
-      "verticalAlign": "middle",
-      "containerId": "a_rebase",
-      "originalText": "yes: rebase",
-      "autoResize": true
-    },
-    {
-      "type": "text",
-      "id": "t_rebase_target",
-      "x": 700,
-      "y": 310,
-      "width": 160,
-      "height": 20,
-      "text": "onto main, then merge",
-      "fontSize": 14,
-      "fontFamily": 1,
-      "strokeColor": "#1e1e1e",
-      "textAlign": "left",
-      "verticalAlign": "middle",
-      "originalText": "onto main, then merge",
-      "autoResize": true
-    },
-    {
-      "type": "arrow",
-      "id": "a_stray_down",
-      "x": 230,
-      "y": 370,
-      "width": 0,
-      "height": 110,
-      "points": [[0, 0], [0, 110]],
-      "endArrowhead": "arrow",
-      "strokeWidth": 2,
-      "strokeStyle": "dashed",
-      "startBinding": { "elementId": "feature", "fixedPoint": [0.5, 1] },
-      "endBinding": { "elementId": "stray", "fixedPoint": [0.5, 0] }
-    },
-    {
-      "type": "text",
-      "id": "t_stray_label",
-      "x": 240,
-      "y": 410,
-      "width": 140,
-      "height": 20,
-      "text": "no confirmation / old",
-      "fontSize": 14,
-      "fontFamily": 1,
-      "strokeColor": "#e03131",
-      "textAlign": "left",
-      "verticalAlign": "middle",
-      "originalText": "no confirmation / old",
+      "verticalAlign": "top",
+      "originalText": "no recent log",
       "autoResize": true
     },
     {
       "type": "rectangle",
-      "id": "scanner",
-      "x": 400,
-      "y": 480,
-      "width": 240,
-      "height": 90,
-      "roundness": { "type": 3 },
-      "backgroundColor": "#d0bfff",
+      "id": "scanner_box",
+      "x": 1000,
+      "y": 620,
+      "width": 430,
+      "height": 150,
+      "roundness": {
+        "type": 3
+      },
+      "backgroundColor": "#f8f9fa",
       "fillStyle": "solid",
+      "strokeColor": "#7048e8",
       "strokeWidth": 2,
+      "roughness": 1,
       "boundElements": [
-        { "id": "t_scanner", "type": "text" },
-        { "id": "a_scanner_alert", "type": "arrow" }
+        {
+          "id": "t_scanner_box",
+          "type": "text"
+        }
       ]
     },
     {
       "type": "text",
-      "id": "t_scanner",
-      "x": 415,
-      "y": 500,
-      "width": 210,
-      "height": 45,
-      "text": "Hermes worktree scanner (cron)",
+      "id": "t_scanner_box",
+      "x": 1015,
+      "y": 635,
+      "width": 400,
+      "height": 24,
+      "text": "Hermes scanner detects strays",
+      "fontSize": 17,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "containerId": "scanner_box",
+      "originalText": "Hermes scanner detects strays",
+      "autoResize": true
+    },
+    {
+      "type": "text",
+      "id": "check_0",
+      "x": 1025,
+      "y": 675,
+      "width": 218.4,
+      "height": 17,
+      "text": "\u2022 non-main branch not merged",
+      "fontSize": 13,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "originalText": "\u2022 non-main branch not merged",
+      "autoResize": true
+    },
+    {
+      "type": "text",
+      "id": "check_1",
+      "x": 1025,
+      "y": 697,
+      "width": 218.4,
+      "height": 17,
+      "text": "\u2022 older than 7 days / no log",
+      "fontSize": 13,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "originalText": "\u2022 older than 7 days / no log",
+      "autoResize": true
+    },
+    {
+      "type": "text",
+      "id": "check_2",
+      "x": 1025,
+      "y": 719,
+      "width": 163.79999999999998,
+      "height": 17,
+      "text": "\u2022 dirty main worktree",
+      "fontSize": 13,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "originalText": "\u2022 dirty main worktree",
+      "autoResize": true
+    },
+    {
+      "type": "text",
+      "id": "check_3",
+      "x": 1025,
+      "y": 741,
+      "width": 156.0,
+      "height": 17,
+      "text": "\u2022 behind origin/main",
+      "fontSize": 13,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "originalText": "\u2022 behind origin/main",
+      "autoResize": true
+    },
+    {
+      "type": "line",
+      "id": "stray_to_scanner",
+      "x": 1100,
+      "y": 590,
+      "width": -100,
+      "height": 0,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -100,
+          0
+        ]
+      ],
+      "strokeColor": "#f03e3e",
+      "strokeWidth": 4,
+      "roughness": 1
+    },
+    {
+      "type": "line",
+      "id": "#f03e3e",
+      "x": 1000,
+      "y": 590,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          10.392304845413264,
+          -5.999999999999999
+        ],
+        [
+          10.392304845413266,
+          5.9999999999999964
+        ],
+        [
+          0,
+          0
+        ]
+      ],
+      "strokeColor": "#1e1e1e",
+      "strokeWidth": 2,
+      "fillStyle": "solid",
+      "backgroundColor": "#1e1e1e",
+      "roughness": 1
+    },
+    {
+      "type": "text",
+      "id": "rules_title",
+      "x": 80,
+      "y": 700,
+      "width": 64.8,
+      "height": 22,
+      "text": "Rules:",
       "fontSize": 18,
       "fontFamily": 1,
       "strokeColor": "#1e1e1e",
-      "textAlign": "center",
-      "verticalAlign": "middle",
-      "containerId": "scanner",
-      "originalText": "Hermes worktree scanner (cron)",
-      "autoResize": true
-    },
-    {
-      "type": "arrow",
-      "id": "a_scanner_alert",
-      "x": 340,
-      "y": 525,
-      "width": 60,
-      "height": 0,
-      "points": [[0, 0], [-60, 0]],
-      "endArrowhead": "arrow",
-      "strokeWidth": 2,
-      "strokeStyle": "dashed",
-      "startBinding": { "elementId": "scanner", "fixedPoint": [0, 0.5] },
-      "endBinding": { "elementId": "stray", "fixedPoint": [1, 0.5] }
-    },
-    {
-      "type": "text",
-      "id": "t_scanner_alert",
-      "x": 355,
-      "y": 505,
-      "width": 60,
-      "height": 20,
-      "text": "detects",
-      "fontSize": 14,
-      "fontFamily": 1,
-      "strokeColor": "#1e1e1e",
-      "textAlign": "center",
-      "verticalAlign": "middle",
-      "containerId": "a_scanner_alert",
-      "originalText": "detects",
-      "autoResize": true
-    },
-    {
-      "type": "text",
-      "id": "title",
-      "x": 180,
-      "y": 40,
-      "width": 600,
-      "height": 30,
-      "text": "Git Hygiene State Machine: no stray branches / worktrees",
-      "fontSize": 24,
-      "fontFamily": 1,
-      "strokeColor": "#1e1e1e",
       "textAlign": "left",
-      "verticalAlign": "middle",
-      "originalText": "Git Hygiene State Machine: no stray branches / worktrees",
+      "verticalAlign": "top",
+      "originalText": "Rules:",
       "autoResize": true
     },
     {
       "type": "text",
-      "id": "subtitle",
-      "x": 180,
-      "y": 75,
-      "width": 650,
-      "height": 20,
-      "text": "Every feature branch/worktree must be confirmed and returned to main (merge or rebase+merge).",
-      "fontSize": 16,
-      "fontFamily": 1,
-      "strokeColor": "#5c5c5c",
-      "textAlign": "left",
-      "verticalAlign": "middle",
-      "originalText": "Every feature branch/worktree must be confirmed and returned to main (merge or rebase+merge).",
-      "autoResize": true
-    },
-    {
-      "type": "text",
-      "id": "scanner_checks",
-      "x": 680,
-      "y": 485,
-      "width": 280,
-      "height": 100,
-      "text": "Scanner checks:\n• non-main branch exists\n• not merged into main\n• older than threshold\n• no recent conductor log\n• dirty main worktree",
+      "id": "rule_0",
+      "x": 100,
+      "y": 732,
+      "width": 336.0,
+      "height": 18,
+      "text": "1. Start feature branch from latest main",
       "fontSize": 14,
       "fontFamily": 1,
       "strokeColor": "#1e1e1e",
       "textAlign": "left",
       "verticalAlign": "top",
-      "originalText": "Scanner checks:\n• non-main branch exists\n• not merged into main\n• older than threshold\n• no recent conductor log\n• dirty main worktree",
+      "originalText": "1. Start feature branch from latest main",
+      "autoResize": true
+    },
+    {
+      "type": "text",
+      "id": "rule_1",
+      "x": 100,
+      "y": 756,
+      "width": 336.0,
+      "height": 18,
+      "text": "2. Commit logical units; push when ready",
+      "fontSize": 14,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "originalText": "2. Commit logical units; push when ready",
+      "autoResize": true
+    },
+    {
+      "type": "text",
+      "id": "rule_2",
+      "x": 100,
+      "y": 780,
+      "width": 252.0,
+      "height": 18,
+      "text": "3. Rebase locally before merge",
+      "fontSize": 14,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "originalText": "3. Rebase locally before merge",
+      "autoResize": true
+    },
+    {
+      "type": "text",
+      "id": "rule_3",
+      "x": 100,
+      "y": 804,
+      "width": 243.6,
+      "height": 18,
+      "text": "4. Merge --no-ff back to main",
+      "fontSize": 14,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "originalText": "4. Merge --no-ff back to main",
+      "autoResize": true
+    },
+    {
+      "type": "text",
+      "id": "rule_4",
+      "x": 100,
+      "y": 828,
+      "width": 235.2,
+      "height": 18,
+      "text": "5. Delete branch after merge",
+      "fontSize": 14,
+      "fontFamily": 1,
+      "strokeColor": "#1e1e1e",
+      "textAlign": "left",
+      "verticalAlign": "top",
+      "originalText": "5. Delete branch after merge",
       "autoResize": true
     }
   ],
