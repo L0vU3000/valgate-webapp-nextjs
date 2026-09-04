@@ -132,3 +132,9 @@ operational memory.
 
 ⚠️ The vault is also maintained on the `valgate-dev` branch. Before editing it here, check whether
 that copy has moved ahead, or the two will diverge.
+
+## Conductor sessions
+
+This repo uses `conductor-logs/` to track work done by Conductor on the Mac. At the end of every
+Conductor session, create a log entry from `conductor-logs/template.md`, commit it, and push it so
+Hermes can read it on the VPS. See `CONDUCTOR.md` for the full rule.
