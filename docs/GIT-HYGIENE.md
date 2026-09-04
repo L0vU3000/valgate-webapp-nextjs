@@ -3,6 +3,11 @@
 Goal: keep a clean, auditable history where `main` is always the source of
 truth and feature work never strays.
 
+## Diagram
+
+- [Git Hygiene State Machine](https://excalidraw.com/#json=s0R02rVGJpt_qw91L0WVD,Lu_tcruMSPcNx60aws7-HA) — simple flow: branch → confirm → merge/rebase → no strays.
+- [Valgate Multi-Team Feature Flow](https://excalidraw.com/#json=oLVSDSRTPlxJQOy9d3gIz,piK38M32lFJcXFJKz2j9TQ) — full iOS / Web / Backend scenario map with failure paths.
+
 ## 1. Trunk
 
 - `main` is the single source of truth.
