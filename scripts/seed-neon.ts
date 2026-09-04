@@ -248,9 +248,19 @@ async function main() {
   }
   if (stamped > 0) console.log(`properties: stamped client_id on ${stamped} pre-existing row(s)`);
 
-  // id_counters: next = max seen suffix + 1 (so nextId never collides with seeded ids)
+  // id_counters: next = max seen suffix + 1 (so nextId never collides with seeded ids).
+  // onConflictDoNothing left counters frozen at whatever an older, smaller fixture set
+  // wrote — a load-only re-seed then handed nextId() an id that already existed
+  // (duplicate key on properties_pkey). greatest() raises a stale counter to clear the
+  // fixtures without ever lowering one the live app has already pushed past.
   const counterRows = [...counters].map(([collection, max]) => ({ collection, next: max + 1 }));
-  await db.insert(s.idCounters).values(counterRows).onConflictDoNothing();
+  await db
+    .insert(s.idCounters)
+    .values(counterRows)
+    .onConflictDoUpdate({
+      target: s.idCounters.collection,
+      set: { next: sql`greatest(${s.idCounters.next}, excluded.next)` },
+    });
 
   console.table(report);
   console.log(`id_counters: ${counterRows.length} prefixes seeded`);
