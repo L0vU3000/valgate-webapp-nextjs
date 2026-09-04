@@ -72,3 +72,9 @@ Client Component ← Server Component re-fetches fresh data
 | Full DB object passed as props | Select only the fields the UI needs |
 | Secrets passed as props to Client | Use server-side, pass only the result |
 | No rate limiting on auth actions | Rate limit login, signup, sensitive mutations |
+
+## Conductor sessions
+
+This repo uses `conductor-logs/` to track work done by Conductor on the Mac. At the end of every
+Conductor session, create a log entry from `conductor-logs/template.md`, commit it, and push it so
+Hermes can read it on the VPS. See `CONDUCTOR.md` for the full rule.
