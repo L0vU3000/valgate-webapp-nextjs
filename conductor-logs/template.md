@@ -8,6 +8,12 @@ related_files:
   - path/to/file/created-or-changed
 blockers: []
 next_actions: []
+workspace_state:
+  repo: valgate | valgate-webapp-nextjs
+  branch: branch-name
+  commit: short-sha
+  clean: true | false
+  mac_path: /Users/mintrose/conductor/workspaces/...
 ---
 
 # Conductor Session — {task}

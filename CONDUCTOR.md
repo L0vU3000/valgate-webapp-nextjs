@@ -6,6 +6,15 @@ This repo uses `conductor-logs/` as the handoff surface between Conductor on the
 
 At the end of every Conductor session — including wireframes, spikes, bug fixes, refactors, and feature work — write a session log entry before closing the workspace.
 
+## Required log location
+
+Write the log in **both** places:
+
+1. **This repository's `conductor-logs/` directory** (so Hermes on the VPS can read it after a pull)
+2. **Your local Obsidian vault** at `/Users/mintrose/Dev/Projects/work/Valgate/Resources/Valgate Dev Vault/Conductor Logs/` (for your own reference)
+
+Use the same filename in both locations.
+
 ## How
 
 1. Copy `conductor-logs/template.md` to a new file named:
@@ -20,8 +29,14 @@ At the end of every Conductor session — including wireframes, spikes, bug fixe
    - `related_files` — every file, branch, PR, or deliverable created or changed
    - `blockers` — empty array if none
    - `next_actions` — what happens next, even if nothing
+   - `workspace_state` — object with:
+     - `repo` — e.g. `valgate` or `valgate-webapp-nextjs`
+     - `branch` — current branch name
+     - `commit` — current short SHA
+     - `clean` — `true`/`false`
+     - `mac_path` — absolute workspace path on the Mac
 3. Keep it brief but searchable. No raw terminal dumps.
-4. Commit the log file and push it so Hermes can read it on the VPS worktree.
+4. **Commit and push** the log file from the repo worktree so Hermes can read it on the VPS.
 
 ## Why
 
@@ -31,3 +46,4 @@ Conductor runs on a Mac workspace; Hermes runs on the VPS. These logs are the si
 
 - `conductor-logs/README.md`
 - `conductor-logs/template.md`
+- `vault/worktree-state.md` (cross-repo state registry)
