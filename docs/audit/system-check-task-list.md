@@ -6,24 +6,24 @@ Goal: run a focused system audit for production readiness without blocking UI wo
 
 ---
 
-## 1. High-traffic readiness (100–500 DAU minimum)
+## 1. High-traffic readiness [report committed in `docs/audit/high-traffic-minimum.md`] (100–500 DAU minimum)
 
 Define and verify the minimum system needed to support 100–500 daily active users.
 
-- [ ] Inventory current runtime target: Vercel free/pro, Node server, or VPS + nginx
-- [ ] Inspect database connection setup: `lib/db/client.ts`, Neon pool settings, `DATABASE_URL`
-- [ ] Verify Next.js caching strategy: `unstable_cache`, `cache()`, `revalidateTag`, `loading.tsx`
-- [ ] Review image/upload flow: S3 presigned POST limits, file-size guards, upload rate limits
-- [ ] Verify `@upstash/ratelimit` is wired on all public mutations and auth actions
-- [ ] Confirm production `DATABASE_URL` uses a pooled connection / `pgbouncer` mode if required
-- [ ] Document minimum recommended infra in `docs/audit/high-traffic-minimum.md`
+- [x] Inventory current runtime target: Vercel free/pro, Node server, or VPS + nginx
+- [x] Inspect database connection setup: `lib/db/client.ts`, Neon pool settings, `DATABASE_URL`
+- [x] Verify Next.js caching strategy: `unstable_cache`, `cache()`, `revalidateTag`, `loading.tsx`
+- [x] Review image/upload flow: S3 presigned POST limits, file-size guards, upload rate limits
+- [x] Verify `@upstash/ratelimit` is wired on all public mutations and auth actions
+- [x] Confirm production `DATABASE_URL` uses a pooled connection / `pgbouncer` mode if required
+- [x] Document minimum recommended infra in `docs/audit/high-traffic-minimum.md`
 - [ ] Add a smoke load test (k6 or Artillery) for login + dashboard paths
 
 Acceptance: the report explains exactly what changes are required to support 500 DAU, and at least one load test runs against preview.
 
 ---
 
-## 2. Testing pyramid — minimum viable test system
+## 2. Testing pyramid [unit/preview green; DB tests pending seed/migration fix] — minimum viable test system
 
 Ensure unit, integration, and e2e layers exist and pass.
 
