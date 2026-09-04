@@ -1,0 +1,35 @@
+# Instance data — regenerated per project by the running loop. Never commit into the core.
+# The template ships empty skeletons (.gitkeep); a consuming project may choose to track
+# its own run history, but the CORE template must stay clean.
+
+# Per-pipeline run history
+pipelines/*/runs/*
+!pipelines/*/runs/.gitkeep
+
+# Orchestrator queues
+orchestrator/inbox/*.md
+orchestrator/inbox/done/*.md
+orchestrator/inbox/failed/*.md
+orchestrator/inbox/in-progress/*.md
+orchestrator/inbox/next/*.md
+orchestrator/done/*.md
+
+# Machinery-generated state
+orchestrator/.heartbeat
+memory/run-metrics.jsonl
+*.log
+
+# Obsidian personal/device state. Shared vault settings are committed selectively;
+# layouts, plugins, themes, caches, and hotkeys belong to each user.
+.obsidian/workspace*.json
+.obsidian/cache/
+.obsidian/plugins/
+.obsidian/community-plugins.json
+.obsidian/themes/
+.obsidian/snippets/
+.obsidian/graph.json
+.obsidian/hotkeys.json
+
+# Consuming-project attachments are instance-owned and may contain private material.
+vault/project/attachments/*
+!vault/project/attachments/.gitkeep

@@ -17,8 +17,8 @@ YYYY-MM-DD-{project}-{brief-slug}-{optional-sequence}.md
 ```
 
 Examples:
-- `2026-09-04-valgate-webapp-portfolio-table.md`
-- `2026-09-05-valgate-webapp-documents-upload.md`
+- `2026-09-04-valgate-ios-wireframe-property-tabs.md`
+- `2026-09-05-valgate-webapp-portfolio-table.md`
 
 ## Status values
 
