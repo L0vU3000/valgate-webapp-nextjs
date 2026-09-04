@@ -9,7 +9,7 @@ related_files:
 blockers: []
 next_actions: []
 workspace_state:
-  repo: valgate | valgate-webapp-nextjs
+  repo: valgate-ios | valgate | valgate-webapp-nextjs
   branch: branch-name
   commit: short-sha
   clean: true | false
