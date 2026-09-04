@@ -1,0 +1,111 @@
+Title,Priority,Labels,Milestone,Description
+"Fix CI: workflow uses pnpm, repo uses npm",1,"infra,ci",M1 Pipeline,"CI has failed on EVERY run since 2026-08-18 (7 consecutive). Root cause: .github/workflows/ci.yml uses pnpm/action-setup + `cache: pnpm` + `pnpm install --frozen-lockfile`, but the repo ships package-lock.json and has no pnpm-lock.yaml.
+
+Error: ""Dependencies lock file is not found. Supported file patterns: pnpm-lock.yaml""
+
+The job dies at setup-node before installing, so typecheck/lint/test never execute. Every other quality gate in this list is unverifiable until this is fixed.
+
+Decide: migrate the repo to pnpm, or convert the workflow to npm. Recommend npm (matches local dev + package-lock.json is already committed).
+
+Acceptance: `gh run list` shows a green run on the default branch."
+Add missing `typecheck` npm script,1,"infra,ci",M1 Pipeline,"ci.yml step 46 runs `pnpm typecheck` but package.json has no `typecheck` script. Even once the lockfile issue is fixed, this step fails.
+
+Proof it has never run: commit 3283208 landed a duplicate `import { log }` in app/actions/tenant-import.ts — a hard tsc error. Caught locally by `npx tsc --noEmit`, fixed in b299d14. Neither lint nor vitest catches this class of bug (vitest transpiles without typechecking).
+
+Fix: add `""typecheck"": ""tsc --noEmit""` to package.json scripts.
+
+Acceptance: CI fails on a deliberately introduced type error."
+Fix broken `db:seed` reference in CI E2E job,2,"infra,ci",M1 Pipeline,"ci.yml line 111 runs `pnpm db:migrate && pnpm db:seed`. There is no `db:seed` script — the actual name is `seed:neon` (or `seed`).
+
+The E2E job currently shows ""skipped"" because the Web job fails first, so this has never surfaced. It will break as soon as the pipeline goes green.
+
+Acceptance: E2E job reaches `playwright test` without a script-not-found error."
+Run test:db and test:preview in CI,2,"testing,ci",M1 Pipeline,"CI runs only typecheck, lint, and `pnpm test` (unit). It never runs:
+- `npm run test:db` — 45 live-DB tests incl. the org-scoping IDOR suite
+- `npm run test:preview` — 15 tests
+
+The DB suite was broken for an unknown period and nothing flagged it (fixed in b299d14). Without it in CI, the IDOR regression tests are decorative.
+
+Needs a Postgres service container + DATABASE_URL secret. The E2E job already provisions a DB, so reuse that setup.
+
+Acceptance: a deliberate org-scoping regression turns CI red."
+Provision Clerk test users and unblock E2E,2,"testing,blocked",M1 Pipeline,"16 Playwright specs in e2e/ have never been run in this worktree. There is no .env.e2e file.
+
+scripts/provision-clerk-test-users.mjs exists, so the path is likely: run it -> write .env.e2e -> `npm run test:e2e:auth`. Requires Clerk test-instance credentials, which are not available to the agent.
+
+BLOCKED on someone with Clerk dashboard access providing test-instance keys.
+
+Acceptance: `npm run test:e2e` and `npm run test:e2e:auth` complete with a baseline pass, documented in docs/audit/testing-pyramid-minimum.md."
+Set Upstash Redis env vars in production,2,"security,perf,infra",M2 Security,"lib/ratelimit.ts falls back to an IN-MEMORY limiter when UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN are absent.
+
+On Vercel serverless, in-memory state is per-invocation. That means the rate limiting is effectively NOT ENFORCED in production — an attacker spreading requests across cold starts bypasses it entirely.
+
+This makes every other rate-limit issue in this project a no-op until it is done. Also disables the readThrough Redis cache in lib/data/cached-reads.ts, sending every cached read to Neon.
+
+Acceptance: both vars set in Vercel production; verify a limiter actually blocks across two separate function invocations."
+Apply actionLimiter to remaining mutation actions,2,security,M2 Security,"Only 3 of 28 files in app/actions/ use actionLimiter: properties.ts, property-drafts.ts, tenant-import.ts.
+
+Highest-risk unlimited actions:
+- unified-extract.ts — calls the AI model. An authenticated user can loop this and bill you directly. Treat as the priority.
+- property-photos.ts — upload path
+- property-import.ts, valuation-import.ts — bulk import
+
+Then the CRUD set: tenants, leases, payments, documents, folders, inspections, certifications, safety-risks, maintenance-items, co-owners, ownership-*, successors, professionals, user-profiles, notifications.
+
+Depends on the Upstash issue — without it this is decorative in prod.
+
+Acceptance: every action file that mutates or calls a paid API has a requireAllowedAction gate; add a test asserting the 31st call in a minute is rejected."
+Expand IDOR org-scoping tests beyond 3 entities,2,"security,testing",M2 Security,"tests/authz/org-scoping-idor.db.test.ts covers only properties, documents, and professionals. The schema has ~28 entity types.
+
+The security audit rates the scoping PATTERN as correct but coverage as incomplete. Untested entities include tenants, leases, payments, expenses, folders, inspections, certifications, safety_risks, emergency_contacts, maintenance_items, ownership_*, successors, land_parcels, ai_sessions, ai_messages.
+
+Acceptance: one cross-org read + one cross-org write assertion per entity that has a service module."
+Audit 34 service files that bypass _crud.ts helpers,2,security,M2 Security,"lib/services/ has 75 modules; 34 contain no reference to _crud.ts. The scoped helpers (scopedUpdate / scopedDelete) are what enforce `WHERE org_id = ctx.orgId`.
+
+Modules hand-rolling their own queries may omit the org filter — the exact IDOR shape the audit flagged as ""pattern correct, coverage incomplete"".
+
+Acceptance: each of the 34 is either migrated to _crud.ts helpers or has its org scoping confirmed in review and covered by a test."
+Audit 10 route handlers for auth and input validation,3,security,M2 Security,"10 route.ts files under app/. The security audit's open item: confirm each validates auth and input.
+
+Known deliberate exceptions to document rather than fix: the Clerk webhook is public by design but signature-verified; API v1 bypasses auth.protect() to return JSON 401s.
+
+Acceptance: a table in docs/audit/security-baseline-minimum.md listing each handler with its auth mechanism and validation approach."
+Review middleware.ts matcher scope,3,security,M2 Security,"Unchecked item from the audit task list. Confirm the matcher does not accidentally leave routes unprotected, and that the public-route allowlist is still accurate.
+
+Acceptance: documented matcher rationale; a test asserting an authenticated-only route returns 401/redirect when anonymous."
+Validate accountType against an enum,4,security,M2 Security,"Audit item: unsafe metadata. accountType is read from Clerk metadata without enum validation. Low severity (user-controlled metadata is not privilege-granting today) but cheap to harden with Zod.
+
+Acceptance: accountType parsed through a Zod enum at the boundary."
+Use Neon pooled connection string in production,2,"perf,infra",M3 Traffic,"lib/db/client.ts creates a lazy Pool. On Vercel serverless the risk is cold starts and pool churn rather than raw connection count.
+
+Switch production DATABASE_URL to Neon's POOLED endpoint (pgbouncer multiplexing), and consider an explicit small `max`.
+
+Note: b299d14 added a localhost branch to client.ts that uses the node-postgres driver for local dev. That branch does not affect production — the Neon driver is still used for non-localhost URLs.
+
+Acceptance: production DATABASE_URL points at the pooled endpoint; active_connections observed in the Neon dashboard under load."
+Add a k6 smoke load test,3,"perf,testing",M3 Traffic,"The high-traffic audit concludes the architecture ""can support 100-500 DAU"" — but that is a design review, not a measurement. No load test exists anywhere in the repo (no k6, no Artillery).
+
+This is the only task that converts the audit's opinion into a number.
+
+Target /login, /app, and /app/property/[id] against a preview deploy. Needs a Clerk test user, so it shares the blocker with the E2E issue.
+
+Acceptance: a committed k6 script + a recorded baseline (p95 latency, error rate) at a stated concurrency."
+Scope outputFileTracingIncludes to routes that need it,3,perf,M3 Traffic,"next.config.ts line 31-33 sets `""/**/*"": [""./public/data/**/*""]`, tracing 1.9 MB of seed/demo data into EVERY route's serverless bundle. That inflates cold-start size across the whole app.
+
+Identify which routes actually read public/data and scope the glob to those.
+
+Acceptance: bundle trace confirms public/data is absent from routes that do not read it."
+Document the nextId global lock ceiling,4,"tech-debt,perf",M3 Traffic,"lib/services/_mapping.ts nextId() runs INSERT ... ON CONFLICT DO UPDATE ... RETURNING against a single id_counters row keyed by collection. Every property creation across ALL orgs takes a row lock on the same PROP row, held until commit. Creates serialize globally per entity type.
+
+The codebase already knows this: lib/db/schema/activities.ts:9-12 documents the lock as a bottleneck and routes the audit log around it with UUIDs. The main entity tables still go through it.
+
+NOT urgent: the lock is held for a few ms, so the ceiling is hundreds of creates/sec — far above 500 DAU. Filed so it is a known ceiling rather than a surprise.
+
+Upgrade path if it ever binds: per-org counter rows, or UUIDs for high-volume entities.
+
+Acceptance: ceiling documented in vault/resources/gotchas.md with the upgrade path."
+Harden seed id_counters against future drift,4,"tech-debt,testing",M3 Traffic,"b299d14 fixed scripts/seed-neon.ts: it wrote id_counters with onConflictDoNothing, freezing them at an older fixture set's maxima (PROP.next=13 against 25 rows). nextId() then returned an existing id -> duplicate key on properties_pkey, breaking 3 DB test files at import.
+
+Now upserts with greatest(current, new). Add a regression guard so this cannot silently rot again.
+
+Acceptance: a test (or a seed-time assertion) that fails if any id_counters.next is <= the max existing suffix for that prefix."
