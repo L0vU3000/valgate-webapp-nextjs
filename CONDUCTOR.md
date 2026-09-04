@@ -30,7 +30,7 @@ Use the same filename in both locations.
    - `blockers` — empty array if none
    - `next_actions` — what happens next, even if nothing
    - `workspace_state` — object with:
-     - `repo` — e.g. `valgate` or `valgate-webapp-nextjs`
+     - `repo` — `valgate-ios`, `valgate`, or `valgate-webapp-nextjs`
      - `branch` — current branch name
      - `commit` — current short SHA
      - `clean` — `true`/`false`
@@ -38,12 +38,27 @@ Use the same filename in both locations.
 3. Keep it brief but searchable. No raw terminal dumps.
 4. **Commit and push** the log file from the repo worktree so Hermes can read it on the VPS.
 
+## Diagrams and shared docs
+
+If you create or update architecture diagrams (`.excalidraw` files) under `docs/diagrams/`,
+mirror them to the Obsidian vault as well:
+
+```
+/Users/mintrose/Dev/Projects/work/Valgate/Resources/Valgate Dev Vault/Diagrams/
+```
+
+Use the same filename so the vault always matches the repo. This keeps the whole team
+(Mac + VPS) looking at the same diagrams.
+
 ## Why
 
-Conductor runs on a Mac workspace; Hermes runs on the VPS. These logs are the single source of truth for what changed, what was decided, and what is blocked across both environments.
+Conductor runs on a Mac workspace; Hermes runs on the VPS. These logs and diagrams are the
+single source of truth for what changed, what was decided, and what is blocked across both
+environments.
 
 ## See also
 
+- `docs/GIT-HYGIENE.md`
 - `conductor-logs/README.md`
 - `conductor-logs/template.md`
 - `vault/worktree-state.md` (cross-repo state registry)
