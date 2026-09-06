@@ -1,5 +1,13 @@
 {
+  "mcpServers": {
+    "hindsight": {
+      "type": "sse",
+      "url": "http://100.77.9.23:8081/sse"
+    }
+  },
   "hooks": {
+    "sessionstart": ".claude/hooks/sessionstart.py",
+    "userpromptsubmit": ".claude/hooks/userpromptsubmit.py",
     "PreToolUse": [
       {
         "matcher": "Bash",
