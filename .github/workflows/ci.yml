@@ -37,15 +37,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with: { version: 9 }
       - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: pnpm }
+        with: { node-version: 20, cache: npm }
 
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm typecheck
-      - run: pnpm lint
-      - run: pnpm test
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
 
   appcore:
     name: AppCore (Swift on Linux)
@@ -95,25 +93,23 @@ jobs:
       E2E_CLERK_USER_PASSWORD: ${{ secrets.E2E_CLERK_USER_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with: { version: 9 }
       - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: pnpm }
+        with: { node-version: 20, cache: npm }
 
-      - run: pnpm install --frozen-lockfile
+      - run: npm ci
 
       # Pin the browser build. Screenshot baselines are sensitive to
       # renderer version — an unpinned upgrade produces diffs that look
       # like regressions but aren't.
-      - run: pnpm exec playwright install --with-deps chromium
+      - run: npx playwright install --with-deps chromium
 
       - name: Migrate and seed
-        run: pnpm db:migrate && pnpm db:seed
+        run: npm run db:migrate && npm run seed:neon
 
       # Production build. Baselines must be captured against the same
       # thing CI runs, or every screenshot assertion drifts.
-      - run: pnpm build
-      - run: pnpm exec playwright test
+      - run: npm run build
+      - run: npx playwright test
 
       # The report contains the actual/expected/diff triptych — this is
       # how a visual failure gets reviewed on a phone.
