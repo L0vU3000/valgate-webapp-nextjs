@@ -3,7 +3,8 @@
 
 import { requireCtx } from "@/lib/auth/ctx";
 import type { ActionResult } from "@/app/actions/_result";
-import { revalidateFeTag } from "@/app/actions/_result";
+import { actionLimiter, allowed } from "@/lib/ratelimit";
+import { revalidateFeTag, TOO_MANY_REQUESTS } from "@/app/actions/_result";
 import { NewOwnershipDocumentSchema, OwnershipDocumentPatchSchema } from "@/lib/data/types/ownership-document";
 import type { OwnershipDocument } from "@/lib/data/types/ownership-document";
 import {
@@ -17,6 +18,7 @@ export async function createOwnershipDocument(data: unknown): Promise<ActionResu
   const parsed = NewOwnershipDocumentSchema.safeParse(data);
   if (!parsed.success) return { ok: false, error: "Invalid ownership document" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "createOwnershipDocument"))) return TOO_MANY_REQUESTS;
   try {
     const result = await svcCreateOwnershipDocument(ctx, parsed.data);
     revalidateFeTag("ownership-documents");
@@ -32,6 +34,7 @@ export async function updateOwnershipDocument(id: string, patch: unknown): Promi
   const parsed = OwnershipDocumentPatchSchema.safeParse(patch);
   if (!parsed.success) return { ok: false, error: "Invalid ownership document" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "updateOwnershipDocument"))) return TOO_MANY_REQUESTS;
   try {
     const result = await svcUpdateOwnershipDocument(ctx, id, parsed.data);
     if (!result) return { ok: false, error: "Ownership document not found" };
@@ -46,6 +49,7 @@ export async function updateOwnershipDocument(id: string, patch: unknown): Promi
 
 export async function deleteOwnershipDocument(id: string): Promise<ActionResult<void>> {
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "deleteOwnershipDocument"))) return TOO_MANY_REQUESTS;
   try {
     await svcDeleteOwnershipDocument(ctx, id);
     revalidateFeTag("ownership-documents");

@@ -3,7 +3,8 @@
 
 import { requireCtx } from "@/lib/auth/ctx";
 import type { ActionResult } from "@/app/actions/_result";
-import { revalidateFeTag } from "@/app/actions/_result";
+import { actionLimiter, allowed } from "@/lib/ratelimit";
+import { revalidateFeTag, TOO_MANY_REQUESTS } from "@/app/actions/_result";
 import { NewPropertyValuationSchema, PropertyValuationPatchSchema } from "@/lib/data/types/property-valuation";
 import type { PropertyValuation } from "@/lib/data/types/property-valuation";
 import {
@@ -17,6 +18,7 @@ export async function createPropertyValuation(data: unknown): Promise<ActionResu
   const parsed = NewPropertyValuationSchema.safeParse(data);
   if (!parsed.success) return { ok: false, error: "Invalid property valuation" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "createPropertyValuation"))) return TOO_MANY_REQUESTS;
   try {
     const result = await svcCreatePropertyValuation(ctx, parsed.data);
     revalidateFeTag("property-valuations");
@@ -32,6 +34,7 @@ export async function updatePropertyValuation(id: string, patch: unknown): Promi
   const parsed = PropertyValuationPatchSchema.safeParse(patch);
   if (!parsed.success) return { ok: false, error: "Invalid property valuation" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "updatePropertyValuation"))) return TOO_MANY_REQUESTS;
   try {
     const result = await svcUpdatePropertyValuation(ctx, id, parsed.data);
     if (!result) return { ok: false, error: "Property valuation not found" };
@@ -46,6 +49,7 @@ export async function updatePropertyValuation(id: string, patch: unknown): Promi
 
 export async function deletePropertyValuation(id: string): Promise<ActionResult<void>> {
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "deletePropertyValuation"))) return TOO_MANY_REQUESTS;
   try {
     await svcDeletePropertyValuation(ctx, id);
     revalidateFeTag("property-valuations");

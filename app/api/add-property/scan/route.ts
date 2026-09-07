@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { requireCtx } from "@/lib/auth/ctx";
 import { scanDocument } from "@/lib/services/document-scan";
 import { ALLOWED_MIME, MAX_BYTES } from "@/lib/upload-constants";
+import { aiLimiter, allowed } from "@/lib/ratelimit";
 import { log } from "@/lib/log";
 
 export const runtime = "nodejs"; // AI SDK + file bytes need the Node runtime (not Edge)
@@ -19,7 +20,17 @@ export const maxDuration = 60;   // give the model time to read the whole docume
 // Errors: the model call can fail or time out — the try/catch logs the real error server-side and
 // returns a generic message so the client can fall back to manual entry.
 export async function POST(req: NextRequest) {
-  await requireCtx();
+  const ctx = await requireCtx();
+  // TM1-64: the costliest paid-model edge in the app — one request runs several model
+  // passes (self-consistency) with a 60s budget, so an authenticated loop here bills us
+  // hardest. Gated before the body is even read, so a blocked caller costs us nothing.
+  if (!(await allowed(aiLimiter, ctx.userId))) {
+    log.warn("ratelimit.block", { edge: "documentScan", userId: ctx.userId });
+    return Response.json(
+      { ok: false, error: "Too many requests. Please try again in a moment." },
+      { status: 429 },
+    );
+  }
   try {
     const formData = await req.formData();
     const file = formData.get("file");

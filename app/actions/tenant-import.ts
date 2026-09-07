@@ -2,7 +2,8 @@
 
 import { requireCtx } from "@/lib/auth/ctx";
 import type { ActionResult } from "@/app/actions/_result";
-import { revalidateFeTag } from "@/app/actions/_result";
+import { revalidateFeTag, TOO_MANY_REQUESTS } from "@/app/actions/_result";
+import { actionLimiter, aiLimiter, allowed } from "@/lib/ratelimit";
 import { bustCache } from "@/lib/cache/bust";
 import {
   mapTenants,
@@ -22,6 +23,7 @@ const MAX_TENANTS = 100;
 // a few sample rows reach the model (mapTenants → planFieldSources).
 export async function mapTenantsAction(sheets: SheetData[]): Promise<ActionResult<MapTenantsResult>> {
   const ctx = await requireCtx();
+  if (!(await allowed(aiLimiter, ctx.userId, "mapTenants"))) return TOO_MANY_REQUESTS;
   if (!Array.isArray(sheets) || sheets.length === 0) {
     return { ok: false, error: "That file has no readable sheets." };
   }
@@ -41,6 +43,7 @@ export async function bulkCreateTenantsAction(
   drafts: TenantDraft[],
 ): Promise<ActionResult<BulkCreateTenantsResult>> {
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "bulkCreateTenants"))) return TOO_MANY_REQUESTS;
   if (!Array.isArray(drafts) || drafts.length === 0) {
     return { ok: false, error: "No tenants to import." };
   }

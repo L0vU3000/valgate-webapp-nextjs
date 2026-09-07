@@ -3,7 +3,8 @@
 
 import { requireCtx } from "@/lib/auth/ctx";
 import type { ActionResult } from "@/app/actions/_result";
-import { revalidateFeTag } from "@/app/actions/_result";
+import { actionLimiter, allowed } from "@/lib/ratelimit";
+import { revalidateFeTag, TOO_MANY_REQUESTS } from "@/app/actions/_result";
 import { NewEmergencyContactSchema, EmergencyContactPatchSchema } from "@/lib/data/types/emergency-contact";
 import type { EmergencyContact } from "@/lib/data/types/emergency-contact";
 import {
@@ -17,6 +18,7 @@ export async function createEmergencyContact(data: unknown): Promise<ActionResul
   const parsed = NewEmergencyContactSchema.safeParse(data);
   if (!parsed.success) return { ok: false, error: "Invalid emergency contact" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "createEmergencyContact"))) return TOO_MANY_REQUESTS;
   try {
     const result = await svcCreateEmergencyContact(ctx, parsed.data);
     revalidateFeTag("emergency-contacts");
@@ -32,6 +34,7 @@ export async function updateEmergencyContact(id: string, patch: unknown): Promis
   const parsed = EmergencyContactPatchSchema.safeParse(patch);
   if (!parsed.success) return { ok: false, error: "Invalid emergency contact" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "updateEmergencyContact"))) return TOO_MANY_REQUESTS;
   try {
     const result = await svcUpdateEmergencyContact(ctx, id, parsed.data);
     if (!result) return { ok: false, error: "Emergency contact not found" };
@@ -46,6 +49,7 @@ export async function updateEmergencyContact(id: string, patch: unknown): Promis
 
 export async function deleteEmergencyContact(id: string): Promise<ActionResult<void>> {
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "deleteEmergencyContact"))) return TOO_MANY_REQUESTS;
   try {
     await svcDeleteEmergencyContact(ctx, id);
     revalidateFeTag("emergency-contacts");

@@ -20,7 +20,8 @@
 import { z } from "zod";
 import { requireCtx } from "@/lib/auth/ctx";
 import type { ActionResult } from "@/app/actions/_result";
-import { revalidateFeTag } from "@/app/actions/_result";
+import { actionLimiter, allowed } from "@/lib/ratelimit";
+import { revalidateFeTag, TOO_MANY_REQUESTS } from "@/app/actions/_result";
 import {
   getProperty as svcGetProperty,
   updateProperty as svcUpdateProperty,
@@ -59,6 +60,7 @@ export async function presignPropertyPhotoUpload(
     return { ok: false, error: "Only image files can be added as photos" };
   }
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "presignPropertyPhotoUpload"))) return TOO_MANY_REQUESTS;
   try {
     const property = await svcGetProperty(ctx, propertyId);
     if (!property) return { ok: false, error: "Property not found" };
@@ -80,6 +82,7 @@ export async function attachPropertyPhoto(
   const parsedId = z.string().min(1).safeParse(storageId);
   if (!parsedId.success) return { ok: false, error: "Invalid photo reference" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "attachPropertyPhoto"))) return TOO_MANY_REQUESTS;
   try {
     const property = await svcGetProperty(ctx, propertyId);
     if (!property) return { ok: false, error: "Property not found" };
@@ -124,6 +127,7 @@ export async function removePropertyPhoto(
   const parsedId = z.string().min(1).safeParse(storageId);
   if (!parsedId.success) return { ok: false, error: "Invalid photo reference" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "removePropertyPhoto"))) return TOO_MANY_REQUESTS;
   try {
     const property = await svcGetProperty(ctx, propertyId);
     if (!property) return { ok: false, error: "Property not found" };
@@ -169,6 +173,7 @@ export async function setPropertyCoverPhoto(
   const parsedId = z.string().min(1).safeParse(storageId);
   if (!parsedId.success) return { ok: false, error: "Invalid photo reference" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "setPropertyCoverPhoto"))) return TOO_MANY_REQUESTS;
   try {
     const property = await svcGetProperty(ctx, propertyId);
     if (!property) return { ok: false, error: "Property not found" };
@@ -331,6 +336,7 @@ export async function setPropertyCover(
   const parsedId = z.string().min(1).safeParse(storageId);
   if (!parsedId.success) return { ok: false, error: "Invalid photo reference" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "setPropertyCover"))) return TOO_MANY_REQUESTS;
   try {
     const property = await svcGetProperty(ctx, propertyId);
     if (!property) return { ok: false, error: "Property not found" };
@@ -371,6 +377,7 @@ export async function clearPropertyCover(
   propertyId: string,
 ): Promise<ActionResult<{ coverStorageId: null }>> {
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "clearPropertyCover"))) return TOO_MANY_REQUESTS;
   try {
     const property = await svcGetProperty(ctx, propertyId);
     if (!property) return { ok: false, error: "Property not found" };
@@ -402,6 +409,7 @@ export async function attachPropertyPhotoAsDocument(
     return { ok: false, error: "Only image files can be added as photos" };
   }
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "attachPropertyPhotoAsDocument"))) return TOO_MANY_REQUESTS;
   try {
     const property = await svcGetProperty(ctx, propertyId);
     if (!property) return { ok: false, error: "Property not found" };

@@ -3,7 +3,8 @@
 
 import { requireCtx } from "@/lib/auth/ctx";
 import type { ActionResult } from "@/app/actions/_result";
-import { revalidateFeTag } from "@/app/actions/_result";
+import { actionLimiter, allowed } from "@/lib/ratelimit";
+import { revalidateFeTag, TOO_MANY_REQUESTS } from "@/app/actions/_result";
 import { NewSuccessorSchema, SuccessorPatchSchema } from "@/lib/data/types/successor";
 import type { Successor } from "@/lib/data/types/successor";
 import {
@@ -18,6 +19,7 @@ export async function createSuccessor(data: unknown): Promise<ActionResult<Succe
   const parsed = NewSuccessorSchema.safeParse(data);
   if (!parsed.success) return { ok: false, error: "Invalid successor" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "createSuccessor"))) return TOO_MANY_REQUESTS;
   try {
     const result = await svcCreateSuccessor(ctx, parsed.data);
     await createEstateActivityEvent(ctx, {
@@ -37,6 +39,7 @@ export async function updateSuccessor(id: string, patch: unknown): Promise<Actio
   const parsed = SuccessorPatchSchema.safeParse(patch);
   if (!parsed.success) return { ok: false, error: "Invalid successor" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "updateSuccessor"))) return TOO_MANY_REQUESTS;
   try {
     const result = await svcUpdateSuccessor(ctx, id, parsed.data);
     if (!result) return { ok: false, error: "Successor not found" };
@@ -55,6 +58,7 @@ export async function updateSuccessor(id: string, patch: unknown): Promise<Actio
 
 export async function deleteSuccessor(id: string): Promise<ActionResult<void>> {
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "deleteSuccessor"))) return TOO_MANY_REQUESTS;
   try {
     const existing = await svcGetSuccessor(ctx, id);
     await svcDeleteSuccessor(ctx, id);

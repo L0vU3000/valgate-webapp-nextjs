@@ -3,7 +3,8 @@
 
 import { requireCtx } from "@/lib/auth/ctx";
 import type { ActionResult } from "@/app/actions/_result";
-import { revalidateFeTag } from "@/app/actions/_result";
+import { actionLimiter, allowed } from "@/lib/ratelimit";
+import { revalidateFeTag, TOO_MANY_REQUESTS } from "@/app/actions/_result";
 import { NewNotificationPreferenceSchema, NotificationPreferencePatchSchema } from "@/lib/data/types/notification-preference";
 import type { NotificationPreference } from "@/lib/data/types/notification-preference";
 import {
@@ -18,6 +19,7 @@ export async function createNotificationPreference(data: unknown): Promise<Actio
   const parsed = NewNotificationPreferenceSchema.safeParse(data);
   if (!parsed.success) return { ok: false, error: "Invalid notification preference" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "createNotificationPreference"))) return TOO_MANY_REQUESTS;
   try {
     const result = await svcCreateNotificationPreference(ctx, parsed.data);
     revalidateFeTag("notification-preferences");
@@ -32,6 +34,7 @@ export async function updateNotificationPreference(id: string, patch: unknown): 
   const parsed = NotificationPreferencePatchSchema.safeParse(patch);
   if (!parsed.success) return { ok: false, error: "Invalid notification preference" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "updateNotificationPreference"))) return TOO_MANY_REQUESTS;
   try {
     const result = await svcUpdateNotificationPreference(ctx, id, parsed.data);
     if (!result) return { ok: false, error: "Notification preference not found" };
@@ -45,6 +48,7 @@ export async function updateNotificationPreference(id: string, patch: unknown): 
 
 export async function deleteNotificationPreference(id: string): Promise<ActionResult<void>> {
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "deleteNotificationPreference"))) return TOO_MANY_REQUESTS;
   try {
     await svcDeleteNotificationPreference(ctx, id);
     revalidateFeTag("notification-preferences");
@@ -64,6 +68,7 @@ export async function togglePreference(
   channel: "email" | "slack" | "sms",
 ): Promise<ActionResult<NotificationPreference>> {
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "togglePreference"))) return TOO_MANY_REQUESTS;
   try {
     const all = await svcListPrefs(ctx);
     const existing = all.find((p) => p.eventType === eventType);

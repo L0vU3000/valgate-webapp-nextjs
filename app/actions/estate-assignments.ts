@@ -3,7 +3,8 @@
 
 import { requireCtx } from "@/lib/auth/ctx";
 import type { ActionResult } from "@/app/actions/_result";
-import { revalidateFeTag } from "@/app/actions/_result";
+import { actionLimiter, allowed } from "@/lib/ratelimit";
+import { revalidateFeTag, TOO_MANY_REQUESTS } from "@/app/actions/_result";
 import type { EstateAssignment } from "@/lib/data/types/successor-property-assignment";
 import {
   assignSuccessorToProperty as svcAssign,
@@ -20,6 +21,7 @@ export async function assignSuccessorToProperty(
   propertyId: string,
 ): Promise<ActionResult<EstateAssignment>> {
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "assignSuccessorToProperty"))) return TOO_MANY_REQUESTS;
   try {
     const result = await svcAssign(ctx, successorId, propertyId);
     const successor = await svcGetSuccessor(ctx, successorId);
@@ -46,6 +48,7 @@ export async function assignSuccessorToProperty(
 
 export async function removeAssignment(assignmentId: string): Promise<ActionResult<void>> {
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "removeAssignment"))) return TOO_MANY_REQUESTS;
   try {
     const assignment = await svcGetAssignment(ctx, assignmentId);
     if (!assignment) return { ok: false, error: "Assignment not found." };

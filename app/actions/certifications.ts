@@ -3,7 +3,8 @@
 
 import { requireCtx } from "@/lib/auth/ctx";
 import type { ActionResult } from "@/app/actions/_result";
-import { revalidateFeTag } from "@/app/actions/_result";
+import { actionLimiter, allowed } from "@/lib/ratelimit";
+import { revalidateFeTag, TOO_MANY_REQUESTS } from "@/app/actions/_result";
 import { NewCertificationSchema, CertificationPatchSchema } from "@/lib/data/types/certification";
 import type { Certification } from "@/lib/data/types/certification";
 import {
@@ -17,6 +18,7 @@ export async function createCertification(data: unknown): Promise<ActionResult<C
   const parsed = NewCertificationSchema.safeParse(data);
   if (!parsed.success) return { ok: false, error: "Invalid certification" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "createCertification"))) return TOO_MANY_REQUESTS;
   try {
     const result = await svcCreateCertification(ctx, parsed.data);
     revalidateFeTag("certifications");
@@ -32,6 +34,7 @@ export async function updateCertification(id: string, patch: unknown): Promise<A
   const parsed = CertificationPatchSchema.safeParse(patch);
   if (!parsed.success) return { ok: false, error: "Invalid certification" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "updateCertification"))) return TOO_MANY_REQUESTS;
   try {
     const result = await svcUpdateCertification(ctx, id, parsed.data);
     if (!result) return { ok: false, error: "Certification not found" };
@@ -46,6 +49,7 @@ export async function updateCertification(id: string, patch: unknown): Promise<A
 
 export async function deleteCertification(id: string): Promise<ActionResult<void>> {
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "deleteCertification"))) return TOO_MANY_REQUESTS;
   try {
     await svcDeleteCertification(ctx, id);
     revalidateFeTag("certifications");

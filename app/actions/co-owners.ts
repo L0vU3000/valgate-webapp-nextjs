@@ -3,7 +3,8 @@
 
 import { requireCtx } from "@/lib/auth/ctx";
 import type { ActionResult } from "@/app/actions/_result";
-import { revalidateFeTag } from "@/app/actions/_result";
+import { actionLimiter, allowed } from "@/lib/ratelimit";
+import { revalidateFeTag, TOO_MANY_REQUESTS } from "@/app/actions/_result";
 import { NewCoOwnerSchema, CoOwnerPatchSchema } from "@/lib/data/types/co-owner";
 import type { CoOwner } from "@/lib/data/types/co-owner";
 import {
@@ -20,6 +21,7 @@ export async function createCoOwner(data: unknown): Promise<ActionResult<CoOwner
   const parsed = NewCoOwnerSchema.safeParse(data);
   if (!parsed.success) return { ok: false, error: "Invalid co-owner" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "createCoOwner"))) return TOO_MANY_REQUESTS;
   try {
     const result = await svcCreateCoOwner(ctx, parsed.data);
     revalidateFeTag("co-owners");
@@ -35,6 +37,7 @@ export async function updateCoOwner(id: string, patch: unknown): Promise<ActionR
   const parsed = CoOwnerPatchSchema.safeParse(patch);
   if (!parsed.success) return { ok: false, error: "Invalid co-owner" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "updateCoOwner"))) return TOO_MANY_REQUESTS;
   try {
     const result = await svcUpdateCoOwner(ctx, id, parsed.data);
     if (!result) return { ok: false, error: "Co-owner not found" };
@@ -49,6 +52,7 @@ export async function updateCoOwner(id: string, patch: unknown): Promise<ActionR
 
 export async function removeCoOwner(id: string): Promise<ActionResult<void>> {
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "removeCoOwner"))) return TOO_MANY_REQUESTS;
   try {
     // Ownership (IDOR) check: confirm the co-owner exists within the caller's org before
     // deleting. scopedDelete is already org-scoped, but reading first lets us return a

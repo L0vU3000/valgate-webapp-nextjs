@@ -2,7 +2,8 @@
 
 import { requireCtx } from "@/lib/auth/ctx";
 import type { ActionResult } from "@/app/actions/_result";
-import { revalidateFeTag } from "@/app/actions/_result";
+import { revalidateFeTag, TOO_MANY_REQUESTS } from "@/app/actions/_result";
+import { actionLimiter, aiLimiter, allowed } from "@/lib/ratelimit";
 import { bustCache } from "@/lib/cache/bust";
 import {
   mapValuations,
@@ -21,6 +22,7 @@ const MAX_VALUATIONS = 100;
 // list for the picker. Auth-gated; only headers + a few sample rows reach the model.
 export async function mapValuationsAction(sheets: SheetData[]): Promise<ActionResult<MapValuationsResult>> {
   const ctx = await requireCtx();
+  if (!(await allowed(aiLimiter, ctx.userId, "mapValuations"))) return TOO_MANY_REQUESTS;
   if (!Array.isArray(sheets) || sheets.length === 0) {
     return { ok: false, error: "That file has no readable sheets." };
   }
@@ -39,6 +41,7 @@ export async function bulkCreateValuationsAction(
   drafts: ValuationDraft[],
 ): Promise<ActionResult<BulkCreateValuationsResult>> {
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "bulkCreateValuations"))) return TOO_MANY_REQUESTS;
   if (!Array.isArray(drafts) || drafts.length === 0) {
     return { ok: false, error: "No valuations to import." };
   }
