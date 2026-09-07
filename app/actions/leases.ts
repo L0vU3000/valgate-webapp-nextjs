@@ -3,7 +3,8 @@
 
 import { requireCtx } from "@/lib/auth/ctx";
 import type { ActionResult } from "@/app/actions/_result";
-import { revalidateFeTag } from "@/app/actions/_result";
+import { actionLimiter, allowed } from "@/lib/ratelimit";
+import { revalidateFeTag, TOO_MANY_REQUESTS } from "@/app/actions/_result";
 import { bustCache } from "@/lib/cache/bust";
 import { NewLeaseSchema, LeasePatchSchema } from "@/lib/data/types/lease";
 import type { Lease } from "@/lib/data/types/lease";
@@ -17,6 +18,7 @@ export async function createLease(data: unknown): Promise<ActionResult<Lease>> {
   const parsed = NewLeaseSchema.safeParse(data);
   if (!parsed.success) return { ok: false, error: "Invalid lease" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "createLease"))) return TOO_MANY_REQUESTS;
   try {
     const result = await svcCreateLease(ctx, parsed.data);
     revalidateFeTag("leases");
@@ -32,6 +34,7 @@ export async function updateLease(id: string, patch: unknown): Promise<ActionRes
   const parsed = LeasePatchSchema.safeParse(patch);
   if (!parsed.success) return { ok: false, error: "Invalid lease" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "updateLease"))) return TOO_MANY_REQUESTS;
   try {
     const result = await svcUpdateLease(ctx, id, parsed.data);
     if (!result) return { ok: false, error: "Lease not found" };
@@ -46,6 +49,7 @@ export async function updateLease(id: string, patch: unknown): Promise<ActionRes
 
 export async function deleteLease(id: string): Promise<ActionResult<void>> {
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "deleteLease"))) return TOO_MANY_REQUESTS;
   try {
     await svcDeleteLease(ctx, id);
     revalidateFeTag("leases");

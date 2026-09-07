@@ -3,7 +3,7 @@
 
 import { requireCtx } from "@/lib/auth/ctx";
 import type { ActionResult } from "@/app/actions/_result";
-import { revalidateFeTag } from "@/app/actions/_result";
+import { revalidateFeTag, TOO_MANY_REQUESTS } from "@/app/actions/_result";
 import { bustCache } from "@/lib/cache/bust";
 import { NewPropertySchema, PropertyPatchSchema } from "@/lib/data/types/property";
 import type { Property } from "@/lib/data/types/property";
@@ -20,7 +20,7 @@ import {
 } from "@/lib/services/properties";
 import { submitVerification, revokeVerification } from "@/lib/services/verification";
 import type { Pillar } from "@/lib/data/types/pillar-verification";
-import { verifyLimiter, allowed } from "@/lib/ratelimit";
+import { actionLimiter, allowed, verifyLimiter } from "@/lib/ratelimit";
 import { log } from "@/lib/log";
 import {
   getFinancialsWizardInitial,
@@ -34,6 +34,7 @@ export async function createProperty(data: unknown): Promise<ActionResult<Proper
   const parsed = NewPropertySchema.safeParse(data);
   if (!parsed.success) return { ok: false, error: "Invalid property" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "createProperty"))) return TOO_MANY_REQUESTS;
   try {
     const result = await svcCreateProperty(ctx, parsed.data);
     revalidateFeTag("properties");
@@ -52,6 +53,7 @@ export async function createPropertyForOrg(
   const parsed = NewPropertySchema.safeParse(data);
   if (!parsed.success) return { ok: false, error: "Invalid property" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "createPropertyForOrg"))) return TOO_MANY_REQUESTS;
   try {
     const result = await svcCreatePropertyForOrg(ctx, targetOrgId, parsed.data);
     revalidateFeTag("properties");
@@ -66,6 +68,7 @@ export async function updateProperty(id: string, patch: unknown): Promise<Action
   const parsed = PropertyPatchSchema.safeParse(patch);
   if (!parsed.success) return { ok: false, error: "Invalid property" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "updateProperty"))) return TOO_MANY_REQUESTS;
   try {
     const result = await svcUpdateProperty(ctx, id, parsed.data);
     if (!result) return { ok: false, error: "Property not found" };
@@ -93,10 +96,7 @@ export async function deleteProperty(id: string): Promise<ActionResult<void>> {
 
 async function verifyPillar(propertyId: string, pillar: Pillar, docIds: string[]): Promise<ActionResult<Property>> {
   const ctx = await requireCtx();
-  if (!(await allowed(verifyLimiter, ctx.userId))) {
-    log.warn("ratelimit.block", { edge: "verify", userId: ctx.userId, pillar });
-    return { ok: false, error: "Too many attempts. Try again shortly." }; // C5 generic
-  }
+  if (!(await allowed(verifyLimiter, ctx.userId, "verify"))) return TOO_MANY_REQUESTS;
   try {
     await submitVerification(ctx, propertyId, pillar, docIds);
     revalidateFeTag("properties");
@@ -112,10 +112,7 @@ async function verifyPillar(propertyId: string, pillar: Pillar, docIds: string[]
 
 async function revokePillar(propertyId: string, pillar: Pillar): Promise<ActionResult<Property>> {
   const ctx = await requireCtx();
-  if (!(await allowed(verifyLimiter, ctx.userId))) {
-    log.warn("ratelimit.block", { edge: "revoke", userId: ctx.userId, pillar });
-    return { ok: false, error: "Too many attempts. Try again shortly." }; // C5 generic
-  }
+  if (!(await allowed(verifyLimiter, ctx.userId, "revoke"))) return TOO_MANY_REQUESTS;
   try {
     await revokeVerification(ctx, propertyId, pillar);
     revalidateFeTag("properties");

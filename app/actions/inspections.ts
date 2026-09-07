@@ -3,7 +3,8 @@
 
 import { requireCtx } from "@/lib/auth/ctx";
 import type { ActionResult } from "@/app/actions/_result";
-import { revalidateFeTag } from "@/app/actions/_result";
+import { actionLimiter, allowed } from "@/lib/ratelimit";
+import { revalidateFeTag, TOO_MANY_REQUESTS } from "@/app/actions/_result";
 import { NewInspectionSchema, InspectionPatchSchema } from "@/lib/data/types/inspection";
 import type { Inspection } from "@/lib/data/types/inspection";
 import {
@@ -17,6 +18,7 @@ export async function createInspection(data: unknown): Promise<ActionResult<Insp
   const parsed = NewInspectionSchema.safeParse(data);
   if (!parsed.success) return { ok: false, error: "Invalid inspection" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "createInspection"))) return TOO_MANY_REQUESTS;
   try {
     const result = await svcCreateInspection(ctx, parsed.data);
     revalidateFeTag("inspections");
@@ -32,6 +34,7 @@ export async function updateInspection(id: string, patch: unknown): Promise<Acti
   const parsed = InspectionPatchSchema.safeParse(patch);
   if (!parsed.success) return { ok: false, error: "Invalid inspection" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "updateInspection"))) return TOO_MANY_REQUESTS;
   try {
     const result = await svcUpdateInspection(ctx, id, parsed.data);
     if (!result) return { ok: false, error: "Inspection not found" };
@@ -46,6 +49,7 @@ export async function updateInspection(id: string, patch: unknown): Promise<Acti
 
 export async function deleteInspection(id: string): Promise<ActionResult<void>> {
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "deleteInspection"))) return TOO_MANY_REQUESTS;
   try {
     await svcDeleteInspection(ctx, id);
     revalidateFeTag("inspections");

@@ -3,7 +3,8 @@
 import { z } from "zod";
 import { requireCtx } from "@/lib/auth/ctx";
 import type { ActionResult } from "@/app/actions/_result";
-import { revalidateFeTag } from "@/app/actions/_result";
+import { actionLimiter, allowed } from "@/lib/ratelimit";
+import { revalidateFeTag, TOO_MANY_REQUESTS } from "@/app/actions/_result";
 import { presignUpload, resolveDocumentUrl, describeFailedUpload } from "@/lib/services/storage";
 import { ALLOWED_MIME, MAX_BYTES } from "@/lib/upload-constants";
 import {
@@ -115,6 +116,7 @@ export async function upsertPropertyDraftAction(
   const parsed = UpsertDraftSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid draft" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "upsertPropertyDraftAction"))) return TOO_MANY_REQUESTS;
   const { id, title, step, form, targetOrgId } = parsed.data;
   try {
     if (id) {
@@ -137,6 +139,7 @@ export async function upsertPropertyDraftAction(
 // Discards a draft: the service deletes its S3 objects then the rows (cascade removes files).
 export async function deletePropertyDraftAction(id: string): Promise<ActionResult<void>> {
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "deletePropertyDraftAction"))) return TOO_MANY_REQUESTS;
   try {
     await deletePropertyDraft(ctx, id);
     revalidateFeTag(DRAFTS_TAG);
@@ -167,6 +170,7 @@ export async function uploadDraftFileAction(
   if (!ALLOWED_MIME.has(file.type)) return { ok: false, error: "That file type isn't supported" };
   if (file.size > MAX_BYTES) return { ok: false, error: "File is over the 10 MB limit" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "uploadDraftFileAction"))) return TOO_MANY_REQUESTS;
   try {
     // 1. Reserve an S3 key and presigned POST target.
     const presigned = await presignUpload(ctx, {
@@ -207,6 +211,7 @@ export async function stageDraftFileAction(input: unknown): Promise<ActionResult
   const parsed = StageFileSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid file" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "stageDraftFileAction"))) return TOO_MANY_REQUESTS;
   const { draftId, ...fileInput } = parsed.data;
   try {
     const staged = await stageDraftFile(ctx, draftId, fileInput);
@@ -221,6 +226,7 @@ export async function stageDraftFileAction(input: unknown): Promise<ActionResult
 // Removes one staged file (deletes the S3 object + the row).
 export async function removeDraftFileAction(fileId: string): Promise<ActionResult<void>> {
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "removeDraftFileAction"))) return TOO_MANY_REQUESTS;
   try {
     const removed = await removeDraftFile(ctx, fileId);
     if (!removed) return { ok: false, error: "File not found" };
@@ -240,6 +246,7 @@ export async function convertDraftToDocumentsAction(
   propertyId: string,
 ): Promise<ActionResult<number>> {
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "convertDraftToDocumentsAction"))) return TOO_MANY_REQUESTS;
   try {
     const count = await convertDraftToDocuments(ctx, draftId, propertyId);
     revalidateFeTag("documents");
@@ -261,6 +268,7 @@ export async function convertDraftToDocumentsForOrgAction(
   targetOrgId: string,
 ): Promise<ActionResult<number>> {
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "convertDraftToDocumentsForOrgAction"))) return TOO_MANY_REQUESTS;
   try {
     const count = await convertDraftToDocumentsForOrg(ctx, draftId, propertyId, targetOrgId);
     revalidateFeTag("documents");

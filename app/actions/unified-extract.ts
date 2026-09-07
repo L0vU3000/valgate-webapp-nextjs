@@ -2,7 +2,8 @@
 
 import { requireCtx } from "@/lib/auth/ctx";
 import type { ActionResult } from "@/app/actions/_result";
-import { revalidateFeTag } from "@/app/actions/_result";
+import { revalidateFeTag, TOO_MANY_REQUESTS } from "@/app/actions/_result";
+import { actionLimiter, aiLimiter, allowed } from "@/lib/ratelimit";
 import { bustCache } from "@/lib/cache/bust";
 import {
   extractAll,
@@ -20,6 +21,7 @@ export async function extractAllAction(
   sheets: SheetMatrix[],
 ): Promise<ActionResult<ExtractResult>> {
   const ctx = await requireCtx();
+  if (!(await allowed(aiLimiter, ctx.userId, "extractAll"))) return TOO_MANY_REQUESTS;
   try {
     const previews: SheetPreview[] = sheets.map((s) => ({ name: s.name, rows: s.matrix.slice(0, 8) }));
     const plan = await extractAll(previews);
@@ -56,6 +58,7 @@ export async function bulkCreateAction(
   rows: ReviewRow[],
 ): Promise<ActionResult<BulkResult>> {
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "bulkCreate"))) return TOO_MANY_REQUESTS;
   if (!Array.isArray(rows) || rows.length === 0) {
     return { ok: false, error: `No ${entityType} to import.` };
   }

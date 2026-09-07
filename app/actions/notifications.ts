@@ -3,7 +3,8 @@
 
 import { requireCtx } from "@/lib/auth/ctx";
 import type { ActionResult } from "@/app/actions/_result";
-import { revalidateFeTag } from "@/app/actions/_result";
+import { actionLimiter, allowed } from "@/lib/ratelimit";
+import { revalidateFeTag, TOO_MANY_REQUESTS } from "@/app/actions/_result";
 import { NewNotificationSchema, NotificationPatchSchema } from "@/lib/data/types/notification";
 import type { Notification } from "@/lib/data/types/notification";
 import {
@@ -17,6 +18,7 @@ export async function createNotification(data: unknown): Promise<ActionResult<No
   const parsed = NewNotificationSchema.safeParse(data);
   if (!parsed.success) return { ok: false, error: "Invalid notification" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "createNotification"))) return TOO_MANY_REQUESTS;
   try {
     const result = await svcCreateNotification(ctx, parsed.data);
     revalidateFeTag("notifications");
@@ -31,6 +33,7 @@ export async function updateNotification(id: string, patch: unknown): Promise<Ac
   const parsed = NotificationPatchSchema.safeParse(patch);
   if (!parsed.success) return { ok: false, error: "Invalid notification" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "updateNotification"))) return TOO_MANY_REQUESTS;
   try {
     const result = await svcUpdateNotification(ctx, id, parsed.data);
     if (!result) return { ok: false, error: "Notification not found" };
@@ -44,6 +47,7 @@ export async function updateNotification(id: string, patch: unknown): Promise<Ac
 
 export async function deleteNotification(id: string): Promise<ActionResult<void>> {
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "deleteNotification"))) return TOO_MANY_REQUESTS;
   try {
     await svcDeleteNotification(ctx, id);
     revalidateFeTag("notifications");
@@ -64,6 +68,7 @@ export async function markRead(id: string): Promise<ActionResult<void>> {
   const result = MarkReadSchema.safeParse({ id });
   if (!result.success) return { ok: false, error: "Invalid input" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "markRead"))) return TOO_MANY_REQUESTS;
   try {
     const updated = await svcUpdateNotification(ctx, result.data.id, { read: true });
     if (!updated) return { ok: false, error: "Notification not found" };
@@ -77,6 +82,7 @@ export async function markRead(id: string): Promise<ActionResult<void>> {
 
 export async function markAllRead(): Promise<ActionResult<void>> {
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "markAllRead"))) return TOO_MANY_REQUESTS;
   try {
     const all = await svcListNotifications(ctx);
     for (const n of all.filter((item) => !item.read)) {

@@ -3,7 +3,7 @@
 
 import { requireCtx } from "@/lib/auth/ctx";
 import type { ActionResult } from "@/app/actions/_result";
-import { revalidateFeTag } from "@/app/actions/_result";
+import { revalidateFeTag, TOO_MANY_REQUESTS } from "@/app/actions/_result";
 import { NewOwnershipRecordSchema, OwnershipRecordPatchSchema } from "@/lib/data/types/ownership-record";
 import type { OwnershipRecord } from "@/lib/data/types/ownership-record";
 import {
@@ -13,7 +13,7 @@ import {
   getOwnershipRecord as svcGetOwnershipRecord,
 } from "@/lib/services/ownership-records";
 import { submitVerification, revokeVerification } from "@/lib/services/verification";
-import { verifyLimiter, allowed } from "@/lib/ratelimit";
+import { actionLimiter, allowed, verifyLimiter } from "@/lib/ratelimit";
 import { log } from "@/lib/log";
 import { bustCache } from "@/lib/cache/bust";
 
@@ -21,6 +21,7 @@ export async function createOwnershipRecord(data: unknown): Promise<ActionResult
   const parsed = NewOwnershipRecordSchema.safeParse(data);
   if (!parsed.success) return { ok: false, error: "Invalid ownership record" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "createOwnershipRecord"))) return TOO_MANY_REQUESTS;
   try {
     const result = await svcCreateOwnershipRecord(ctx, parsed.data);
     revalidateFeTag("ownership-records");
@@ -36,6 +37,7 @@ export async function updateOwnershipRecord(id: string, patch: unknown): Promise
   const parsed = OwnershipRecordPatchSchema.safeParse(patch);
   if (!parsed.success) return { ok: false, error: "Invalid ownership record" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "updateOwnershipRecord"))) return TOO_MANY_REQUESTS;
   try {
     const result = await svcUpdateOwnershipRecord(ctx, id, parsed.data);
     if (!result) return { ok: false, error: "Ownership record not found" };
@@ -50,6 +52,7 @@ export async function updateOwnershipRecord(id: string, patch: unknown): Promise
 
 export async function deleteOwnershipRecord(id: string): Promise<ActionResult<void>> {
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "deleteOwnershipRecord"))) return TOO_MANY_REQUESTS;
   try {
     await svcDeleteOwnershipRecord(ctx, id);
     revalidateFeTag("ownership-records");
@@ -67,10 +70,7 @@ import type { CoOwner } from "@/lib/data/types/co-owner";
 
 export async function verifyOwnership(id: string, evidenceDocIds: string[]): Promise<ActionResult<OwnershipRecord>> {
   const ctx = await requireCtx();
-  if (!(await allowed(verifyLimiter, ctx.userId))) {
-    log.warn("ratelimit.block", { edge: "verifyOwnership", userId: ctx.userId });
-    return { ok: false, error: "Too many attempts. Try again shortly." }; // C5 generic
-  }
+  if (!(await allowed(verifyLimiter, ctx.userId, "verifyOwnership"))) return TOO_MANY_REQUESTS;
   try {
     const rec = await svcGetOwnershipRecord(ctx, id);
     if (!rec) return { ok: false, error: "Ownership record not found" };
@@ -88,10 +88,7 @@ export async function verifyOwnership(id: string, evidenceDocIds: string[]): Pro
 
 export async function revokeOwnershipVerification(id: string): Promise<ActionResult<OwnershipRecord>> {
   const ctx = await requireCtx();
-  if (!(await allowed(verifyLimiter, ctx.userId))) {
-    log.warn("ratelimit.block", { edge: "revokeOwnershipVerification", userId: ctx.userId });
-    return { ok: false, error: "Too many attempts. Try again shortly." }; // C5 generic
-  }
+  if (!(await allowed(verifyLimiter, ctx.userId, "revokeOwnershipVerification"))) return TOO_MANY_REQUESTS;
   try {
     const rec = await svcGetOwnershipRecord(ctx, id);
     if (!rec) return { ok: false, error: "Ownership record not found" };

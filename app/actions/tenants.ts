@@ -3,7 +3,8 @@
 
 import { requireCtx } from "@/lib/auth/ctx";
 import type { ActionResult } from "@/app/actions/_result";
-import { revalidateFeTag } from "@/app/actions/_result";
+import { actionLimiter, allowed } from "@/lib/ratelimit";
+import { revalidateFeTag, TOO_MANY_REQUESTS } from "@/app/actions/_result";
 import { NewTenantSchema, TenantPatchSchema } from "@/lib/data/types/tenant";
 import type { Tenant } from "@/lib/data/types/tenant";
 import {
@@ -17,6 +18,7 @@ export async function createTenant(data: unknown): Promise<ActionResult<Tenant>>
   const parsed = NewTenantSchema.safeParse(data);
   if (!parsed.success) return { ok: false, error: "Invalid tenant" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "createTenant"))) return TOO_MANY_REQUESTS;
   try {
     const result = await svcCreateTenant(ctx, parsed.data);
     revalidateFeTag("tenants");
@@ -32,6 +34,7 @@ export async function updateTenant(id: string, patch: unknown): Promise<ActionRe
   const parsed = TenantPatchSchema.safeParse(patch);
   if (!parsed.success) return { ok: false, error: "Invalid tenant" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "updateTenant"))) return TOO_MANY_REQUESTS;
   try {
     const result = await svcUpdateTenant(ctx, id, parsed.data);
     if (!result) return { ok: false, error: "Tenant not found" };
@@ -46,6 +49,7 @@ export async function updateTenant(id: string, patch: unknown): Promise<ActionRe
 
 export async function deleteTenant(id: string): Promise<ActionResult<void>> {
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "deleteTenant"))) return TOO_MANY_REQUESTS;
   try {
     await svcDeleteTenant(ctx, id);
     revalidateFeTag("tenants");

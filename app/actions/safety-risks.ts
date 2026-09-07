@@ -3,7 +3,8 @@
 
 import { requireCtx } from "@/lib/auth/ctx";
 import type { ActionResult } from "@/app/actions/_result";
-import { revalidateFeTag } from "@/app/actions/_result";
+import { actionLimiter, allowed } from "@/lib/ratelimit";
+import { revalidateFeTag, TOO_MANY_REQUESTS } from "@/app/actions/_result";
 import { NewSafetyRiskSchema, SafetyRiskPatchSchema } from "@/lib/data/types/safety-risk";
 import type { SafetyRisk } from "@/lib/data/types/safety-risk";
 import {
@@ -17,6 +18,7 @@ export async function createSafetyRisk(data: unknown): Promise<ActionResult<Safe
   const parsed = NewSafetyRiskSchema.safeParse(data);
   if (!parsed.success) return { ok: false, error: "Invalid safety risk" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "createSafetyRisk"))) return TOO_MANY_REQUESTS;
   try {
     const result = await svcCreateSafetyRisk(ctx, parsed.data);
     revalidateFeTag("safety-risks");
@@ -32,6 +34,7 @@ export async function updateSafetyRisk(id: string, patch: unknown): Promise<Acti
   const parsed = SafetyRiskPatchSchema.safeParse(patch);
   if (!parsed.success) return { ok: false, error: "Invalid safety risk" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "updateSafetyRisk"))) return TOO_MANY_REQUESTS;
   try {
     const result = await svcUpdateSafetyRisk(ctx, id, parsed.data);
     if (!result) return { ok: false, error: "Safety risk not found" };
@@ -46,6 +49,7 @@ export async function updateSafetyRisk(id: string, patch: unknown): Promise<Acti
 
 export async function deleteSafetyRisk(id: string): Promise<ActionResult<void>> {
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "deleteSafetyRisk"))) return TOO_MANY_REQUESTS;
   try {
     await svcDeleteSafetyRisk(ctx, id);
     revalidateFeTag("safety-risks");

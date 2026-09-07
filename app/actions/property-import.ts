@@ -2,7 +2,8 @@
 
 import { requireCtx } from "@/lib/auth/ctx";
 import type { ActionResult } from "@/app/actions/_result";
-import { revalidateFeTag } from "@/app/actions/_result";
+import { revalidateFeTag, TOO_MANY_REQUESTS } from "@/app/actions/_result";
+import { actionLimiter, aiLimiter, allowed } from "@/lib/ratelimit";
 import { bustCache } from "@/lib/cache/bust";
 import type { FormData as WizardForm } from "@/app/_shared/add-property/types";
 import {
@@ -28,7 +29,8 @@ export type MapSpreadsheetResult = {
 // and which row is its header. Returns null if it can't decide, so the client falls back to the first
 // sheet / row 0. Auth-gated; only sheet-name + first-rows previews are sent to the model.
 export async function detectLayoutAction(previews: SheetPreview[]): Promise<ActionResult<SheetLayout | null>> {
-  await requireCtx();
+  const ctx = await requireCtx();
+  if (!(await allowed(aiLimiter, ctx.userId, "detectLayout"))) return TOO_MANY_REQUESTS;
   try {
     const layout = await detectPropertyLayout(previews);
     return { ok: true, data: layout };
@@ -45,7 +47,8 @@ export async function mapSpreadsheetAction(
   headers: string[],
   rows: Record<string, string>[],
 ): Promise<ActionResult<MapSpreadsheetResult>> {
-  await requireCtx(); // authenticate — no data is written here, but don't map for anonymous callers
+  const ctx = await requireCtx(); // authenticate — no data is written here, but don't map for anonymous callers
+  if (!(await allowed(aiLimiter, ctx.userId, "mapSpreadsheet"))) return TOO_MANY_REQUESTS;
   try {
     const mapping = await mapColumns(headers, rows.slice(0, 5));
     const candidates = await geocodeCandidates(applyMapping(rows, mapping));
@@ -62,6 +65,7 @@ export async function bulkCreatePropertiesAction(
   forms: WizardForm[],
 ): Promise<ActionResult<BulkCreateResult>> {
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "bulkCreateProperties"))) return TOO_MANY_REQUESTS;
   if (!Array.isArray(forms) || forms.length === 0) {
     return { ok: false, error: "No properties to import." };
   }

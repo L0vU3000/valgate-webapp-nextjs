@@ -3,7 +3,8 @@
 
 import { requireCtx } from "@/lib/auth/ctx";
 import type { ActionResult } from "@/app/actions/_result";
-import { revalidateFeTag } from "@/app/actions/_result";
+import { actionLimiter, allowed } from "@/lib/ratelimit";
+import { revalidateFeTag, TOO_MANY_REQUESTS } from "@/app/actions/_result";
 import { bustCache } from "@/lib/cache/bust";
 import { NewProfessionalSchema, ProfessionalPatchSchema } from "@/lib/data/types/professional";
 import type { Professional } from "@/lib/data/types/professional";
@@ -18,6 +19,7 @@ export async function createProfessional(data: unknown): Promise<ActionResult<Pr
   const parsed = NewProfessionalSchema.safeParse(data);
   if (!parsed.success) return { ok: false, error: "Invalid professional" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "createProfessional"))) return TOO_MANY_REQUESTS;
   try {
     const result = await svcCreateProfessional(ctx, parsed.data);
     revalidateFeTag("professionals");
@@ -33,6 +35,7 @@ export async function updateProfessional(id: string, patch: unknown): Promise<Ac
   const parsed = ProfessionalPatchSchema.safeParse(patch);
   if (!parsed.success) return { ok: false, error: "Invalid professional" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "updateProfessional"))) return TOO_MANY_REQUESTS;
   try {
     const result = await svcUpdateProfessional(ctx, id, parsed.data);
     if (!result) return { ok: false, error: "Professional not found" };
@@ -47,6 +50,7 @@ export async function updateProfessional(id: string, patch: unknown): Promise<Ac
 
 export async function deleteProfessional(id: string): Promise<ActionResult<void>> {
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "deleteProfessional"))) return TOO_MANY_REQUESTS;
   try {
     await svcDeleteProfessional(ctx, id);
     try {

@@ -3,7 +3,8 @@
 
 import { requireCtx } from "@/lib/auth/ctx";
 import type { ActionResult } from "@/app/actions/_result";
-import { revalidateFeTag } from "@/app/actions/_result";
+import { actionLimiter, allowed } from "@/lib/ratelimit";
+import { revalidateFeTag, TOO_MANY_REQUESTS } from "@/app/actions/_result";
 import { NewMaintenanceItemSchema, MaintenanceItemPatchSchema } from "@/lib/data/types/maintenance-item";
 import type { MaintenanceItem } from "@/lib/data/types/maintenance-item";
 import {
@@ -17,6 +18,7 @@ export async function createMaintenanceItem(data: unknown): Promise<ActionResult
   const parsed = NewMaintenanceItemSchema.safeParse(data);
   if (!parsed.success) return { ok: false, error: "Invalid maintenance item" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "createMaintenanceItem"))) return TOO_MANY_REQUESTS;
   try {
     const result = await svcCreateMaintenanceItem(ctx, parsed.data);
     revalidateFeTag("maintenance-items");
@@ -32,6 +34,7 @@ export async function updateMaintenanceItem(id: string, patch: unknown): Promise
   const parsed = MaintenanceItemPatchSchema.safeParse(patch);
   if (!parsed.success) return { ok: false, error: "Invalid maintenance item" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "updateMaintenanceItem"))) return TOO_MANY_REQUESTS;
   try {
     const result = await svcUpdateMaintenanceItem(ctx, id, parsed.data);
     if (!result) return { ok: false, error: "Maintenance item not found" };
@@ -46,6 +49,7 @@ export async function updateMaintenanceItem(id: string, patch: unknown): Promise
 
 export async function deleteMaintenanceItem(id: string): Promise<ActionResult<void>> {
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "deleteMaintenanceItem"))) return TOO_MANY_REQUESTS;
   try {
     await svcDeleteMaintenanceItem(ctx, id);
     revalidateFeTag("maintenance-items");

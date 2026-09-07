@@ -3,7 +3,8 @@
 
 import { requireCtx } from "@/lib/auth/ctx";
 import type { ActionResult } from "@/app/actions/_result";
-import { revalidateFeTag } from "@/app/actions/_result";
+import { actionLimiter, allowed } from "@/lib/ratelimit";
+import { revalidateFeTag, TOO_MANY_REQUESTS } from "@/app/actions/_result";
 import { NewFolderSchema, FolderPatchSchema } from "@/lib/data/types/folder";
 import type { Folder } from "@/lib/data/types/folder";
 import {
@@ -19,6 +20,7 @@ export async function createFolder(data: unknown): Promise<ActionResult<Folder>>
   const parsed = NewFolderSchema.safeParse(data);
   if (!parsed.success) return { ok: false, error: "Invalid folder" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "createFolder"))) return TOO_MANY_REQUESTS;
   try {
     const result = await svcCreateFolder(ctx, parsed.data);
     revalidateFeTag("folders");
@@ -34,6 +36,7 @@ export async function updateFolder(id: string, patch: unknown): Promise<ActionRe
   const parsed = FolderPatchSchema.safeParse(patch);
   if (!parsed.success) return { ok: false, error: "Invalid folder" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "updateFolder"))) return TOO_MANY_REQUESTS;
   try {
     const result = await svcUpdateFolder(ctx, id, parsed.data);
     if (!result) return { ok: false, error: "Folder not found" };
@@ -63,6 +66,7 @@ export async function getFolderContents(
 
 export async function deleteFolder(id: string): Promise<ActionResult<void>> {
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "deleteFolder"))) return TOO_MANY_REQUESTS;
   try {
     // Service detaches children to root, then deletes the folder (org-scoped + admin-gated).
     await svcDeleteFolder(ctx, id);

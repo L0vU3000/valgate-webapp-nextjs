@@ -3,7 +3,8 @@
 import { z } from "zod";
 import { requireCtx } from "@/lib/auth/ctx";
 import type { ActionResult } from "@/app/actions/_result";
-import { revalidateFeTag } from "@/app/actions/_result";
+import { actionLimiter, allowed } from "@/lib/ratelimit";
+import { revalidateFeTag, TOO_MANY_REQUESTS } from "@/app/actions/_result";
 import { NewDocumentSchema, DocumentPatchSchema } from "@/lib/data/types/document";
 import type { Document } from "@/lib/data/types/document";
 import {
@@ -27,6 +28,7 @@ export async function createDocument(data: unknown): Promise<ActionResult<Docume
   const parsed = NewDocumentSchema.safeParse(data);
   if (!parsed.success) return { ok: false, error: "Invalid document" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "createDocument"))) return TOO_MANY_REQUESTS;
   try {
     const result = await svcCreateDocument(ctx, parsed.data);
     revalidateFeTag("documents");
@@ -42,6 +44,7 @@ export async function updateDocument(id: string, patch: unknown): Promise<Action
   const parsed = DocumentPatchSchema.safeParse(patch);
   if (!parsed.success) return { ok: false, error: "Invalid document" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "updateDocument"))) return TOO_MANY_REQUESTS;
   try {
     const result = await svcUpdateDocument(ctx, id, parsed.data);
     if (!result) return { ok: false, error: "Document not found" };
@@ -56,6 +59,7 @@ export async function updateDocument(id: string, patch: unknown): Promise<Action
 
 export async function deleteDocument(id: string): Promise<ActionResult<void>> {
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "deleteDocument"))) return TOO_MANY_REQUESTS;
   try {
     // Service deletes the row + the S3 object, and returns the removed doc (or null).
     const removed = await svcDeleteDocument(ctx, id);
@@ -85,6 +89,7 @@ export async function deleteDocuments(ids: unknown): Promise<ActionResult<{ dele
   const parsed = z.array(z.string().min(1)).min(1).safeParse(ids);
   if (!parsed.success) return { ok: false, error: "Invalid document selection" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "deleteDocuments"))) return TOO_MANY_REQUESTS;
   try {
     const removed = await svcDeleteDocuments(ctx, parsed.data);
     for (const doc of removed) {
@@ -113,6 +118,7 @@ export async function presignDocumentUpload(
   const parsed = UploadMetaSchema.safeParse(meta);
   if (!parsed.success) return { ok: false, error: "Invalid upload metadata" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "presignDocumentUpload"))) return TOO_MANY_REQUESTS;
   try {
     return { ok: true, data: await presignUpload(ctx, parsed.data) };
   } catch (err) {
@@ -144,6 +150,7 @@ export async function uploadDocument(
   const file = formData.get("file");
   if (!(file instanceof File)) return { ok: false, error: "No file provided" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "uploadDocument"))) return TOO_MANY_REQUESTS;
   try {
     // 1. Reserve a storage slot and get a presigned POST target.
     const presigned = await presignUpload(ctx, {

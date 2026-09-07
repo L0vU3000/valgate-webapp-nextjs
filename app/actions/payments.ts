@@ -3,7 +3,8 @@
 
 import { requireCtx } from "@/lib/auth/ctx";
 import type { ActionResult } from "@/app/actions/_result";
-import { revalidateFeTag } from "@/app/actions/_result";
+import { actionLimiter, allowed } from "@/lib/ratelimit";
+import { revalidateFeTag, TOO_MANY_REQUESTS } from "@/app/actions/_result";
 import { NewPaymentSchema, PaymentPatchSchema } from "@/lib/data/types/payment";
 import type { Payment } from "@/lib/data/types/payment";
 import {
@@ -17,6 +18,7 @@ export async function createPayment(data: unknown): Promise<ActionResult<Payment
   const parsed = NewPaymentSchema.safeParse(data);
   if (!parsed.success) return { ok: false, error: "Invalid payment" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "createPayment"))) return TOO_MANY_REQUESTS;
   try {
     const result = await svcCreatePayment(ctx, parsed.data);
     revalidateFeTag("payments");
@@ -32,6 +34,7 @@ export async function updatePayment(id: string, patch: unknown): Promise<ActionR
   const parsed = PaymentPatchSchema.safeParse(patch);
   if (!parsed.success) return { ok: false, error: "Invalid payment" };
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "updatePayment"))) return TOO_MANY_REQUESTS;
   try {
     const result = await svcUpdatePayment(ctx, id, parsed.data);
     if (!result) return { ok: false, error: "Payment not found" };
@@ -46,6 +49,7 @@ export async function updatePayment(id: string, patch: unknown): Promise<ActionR
 
 export async function deletePayment(id: string): Promise<ActionResult<void>> {
   const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "deletePayment"))) return TOO_MANY_REQUESTS;
   try {
     await svcDeletePayment(ctx, id);
     revalidateFeTag("payments");
