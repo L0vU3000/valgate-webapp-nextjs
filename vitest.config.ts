@@ -27,6 +27,10 @@ export default defineConfig({
       // fail ("test.describe() not expected here"). They run via `npm run test:e2e`.
       "e2e/**",
       "**/.worktrees/**",
+      // Vendored Hermes agent-loop spikes. Their tests/*.test.mjs are node:test
+      // prototypes, not vitest suites — vitest collects them and fails with
+      // "No test suite found". Not our code and not our test runner.
+      "**/.hermes/**",
       // TODO(M5): rework for Neon. This file imports the real Pro query functions,
       // which call requireCtx() -> Clerk auth() -> `server-only` and throw at IMPORT
       // time in node/vitest. Written for the pre-Neon file-seed era; excluded until
