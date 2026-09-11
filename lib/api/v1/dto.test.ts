@@ -1,12 +1,13 @@
 import { describe, it, expect } from "vitest";
+import type { Document } from "@/lib/data/types/document";
 import type { Property } from "@/lib/data/types/property";
-import { toMeDto, toPropertyListItemDto, toPropertyDetailDto } from "./dto";
+import { toMeDto, toPropertyListItemDto, toPropertyDetailDto, toDocumentListItemDto } from "./dto";
 
 // ---------------------------------------------------------------------------
 // DTO field-omission contract for HTTP API v1. Pure functions, no mocks needed.
 // Locks down the security requirement directly: userId, orgId, clientId, every
-// storage id, and every evidence-doc id array must NEVER appear in a v1 response,
-// no matter how many fields the underlying Property/Ctx carries.
+// storage id, evidence-doc id arrays, uploadedBy, verifies, and AI-summary internals
+// must NEVER appear in a v1 response, no matter how many fields the underlying row carries.
 // ---------------------------------------------------------------------------
 
 const SECRET_MARKERS = [
@@ -16,6 +17,8 @@ const SECRET_MARKERS = [
   "STORE-COVER-SECRET",
   "STORE-PHOTO-SECRET-1",
   "STORE-DOC-SECRET-1",
+  "STORE-THUMB-SECRET-1",
+  "USR-UPLOADER-SECRET",
   "DOC-RENTAL-SECRET-1",
   "DOC-ESTATE-SECRET-1",
   "DOC-LOCATION-SECRET-1",
@@ -78,6 +81,28 @@ const FULL_PROPERTY: Property = {
   title: "Hard title",
 };
 
+const FULL_DOCUMENT: Document = {
+  id: "DOC-0001",
+  propertyId: "PROP-0001",
+  folderId: "FLDR-0001",
+  name: "Title_Deed.pdf",
+  kind: "document",
+  mimeType: "application/pdf",
+  extension: "pdf",
+  sizeBytes: 1240000,
+  storageId: "STORE-DOC-SECRET-1",
+  thumbStorageId: "STORE-THUMB-SECRET-1",
+  category: "Title",
+  description: "Hard title deed",
+  uploadedBy: "USR-UPLOADER-SECRET",
+  uploadedAt: 1743897600000,
+  verifies: { entityType: "ownership-record", entityId: "OWN-SECRET-1" },
+  aiStatus: "ready",
+  aiSummary: "SECRET-AI-SUMMARY",
+  aiKeyFields: [{ label: "Owner", value: "SECRET-OWNER-NAME" }],
+  pageCount: 3,
+};
+
 describe("toPropertyListItemDto", () => {
   it("never leaks internal ids, storage ids, or evidence-doc ids", () => {
     const dto = toPropertyListItemDto(FULL_PROPERTY);
@@ -121,6 +146,36 @@ describe("toPropertyDetailDto", () => {
       bedrooms: "3",
       bathrooms: "2",
       yearBuilt: "2015",
+    });
+  });
+});
+
+describe("toDocumentListItemDto", () => {
+  it("never leaks storage ids, uploader ids, verifies ids, or AI-summary internals", () => {
+    const dto = toDocumentListItemDto(FULL_DOCUMENT);
+    const serialized = JSON.stringify(dto);
+    for (const marker of SECRET_MARKERS) {
+      expect(serialized).not.toContain(marker);
+    }
+    expect(serialized).not.toContain("OWN-SECRET-1");
+    expect(serialized).not.toContain("SECRET-AI-SUMMARY");
+    expect(serialized).not.toContain("SECRET-OWNER-NAME");
+  });
+
+  it("exposes only the intentionally small public list fields", () => {
+    const dto = toDocumentListItemDto(FULL_DOCUMENT);
+    expect(dto).toEqual({
+      id: "DOC-0001",
+      propertyId: "PROP-0001",
+      folderId: "FLDR-0001",
+      name: "Title_Deed.pdf",
+      kind: "document",
+      mimeType: "application/pdf",
+      extension: "pdf",
+      sizeBytes: 1240000,
+      category: "Title",
+      description: "Hard title deed",
+      uploadedAt: 1743897600000,
     });
   });
 });
