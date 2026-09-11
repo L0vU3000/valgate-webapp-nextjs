@@ -13,6 +13,12 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# seed:neon imports lib/env.ts, which requires NEXT_PUBLIC_MAPBOX_TOKEN at
+# parse time. A dummy is enough here — seed/migrate/tests never call Mapbox.
+# Keep the real token required in lib/env.ts for production/runtime.
+env:
+  NEXT_PUBLIC_MAPBOX_TOKEN: test-mapbox-token
+
 jobs:
   # ---------------------------------------------------------------
   # Secret scan first — cheap, and a leak makes everything else moot.
@@ -60,19 +66,18 @@ jobs:
       postgres:
         image: postgres:16
         env:
+          POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: app_test
         ports: ['5432:5432']
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U postgres"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
     env:
+      # User is explicit (`postgres`), not the runner's OS user (`root`).
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/app_test
-      # lib/env.ts requires this at import time. Tests never call Mapbox; the
-      # placeholder is only here so t3-env validation does not crash the suite.
-      NEXT_PUBLIC_MAPBOX_TOKEN: test-mapbox-token
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -127,8 +132,8 @@ jobs:
     needs: web
     # TEMPORARY (TM1-62): this job has never actually run — it was always skipped
     # behind the failing `web` job, and it still can't pass without Clerk test users
-    # and NEXT_PUBLIC_MAPBOX_TOKEN in the job env. Left non-blocking so the pipeline
-    # reports honestly on what IS enforced (secret scan, typecheck, lint, unit tests)
+    # in the job env. Left non-blocking so the pipeline reports honestly on what
+    # IS enforced (secret scan, typecheck, lint, unit tests, test:db, test:preview)
     # instead of sitting permanently red — a red-by-default pipeline is exactly how
     # 8 consecutive failures went unnoticed for three weeks.
     # Remove this line the moment TM1-62 lands; it must go back to blocking.
@@ -137,15 +142,17 @@ jobs:
       postgres:
         image: postgres:16
         env:
+          POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: app_test
         ports: ['5432:5432']
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U postgres"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
     env:
+      # User is explicit (`postgres`), not the runner's OS user (`root`).
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/app_test
       CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
       CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
