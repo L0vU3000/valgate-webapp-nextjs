@@ -33,7 +33,7 @@ jobs:
   # Everything that can run on Linux runs on Linux. Fast and cheap.
   # ---------------------------------------------------------------
   web:
-    name: Web (typecheck, lint, unit)
+    name: Web (typecheck, lint, unit, preview)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -44,6 +44,58 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test
+      # Pure helper tests for the preview-smoke suite (e2e/preview/lib/*.test.ts).
+      # No database, no Playwright, no preview URL — just vitest.
+      - run: npm run test:preview
+
+  # Live-DB integration tests (*.db.test.ts), including the org-scoping IDOR suite.
+  # This is a blocking job on purpose. Do not fold it into `e2e` — that job is
+  # continue-on-error until TM1-62, which would make IDOR regressions invisible again.
+  # Postgres service + migrate/seed match the e2e job; DATABASE_URL is the local
+  # container, not a GitHub secret (same as e2e).
+  db:
+    name: DB integration (test:db)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: app_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/app_test
+      # lib/env.ts requires this at import time. Tests never call Mapbox; the
+      # placeholder is only here so t3-env validation does not crash the suite.
+      NEXT_PUBLIC_MAPBOX_TOKEN: test-mapbox-token
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+
+      - run: npm ci
+
+      # vitest.config.db.ts no-ops when DATABASE_URL is missing (passWithNoTests).
+      # Fail loudly here so a misconfigured job cannot report green with 0 tests.
+      - name: Require DATABASE_URL
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "DATABASE_URL is not set; test:db would skip and hide IDOR regressions."
+            exit 1
+          fi
+
+      - name: Migrate and seed
+        run: npm run db:migrate && npm run seed:neon
+
+      # --passWithNoTests=false is a second tripwire: even with DATABASE_URL set,
+      # an empty glob must not exit 0.
+      - name: Run live-DB tests
+        run: npm run test:db -- --passWithNoTests=false
 
   appcore:
     name: AppCore (Swift on Linux)
