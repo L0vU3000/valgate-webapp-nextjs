@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { requireCtx } from "@/lib/auth/ctx";
+import { resolveRouteCtx } from "@/lib/auth/ctx";
 import { scanDocument } from "@/lib/services/document-scan";
 import { ALLOWED_MIME, MAX_BYTES } from "@/lib/upload-constants";
 import { aiLimiter, allowed } from "@/lib/ratelimit";
@@ -14,13 +14,18 @@ export const maxDuration = 60;   // give the model time to read the whole docume
 // details as a structured object for the add-property wizard to pre-fill. The whole job runs in this
 // one request: authorize → validate the file → one model call → return the extracted fields.
 //
-// Authorization: requireCtx() requires an authenticated caller. Only the caller's own uploaded file is
-// sent to the model; nothing is written here, so there is no resource to own-check.
+// Authorization: resolveRouteCtx() requires an authenticated caller (JSON 401 if not). Only the
+// caller's own uploaded file is sent to the model; nothing is written here, so there is no
+// resource to own-check.
 //
 // Errors: the model call can fail or time out — the try/catch logs the real error server-side and
 // returns a generic message so the client can fall back to manual entry.
 export async function POST(req: NextRequest) {
-  const ctx = await requireCtx();
+  const authResult = await resolveRouteCtx();
+  if (!authResult.ok) {
+    return Response.json({ ok: false, error: "Unauthorized." }, { status: 401 });
+  }
+  const ctx = authResult.ctx;
   // TM1-64: the costliest paid-model edge in the app — one request runs several model
   // passes (self-consistency) with a 60s budget, so an authenticated loop here bills us
   // hardest. Gated before the body is even read, so a blocked caller costs us nothing.

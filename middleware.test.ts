@@ -46,4 +46,19 @@ describe("shouldSkipAuthProtect", () => {
   it("still requires auth.protect() for a non-v1 protected app route", () => {
     expect(shouldSkipAuthProtect(requestFor("/app/dashboard"))).toBe(false);
   });
+
+  // TM1-67: these two handlers authenticate themselves (Svix / CRON_SECRET). If they stay
+  // behind auth.protect(), Clerk rewrites the third-party request to HTML before the handler runs.
+  it("skips auth.protect() for the Resend webhook so Svix signature verification can run", () => {
+    expect(shouldSkipAuthProtect(requestFor("/api/webhooks/resend"))).toBe(true);
+  });
+
+  it("skips auth.protect() for the draft-cleanup cron so the CRON_SECRET bearer check can run", () => {
+    expect(shouldSkipAuthProtect(requestFor("/api/cron/cleanup-drafts"))).toBe(true);
+  });
+
+  it("still requires auth.protect() for session-cookie JSON routes that call resolveRouteCtx", () => {
+    expect(shouldSkipAuthProtect(requestFor("/api/add-property/scan"))).toBe(false);
+    expect(shouldSkipAuthProtect(requestFor("/api/documents/DOC-0001/summarize"))).toBe(false);
+  });
 });
