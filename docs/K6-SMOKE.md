@@ -50,31 +50,31 @@ command line if you want a heavier run (`k6 run --vus 5 --duration 1m ...`).
 
 ## Recorded baseline
 
-Recorded 2026-09-11 with k6 v1.3.0 against the live production host, **no
+Recorded 2026-09-11 with k6 v1.3.0 against this PR’s Vercel preview, **no
 session cookie** (TM1-62 still open). Command:
 
 ```bash
-BASE_URL=https://www.valgate.co k6 run load/smoke.js
+BASE_URL=https://valgate-webapp-git-cursor-tm1-71-k6-s-b86273-l0vu3000s-projects.vercel.app \
+  k6 run load/smoke.js
 ```
-
-Replace this table when a preview URL + Clerk test user are available.
 
 | Field | Value |
 |---|---|
-| Target | `https://www.valgate.co` |
+| Target | this PR’s Vercel preview |
 | Concurrency | 1 VU |
 | Duration | 30 s |
 | Iterations | 27 (81 HTTP requests) |
 | `http_req_failed` | **0.00%** (0 / 81) |
-| p95 `http_req_duration` (all) | **58 ms** (max 239 ms) |
-| p95 `{page:login}` | **67 ms** (HTTP 200) |
-| p95 `{page:app}` | **43 ms** (HTTP 404 Clerk protect-rewrite) |
-| p95 `{page:property}` | **49 ms** (HTTP 404 Clerk protect-rewrite) |
+| p95 `http_req_duration` (all) | **76 ms** (max 201 ms) |
+| p95 `{page:login}` | **82 ms** (HTTP 200) |
+| p95 `{page:app}` | **71 ms** (HTTP 404 Clerk protect-rewrite) |
+| p95 `{page:property}` | **51 ms** (HTTP 404 Clerk protect-rewrite) |
 | Checks | 100% (81 / 81) |
 | Session | none |
 
 `/login` is a real page load. `/app` and `/property/PROP-0001` are Clerk
 signed-out **404** protect-rewrites on this Clerk development instance
 (`x-clerk-auth-reason: protect-rewrite, dev-browser-missing`), so those two
-p95s are "edge + 404 HTML", not authenticated SSR. This 1-VU smoke does not
-by itself prove 100–500 DAU; it is the first measured number in the repo.
+p95s are "edge + 404 HTML", not authenticated SSR. Re-record with
+`K6_SESSION_COOKIE` when TM1-62 lands. This 1-VU smoke does not by itself
+prove 100–500 DAU; it is the first measured number in the repo.
