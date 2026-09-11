@@ -42,6 +42,7 @@ Each guide is the project-specific layer; the **official docs** column is the so
 | [`zod.md`](./zod.md) | Zod **v4** validation & types | https://zod.dev |
 | **Auth & tenancy** | | |
 | [`clerk.md`](./clerk.md) | auth core | https://clerk.com/docs |
+| [`middleware-matcher.md`](./middleware-matcher.md) | `middleware.ts` matcher + public allowlist (TM1-68) | https://clerk.com/docs/references/nextjs/clerk-middleware |
 | [`clerk-organizations.md`](./clerk-organizations.md) | multi-tenant orgs (D14) | https://clerk.com/docs/guides/organizations/overview · [multi-tenant arch](https://clerk.com/docs/guides/how-clerk-works/multi-tenant-architecture) |
 | [`neon-rls.md`](./neon-rls.md) | DB-level org isolation, defense-in-depth behind C3 (candidate D17) | https://neon.com/docs/guides/row-level-security · [RLS+Drizzle](https://neon.com/docs/guides/rls-drizzle) |
 | **Infrastructure** | | |
