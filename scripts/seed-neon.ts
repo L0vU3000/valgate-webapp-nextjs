@@ -1,6 +1,8 @@
 // B2 seed pipeline — loads the demo portfolio into Neon under one demo org (C3/D14),
 // Zod-parsing every record against the vendored contract (drift = fail loud, C9).
-// Run: npm run seed:reset   (truncate + load)   |   npm run seed   (load only)
+// Run: npm run seed:neon
+// Destructive truncate+load (gated by ALLOW_DESTRUCTIVE_DB=1 + assertSafeDatabaseUrl):
+//   npm run seed:neon -- --reset
 import "server-only";
 import { readdirSync, readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
