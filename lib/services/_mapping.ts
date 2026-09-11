@@ -27,6 +27,11 @@ export function toDomain(table: PgTable, row: Record<string, unknown>): Record<s
 // is seeded next=max+1 per prefix, so the just-allocated id is next-1. Exercised in B4.
 // Self-initialises missing counter rows (next=2 → first id is PREFIX-0001) so new collections
 // don't require a seed run to work in production.
+//
+// Ceiling (TM1-73): this upsert row-locks the one id_counters row for `collection` until
+// this statement commits, so creates serialize globally per entity type (all orgs share
+// PROP). Fine at hundreds of creates/sec. If it ever binds: per-org counter rows, or UUIDs
+// (see vault/resources/gotchas.md; activities already uses UUIDs for this reason).
 export async function nextId(collection: string): Promise<string> {
   const { rows } = await db.execute<{ next: number }>(
     sql`INSERT INTO id_counters (collection, next) VALUES (${collection}, 2)
