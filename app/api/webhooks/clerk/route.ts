@@ -11,6 +11,7 @@ import {
 } from "@/lib/services/identity-sync";
 import { handleInvitationAccepted } from "@/lib/services/client-onboarding";
 import { ensureManagerHomeOrganizationForClerkUser } from "@/lib/services/managers";
+import { parseAccountType } from "@/lib/auth/account-type";
 
 // The ONLY writer of the Clerk→Postgres identity mirror (D14, §4 clerk-organizations.md).
 // verifyWebhook reads CLERK_WEBHOOK_SIGNING_SECRET from env automatically.
@@ -38,6 +39,9 @@ export async function POST(req: NextRequest) {
       const primary = emails.find((e) => e.id === d.primary_email_address_id) ?? emails[0];
       // unsafe_metadata is the webhook field name for what the frontend sets as unsafeMetadata.
       const unsafeMeta = (d.unsafe_metadata as Record<string, unknown> | null) ?? {};
+      // Parse through the Zod enum at this boundary. Invalid values become "owner"
+      // so a user-controlled string cannot grant manager and this handler stays 2xx.
+      const accountType = parseAccountType(unsafeMeta.accountType);
       await upsertUser({
         id: d.id as string,
         primaryEmail: primary?.email_address ?? `${d.id}@unknown.clerk`,
@@ -45,9 +49,9 @@ export async function POST(req: NextRequest) {
         avatarUrl: (d.image_url as string | null) ?? null,
         // Only honoured on first INSERT (sticky in upsertUser). The webhook is the
         // authoritative first writer; subsequent replays leave is_manager unchanged.
-        isManager: unsafeMeta.accountType === "manager",
+        isManager: accountType === "manager",
       });
-      if (evt.type === "user.created" && unsafeMeta.accountType === "manager") {
+      if (evt.type === "user.created" && accountType === "manager") {
         try {
           await ensureManagerHomeOrganizationForClerkUser(d.id as string);
         } catch (err) {
