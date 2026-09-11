@@ -99,8 +99,7 @@ describe("POST /api/add-property/scan", () => {
   });
 
   it("returns 400 when the file is over the 10 MB cap", async () => {
-    const big = pdfFile();
-    Object.defineProperty(big, "size", { value: MAX_BYTES + 1 });
+    const big = new File([new ArrayBuffer(MAX_BYTES + 1)], "big.pdf", { type: "application/pdf" });
 
     const res = await POST(scanRequest(big));
 
