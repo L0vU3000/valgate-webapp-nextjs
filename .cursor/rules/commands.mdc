@@ -1,0 +1,20 @@
+---
+description: Verified npm commands for this repo
+alwaysApply: false
+globs: package.json,package-lock.json
+---
+
+# Commands
+
+**Read `AGENTS.md` → Commands** for the verified list and omitted commands.
+
+Default CI gates (Node 20):
+
+```bash
+npm ci
+npm run typecheck
+npm run lint
+npm test
+```
+
+Do not run DB, E2E, or seed commands without the required secrets and services documented in `AGENTS.md`.

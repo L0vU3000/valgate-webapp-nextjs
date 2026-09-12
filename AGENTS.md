@@ -92,7 +92,7 @@ This project uses **Neon (serverless Postgres)** with **Drizzle ORM** as its bac
 - Schema lives in `lib/db/schema/*`; the DB client is `lib/db/client.ts`.
 - Data access goes through `lib/services/*` (one module per entity), called from Server Actions in `app/**/*.actions.ts`. Never query the DB directly from a component or route handler.
 - Migrations: `npm run db:generate` (create) → `npm run db:migrate` (apply). Check connection with `npm run db:ping`.
-- Seeding: `npm run seed:neon`. **Never pass `--reset`** (`npm run seed:neon -- --reset`) — it truncates all tables and destroys the evolved seed data. That path is gated by `ALLOW_DESTRUCTIVE_DB=1` and `assertSafeDatabaseUrl`.
+- Seeding: `npm run seed:neon` (requires `DATABASE_URL` in `.env.local`).
 - `DATABASE_URL` points at the Neon branch; it is a secret (server-only, never `NEXT_PUBLIC_`).
 
 > The `archive/convex/` directory is a legacy/parallel layer that the app does **not** call. Do not
@@ -132,6 +132,77 @@ operational memory.
 
 ⚠️ The vault is also maintained on the `valgate-dev` branch. Before editing it here, check whether
 that copy has moved ahead, or the two will diverge.
+
+## Sibling repos and remotes
+
+Valgate is split across separate repositories — not a monorepo.
+
+| Repo | Role |
+|---|---|
+| `valgate-webapp-nextjs` (this repo) | Next.js product and `/api/v1` backend. Owns the API contract. |
+| `valgate-ios` | Native SwiftUI client. Talks **only** to `/api/v1`. Never Server Actions or MCP. |
+| `valgate-designs` | Design source, not application code. |
+
+**Remotes:** `origin` = GitHub (source of truth for open PRs and CI). `cursor` = Origin inbound mirror (`https://origin.cursor.com/l0vu3000/valgate-webapp-nextjs.git`). Push with `git push origin …`. Do not migrate open GitHub PRs onto Origin.
+
+API shape changes land in this repo first; iOS `docs/API-CONTRACT.md` only mirrors them.
+
+## Commands
+
+Node **20** (matches CI). Package manager: **npm** + `package-lock.json`.
+
+Verified on a clean `origin/main` checkout (same gates as the CI `web` job):
+
+```bash
+npm ci
+npm run typecheck    # tsc --noEmit
+npm run lint         # eslint app lib components (not repo-wide)
+npm test             # Vitest unit tests, no database
+```
+
+**Omitted** — need secrets or services this environment does not have:
+
+| Command | Why omitted |
+|---|---|
+| `npm run build` | Needs `DATABASE_URL`, `NEXT_PUBLIC_MAPBOX_TOKEN`, Clerk keys, etc. |
+| `npm run test:db` | Needs `DATABASE_URL` / Postgres |
+| `npm run test:e2e`, `npx playwright test` | Needs Clerk test users (TM1-62), Mapbox token, migrate + seed |
+| `npm run test:preview` | Needs preview auth/storage state |
+| `npm run db:migrate`, `db:ping`, `seed:neon` | Need `DATABASE_URL` in `.env.local` |
+| `npm run db:check` | Failed here: drizzle snapshot parent collision (not an env issue) |
+
+No format script exists. Do not invent one.
+
+## Directory map
+
+| Path | Role |
+|---|---|
+| `app/` | Next.js App Router: routes, Server Actions, `app/api` (including `/api/v1`) |
+| `components/` | Shared UI |
+| `lib/` | Services, Drizzle client/schema, auth, API helpers |
+| `drizzle/` | Hand-authored SQL migrations (do not generate casually) |
+| `middleware.ts` | Clerk matcher |
+| `e2e/` | Playwright specs |
+| `test/`, `tests/` | Vitest suites |
+| `scripts/` | Seed, backfill, schema assert |
+| `mcp-server/` | MCP server wrapping the same services |
+| `public/` | Static assets |
+| `styles/`, `tokens.json` | Design tokens / CSS |
+| `docs/` | Human docs |
+| `vault/` | Obsidian knowledge base (also on `valgate-dev` — check before editing) |
+| `.github/workflows/` | CI (`ci.yml`, visual recap) |
+
+## Out of scope (agents skip)
+
+- `node_modules/`, `.next/`, `out/`, `coverage/`, `.vercel/`
+- `playwright-report/`, `test-results/`, `preview-artifacts/`, `playwright/.clerk/`
+- `graphify-out/` (gitignored local graph)
+- `package-lock.json` (install only; no manual edits)
+- `next-env.d.ts`, `*.tsbuildinfo`
+- `.env*` except `.env.example`
+- `conductor-logs/` (session logs, not product code)
+- `.hermes/`, `.planning/`, `.claude/`, `openspec/` (tooling dumps)
+- iOS AppCore / Xcode jobs in `ci.yml` — no `ios/` tree in this repo
 
 ## Conductor sessions
 

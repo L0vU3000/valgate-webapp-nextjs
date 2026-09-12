@@ -67,7 +67,9 @@ next-env.d.ts
 .opencode/
 .claude/skills/
 .codex/
-.cursor/
+.cursor/*
+!.cursor/rules/
+!.cursor/rules/**
 .kiro/
 skills/
 skills-lock.json

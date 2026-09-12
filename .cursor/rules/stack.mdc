@@ -1,0 +1,17 @@
+---
+description: Stack — Neon/Drizzle/Clerk/Next 15, not Convex
+alwaysApply: true
+---
+
+# Stack
+
+Canonical stack details live in `AGENTS.md`. Short reminders:
+
+- **Next.js 15**, React 19, TypeScript, Tailwind, shadcn/ui
+- **Auth:** Clerk (`middleware.ts` matcher)
+- **Database:** Neon Postgres + **Drizzle ORM** — not Convex
+- **Validation:** Zod; forms: React Hook Form + Zod
+- **Env:** `@t3-oss/env-nextjs` — never prefix secrets with `NEXT_PUBLIC_`
+
+`archive/convex/` is legacy. Do not add new backend code there or follow Convex patterns.
+Use `lib/services/*` (Drizzle) called from Server Actions.
