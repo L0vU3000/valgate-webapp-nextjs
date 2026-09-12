@@ -92,7 +92,7 @@ This project uses **Neon (serverless Postgres)** with **Drizzle ORM** as its bac
 - Schema lives in `lib/db/schema/*`; the DB client is `lib/db/client.ts`.
 - Data access goes through `lib/services/*` (one module per entity), called from Server Actions in `app/**/*.actions.ts`. Never query the DB directly from a component or route handler.
 - Migrations: `npm run db:generate` (create) → `npm run db:migrate` (apply). Check connection with `npm run db:ping`.
-- Seeding: `npm run seed:neon`. **Never run `seed:reset`** — it destroys the evolved seed data.
+- Seeding: `npm run seed:neon`. **Never pass `--reset`** (`npm run seed:neon -- --reset`) — it truncates all tables and destroys the evolved seed data. That path is gated by `ALLOW_DESTRUCTIVE_DB=1` and `assertSafeDatabaseUrl`.
 - `DATABASE_URL` points at the Neon branch; it is a secret (server-only, never `NEXT_PUBLIC_`).
 
 > The `archive/convex/` directory is a legacy/parallel layer that the app does **not** call. Do not
