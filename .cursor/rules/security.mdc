@@ -1,0 +1,16 @@
+---
+description: Security rules — secrets, Zod, authz, error messages
+alwaysApply: true
+---
+
+# Security
+
+Full rules in `AGENTS.md` → Security Rules. Non-negotiables:
+
+- Never prefix secrets with `NEXT_PUBLIC_` — they inline into the browser bundle.
+- Validate every input with **Zod** before touching the DB.
+- **Authenticate AND authorize** on every mutation (IDOR checks).
+- Never return `err.message` to the client — log internally, return generic strings.
+- Never pass secrets as props to Client Components.
+- Never send full DB objects as props — `select` only what the UI renders.
+- `DATABASE_URL` and API keys are server-only.
