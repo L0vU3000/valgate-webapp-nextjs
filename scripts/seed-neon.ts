@@ -12,6 +12,11 @@ import type { ZodTypeAny } from "zod";
 import { assertSafeDatabaseUrl } from "@/lib/db/assert-safe-database-url";
 import { convertRowToDb } from "@/lib/db/column-classifier";
 import { db } from "@/lib/db/client";
+import {
+  rememberMaxSuffix,
+  nextCounterValue,
+  assertIdCountersAheadOfSuffixes,
+} from "@/lib/db/id-counters-guard";
 import * as s from "@/lib/db/schema";
 
 import { PropertySchema } from "@/lib/data/types/property";
@@ -138,11 +143,126 @@ function orderBySelfFk(rows: Record<string, unknown>[], fk: string): Record<stri
   return out;
 }
 
-function bumpCounter(counters: Map<string, number>, id: string) {
-  const m = /^(.*)-(\d+)$/.exec(id);
-  if (!m) return;
-  const prefix = m[1]!;
-  counters.set(prefix, Math.max(counters.get(prefix) ?? 0, Number(m[2])));
+/**
+ * Tables whose `id` column holds PREFIX-NNNN values that nextId() must not reuse.
+ *
+ * id_counters itself has no such id. activities uses UUIDs, so it is left out
+ * of ALL_TABLES already. Extra PLAN / access / draft tables are included even
+ * when they are not truncated, because a load-only seed leaves those rows in
+ * place and their suffixes still have to raise the counter.
+ */
+function tablesToScanForPrefixedIds(): PgTable[] {
+  const extraTables: PgTable[] = [
+    s.clients,
+    s.accessRequests,
+    s.changeRequests,
+    s.clientHandoffs,
+    s.propertyDrafts,
+    s.propertyDraftFiles,
+  ];
+  const seen = new Set<string>();
+  const out: PgTable[] = [];
+
+  for (const table of [...ALL_TABLES, ...PLAN.map((e) => e.table), ...extraTables]) {
+    if (table === s.idCounters) {
+      continue;
+    }
+    const name = getTableName(table);
+    if (seen.has(name)) {
+      continue;
+    }
+    seen.add(name);
+    out.push(table);
+  }
+
+  return out;
+}
+
+/**
+ * Read every id from a table and fold its PREFIX-NNNN suffix into `counters`.
+ *
+ * Throws with the table name if the query fails, so a missing table cannot
+ * silently skip the drift guard.
+ */
+async function rememberSuffixesFromTable(
+  counters: Map<string, number>,
+  table: PgTable,
+): Promise<void> {
+  const tableName = getTableName(table);
+  try {
+    const result = await db.execute<{ id: string }>(
+      sql.raw(`SELECT id FROM "${tableName}"`),
+    );
+    const rows = result.rows;
+    if (!rows) {
+      throw new Error("query returned no row set");
+    }
+    for (const row of rows) {
+      if (typeof row.id === "string") {
+        rememberMaxSuffix(counters, row.id);
+      }
+    }
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    throw new Error(
+      `id_counters guard: could not read ids from "${tableName}": ${detail}`,
+    );
+  }
+}
+
+/**
+ * Write id_counters so each prefix's `next` is at least the value we computed.
+ *
+ * greatest() raises a stale counter (the old onConflictDoNothing bug) without
+ * ever lowering a live counter the app has already pushed past.
+ */
+async function upsertIdCounters(
+  counterRows: { collection: string; next: number }[],
+): Promise<void> {
+  if (counterRows.length === 0) {
+    throw new Error(
+      "id_counters guard: no counter rows to write — seed produced an empty prefix map",
+    );
+  }
+
+  try {
+    await db
+      .insert(s.idCounters)
+      .values(counterRows)
+      .onConflictDoUpdate({
+        target: s.idCounters.collection,
+        set: { next: sql`greatest(${s.idCounters.next}, excluded.next)` },
+      });
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    throw new Error(`id_counters guard: upsert failed: ${detail}`);
+  }
+}
+
+/**
+ * Read the counters we just wrote and fail if any `next` would collide with an
+ * id already in the database (TM1-74).
+ */
+async function assertStoredCountersAreAhead(
+  maxByPrefix: Map<string, number>,
+): Promise<void> {
+  let rows: { collection: string; next: number }[];
+  try {
+    const result = await db.execute<{ collection: string; next: number }>(
+      sql`SELECT collection, next FROM id_counters`,
+    );
+    rows = result.rows ?? [];
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    throw new Error(`id_counters guard: could not read id_counters: ${detail}`);
+  }
+
+  const stored = new Map<string, number>();
+  for (const row of rows) {
+    stored.set(row.collection, Number(row.next));
+  }
+
+  assertIdCountersAheadOfSuffixes(maxByPrefix, stored);
 }
 
 async function reset() {
@@ -208,7 +328,7 @@ async function main() {
       return row;
     });
     if (e.selfFk) rows = orderBySelfFk(rows, e.selfFk as string);
-    rows.forEach((r) => bumpCounter(counters, r.id as string));
+    rows.forEach((r) => rememberMaxSuffix(counters, r.id as string));
 
     await db.transaction(async (tx) => {
       if (rows.length) await tx.insert(e.table).values(rows).onConflictDoNothing();
@@ -250,9 +370,23 @@ async function main() {
   }
   if (stamped > 0) console.log(`properties: stamped client_id on ${stamped} pre-existing row(s)`);
 
-  // id_counters: next = max seen suffix + 1 (so nextId never collides with seeded ids)
-  const counterRows = [...counters].map(([collection, max]) => ({ collection, next: max + 1 }));
-  await db.insert(s.idCounters).values(counterRows).onConflictDoNothing();
+  // Fold in ids already in the database. A load-only re-seed leaves extra rows
+  // (and older fixture ids) in place; those suffixes must raise the counters too.
+  // onConflictDoNothing used to freeze counters at an older fixture set's maxima
+  // (PROP.next=13 against 25 rows) — nextId() then returned an existing id.
+  for (const table of tablesToScanForPrefixedIds()) {
+    await rememberSuffixesFromTable(counters, table);
+  }
+
+  // id_counters: next = max seen suffix + 1 (so nextId never collides with seeded ids).
+  // greatest() raises a stale counter without ever lowering one the live app has
+  // already pushed past. The assertion after the write fails the seed if drift remains.
+  const counterRows = [...counters].map(([collection, max]) => ({
+    collection,
+    next: nextCounterValue(max),
+  }));
+  await upsertIdCounters(counterRows);
+  await assertStoredCountersAreAhead(counters);
 
   console.table(report);
   console.log(`id_counters: ${counterRows.length} prefixes seeded`);
