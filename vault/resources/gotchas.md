@@ -26,6 +26,17 @@ line is a mistake someone already made so you don't have to.
   with a `when` larger than the next one makes drizzle **silently skip** the
   later one. A "Failed query / missing column" is then a *real* skipped
   migration, not a transient error. Verify live schema via the Neon MCP.
+- **`nextId()` serializes creates globally per entity type.**
+  `lib/services/_mapping.ts` `nextId()` runs
+  `INSERT … ON CONFLICT DO UPDATE … RETURNING` against a **single**
+  `id_counters` row keyed by collection (`PROP`, `TEN`, …). Every property
+  create across **all orgs** takes a row lock on the same `PROP` row, held
+  until that statement's transaction commits. The lock lasts a few ms, so
+  the ceiling is hundreds of creates/sec — far above 500 DAU. Not urgent;
+  filed so it is a known ceiling rather than a surprise. `activities`
+  already bypasses this with UUIDs (`lib/db/schema/activities.ts`); main
+  entity tables still go through `nextId`. **If it ever binds:** per-org
+  counter rows, or UUIDs for high-volume entities.
 
 ## Deploys
 - **Deploys do NOT auto-run `db:migrate`.** Prod can fall a migration behind →
