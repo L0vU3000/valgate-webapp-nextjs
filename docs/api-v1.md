@@ -1,8 +1,9 @@
 # HTTP API v1
 
-> **Not deployed.** This surface exists in the codebase but is not exposed/announced in
-> production yet. Treat everything below as the contract it will have when it ships, not a
-> live integration point.
+> **Deployed.** The `/api/v1/*` surface is live in production at `https://www.valgate.co`
+> (verified 2026-09-13: `/me`, `/properties`, `/properties/{id}`, and docs GET answer the v1
+> envelope). The v1 write surface (property create/update/delete) is also merged onto `main`
+> and part of the production build. Treat everything below as the live integration contract.
 
 Read-only, additive HTTP surface alongside the existing MCP server (`/mcp`). It reuses the
 same identity/org resolution as MCP (`ctxFromMcpAuth`) rather than duplicating auth logic.
