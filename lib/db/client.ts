@@ -15,11 +15,18 @@ neonConfig.webSocketConstructor = ws; // REQUIRED in Node (no native WebSocket)
 // the driver at a local WebSocket→TCP proxy (neondatabase/wsproxy) that forwards
 // the raw Postgres protocol to the local database.
 //
-// This block is fully OPT-IN. When NEON_LOCAL_PROXY_HOST is unset — production,
-// preview, and any normal run against a real Neon DATABASE_URL — none of this
+// This block is fully OPT-IN and doubly guarded. It runs only when BOTH:
+//   1. NEON_LOCAL_PROXY_HOST is set, and
+//   2. DATABASE_URL actually points at a local Postgres (localhost / 127.0.0.1).
+// So even if the proxy variable is left set by mistake, a real hosted Neon
+// DATABASE_URL is never accidentally routed through the local proxy. In
+// production and preview (where NEON_LOCAL_PROXY_HOST is unset) none of this
 // executes and the driver behaves exactly as before.
 const localProxyHost = process.env.NEON_LOCAL_PROXY_HOST;
-if (localProxyHost) {
+const databaseUrl = process.env.DATABASE_URL ?? "";
+const databaseIsLocal =
+  databaseUrl.includes("@localhost") || databaseUrl.includes("@127.0.0.1");
+if (localProxyHost && databaseIsLocal) {
   // Route every connection through the local proxy, telling it (via the
   // ?address query string) which Postgres host:port to forward to. The host and
   // port come from DATABASE_URL.
