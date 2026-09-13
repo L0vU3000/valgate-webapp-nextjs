@@ -1,7 +1,8 @@
 import "server-only"; // C1
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, gt, or } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { documents } from "@/lib/db/schema";
+import { encodeCursor, decodeCursor } from "@/lib/pagination/cursor";
 import { DocumentSchema, type Document } from "@/lib/data/types/document";
 import type { NewDocument, DocumentPatch } from "@/lib/data/types/document";
 import { toDomain, type Ctx } from "@/lib/services/_mapping";
@@ -19,6 +20,71 @@ export async function listDocuments(ctx: Ctx, propertyId?: string): Promise<Docu
     .orderBy(asc(documents.uploadedAt), asc(documents.id))
     .limit(500)
   return rows.map(rowToDocument);
+}
+
+// Cursor shape for listDocumentsPage — the same (uploadedAt, id) tuple listDocuments already
+// orders by, so pagination is a straight "give me rows after this tuple" query (never fetch-then-
+// slice). id is a tie-breaker for same-millisecond uploadedAt collisions.
+type DocumentPageCursor = { uploadedAt: number; id: string };
+const DOCUMENT_CURSOR_KEYS: (keyof DocumentPageCursor)[] = ["uploadedAt", "id"];
+
+export type DocumentPage = { items: Document[]; nextCursor: string | null };
+
+// HTTP API v1's paginated list (GET /api/v1/properties/{id}/documents). Keeps listDocuments's
+// 500-row cap untouched for existing callers; this is the real, opaque-cursor, org-scoped
+// alternative for a caller that needs to walk one property's documents page by page.
+export async function listDocumentsPage(
+  ctx: Ctx,
+  propertyId: string,
+  opts: { limit: number; cursor?: string | null },
+): Promise<DocumentPage> {
+  const { limit, cursor } = opts;
+  const conditions = [
+    eq(documents.orgId, ctx.orgId), // C3
+    eq(documents.propertyId, propertyId),
+  ];
+
+  if (cursor) {
+    const decoded = decodeCursor<DocumentPageCursor>(cursor, DOCUMENT_CURSOR_KEYS);
+    // decodeCursor only proves the two keys are present; a tampered/foreign cursor can still
+    // carry the wrong runtime types (or a JSON number that overflowed to Infinity/-Infinity on
+    // parse). Validate exactly before it ever reaches a query: uploadedAt must be a finite
+    // nonnegative number, id a nonempty string. No DB round-trip happens for a rejected cursor.
+    if (
+      !decoded ||
+      typeof decoded.uploadedAt !== "number" ||
+      !Number.isFinite(decoded.uploadedAt) ||
+      decoded.uploadedAt < 0 ||
+      typeof decoded.id !== "string" ||
+      decoded.id.length === 0
+    ) {
+      throw new Error("invalid_cursor");
+    }
+    const afterUploadedAt = new Date(decoded.uploadedAt);
+    conditions.push(
+      or(
+        gt(documents.uploadedAt, afterUploadedAt),
+        and(eq(documents.uploadedAt, afterUploadedAt), gt(documents.id, decoded.id)),
+      )!,
+    );
+  }
+
+  // Fetch one extra row past `limit` so "is there a next page" never needs a second
+  // round-trip (and never fetch-then-slice: only limit+1 rows ever leave the DB).
+  const rows = await db.select().from(documents)
+    .where(and(...conditions))
+    .orderBy(asc(documents.uploadedAt), asc(documents.id))
+    .limit(limit + 1);
+
+  const hasMore = rows.length > limit;
+  const items = (hasMore ? rows.slice(0, limit) : rows).map(rowToDocument);
+
+  const last = items[items.length - 1];
+  const nextCursor = hasMore && last
+    ? encodeCursor<DocumentPageCursor>({ uploadedAt: last.uploadedAt, id: last.id })
+    : null;
+
+  return { items, nextCursor };
 }
 
 export async function getDocument(ctx: Ctx, id: string): Promise<Document | null> {

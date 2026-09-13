@@ -24,6 +24,7 @@ describe("isApiV1Route", () => {
     expect(isApiV1Route(requestFor("/api/v1/me"))).toBe(true);
     expect(isApiV1Route(requestFor("/api/v1/properties"))).toBe(true);
     expect(isApiV1Route(requestFor("/api/v1/properties/123"))).toBe(true);
+    expect(isApiV1Route(requestFor("/api/v1/properties/PROP-0001/documents"))).toBe(true);
   });
 
   it("does not match non-v1 API routes or MCP routes", () => {
