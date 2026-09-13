@@ -12,6 +12,7 @@ import { clerkClient } from "@clerk/nextjs/server";
 import { db } from "@/lib/db/client";
 import { organizationMemberships, organizations, users } from "@/lib/db/schema";
 import { upsertOrg, upsertUser, upsertMembership } from "@/lib/services/identity-sync";
+import { isManagerFromAccountType } from "@/lib/auth/account-type";
 import type { Ctx } from "@/lib/services/_mapping";
 
 // Role seniority, most senior first. Used to pick a deterministic "primary" org for a multi-org
@@ -63,7 +64,7 @@ async function provisionMcpUser(clerkUserId: string): Promise<{ id: string }> {
     primaryEmail: clerkUser.emailAddresses[0]?.emailAddress ?? `${clerkUserId}@pending.clerk`,
     displayName: [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") || null,
     avatarUrl: clerkUser.imageUrl ?? null,
-    isManager: clerkUser.unsafeMetadata?.accountType === "manager",
+    isManager: isManagerFromAccountType(clerkUser.unsafeMetadata?.accountType),
   });
 
   const { data: memberships } = await client.users.getOrganizationMembershipList({

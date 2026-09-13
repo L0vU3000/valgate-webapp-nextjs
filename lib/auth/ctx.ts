@@ -7,6 +7,7 @@ import { db } from "@/lib/db/client";
 import { users, organizations } from "@/lib/db/schema";
 import { env } from "@/lib/env";
 import { upsertOrg, upsertUser, upsertMembership, ourOrgId, ourUserId, normaliseRole } from "@/lib/services/identity-sync";
+import { isManagerFromAccountType } from "@/lib/auth/account-type";
 import type { Ctx } from "@/lib/services/_mapping";
 
 
@@ -43,8 +44,9 @@ async function resolveCtx(): Promise<Ctx> {
       primaryEmail: clerkUser?.emailAddresses[0]?.emailAddress ?? `${userId}@pending.clerk`,
       displayName: [clerkUser?.firstName, clerkUser?.lastName].filter(Boolean).join(" ") || null,
       avatarUrl: clerkUser?.imageUrl ?? null,
-      // Read the accountType set at sign-up; if absent, default is owner (false).
-      isManager: clerkUser?.unsafeMetadata?.accountType === "manager",
+      // Read the accountType set at sign-up through the Zod enum. Missing or
+      // unknown values parse as owner (isManager false), never as manager.
+      isManager: isManagerFromAccountType(clerkUser?.unsafeMetadata?.accountType),
     });
     // ponytail: org name = Clerk id as placeholder; webhook fills in real name/slug
     await upsertOrg({ id: orgId, name: orgId, slug: null });

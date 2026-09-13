@@ -115,4 +115,48 @@ describe("ctxFromMcpAuth — provisionIfMissing", () => {
     expect(getUserMock).not.toHaveBeenCalled();
     expect(upsertUserMock).not.toHaveBeenCalled();
   });
+
+  it("JIT provision sets isManager when Clerk accountType is the manager enum value", async () => {
+    selectQueue.push([]); // initial users lookup -> not found
+    getUserMock.mockResolvedValue({
+      emailAddresses: [{ emailAddress: "mgr@example.com" }],
+      firstName: "Mgr",
+      lastName: "User",
+      imageUrl: null,
+      unsafeMetadata: { accountType: "manager" },
+    });
+    getOrgMembershipListMock.mockResolvedValue({
+      data: [{ organization: { id: "ORG-0001", name: "Acme", slug: "acme" }, role: "org:member" }],
+    });
+    selectQueue.push([{ id: "USR-0001" }]);
+    selectQueue.push([{ orgId: "ORG-0001", role: "member" }]);
+
+    await ctxFromMcpAuth(CLERK_USER_ID);
+
+    expect(upsertUserMock).toHaveBeenCalledWith(
+      expect.objectContaining({ isManager: true }),
+    );
+  });
+
+  it("JIT provision does not set isManager for an unknown accountType string", async () => {
+    selectQueue.push([]);
+    getUserMock.mockResolvedValue({
+      emailAddresses: [{ emailAddress: "bad@example.com" }],
+      firstName: "Bad",
+      lastName: "Meta",
+      imageUrl: null,
+      unsafeMetadata: { accountType: "admin" },
+    });
+    getOrgMembershipListMock.mockResolvedValue({
+      data: [{ organization: { id: "ORG-0001", name: "Acme", slug: "acme" }, role: "org:member" }],
+    });
+    selectQueue.push([{ id: "USR-0001" }]);
+    selectQueue.push([{ orgId: "ORG-0001", role: "member" }]);
+
+    await ctxFromMcpAuth(CLERK_USER_ID);
+
+    expect(upsertUserMock).toHaveBeenCalledWith(
+      expect.objectContaining({ isManager: false }),
+    );
+  });
 });
