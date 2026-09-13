@@ -7,18 +7,21 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // stable { error: { code, message } } shape and never leaks a caught error's message.
 // ---------------------------------------------------------------------------
 
-const { authMock, ctxFromMcpAuthMock, allowedMock, loggerMock } = vi.hoisted(() => ({
-  authMock: vi.fn(),
-  ctxFromMcpAuthMock: vi.fn(),
-  allowedMock: vi.fn(),
-  loggerMock: {
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    debug: vi.fn(),
-    child: vi.fn().mockReturnThis(),
-  },
-}));
+const { authMock, ctxFromMcpAuthMock, allowedMock, loggerMock, apiReadLimiter, apiWriteLimiter } =
+  vi.hoisted(() => ({
+    authMock: vi.fn(),
+    ctxFromMcpAuthMock: vi.fn(),
+    allowedMock: vi.fn(),
+    loggerMock: {
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
+      child: vi.fn().mockReturnThis(),
+    },
+    apiReadLimiter: { limit: vi.fn() },
+    apiWriteLimiter: { limit: vi.fn() },
+  }));
 
 vi.mock("@clerk/nextjs/server", () => ({
   auth: authMock,
@@ -29,7 +32,8 @@ vi.mock("@/mcp-server/ctxFor", () => ({
 }));
 
 vi.mock("@/lib/ratelimit", () => ({
-  apiReadLimiter: { limit: vi.fn() },
+  apiReadLimiter,
+  apiWriteLimiter,
   allowed: allowedMock,
 }));
 
@@ -98,8 +102,22 @@ describe("resolveApiV1Ctx", () => {
     expect(result.response.status).toBe(429);
     const body = await result.response.json();
     expect(body).toEqual({ error: { code: "rate_limited", message: expect.any(String) } });
-    // Keyed on the resolved internal userId, not the raw Clerk id.
-    expect(allowedMock).toHaveBeenCalledWith(expect.anything(), CTX.userId);
+    // Keyed on the resolved internal userId, not the raw Clerk id. Default kind is read.
+    expect(allowedMock).toHaveBeenCalledWith(apiReadLimiter, CTX.userId);
+  });
+
+  it("uses the tighter write limiter when kind is write", async () => {
+    authMock.mockResolvedValue({ userId: CLERK_USER_ID });
+    ctxFromMcpAuthMock.mockResolvedValue(CTX);
+    allowedMock.mockResolvedValue(false);
+
+    const result = await resolveApiV1Ctx("write");
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected failure");
+    expect(result.response.status).toBe(429);
+    expect(allowedMock).toHaveBeenCalledWith(apiWriteLimiter, CTX.userId);
+    expect(allowedMock).not.toHaveBeenCalledWith(apiReadLimiter, CTX.userId);
   });
 
   it("resolves ok:true with the Ctx when auth, org resolution, and rate limit all succeed", async () => {
@@ -110,7 +128,18 @@ describe("resolveApiV1Ctx", () => {
     const result = await resolveApiV1Ctx();
 
     expect(result).toEqual({ ok: true, ctx: CTX });
-    // provisionIfMissing:false -> this read-only surface must never JIT-provision a user.
+    // provisionIfMissing:false -> this surface must never JIT-provision a user, including writes.
+    expect(ctxFromMcpAuthMock).toHaveBeenCalledWith(CLERK_USER_ID, { provisionIfMissing: false });
+  });
+
+  it("still refuses to auto-create a user when resolving a write ctx", async () => {
+    authMock.mockResolvedValue({ userId: CLERK_USER_ID });
+    ctxFromMcpAuthMock.mockResolvedValue(CTX);
+    allowedMock.mockResolvedValue(true);
+
+    const result = await resolveApiV1Ctx("write");
+
+    expect(result).toEqual({ ok: true, ctx: CTX });
     expect(ctxFromMcpAuthMock).toHaveBeenCalledWith(CLERK_USER_ID, { provisionIfMissing: false });
   });
 });

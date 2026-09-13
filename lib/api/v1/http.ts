@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 export type ApiErrorCode =
   | "unauthorized"
   | "invalid_request"
+  | "forbidden"
   | "not_found"
   | "rate_limited"
   | "internal_error";
