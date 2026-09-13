@@ -61,6 +61,34 @@ async function resolveCtx(): Promise<Ctx> {
 // Memoized per server request: Clerk auth() + identity-sync DB checks run once per request instead of 3+; each new request gets a fresh memo (no cross-user leak).
 export const requireCtx = cache(resolveCtx);
 
+/**
+ * True when requireCtx failed because there is no signed-in user (or no active org).
+ *
+ * JSON route handlers use this to return 401 instead of letting the thrown
+ * "unauthenticated" error become a framework 500. Other errors (for example
+ * DEMO_MODE refused in production) must NOT match, so they still fail closed.
+ */
+export function isUnauthenticatedError(err: unknown): boolean {
+  return err instanceof Error && err.message === "unauthenticated";
+}
+
+/**
+ * Session-cookie auth for JSON route handlers.
+ *
+ * Server Actions can let requireCtx() throw. Route handlers must answer with
+ * JSON, so this wrapper catches the unauthenticated case and returns `{ ok: false }`
+ * for the handler to turn into a 401. Any other error is rethrown.
+ */
+export async function resolveRouteCtx(): Promise<{ ok: true; ctx: Ctx } | { ok: false }> {
+  try {
+    const ctx = await requireCtx();
+    return { ok: true, ctx };
+  } catch (err) {
+    if (isUnauthenticatedError(err)) return { ok: false };
+    throw err;
+  }
+}
+
 // Edge-level role gate (guide §5). Distinct from _crud's service-level requireMember.
 const RANK = { viewer: 0, member: 1, admin: 2, owner: 3 } as const;
 export function requireRole(ctx: Ctx, min: keyof typeof RANK): void {

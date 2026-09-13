@@ -64,6 +64,12 @@ const isPublicRoute = createRouteMatcher([
   "/oauth-consent(.*)",
   "/contact(.*)",
   "/api/webhooks/clerk(.*)",
+  // Resend bounce webhooks are Svix-signed, not Clerk-sessioned. auth.protect() would rewrite
+  // Resend's POST to an HTML login/404 before the handler could verify the signature.
+  "/api/webhooks/resend(.*)",
+  // Vercel Cron sends `Authorization: Bearer ${CRON_SECRET}`, not a Clerk cookie. The handler
+  // fail-closes on a missing/wrong secret; auth.protect() would block the job before that check.
+  "/api/cron/cleanup-drafts(.*)",
   // MCP server: authenticates callers itself via Clerk OAuth bearer tokens (withMcpAuth), NOT the
   // session cookie auth.protect() checks. It must bypass the session gate, plus its public OAuth
   // discovery metadata under /.well-known.
