@@ -184,15 +184,17 @@ all four sibling repos into one workspace under `/agent/repos/`: `valgate-webapp
   `valgate-knowledge` instead picks up that repo's committed `.cursor/environment.json`
   (Cursor resolves environments first-match-wins), which yields a single-repo agent, not the
   4-repo coordinator.
-- **Self-contained, secret-free local stack.** The environment stands up a local PostgreSQL 16
-  plus a local Neon WebSocket proxy so the Neon serverless driver reaches local Postgres:
+- **Self-contained, secret-free local stack.** The environment stands up a local PostgreSQL 16.
+  The app connects to it directly over TCP via the node-postgres (`pg`) driver that
+  `lib/db/client.ts` selects whenever `DATABASE_URL` is a localhost URL (Neon serverless is used
+  for hosted URLs) — no WebSocket proxy is involved.
   - install: `bash /agent/repos/valgate-webapp-nextjs/scripts/cloud-agent-install.sh`
-    (installs Postgres, builds the proxy, `npm ci`, `npm run db:migrate`, `npm run seed:neon`)
+    (installs Postgres, `npm ci`, `npm run db:migrate`, `npm run seed:neon`)
   - start: `bash /agent/repos/valgate-webapp-nextjs/scripts/cloud-agent-start.sh` then
     `cd /agent/repos/valgate-webapp-nextjs && npm run dev:e2e` (DEMO-mode dev server on port 3001)
   - No secrets are required. `NEXT_PUBLIC_MAPBOX_TOKEN` (live map tiles) and a real
-    `DATABASE_URL` (hosted Neon) are optional; when a real `DATABASE_URL` is used, leave
-    `NEON_LOCAL_PROXY_HOST` unset (the local-proxy path in `lib/db/client.ts` is inert then).
+    `DATABASE_URL` (hosted Neon) are optional; a hosted `DATABASE_URL` automatically uses the
+    Neon serverless driver instead of the local `pg` path.
 - **`valgate-ios` is Mac/Xcode-only** — readable/editable in the Linux VM, but not buildable or
   testable there.
 - **`valgate-designs` is design source only** — no build step.
