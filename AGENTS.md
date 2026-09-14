@@ -173,6 +173,35 @@ npm test             # Vitest unit tests, no database
 
 No format script exists. Do not invent one.
 
+## Cursor Cloud specific instructions
+
+Valgate runs as a single multi-repo Cloud Agent environment named **Valgate 4r** that clones
+all four sibling repos into one workspace under `/agent/repos/`: `valgate-webapp-nextjs`,
+`valgate-ios`, `valgate-knowledge`, `valgate-designs`.
+
+- **Launch the coordinator from `valgate-webapp-nextjs`.** It has no committed
+  `.cursor/environment.json`, so the saved Valgate 4r environment applies. Launching from
+  `valgate-knowledge` instead picks up that repo's committed `.cursor/environment.json`
+  (Cursor resolves environments first-match-wins), which yields a single-repo agent, not the
+  4-repo coordinator.
+- **Self-contained, secret-free local stack.** The environment stands up a local PostgreSQL 16.
+  The app connects to it directly over TCP via the node-postgres (`pg`) driver that
+  `lib/db/client.ts` selects whenever `DATABASE_URL` is a localhost URL (Neon serverless is used
+  for hosted URLs) — no WebSocket proxy is involved.
+  - install: `bash /agent/repos/valgate-webapp-nextjs/scripts/cloud-agent-install.sh`
+    (installs Postgres, `npm ci`, `npm run db:migrate`, `npm run seed:neon`)
+  - start: `bash /agent/repos/valgate-webapp-nextjs/scripts/cloud-agent-start.sh` then
+    `cd /agent/repos/valgate-webapp-nextjs && npm run dev:e2e` (DEMO-mode dev server on port 3001)
+  - No secrets are required. `NEXT_PUBLIC_MAPBOX_TOKEN` (live map tiles) and a real
+    `DATABASE_URL` (hosted Neon) are optional; a hosted `DATABASE_URL` automatically uses the
+    Neon serverless driver instead of the local `pg` path.
+- **`valgate-ios` is Mac/Xcode-only** — readable/editable in the Linux VM, but not buildable or
+  testable there.
+- **`valgate-designs` is design source only** — no build step.
+- **`valgate-knowledge` is reference/design docs.** Its only runtime dependency is `Pillow`
+  (one image-render script) and it is intentionally NOT installed by the coordinator; run that
+  work in the knowledge repo directly if needed.
+
 ## Directory map
 
 | Path | Role |
