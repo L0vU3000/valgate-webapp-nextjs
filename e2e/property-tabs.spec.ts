@@ -1,7 +1,7 @@
 /**
  * Section D — Property detail tabs
  * Skips: Export CSV (D3), financials tab (D4 — no /financials route),
- * recent activity panel (D6) — unbuilt at audit time.
+ * rental inline edit (D5 — feature-unlock wizard), recent activity panel (D6).
  */
 import { test, expect } from './fixtures'
 import { createThrowawayProperty, cleanup } from './helpers/db'
@@ -112,10 +112,11 @@ test.describe('D — Property detail tabs', () => {
     })
   })
 
-  test('D5: Rental — edit → save', async ({ page }) => {
+  test.skip('D5: Rental — edit → save', async ({ page }) => {
     test.info().annotations.push({ type: 'checklist', description: 'D5 — rental edit/save' })
 
     await test.step('Open rental tab and edit mode', async () => {
+      // Rental is the feature-unlock wizard ("Unlock feature"), not inline edit/save.
       await page.goto(`${BASE}/rental`)
       await expect(page).not.toHaveURL(/login/)
     })

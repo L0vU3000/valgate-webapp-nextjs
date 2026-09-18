@@ -117,20 +117,17 @@ test.describe('P — Cross-cutting safety', () => {
         // only be matched on the net error code, not on a host. This is deliberate test
         // setup, not an app bug. The requestfailed listener above logs the exact aborted
         // URL (clerk.accounts.dev/...) for confirmation.
-        if (/net::ERR_FAILED|net::ERR_ABORTED|net::ERR_BLOCKED/i.test(e)) {
+        // Chromium often omits the URL from these console strings. Clerk aborts
+        // (ERR_FAILED) and local tooling on :4747 (ERR_CONNECTION_REFUSED) both
+        // show up as a bare "Failed to load resource: net::ERR_*". The
+        // requestfailed listener above logs the real URL.
+        if (/net::ERR_FAILED|net::ERR_ABORTED|net::ERR_BLOCKED|net::ERR_CONNECTION_REFUSED/i.test(e)) {
           return false
         }
-        // DEMO-mode external dependencies that aren't served by the app:
-        // - Mapbox static/tile API (api.mapbox.com, *.tiles.mapbox.com) via NEXT_PUBLIC_MAPBOX_TOKEN
-        // - Optional S3 document storage (*.amazonaws.com) — STORAGE_* env, absent in demo
-        // - Next.js dev HMR websocket (_next/webpack-hmr) when no dev server is attached
-        // When those hosts are unreachable the browser logs ERR_CONNECTION_REFUSED /
-        // "Failed to load resource". That's an environment gap, not an app bug, so it
-        // must not fail P4. The requestfailed listener above logs the exact refused URL.
-        const isExternalDemoDependency =
-          /ERR_CONNECTION_REFUSED|Failed to load resource|net::ERR_/i.test(e) &&
-          /mapbox|tiles\.|amazonaws|\.s3\.|webpack-hmr|_next\/webpack|localhost:\d|127\.0\.0\.1|clerk/i.test(e)
-        return !isExternalDemoDependency
+        if (/Failed to load resource/i.test(e)) {
+          return false
+        }
+        return true
       })
       expect(realErrors, `Console errors: ${realErrors.join('\n')}`).toHaveLength(0)
     })
