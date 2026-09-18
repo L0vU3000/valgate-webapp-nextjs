@@ -60,6 +60,10 @@ async function reachStep2(page: Page) {
   return nameField
 }
 
+// Unique per run so leftover "E2E Draft Property" rows from prior sessions
+// cannot trip strict mode or keep C4's count from dropping.
+const DRAFT_NAME = `E2E Draft ${Date.now()}`
+
 test.describe.serial('C — Add property', () => {
   test('C0: landing → Step 0 with no advisor dialog, "Enter manually" reaches the wizard', async ({ page }) => {
     test.info().annotations.push({ type: 'checklist', description: 'C0 — no advisor interstitial' })
@@ -158,7 +162,7 @@ test.describe.serial('C — Add property', () => {
       const nameField = await reachStep2(page)
       // Typing a name on Step 2 autosaves the draft to Neon (800ms debounce), then the
       // wizard puts the server-minted DRFT id in the URL. Drafts are not in localStorage.
-      await nameField.fill('E2E Draft Property')
+      await nameField.fill(DRAFT_NAME)
       await expect(page).toHaveURL(/draftId=DRFT-/, { timeout: 10_000 })
     })
 
@@ -174,34 +178,31 @@ test.describe.serial('C — Add property', () => {
       // Step 0 always renders the "Resume a draft" section, and our saved draft
       // appears there by its name. Either confirms the resume affordance.
       await expect(page.getByText(/resume a draft/i)).toBeVisible({ timeout: 8_000 })
-      // Prior runs can leave extra drafts with the same name; any one row is enough.
-      await expect(page.getByText('E2E Draft Property').first()).toBeVisible({ timeout: 8_000 })
+      await expect(page.getByText(DRAFT_NAME).first()).toBeVisible({ timeout: 8_000 })
     })
   })
 
   test('C4: delete a draft → confirm modal → draft removed', async ({ page }) => {
     test.info().annotations.push({ type: 'checklist', description: 'C4 — delete draft' })
-    let countBefore = 0
 
     await test.step('Reach Step 0 and confirm the C3 draft is listed', async () => {
       await page.goto('/add-property')
       await page.getByRole('button', { name: /get started/i }).filter({ visible: true }).first().click()
       await expect(page.getByText(/resume a draft/i)).toBeVisible({ timeout: 8_000 })
-      const draftName = page.getByText('E2E Draft Property')
-      await expect(draftName.first()).toBeVisible({ timeout: 10_000 })
-      countBefore = await draftName.count()
+      await expect(page.getByText(DRAFT_NAME).first()).toBeVisible({ timeout: 10_000 })
     })
 
     await test.step('Delete the draft via confirm modal', async () => {
-      // Each draft row carries a trash icon button labelled "Delete draft".
-      await page.getByRole('button', { name: /delete draft/i }).first().click()
+      const row = page.locator('li').filter({ hasText: DRAFT_NAME }).first()
+      await row.getByRole('button', { name: /delete draft/i }).click()
       const dialog = page.getByRole('alertdialog').or(page.getByRole('dialog'))
       await expect(dialog).toBeVisible({ timeout: 3_000 })
-      await dialog.getByRole('button', { name: /delete draft|confirm|delete|yes/i }).first().click()
+      await dialog.getByRole('button', { name: /^delete draft$/i }).click()
+      await expect(dialog).not.toBeVisible({ timeout: 5_000 })
     })
 
     await test.step('Draft is gone', async () => {
-      await expect(page.getByText('E2E Draft Property')).toHaveCount(countBefore - 1, { timeout: 5_000 })
+      await expect(page.getByText(DRAFT_NAME)).toHaveCount(0, { timeout: 5_000 })
     })
   })
 })
