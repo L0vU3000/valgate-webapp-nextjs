@@ -174,20 +174,24 @@ test.describe('C — Add property', () => {
       // Step 0 always renders the "Resume a draft" section, and our saved draft
       // appears there by its name. Either confirms the resume affordance.
       await expect(page.getByText(/resume a draft/i)).toBeVisible({ timeout: 8_000 })
-      await expect(page.getByText('E2E Draft Property')).toBeVisible({ timeout: 8_000 })
+      // Prior runs can leave extra drafts with the same name; any one row is enough.
+      await expect(page.getByText('E2E Draft Property').first()).toBeVisible({ timeout: 8_000 })
     })
   })
 
   test('C4: delete a draft → confirm modal → draft removed', async ({ page }) => {
     test.info().annotations.push({ type: 'checklist', description: 'C4 — delete draft' })
+    let countBefore = 0
 
     await test.step('Reach Step 0 and check a draft exists (requires C3 to have run)', async () => {
       await page.goto('/add-property')
       await page.getByRole('button', { name: /get started/i }).first().click()
-      if (!(await page.getByText('E2E Draft Property').isVisible({ timeout: 5_000 }).catch(() => false))) {
+      const draftName = page.getByText('E2E Draft Property')
+      if (!(await draftName.first().isVisible({ timeout: 8_000 }).catch(() => false))) {
         test.skip(true, 'No draft present — run C3 first')
         return
       }
+      countBefore = await draftName.count()
     })
 
     await test.step('Delete the draft via confirm modal', async () => {
@@ -199,7 +203,7 @@ test.describe('C — Add property', () => {
     })
 
     await test.step('Draft is gone', async () => {
-      await expect(page.getByText('E2E Draft Property')).not.toBeVisible({ timeout: 5_000 })
+      await expect(page.getByText('E2E Draft Property')).toHaveCount(countBefore - 1, { timeout: 5_000 })
     })
   })
 })
