@@ -47,6 +47,8 @@ export async function resolveApiV1Ctx(kind: ApiV1AuthKind = "read"): Promise<Api
     // No requestedOrgId/requireExplicitOrg -> primary-org default, same as /mcp reads.
     // provisionIfMissing: false -> an unknown user is a plain auth failure here, never a JIT
     // provisioning write (that side effect is /mcp-only; see mcp-server/ctxFor.ts).
+    // Consumer owners get their Neon users + membership rows from the Clerk webhook
+    // (app/api/webhooks/clerk → ensureOwnerHomeOrganizationForClerkUser), not from this read.
     ctx = await ctxFromMcpAuth(clerkUserId, { provisionIfMissing: false });
   } catch {
     // Never leak *why* (unknown user, no membership, …) — same generic 401 either way.
