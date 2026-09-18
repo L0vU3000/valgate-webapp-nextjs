@@ -32,6 +32,7 @@ same identity/org resolution as MCP (`ctxFromMcpAuth`) rather than duplicating a
 | GET | `/api/v1/properties` | Opaque-cursor page of the caller's org's properties |
 | GET | `/api/v1/properties/{id}` | A single property's detail, org-scoped |
 | GET | `/api/v1/properties/{id}/documents` | Opaque-cursor page of one property's documents, org-scoped |
+| GET | `/api/v1/rental` | Portfolio rental summary: occupancy, tenancy count, next payout |
 
 ### `GET /api/v1/me`
 
@@ -118,6 +119,33 @@ may read; this route is not admin-gated.
 This endpoint returns document **metadata only**. It never returns a file URL, a storage
 id, or file bytes. Opening/downloading a document is not part of this read.
 
+### `GET /api/v1/rental`
+
+Portfolio rental rollup for the iOS Rental screen (pen NEXT PAYOUT group + occupancy).
+This is a new summary endpoint rather than extra fields on property detail: occupancy
+percent, tenancy count, and next payout are org-wide, not per property.
+
+Response body (`RentalSummaryDto`):
+
+| Field | Type | Notes |
+|---|---|---|
+| `occupancyPercent` | `number` | Integer `0`–`100`. Occupied share of non-archived properties. Occupied = Owner-Occupied **or** a currently Signed lease. Empty portfolio → `0`. |
+| `occupiedCount` | `number` | Properties counted as occupied (same rule as the percent). |
+| `totalCount` | `number` | Non-archived properties in the org (the occupancy denominator). |
+| `tenancyCount` | `number` | Currently active Signed leases. Owner-Occupied without a lease is occupancy, not a tenancy. |
+| `nextPayoutAmountNumeric` | `number \| null` | Sum of Pending Rent payments on the next upcoming UTC calendar day. `null` when none exist. |
+| `nextPayoutAt` | `number \| null` | Unix ms of the earliest Pending Rent payment on that day. `null` when none exist. |
+| `currency` | `"USD" \| null` | `"USD"` when a payout exists; `null` when it does not. v1 is USD-only. |
+
+Missing payout is `{ nextPayoutAmountNumeric: null, nextPayoutAt: null, currency: null }`
+— we do not fabricate `$0` or a 1st-of-month date from leases. Paid, Failed, Overdue,
+non-Rent, past-dated, and zero-amount payments are skipped. Same-day Pending Rent
+amounts are summed so the screen can render one NEXT PAYOUT row.
+
+This endpoint never returns lease, tenant, or payment rows, storage ids, or
+`*Verified*` internals. An org with no rentals is still a 200 (zeros + nulls), not a
+404. Every org role (`viewer`, `member`, `admin`, `owner`) may read.
+
 ## DTO omissions (by design)
 
 None of the v1 DTOs ever include: internal `userId`/`orgId`/`clientId`, any storage id
@@ -128,7 +156,7 @@ internals (`aiStatus`, `aiSummary`, `aiKeyFields`, `pageCount`), `*Verified*` fl
 financial internals other than the public purchase price (`priceNumeric` + `currency`) —
 regardless of how many fields the underlying DB row carries. Mortgage, tax, insurance,
 and market-value columns stay off the wire.
-`toMeDto`/`toPropertyListItemDto`/`toPropertyDetailDto`/`toDocumentListItemDto` in
+`toMeDto`/`toPropertyListItemDto`/`toPropertyDetailDto`/`toDocumentListItemDto`/`toRentalSummaryDto` in
 `lib/api/v1/dto.ts` are hand-written field lists, never a spread of the full row.
 
 ## Errors
@@ -163,5 +191,6 @@ auth succeeds — unauthenticated requests never count against it). Looser than 
 
 - No write/mutation endpoints (no POST/PUT/PATCH/DELETE).
 - No JIT user/org/membership provisioning on an unknown caller (see Auth above).
-- No endpoints beyond `me`, `properties`, and property documents today — no leases, payments,
-  tenants, document download/upload URLs, etc.
+- No lease, payment, or tenant **list** endpoints, and no document download/upload URLs.
+  `GET /api/v1/rental` is a portfolio rollup only (occupancy, tenancy count, next payout)
+  — it does not expose those rows.

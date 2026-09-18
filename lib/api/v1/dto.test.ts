@@ -7,6 +7,7 @@ import {
   toPropertyDetailDto,
   toDocumentListItemDto,
   toListPrice,
+  toRentalSummaryDto,
 } from "./dto";
 
 // ---------------------------------------------------------------------------
@@ -213,6 +214,85 @@ describe("toDocumentListItemDto", () => {
       category: "Title",
       description: "Hard title deed",
       uploadedAt: 1743897600000,
+    });
+  });
+});
+
+describe("toRentalSummaryDto", () => {
+  it("copies occupancy and tenancy counts and attaches USD when a payout exists", () => {
+    const dto = toRentalSummaryDto({
+      occupancyPercent: 50,
+      occupiedCount: 1,
+      totalCount: 2,
+      tenancyCount: 1,
+      nextPayoutAmountNumeric: 2850,
+      nextPayoutAt: 1727740800000,
+    });
+    expect(dto).toEqual({
+      occupancyPercent: 50,
+      occupiedCount: 1,
+      totalCount: 2,
+      tenancyCount: 1,
+      nextPayoutAmountNumeric: 2850,
+      nextPayoutAt: 1727740800000,
+      currency: "USD",
+    });
+  });
+
+  it("uses null payout fields when no upcoming rent exists (does not fabricate $0)", () => {
+    const dto = toRentalSummaryDto({
+      occupancyPercent: 0,
+      occupiedCount: 0,
+      totalCount: 0,
+      tenancyCount: 0,
+      nextPayoutAmountNumeric: null,
+      nextPayoutAt: null,
+    });
+    expect(dto).toEqual({
+      occupancyPercent: 0,
+      occupiedCount: 0,
+      totalCount: 0,
+      tenancyCount: 0,
+      nextPayoutAmountNumeric: null,
+      nextPayoutAt: null,
+      currency: null,
+    });
+  });
+
+  it("never leaks lease, tenant, or payment row ids", () => {
+    const dto = toRentalSummaryDto({
+      occupancyPercent: 100,
+      occupiedCount: 1,
+      totalCount: 1,
+      tenancyCount: 1,
+      nextPayoutAmountNumeric: 1000,
+      nextPayoutAt: 1727740800000,
+    });
+    const serialized = JSON.stringify(dto);
+    expect(serialized).not.toContain("LEASE-");
+    expect(serialized).not.toContain("TEN-");
+    expect(serialized).not.toContain("PMT-");
+    expect(serialized).not.toContain("USR-");
+    expect(serialized).not.toContain("ORG-");
+  });
+
+  it("treats a zero or non-finite payout as missing (nulls, not $0)", () => {
+    const dto = toRentalSummaryDto({
+      occupancyPercent: 150,
+      occupiedCount: -3,
+      totalCount: 4,
+      tenancyCount: Number.NaN,
+      nextPayoutAmountNumeric: 0,
+      nextPayoutAt: 1727740800000,
+    });
+    expect(dto).toEqual({
+      occupancyPercent: 100,
+      occupiedCount: 0,
+      totalCount: 4,
+      tenancyCount: 0,
+      nextPayoutAmountNumeric: null,
+      nextPayoutAt: null,
+      currency: null,
     });
   });
 });
