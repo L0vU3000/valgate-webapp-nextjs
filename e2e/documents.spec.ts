@@ -109,21 +109,22 @@ test.describe('F — Documents & folders', () => {
     try {
       await test.step('Enter select mode and select all', async () => {
         await page.goto(DOCS(ids.propertyId))
+        await expect(page.getByText('e2e-test.pdf')).toBeVisible({ timeout: 10_000 })
         // Toolbar toggle reads "Select" (becomes "Done" once active).
         await page.getByRole('button', { name: /^select$/i }).click()
         // The header checkbox is a role="checkbox" button with aria-label "Select all".
         await page.getByRole('checkbox', { name: /select all/i }).click()
       })
 
-      await test.step('Bulk delete with typed DELETE confirm', async () => {
+      await test.step('Bulk delete with typed delete confirm', async () => {
         // The floating bulk bar shows a "Delete" button (selecting all selects 1 file here).
         await page.getByRole('button', { name: /^delete$/i }).first().click()
-        // ConfirmAction (tier="typed") opens an AlertDialog with a "Type DELETE to confirm"
-        // textbox; the confirm button reads "Delete 1 file".
+        // ConfirmAction (tier="typed") requires the exact string "delete" (lowercase).
+        // The confirm button label is "Delete", not "Delete 1 file".
         const dialog = page.getByRole('alertdialog')
         await expect(dialog).toContainText(/delete/i)
-        await dialog.getByRole('textbox').fill('DELETE')
-        await dialog.getByRole('button', { name: /delete \d+ files?/i }).click()
+        await dialog.getByRole('textbox').fill('delete')
+        await dialog.getByRole('button', { name: /^delete$/i }).click()
         await expect(dialog).not.toBeVisible({ timeout: 8_000 })
       })
 
@@ -142,19 +143,14 @@ test.describe('F — Documents & folders', () => {
     try {
       await test.step('Delete the folder via confirm', async () => {
         await page.goto(DOCS(ids.propertyId))
-        // The folder tile is itself a role="button" whose accessible name folds in the
-        // folder name AND the nested delete button's aria-label ("E2E Folder Delete
-        // folder E2E Folder"). A loose name match would resolve the tile first and only
-        // toggle the folder open. Match the inner Trash button by its EXACT aria-label so
-        // we hit the real delete trigger. It is opacity-0 until hover, but opacity doesn't
-        // block Playwright actionability.
-        const deleteBtn = page.getByRole('button', { name: 'Delete folder E2E Folder', exact: true })
-        await expect(deleteBtn).toBeVisible({ timeout: 8_000 })
-        await deleteBtn.click()
-        // ConfirmAction (tier="confirm") AlertDialog titled `Delete folder "E2E Folder"?`
-        // with a "Delete folder" action button.
-        const dialog = page.getByRole('alertdialog')
-        await expect(dialog).toContainText(/delete folder/i)
+        // Folder delete lives in the ⋯ menu (aria-label "Actions for {name}"), not a
+        // nested "Delete folder E2E Folder" trash button.
+        await page.getByRole('button', { name: 'Actions for E2E Folder' }).click()
+        await page.getByRole('menuitem', { name: 'Delete' }).click()
+        // Custom Dialog (role="dialog") titled `Delete “E2E Folder”?` with a
+        // "Delete folder" action button. Empty folders can be deleted immediately.
+        const dialog = page.getByRole('dialog')
+        await expect(dialog).toContainText(/delete/i)
         await dialog.getByRole('button', { name: /delete folder/i }).click()
         await expect(dialog).not.toBeVisible({ timeout: 5_000 })
       })

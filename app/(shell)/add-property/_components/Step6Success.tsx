@@ -311,13 +311,32 @@ function SuccessMapBackground({
   onLoad?: () => void;
 }) {
   const [loaded, setLoaded] = useState(false);
+  const notifiedRef = useRef(false);
   const [lng, lat] = center ?? DEFAULT_CENTER;
   const src = `https://api.mapbox.com/styles/v1/mapbox/light-v11/static/${lng},${lat},14,0/1280x420@2x?access_token=${env.NEXT_PUBLIC_MAPBOX_TOKEN}`;
 
-  function handleLoad() {
-    setLoaded(true);
+  // Tell the parent the hero is done waiting — map tiles are decoration, not
+  // a gate on the "Your property is on Valgate" copy. Dummy CI tokens 401;
+  // a hung request should not hide the success screen forever.
+  function notifyReady() {
+    if (notifiedRef.current) return;
+    notifiedRef.current = true;
     onLoad?.();
   }
+
+  function handleLoad() {
+    setLoaded(true);
+    notifyReady();
+  }
+
+  function handleError() {
+    notifyReady();
+  }
+
+  useEffect(() => {
+    const timeoutId = setTimeout(notifyReady, 2500);
+    return () => clearTimeout(timeoutId);
+  }, []);
 
   return (
     <>
@@ -326,6 +345,7 @@ function SuccessMapBackground({
         alt=""
         className="absolute inset-0 w-full h-full object-cover"
         onLoad={handleLoad}
+        onError={handleError}
         initial={{ opacity: 0 }}
         animate={{ opacity: loaded ? 1 : 0 }}
         transition={{ duration: reduced ? 0 : 0.9, ease: "easeOut" }}

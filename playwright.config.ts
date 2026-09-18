@@ -14,6 +14,13 @@ const RUN_AUTH = !!process.env.PLAYWRIGHT_AUTH
 export default defineConfig({
   testDir: './e2e',
 
+  // Only collect Playwright specs. e2e/preview/lib/*.test.ts are Vitest unit
+  // tests (see vitest.config.preview.ts). Playwright's default testMatch also
+  // includes *.test.ts, so CI's `npx playwright test` was loading that helper
+  // and dying at collection with:
+  // "Vitest cannot be imported in a CommonJS module using require()."
+  testMatch: '**/*.spec.ts',
+
   // Root tsconfig uses moduleResolution 'bundler', which breaks Playwright's loader
   // (context.conditions?.includes) when specs import pg. Use a node-resolution tsconfig.
   tsconfig: './e2e/tsconfig.json',
@@ -55,7 +62,9 @@ export default defineConfig({
       // auth specs (e2e/auth/*) need the real-Clerk rig and only run under the
       // 'auth' project (PLAYWRIGHT_AUTH=1). Without this, the DEMO chromium
       // project globs them in and they time out — see test:e2e:auth.
-      testIgnore: /\/auth\//,
+      // preview/* has its own config (playwright.preview.config.ts) and a
+      // remote PLAYWRIGHT_BASE_URL; do not collect it in the local DEMO run.
+      testIgnore: [/\/auth\//, /\/preview\//],
     },
 
     // ── Auth suite (real Clerk, port 3002) ────────────────────────────────────

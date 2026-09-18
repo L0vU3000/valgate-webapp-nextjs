@@ -19,7 +19,10 @@ same identity/org resolution as MCP (`ctxFromMcpAuth`) rather than duplicating a
 - **Read-only, no JIT provisioning.** Unlike `/mcp`, an unknown Clerk user (no existing
   Valgate row) is never auto-provisioned here — `ctxFromMcpAuth` is called with
   `provisionIfMissing: false`. A read must never have the side effect of creating a
-  user/org/membership row; an unknown caller just gets a generic 401.
+  user/org/membership row; an unknown caller just gets a generic 401. Consumer owners
+  are provisioned by the Clerk webhook (`user.created` / `user.updated` / `session.created`
+  → `ensureOwnerHomeOrganizationForClerkUser`), which writes the Neon `users` row and an
+  active `organization_memberships` row before `/api/v1` runs.
 
 ## Routes
 
