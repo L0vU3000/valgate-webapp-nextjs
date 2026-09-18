@@ -190,55 +190,20 @@ jobs:
           retention-days: 7
 
   # ---------------------------------------------------------------
-  # Mac-only work, on the self-hosted runner.
+  # iOS build/test is deliberately NOT here.
+  #
+  # This job was removed 2026-09-18. It could never do anything:
+  #   1. There is no `ios/` directory in this repo (no .xcodeproj
+  #      anywhere), so its `ios-check` step always set exists=false
+  #      and every subsequent step was skipped.
+  #   2. It requested `[self-hosted, macOS, xcode]`, and this repo's
+  #      runner (`mintrose-ios-runner`) is OFFLINE here — it is only
+  #      online for `L0vU3000/valgate-ios`.
+  #   3. Its build step ended in `| xcpretty || true`, so even had it
+  #      run, the gate could not fail.
+  #
+  # Net effect was a no-op that sat `queued` for the full 45-minute
+  # timeout, held the whole run `in_progress`, and thereby blocked
+  # `gh run view --log-failed` on that run. The iOS project lives in
+  # its own repo with its own working CI — see valgate-ios.
   # ---------------------------------------------------------------
-  ios:
-    name: iOS (build + test)
-    runs-on: [self-hosted, macOS, xcode]
-    timeout-minutes: 45
-    steps:
-      # Explicit ref: the self-hosted runner's workspace persists between
-      # jobs, so never assume a clean or correct checkout.
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.sha }}
-          clean: true
-
-      - name: Check for iOS project
-        id: ios-check
-        run: |
-          if [[ -d "ios" ]] && find ios -name "*.xcodeproj" -o -name "*.xcworkspace" | grep -q .; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::No Xcode project found in ios/ — skipping iOS build"
-          fi
-
-      - name: Environment
-        if: steps.ios-check.outputs.exists == 'true'
-        run: |
-          export PATH=/Applications/Xcode.app/Contents/Developer/usr/bin:$PATH
-          xcodebuild -version
-          xcrun simctl list devices available | head -5
-
-      # `set -o pipefail` is load-bearing: without it the exit status
-      # comes from xcpretty, not xcodebuild, and every build "passes".
-      - name: Build and test
-        if: steps.ios-check.outputs.exists == 'true'
-        working-directory: ios
-        run: |
-          set -o pipefail
-          xcodebuild test \
-            -project ValgateiOS.xcodeproj \
-            -scheme ValgateiOS \
-            -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=latest' \
-            -resultBundlePath TestResults.xcresult \
-            | xcpretty || true
-
-      # Contains failed image-snapshot attachments alongside the logs.
-      - uses: actions/upload-artifact@v4
-        if: failure() && steps.ios-check.outputs.exists == 'true'
-        with:
-          name: xcresult
-          path: ios/TestResults.xcresult
-          retention-days: 7
