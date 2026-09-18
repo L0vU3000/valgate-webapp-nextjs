@@ -58,7 +58,8 @@ Response body:
 { "items": [PropertyListItemDto, ...], "nextCursor": "opaque-string-or-null" }
 ```
 
-`PropertyListItemDto` fields: `id`, `name`, `type`, `status`, `city`, `province`, `createdAt`.
+`PropertyListItemDto` fields: `id`, `name`, `type`, `status`, `lat`, `lng`, `city`, `province`,
+`createdAt`. `lat`/`lng` are the property's coordinates, for map pin placement.
 
 Pagination is a real DB cursor (ordered by `createdAt, id`), not offset/limit — `nextCursor` is
 `null` once there is no further page. The cursor is validated on decode: it must carry a finite,
@@ -67,8 +68,8 @@ query runs (a tampered/foreign cursor is never silently ignored or partially tru
 
 ### `GET /api/v1/properties/{id}`
 
-Response body (`PropertyDetailDto`): the list fields above plus `addressLine`, `country`,
-`totalArea`, `bedrooms`, `bathrooms`, `yearBuilt`.
+Response body (`PropertyDetailDto`): the list fields above (including `lat`/`lng`) plus
+`addressLine`, `country`, `totalArea`, `bedrooms`, `bathrooms`, `yearBuilt`.
 
 A property that doesn't exist and a property that exists in a **different** org are
 indistinguishable here — both return a plain 404. The lookup is org-scoped
