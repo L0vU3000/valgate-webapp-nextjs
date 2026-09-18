@@ -38,6 +38,10 @@ test.describe.serial('E — Photos', () => {
     test.info().annotations.push({ type: 'checklist', description: 'E1 — upload photo' })
 
     await test.step('Check fixture file exists', async () => {
+      if (!process.env.STORAGE_BUCKET) {
+        test.skip(true, 'STORAGE_BUCKET not set — photo upload needs S3, which CI does not provide')
+        return
+      }
       if (!existsSync(PHOTO_FIXTURE)) {
         test.skip(true, 'Run: node e2e/fixtures/generate.mjs to create test-photo.jpg')
         return

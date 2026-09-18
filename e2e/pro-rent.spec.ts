@@ -1,10 +1,12 @@
 /**
  * Section L — Pro — Rent & collections
  * addUtcMonths unit tests already live in lib/format.test.ts — this spec tests UI behaviour.
+ *
+ * Skipped: the owner web app has no /pro/* manager cockpit routes.
  */
 import { test, expect } from './fixtures'
 
-test.describe('L — Pro Rent & Collections', () => {
+test.describe.skip('L — Pro Rent & Collections', () => {
   test('L0: rent page loads without redirect', async ({ page }) => {
     test.info().annotations.push({ type: 'checklist', description: 'L0 — rent page loads' })
 

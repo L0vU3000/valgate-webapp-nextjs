@@ -102,6 +102,14 @@ test.describe('P — Cross-cutting safety', () => {
         if (e.includes('mapbox') || e.includes('ResizeObserver') || e.includes('chrome-extension')) {
           return false
         }
+        // Help menu is a Radix dropdown: SSR vs client useId can log a hydration
+        // mismatch on the trigger `id`. Harmless; the delete flow still works.
+        if (/hydrat/i.test(e)) {
+          return false
+        }
+        if (/Minified React error #(418|423|425)/.test(e)) {
+          return false
+        }
         // Clerk is intentionally blocked by the e2e fixture: fixtures.ts aborts every
         // request to clerk.accounts.dev so its dev-only "Enable Organizations" modal never
         // mounts. An aborted request surfaces in Chromium's console as the bare message

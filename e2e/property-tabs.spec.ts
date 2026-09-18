@@ -1,6 +1,7 @@
 /**
  * Section D — Property detail tabs
- * Skips: Export CSV (D3), recent activity panel (D6) — unbuilt at audit time.
+ * Skips: Export CSV (D3), financials tab (D4 — no /financials route),
+ * recent activity panel (D6) — unbuilt at audit time.
  */
 import { test, expect } from './fixtures'
 import { createThrowawayProperty, cleanup } from './helpers/db'
@@ -88,10 +89,11 @@ test.describe('D — Property detail tabs', () => {
     // ponytail: unbuilt at audit time
   })
 
-  test('D4: Financials — edit → save → persists', async ({ page }) => {
+  test.skip('D4: Financials — edit → save → persists', async ({ page }) => {
     test.info().annotations.push({ type: 'checklist', description: 'D4 — financials edit/save' })
 
     await test.step('Open financials and enter edit mode', async () => {
+      // Property detail has no /financials tab (valuation + overview YTD cover that data).
       await page.goto(`${BASE}/financials`)
       await expect(page).not.toHaveURL(/login/)
       await page.getByRole('button', { name: /edit|unlock/i }).first().click({ timeout: 10_000 })

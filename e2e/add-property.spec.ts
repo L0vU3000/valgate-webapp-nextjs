@@ -156,15 +156,10 @@ test.describe('C — Add property', () => {
 
     await test.step('Start a new property and partially fill (autosaves a draft)', async () => {
       const nameField = await reachStep2(page)
-      // Typing a name on Step 2 autosaves the draft to localStorage under the active id.
+      // Typing a name on Step 2 autosaves the draft to Neon (800ms debounce), then the
+      // wizard puts the server-minted DRFT id in the URL. Drafts are not in localStorage.
       await nameField.fill('E2E Draft Property')
-      // The autosave is debounced — wait until the draft is actually persisted before
-      // navigating away, otherwise the goto can race ahead of the save and lose it.
-      await page.waitForFunction(
-        () => JSON.stringify(localStorage).includes('E2E Draft Property'),
-        undefined,
-        { timeout: 5_000 },
-      )
+      await expect(page).toHaveURL(/draftId=DRFT-/, { timeout: 10_000 })
     })
 
     await test.step('Navigate away — simulates abandoning mid-flow', async () => {
