@@ -36,6 +36,8 @@ const PROPERTY = {
   city: "Manila",
   province: "Metro Manila",
   createdAt: 1700000000000,
+  buyNumeric: 5000000,
+  outstandingMortgage: 1000000,
 };
 
 function req(query = ""): Request {
@@ -129,6 +131,8 @@ describe("GET /api/v1/properties", () => {
           city: "Manila",
           province: "Metro Manila",
           createdAt: 1700000000000,
+          priceNumeric: 5000000,
+          currency: "USD",
         },
       ],
       nextCursor: "opaque-cursor-abc",
@@ -136,7 +140,23 @@ describe("GET /api/v1/properties", () => {
     const serialized = JSON.stringify(body);
     expect(serialized).not.toContain("USR-SECRET-0001");
     expect(serialized).not.toContain("ORG-SECRET-0001");
+    expect(serialized).not.toContain("1000000");
     expect(listPropertiesPageMock).toHaveBeenCalledWith(CTX, { limit: 10, cursor: null });
+  });
+
+  it("returns null price fields when buyNumeric is the create-endpoint default of 0", async () => {
+    resolveApiV1CtxMock.mockResolvedValue({ ok: true, ctx: CTX });
+    listPropertiesPageMock.mockResolvedValue({
+      items: [{ ...PROPERTY, buyNumeric: 0 }],
+      nextCursor: null,
+    });
+
+    const res = await GET(req());
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.items[0].priceNumeric).toBeNull();
+    expect(body.items[0].currency).toBeNull();
   });
 
   it("fails closed with a generic 500 when the service throws unexpectedly (no message leak)", async () => {

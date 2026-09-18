@@ -259,6 +259,8 @@ describe("POST /api/v1/properties", () => {
       city: "Phnom Penh",
       province: "Phnom Penh",
       createdAt: 1700000000000,
+      priceNumeric: null,
+      currency: null,
       addressLine: "42 Ocean Ave",
       country: "KH",
       totalArea: "",

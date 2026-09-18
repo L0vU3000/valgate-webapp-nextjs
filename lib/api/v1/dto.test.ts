@@ -1,7 +1,13 @@
 import { describe, it, expect } from "vitest";
 import type { Document } from "@/lib/data/types/document";
 import type { Property } from "@/lib/data/types/property";
-import { toMeDto, toPropertyListItemDto, toPropertyDetailDto, toDocumentListItemDto } from "./dto";
+import {
+  toMeDto,
+  toPropertyListItemDto,
+  toPropertyDetailDto,
+  toDocumentListItemDto,
+  toListPrice,
+} from "./dto";
 
 // ---------------------------------------------------------------------------
 // DTO field-omission contract for HTTP API v1. Pure functions, no mocks needed.
@@ -103,6 +109,24 @@ const FULL_DOCUMENT: Document = {
   pageCount: 3,
 };
 
+describe("toListPrice", () => {
+  it("returns the purchase amount and USD when buyNumeric is a positive number", () => {
+    expect(toListPrice(5000000)).toEqual({ priceNumeric: 5000000, currency: "USD" });
+  });
+
+  it("parses a numeric string the same way Postgres numeric columns arrive before conversion", () => {
+    expect(toListPrice("125000.50")).toEqual({ priceNumeric: 125000.5, currency: "USD" });
+  });
+
+  it("returns nulls when the amount is missing, zero, negative, or not a finite number", () => {
+    expect(toListPrice(undefined)).toEqual({ priceNumeric: null, currency: null });
+    expect(toListPrice(0)).toEqual({ priceNumeric: null, currency: null });
+    expect(toListPrice(-1)).toEqual({ priceNumeric: null, currency: null });
+    expect(toListPrice(Number.NaN)).toEqual({ priceNumeric: null, currency: null });
+    expect(toListPrice("not-a-number")).toEqual({ priceNumeric: null, currency: null });
+  });
+});
+
 describe("toPropertyListItemDto", () => {
   it("never leaks internal ids, storage ids, or evidence-doc ids", () => {
     const dto = toPropertyListItemDto(FULL_PROPERTY);
@@ -110,9 +134,12 @@ describe("toPropertyListItemDto", () => {
     for (const marker of SECRET_MARKERS) {
       expect(serialized).not.toContain(marker);
     }
+    expect(dto).not.toHaveProperty("buyNumeric");
+    expect(dto).not.toHaveProperty("outstandingMortgage");
+    expect(dto).not.toHaveProperty("currentMarketValue");
   });
 
-  it("exposes only the intentionally small public list fields", () => {
+  it("exposes only the intentionally small public list fields, including purchase price", () => {
     const dto = toPropertyListItemDto(FULL_PROPERTY);
     expect(dto).toEqual({
       id: "PROP-0001",
@@ -122,7 +149,15 @@ describe("toPropertyListItemDto", () => {
       city: "Manila",
       province: "Metro Manila",
       createdAt: 1700000000000,
+      priceNumeric: 5000000,
+      currency: "USD",
     });
+  });
+
+  it("does not fabricate a price when buyNumeric is the create-endpoint default of 0", () => {
+    const dto = toPropertyListItemDto({ ...FULL_PROPERTY, buyNumeric: 0 });
+    expect(dto.priceNumeric).toBeNull();
+    expect(dto.currency).toBeNull();
   });
 });
 
@@ -146,6 +181,8 @@ describe("toPropertyDetailDto", () => {
       bedrooms: "3",
       bathrooms: "2",
       yearBuilt: "2015",
+      priceNumeric: 5000000,
+      currency: "USD",
     });
   });
 });

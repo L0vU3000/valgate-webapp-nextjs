@@ -61,7 +61,15 @@ Response body:
 { "items": [PropertyListItemDto, ...], "nextCursor": "opaque-string-or-null" }
 ```
 
-`PropertyListItemDto` fields: `id`, `name`, `type`, `status`, `city`, `province`, `createdAt`.
+`PropertyListItemDto` fields: `id`, `name`, `type`, `status`, `city`, `province`,
+`createdAt`, `priceNumeric`, `currency`.
+
+| Field | Type | Notes |
+|---|---|---|
+| `priceNumeric` | `number \| null` | Stored purchase amount (`buyNumeric`). `null` when the amount is missing or `0` (create default = price not collected). Never a fabricated value. |
+| `currency` | `"USD" \| null` | ISO 4217 code for `priceNumeric`. v1 money is USD only. `null` when `priceNumeric` is `null`. |
+
+iOS map pins can render a price pill from these two fields without fetching property detail. Do not send `outstandingMortgage`, tax, or other financial internals on the list.
 
 Pagination is a real DB cursor (ordered by `createdAt, id`), not offset/limit — `nextCursor` is
 `null` once there is no further page. The cursor is validated on decode: it must carry a finite,
@@ -116,8 +124,10 @@ None of the v1 DTOs ever include: internal `userId`/`orgId`/`clientId`, any stor
 (`photoStorageIds`, `documentStorageIds`, `coverStorageId`, `storageId`, `thumbStorageId`),
 any evidence-doc id array (`rentalEvidenceDocIds`, `estateEvidenceDocIds`,
 `locationEvidenceDocIds`, `financialsEvidenceDocIds`), `uploadedBy`, `verifies`, AI-summary
-internals (`aiStatus`, `aiSummary`, `aiKeyFields`, `pageCount`), or financial/`*Verified*`
-internals — regardless of how many fields the underlying DB row carries.
+internals (`aiStatus`, `aiSummary`, `aiKeyFields`, `pageCount`), `*Verified*` flags, or
+financial internals other than the public purchase price (`priceNumeric` + `currency`) —
+regardless of how many fields the underlying DB row carries. Mortgage, tax, insurance,
+and market-value columns stay off the wire.
 `toMeDto`/`toPropertyListItemDto`/`toPropertyDetailDto`/`toDocumentListItemDto` in
 `lib/api/v1/dto.ts` are hand-written field lists, never a spread of the full row.
 
