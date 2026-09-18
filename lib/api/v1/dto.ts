@@ -117,6 +117,62 @@ export function toPropertyDetailDto(property: Property): PropertyDetailDtoV1 {
   };
 }
 
+export type RentalSummaryDtoV1 = {
+  occupancyPercent: number;
+  occupiedCount: number;
+  totalCount: number;
+  tenancyCount: number;
+  nextPayoutAmountNumeric: number | null;
+  nextPayoutAt: number | null;
+  currency: "USD" | null;
+};
+
+export type RentalSummarySource = {
+  occupancyPercent: number;
+  occupiedCount: number;
+  totalCount: number;
+  tenancyCount: number;
+  nextPayoutAmountNumeric: number | null;
+  nextPayoutAt: number | null;
+};
+
+// Turns a count from the rental rollup into a safe non-negative integer. Non-finite
+// or negative values become 0 so the wire never carries NaN or a fabricated "-1".
+function asCount(value: number): number {
+  if (!Number.isFinite(value) || value < 0) return 0;
+  return Math.round(value);
+}
+
+// Copies the portfolio rental rollup onto the public DTO. Currency is "USD" only
+// when a real upcoming payout exists; missing payout is nulls, never "$0" / "Oct 1".
+export function toRentalSummaryDto(summary: RentalSummarySource): RentalSummaryDtoV1 {
+  const occupancyPercentRaw = asCount(summary.occupancyPercent);
+  const occupancyPercent = occupancyPercentRaw > 100 ? 100 : occupancyPercentRaw;
+  const occupiedCount = asCount(summary.occupiedCount);
+  const totalCount = asCount(summary.totalCount);
+  const tenancyCount = asCount(summary.tenancyCount);
+
+  const amount = summary.nextPayoutAmountNumeric;
+  const at = summary.nextPayoutAt;
+  const hasPayout =
+    amount !== null &&
+    at !== null &&
+    Number.isFinite(amount) &&
+    amount > 0 &&
+    Number.isFinite(at) &&
+    at >= 0;
+
+  return {
+    occupancyPercent,
+    occupiedCount,
+    totalCount,
+    tenancyCount,
+    nextPayoutAmountNumeric: hasPayout ? amount : null,
+    nextPayoutAt: hasPayout ? at : null,
+    currency: hasPayout ? "USD" : null,
+  };
+}
+
 export type DocumentListItemDtoV1 = {
   id: string;
   propertyId: string;
