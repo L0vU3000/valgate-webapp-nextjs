@@ -21,7 +21,7 @@
  * Selectors use flexible role/text matchers — inspect in browser if one fails.
  */
 import { test, expect } from './fixtures'
-import { cleanup } from './helpers/db'
+import { cleanup, waitForDraftTitle } from './helpers/db'
 import type { Page } from '@playwright/test'
 
 // The footer primary CTA on form steps is literally "Continue"; the final step is "Submit".
@@ -162,8 +162,13 @@ test.describe.serial('C — Add property', () => {
       const nameField = await reachStep2(page)
       // Typing a name on Step 2 autosaves the draft to Neon (800ms debounce), then the
       // wizard puts the server-minted DRFT id in the URL. Drafts are not in localStorage.
+      // The URL can already have a DRFT id from the first untitled CREATE (Step 1
+      // autosave). Blur, then wait until Neon actually stores DRAFT_NAME — a full
+      // page.goto aborts an in-flight UPDATE and the resume list stays "Untitled Property".
       await nameField.fill(DRAFT_NAME)
+      await nameField.blur()
       await expect(page).toHaveURL(/draftId=DRFT-/, { timeout: 10_000 })
+      await waitForDraftTitle(DRAFT_NAME)
     })
 
     await test.step('Navigate away — simulates abandoning mid-flow', async () => {

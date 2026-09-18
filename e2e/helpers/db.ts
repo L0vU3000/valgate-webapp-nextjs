@@ -231,6 +231,24 @@ export async function getLastActivity(entity: string, action: string) {
   return rows[0] ?? null
 }
 
+// Polls until a property_drafts row with this exact title exists. The add-property
+// wizard autosaves after 800ms, and the first CREATE often lands as "Untitled
+// Property" before the named UPDATE. Tests that then page.goto away must wait
+// here — a full navigation aborts the in-flight UPDATE and the resume list
+// keeps showing "Untitled Property".
+export async function waitForDraftTitle(title: string, timeoutMs = 15_000): Promise<void> {
+  const started = Date.now()
+  while (Date.now() - started < timeoutMs) {
+    const rows = await q<{ id: string }>(
+      `SELECT id FROM property_drafts WHERE title = $1 LIMIT 1`,
+      [title],
+    )
+    if (rows.length > 0) return
+    await new Promise((resolve) => setTimeout(resolve, 200))
+  }
+  throw new Error(`Timed out waiting for property_draft titled "${title}"`)
+}
+
 // ──────────────────────────────────────────
 // Cleanup
 // ──────────────────────────────────────────
