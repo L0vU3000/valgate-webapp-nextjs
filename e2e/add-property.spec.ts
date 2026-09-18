@@ -60,7 +60,7 @@ async function reachStep2(page: Page) {
   return nameField
 }
 
-test.describe('C — Add property', () => {
+test.describe.serial('C — Add property', () => {
   test('C0: landing → Step 0 with no advisor dialog, "Enter manually" reaches the wizard', async ({ page }) => {
     test.info().annotations.push({ type: 'checklist', description: 'C0 — no advisor interstitial' })
 
@@ -183,14 +183,12 @@ test.describe('C — Add property', () => {
     test.info().annotations.push({ type: 'checklist', description: 'C4 — delete draft' })
     let countBefore = 0
 
-    await test.step('Reach Step 0 and check a draft exists (requires C3 to have run)', async () => {
+    await test.step('Reach Step 0 and confirm the C3 draft is listed', async () => {
       await page.goto('/add-property')
-      await page.getByRole('button', { name: /get started/i }).first().click()
+      await page.getByRole('button', { name: /get started/i }).filter({ visible: true }).first().click()
+      await expect(page.getByText(/resume a draft/i)).toBeVisible({ timeout: 8_000 })
       const draftName = page.getByText('E2E Draft Property')
-      if (!(await draftName.first().isVisible({ timeout: 8_000 }).catch(() => false))) {
-        test.skip(true, 'No draft present — run C3 first')
-        return
-      }
+      await expect(draftName.first()).toBeVisible({ timeout: 10_000 })
       countBefore = await draftName.count()
     })
 
