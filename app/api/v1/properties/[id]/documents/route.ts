@@ -1,10 +1,14 @@
 import "server-only";
 import { NextResponse } from "next/server";
+import { isWriteDeniedError, readJsonBody } from "@/lib/api/v1/property-write";
 import { resolveApiV1Ctx } from "@/lib/api/v1/auth";
 import { apiError } from "@/lib/api/v1/http";
+import { parseDocumentUploadBody } from "@/lib/api/v1/document-write";
 import { toDocumentListItemDto } from "@/lib/api/v1/dto";
-import { getProperty } from "@/lib/services/properties";
+import { assertCanMutate, roleAtLeast } from "@/lib/services/_mapping";
 import { listDocumentsPage } from "@/lib/services/documents";
+import { getProperty } from "@/lib/services/properties";
+import { presignUpload } from "@/lib/services/storage";
 import { logger } from "@/lib/logger";
 
 // This route hits the database per request and reads request auth — never statically prerender.
@@ -59,6 +63,44 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     // Fail closed: an unexpected service/serialization error is logged server-side and never
     // echoed to the client — the response is always the fixed, generic 500 envelope.
     logger.error("GET /api/v1/properties/[id]/documents failed", { error: String(err) });
+    return apiError(500, "internal_error", "Something went wrong. Please try again.");
+  }
+}
+
+// POST /api/v1/properties/{id}/documents — issue a direct object-storage upload ticket.
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const authResult = await resolveApiV1Ctx("write");
+  if (!authResult.ok) return authResult.response;
+
+  const { id } = await params;
+  const json = await readJsonBody(request);
+  if (!json.ok) return apiError(400, "invalid_request", "Request body must be JSON.");
+
+  const parsed = parseDocumentUploadBody(json.value);
+  if (!parsed.ok) return apiError(400, "invalid_request", "Invalid document fields.");
+
+  try {
+    const property = await getProperty(authResult.ctx, id);
+    if (!property) return apiError(404, "not_found", "Property not found.");
+    if (!roleAtLeast(authResult.ctx.orgRole, "member")) {
+      return apiError(403, "forbidden", "You do not have permission to do that.");
+    }
+
+    assertCanMutate();
+    const ticket = await presignUpload(authResult.ctx, {
+      name: parsed.body.name,
+      mimeType: parsed.body.mimeType,
+      sizeBytes: parsed.body.sizeBytes,
+    });
+    return NextResponse.json(ticket, { status: 201 });
+  } catch (err) {
+    if (isWriteDeniedError(err)) {
+      return apiError(403, "forbidden", "You do not have permission to do that.");
+    }
+    logger.error("POST /api/v1/properties/[id]/documents failed", { error: String(err) });
     return apiError(500, "internal_error", "Something went wrong. Please try again.");
   }
 }
