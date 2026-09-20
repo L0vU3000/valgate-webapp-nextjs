@@ -177,3 +177,39 @@ export async function ourUserId(clerkUserId: string): Promise<string> {
   if (!row) throw new Error("unauthenticated");
   return row.id;
 }
+
+/**
+ * True when this Clerk user already has a Neon `users` row AND at least one
+ * active organization membership.
+ *
+ * Used by the Clerk webhook's `session.created` catch-up so we do not hit the
+ * Clerk Backend API on every sign-in after the owner is already provisioned.
+ *
+ * What could go wrong: a `users` row with only `removed` memberships must
+ * return false — `/api/v1` needs status = "active".
+ */
+export async function hasActiveMembershipForClerkUser(
+  clerkUserId: string,
+): Promise<boolean> {
+  if (!clerkUserId) return false;
+
+  const [userRow] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.clerkUserId, clerkUserId))
+    .limit(1);
+  if (!userRow) return false;
+
+  const [membership] = await db
+    .select({ id: organizationMemberships.id })
+    .from(organizationMemberships)
+    .where(
+      and(
+        eq(organizationMemberships.userId, userRow.id),
+        eq(organizationMemberships.status, "active"),
+      ),
+    )
+    .limit(1);
+
+  return Boolean(membership);
+}

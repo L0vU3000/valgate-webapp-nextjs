@@ -1,5 +1,7 @@
 /**
  * Section K — Pro — Clients
+ *
+ * Skipped: the owner web app has no /pro/* manager cockpit routes.
  */
 import { test, expect } from './fixtures'
 import { getLastActivity } from './helpers/db'
@@ -15,7 +17,7 @@ const E2E_CLIENT_NAME = `E2E Client ${Date.now()}`
 
 // Serial: K2 (archive) and K3 (reactivate) act on the client K1 onboards, and
 // all three share the run-unique E2E_CLIENT_NAME, so they must run in order.
-test.describe.serial('K — Pro Clients', () => {
+test.describe.skip('K — Pro Clients', () => {
   test('K1: onboard a client → created in active book', async ({ page }) => {
     test.info().annotations.push({ type: 'checklist', description: 'K1 — onboard client' })
 

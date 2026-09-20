@@ -114,8 +114,9 @@ export function useDrafts(): UseDraftsReturn {
       return;
     }
 
-    // Needs a CREATE. Skip if one is already running — the trailing edit is saved right after the
-    // id swap (the active-id change re-triggers autosave with the latest form).
+    // Needs a CREATE. Skip if one is already running — a later tick would mint a
+    // duplicate draft. The trailing form (e.g. the user typed a name while CREATE
+    // was in flight) is flushed as an UPDATE just below, once we have a server id.
     if (creatingRef.current) return;
     creatingRef.current = true;
     try {
@@ -127,6 +128,13 @@ export function useDrafts(): UseDraftsReturn {
       }
     } finally {
       creatingRef.current = false;
+    }
+    // CREATE ignored debounce ticks while creatingRef was true. If the user typed
+    // during that round-trip, pendingRef now holds a newer form — persist it now
+    // that we have a DRFT id, instead of waiting for another 800ms tick that a
+    // navigation can cancel.
+    if (pendingRef.current && pendingRef.current !== pending) {
+      await flush();
     }
   }, [upsertDraftState]);
 
@@ -179,6 +187,19 @@ export function useDrafts(): UseDraftsReturn {
     pendingRef.current = { id, form, step };
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => { void flush(); }, AUTOSAVE_DEBOUNCE_MS);
+  }, [flush]);
+
+  // Flush the latest pending edit when the wizard unmounts (Save as Draft →
+  // /portfolio, or any client-side navigation). Without this, a typed name that
+  // is still inside the 800ms debounce is dropped and the draft stays
+  // "Untitled Property". A full page.goto still aborts in-flight fetches — tests
+  // that abandon via goto must wait for the save to land first.
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+      void flush();
+    };
   }, [flush]);
 
   // Deletes a draft from the server (S3 objects + rows) and from local display state.

@@ -18,7 +18,10 @@ identity/org resolution as MCP (`ctxFromMcpAuth`) rather than duplicating auth l
 - **No JIT provisioning.** Unlike `/mcp`, an unknown Clerk user (no existing
   Valgate row) is never auto-provisioned here — `ctxFromMcpAuth` is called with
   `provisionIfMissing: false`. An API request must never have the side effect of creating a
-  user/org/membership row; an unknown caller just gets a generic 401.
+  user/org/membership row; an unknown caller just gets a generic 401. Consumer owners
+  are provisioned by the Clerk webhook (`user.created` / `user.updated` / `session.created`
+  → `ensureOwnerHomeOrganizationForClerkUser`), which writes the Neon `users` row and an
+  active `organization_memberships` row before `/api/v1` runs.
 
 ## Routes
 
@@ -33,6 +36,7 @@ identity/org resolution as MCP (`ctxFromMcpAuth`) rather than duplicating auth l
 | GET | `/api/v1/properties/{id}/documents/{documentId}` | Resolve a short-lived document URL |
 | PATCH | `/api/v1/properties/{id}/documents/{documentId}` | Rename or edit public document metadata |
 | DELETE | `/api/v1/properties/{id}/documents/{documentId}` | Delete a document and its stored bytes |
+| GET | `/api/v1/rental` | Portfolio rental summary: occupancy, tenancy count, next payout |
 
 ### `GET /api/v1/me`
 
@@ -63,7 +67,16 @@ Response body:
 ```
 
 `PropertyListItemDto` fields: `id`, `name`, `type`, `status`, `lat`, `lng`, `city`, `province`,
-`createdAt`. `lat`/`lng` are the property's coordinates, for map pin placement.
+`createdAt`, `priceNumeric`, `currency`. `lat`/`lng` are the property's coordinates, for map
+pin placement.
+
+| Field | Type | Notes |
+|---|---|---|
+| `priceNumeric` | `number \| null` | Stored purchase amount (`buyNumeric`). `null` when the amount is missing or `0` (create default = price not collected). Never a fabricated value. |
+| `currency` | `"USD" \| null` | ISO 4217 code for `priceNumeric`. v1 money is USD only. `null` when `priceNumeric` is `null`. |
+
+iOS map pins can render a price pill from these two fields without fetching property detail. Do
+not send `outstandingMortgage`, tax, or other financial internals on the list.
 
 Pagination is a real DB cursor (ordered by `createdAt, id`), not offset/limit — `nextCursor` is
 `null` once there is no further page. The cursor is validated on decode: it must carry a finite,
@@ -192,6 +205,32 @@ Returns `200` with the updated `DocumentListItemDto`.
 
 Deletes the org-scoped document row and performs best-effort object-storage cleanup. Requires
 `admin` or `owner`. A successful deletion returns `204` with an empty body.
+### `GET /api/v1/rental`
+
+Portfolio rental rollup for the iOS Rental screen (pen NEXT PAYOUT group + occupancy).
+This is a new summary endpoint rather than extra fields on property detail: occupancy
+percent, tenancy count, and next payout are org-wide, not per property.
+
+Response body (`RentalSummaryDto`):
+
+| Field | Type | Notes |
+|---|---|---|
+| `occupancyPercent` | `number` | Integer `0`–`100`. Occupied share of non-archived properties. Occupied = Owner-Occupied **or** a currently Signed lease. Empty portfolio → `0`. |
+| `occupiedCount` | `number` | Properties counted as occupied (same rule as the percent). |
+| `totalCount` | `number` | Non-archived properties in the org (the occupancy denominator). |
+| `tenancyCount` | `number` | Currently active Signed leases. Owner-Occupied without a lease is occupancy, not a tenancy. |
+| `nextPayoutAmountNumeric` | `number \| null` | Sum of Pending Rent payments on the next upcoming UTC calendar day. `null` when none exist. |
+| `nextPayoutAt` | `number \| null` | Unix ms of the earliest Pending Rent payment on that day. `null` when none exist. |
+| `currency` | `"USD" \| null` | `"USD"` when a payout exists; `null` when it does not. v1 is USD-only. |
+
+Missing payout is `{ nextPayoutAmountNumeric: null, nextPayoutAt: null, currency: null }`
+— we do not fabricate `$0` or a 1st-of-month date from leases. Paid, Failed, Overdue,
+non-Rent, past-dated, and zero-amount payments are skipped. Same-day Pending Rent
+amounts are summed so the screen can render one NEXT PAYOUT row.
+
+This endpoint never returns lease, tenant, or payment rows, storage ids, or
+`*Verified*` internals. An org with no rentals is still a 200 (zeros + nulls), not a
+404. Every org role (`viewer`, `member`, `admin`, `owner`) may read.
 
 ## DTO omissions (by design)
 
@@ -199,9 +238,11 @@ None of the v1 DTOs ever include: internal `userId`/`orgId`/`clientId`, any stor
 (`photoStorageIds`, `documentStorageIds`, `coverStorageId`, `storageId`, `thumbStorageId`),
 any evidence-doc id array (`rentalEvidenceDocIds`, `estateEvidenceDocIds`,
 `locationEvidenceDocIds`, `financialsEvidenceDocIds`), `uploadedBy`, `verifies`, AI-summary
-internals (`aiStatus`, `aiSummary`, `aiKeyFields`, `pageCount`), or financial/`*Verified*`
-internals — regardless of how many fields the underlying DB row carries.
-`toMeDto`/`toPropertyListItemDto`/`toPropertyDetailDto`/`toDocumentListItemDto` in
+internals (`aiStatus`, `aiSummary`, `aiKeyFields`, `pageCount`), `*Verified*` flags, or
+financial internals other than the public purchase price (`priceNumeric` + `currency`) —
+regardless of how many fields the underlying DB row carries. Mortgage, tax, insurance,
+and market-value columns stay off the wire.
+`toMeDto`/`toPropertyListItemDto`/`toPropertyDetailDto`/`toDocumentListItemDto`/`toRentalSummaryDto` in
 `lib/api/v1/dto.ts` are hand-written field lists, never a spread of the full row.
 
 ## Errors
@@ -238,5 +279,6 @@ requests / minute / user (`apiWriteLimiter`). Both are keyed on the resolved int
 - No JIT user/org/membership provisioning on an unknown caller (see Auth above).
 - No raw file-byte proxying through the API; uploads and downloads go directly through the
   short-lived object-storage URLs.
-- No endpoints beyond `me`, `properties`, and property documents today — no leases, payments,
-  tenants, or document search/filtering.
+- No lease, payment, or tenant **list** endpoints. `GET /api/v1/rental` is a portfolio rollup
+  only (occupancy, tenancy count, next payout) — it does not expose those rows.
+- No document search/filtering.

@@ -53,9 +53,11 @@ export default async function globalSetup(): Promise<void> {
     const props = await pool.query("DELETE FROM properties WHERE name LIKE 'E2E%'")
     const profs = await pool.query("DELETE FROM professionals WHERE name LIKE 'E2E%'")
     const wos = await pool.query("DELETE FROM maintenance_items WHERE title LIKE 'E2E%'")
+    const drafts = await pool.query("DELETE FROM property_drafts WHERE title LIKE 'E2E%'")
     console.log(
       `✓ E2E pre-run cleanup — removed ${props.rowCount} properties, ` +
-      `${profs.rowCount} professionals, ${wos.rowCount} work orders`,
+      `${profs.rowCount} professionals, ${wos.rowCount} work orders, ` +
+      `${drafts.rowCount} drafts`,
     )
   } finally {
     await pool.end()

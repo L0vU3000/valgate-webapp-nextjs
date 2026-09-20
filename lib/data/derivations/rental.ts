@@ -470,21 +470,135 @@ export function computeCollectionRate(payments: Payment[], leases: Lease[]): str
 /*  Q4.S — Occupancy Rate: active-lease or owner-occupied / total           */
 /* -------------------------------------------------------------------------- */
 
-export function computeOccupancyRate(properties: Property[], leases: Lease[]): number {
-  const now = Date.now();
-  const nonArchived = properties.filter((p) => !p.isArchived);
-  if (nonArchived.length === 0) return 0;
-  const active = nonArchived.filter((p) => {
-    if (p.status === "Owner-Occupied") return true;
-    return leases.some(
-      (l) =>
-        l.propertyId === p.id &&
-        l.stage === "Signed" &&
-        l.startDate <= now &&
-        l.endDate >= now,
-    );
-  });
-  return Math.round((active.length / nonArchived.length) * 100);
+export type OccupancySummary = {
+  percent: number;
+  occupiedCount: number;
+  totalCount: number;
+};
+
+export type NextPayout = {
+  amountNumeric: number;
+  at: number;
+};
+
+// True when the lease is Signed and the clock sits inside [startDate, endDate].
+function isActiveSignedLease(lease: Lease, nowMs: number): boolean {
+  if (lease.stage !== "Signed") return false;
+  if (lease.startDate > nowMs) return false;
+  if (lease.endDate < nowMs) return false;
+  return true;
+}
+
+// UTC calendar day (YYYY-MM-DD) for grouping same-day rent payments into one payout.
+function utcDateKey(ms: number): string {
+  return new Date(ms).toISOString().slice(0, 10);
+}
+
+// Occupancy counts used by both the web rental dashboard percent and the /api/v1
+// rental summary. Owner-occupied counts as occupied even without a lease; archived
+// properties are left out of the denominator. Returns zeros when nothing is tracked
+// — we do not invent a 100% empty portfolio.
+export function computeOccupancySummary(
+  properties: Property[],
+  leases: Lease[],
+  nowMs: number = Date.now(),
+): OccupancySummary {
+  const nonArchived: Property[] = [];
+  for (const property of properties) {
+    if (property.isArchived) continue;
+    nonArchived.push(property);
+  }
+
+  const totalCount = nonArchived.length;
+  if (totalCount === 0) {
+    return { percent: 0, occupiedCount: 0, totalCount: 0 };
+  }
+
+  let occupiedCount = 0;
+  for (const property of nonArchived) {
+    if (property.status === "Owner-Occupied") {
+      occupiedCount += 1;
+      continue;
+    }
+
+    let hasActiveLease = false;
+    for (const lease of leases) {
+      if (lease.propertyId !== property.id) continue;
+      if (!isActiveSignedLease(lease, nowMs)) continue;
+      hasActiveLease = true;
+      break;
+    }
+    if (hasActiveLease) occupiedCount += 1;
+  }
+
+  return {
+    percent: Math.round((occupiedCount / totalCount) * 100),
+    occupiedCount,
+    totalCount,
+  };
+}
+
+// Same occupancy percent the rental dashboard already shows. Wrapper so existing
+// callers keep a number; the counts live on computeOccupancySummary. Optional nowMs
+// is for tests — production callers omit it and use the current clock.
+export function computeOccupancyRate(
+  properties: Property[],
+  leases: Lease[],
+  nowMs: number = Date.now(),
+): number {
+  return computeOccupancySummary(properties, leases, nowMs).percent;
+}
+
+// Number of Signed leases whose dates cover now. A vacant Owner-Occupied home is
+// occupancy, not a tenancy, so it is not counted here.
+export function computeTenancyCount(leases: Lease[], nowMs: number = Date.now()): number {
+  let count = 0;
+  for (const lease of leases) {
+    if (!isActiveSignedLease(lease, nowMs)) continue;
+    count += 1;
+  }
+  return count;
+}
+
+// Next upcoming Rent payout for the portfolio.
+//
+// "Next" means the soonest UTC calendar day that still has at least one Pending
+// Rent payment dated on or after now. Amounts on that day are summed so the
+// Rental screen can show one NEXT PAYOUT row. Paid, Failed, Overdue, non-Rent,
+// past dates, and zero/non-finite amounts are skipped. Returns null when nothing
+// upcoming exists — we do not invent a 1st-of-month date from leases.
+export function computeNextPayout(
+  payments: Payment[],
+  nowMs: number = Date.now(),
+): NextPayout | null {
+  const upcoming: Payment[] = [];
+  for (const payment of payments) {
+    if (payment.kind !== "Rent") continue;
+    if (payment.status !== "Pending") continue;
+    if (!Number.isFinite(payment.date) || payment.date < nowMs) continue;
+    if (!Number.isFinite(payment.amount) || payment.amount <= 0) continue;
+    upcoming.push(payment);
+  }
+
+  if (upcoming.length === 0) return null;
+
+  let soonestKey = utcDateKey(upcoming[0]!.date);
+  for (const payment of upcoming) {
+    const key = utcDateKey(payment.date);
+    if (key < soonestKey) soonestKey = key;
+  }
+
+  let amountNumeric = 0;
+  let at = Number.POSITIVE_INFINITY;
+  for (const payment of upcoming) {
+    if (utcDateKey(payment.date) !== soonestKey) continue;
+    amountNumeric += payment.amount;
+    if (payment.date < at) at = payment.date;
+  }
+
+  if (!Number.isFinite(amountNumeric) || amountNumeric <= 0) return null;
+  if (!Number.isFinite(at)) return null;
+  return { amountNumeric, at };
 }
 
 function formatEventTime(at: number): string {
