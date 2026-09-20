@@ -55,7 +55,9 @@ export default defineConfig({
       // auth specs (e2e/auth/*) need the real-Clerk rig and only run under the
       // 'auth' project (PLAYWRIGHT_AUTH=1). Without this, the DEMO chromium
       // project globs them in and they time out — see test:e2e:auth.
-      testIgnore: /\/auth\//,
+      // Preview smoke tests use playwright.preview.config.ts; their Vitest helper
+      // tests must not be collected by this local/demo suite.
+      testIgnore: [/\/auth\//, /\/preview\//],
     },
 
     // ── Auth suite (real Clerk, port 3002) ────────────────────────────────────
