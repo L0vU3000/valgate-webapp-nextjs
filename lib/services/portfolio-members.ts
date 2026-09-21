@@ -198,7 +198,7 @@ export async function createClientPortfolioWithInvitees(
       }
     }
 
-    const handoffId = await nextId("CHO");
+    const handoffId = await nextId("CHO", clientHandoffs);
     await db.insert(clientHandoffs).values({
       id: handoffId,
       managerUserId: ctx.userId,
@@ -323,7 +323,7 @@ export async function addPortfolioInvitees(
       await sendInvitationEmail(invitee.email, invitation.url ?? "", "en", invitee.name || "");
     }
 
-    const handoffId = await nextId("CHO");
+    const handoffId = await nextId("CHO", clientHandoffs);
     await db.insert(clientHandoffs).values({
       id: handoffId,
       managerUserId: ctx.userId,

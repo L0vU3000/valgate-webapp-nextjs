@@ -45,7 +45,7 @@ export async function upsertUserProfile(ctx: Ctx, patch: UserProfilePatch): Prom
     const updated = await scopedUpdate(ctx, userProfiles, existing.id, { ...patch, updatedAt: now }, rowToUserProfile, true);
     return updated!;
   }
-  const id = await nextId("UPROF");
+  const id = await nextId("UPROF", userProfiles);
   const base = UserProfileSchema.parse({
     firstName: "",
     lastName: "",

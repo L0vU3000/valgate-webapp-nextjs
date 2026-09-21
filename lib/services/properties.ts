@@ -103,7 +103,7 @@ export async function getPropertyForOrg(orgId: string, id: string): Promise<Prop
 
 export async function createProperty(ctx: Ctx, input: NewProperty): Promise<Property> {
   requireMember(ctx);
-  const id = await nextId("PROP");
+  const id = await nextId("PROP", properties);
   const now = Date.now();
   const merged = PropertySchema.parse({
     ...input,
@@ -124,7 +124,7 @@ export async function createProperty(ctx: Ctx, input: NewProperty): Promise<Prop
 export async function createPropertyForOrg(ctx: Ctx, targetOrgId: string, input: NewProperty): Promise<Property> {
   assertCanMutate();
   await assertOrgAdmin(ctx, targetOrgId);
-  const id = await nextId("PROP");
+  const id = await nextId("PROP", properties);
   const now = Date.now();
   const merged = PropertySchema.parse({
     ...input,

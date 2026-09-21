@@ -22,7 +22,7 @@ export function normaliseRole(r: string | null | undefined): Ctx["orgRole"] {
 
 export async function upsertOrg(data: { id: string; name: string; slug?: string | null }): Promise<void> {
   await db.insert(organizations)
-    .values({ id: await nextId("ORG"), clerkOrgId: data.id, name: data.name, slug: data.slug ?? null })
+    .values({ id: await nextId("ORG", organizations), clerkOrgId: data.id, name: data.name, slug: data.slug ?? null })
     .onConflictDoUpdate({
       target: organizations.clerkOrgId,
       set: { name: data.name, slug: data.slug ?? null, updatedAt: new Date() },
@@ -41,7 +41,7 @@ export async function upsertUser(data: {
 }): Promise<void> {
   await db.insert(users)
     .values({
-      id: await nextId("USR"),
+      id: await nextId("USR", users),
       clerkUserId: data.id,
       primaryEmail: data.primaryEmail,
       displayName: data.displayName ?? null,
@@ -125,7 +125,7 @@ export async function upsertMembership(data: {
   const orgId = await ourOrgId(data.clerkOrgId);
   const userId = await ourUserId(data.clerkUserId);
   await db.insert(organizationMemberships)
-    .values({ id: await nextId("MEM"), orgId, userId, role: normaliseRole(data.role), status: "active" })
+    .values({ id: await nextId("MEM", organizationMemberships), orgId, userId, role: normaliseRole(data.role), status: "active" })
     .onConflictDoUpdate({
       target: [organizationMemberships.orgId, organizationMemberships.userId],
       set: { role: normaliseRole(data.role), status: "active", updatedAt: new Date() },
