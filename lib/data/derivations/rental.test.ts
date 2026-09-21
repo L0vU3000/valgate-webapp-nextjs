@@ -3,9 +3,11 @@ import type { Lease } from "@/lib/data/types/lease";
 import type { Payment } from "@/lib/data/types/payment";
 import type { Property } from "@/lib/data/types/property";
 import {
+  computeActiveMonthlyRent,
   computeNextPayout,
   computeOccupancyRate,
   computeOccupancySummary,
+  computePropertyRentalRollup,
   computeTenancyCount,
 } from "./rental";
 
@@ -199,5 +201,74 @@ describe("computeNextPayout", () => {
       NOW,
     );
     expect(result).toEqual({ amountNumeric: 2500, at: upcoming });
+  });
+});
+
+describe("computeActiveMonthlyRent", () => {
+  it("sums only this property's active Signed leases", () => {
+    const leases = [
+      makeLease("LEASE-1", "PROP-1", "Signed", NOW - DAY, NOW + DAY),
+      makeLease("LEASE-2", "PROP-1", "Signed", NOW - DAY, NOW + DAY),
+      makeLease("LEASE-3", "PROP-1", "Offered", NOW - DAY, NOW + DAY),
+      makeLease("LEASE-4", "PROP-1", "Signed", NOW - 20 * DAY, NOW - DAY),
+      makeLease("LEASE-5", "PROP-2", "Signed", NOW - DAY, NOW + DAY),
+    ];
+    // Two active leases at 1000 each; offered, expired, and other-property rows excluded.
+    expect(computeActiveMonthlyRent(leases, "PROP-1", NOW)).toBe(2000);
+  });
+
+  it("returns 0 for a property with no leases or an empty id", () => {
+    expect(computeActiveMonthlyRent([], "PROP-1", NOW)).toBe(0);
+    expect(computeActiveMonthlyRent([makeLease("LEASE-1", "PROP-1", "Signed", NOW - DAY, NOW + DAY)], "", NOW)).toBe(0);
+  });
+});
+
+describe("computePropertyRentalRollup", () => {
+  it("counts an occupied property with its active rent and next payment", () => {
+    const property = makeProperty("PROP-1", "Rented");
+    const leases = [
+      makeLease("LEASE-1", "PROP-1", "Signed", NOW - DAY, NOW + DAY),
+      makeLease("LEASE-2", "PROP-1", "Declined", NOW - DAY, NOW + DAY),
+    ];
+    const upcoming = Date.UTC(2026, 9, 1, 0, 0, 0);
+
+    expect(
+      computePropertyRentalRollup(property, leases, [makePayment("PMT-1", upcoming, 1200)], NOW),
+    ).toEqual({
+      occupancyPercent: 100,
+      activeLeaseCount: 1,
+      monthlyRentNumeric: 1000,
+      nextPaymentAmountNumeric: 1200,
+      nextPaymentAt: upcoming,
+    });
+  });
+
+  it("returns zeros and nulls when the property has no leases and no upcoming payments", () => {
+    expect(computePropertyRentalRollup(makeProperty("PROP-1", "Vacant"), [], [], NOW)).toEqual({
+      occupancyPercent: 0,
+      activeLeaseCount: 0,
+      monthlyRentNumeric: 0,
+      nextPaymentAmountNumeric: null,
+      nextPaymentAt: null,
+    });
+  });
+
+  it("counts Owner-Occupied as occupied without a lease", () => {
+    const rollup = computePropertyRentalRollup(makeProperty("PROP-1", "Owner-Occupied"), [], [], NOW);
+    expect(rollup.occupancyPercent).toBe(100);
+    expect(rollup.activeLeaseCount).toBe(0);
+  });
+
+  it("treats an archived property as 0% and a null property as an empty rollup", () => {
+    const archived = makeProperty("PROP-1", "Rented", true);
+    expect(computePropertyRentalRollup(archived, [], [], NOW).occupancyPercent).toBe(0);
+
+    expect(computePropertyRentalRollup(null, [], [], NOW)).toEqual({
+      occupancyPercent: 0,
+      activeLeaseCount: 0,
+      monthlyRentNumeric: 0,
+      nextPaymentAmountNumeric: null,
+      nextPaymentAt: null,
+    });
   });
 });

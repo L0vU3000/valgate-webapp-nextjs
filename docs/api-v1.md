@@ -37,6 +37,7 @@ identity/org resolution as MCP (`ctxFromMcpAuth`) rather than duplicating auth l
 | PATCH | `/api/v1/properties/{id}/documents/{documentId}` | Rename or edit public document metadata |
 | DELETE | `/api/v1/properties/{id}/documents/{documentId}` | Delete a document and its stored bytes |
 | GET | `/api/v1/rental` | Portfolio rental summary: occupancy, tenancy count, next payout |
+| GET | `/api/v1/properties/{id}/rental` | One property's rental summary: occupancy, active leases, monthly rent, next payment |
 
 ### `GET /api/v1/me`
 
@@ -232,6 +233,33 @@ This endpoint never returns lease, tenant, or payment rows, storage ids, or
 `*Verified*` internals. An org with no rentals is still a 200 (zeros + nulls), not a
 404. Every org role (`viewer`, `member`, `admin`, `owner`) may read.
 
+### `GET /api/v1/properties/{id}/rental`
+
+The same rollup idea for one property, for the property Rental screen. Aggregate-only,
+by design — it is not a lease or payment list.
+
+| Field | Type | Notes |
+|---|---|---|
+| `occupancyPercent` | `number` | Integer `0`–`100`. `100` when the property is occupied. |
+| `activeLeaseCount` | `number` | Currently active Signed leases for this property. |
+| `monthlyRentNumeric` | `number` | Sum of `monthlyRent` over those active leases. `0` when there are none. |
+| `nextPaymentAmountNumeric` | `number \| null` | Same next-upcoming-Pending-Rent rule as the portfolio endpoint, scoped to this property. `null` when none exists. |
+| `nextPaymentAt` | `number \| null` | Unix ms of the earliest such payment. `null` when none exists. |
+| `currency` | `"USD" \| null` | `"USD"` when a payment exists; `null` when it does not. |
+
+Unlike the portfolio endpoint there is exactly one property, so occupancy is `100` or `0`:
+occupied means Owner-Occupied **or** at least one active Signed lease, matching
+`computeOccupancySummary`. An archived property counts as `0`.
+
+Missing property **or** a property in another org is the same plain `404` — the lookup is
+org-scoped, so neither case reveals whether the id exists. A property with no leases and no
+upcoming payments is a `200` with `{ occupancyPercent: 0, activeLeaseCount: 0,
+monthlyRentNumeric: 0, nextPaymentAmountNumeric: null, nextPaymentAt: null, currency: null }`.
+
+No lease, tenant, or payment identifier is ever serialized: no lease or payment id, no
+`tenantId`, `unit`, `method`, `renewalStatus`, and no row arrays under `leases`, `tenants`,
+`payments`, or `items`.
+
 ## DTO omissions (by design)
 
 None of the v1 DTOs ever include: internal `userId`/`orgId`/`clientId`, any storage id
@@ -244,6 +272,8 @@ regardless of how many fields the underlying DB row carries. Mortgage, tax, insu
 and market-value columns stay off the wire.
 `toMeDto`/`toPropertyListItemDto`/`toPropertyDetailDto`/`toDocumentListItemDto`/`toRentalSummaryDto` in
 `lib/api/v1/dto.ts` are hand-written field lists, never a spread of the full row.
+`toPropertyRentalSummaryDto` in `lib/api/v1/rental-dto.ts` follows the same rule (it is a
+separate file only because `dto.ts` is edited concurrently on another branch).
 
 ## Errors
 
@@ -280,5 +310,7 @@ requests / minute / user (`apiWriteLimiter`). Both are keyed on the resolved int
 - No raw file-byte proxying through the API; uploads and downloads go directly through the
   short-lived object-storage URLs.
 - No lease, payment, or tenant **list** endpoints. `GET /api/v1/rental` is a portfolio rollup
-  only (occupancy, tenancy count, next payout) — it does not expose those rows.
+  only (occupancy, tenancy count, next payout) and `GET /api/v1/properties/{id}/rental` is the
+  same idea for one property (occupancy, active-lease count, monthly rent, next payment) —
+  neither exposes those rows, nor any lease/tenant/payment identifier.
 - No document search/filtering.
