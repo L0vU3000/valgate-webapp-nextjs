@@ -1,4 +1,5 @@
 {
+  "buildCommand": "npm run db:migrate && next build --turbopack",
   "crons": [
     {
       "path": "/api/cron/cleanup-drafts",
