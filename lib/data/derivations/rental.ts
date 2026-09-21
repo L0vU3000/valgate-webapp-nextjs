@@ -482,7 +482,9 @@ export type NextPayout = {
 };
 
 // True when the lease is Signed and the clock sits inside [startDate, endDate].
-function isActiveSignedLease(lease: Lease, nowMs: number): boolean {
+// Exported so the per-property rollup (computePropertyRentalRollup) uses the exact same
+// definition of "active lease" as the portfolio summary — two copies would drift.
+export function isActiveSignedLease(lease: Lease, nowMs: number): boolean {
   if (lease.stage !== "Signed") return false;
   if (lease.startDate > nowMs) return false;
   if (lease.endDate < nowMs) return false;
@@ -599,6 +601,69 @@ export function computeNextPayout(
   if (!Number.isFinite(amountNumeric) || amountNumeric <= 0) return null;
   if (!Number.isFinite(at)) return null;
   return { amountNumeric, at };
+}
+
+// Per-property rental rollup behind GET /api/v1/properties/[id]/rental.
+//
+// Screen-shaped aggregate only: one occupancy percent, one active-lease count, one summed
+// monthly rent, one next payment. The lease/payment rows it reads never leave this function —
+// no lease id, tenant id, unit, or payment id is returned.
+export type PropertyRentalRollup = {
+  occupancyPercent: number;
+  activeLeaseCount: number;
+  monthlyRentNumeric: number;
+  /** Null when the property has no upcoming Pending Rent — never a fabricated $0 or date. */
+  nextPaymentAmountNumeric: number | null;
+  /** Unix ms of the soonest upcoming Pending Rent payment. Null when there is none. */
+  nextPaymentAt: number | null;
+};
+
+// Sums monthlyRent over the currently-active Signed leases for one property. Non-finite or
+// negative rents are skipped so one bad row cannot poison the total into NaN.
+export function computeActiveMonthlyRent(leases: Lease[], propertyId: string, nowMs: number = Date.now()): number {
+  let total = 0;
+  for (const lease of leases) {
+    if (lease.propertyId !== propertyId) continue;
+    if (!isActiveSignedLease(lease, nowMs)) continue;
+    if (!Number.isFinite(lease.monthlyRent) || lease.monthlyRent <= 0) continue;
+    total += lease.monthlyRent;
+  }
+  return total;
+}
+
+// Rolls one property's leases and payments into the four numbers the property Rental screen
+// shows. Callers must pass leases/payments already filtered to this property+org.
+//
+// What could go wrong: the caller passes the whole org's rows (we filter again anyway), the
+// property has no leases at all (occupancy 0, not an error), or it is Owner-Occupied (occupied
+// with no lease, matching computeOccupancySummary). The next payment reuses computeNextPayout,
+// so the portfolio and per-property "next" always agree.
+export function computePropertyRentalRollup(
+  property: Property | null,
+  leases: Lease[],
+  payments: Payment[],
+  nowMs: number = Date.now(),
+): PropertyRentalRollup {
+  const activeLeases = property
+    ? leases.filter((l) => l.propertyId === property.id && isActiveSignedLease(l, nowMs))
+    : [];
+
+  let occupiedCount = 0;
+  let totalCount = 0;
+  if (property && !property.isArchived) {
+    totalCount = 1;
+    if (property.status === "Owner-Occupied" || activeLeases.length > 0) occupiedCount = 1;
+  }
+
+  const nextPayment = computeNextPayout(payments, nowMs);
+
+  return {
+    occupancyPercent: totalCount === 0 ? 0 : Math.round((occupiedCount / totalCount) * 100),
+    activeLeaseCount: activeLeases.length,
+    monthlyRentNumeric: computeActiveMonthlyRent(leases, property?.id ?? "", nowMs),
+    nextPaymentAmountNumeric: nextPayment ? nextPayment.amountNumeric : null,
+    nextPaymentAt: nextPayment ? nextPayment.at : null,
+  };
 }
 
 function formatEventTime(at: number): string {

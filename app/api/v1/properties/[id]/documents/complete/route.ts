@@ -13,6 +13,7 @@ import { logger } from "@/lib/logger";
 import { getProperty } from "@/lib/services/properties";
 import { createDocument } from "@/lib/services/documents";
 import { assertCanMutate, roleAtLeast } from "@/lib/services/_mapping";
+import { describeError } from "@/lib/api/v1/describe-error";
 
 export const dynamic = "force-dynamic";
 
@@ -52,7 +53,7 @@ export async function POST(
       return apiError(403, "forbidden", "You do not have permission to do that.");
     }
     logger.error("POST /api/v1/properties/[id]/documents/complete failed", {
-      error: String(err),
+      error: describeError(err),
     });
     return apiError(500, "internal_error", "Something went wrong. Please try again.");
   }

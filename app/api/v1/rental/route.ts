@@ -5,6 +5,7 @@ import { toRentalSummaryDto } from "@/lib/api/v1/dto";
 import { apiError } from "@/lib/api/v1/http";
 import { logger } from "@/lib/logger";
 import { getRentalSummary } from "@/lib/services/rental-summary";
+import { describeError } from "@/lib/api/v1/describe-error";
 
 // This route hits the database per request and reads request auth — never statically prerender.
 export const dynamic = "force-dynamic";
@@ -24,7 +25,7 @@ export async function GET() {
   } catch (err) {
     // Fail closed: an unexpected service/serialization error is logged server-side and never
     // echoed to the client — the response is always the fixed, generic 500 envelope.
-    logger.error("GET /api/v1/rental failed", { error: String(err) });
+    logger.error("GET /api/v1/rental failed", { error: describeError(err) });
     return apiError(500, "internal_error", "Something went wrong. Please try again.");
   }
 }

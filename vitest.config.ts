@@ -21,6 +21,11 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    // Pin NODE_ENV=test so production-only gates do not fire under test. Without this,
+    // a developer .env.local with DEMO_MODE=true trips the demo short-circuit in
+    // lib/api/v1/auth.ts (its guard is NODE_ENV !== "test") and every auth assertion
+    // fails locally — while CI stays green because CI has no .env.local.
+    env: { NODE_ENV: "test" },
     exclude: [
       ...configDefaults.exclude, // node_modules, dist, .git, etc.
       // Playwright specs use `.spec.ts` too; vitest would try to run them and

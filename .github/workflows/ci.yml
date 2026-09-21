@@ -54,6 +54,30 @@ jobs:
       # No database, no Playwright, no preview URL — just vitest.
       - run: npm run test:preview
 
+  # ---------------------------------------------------------------
+  # API contract: docs/api-spec/valgate-api-v1.yaml is the single source
+  # of truth for the web route handlers AND the iOS client. If the spec
+  # changes without regenerating lib/api/v1/generated-types.ts (or the
+  # generated file is hand-edited), the two drift silently and iOS starts
+  # decoding shapes the server no longer sends. This job is the tripwire:
+  # it regenerates to a temp file and diffs, failing on any difference.
+  # No database, no network — pure spec → types generation.
+  # ---------------------------------------------------------------
+  api-contract:
+    name: API contract (spec lint + spec ↔ generated TS types)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+
+      - run: npm ci
+      # Lint the spec itself first. A spec that mis-declares nullability or omits the
+      # auth requirement produces types that are confidently wrong — the drift check
+      # below cannot catch that, because it only proves generated matches spec.
+      - run: npx --yes @redocly/cli@2 lint docs/api-spec/valgate-api-v1.yaml
+      - run: npm run api:check-ts
+
   # Live-DB integration tests (*.db.test.ts), including the org-scoping IDOR suite.
   # This is a blocking job on purpose. Do not fold it into `e2e` — that job is
   # continue-on-error until TM1-62, which would make IDOR regressions invisible again.

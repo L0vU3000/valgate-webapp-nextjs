@@ -3,12 +3,11 @@ import { NextResponse } from "next/server";
 import { isWriteDeniedError, readJsonBody } from "@/lib/api/v1/property-write";
 import { resolveApiV1Ctx } from "@/lib/api/v1/auth";
 import { apiError } from "@/lib/api/v1/http";
-import { parseDocumentUploadBody } from "@/lib/api/v1/document-write";
-import { toDocumentListItemDto } from "@/lib/api/v1/dto";
+import { parseValuationCreateBody, toNewPropertyValuation } from "@/lib/api/v1/valuation-write";
+import { toPropertyValuationDto } from "@/lib/api/v1/dto";
 import { assertCanMutate, roleAtLeast } from "@/lib/services/_mapping";
-import { listDocumentsPage } from "@/lib/services/documents";
+import { createPropertyValuation, listPropertyValuationsPage } from "@/lib/services/property-valuations";
 import { getProperty } from "@/lib/services/properties";
-import { presignUpload } from "@/lib/services/storage";
 import { logger } from "@/lib/logger";
 import { describeError } from "@/lib/api/v1/describe-error";
 
@@ -28,8 +27,9 @@ function parseLimit(raw: string | null): number | null {
   return n;
 }
 
-// GET /api/v1/properties/[id]/documents — opaque-cursor page of one property's documents,
-// org-scoped. A missing or cross-org property is a plain 404 (same IDOR rule as property detail).
+// GET /api/v1/properties/[id]/valuations — opaque-cursor page of one property's valuation
+// history, org-scoped. A missing or cross-org property is a plain 404 (same IDOR rule as
+// property detail / the documents list).
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const authResult = await resolveApiV1Ctx();
   if (!authResult.ok) return authResult.response;
@@ -46,15 +46,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   try {
     // getProperty is already org-scoped (WHERE orgId = ctx.orgId), so a property that doesn't
     // exist and one that exists in another org are indistinguishable here — both are a plain 404.
-    // We look the property up first so an unknown id never becomes an empty document page.
     const property = await getProperty(authResult.ctx, id);
     if (!property) {
       return apiError(404, "not_found", "Property not found.");
     }
 
-    const page = await listDocumentsPage(authResult.ctx, id, { limit, cursor });
+    const page = await listPropertyValuationsPage(authResult.ctx, id, { limit, cursor });
     return NextResponse.json({
-      items: page.items.map(toDocumentListItemDto),
+      items: page.items.map(toPropertyValuationDto),
       nextCursor: page.nextCursor,
     });
   } catch (err) {
@@ -63,16 +62,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     }
     // Fail closed: an unexpected service/serialization error is logged server-side and never
     // echoed to the client — the response is always the fixed, generic 500 envelope.
-    logger.error("GET /api/v1/properties/[id]/documents failed", { error: describeError(err) });
+    logger.error("GET /api/v1/properties/[id]/valuations failed", { error: describeError(err) });
     return apiError(500, "internal_error", "Something went wrong. Please try again.");
   }
 }
 
-// POST /api/v1/properties/{id}/documents — issue a direct object-storage upload ticket.
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+// POST /api/v1/properties/{id}/valuations — record a new valuation entry.
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const authResult = await resolveApiV1Ctx("write");
   if (!authResult.ok) return authResult.response;
 
@@ -80,8 +76,8 @@ export async function POST(
   const json = await readJsonBody(request);
   if (!json.ok) return apiError(400, "invalid_request", "Request body must be JSON.");
 
-  const parsed = parseDocumentUploadBody(json.value);
-  if (!parsed.ok) return apiError(400, "invalid_request", "Invalid document fields.");
+  const parsed = parseValuationCreateBody(json.value);
+  if (!parsed.ok) return apiError(400, "invalid_request", "Invalid valuation fields.");
 
   try {
     const property = await getProperty(authResult.ctx, id);
@@ -91,17 +87,16 @@ export async function POST(
     }
 
     assertCanMutate();
-    const ticket = await presignUpload(authResult.ctx, {
-      name: parsed.body.name,
-      mimeType: parsed.body.mimeType,
-      sizeBytes: parsed.body.sizeBytes,
-    });
-    return NextResponse.json(ticket, { status: 201 });
+    const created = await createPropertyValuation(
+      authResult.ctx,
+      toNewPropertyValuation(id, parsed.body),
+    );
+    return NextResponse.json(toPropertyValuationDto(created), { status: 201 });
   } catch (err) {
     if (isWriteDeniedError(err)) {
       return apiError(403, "forbidden", "You do not have permission to do that.");
     }
-    logger.error("POST /api/v1/properties/[id]/documents failed", { error: describeError(err) });
+    logger.error("POST /api/v1/properties/[id]/valuations failed", { error: describeError(err) });
     return apiError(500, "internal_error", "Something went wrong. Please try again.");
   }
 }
