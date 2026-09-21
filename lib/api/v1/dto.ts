@@ -1,5 +1,6 @@
 import type { Document } from "@/lib/data/types/document";
 import type { Property } from "@/lib/data/types/property";
+import type { PropertyValuation } from "@/lib/data/types/property-valuation";
 import type { Ctx } from "@/lib/services/_mapping";
 
 // Intentionally small public DTOs for HTTP API v1. Every field here is deliberate — never
@@ -174,6 +175,25 @@ export function toRentalSummaryDto(summary: RentalSummarySource): RentalSummaryD
     nextPayoutAmountNumeric: hasPayout ? amount : null,
     nextPayoutAt: hasPayout ? at : null,
     currency: hasPayout ? "USD" : null,
+  };
+}
+
+export type PropertyValuationDtoV1 = {
+  id: string;
+  propertyId: string;
+  month: string;
+  price: number;
+};
+
+// Maps a full PropertyValuation row to the small public DTO. recordedAt (an internal audit
+// timestamp of when the row was written, used only for cursor ordering) is intentionally
+// withheld — it is not the same thing as the human-entered `month` the valuation is for.
+export function toPropertyValuationDto(valuation: PropertyValuation): PropertyValuationDtoV1 {
+  return {
+    id: valuation.id,
+    propertyId: valuation.propertyId,
+    month: valuation.month,
+    price: valuation.price,
   };
 }
 

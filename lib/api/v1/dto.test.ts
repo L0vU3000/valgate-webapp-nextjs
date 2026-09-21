@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { Document } from "@/lib/data/types/document";
 import type { Property } from "@/lib/data/types/property";
+import type { PropertyValuation } from "@/lib/data/types/property-valuation";
 import {
   toMeDto,
   toPropertyListItemDto,
@@ -8,6 +9,7 @@ import {
   toDocumentListItemDto,
   toListPrice,
   toRentalSummaryDto,
+  toPropertyValuationDto,
 } from "./dto";
 
 // ---------------------------------------------------------------------------
@@ -298,6 +300,31 @@ describe("toRentalSummaryDto", () => {
       nextPayoutAt: null,
       currency: null,
     });
+  });
+});
+
+describe("toPropertyValuationDto", () => {
+  const FULL_VALUATION: PropertyValuation = {
+    id: "VAL-0001",
+    propertyId: "PROP-0001",
+    month: "Jan 2026",
+    price: 5250000,
+    recordedAt: 1727740800000,
+  };
+
+  it("exposes only id, propertyId, month, and price", () => {
+    const dto = toPropertyValuationDto(FULL_VALUATION);
+    expect(dto).toEqual({
+      id: "VAL-0001",
+      propertyId: "PROP-0001",
+      month: "Jan 2026",
+      price: 5250000,
+    });
+  });
+
+  it("withholds recordedAt even though the row carries it", () => {
+    const dto = toPropertyValuationDto(FULL_VALUATION);
+    expect(dto).not.toHaveProperty("recordedAt");
   });
 });
 
