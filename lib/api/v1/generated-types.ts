@@ -40,7 +40,10 @@ export interface paths {
         put?: never;
         /**
          * Create a property
-         * @description Creates a new property under the caller's organization.
+         * @description Creates a new property under the caller's organization. Requires role `member` or
+         *     above. Only the fields below are accepted — unknown extra keys (e.g. `photoStorageIds`,
+         *     `mortgages`) are stripped, not rejected. `totalArea` defaults to `""`; storage ids and
+         *     financial internals are never stored from this body.
          */
         post: operations["createProperty"];
         delete?: never;
@@ -65,16 +68,257 @@ export interface paths {
         post?: never;
         /**
          * Delete a property
-         * @description Deletes a property. Idempotent — returns 204 even if already deleted.
+         * @description Hard-deletes a property and its cascade (same as the website). Requires role `admin`
+         *     or above. Success is 204 with an empty body. A property that does not exist, or exists
+         *     in another org, is a plain 404 — the two cases are indistinguishable.
          */
         delete: operations["deleteProperty"];
         options?: never;
         head?: never;
         /**
          * Update a property
-         * @description Partially updates a property. Any omitted field is left unchanged.
+         * @description Partially updates a property. Any omitted field is left unchanged; an empty object is
+         *     valid and changes nothing. Requires role `member` or above. A body `id` is ignored —
+         *     the URL id always wins. The org-scoped lookup runs first, so a property in another org
+         *     is a plain 404, not a 403.
          */
         patch: operations["updateProperty"];
+        trace?: never;
+    };
+    "/properties/{id}/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List a property's documents (paginated)
+         * @description Opaque-cursor page of one property's documents, org-scoped.
+         *     A property that does not exist, or exists in another org, is a plain 404 — never an
+         *     empty page. Pass the `nextCursor` from the previous response as the new `cursor`.
+         *     `limit` must be a plain integer in 1-100 (absent defaults to 20); anything else —
+         *     non-integer, 0, negative, >100 — is a 400, never a silent clamp. A tampered or
+         *     malformed `cursor` is also a 400.
+         */
+        get: operations["listPropertyDocuments"];
+        put?: never;
+        /**
+         * Issue a direct object-storage upload ticket
+         * @description Returns a presigned S3 POST plus the `storageId` the object must be stored under
+         *     (`{orgId}/{DOC-id}/{name}`). Upload the file to `url` with every entry of `fields`,
+         *     then confirm with POST /properties/{id}/documents/complete.
+         *     Requires role `member` or above.
+         */
+        post: operations["createDocumentUploadTicket"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/properties/{id}/documents/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record a completed direct upload
+         * @description Creates the document row after the direct upload succeeded. `storageId` must start
+         *     with the caller's org id (`{orgId}/...`) — the ticket from POST
+         *     /properties/{id}/documents is the normal source; anything else is a 400.
+         *     Requires role `member` or above.
+         */
+        post: operations["completeDocumentUpload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/properties/{id}/documents/{documentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Resolve a short-lived document URL
+         * @description Returns a signed URL to the stored bytes. `urlExpiresAt` is the expiry as a Unix
+         *     timestamp in milliseconds (5 minutes after issue).
+         */
+        get: operations["getDocumentUrl"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a document and its stored bytes
+         * @description Deletes the document row and the stored object. Requires role `admin` or above.
+         *     Success is 204 with an empty body. The org-scoped lookup runs first, so a document
+         *     in another org is a plain 404, not a 403.
+         */
+        delete: operations["deleteDocument"];
+        options?: never;
+        head?: never;
+        /**
+         * Rename or edit public document metadata
+         * @description Partially updates `name`, `category`, and `description`. An omitted field is left
+         *     unchanged; an empty object is valid and changes nothing. Returns the updated
+         *     document. Requires role `member` or above.
+         *     The org-scoped lookup runs first, so a document in another org is a plain 404, not
+         *     a 403 — even for a viewer.
+         */
+        patch: operations["updateDocumentMetadata"];
+        trace?: never;
+    };
+    "/properties/{id}/valuations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List a property's valuations (paginated)
+         * @description Opaque-cursor page of one property's valuation history, org-scoped.
+         *     A property that does not exist, or exists in another org, is a plain 404 — never an
+         *     empty page. `limit` rules are identical to the documents list: a plain integer in
+         *     1-100, absent defaults to 20, anything else is a 400.
+         */
+        get: operations["listPropertyValuations"];
+        put?: never;
+        /**
+         * Record a new valuation entry
+         * @description `month` is the human-entered valuation month (`MMM YYYY`), `price` a positive
+         *     amount. `propertyId` comes from the URL; `id` and `recordedAt` are server-generated.
+         *     Requires role `member` or above.
+         */
+        post: operations["createPropertyValuation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/valuations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a valuation entry
+         * @description Removes the valuation row. Requires role `admin` or above. Success is 204 with an
+         *     empty body. The org-scoped lookup runs first, so a valuation in another org is a
+         *     plain 404, not a 403.
+         */
+        delete: operations["deleteValuation"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a valuation entry
+         * @description Partially updates `month` and/or `price`. An omitted field is left unchanged; an
+         *     empty object is valid and changes nothing. `recordedAt` is never patchable.
+         *     Requires role `member` or above. The org-scoped lookup runs first, so a valuation in
+         *     another org is a plain 404, not a 403.
+         */
+        patch: operations["updateValuation"];
+        trace?: never;
+    };
+    "/properties/{id}/ownership": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a property's ownership bundle
+         * @description One property's ownership records, co-owners, and ownership history in a single
+         *     response, org-scoped. A property that does not exist, or exists in another org, is a
+         *     plain 404 — never an empty bundle.
+         *     Unpaginated by design: the three underlying lists are capped at 500 rows each.
+         */
+        get: operations["getPropertyOwnership"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ownership/{ownershipRecordId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a single ownership record
+         * @description The public DTO of one ownership record, org-scoped. A record that does not exist, or
+         *     exists in another org, is a plain 404 — the two cases are indistinguishable.
+         */
+        get: operations["getOwnershipRecord"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/rental": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the portfolio rental summary
+         * @description Org-wide rental rollup: occupancy, tenancy count, and the next payout. There is no id
+         *     here, so this route never 404s — an org with no rentals still gets zeros and nulls.
+         */
+        get: operations["getRentalSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/properties/{id}/rental": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get one property's rental summary
+         * @description Screen-shaped aggregate for one property: occupancy, active-lease count, monthly
+         *     rent, and the next payment. Aggregate only by design — no lease, tenant, unit, or
+         *     payment row is ever serialized. A property that does not exist, or exists in another
+         *     org, is a plain 404.
+         */
+        get: operations["getPropertyRentalSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
 }
@@ -85,21 +329,38 @@ export interface components {
             /** Format: email */
             email: string;
             displayName: string | null;
-            /** @description orgRole from the auth context */
-            role: string;
+            /**
+             * @description orgRole from the auth context
+             * @enum {string}
+             */
+            role: "owner" | "admin" | "member" | "viewer";
             orgName: string;
         };
         PropertyListItemDtoV1: {
             id: string;
             name: string;
-            /** @description Property type (e.g. apartment, house, condo) */
+            /** @description Property type (e.g. residential, commercial, multi-unit, land) */
             type: string;
-            /** @description Property status (e.g. active, inactive, cancelled) */
+            /** @description Property status (e.g. Rented, Vacant, For Sale, Sold, Archived, Owner-Occupied) */
             status: string;
+            /** @description Latitude, for map pin placement. */
+            lat: number;
+            /** @description Longitude, for map pin placement. */
+            lng: number;
             city: string | null;
             province: string | null;
             /** @description Unix timestamp (milliseconds) */
             createdAt: number;
+            /**
+             * @description Stored purchase amount (`buyNumeric`). Null when it is missing or 0 (the create
+             *     default, meaning price not collected) — never a fabricated value.
+             */
+            priceNumeric: number | null;
+            /**
+             * @description ISO 4217 code for `priceNumeric`. v1 money is USD only. Null when `priceNumeric` is null.
+             * @enum {string|null}
+             */
+            currency: "USD" | null;
         };
         PropertyDetailDtoV1: {
             addressLine: string | null;
@@ -109,10 +370,235 @@ export interface components {
             bathrooms: string | null;
             yearBuilt: string | null;
         } & components["schemas"]["PropertyListItemDtoV1"];
+        /**
+         * @description Public document metadata. Storage ids, uploader, verification, and AI-summary
+         *     internals are never included.
+         */
+        DocumentListItemDtoV1: {
+            id: string;
+            propertyId: string;
+            folderId?: string | null;
+            name: string;
+            /**
+             * @description Derived from the MIME type on upload — `photo` for `image/*`, else `document`.
+             * @enum {string}
+             */
+            kind: "photo" | "document";
+            mimeType?: string | null;
+            extension?: string | null;
+            sizeBytes?: number | null;
+            /** @enum {string} */
+            category: "Title" | "Rental" | "Photos" | "Legal" | "Financial" | "Estate" | "Other";
+            description?: string | null;
+            /** @description Unix timestamp (milliseconds) */
+            uploadedAt: number;
+        };
+        DocumentPageDtoV1: {
+            items: components["schemas"]["DocumentListItemDtoV1"][];
+            /** @description Cursor for the next page. Null if no more pages. */
+            nextCursor: string | null;
+        };
+        /**
+         * @description Upload ticket request. `mimeType` must be one of the allowed upload types
+         *     (JPEG, PNG, WebP, PDF, DOC, DOCX, XLS, XLSX) and `sizeBytes` at most 10 MiB.
+         */
+        DocumentUploadBody: {
+            name: string;
+            /** @enum {string} */
+            mimeType: "image/jpeg" | "image/png" | "image/webp" | "application/pdf" | "application/msword" | "application/vnd.openxmlformats-officedocument.wordprocessingml.document" | "application/vnd.ms-excel" | "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+            sizeBytes: number;
+            /** @enum {string} */
+            category?: "Title" | "Rental" | "Photos" | "Legal" | "Financial" | "Estate" | "Other";
+            description?: string;
+        };
+        /**
+         * @description Confirms a finished direct upload. `storageId` must be in the caller's org namespace
+         *     (`{orgId}/...`), so cross-org binding is impossible.
+         */
+        DocumentCompleteBody: {
+            storageId: string;
+            name: string;
+            /** @enum {string} */
+            mimeType: "image/jpeg" | "image/png" | "image/webp" | "application/pdf" | "application/msword" | "application/vnd.openxmlformats-officedocument.wordprocessingml.document" | "application/vnd.ms-excel" | "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+            sizeBytes: number;
+            /** @enum {string} */
+            category?: "Title" | "Rental" | "Photos" | "Legal" | "Financial" | "Estate" | "Other";
+            description?: string;
+        };
+        /**
+         * @description Partial metadata update. All fields optional — an empty object is valid and changes
+         *     nothing. Unknown keys are stripped, not rejected.
+         */
+        DocumentPatchBody: {
+            name?: string;
+            /** @enum {string} */
+            category?: "Title" | "Rental" | "Photos" | "Legal" | "Financial" | "Estate" | "Other";
+            description?: string;
+        };
+        /** @description Presigned S3 POST. Send every entry of `fields` with the file; the object key is `storageId`. */
+        DocumentUploadTicketDtoV1: {
+            /** Format: uri */
+            url: string;
+            fields: {
+                [key: string]: string;
+            };
+            storageId: string;
+        };
+        DocumentUrlDtoV1: {
+            /** Format: uri */
+            url: string;
+            /** @description URL expiry as a Unix timestamp in milliseconds (issued with a 5-minute TTL). */
+            urlExpiresAt: number;
+        };
+        /**
+         * @description A single valuation entry. `recordedAt` (the internal write timestamp) is withheld —
+         *     it is not the same thing as the human-entered `month` the valuation is for.
+         */
+        PropertyValuationDtoV1: {
+            id: string;
+            propertyId: string;
+            /** @description Valuation month, `MMM YYYY` (e.g. 'Jan 2026'). */
+            month: string;
+            price: number;
+        };
+        PropertyValuationPageDtoV1: {
+            items: components["schemas"]["PropertyValuationDtoV1"][];
+            /** @description Cursor for the next page. Null if no more pages. */
+            nextCursor: string | null;
+        };
+        ValuationCreateBody: {
+            /** @description Valuation month, `MMM YYYY` (e.g. 'Jan 2026'). */
+            month: string;
+            price: number;
+        };
+        /** @description Partial update. Both fields optional — an empty object is valid and changes nothing. */
+        ValuationPatchBody: {
+            month?: string;
+            price?: number;
+        };
+        /**
+         * @description Public subset of an ownership record. Loan/lender/interest and acquisition-cost
+         *     fields, verification flags, and evidence-doc ids are withheld pending a product
+         *     decision. `distributionMethod` is omitted at the wire when the stored row has none.
+         */
+        OwnershipRecordDtoV1: {
+            id: string;
+            propertyId: string;
+            /** @enum {string} */
+            holdingType: "Tenancy in Common" | "Joint Tenancy" | "Sole Ownership" | "Trust" | "LLC" | "Other";
+            /** @enum {string} */
+            distributionMethod: "Pro-Rata by Share" | "Equal Split" | "Custom";
+        };
+        /**
+         * @description Public subset of a co-owner. `ssnMasked`, tax fields, and `address` are withheld as
+         *     PII.
+         */
+        CoOwnerDtoV1: {
+            id: string;
+            propertyId: string;
+            name: string;
+            /** @enum {string} */
+            role: "Primary" | "Minor";
+            sharePercent: number;
+            email?: string | null;
+            phone?: string | null;
+        };
+        /** @description Public subset of an ownership-history entry. `eventDate` and audit timestamps are withheld. */
+        OwnershipHistoryDtoV1: {
+            id: string;
+            propertyId: string;
+            text: string;
+            color: string;
+        };
+        /** @description Everything the property Ownership screen shows. Not paginated; each list is capped at 500 rows. */
+        OwnershipBundleDtoV1: {
+            ownershipRecords: components["schemas"]["OwnershipRecordDtoV1"][];
+            coOwners: components["schemas"]["CoOwnerDtoV1"][];
+            ownershipHistory: components["schemas"]["OwnershipHistoryDtoV1"][];
+        };
+        /** @description Org-wide rental rollup. Counts are rounded, non-negative integers; `occupancyPercent` is capped at 100. */
+        RentalSummaryDtoV1: {
+            occupancyPercent: number;
+            occupiedCount: number;
+            totalCount: number;
+            tenancyCount: number;
+            /** @description Null when there is no real upcoming payout (never a fabricated 0). */
+            nextPayoutAmountNumeric: number | null;
+            /** @description Unix timestamp (milliseconds) of the next payout. Null when none. */
+            nextPayoutAt: number | null;
+            /**
+             * @description `USD` only when a real upcoming payout exists. v1 money is USD only.
+             * @enum {string|null}
+             */
+            currency: "USD" | null;
+        };
+        /**
+         * @description Screen-shaped aggregate for one property. Not a lease/tenant/payment list — no lease
+         *     id, tenant id, unit, or payment row is ever serialized.
+         */
+        PropertyRentalSummaryDtoV1: {
+            /** @description 100 when occupied (Owner-Occupied or an active Signed lease), else 0. */
+            occupancyPercent: number;
+            /** @description Currently active Signed leases for this property. */
+            activeLeaseCount: number;
+            /** @description Sum of monthlyRent over those active leases. 0 when there are none. */
+            monthlyRentNumeric: number;
+            /** @description Sum of Pending Rent on the next upcoming UTC day. Null when none exists. */
+            nextPaymentAmountNumeric: number | null;
+            /** @description Unix timestamp (milliseconds) of the earliest payment on that day. Null when none. */
+            nextPaymentAt: number | null;
+            /**
+             * @description `USD` only when a real upcoming payment exists. v1 money is USD only.
+             * @enum {string|null}
+             */
+            currency: "USD" | null;
+        };
+        /**
+         * @description Bounded create body. This is NOT the website's `NewProperty` dump — unknown extra keys
+         *     are stripped, not rejected. `totalArea` is filled with `""` when omitted.
+         */
+        PropertyCreateBody: {
+            name: string;
+            /** @enum {string} */
+            type: "residential" | "commercial" | "multi-unit" | "retail" | "land" | "industrial" | "construction" | "other";
+            /** @enum {string} */
+            status: "Rented" | "Vacant" | "For Sale" | "Sold" | "Archived" | "Owner-Occupied";
+            lat: number;
+            lng: number;
+            city?: string;
+            province?: string;
+            addressLine?: string;
+            country?: string;
+            totalArea?: string;
+            bedrooms?: string;
+            bathrooms?: string;
+            yearBuilt?: string;
+        };
+        /**
+         * @description Partial update. Every field is optional — an empty object is valid and changes
+         *     nothing. A body `id` is not in this schema, so the URL id always wins.
+         */
+        PropertyPatchBody: {
+            name?: string;
+            /** @enum {string} */
+            type?: "residential" | "commercial" | "multi-unit" | "retail" | "land" | "industrial" | "construction" | "other";
+            /** @enum {string} */
+            status?: "Rented" | "Vacant" | "For Sale" | "Sold" | "Archived" | "Owner-Occupied";
+            lat?: number;
+            lng?: number;
+            city?: string;
+            province?: string;
+            addressLine?: string;
+            country?: string;
+            totalArea?: string;
+            bedrooms?: string;
+            bathrooms?: string;
+            yearBuilt?: string;
+        };
         ErrorEnvelope: {
             error: {
                 /** @enum {string} */
-                code: "unauthorized" | "invalid_request" | "not_found" | "rate_limited" | "internal_error";
+                code: "unauthorized" | "invalid_request" | "forbidden" | "not_found" | "rate_limited" | "internal_error";
                 message: string;
             };
         };
@@ -145,6 +631,15 @@ export interface components {
                 "application/json": components["schemas"]["ErrorEnvelope"];
             };
         };
+        /** @description Caller's org role is below the threshold for this operation */
+        Forbidden: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorEnvelope"];
+            };
+        };
         /** @description Rate limit exceeded */
         RateLimited: {
             headers: {
@@ -164,7 +659,20 @@ export interface components {
             };
         };
     };
-    parameters: never;
+    parameters: {
+        /** @description Property ID */
+        PropertyIdPath: string;
+        /** @description Document ID */
+        DocumentIdPath: string;
+        /** @description Valuation ID */
+        ValuationIdPath: string;
+        /** @description Ownership record ID */
+        OwnershipRecordIdPath: string;
+        /** @description Number of items per page (1-100). Defaults to 20. Anything else is a 400. */
+        LimitQuery: number;
+        /** @description Opaque cursor from the previous page's `nextCursor`. Never construct or decode it yourself. */
+        CursorQuery: string;
+    };
     requestBodies: never;
     headers: never;
     pathItems: never;
@@ -196,10 +704,10 @@ export interface operations {
     listProperties: {
         parameters: {
             query?: {
-                /** @description Number of items per page (1-100). Defaults to 20. */
-                limit?: number;
-                /** @description Opaque cursor from the previous page's `nextCursor`. */
-                cursor?: string;
+                /** @description Number of items per page (1-100). Defaults to 20. Anything else is a 400. */
+                limit?: components["parameters"]["LimitQuery"];
+                /** @description Opaque cursor from the previous page's `nextCursor`. Never construct or decode it yourself. */
+                cursor?: components["parameters"]["CursorQuery"];
             };
             header?: never;
             path?: never;
@@ -214,14 +722,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        items?: components["schemas"]["PropertyListItemDtoV1"][];
+                        items: components["schemas"]["PropertyListItemDtoV1"][];
                         /** @description Cursor for the next page. Null if no more pages. */
-                        nextCursor?: string | null;
+                        nextCursor: string | null;
                     };
                 };
             };
             400: components["responses"]["InvalidRequest"];
             401: components["responses"]["Unauthorized"];
+            429: components["responses"]["RateLimited"];
             500: components["responses"]["InternalError"];
         };
     };
@@ -234,21 +743,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    name: string;
-                    type: string;
-                    status: string;
-                    lat: number;
-                    lng: number;
-                    buyNumeric: number;
-                    totalArea: string;
-                    title: string;
-                    addressLine?: string | null;
-                    city?: string | null;
-                    province?: string | null;
-                    zip?: string | null;
-                    country?: string | null;
-                };
+                "application/json": components["schemas"]["PropertyCreateBody"];
             };
         };
         responses: {
@@ -263,6 +758,8 @@ export interface operations {
             };
             400: components["responses"]["InvalidRequest"];
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimited"];
             500: components["responses"]["InternalError"];
         };
     };
@@ -272,7 +769,7 @@ export interface operations {
             header?: never;
             path: {
                 /** @description Property ID */
-                id: string;
+                id: components["parameters"]["PropertyIdPath"];
             };
             cookie?: never;
         };
@@ -289,6 +786,7 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
             500: components["responses"]["InternalError"];
         };
     };
@@ -298,13 +796,13 @@ export interface operations {
             header?: never;
             path: {
                 /** @description Property ID */
-                id: string;
+                id: components["parameters"]["PropertyIdPath"];
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Property deleted (or already absent) */
+            /** @description Property deleted */
             204: {
                 headers: {
                     [name: string]: unknown;
@@ -312,6 +810,9 @@ export interface operations {
                 content?: never;
             };
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
             500: components["responses"]["InternalError"];
         };
     };
@@ -321,25 +822,13 @@ export interface operations {
             header?: never;
             path: {
                 /** @description Property ID */
-                id: string;
+                id: components["parameters"]["PropertyIdPath"];
             };
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": {
-                    name?: string;
-                    type?: string;
-                    status?: string;
-                    lat?: number;
-                    lng?: number;
-                    buyNumeric?: number;
-                    totalArea?: string;
-                    title?: string;
-                    addressLine?: string | null;
-                    city?: string | null;
-                    province?: string | null;
-                };
+                "application/json": components["schemas"]["PropertyPatchBody"];
             };
         };
         responses: {
@@ -354,7 +843,429 @@ export interface operations {
             };
             400: components["responses"]["InvalidRequest"];
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listPropertyDocuments: {
+        parameters: {
+            query?: {
+                /** @description Number of items per page (1-100). Defaults to 20. Anything else is a 400. */
+                limit?: components["parameters"]["LimitQuery"];
+                /** @description Opaque cursor from the previous page's `nextCursor`. Never construct or decode it yourself. */
+                cursor?: components["parameters"]["CursorQuery"];
+            };
+            header?: never;
+            path: {
+                /** @description Property ID */
+                id: components["parameters"]["PropertyIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated document list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentPageDtoV1"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    createDocumentUploadTicket: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Property ID */
+                id: components["parameters"]["PropertyIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocumentUploadBody"];
+            };
+        };
+        responses: {
+            /** @description Upload ticket issued */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentUploadTicketDtoV1"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    completeDocumentUpload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Property ID */
+                id: components["parameters"]["PropertyIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocumentCompleteBody"];
+            };
+        };
+        responses: {
+            /** @description Document created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentListItemDtoV1"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getDocumentUrl: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Property ID */
+                id: components["parameters"]["PropertyIdPath"];
+                /** @description Document ID */
+                documentId: components["parameters"]["DocumentIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Signed URL for the document */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentUrlDtoV1"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    deleteDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Property ID */
+                id: components["parameters"]["PropertyIdPath"];
+                /** @description Document ID */
+                documentId: components["parameters"]["DocumentIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Document deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    updateDocumentMetadata: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Property ID */
+                id: components["parameters"]["PropertyIdPath"];
+                /** @description Document ID */
+                documentId: components["parameters"]["DocumentIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocumentPatchBody"];
+            };
+        };
+        responses: {
+            /** @description Document updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentListItemDtoV1"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listPropertyValuations: {
+        parameters: {
+            query?: {
+                /** @description Number of items per page (1-100). Defaults to 20. Anything else is a 400. */
+                limit?: components["parameters"]["LimitQuery"];
+                /** @description Opaque cursor from the previous page's `nextCursor`. Never construct or decode it yourself. */
+                cursor?: components["parameters"]["CursorQuery"];
+            };
+            header?: never;
+            path: {
+                /** @description Property ID */
+                id: components["parameters"]["PropertyIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated valuation list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PropertyValuationPageDtoV1"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    createPropertyValuation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Property ID */
+                id: components["parameters"]["PropertyIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ValuationCreateBody"];
+            };
+        };
+        responses: {
+            /** @description Valuation created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PropertyValuationDtoV1"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    deleteValuation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Valuation ID */
+                id: components["parameters"]["ValuationIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Valuation deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    updateValuation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Valuation ID */
+                id: components["parameters"]["ValuationIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ValuationPatchBody"];
+            };
+        };
+        responses: {
+            /** @description Valuation updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PropertyValuationDtoV1"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getPropertyOwnership: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Property ID */
+                id: components["parameters"]["PropertyIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Ownership bundle for the property */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnershipBundleDtoV1"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getOwnershipRecord: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Ownership record ID */
+                ownershipRecordId: components["parameters"]["OwnershipRecordIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Ownership record found */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnershipRecordDtoV1"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getRentalSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Portfolio rental summary */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RentalSummaryDtoV1"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getPropertyRentalSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Property ID */
+                id: components["parameters"]["PropertyIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Property rental summary */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PropertyRentalSummaryDtoV1"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
             500: components["responses"]["InternalError"];
         };
     };

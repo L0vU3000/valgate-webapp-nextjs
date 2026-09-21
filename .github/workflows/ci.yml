@@ -64,7 +64,7 @@ jobs:
   # No database, no network — pure spec → types generation.
   # ---------------------------------------------------------------
   api-contract:
-    name: API contract (spec ↔ generated TS types)
+    name: API contract (spec lint + spec ↔ generated TS types)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -72,6 +72,10 @@ jobs:
         with: { node-version: 20, cache: npm }
 
       - run: npm ci
+      # Lint the spec itself first. A spec that mis-declares nullability or omits the
+      # auth requirement produces types that are confidently wrong — the drift check
+      # below cannot catch that, because it only proves generated matches spec.
+      - run: npx --yes @redocly/cli@2 lint docs/api-spec/valgate-api-v1.yaml
       - run: npm run api:check-ts
 
   # Live-DB integration tests (*.db.test.ts), including the org-scoping IDOR suite.

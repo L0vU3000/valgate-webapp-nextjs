@@ -16,6 +16,12 @@ servers:
 # Authentication is handled by Clerk session cookie (browser) or Clerk JWT token (iOS).
 # The API does not use a separate API key header.
 
+# Every /api/v1 operation is authenticated by a Clerk session token, carried either as
+# `Authorization: Bearer <token>` (iOS) or the session cookie (browser). Enforced by
+# resolveApiV1Ctx() in every route handler. Declared here so generated clients know.
+security:
+  - clerkSession: []
+
 paths:
   /me:
     get:
@@ -58,8 +64,7 @@ paths:
                     items:
                       $ref: "#/components/schemas/PropertyListItemDtoV1"
                   nextCursor:
-                    type: string
-                    nullable: true
+                    type: [string, "null"]
                     description: Cursor for the next page. Null if no more pages.
         "400":
           $ref: "#/components/responses/InvalidRequest"
@@ -597,6 +602,15 @@ paths:
           $ref: "#/components/responses/InternalError"
 
 components:
+  securitySchemes:
+    clerkSession:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Clerk session token from the iOS client (ClerkKit) or the browser session cookie.
+        Resolved to an org-scoped Ctx by resolveApiV1Ctx(); an unknown user with no
+        Valgate profile row is a plain 401, never auto-provisioned.
   parameters:
     PropertyIdPath:
       name: id
@@ -651,8 +665,7 @@ components:
           type: string
           format: email
         displayName:
-          type: string
-          nullable: true
+          type: [string, "null"]
         role:
           type: string
           enum: [owner, admin, member, viewer]
@@ -685,23 +698,19 @@ components:
           maximum: 180
           description: Longitude, for map pin placement.
         city:
-          type: string
-          nullable: true
+          type: [string, "null"]
         province:
-          type: string
-          nullable: true
+          type: [string, "null"]
         createdAt:
           type: integer
           description: Unix timestamp (milliseconds)
         priceNumeric:
-          type: number
-          nullable: true
+          type: [number, "null"]
           description: |
             Stored purchase amount (`buyNumeric`). Null when it is missing or 0 (the create
             default, meaning price not collected) — never a fabricated value.
         currency:
-          type: string
-          nullable: true
+          type: [string, "null"]
           enum: [USD, null]
           description: "ISO 4217 code for `priceNumeric`. v1 money is USD only. Null when `priceNumeric` is null."
 
@@ -712,22 +721,17 @@ components:
       required: [addressLine, country, totalArea, bedrooms, bathrooms, yearBuilt]
       properties:
         addressLine:
-          type: string
-          nullable: true
+          type: [string, "null"]
         country:
-          type: string
-          nullable: true
+          type: [string, "null"]
         totalArea:
           type: string
         bedrooms:
-          type: string
-          nullable: true
+          type: [string, "null"]
         bathrooms:
-          type: string
-          nullable: true
+          type: [string, "null"]
         yearBuilt:
-          type: string
-          nullable: true
+          type: [string, "null"]
 
     DocumentListItemDtoV1:
       type: object
@@ -741,8 +745,7 @@ components:
         propertyId:
           type: string
         folderId:
-          type: string
-          nullable: true
+          type: [string, "null"]
         name:
           type: string
         kind:
@@ -750,20 +753,16 @@ components:
           enum: [photo, document]
           description: Derived from the MIME type on upload — `photo` for `image/*`, else `document`.
         mimeType:
-          type: string
-          nullable: true
+          type: [string, "null"]
         extension:
-          type: string
-          nullable: true
+          type: [string, "null"]
         sizeBytes:
-          type: integer
-          nullable: true
+          type: [integer, "null"]
         category:
           type: string
           enum: [Title, Rental, Photos, Legal, Financial, Estate, Other]
         description:
-          type: string
-          nullable: true
+          type: [string, "null"]
         uploadedAt:
           type: integer
           description: Unix timestamp (milliseconds)
@@ -777,8 +776,7 @@ components:
           items:
             $ref: "#/components/schemas/DocumentListItemDtoV1"
         nextCursor:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: Cursor for the next page. Null if no more pages.
 
     DocumentUploadBody:
@@ -922,8 +920,7 @@ components:
           items:
             $ref: "#/components/schemas/PropertyValuationDtoV1"
         nextCursor:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: Cursor for the next page. Null if no more pages.
 
     ValuationCreateBody:
@@ -989,11 +986,9 @@ components:
           minimum: 0
           maximum: 100
         email:
-          type: string
-          nullable: true
+          type: [string, "null"]
         phone:
-          type: string
-          nullable: true
+          type: [string, "null"]
 
     OwnershipHistoryDtoV1:
       type: object
@@ -1053,16 +1048,13 @@ components:
           type: integer
           minimum: 0
         nextPayoutAmountNumeric:
-          type: number
-          nullable: true
+          type: [number, "null"]
           description: Null when there is no real upcoming payout (never a fabricated 0).
         nextPayoutAt:
-          type: integer
-          nullable: true
+          type: [integer, "null"]
           description: Unix timestamp (milliseconds) of the next payout. Null when none.
         currency:
-          type: string
-          nullable: true
+          type: [string, "null"]
           enum: [USD, null]
           description: "`USD` only when a real upcoming payout exists. v1 money is USD only."
 
@@ -1093,16 +1085,13 @@ components:
           minimum: 0
           description: Sum of monthlyRent over those active leases. 0 when there are none.
         nextPaymentAmountNumeric:
-          type: number
-          nullable: true
+          type: [number, "null"]
           description: Sum of Pending Rent on the next upcoming UTC day. Null when none exists.
         nextPaymentAt:
-          type: integer
-          nullable: true
+          type: [integer, "null"]
           description: Unix timestamp (milliseconds) of the earliest payment on that day. Null when none.
         currency:
-          type: string
-          nullable: true
+          type: [string, "null"]
           enum: [USD, null]
           description: "`USD` only when a real upcoming payment exists. v1 money is USD only."
 
