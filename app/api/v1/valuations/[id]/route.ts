@@ -12,6 +12,7 @@ import {
   updatePropertyValuation,
 } from "@/lib/services/property-valuations";
 import { logger } from "@/lib/logger";
+import { describeError } from "@/lib/api/v1/describe-error";
 
 export const dynamic = "force-dynamic";
 
@@ -50,7 +51,7 @@ export async function PATCH(request: Request, { params }: Params) {
     if (isWriteDeniedError(err)) {
       return apiError(403, "forbidden", "You do not have permission to do that.");
     }
-    logger.error("PATCH /api/v1/valuations/[id] failed", { error: String(err) });
+    logger.error("PATCH /api/v1/valuations/[id] failed", { error: describeError(err) });
     return apiError(500, "internal_error", "Something went wrong. Please try again.");
   }
 }
@@ -77,7 +78,7 @@ export async function DELETE(_request: Request, { params }: Params) {
     if (isWriteDeniedError(err)) {
       return apiError(403, "forbidden", "You do not have permission to do that.");
     }
-    logger.error("DELETE /api/v1/valuations/[id] failed", { error: String(err) });
+    logger.error("DELETE /api/v1/valuations/[id] failed", { error: describeError(err) });
     return apiError(500, "internal_error", "Something went wrong. Please try again.");
   }
 }

@@ -10,6 +10,7 @@ import { listDocumentsPage } from "@/lib/services/documents";
 import { getProperty } from "@/lib/services/properties";
 import { presignUpload } from "@/lib/services/storage";
 import { logger } from "@/lib/logger";
+import { describeError } from "@/lib/api/v1/describe-error";
 
 // This route hits the database per request and reads request auth — never statically prerender.
 export const dynamic = "force-dynamic";
@@ -62,7 +63,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     }
     // Fail closed: an unexpected service/serialization error is logged server-side and never
     // echoed to the client — the response is always the fixed, generic 500 envelope.
-    logger.error("GET /api/v1/properties/[id]/documents failed", { error: String(err) });
+    logger.error("GET /api/v1/properties/[id]/documents failed", { error: describeError(err) });
     return apiError(500, "internal_error", "Something went wrong. Please try again.");
   }
 }
@@ -100,7 +101,7 @@ export async function POST(
     if (isWriteDeniedError(err)) {
       return apiError(403, "forbidden", "You do not have permission to do that.");
     }
-    logger.error("POST /api/v1/properties/[id]/documents failed", { error: String(err) });
+    logger.error("POST /api/v1/properties/[id]/documents failed", { error: describeError(err) });
     return apiError(500, "internal_error", "Something went wrong. Please try again.");
   }
 }

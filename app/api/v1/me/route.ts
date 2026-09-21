@@ -5,6 +5,7 @@ import { apiError } from "@/lib/api/v1/http";
 import { toMeDto } from "@/lib/api/v1/dto";
 import { getMeProfile } from "@/lib/services/me";
 import { logger } from "@/lib/logger";
+import { describeError } from "@/lib/api/v1/describe-error";
 
 // This route hits the database per request and reads request auth — never statically prerender.
 export const dynamic = "force-dynamic";
@@ -27,7 +28,7 @@ export async function GET() {
   } catch (err) {
     // Fail closed: an unexpected service/serialization error is logged server-side and never
     // echoed to the client — the response is always the fixed, generic 500 envelope.
-    logger.error("GET /api/v1/me failed", { error: String(err) });
+    logger.error("GET /api/v1/me failed", { error: describeError(err) });
     return apiError(500, "internal_error", "Something went wrong. Please try again.");
   }
 }

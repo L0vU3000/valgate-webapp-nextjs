@@ -13,6 +13,7 @@ import { logActivity } from "@/lib/services/activity";
 import { deleteDocument, getDocument, updateDocument } from "@/lib/services/documents";
 import { assertCanMutate, roleAtLeast, type Ctx } from "@/lib/services/_mapping";
 import { resolveDocumentUrl } from "@/lib/services/storage";
+import { describeError } from "@/lib/api/v1/describe-error";
 
 export const dynamic = "force-dynamic";
 
@@ -46,7 +47,7 @@ export async function GET(_request: Request, { params }: Params) {
     });
   } catch (err) {
     logger.error("GET /api/v1/properties/[id]/documents/[documentId] failed", {
-      error: String(err),
+      error: describeError(err),
     });
     return apiError(500, "internal_error", "Something went wrong. Please try again.");
   }
@@ -84,7 +85,7 @@ export async function PATCH(request: Request, { params }: Params) {
       return apiError(403, "forbidden", "You do not have permission to do that.");
     }
     logger.error("PATCH /api/v1/properties/[id]/documents/[documentId] failed", {
-      error: String(err),
+      error: describeError(err),
     });
     return apiError(500, "internal_error", "Something went wrong. Please try again.");
   }
@@ -119,7 +120,7 @@ export async function DELETE(_request: Request, { params }: Params) {
       return apiError(403, "forbidden", "You do not have permission to do that.");
     }
     logger.error("DELETE /api/v1/properties/[id]/documents/[documentId] failed", {
-      error: String(err),
+      error: describeError(err),
     });
     return apiError(500, "internal_error", "Something went wrong. Please try again.");
   }
