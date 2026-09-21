@@ -1,0 +1,353 @@
+openapi: 3.1.0
+info:
+  title: Valgate API v1
+  version: 1.0.0
+  description: |
+    Single source of truth for the Valgate API contract. Used by:
+    - Web (Next.js) route handlers
+    - iOS (SwiftUI) API client
+
+servers:
+  - url: https://srv1839855.tail98085b.ts.net/api/v1
+    description: Staging
+  - url: /api/v1
+    description: Local (Next.js dev server)
+
+# Authentication is handled by Clerk session cookie (browser) or Clerk JWT token (iOS).
+# The API does not use a separate API key header.
+
+paths:
+  /me:
+    get:
+      operationId: getMe
+      summary: Get current user's profile
+      description: Returns the caller's own profile (email, displayName, role, orgName).
+      responses:
+        "200":
+          description: User profile found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeDto"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /properties:
+    get:
+      operationId: listProperties
+      summary: List org properties (paginated)
+      description: |
+        Opaque-cursor page of the caller's org's properties.
+        Pass the `nextCursor` from the previous response as the new `cursor`.
+      parameters:
+        - name: limit
+          in: query
+          description: Number of items per page (1-100). Defaults to 20.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: cursor
+          in: query
+          description: Opaque cursor from the previous page's `nextCursor`.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Paginated property list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PropertyListItemDtoV1"
+                  nextCursor:
+                    type: string
+                    nullable: true
+                    description: Cursor for the next page. Null if no more pages.
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    post:
+      operationId: createProperty
+      summary: Create a property
+      description: Creates a new property under the caller's organization.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, type, status, lat, lng, buyNumeric, totalArea, title]
+              properties:
+                name:
+                  type: string
+                type:
+                  type: string
+                status:
+                  type: string
+                lat:
+                  type: number
+                lng:
+                  type: number
+                buyNumeric:
+                  type: number
+                totalArea:
+                  type: string
+                title:
+                  type: string
+                addressLine:
+                  type: string
+                  nullable: true
+                city:
+                  type: string
+                  nullable: true
+                province:
+                  type: string
+                  nullable: true
+                zip:
+                  type: string
+                  nullable: true
+                country:
+                  type: string
+                  nullable: true
+      responses:
+        "201":
+          description: Property created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PropertyDetailDtoV1"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /properties/{id}:
+    get:
+      operationId: getPropertyDetail
+      summary: Get a single property's detail
+      description: Returns a property's detail DTO, scoped to the caller's org.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Property ID
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Property detail found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PropertyDetailDtoV1"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    patch:
+      operationId: updateProperty
+      summary: Update a property
+      description: Partially updates a property. Any omitted field is left unchanged.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Property ID
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                type:
+                  type: string
+                status:
+                  type: string
+                lat:
+                  type: number
+                lng:
+                  type: number
+                buyNumeric:
+                  type: number
+                totalArea:
+                  type: string
+                title:
+                  type: string
+                addressLine:
+                  type: string
+                  nullable: true
+                city:
+                  type: string
+                  nullable: true
+                province:
+                  type: string
+                  nullable: true
+      responses:
+        "200":
+          description: Property updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PropertyDetailDtoV1"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    delete:
+      operationId: deleteProperty
+      summary: Delete a property
+      description: Deletes a property. Idempotent — returns 204 even if already deleted.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Property ID
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Property deleted (or already absent)
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+components:
+  schemas:
+    MeDto:
+      type: object
+      required: [email, displayName, role, orgName]
+      properties:
+        email:
+          type: string
+          format: email
+        displayName:
+          type: string
+          nullable: true
+        role:
+          type: string
+          description: "orgRole from the auth context"
+        orgName:
+          type: string
+
+    PropertyListItemDtoV1:
+      type: object
+      required: [id, name, type, status, city, province, createdAt]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+          description: Property type (e.g. apartment, house, condo)
+        status:
+          type: string
+          description: "Property status (e.g. active, inactive, cancelled)"
+        city:
+          type: string
+          nullable: true
+        province:
+          type: string
+          nullable: true
+        createdAt:
+          type: integer
+          description: Unix timestamp (milliseconds)
+
+    PropertyDetailDtoV1:
+      allOf:
+        - $ref: "#/components/schemas/PropertyListItemDtoV1"
+      type: object
+      required: [addressLine, country, totalArea, bedrooms, bathrooms, yearBuilt]
+      properties:
+        addressLine:
+          type: string
+          nullable: true
+        country:
+          type: string
+          nullable: true
+        totalArea:
+          type: string
+        bedrooms:
+          type: string
+          nullable: true
+        bathrooms:
+          type: string
+          nullable: true
+        yearBuilt:
+          type: string
+          nullable: true
+
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum: [unauthorized, invalid_request, not_found, rate_limited, internal_error]
+            message:
+              type: string
+
+  responses:
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+
+    InvalidRequest:
+      description: Invalid query parameter or cursor
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+
+    NotFound:
+      description: Resource not found or not in caller's org
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+
+    RateLimited:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+
+    InternalError:
+      description: Unexpected server error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
