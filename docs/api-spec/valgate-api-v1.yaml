@@ -42,19 +42,8 @@ paths:
         Opaque-cursor page of the caller's org's properties.
         Pass the `nextCursor` from the previous response as the new `cursor`.
       parameters:
-        - name: limit
-          in: query
-          description: Number of items per page (1-100). Defaults to 20.
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 100
-            default: 20
-        - name: cursor
-          in: query
-          description: Opaque cursor from the previous page's `nextCursor`.
-          schema:
-            type: string
+        - $ref: "#/components/parameters/LimitQuery"
+        - $ref: "#/components/parameters/CursorQuery"
       responses:
         "200":
           description: Paginated property list
@@ -62,6 +51,7 @@ paths:
             application/json:
               schema:
                 type: object
+                required: [items, nextCursor]
                 properties:
                   items:
                     type: array
@@ -75,51 +65,24 @@ paths:
           $ref: "#/components/responses/InvalidRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/InternalError"
     post:
       operationId: createProperty
       summary: Create a property
-      description: Creates a new property under the caller's organization.
+      description: |
+        Creates a new property under the caller's organization. Requires role `member` or
+        above. Only the fields below are accepted — unknown extra keys (e.g. `photoStorageIds`,
+        `mortgages`) are stripped, not rejected. `totalArea` defaults to `""`; storage ids and
+        financial internals are never stored from this body.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required: [name, type, status, lat, lng, buyNumeric, totalArea, title]
-              properties:
-                name:
-                  type: string
-                type:
-                  type: string
-                status:
-                  type: string
-                lat:
-                  type: number
-                lng:
-                  type: number
-                buyNumeric:
-                  type: number
-                totalArea:
-                  type: string
-                title:
-                  type: string
-                addressLine:
-                  type: string
-                  nullable: true
-                city:
-                  type: string
-                  nullable: true
-                province:
-                  type: string
-                  nullable: true
-                zip:
-                  type: string
-                  nullable: true
-                country:
-                  type: string
-                  nullable: true
+              $ref: "#/components/schemas/PropertyCreateBody"
       responses:
         "201":
           description: Property created
@@ -131,6 +94,10 @@ paths:
           $ref: "#/components/responses/InvalidRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/InternalError"
 
@@ -140,12 +107,7 @@ paths:
       summary: Get a single property's detail
       description: Returns a property's detail DTO, scoped to the caller's org.
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: Property ID
-          schema:
-            type: string
+        - $ref: "#/components/parameters/PropertyIdPath"
       responses:
         "200":
           description: Property detail found
@@ -157,51 +119,26 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/InternalError"
     patch:
       operationId: updateProperty
       summary: Update a property
-      description: Partially updates a property. Any omitted field is left unchanged.
+      description: |
+        Partially updates a property. Any omitted field is left unchanged; an empty object is
+        valid and changes nothing. Requires role `member` or above. A body `id` is ignored —
+        the URL id always wins. The org-scoped lookup runs first, so a property in another org
+        is a plain 404, not a 403.
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: Property ID
-          schema:
-            type: string
+        - $ref: "#/components/parameters/PropertyIdPath"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                name:
-                  type: string
-                type:
-                  type: string
-                status:
-                  type: string
-                lat:
-                  type: number
-                lng:
-                  type: number
-                buyNumeric:
-                  type: number
-                totalArea:
-                  type: string
-                title:
-                  type: string
-                addressLine:
-                  type: string
-                  nullable: true
-                city:
-                  type: string
-                  nullable: true
-                province:
-                  type: string
-                  nullable: true
+              $ref: "#/components/schemas/PropertyPatchBody"
       responses:
         "200":
           description: Property updated
@@ -213,26 +150,34 @@ paths:
           $ref: "#/components/responses/InvalidRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/InternalError"
     delete:
       operationId: deleteProperty
       summary: Delete a property
-      description: Deletes a property. Idempotent — returns 204 even if already deleted.
+      description: |
+        Hard-deletes a property and its cascade (same as the website). Requires role `admin`
+        or above. Success is 204 with an empty body. A property that does not exist, or exists
+        in another org, is a plain 404 — the two cases are indistinguishable.
       parameters:
-        - name: id
-          in: path
-          required: true
-          description: Property ID
-          schema:
-            type: string
+        - $ref: "#/components/parameters/PropertyIdPath"
       responses:
         "204":
-          description: Property deleted (or already absent)
+          description: Property deleted
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/InternalError"
 
@@ -710,13 +655,14 @@ components:
           nullable: true
         role:
           type: string
+          enum: [owner, admin, member, viewer]
           description: "orgRole from the auth context"
         orgName:
           type: string
 
     PropertyListItemDtoV1:
       type: object
-      required: [id, name, type, status, city, province, createdAt]
+      required: [id, name, type, status, lat, lng, city, province, createdAt, priceNumeric, currency]
       properties:
         id:
           type: string
@@ -724,10 +670,20 @@ components:
           type: string
         type:
           type: string
-          description: Property type (e.g. apartment, house, condo)
+          description: Property type (e.g. residential, commercial, multi-unit, land)
         status:
           type: string
-          description: "Property status (e.g. active, inactive, cancelled)"
+          description: "Property status (e.g. Rented, Vacant, For Sale, Sold, Archived, Owner-Occupied)"
+        lat:
+          type: number
+          minimum: -90
+          maximum: 90
+          description: Latitude, for map pin placement.
+        lng:
+          type: number
+          minimum: -180
+          maximum: 180
+          description: Longitude, for map pin placement.
         city:
           type: string
           nullable: true
@@ -737,6 +693,17 @@ components:
         createdAt:
           type: integer
           description: Unix timestamp (milliseconds)
+        priceNumeric:
+          type: number
+          nullable: true
+          description: |
+            Stored purchase amount (`buyNumeric`). Null when it is missing or 0 (the create
+            default, meaning price not collected) — never a fabricated value.
+        currency:
+          type: string
+          nullable: true
+          enum: [USD, null]
+          description: "ISO 4217 code for `priceNumeric`. v1 money is USD only. Null when `priceNumeric` is null."
 
     PropertyDetailDtoV1:
       allOf:
@@ -1138,6 +1105,87 @@ components:
           nullable: true
           enum: [USD, null]
           description: "`USD` only when a real upcoming payment exists. v1 money is USD only."
+
+    PropertyCreateBody:
+      type: object
+      required: [name, type, status, lat, lng]
+      description: |
+        Bounded create body. This is NOT the website's `NewProperty` dump — unknown extra keys
+        are stripped, not rejected. `totalArea` is filled with `""` when omitted.
+      properties:
+        name:
+          type: string
+          minLength: 1
+        type:
+          type: string
+          enum: [residential, commercial, multi-unit, retail, land, industrial, construction, other]
+        status:
+          type: string
+          enum: [Rented, Vacant, For Sale, Sold, Archived, Owner-Occupied]
+        lat:
+          type: number
+          minimum: -90
+          maximum: 90
+        lng:
+          type: number
+          minimum: -180
+          maximum: 180
+        city:
+          type: string
+        province:
+          type: string
+        addressLine:
+          type: string
+        country:
+          type: string
+        totalArea:
+          type: string
+        bedrooms:
+          type: string
+        bathrooms:
+          type: string
+        yearBuilt:
+          type: string
+
+    PropertyPatchBody:
+      type: object
+      description: |
+        Partial update. Every field is optional — an empty object is valid and changes
+        nothing. A body `id` is not in this schema, so the URL id always wins.
+      properties:
+        name:
+          type: string
+          minLength: 1
+        type:
+          type: string
+          enum: [residential, commercial, multi-unit, retail, land, industrial, construction, other]
+        status:
+          type: string
+          enum: [Rented, Vacant, For Sale, Sold, Archived, Owner-Occupied]
+        lat:
+          type: number
+          minimum: -90
+          maximum: 90
+        lng:
+          type: number
+          minimum: -180
+          maximum: 180
+        city:
+          type: string
+        province:
+          type: string
+        addressLine:
+          type: string
+        country:
+          type: string
+        totalArea:
+          type: string
+        bedrooms:
+          type: string
+        bathrooms:
+          type: string
+        yearBuilt:
+          type: string
 
     ErrorEnvelope:
       type: object
