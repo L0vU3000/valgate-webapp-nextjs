@@ -6,6 +6,7 @@
     "dev": "next dev --turbopack -H 0.0.0.0 -p 3001",
     "dev:e2e": "DEMO_MODE=true DEMO_ALLOW_WRITES=true NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY= next dev --turbopack -H 0.0.0.0 -p 3001",
     "dev:tunnel": "npx --yes cloudflared@latest tunnel --url http://127.0.0.1:3001",
+    "env:sync": "./scripts/sync-web-env.sh",
     "build": "next build --turbopack",
     "start": "next start",
     "typecheck": "tsc --noEmit",

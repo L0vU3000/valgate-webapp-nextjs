@@ -92,6 +92,9 @@ This project uses **Neon (serverless Postgres)** with **Drizzle ORM** as its bac
 - Schema lives in `lib/db/schema/*`; the DB client is `lib/db/client.ts`.
 - Data access goes through `lib/services/*` (one module per entity), called from Server Actions in `app/**/*.actions.ts`. Never query the DB directly from a component or route handler.
 - Migrations: `npm run db:generate` (create) → `npm run db:migrate` (apply). Check connection with `npm run db:ping`.
+- Local env comes from Infisical: `npm run env:sync` (or `env:sync prod`) writes
+  `.env.local` from `/web`, preserving operator-owned `DEMO_MODE` /
+  `DEMO_ALLOW_WRITES` / `VERCEL_OIDC_TOKEN`. See `docs/SECRETS-INFISICAL.md`.
 - Seeding: `npm run seed:neon` (requires `DATABASE_URL` in `.env.local`).
 - `DATABASE_URL` points at the Neon branch; it is a secret (server-only, never `NEXT_PUBLIC_`).
 
