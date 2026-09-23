@@ -28,6 +28,7 @@
     "db:check": "drizzle-kit check",
     "db:ping": "tsx --conditions=react-server --env-file=.env.local scripts/db-ping.ts",
     "db:assert": "tsx --conditions=react-server --env-file=.env.local scripts/schema-assert.ts",
+    "db:check-counters": "tsx --conditions=react-server --env-file-if-exists=.env.local scripts/check-id-counters.ts",
     "seed:neon": "tsx --conditions=react-server --env-file-if-exists=.env.local scripts/seed-neon.ts",
     "mcp:server": "tsx --conditions=react-server --env-file=.env.local mcp-server/index.ts",
     "mcp:inspect": "npx @modelcontextprotocol/inspector tsx --conditions=react-server --env-file=.env.local mcp-server/index.ts",

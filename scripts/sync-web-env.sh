@@ -44,16 +44,60 @@ selftest() {
   printf '%s\n' "$got" | grep -q '^DEMO_MODE=true$' \
     || { echo "FAIL: DEMO_MODE was overwritten from Infisical" >&2; rm -rf "$tmp"; exit 1; }
 
+  # Quoted values must be unquoted on BOTH sides (regression: `infisical export
+  # --format dotenv` returns `KEY="value"`; keeping the quotes made every URL fail
+  # `z.string().url()`, so the app died with `Invalid environment variables` and
+  # 10 test files never collected).
+  printf 'QUOTED_URL="https://example.invalid"\nALREADY=plain\n' >"$tmp/target"
+  printf 'QUOTED_URL="https://fresh.invalid"\nDB="postgresql://u:p@h/d"\n' >"$tmp/fresh"
+  got="$(merge "$tmp/target" "$tmp/fresh")"
+  printf '%s\n' "$got" | grep -q '^QUOTED_URL=https://fresh.invalid$' \
+    || { echo "FAIL: fresh quoted value not unquoted" >&2; printf '%s\n' "$got" >&2; rm -rf "$tmp"; exit 1; }
+  printf '%s\n' "$got" | grep -q '^DB=postgresql://u:p@h/d$' \
+    || { echo "FAIL: new quoted value not unquoted" >&2; printf '%s\n' "$got" >&2; rm -rf "$tmp"; exit 1; }
+  printf '%s\n' "$got" | grep -q '^ALREADY=plain$' \
+    || { echo "FAIL: unquoted value was altered" >&2; rm -rf "$tmp"; exit 1; }
+
+  # A value whose quotes are unbalanced/embedded must be left exactly as-is —
+  # only one matching surrounding pair is stripped.
+  printf 'WEIRD=he said "hi"\n' >"$tmp/fresh"
+  got="$(merge /dev/null "$tmp/fresh")"
+  printf '%s\n' "$got" | grep -q '^WEIRD=he said "hi"$' \
+    || { echo "FAIL: unbalanced-quote value was mangled" >&2; printf '%s\n' "$got" >&2; rm -rf "$tmp"; exit 1; }
+
   rm -rf "$tmp"
   echo "sync-web-env selftest: OK"
+}
+
+# strip_quotes <value> -> value without one surrounding quote pair.
+# Infisical's dotenv export wraps values that contain shell-hostile characters in
+# quotes. Those quotes are SYNTAX, not data. Keeping them is not cosmetic: the value
+# becomes literally `"https://…"`, so `z.string().url()` rejects it ("Invalid URL")
+# and the whole app fails to boot with `Invalid environment variables`. That is what
+# silently broke 10 test files and the local dev env before 2026-09-23 — every
+# UPSTASH_REDIS_REST_URL / DATABASE_URL / CLERK_SECRET_KEY was stored quoted.
+strip_quotes() {
+  local v="$1" q
+  q="${v:0:1}"
+  if { [ "$q" = '"' ] || [ "$q" = "'" ]; } && [ "$q" = "${v: -1}" ] && [ ${#v} -ge 2 ]; then
+    printf '%s' "${v:1:${#v}-2}"
+  else
+    printf '%s' "$v"
+  fi
 }
 
 # merge <target-file> <fresh-file> -> stdout
 # Target wins for LOCAL_ONLY_RE keys and for keys Infisical does not have;
 # the fresh file wins for everything else. Order: target order preserved,
-# new keys appended.
+# new keys appended. Quotes are stripped on BOTH sides so a file written by an
+# older, quote-preserving run is repaired rather than perpetuated.
 merge() {
   awk -v localonly="$LOCAL_ONLY_RE" '
+    function unq(v,  q) {
+      q=substr(v,1,1)
+      if (length(v)>=2 && (q=="\"" || q=="'\''") && q==substr(v,length(v),1)) return substr(v,2,length(v)-2)
+      return v
+    }
     FNR==NR {
       if ($0 ~ /^[ \t]*(#|$)/) next
       line=$0
@@ -61,7 +105,7 @@ merge() {
       if (eq==0) next
       k=substr(line,1,eq-1)
       gsub(/^[ \t]+|[ \t]+$/,"",k)
-      order[++n]=k; tval[k]=line
+      order[++n]=k; tval[k]=k "=" unq(substr(line,eq+1))
       if (k ~ localonly) local[k]=1
       next
     }
@@ -73,7 +117,7 @@ merge() {
       k=substr(line,1,eq-1)
       gsub(/^[ \t]+|[ \t]+$/,"",k)
       if (k ~ localonly) next          # operator-owned: never take it
-      fval[k]=line
+      fval[k]=k "=" unq(substr(line,eq+1))
       if (!(k in tval)) order[++n]=k
     }
     END {
