@@ -1,12 +1,20 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { actionLimiter, aiLimiter, allowed, makeLimiter, type Limiter } from "@/lib/ratelimit";
+import { allowed, inMemoryLimiter, makeLimiter, type Limiter } from "@/lib/ratelimit";
 
 // TM1-64. These exercise the IN-MEMORY limiter, which is what makeLimiter returns when
 // UPSTASH_* is unset (the case in test/CI). That is the branch worth pinning here: the
 // Upstash path is vendor code, the fallback is ours.
 //
+// Build the limiters from inMemoryLimiter directly rather than importing the module-level
+// actionLimiter/aiLimiter. Those are chosen at import time from env.UPSTASH_*, so a developer
+// with real UPSTASH_* in .env.local would silently test live Upstash: shared state, network
+// latency, and cross-test budget bleed. The limits below MUST stay in sync with
+// lib/ratelimit.ts (action 30/min, ai 10/min) — that pairing is exactly what this file asserts.
+//
 // Every test uses a unique user id — the in-memory limiter keeps module-level state, so
 // sharing an id across tests would leak budget between them.
+const actionLimiter = inMemoryLimiter(30, 60_000);
+const aiLimiter = inMemoryLimiter(10, 60_000);
 let n = 0;
 const uid = (label: string) => `USR-${label}-${n++}`;
 
