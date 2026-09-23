@@ -11,7 +11,10 @@ export type Limiter = { limit: (id: string) => Promise<{ success: boolean }> };
 
 // ponytail: per-instance Map — meaningless across serverless invocations. Prod MUST set UPSTASH_*
 // (this is the dev/test path only); the makeLimiter switch upgrades automatically when creds exist.
-function inMemoryLimiter(limit: number, windowMs: number): Limiter {
+// Exported so tests can pin THIS branch explicitly: when UPSTASH_* is set in a developer's
+// .env.local the module-level limiters below are Upstash-backed, which would make the
+// ratelimit unit tests network-dependent (and flaky) instead of deterministic.
+export function inMemoryLimiter(limit: number, windowMs: number): Limiter {
   const hits = new Map<string, number[]>();
   return {
     limit: async (id: string) => {
