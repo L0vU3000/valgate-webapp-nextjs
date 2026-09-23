@@ -22,10 +22,14 @@ const MCP_IP_LIMIT = 200;
 const MCP_IP_WINDOW_MS = 60_000;
 const mcpIpHits = new Map<string, number[]>();
 
+function clientIp(request: NextRequest): string {
+  const forwarded = request.headers.get("x-forwarded-for");
+  return forwarded?.split(",")[0]?.trim() || "unknown";
+}
+
 function checkMcpIpRateLimit(request: NextRequest): NextResponse | null {
   if (!isMcpRoute(request)) return null;
-  const forwarded = request.headers.get("x-forwarded-for");
-  const ip = forwarded?.split(",")[0]?.trim() ?? "unknown";
+  const ip = clientIp(request);
   const now = Date.now();
   const recent = (mcpIpHits.get(ip) ?? []).filter((t) => now - t < MCP_IP_WINDOW_MS);
   mcpIpHits.set(ip, recent);
@@ -37,6 +41,85 @@ function checkMcpIpRateLimit(request: NextRequest): NextResponse | null {
   }
   recent.push(now);
   return null;
+}
+
+// Unauthenticated edges (login, register, password reset, accept-invitation) previously had NO
+// edge limit: only /mcp was guarded (AGENTS.md §86 flagged this as an open gap). A single IP
+// could loop /register or credential-stuff /login unthrottled; Clerk's own lockout (100
+// attempts/hour) is far looser than a scripted loop.
+//
+// Two layers, deliberately:
+//   1. mcpIpHits-style in-memory window — free, no network hop. Catches a single-instance hammer.
+//   2. Upstash sliding window (`authIpLimiter`) — shared across serverless instances, so an
+//      attacker spreading requests can't multiply the limit by the instance count.
+// Layer 2 is best-effort: if Redis is unreachable we still allow (layer 1 already applied).
+// Fail-OPEN is correct here and is NOT the same stance as lib/ratelimit.allowed() — that one
+// guards paid mutations and fails closed; this one guards a public login page, where failing
+// closed would lock every real user out during an Upstash blip.
+const AUTH_IP_LIMIT = 20;
+const AUTH_IP_WINDOW_MS = 60_000;
+const authIpHits = new Map<string, number[]>();
+
+// Routes worth throttling per-IP: the unauthenticated entry points that trigger Clerk Backend
+// API calls or emails. Deliberately NOT applied to /api/v1 (its handlers authenticate first and
+// rate-limit per userId in lib/ratelimit.ts) or to webhooks (third-party senders, signed).
+const isAuthAbuseRoute = createRouteMatcher([
+  "/login(.*)",
+  "/register(.*)",
+  "/forgot-password(.*)",
+  "/accept-invitation(.*)",
+  "/oauth-consent(.*)",
+]);
+
+export function checkAuthIpRateLimit(request: NextRequest): NextResponse | null {
+  if (!isAuthAbuseRoute(request)) return null;
+  const ip = clientIp(request);
+  const now = Date.now();
+  const recent = (authIpHits.get(ip) ?? []).filter((t) => now - t < AUTH_IP_WINDOW_MS);
+  authIpHits.set(ip, recent);
+  if (recent.length >= AUTH_IP_LIMIT) {
+    return NextResponse.json(
+      { error: "rate_limit_exceeded", retry_after_seconds: 60 },
+      { status: 429, headers: { "Retry-After": "60" } },
+    );
+  }
+  recent.push(now);
+  return null;
+}
+
+// Upstash-backed shared counter for the same auth routes. Kept separate from checkAuthIpRateLimit
+// so middleware.ts never imports lib/env (which validates the whole env at module load and would
+// make the edge bundle depend on server-only vars it doesn't need).
+// ponytail: no-op until UPSTASH_* are set (see lib/ratelimit.ts makeLimiter) — layer 1 still guards.
+async function checkAuthIpRateLimitShared(request: NextRequest): Promise<NextResponse | null> {
+  if (!isAuthAbuseRoute(request)) return null;
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token) return null;
+  try {
+    const { Ratelimit } = await import("@upstash/ratelimit");
+    const { Redis } = await import("@upstash/redis");
+    // ponytail: limiter built per request rather than module-scope — module init would throw at
+    // cold start if the vars are absent. Cache it once we see real traffic; one Redis round-trip
+    // per auth-page POST is acceptable at current volume.
+    const limiter = new Ratelimit({
+      redis: new Redis({ url, token }),
+      limiter: Ratelimit.slidingWindow(AUTH_IP_LIMIT * 3, "1 m"),
+      prefix: "rl:auth-ip",
+      analytics: true,
+    });
+    const { success } = await limiter.limit(clientIp(request));
+    if (!success) {
+      return NextResponse.json(
+        { error: "rate_limit_exceeded", retry_after_seconds: 60 },
+        { status: 429, headers: { "Retry-After": "60" } },
+      );
+    }
+    return null;
+  } catch {
+    // Redis unreachable → allow. Layer 1 already ran; see the fail-open note above.
+    return null;
+  }
 }
 
 // DEMO_MODE-aware. clerkMiddleware() throws at request time without a publishable key, and
@@ -107,6 +190,8 @@ const isAuthEntryRoute = createRouteMatcher(["/login", "/register"]);
 async function mcpRateLimitOnly(request: NextRequest): Promise<NextResponse> {
   const rl = checkMcpIpRateLimit(request);
   if (rl) return rl;
+  const arl = checkAuthIpRateLimit(request) ?? (await checkAuthIpRateLimitShared(request));
+  if (arl) return arl;
   return NextResponse.next();
 }
 
@@ -114,6 +199,8 @@ const middleware = hasClerk
   ? clerkMiddleware(async (auth, request) => {
       const rl = checkMcpIpRateLimit(request);
       if (rl) return rl;
+      const arl = checkAuthIpRateLimit(request) ?? (await checkAuthIpRateLimitShared(request));
+      if (arl) return arl;
       const { userId } = await auth();
       const hasInviteTicket = request.nextUrl.searchParams.has("__clerk_ticket");
       if (userId && isAuthEntryRoute(request) && !hasInviteTicket) {
