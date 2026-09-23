@@ -1,5 +1,7 @@
 /**
  * Section N — Pro — Compliance
+ *
+ * Skipped: the owner web app has no /pro/* manager cockpit routes.
  */
 import { test, expect } from './fixtures'
 import {
@@ -9,7 +11,7 @@ import {
   cleanup,
 } from './helpers/db'
 
-test.describe('N — Pro Compliance', () => {
+test.describe.skip('N — Pro Compliance', () => {
   test('N0: compliance page loads', async ({ page }) => {
     test.info().annotations.push({ type: 'checklist', description: 'N0 — compliance page loads' })
 

@@ -1,0 +1,18 @@
+---
+description: Unit vs DB vs E2E testing boundaries
+alwaysApply: false
+globs: "**/test/**,**/tests/**,e2e/**,vitest*.ts,playwright*.ts"
+---
+
+# Testing
+
+Canonical details: `AGENTS.md` → Commands.
+
+| Layer | Command | Notes |
+|---|---|---|
+| Unit | `npm test` | Vitest, no database — **CI blocking** |
+| DB | `npm run test:db` | Needs `DATABASE_URL` — not a default agent command |
+| Preview | `npm run test:preview` | Needs preview auth state |
+| E2E | `npm run test:e2e` | Playwright; CI job is **`continue-on-error`** (TM1-62) |
+
+A red E2E job is not automatically an API bug. Clerk test users and Mapbox token are still missing from CI env.

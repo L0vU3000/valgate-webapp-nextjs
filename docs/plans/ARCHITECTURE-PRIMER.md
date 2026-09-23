@@ -272,9 +272,10 @@ gates detected before it shipped.
 - `middleware.ts` — the `isPublicRoute`/`isMcpRoute` matchers; adding a route here without checking
   `auth()` elsewhere effectively makes it public.
 - `app/api/webhooks/clerk/route.ts` is public in middleware and relies on Clerk webhook-signature
-  verification rather than `requireCtx()`. `app/api/webhooks/resend/route.ts` verifies its Resend/Svix
-  signature, but is **not** listed as public in `middleware.ts`; with Clerk enabled it is also subjected
-  to `auth.protect()` before the handler, which can block normal third-party webhook delivery.
+  verification rather than `requireCtx()`. `app/api/webhooks/resend/route.ts` and
+  `app/api/cron/cleanup-drafts/route.ts` also skip `auth.protect()` so third-party / Vercel callers
+  can reach the handler; each authenticates itself (Svix signature / `CRON_SECRET`). The full
+  handler table lives in `docs/audit/security-baseline-minimum.md`.
 - `lib/env.ts` — single typed env boundary (`@t3-oss/env-nextjs`); secrets go in `server: {}`, never
   `client: {}`/`NEXT_PUBLIC_*`.
 - `mcp-server/`, `app/mcp/`, `app/.well-known/*` — the MCP OAuth surface; deliberately public/

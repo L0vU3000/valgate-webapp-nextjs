@@ -11,7 +11,10 @@ export type Limiter = { limit: (id: string) => Promise<{ success: boolean }> };
 
 // ponytail: per-instance Map — meaningless across serverless invocations. Prod MUST set UPSTASH_*
 // (this is the dev/test path only); the makeLimiter switch upgrades automatically when creds exist.
-function inMemoryLimiter(limit: number, windowMs: number): Limiter {
+// Exported so tests can pin THIS branch explicitly: when UPSTASH_* is set in a developer's
+// .env.local the module-level limiters below are Upstash-backed, which would make the
+// ratelimit unit tests network-dependent (and flaky) instead of deterministic.
+export function inMemoryLimiter(limit: number, windowMs: number): Limiter {
   const hits = new Map<string, number[]>();
   return {
     limit: async (id: string) => {
@@ -45,11 +48,16 @@ export const verifyLimiter = makeLimiter("rl:verify", 5, "1 m", 60_000);
 // so only authenticated traffic counts against the quota).
 export const mcpLimiter = makeLimiter("rl:mcp", 60, "1 m", 60_000);
 
-// HTTP API v1 (read-only): 120 / minute / user. Looser than mcpLimiter since every route on
-// this surface is a plain read (no write amplification risk), but still bounded so a buggy or
-// abusive client can't hammer the DB unthrottled. Keyed on the resolved internal userId (see
-// lib/api/v1/auth.ts), after auth succeeds — unauthenticated requests never reach the limiter.
+// HTTP API v1 reads: 120 / minute / user. Looser than mcpLimiter since GET routes have no
+// write amplification risk, but still bounded so a buggy or abusive client can't hammer the
+// DB unthrottled. Keyed on the resolved internal userId (see lib/api/v1/auth.ts), after auth
+// succeeds — unauthenticated requests never reach the limiter.
 export const apiReadLimiter = makeLimiter("rl:api-v1-read", 120, "1 m", 60_000);
+
+// HTTP API v1 writes (POST/PATCH/DELETE): 30 / minute / user. Same mutation budget as
+// actionLimiter. Tighter than the read limiter because each call actually changes data.
+// Uses its own Redis prefix so iPhone write traffic does not share the website action bucket.
+export const apiWriteLimiter = makeLimiter("rl:api-v1-write", 30, "1 m", 60_000);
 
 // TM1-64 — general mutation edges: 30 / minute / user. Wide enough that no human doing real
 // work hits it (a burst of form saves is fine), tight enough that a scripted loop against any

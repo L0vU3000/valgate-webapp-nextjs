@@ -52,18 +52,42 @@ def should_run() -> bool:
 
 
 def main():
-    context = json.load(sys.stdin) if not sys.stdin.isatty() else {}
-    prompt = context.get("prompt", "")
+    try:
+        context = json.load(sys.stdin) if not sys.stdin.isatty() else {}
+    except Exception:
+        context = {}
+    prompt = context.get("prompt", "") if isinstance(context, dict) else ""
+
+    workspace = context.get("workspace", {}) if isinstance(context, dict) else {}
+    workspace_path = Path(workspace.get("absolutePath", "."))
+    repo_name = workspace_path.name
+
+    # Read Hermes inbox if present
+    inbox_path = workspace_path / ".hermes" / "inbox.md"
+    inbox_note = ""
+    if inbox_path.exists():
+        try:
+            inbox_text = inbox_path.read_text().strip()
+            if inbox_text:
+                inbox_note = inbox_text
+                # Clear after reading so it is not repeated
+                inbox_path.write_text("")
+        except Exception:
+            pass
 
     if not should_run():
+        if inbox_note:
+            print(f"[Hermes inbox message]\n{inbox_note}\n---")
         return
 
-    workspace = context.get("workspace", {})
-    repo_name = Path(workspace.get("absolutePath", ".")).name
-
     delta = recall(f"relevant context for: {prompt} in project {repo_name}")
+    sections = []
+    if inbox_note:
+        sections.append(f"[Hermes inbox message]\n{inbox_note}")
     if delta and not delta.startswith("[Hindsight recall failed"):
-        print(f"[Hindsight delta context]\n{delta}\n---")
+        sections.append(f"[Hindsight delta context]\n{delta}")
+    if sections:
+        print("\n---\n".join(sections) + "\n---")
 
 
 if __name__ == "__main__":

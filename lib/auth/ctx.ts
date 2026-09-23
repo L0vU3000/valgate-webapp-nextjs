@@ -7,6 +7,7 @@ import { db } from "@/lib/db/client";
 import { users, organizations } from "@/lib/db/schema";
 import { env } from "@/lib/env";
 import { upsertOrg, upsertUser, upsertMembership, ourOrgId, ourUserId, normaliseRole } from "@/lib/services/identity-sync";
+import { isManagerFromAccountType } from "@/lib/auth/account-type";
 import type { Ctx } from "@/lib/services/_mapping";
 
 
@@ -15,11 +16,12 @@ import type { Ctx } from "@/lib/services/_mapping";
 const DEMO_CTX: Ctx = { userId: "USR-0001", orgId: "ORG-0001", orgRole: "owner" };
 
 async function resolveCtx(): Promise<Ctx> {
-  if (env.DEMO_MODE) {
+  if (env.DEMO_MODE || process.env.STAGING_DEMO_MODE === "true") {
     // DEMO_CTX grants unauthenticated ORG-0001 owner access — refuse it anywhere real auth could
     // exist: production, or a real Clerk key configured (DEMO_MODE left on by mistake). (M1, D9)
-    if (process.env.NODE_ENV === "production") throw new Error("DEMO_MODE refused in production");
-    if (isRealClerkKey(env.CLERK_SECRET_KEY))
+    // Staging preview exception: STAGING_DEMO_MODE=true bypasses both checks for Tailscale previews.
+    if (process.env.NODE_ENV === "production" && process.env.STAGING_DEMO_MODE !== "true") throw new Error("DEMO_MODE refused in production");
+    if (isRealClerkKey(env.CLERK_SECRET_KEY) && process.env.STAGING_DEMO_MODE !== "true")
       throw new Error("DEMO_MODE refused when a real CLERK_SECRET_KEY is set");
     return DEMO_CTX;
   }
@@ -43,8 +45,9 @@ async function resolveCtx(): Promise<Ctx> {
       primaryEmail: clerkUser?.emailAddresses[0]?.emailAddress ?? `${userId}@pending.clerk`,
       displayName: [clerkUser?.firstName, clerkUser?.lastName].filter(Boolean).join(" ") || null,
       avatarUrl: clerkUser?.imageUrl ?? null,
-      // Read the accountType set at sign-up; if absent, default is owner (false).
-      isManager: clerkUser?.unsafeMetadata?.accountType === "manager",
+      // Read the accountType set at sign-up through the Zod enum. Missing or
+      // unknown values parse as owner (isManager false), never as manager.
+      isManager: isManagerFromAccountType(clerkUser?.unsafeMetadata?.accountType),
     });
     // ponytail: org name = Clerk id as placeholder; webhook fills in real name/slug
     await upsertOrg({ id: orgId, name: orgId, slug: null });
@@ -60,6 +63,34 @@ async function resolveCtx(): Promise<Ctx> {
 
 // Memoized per server request: Clerk auth() + identity-sync DB checks run once per request instead of 3+; each new request gets a fresh memo (no cross-user leak).
 export const requireCtx = cache(resolveCtx);
+
+/**
+ * True when requireCtx failed because there is no signed-in user (or no active org).
+ *
+ * JSON route handlers use this to return 401 instead of letting the thrown
+ * "unauthenticated" error become a framework 500. Other errors (for example
+ * DEMO_MODE refused in production) must NOT match, so they still fail closed.
+ */
+export function isUnauthenticatedError(err: unknown): boolean {
+  return err instanceof Error && err.message === "unauthenticated";
+}
+
+/**
+ * Session-cookie auth for JSON route handlers.
+ *
+ * Server Actions can let requireCtx() throw. Route handlers must answer with
+ * JSON, so this wrapper catches the unauthenticated case and returns `{ ok: false }`
+ * for the handler to turn into a 401. Any other error is rethrown.
+ */
+export async function resolveRouteCtx(): Promise<{ ok: true; ctx: Ctx } | { ok: false }> {
+  try {
+    const ctx = await requireCtx();
+    return { ok: true, ctx };
+  } catch (err) {
+    if (isUnauthenticatedError(err)) return { ok: false };
+    throw err;
+  }
+}
 
 // Edge-level role gate (guide §5). Distinct from _crud's service-level requireMember.
 const RANK = { viewer: 0, member: 1, admin: 2, owner: 3 } as const;

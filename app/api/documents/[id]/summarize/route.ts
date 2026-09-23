@@ -2,9 +2,10 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { generateObject } from "ai";
 import { openai } from "@ai-sdk/openai";
-import { requireCtx } from "@/lib/auth/ctx";
+import { resolveRouteCtx } from "@/lib/auth/ctx";
 import { getDocument, setDocumentAiStatus, saveDocumentSummary } from "@/lib/services/documents";
 import { resolveDocumentUrl } from "@/lib/services/storage";
+import { aiLimiter, allowed } from "@/lib/ratelimit";
 import { log } from "@/lib/log";
 
 export const runtime = "nodejs"; // S3 + Neon need the Node runtime (not Edge)
@@ -18,21 +19,52 @@ const SummarySchema = z.object({
   pageCount: z.number().int().nonnegative(),
 });
 
+/**
+ * Checks that the path document id is a non-empty string after trimming.
+ * Returns the cleaned id, or null when the value is missing/blank so the
+ * handler can answer 400 without hitting the database.
+ */
+function parseDocumentId(raw: string): string | null {
+  const parsed = z.string().trim().min(1).safeParse(raw);
+  if (!parsed.success) return null;
+  return parsed.data;
+}
+
 // POST /api/documents/[id]/summarize
 //
 // Generates an AI summary for a single document, ON CLICK ONLY. The whole job runs inside this
 // one request: authorize → read the file from storage → ask the model → store the result on the
 // document row. Because it is stored, the model runs once; every later page view just reads the row.
 //
-// Authorization: requireCtx() identifies the caller's org; getDocument() is org-scoped, so a
-// document belonging to another org returns null and we answer 404 (no IDOR, no info leak).
+// Authorization: resolveRouteCtx() identifies the caller's org (JSON 401 if unsigned-in);
+// getDocument() is org-scoped, so a document belonging to another org returns null and we
+// answer 404 (no IDOR, no info leak).
 //
-// What can go wrong (all handled): requireCtx throws if unauthenticated (surfaces as a 500 from the
-// framework); the file fetch or the model call can fail or time out — the try/catch logs the real
-// error server-side, flips ai_status to "failed", and returns a generic message to the client.
+// What can go wrong (all handled): missing session → 401; blank id → 400; missing/other-org
+// document → 404; the file fetch or the model call can fail or time out — the try/catch logs
+// the real error server-side, flips ai_status to "failed", and returns a generic message.
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params; // Next.js 15: params is a Promise — always await it
-  const ctx = await requireCtx();
+  const authResult = await resolveRouteCtx();
+  if (!authResult.ok) {
+    return Response.json({ ok: false, error: "Unauthorized." }, { status: 401 });
+  }
+  const ctx = authResult.ctx;
+
+  // TM1-64: paid-model edge — same 10/min budget as document scan. Gated after auth so
+  // unauthenticated callers never consume quota, and before the file download / model call.
+  if (!(await allowed(aiLimiter, ctx.userId))) {
+    log.warn("ratelimit.block", { edge: "documentSummarize", userId: ctx.userId });
+    return Response.json(
+      { ok: false, error: "Too many requests. Please try again in a moment." },
+      { status: 429 },
+    );
+  }
+
+  const { id: rawId } = await params; // Next.js 15: params is a Promise — always await it
+  const id = parseDocumentId(rawId);
+  if (!id) {
+    return Response.json({ ok: false, error: "Invalid document id." }, { status: 400 });
+  }
 
   // Ownership check: org-scoped lookup. Another org's id (or a missing id) returns null.
   const doc = await getDocument(ctx, id);

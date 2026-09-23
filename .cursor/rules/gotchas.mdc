@@ -1,0 +1,14 @@
+---
+description: Common pitfalls — matcher, params, CI, stale .cursorrules
+alwaysApply: false
+---
+
+# Gotchas
+
+- **`middleware.ts` Clerk matcher** — changes affect auth for many routes; test carefully.
+- **`await params`** — route `params` is a Promise in Next.js 15.
+- **Lint is not repo-wide** — CI runs `eslint app lib components` only.
+- **CI skips `main`** — pushes to `main` do not run this workflow (TM1-84).
+- **`.cursorrules` is stale** — still lists Convex/Stripe/Upstash. Trust `AGENTS.md`, source code, and `ci.yml`.
+- **`vault/`** also lives on `valgate-dev` — check before editing to avoid divergence.
+- **No `ios/` tree** — AppCore/Xcode CI jobs skip in this repo.

@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "hindsight": {
+      "type": "sse",
+      "url": "http://100.77.9.23:8081/sse"
+    }
+  }
+}

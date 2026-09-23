@@ -1,0 +1,1234 @@
+openapi: 3.1.0
+info:
+  title: Valgate API v1
+  version: 1.0.0
+  description: |
+    Single source of truth for the Valgate API contract. Used by:
+    - Web (Next.js) route handlers
+    - iOS (SwiftUI) API client
+
+servers:
+  - url: https://www.valgate.co/api/v1
+    description: Production
+  - url: /api/v1
+    description: Local (Next.js dev server)
+
+# Authentication is handled by Clerk session cookie (browser) or Clerk JWT token (iOS).
+# The API does not use a separate API key header.
+
+# Every /api/v1 operation is authenticated by a Clerk session token, carried either as
+# `Authorization: Bearer <token>` (iOS) or the session cookie (browser). Enforced by
+# resolveApiV1Ctx() in every route handler. Declared here so generated clients know.
+security:
+  - clerkSession: []
+
+paths:
+  /me:
+    get:
+      operationId: getMe
+      summary: Get current user's profile
+      description: Returns the caller's own profile (email, displayName, role, orgName).
+      responses:
+        "200":
+          description: User profile found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeDto"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /properties:
+    get:
+      operationId: listProperties
+      summary: List org properties (paginated)
+      description: |
+        Opaque-cursor page of the caller's org's properties.
+        Pass the `nextCursor` from the previous response as the new `cursor`.
+      parameters:
+        - $ref: "#/components/parameters/LimitQuery"
+        - $ref: "#/components/parameters/CursorQuery"
+      responses:
+        "200":
+          description: Paginated property list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, nextCursor]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PropertyListItemDtoV1"
+                  nextCursor:
+                    type: [string, "null"]
+                    description: Cursor for the next page. Null if no more pages.
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    post:
+      operationId: createProperty
+      summary: Create a property
+      description: |
+        Creates a new property under the caller's organization. Requires role `member` or
+        above. Only the fields below are accepted — unknown extra keys (e.g. `photoStorageIds`,
+        `mortgages`) are stripped, not rejected. `totalArea` defaults to `""`; storage ids and
+        financial internals are never stored from this body.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PropertyCreateBody"
+      responses:
+        "201":
+          description: Property created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PropertyDetailDtoV1"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /properties/{id}:
+    get:
+      operationId: getPropertyDetail
+      summary: Get a single property's detail
+      description: Returns a property's detail DTO, scoped to the caller's org.
+      parameters:
+        - $ref: "#/components/parameters/PropertyIdPath"
+      responses:
+        "200":
+          description: Property detail found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PropertyDetailDtoV1"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    patch:
+      operationId: updateProperty
+      summary: Update a property
+      description: |
+        Partially updates a property. Any omitted field is left unchanged; an empty object is
+        valid and changes nothing. Requires role `member` or above. A body `id` is ignored —
+        the URL id always wins. The org-scoped lookup runs first, so a property in another org
+        is a plain 404, not a 403.
+      parameters:
+        - $ref: "#/components/parameters/PropertyIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PropertyPatchBody"
+      responses:
+        "200":
+          description: Property updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PropertyDetailDtoV1"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    delete:
+      operationId: deleteProperty
+      summary: Delete a property
+      description: |
+        Hard-deletes a property and its cascade (same as the website). Requires role `admin`
+        or above. Success is 204 with an empty body. A property that does not exist, or exists
+        in another org, is a plain 404 — the two cases are indistinguishable.
+      parameters:
+        - $ref: "#/components/parameters/PropertyIdPath"
+      responses:
+        "204":
+          description: Property deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /properties/{id}/documents:
+    get:
+      operationId: listPropertyDocuments
+      summary: List a property's documents (paginated)
+      description: |
+        Opaque-cursor page of one property's documents, org-scoped.
+        A property that does not exist, or exists in another org, is a plain 404 — never an
+        empty page. Pass the `nextCursor` from the previous response as the new `cursor`.
+        `limit` must be a plain integer in 1-100 (absent defaults to 20); anything else —
+        non-integer, 0, negative, >100 — is a 400, never a silent clamp. A tampered or
+        malformed `cursor` is also a 400.
+      parameters:
+        - $ref: "#/components/parameters/PropertyIdPath"
+        - $ref: "#/components/parameters/LimitQuery"
+        - $ref: "#/components/parameters/CursorQuery"
+      responses:
+        "200":
+          description: Paginated document list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentPageDtoV1"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    post:
+      operationId: createDocumentUploadTicket
+      summary: Issue a direct object-storage upload ticket
+      description: |
+        Returns a presigned S3 POST plus the `storageId` the object must be stored under
+        (`{orgId}/{DOC-id}/{name}`). Upload the file to `url` with every entry of `fields`,
+        then confirm with POST /properties/{id}/documents/complete.
+        Requires role `member` or above.
+      parameters:
+        - $ref: "#/components/parameters/PropertyIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DocumentUploadBody"
+      responses:
+        "201":
+          description: Upload ticket issued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentUploadTicketDtoV1"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /properties/{id}/documents/complete:
+    post:
+      operationId: completeDocumentUpload
+      summary: Record a completed direct upload
+      description: |
+        Creates the document row after the direct upload succeeded. `storageId` must start
+        with the caller's org id (`{orgId}/...`) — the ticket from POST
+        /properties/{id}/documents is the normal source; anything else is a 400.
+        Requires role `member` or above.
+      parameters:
+        - $ref: "#/components/parameters/PropertyIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DocumentCompleteBody"
+      responses:
+        "201":
+          description: Document created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentListItemDtoV1"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /properties/{id}/documents/{documentId}:
+    get:
+      operationId: getDocumentUrl
+      summary: Resolve a short-lived document URL
+      description: |
+        Returns a signed URL to the stored bytes. `urlExpiresAt` is the expiry as a Unix
+        timestamp in milliseconds (5 minutes after issue).
+      parameters:
+        - $ref: "#/components/parameters/PropertyIdPath"
+        - $ref: "#/components/parameters/DocumentIdPath"
+      responses:
+        "200":
+          description: Signed URL for the document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentUrlDtoV1"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    patch:
+      operationId: updateDocumentMetadata
+      summary: Rename or edit public document metadata
+      description: |
+        Partially updates `name`, `category`, and `description`. An omitted field is left
+        unchanged; an empty object is valid and changes nothing. Returns the updated
+        document. Requires role `member` or above.
+        The org-scoped lookup runs first, so a document in another org is a plain 404, not
+        a 403 — even for a viewer.
+      parameters:
+        - $ref: "#/components/parameters/PropertyIdPath"
+        - $ref: "#/components/parameters/DocumentIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DocumentPatchBody"
+      responses:
+        "200":
+          description: Document updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentListItemDtoV1"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    delete:
+      operationId: deleteDocument
+      summary: Delete a document and its stored bytes
+      description: |
+        Deletes the document row and the stored object. Requires role `admin` or above.
+        Success is 204 with an empty body. The org-scoped lookup runs first, so a document
+        in another org is a plain 404, not a 403.
+      parameters:
+        - $ref: "#/components/parameters/PropertyIdPath"
+        - $ref: "#/components/parameters/DocumentIdPath"
+      responses:
+        "204":
+          description: Document deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /properties/{id}/valuations:
+    get:
+      operationId: listPropertyValuations
+      summary: List a property's valuations (paginated)
+      description: |
+        Opaque-cursor page of one property's valuation history, org-scoped.
+        A property that does not exist, or exists in another org, is a plain 404 — never an
+        empty page. `limit` rules are identical to the documents list: a plain integer in
+        1-100, absent defaults to 20, anything else is a 400.
+      parameters:
+        - $ref: "#/components/parameters/PropertyIdPath"
+        - $ref: "#/components/parameters/LimitQuery"
+        - $ref: "#/components/parameters/CursorQuery"
+      responses:
+        "200":
+          description: Paginated valuation list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PropertyValuationPageDtoV1"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    post:
+      operationId: createPropertyValuation
+      summary: Record a new valuation entry
+      description: |
+        `month` is the human-entered valuation month (`MMM YYYY`), `price` a positive
+        amount. `propertyId` comes from the URL; `id` and `recordedAt` are server-generated.
+        Requires role `member` or above.
+      parameters:
+        - $ref: "#/components/parameters/PropertyIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ValuationCreateBody"
+      responses:
+        "201":
+          description: Valuation created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PropertyValuationDtoV1"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /valuations/{id}:
+    patch:
+      operationId: updateValuation
+      summary: Update a valuation entry
+      description: |
+        Partially updates `month` and/or `price`. An omitted field is left unchanged; an
+        empty object is valid and changes nothing. `recordedAt` is never patchable.
+        Requires role `member` or above. The org-scoped lookup runs first, so a valuation in
+        another org is a plain 404, not a 403.
+      parameters:
+        - $ref: "#/components/parameters/ValuationIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ValuationPatchBody"
+      responses:
+        "200":
+          description: Valuation updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PropertyValuationDtoV1"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    delete:
+      operationId: deleteValuation
+      summary: Delete a valuation entry
+      description: |
+        Removes the valuation row. Requires role `admin` or above. Success is 204 with an
+        empty body. The org-scoped lookup runs first, so a valuation in another org is a
+        plain 404, not a 403.
+      parameters:
+        - $ref: "#/components/parameters/ValuationIdPath"
+      responses:
+        "204":
+          description: Valuation deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /properties/{id}/ownership:
+    get:
+      operationId: getPropertyOwnership
+      summary: Get a property's ownership bundle
+      description: |
+        One property's ownership records, co-owners, and ownership history in a single
+        response, org-scoped. A property that does not exist, or exists in another org, is a
+        plain 404 — never an empty bundle.
+        Unpaginated by design: the three underlying lists are capped at 500 rows each.
+      parameters:
+        - $ref: "#/components/parameters/PropertyIdPath"
+      responses:
+        "200":
+          description: Ownership bundle for the property
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OwnershipBundleDtoV1"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /ownership/{ownershipRecordId}:
+    get:
+      operationId: getOwnershipRecord
+      summary: Get a single ownership record
+      description: |
+        The public DTO of one ownership record, org-scoped. A record that does not exist, or
+        exists in another org, is a plain 404 — the two cases are indistinguishable.
+      parameters:
+        - $ref: "#/components/parameters/OwnershipRecordIdPath"
+      responses:
+        "200":
+          description: Ownership record found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OwnershipRecordDtoV1"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /rental:
+    get:
+      operationId: getRentalSummary
+      summary: Get the portfolio rental summary
+      description: |
+        Org-wide rental rollup: occupancy, tenancy count, and the next payout. There is no id
+        here, so this route never 404s — an org with no rentals still gets zeros and nulls.
+      responses:
+        "200":
+          description: Portfolio rental summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RentalSummaryDtoV1"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /properties/{id}/rental:
+    get:
+      operationId: getPropertyRentalSummary
+      summary: Get one property's rental summary
+      description: |
+        Screen-shaped aggregate for one property: occupancy, active-lease count, monthly
+        rent, and the next payment. Aggregate only by design — no lease, tenant, unit, or
+        payment row is ever serialized. A property that does not exist, or exists in another
+        org, is a plain 404.
+      parameters:
+        - $ref: "#/components/parameters/PropertyIdPath"
+      responses:
+        "200":
+          description: Property rental summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PropertyRentalSummaryDtoV1"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+components:
+  securitySchemes:
+    clerkSession:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Clerk session token from the iOS client (ClerkKit) or the browser session cookie.
+        Resolved to an org-scoped Ctx by resolveApiV1Ctx(); an unknown user with no
+        Valgate profile row is a plain 401, never auto-provisioned.
+  parameters:
+    PropertyIdPath:
+      name: id
+      in: path
+      required: true
+      description: Property ID
+      schema:
+        type: string
+    DocumentIdPath:
+      name: documentId
+      in: path
+      required: true
+      description: Document ID
+      schema:
+        type: string
+    ValuationIdPath:
+      name: id
+      in: path
+      required: true
+      description: Valuation ID
+      schema:
+        type: string
+    OwnershipRecordIdPath:
+      name: ownershipRecordId
+      in: path
+      required: true
+      description: Ownership record ID
+      schema:
+        type: string
+    LimitQuery:
+      name: limit
+      in: query
+      description: Number of items per page (1-100). Defaults to 20. Anything else is a 400.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    CursorQuery:
+      name: cursor
+      in: query
+      description: Opaque cursor from the previous page's `nextCursor`. Never construct or decode it yourself.
+      schema:
+        type: string
+
+  schemas:
+    MeDto:
+      type: object
+      required: [email, displayName, role, orgName]
+      properties:
+        email:
+          type: string
+          format: email
+        displayName:
+          type: [string, "null"]
+        role:
+          type: string
+          enum: [owner, admin, member, viewer]
+          description: "orgRole from the auth context"
+        orgName:
+          type: string
+
+    PropertyListItemDtoV1:
+      type: object
+      required: [id, name, type, status, lat, lng, city, province, createdAt, priceNumeric, currency]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+          description: Property type (e.g. residential, commercial, multi-unit, land)
+        status:
+          type: string
+          description: "Property status (e.g. Rented, Vacant, For Sale, Sold, Archived, Owner-Occupied)"
+        lat:
+          type: number
+          minimum: -90
+          maximum: 90
+          description: Latitude, for map pin placement.
+        lng:
+          type: number
+          minimum: -180
+          maximum: 180
+          description: Longitude, for map pin placement.
+        city:
+          type: [string, "null"]
+        province:
+          type: [string, "null"]
+        createdAt:
+          type: integer
+          description: Unix timestamp (milliseconds)
+        priceNumeric:
+          type: [number, "null"]
+          description: |
+            Stored purchase amount (`buyNumeric`). Null when it is missing or 0 (the create
+            default, meaning price not collected) — never a fabricated value.
+        currency:
+          type: [string, "null"]
+          enum: [USD, null]
+          description: "ISO 4217 code for `priceNumeric`. v1 money is USD only. Null when `priceNumeric` is null."
+
+    PropertyDetailDtoV1:
+      allOf:
+        - $ref: "#/components/schemas/PropertyListItemDtoV1"
+      type: object
+      required: [addressLine, country, totalArea, bedrooms, bathrooms, yearBuilt]
+      properties:
+        addressLine:
+          type: [string, "null"]
+        country:
+          type: [string, "null"]
+        totalArea:
+          type: string
+        bedrooms:
+          type: [string, "null"]
+        bathrooms:
+          type: [string, "null"]
+        yearBuilt:
+          type: [string, "null"]
+
+    DocumentListItemDtoV1:
+      type: object
+      required: [id, propertyId, name, kind, category, uploadedAt]
+      description: |
+        Public document metadata. Storage ids, uploader, verification, and AI-summary
+        internals are never included.
+      properties:
+        id:
+          type: string
+        propertyId:
+          type: string
+        folderId:
+          type: [string, "null"]
+        name:
+          type: string
+        kind:
+          type: string
+          enum: [photo, document]
+          description: Derived from the MIME type on upload — `photo` for `image/*`, else `document`.
+        mimeType:
+          type: [string, "null"]
+        extension:
+          type: [string, "null"]
+        sizeBytes:
+          type: [integer, "null"]
+        category:
+          type: string
+          enum: [Title, Rental, Photos, Legal, Financial, Estate, Other]
+        description:
+          type: [string, "null"]
+        uploadedAt:
+          type: integer
+          description: Unix timestamp (milliseconds)
+
+    DocumentPageDtoV1:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/DocumentListItemDtoV1"
+        nextCursor:
+          type: [string, "null"]
+          description: Cursor for the next page. Null if no more pages.
+
+    DocumentUploadBody:
+      type: object
+      required: [name, mimeType, sizeBytes]
+      description: |
+        Upload ticket request. `mimeType` must be one of the allowed upload types
+        (JPEG, PNG, WebP, PDF, DOC, DOCX, XLS, XLSX) and `sizeBytes` at most 10 MiB.
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        mimeType:
+          type: string
+          enum:
+            - image/jpeg
+            - image/png
+            - image/webp
+            - application/pdf
+            - application/msword
+            - application/vnd.openxmlformats-officedocument.wordprocessingml.document
+            - application/vnd.ms-excel
+            - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+        sizeBytes:
+          type: integer
+          minimum: 1
+          maximum: 10485760
+        category:
+          type: string
+          enum: [Title, Rental, Photos, Legal, Financial, Estate, Other]
+        description:
+          type: string
+          maxLength: 2000
+
+    DocumentCompleteBody:
+      type: object
+      required: [storageId, name, mimeType, sizeBytes]
+      description: |
+        Confirms a finished direct upload. `storageId` must be in the caller's org namespace
+        (`{orgId}/...`), so cross-org binding is impossible.
+      properties:
+        storageId:
+          type: string
+          minLength: 1
+          maxLength: 512
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        mimeType:
+          type: string
+          enum:
+            - image/jpeg
+            - image/png
+            - image/webp
+            - application/pdf
+            - application/msword
+            - application/vnd.openxmlformats-officedocument.wordprocessingml.document
+            - application/vnd.ms-excel
+            - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+        sizeBytes:
+          type: integer
+          minimum: 1
+          maximum: 10485760
+        category:
+          type: string
+          enum: [Title, Rental, Photos, Legal, Financial, Estate, Other]
+        description:
+          type: string
+          maxLength: 2000
+
+    DocumentPatchBody:
+      type: object
+      description: |
+        Partial metadata update. All fields optional — an empty object is valid and changes
+        nothing. Unknown keys are stripped, not rejected.
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        category:
+          type: string
+          enum: [Title, Rental, Photos, Legal, Financial, Estate, Other]
+        description:
+          type: string
+          maxLength: 2000
+
+    DocumentUploadTicketDtoV1:
+      type: object
+      required: [url, fields, storageId]
+      description: Presigned S3 POST. Send every entry of `fields` with the file; the object key is `storageId`.
+      properties:
+        url:
+          type: string
+          format: uri
+        fields:
+          type: object
+          additionalProperties:
+            type: string
+        storageId:
+          type: string
+
+    DocumentUrlDtoV1:
+      type: object
+      required: [url, urlExpiresAt]
+      properties:
+        url:
+          type: string
+          format: uri
+        urlExpiresAt:
+          type: integer
+          description: URL expiry as a Unix timestamp in milliseconds (issued with a 5-minute TTL).
+
+    PropertyValuationDtoV1:
+      type: object
+      required: [id, propertyId, month, price]
+      description: |
+        A single valuation entry. `recordedAt` (the internal write timestamp) is withheld —
+        it is not the same thing as the human-entered `month` the valuation is for.
+      properties:
+        id:
+          type: string
+        propertyId:
+          type: string
+        month:
+          type: string
+          pattern: ^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{4}$
+          description: "Valuation month, `MMM YYYY` (e.g. 'Jan 2026')."
+        price:
+          type: number
+          exclusiveMinimum: 0
+
+    PropertyValuationPageDtoV1:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PropertyValuationDtoV1"
+        nextCursor:
+          type: [string, "null"]
+          description: Cursor for the next page. Null if no more pages.
+
+    ValuationCreateBody:
+      type: object
+      required: [month, price]
+      properties:
+        month:
+          type: string
+          pattern: ^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{4}$
+          description: "Valuation month, `MMM YYYY` (e.g. 'Jan 2026')."
+        price:
+          type: number
+          exclusiveMinimum: 0
+
+    ValuationPatchBody:
+      type: object
+      description: Partial update. Both fields optional — an empty object is valid and changes nothing.
+      properties:
+        month:
+          type: string
+          pattern: ^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{4}$
+        price:
+          type: number
+          exclusiveMinimum: 0
+
+    OwnershipRecordDtoV1:
+      type: object
+      required: [id, propertyId, holdingType, distributionMethod]
+      description: |
+        Public subset of an ownership record. Loan/lender/interest and acquisition-cost
+        fields, verification flags, and evidence-doc ids are withheld pending a product
+        decision. `distributionMethod` is omitted at the wire when the stored row has none.
+      properties:
+        id:
+          type: string
+        propertyId:
+          type: string
+        holdingType:
+          type: string
+          enum: [Tenancy in Common, Joint Tenancy, Sole Ownership, Trust, LLC, Other]
+        distributionMethod:
+          type: string
+          enum: [Pro-Rata by Share, Equal Split, Custom]
+
+    CoOwnerDtoV1:
+      type: object
+      required: [id, propertyId, name, role, sharePercent]
+      description: |
+        Public subset of a co-owner. `ssnMasked`, tax fields, and `address` are withheld as
+        PII.
+      properties:
+        id:
+          type: string
+        propertyId:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+          enum: [Primary, Minor]
+        sharePercent:
+          type: number
+          minimum: 0
+          maximum: 100
+        email:
+          type: [string, "null"]
+        phone:
+          type: [string, "null"]
+
+    OwnershipHistoryDtoV1:
+      type: object
+      required: [id, propertyId, text, color]
+      description: Public subset of an ownership-history entry. `eventDate` and audit timestamps are withheld.
+      properties:
+        id:
+          type: string
+        propertyId:
+          type: string
+        text:
+          type: string
+        color:
+          type: string
+
+    OwnershipBundleDtoV1:
+      type: object
+      required: [ownershipRecords, coOwners, ownershipHistory]
+      description: Everything the property Ownership screen shows. Not paginated; each list is capped at 500 rows.
+      properties:
+        ownershipRecords:
+          type: array
+          items:
+            $ref: "#/components/schemas/OwnershipRecordDtoV1"
+        coOwners:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoOwnerDtoV1"
+        ownershipHistory:
+          type: array
+          items:
+            $ref: "#/components/schemas/OwnershipHistoryDtoV1"
+
+    RentalSummaryDtoV1:
+      type: object
+      required:
+        - occupancyPercent
+        - occupiedCount
+        - totalCount
+        - tenancyCount
+        - nextPayoutAmountNumeric
+        - nextPayoutAt
+        - currency
+      description: Org-wide rental rollup. Counts are rounded, non-negative integers; `occupancyPercent` is capped at 100.
+      properties:
+        occupancyPercent:
+          type: integer
+          minimum: 0
+          maximum: 100
+        occupiedCount:
+          type: integer
+          minimum: 0
+        totalCount:
+          type: integer
+          minimum: 0
+        tenancyCount:
+          type: integer
+          minimum: 0
+        nextPayoutAmountNumeric:
+          type: [number, "null"]
+          description: Null when there is no real upcoming payout (never a fabricated 0).
+        nextPayoutAt:
+          type: [integer, "null"]
+          description: Unix timestamp (milliseconds) of the next payout. Null when none.
+        currency:
+          type: [string, "null"]
+          enum: [USD, null]
+          description: "`USD` only when a real upcoming payout exists. v1 money is USD only."
+
+    PropertyRentalSummaryDtoV1:
+      type: object
+      required:
+        - occupancyPercent
+        - activeLeaseCount
+        - monthlyRentNumeric
+        - nextPaymentAmountNumeric
+        - nextPaymentAt
+        - currency
+      description: |
+        Screen-shaped aggregate for one property. Not a lease/tenant/payment list — no lease
+        id, tenant id, unit, or payment row is ever serialized.
+      properties:
+        occupancyPercent:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: 100 when occupied (Owner-Occupied or an active Signed lease), else 0.
+        activeLeaseCount:
+          type: integer
+          minimum: 0
+          description: Currently active Signed leases for this property.
+        monthlyRentNumeric:
+          type: number
+          minimum: 0
+          description: Sum of monthlyRent over those active leases. 0 when there are none.
+        nextPaymentAmountNumeric:
+          type: [number, "null"]
+          description: Sum of Pending Rent on the next upcoming UTC day. Null when none exists.
+        nextPaymentAt:
+          type: [integer, "null"]
+          description: Unix timestamp (milliseconds) of the earliest payment on that day. Null when none.
+        currency:
+          type: [string, "null"]
+          enum: [USD, null]
+          description: "`USD` only when a real upcoming payment exists. v1 money is USD only."
+
+    PropertyCreateBody:
+      type: object
+      required: [name, type, status, lat, lng]
+      description: |
+        Bounded create body. This is NOT the website's `NewProperty` dump — unknown extra keys
+        are stripped, not rejected. `totalArea` is filled with `""` when omitted.
+      properties:
+        name:
+          type: string
+          minLength: 1
+        type:
+          type: string
+          enum: [residential, commercial, multi-unit, retail, land, industrial, construction, other]
+        status:
+          type: string
+          enum: [Rented, Vacant, For Sale, Sold, Archived, Owner-Occupied]
+        lat:
+          type: number
+          minimum: -90
+          maximum: 90
+        lng:
+          type: number
+          minimum: -180
+          maximum: 180
+        city:
+          type: string
+        province:
+          type: string
+        addressLine:
+          type: string
+        country:
+          type: string
+        totalArea:
+          type: string
+        bedrooms:
+          type: string
+        bathrooms:
+          type: string
+        yearBuilt:
+          type: string
+
+    PropertyPatchBody:
+      type: object
+      description: |
+        Partial update. Every field is optional — an empty object is valid and changes
+        nothing. A body `id` is not in this schema, so the URL id always wins.
+      properties:
+        name:
+          type: string
+          minLength: 1
+        type:
+          type: string
+          enum: [residential, commercial, multi-unit, retail, land, industrial, construction, other]
+        status:
+          type: string
+          enum: [Rented, Vacant, For Sale, Sold, Archived, Owner-Occupied]
+        lat:
+          type: number
+          minimum: -90
+          maximum: 90
+        lng:
+          type: number
+          minimum: -180
+          maximum: 180
+        city:
+          type: string
+        province:
+          type: string
+        addressLine:
+          type: string
+        country:
+          type: string
+        totalArea:
+          type: string
+        bedrooms:
+          type: string
+        bathrooms:
+          type: string
+        yearBuilt:
+          type: string
+
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum: [unauthorized, invalid_request, forbidden, not_found, rate_limited, internal_error]
+            message:
+              type: string
+
+  responses:
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+
+    InvalidRequest:
+      description: Invalid query parameter or cursor
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+
+    NotFound:
+      description: Resource not found or not in caller's org
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+
+    Forbidden:
+      description: Caller's org role is below the threshold for this operation
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+
+    RateLimited:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+
+    InternalError:
+      description: Unexpected server error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"

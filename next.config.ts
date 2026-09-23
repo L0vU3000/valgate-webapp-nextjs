@@ -27,10 +27,9 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  serverExternalPackages: ["mapbox-gl"],
-  outputFileTracingIncludes: {
-    "/**/*": ["./public/data/**/*"],
-  },
+  serverExternalPackages: ["mapbox-gl", "pg"],
+  // No outputFileTracingIncludes for ./public/data: no live route reads the leftover
+  // FS seed (TM1-72). A /**/* glob copied ~3.7 MB into every serverless bundle.
   turbopack: {
     root: __dirname,
   },

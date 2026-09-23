@@ -1,12 +1,22 @@
 import { describe, it, expect } from "vitest";
+import type { Document } from "@/lib/data/types/document";
 import type { Property } from "@/lib/data/types/property";
-import { toMeDto, toPropertyListItemDto, toPropertyDetailDto } from "./dto";
+import type { PropertyValuation } from "@/lib/data/types/property-valuation";
+import {
+  toMeDto,
+  toPropertyListItemDto,
+  toPropertyDetailDto,
+  toDocumentListItemDto,
+  toListPrice,
+  toRentalSummaryDto,
+  toPropertyValuationDto,
+} from "./dto";
 
 // ---------------------------------------------------------------------------
 // DTO field-omission contract for HTTP API v1. Pure functions, no mocks needed.
 // Locks down the security requirement directly: userId, orgId, clientId, every
-// storage id, and every evidence-doc id array must NEVER appear in a v1 response,
-// no matter how many fields the underlying Property/Ctx carries.
+// storage id, evidence-doc id arrays, uploadedBy, verifies, and AI-summary internals
+// must NEVER appear in a v1 response, no matter how many fields the underlying row carries.
 // ---------------------------------------------------------------------------
 
 const SECRET_MARKERS = [
@@ -16,6 +26,8 @@ const SECRET_MARKERS = [
   "STORE-COVER-SECRET",
   "STORE-PHOTO-SECRET-1",
   "STORE-DOC-SECRET-1",
+  "STORE-THUMB-SECRET-1",
+  "USR-UPLOADER-SECRET",
   "DOC-RENTAL-SECRET-1",
   "DOC-ESTATE-SECRET-1",
   "DOC-LOCATION-SECRET-1",
@@ -78,6 +90,46 @@ const FULL_PROPERTY: Property = {
   title: "Hard title",
 };
 
+const FULL_DOCUMENT: Document = {
+  id: "DOC-0001",
+  propertyId: "PROP-0001",
+  folderId: "FLDR-0001",
+  name: "Title_Deed.pdf",
+  kind: "document",
+  mimeType: "application/pdf",
+  extension: "pdf",
+  sizeBytes: 1240000,
+  storageId: "STORE-DOC-SECRET-1",
+  thumbStorageId: "STORE-THUMB-SECRET-1",
+  category: "Title",
+  description: "Hard title deed",
+  uploadedBy: "USR-UPLOADER-SECRET",
+  uploadedAt: 1743897600000,
+  verifies: { entityType: "ownership-record", entityId: "OWN-SECRET-1" },
+  aiStatus: "ready",
+  aiSummary: "SECRET-AI-SUMMARY",
+  aiKeyFields: [{ label: "Owner", value: "SECRET-OWNER-NAME" }],
+  pageCount: 3,
+};
+
+describe("toListPrice", () => {
+  it("returns the purchase amount and USD when buyNumeric is a positive number", () => {
+    expect(toListPrice(5000000)).toEqual({ priceNumeric: 5000000, currency: "USD" });
+  });
+
+  it("parses a numeric string the same way Postgres numeric columns arrive before conversion", () => {
+    expect(toListPrice("125000.50")).toEqual({ priceNumeric: 125000.5, currency: "USD" });
+  });
+
+  it("returns nulls when the amount is missing, zero, negative, or not a finite number", () => {
+    expect(toListPrice(undefined)).toEqual({ priceNumeric: null, currency: null });
+    expect(toListPrice(0)).toEqual({ priceNumeric: null, currency: null });
+    expect(toListPrice(-1)).toEqual({ priceNumeric: null, currency: null });
+    expect(toListPrice(Number.NaN)).toEqual({ priceNumeric: null, currency: null });
+    expect(toListPrice("not-a-number")).toEqual({ priceNumeric: null, currency: null });
+  });
+});
+
 describe("toPropertyListItemDto", () => {
   it("never leaks internal ids, storage ids, or evidence-doc ids", () => {
     const dto = toPropertyListItemDto(FULL_PROPERTY);
@@ -85,19 +137,32 @@ describe("toPropertyListItemDto", () => {
     for (const marker of SECRET_MARKERS) {
       expect(serialized).not.toContain(marker);
     }
+    expect(dto).not.toHaveProperty("buyNumeric");
+    expect(dto).not.toHaveProperty("outstandingMortgage");
+    expect(dto).not.toHaveProperty("currentMarketValue");
   });
 
-  it("exposes only the intentionally small public list fields", () => {
+  it("exposes only the intentionally small public list fields, including purchase price", () => {
     const dto = toPropertyListItemDto(FULL_PROPERTY);
     expect(dto).toEqual({
       id: "PROP-0001",
       name: "42 Ocean Ave",
       type: "residential",
       status: "Rented",
+      lat: 14.5995,
+      lng: 120.9842,
       city: "Manila",
       province: "Metro Manila",
       createdAt: 1700000000000,
+      priceNumeric: 5000000,
+      currency: "USD",
     });
+  });
+
+  it("does not fabricate a price when buyNumeric is the create-endpoint default of 0", () => {
+    const dto = toPropertyListItemDto({ ...FULL_PROPERTY, buyNumeric: 0 });
+    expect(dto.priceNumeric).toBeNull();
+    expect(dto.currency).toBeNull();
   });
 });
 
@@ -116,12 +181,150 @@ describe("toPropertyDetailDto", () => {
       id: "PROP-0001",
       name: "42 Ocean Ave",
       addressLine: "42 Ocean Ave",
+      lat: 14.5995,
+      lng: 120.9842,
       country: "PH",
       totalArea: "120 sqm",
       bedrooms: "3",
       bathrooms: "2",
       yearBuilt: "2015",
+      priceNumeric: 5000000,
+      currency: "USD",
     });
+  });
+});
+
+describe("toDocumentListItemDto", () => {
+  it("never leaks storage ids, uploader ids, verifies ids, or AI-summary internals", () => {
+    const dto = toDocumentListItemDto(FULL_DOCUMENT);
+    const serialized = JSON.stringify(dto);
+    for (const marker of SECRET_MARKERS) {
+      expect(serialized).not.toContain(marker);
+    }
+    expect(serialized).not.toContain("OWN-SECRET-1");
+    expect(serialized).not.toContain("SECRET-AI-SUMMARY");
+    expect(serialized).not.toContain("SECRET-OWNER-NAME");
+  });
+
+  it("exposes only the intentionally small public list fields", () => {
+    const dto = toDocumentListItemDto(FULL_DOCUMENT);
+    expect(dto).toEqual({
+      id: "DOC-0001",
+      propertyId: "PROP-0001",
+      folderId: "FLDR-0001",
+      name: "Title_Deed.pdf",
+      kind: "document",
+      mimeType: "application/pdf",
+      extension: "pdf",
+      sizeBytes: 1240000,
+      category: "Title",
+      description: "Hard title deed",
+      uploadedAt: 1743897600000,
+    });
+  });
+});
+
+describe("toRentalSummaryDto", () => {
+  it("copies occupancy and tenancy counts and attaches USD when a payout exists", () => {
+    const dto = toRentalSummaryDto({
+      occupancyPercent: 50,
+      occupiedCount: 1,
+      totalCount: 2,
+      tenancyCount: 1,
+      nextPayoutAmountNumeric: 2850,
+      nextPayoutAt: 1727740800000,
+    });
+    expect(dto).toEqual({
+      occupancyPercent: 50,
+      occupiedCount: 1,
+      totalCount: 2,
+      tenancyCount: 1,
+      nextPayoutAmountNumeric: 2850,
+      nextPayoutAt: 1727740800000,
+      currency: "USD",
+    });
+  });
+
+  it("uses null payout fields when no upcoming rent exists (does not fabricate $0)", () => {
+    const dto = toRentalSummaryDto({
+      occupancyPercent: 0,
+      occupiedCount: 0,
+      totalCount: 0,
+      tenancyCount: 0,
+      nextPayoutAmountNumeric: null,
+      nextPayoutAt: null,
+    });
+    expect(dto).toEqual({
+      occupancyPercent: 0,
+      occupiedCount: 0,
+      totalCount: 0,
+      tenancyCount: 0,
+      nextPayoutAmountNumeric: null,
+      nextPayoutAt: null,
+      currency: null,
+    });
+  });
+
+  it("never leaks lease, tenant, or payment row ids", () => {
+    const dto = toRentalSummaryDto({
+      occupancyPercent: 100,
+      occupiedCount: 1,
+      totalCount: 1,
+      tenancyCount: 1,
+      nextPayoutAmountNumeric: 1000,
+      nextPayoutAt: 1727740800000,
+    });
+    const serialized = JSON.stringify(dto);
+    expect(serialized).not.toContain("LEASE-");
+    expect(serialized).not.toContain("TEN-");
+    expect(serialized).not.toContain("PMT-");
+    expect(serialized).not.toContain("USR-");
+    expect(serialized).not.toContain("ORG-");
+  });
+
+  it("treats a zero or non-finite payout as missing (nulls, not $0)", () => {
+    const dto = toRentalSummaryDto({
+      occupancyPercent: 150,
+      occupiedCount: -3,
+      totalCount: 4,
+      tenancyCount: Number.NaN,
+      nextPayoutAmountNumeric: 0,
+      nextPayoutAt: 1727740800000,
+    });
+    expect(dto).toEqual({
+      occupancyPercent: 100,
+      occupiedCount: 0,
+      totalCount: 4,
+      tenancyCount: 0,
+      nextPayoutAmountNumeric: null,
+      nextPayoutAt: null,
+      currency: null,
+    });
+  });
+});
+
+describe("toPropertyValuationDto", () => {
+  const FULL_VALUATION: PropertyValuation = {
+    id: "VAL-0001",
+    propertyId: "PROP-0001",
+    month: "Jan 2026",
+    price: 5250000,
+    recordedAt: 1727740800000,
+  };
+
+  it("exposes only id, propertyId, month, and price", () => {
+    const dto = toPropertyValuationDto(FULL_VALUATION);
+    expect(dto).toEqual({
+      id: "VAL-0001",
+      propertyId: "PROP-0001",
+      month: "Jan 2026",
+      price: 5250000,
+    });
+  });
+
+  it("withholds recordedAt even though the row carries it", () => {
+    const dto = toPropertyValuationDto(FULL_VALUATION);
+    expect(dto).not.toHaveProperty("recordedAt");
   });
 });
 

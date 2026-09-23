@@ -56,6 +56,11 @@ export async function POST(req: NextRequest) {
   return new Response("ok", { status: 200 });
 }
 
+/**
+ * Pulls the bounced recipient from a verified Resend event payload.
+ * Resend sometimes sends `to` as a string and sometimes as a string array.
+ * Returns null when neither shape is present so the handler can no-op instead of crashing.
+ */
 function extractRecipientEmail(data: Record<string, unknown>): string | null {
   if (typeof data.to === "string") return data.to;
   if (Array.isArray(data.to) && typeof data.to[0] === "string") return data.to[0];

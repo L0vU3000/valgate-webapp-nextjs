@@ -13,6 +13,12 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# seed:neon imports lib/env.ts, which requires NEXT_PUBLIC_MAPBOX_TOKEN at
+# parse time. A dummy is enough here — seed/migrate/tests never call Mapbox.
+# Keep the real token required in lib/env.ts for production/runtime.
+env:
+  NEXT_PUBLIC_MAPBOX_TOKEN: test-mapbox-token
+
 jobs:
   # ---------------------------------------------------------------
   # Secret scan first — cheap, and a leak makes everything else moot.
@@ -33,7 +39,7 @@ jobs:
   # Everything that can run on Linux runs on Linux. Fast and cheap.
   # ---------------------------------------------------------------
   web:
-    name: Web (typecheck, lint, unit)
+    name: Web (typecheck, lint, unit, preview)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -44,6 +50,81 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test
+      # Pure helper tests for the preview-smoke suite (e2e/preview/lib/*.test.ts).
+      # No database, no Playwright, no preview URL — just vitest.
+      - run: npm run test:preview
+
+  # ---------------------------------------------------------------
+  # API contract: docs/api-spec/valgate-api-v1.yaml is the single source
+  # of truth for the web route handlers AND the iOS client. If the spec
+  # changes without regenerating lib/api/v1/generated-types.ts (or the
+  # generated file is hand-edited), the two drift silently and iOS starts
+  # decoding shapes the server no longer sends. This job is the tripwire:
+  # it regenerates to a temp file and diffs, failing on any difference.
+  # No database, no network — pure spec → types generation.
+  # ---------------------------------------------------------------
+  api-contract:
+    name: API contract (spec lint + spec ↔ generated TS types)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+
+      - run: npm ci
+      # Lint the spec itself first. A spec that mis-declares nullability or omits the
+      # auth requirement produces types that are confidently wrong — the drift check
+      # below cannot catch that, because it only proves generated matches spec.
+      - run: npx --yes @redocly/cli@2 lint docs/api-spec/valgate-api-v1.yaml
+      - run: npm run api:check-ts
+
+  # Live-DB integration tests (*.db.test.ts), including the org-scoping IDOR suite.
+  # This is a blocking job on purpose. Do not fold it into `e2e` — that job is
+  # continue-on-error until TM1-62, which would make IDOR regressions invisible again.
+  # Postgres service + migrate/seed match the e2e job; DATABASE_URL is the local
+  # container, not a GitHub secret (same as e2e).
+  db:
+    name: DB integration (test:db)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: app_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      # User is explicit (`postgres`), not the runner's OS user (`root`).
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/app_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+
+      - run: npm ci
+
+      # vitest.config.db.ts no-ops when DATABASE_URL is missing (passWithNoTests).
+      # Fail loudly here so a misconfigured job cannot report green with 0 tests.
+      - name: Require DATABASE_URL
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "DATABASE_URL is not set; test:db would skip and hide IDOR regressions."
+            exit 1
+          fi
+
+      - name: Migrate and seed
+        run: npm run db:migrate && npm run seed:neon
+
+      # --passWithNoTests=false is a second tripwire: even with DATABASE_URL set,
+      # an empty glob must not exit 0.
+      - name: Run live-DB tests
+        run: npm run test:db -- --passWithNoTests=false
 
   appcore:
     name: AppCore (Swift on Linux)
@@ -75,8 +156,8 @@ jobs:
     needs: web
     # TEMPORARY (TM1-62): this job has never actually run — it was always skipped
     # behind the failing `web` job, and it still can't pass without Clerk test users
-    # and NEXT_PUBLIC_MAPBOX_TOKEN in the job env. Left non-blocking so the pipeline
-    # reports honestly on what IS enforced (secret scan, typecheck, lint, unit tests)
+    # in the job env. Left non-blocking so the pipeline reports honestly on what
+    # IS enforced (secret scan, typecheck, lint, unit tests, test:db, test:preview)
     # instead of sitting permanently red — a red-by-default pipeline is exactly how
     # 8 consecutive failures went unnoticed for three weeks.
     # Remove this line the moment TM1-62 lands; it must go back to blocking.
@@ -85,20 +166,24 @@ jobs:
       postgres:
         image: postgres:16
         env:
+          POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: app_test
         ports: ['5432:5432']
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U postgres"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
     env:
+      # User is explicit (`postgres`), not the runner's OS user (`root`).
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/app_test
       CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
       CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
       E2E_CLERK_USER_EMAIL: ${{ secrets.E2E_CLERK_USER_EMAIL }}
       E2E_CLERK_USER_PASSWORD: ${{ secrets.E2E_CLERK_USER_PASSWORD }}
+      # Dummy token for CI — t3-env validation requires it but Mapbox isn't exercised in E2E
+      NEXT_PUBLIC_MAPBOX_TOKEN: pk.ci-dummy
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -129,55 +214,20 @@ jobs:
           retention-days: 7
 
   # ---------------------------------------------------------------
-  # Mac-only work, on the self-hosted runner.
+  # iOS build/test is deliberately NOT here.
+  #
+  # This job was removed 2026-09-18. It could never do anything:
+  #   1. There is no `ios/` directory in this repo (no .xcodeproj
+  #      anywhere), so its `ios-check` step always set exists=false
+  #      and every subsequent step was skipped.
+  #   2. It requested `[self-hosted, macOS, xcode]`, and this repo's
+  #      runner (`mintrose-ios-runner`) is OFFLINE here — it is only
+  #      online for `L0vU3000/valgate-ios`.
+  #   3. Its build step ended in `| xcpretty || true`, so even had it
+  #      run, the gate could not fail.
+  #
+  # Net effect was a no-op that sat `queued` for the full 45-minute
+  # timeout, held the whole run `in_progress`, and thereby blocked
+  # `gh run view --log-failed` on that run. The iOS project lives in
+  # its own repo with its own working CI — see valgate-ios.
   # ---------------------------------------------------------------
-  ios:
-    name: iOS (build + test)
-    runs-on: [self-hosted, macOS, xcode]
-    timeout-minutes: 45
-    steps:
-      # Explicit ref: the self-hosted runner's workspace persists between
-      # jobs, so never assume a clean or correct checkout.
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.sha }}
-          clean: true
-
-      - name: Check for iOS project
-        id: ios-check
-        run: |
-          if [[ -d "ios" ]] && find ios -name "*.xcodeproj" -o -name "*.xcworkspace" | grep -q .; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::No Xcode project found in ios/ — skipping iOS build"
-          fi
-
-      - name: Environment
-        if: steps.ios-check.outputs.exists == 'true'
-        run: |
-          export PATH=/Applications/Xcode.app/Contents/Developer/usr/bin:$PATH
-          xcodebuild -version
-          xcrun simctl list devices available | head -5
-
-      # `set -o pipefail` is load-bearing: without it the exit status
-      # comes from xcpretty, not xcodebuild, and every build "passes".
-      - name: Build and test
-        if: steps.ios-check.outputs.exists == 'true'
-        working-directory: ios
-        run: |
-          set -o pipefail
-          xcodebuild test \
-            -project ValgateiOS.xcodeproj \
-            -scheme ValgateiOS \
-            -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=latest' \
-            -resultBundlePath TestResults.xcresult \
-            | xcpretty || true
-
-      # Contains failed image-snapshot attachments alongside the logs.
-      - uses: actions/upload-artifact@v4
-        if: failure() && steps.ios-check.outputs.exists == 'true'
-        with:
-          name: xcresult
-          path: ios/TestResults.xcresult
-          retention-days: 7

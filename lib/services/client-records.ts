@@ -128,7 +128,7 @@ export async function createClientRecord(
   email: string | undefined,
   extras?: ClientRecordExtras,
 ): Promise<string> {
-  const clientId = await nextId("CLI");
+  const clientId = await nextId("CLI", clients);
   const initials = nameToInitials(name);
   const avatarBg = nameToAvatarBg(name);
 

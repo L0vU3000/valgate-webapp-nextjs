@@ -1,5 +1,7 @@
 /**
  * Section H — Directory (professional contacts)
+ *
+ * Skipped: the owner web app has no /directory route.
  */
 import { test, expect } from './fixtures'
 
@@ -10,7 +12,7 @@ const NAME = `E2E Professional Playwright ${Date.now()}`
 
 // H2 (edit) and H3 (delete) operate on the professional created by H1,
 // so the whole block must run in order.
-test.describe.serial('H — Directory', () => {
+test.describe.skip('H — Directory', () => {
   test('H1: add a professional → appears in list', async ({ page }) => {
     test.info().annotations.push({ type: 'checklist', description: 'H1 — add professional' })
 

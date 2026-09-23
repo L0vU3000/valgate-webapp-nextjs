@@ -45,6 +45,8 @@ const PROPERTY = {
   bathrooms: "2",
   yearBuilt: "2015",
   photoStorageIds: ["STORE-PHOTO-SECRET-1"],
+  buyNumeric: 5000000,
+  outstandingMortgage: 1000000,
 };
 
 function ctxParams(id: string) {
@@ -96,6 +98,8 @@ describe("GET /api/v1/properties/[id]", () => {
       city: "Manila",
       province: "Metro Manila",
       createdAt: 1700000000000,
+      priceNumeric: 5000000,
+      currency: "USD",
       addressLine: "42 Ocean Ave",
       country: "PH",
       totalArea: "120 sqm",
@@ -105,6 +109,7 @@ describe("GET /api/v1/properties/[id]", () => {
     });
     const serialized = JSON.stringify(body);
     expect(serialized).not.toContain("SECRET");
+    expect(serialized).not.toContain("1000000");
   });
 
   it("fails closed with a generic 500 when the service throws unexpectedly (no message leak)", async () => {

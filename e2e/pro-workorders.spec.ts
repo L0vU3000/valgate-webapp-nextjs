@@ -1,5 +1,7 @@
 /**
  * Section M — Pro — Work orders
+ *
+ * Skipped: the owner web app has no /pro/* manager cockpit routes.
  */
 import { test, expect } from './fixtures'
 import { createThrowawayProperty, cleanup } from './helpers/db'
@@ -14,7 +16,7 @@ const WO_CANCEL_TITLE = `E2E WO Cancel ${Date.now()}`
 // (resolve) act on that same work order in order. Under workers:1 the file
 // order is preserved anyway, but .serial makes the create→act dependency
 // explicit and skips the dependent steps if an earlier one fails.
-test.describe.serial('M — Pro Work Orders', () => {
+test.describe.skip('M — Pro Work Orders', () => {
   // The Pro work-order dialog's property picker only lists properties "under management"
   // (those with a client_id). The demo org's seed catalog lives under ORG-0009, so under
   // the ORG-0001 demo context there are none — create one managed throwaway so M1 can

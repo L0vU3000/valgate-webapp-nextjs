@@ -17,7 +17,7 @@ Remaining = the real production launch (merge to prod branch, Clerk production i
 | 3 | **Neon prod branch** | ✅ done — `production` (`ep-aged-cloud-aohhlwhs`) migrated + `db:assert` PASS, empty. **Password ROTATED** (old exposed one deleted). |
 | 4 | **Upstash Redis** | 🟡 deleted from preview env to unblock build; add valid **REST** URL/token (`https://…upstash.io`, no quotes) to Vercel **Production** for real rate limiting. Optional (in-memory fallback works). |
 | 5 | **Neon RLS** | ☐ planned (`RLS-PLAN.md`, 7 phases). Now **unblocked** (real Clerk JWTs exist). Do after production launch. |
-| 6 | **Deploy (Vercel)** | 🟡 **preview live & green**; production not deployed yet (see NEXT). |
+| 6 | **Deploy (Vercel)** | ✅ **live in production** (2026-09-13). `https://www.valgate.co/api/v1/*` answers the v1 envelope; production build of `main` deploys cleanly (Mapbox token + other prod env vars configured). |
 
 ## What this session did
 - Wired **add-property photos/docs → S3** (`AddPropertyFlow` uploads Step-4 staged files after create).

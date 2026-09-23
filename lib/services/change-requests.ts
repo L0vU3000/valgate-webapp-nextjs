@@ -74,7 +74,7 @@ export async function createChangeRequest(
   },
 ): Promise<ChangeRequest> {
   assertCanMutate();
-  const id = await nextId("CRQ");
+  const id = await nextId("CRQ", changeRequests);
   const [row] = await db
     .insert(changeRequests)
     .values({
@@ -113,7 +113,7 @@ export async function recordAndApplyManagerChange(
   assertCanMutate();
   requireAdmin(ctx); // full grant == admin/owner; viewer ctx throws "forbidden"
 
-  const id = await nextId("CRQ");
+  const id = await nextId("CRQ", changeRequests);
   const now = new Date();
 
   // Insert-approved + apply, atomically. If applyChangeRequest throws (invalid patch or a

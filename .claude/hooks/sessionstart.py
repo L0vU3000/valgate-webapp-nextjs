@@ -35,8 +35,11 @@ def recall(query: str) -> str:
 
 
 def main():
-    context = json.load(sys.stdin) if not sys.stdin.isatty() else {}
-    workspace = context.get("workspace", {})
+    try:
+        context = json.load(sys.stdin) if not sys.stdin.isatty() else {}
+    except Exception:
+        context = {}
+    workspace = context.get("workspace", {}) if isinstance(context, dict) else {}
     repo_name = Path(workspace.get("absolutePath", ".")).name
 
     sections = [

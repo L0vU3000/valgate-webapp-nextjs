@@ -55,9 +55,12 @@ export async function submitVerification(
   requireMember(ctx);
 
   // ponytail: nextId uses module-level db, not tx — gaps on rollback are fine (ids are unique+monotonic, not gapless)
-  const vrfId = await nextId("VRF");
-  const vevIds = await Promise.all(docIds.map(() => nextId("VEV")));
-  const [vheSubmit, vheApprove] = await Promise.all([nextId("VHE"), nextId("VHE")]);
+  const vrfId = await nextId("VRF", pillarVerifications);
+  const vevIds = await Promise.all(docIds.map(() => nextId("VEV", verificationEvidence)));
+  const [vheSubmit, vheApprove] = await Promise.all([
+    nextId("VHE", verificationEvents),
+    nextId("VHE", verificationEvents),
+  ]);
 
   const now = new Date();
 
@@ -132,7 +135,7 @@ export async function revokeVerification(
   requireMember(ctx);
 
   // ponytail: nextId outside tx — gap on rollback is fine
-  const vheId = await nextId("VHE");
+  const vheId = await nextId("VHE", verificationEvents);
   const now = new Date();
 
   return db.transaction(async (tx) => {

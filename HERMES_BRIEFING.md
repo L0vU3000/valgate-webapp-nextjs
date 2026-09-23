@@ -8,12 +8,21 @@
 
 ## 1. The setup
 
-- Solo developer. A **Next.js web app** and a **Swift iOS app**, one monorepo.
+- Solo developer. A **Next.js web app** (`valgate-webapp-nextjs`) and a **Swift iOS app** (`valgate-ios`) in **separate GitHub/Origin repos** — not a monorepo. Design assets live in `valgate-designs`.
 - You run on a **Linux VPS**, on a **Tailscale** tailnet.
 - A **Mac** is on the same tailnet, normally awake, reachable over SSH as user `hermes`. It is the only machine that can build iOS.
 - The developer is frequently away from their laptop and reviews on a phone.
 
 Operating assumption: you work autonomously for hours, they review in short bursts on a small screen. A correct 40-file PR that can't be reviewed on a phone is worse than three small ones.
+
+### 1.1 Remotes
+
+| Remote | Forge | Use |
+|---|---|---|
+| `origin` | GitHub | Source of truth for open PRs and CI. Push with `git push origin …`. |
+| `cursor` | Origin | Inbound mirror for Cursor-native PRs (`git push cursor …`). Do not migrate open GitHub PRs. |
+
+Stack commands, directory map, and out-of-scope paths: see **`AGENTS.md`** in this repo (one fact in one file).
 
 ---
 
@@ -136,16 +145,17 @@ Keep `DEMO_MODE` only for genuinely static marketing pages, if at all.
 
 ## 6. Repository shape
 
-```
-/web        Next.js
-/ios        Xcode project + Packages/AppCore
-/shared     OpenAPI spec → generated TS + Swift clients
-/scripts    check.sh
-```
+**Separate repos** (not a monorepo):
 
-`swift-openapi-generator` (SwiftPM plugin, generates at build time so it can't drift) on the Swift side; `@hey-api/openapi-ts` on the TS side. **Generate, don't hand-write** — drift between two codebases developed asynchronously is the bug class hardest to catch without a human watching.
+| Repo | Contents |
+|---|---|
+| `valgate-webapp-nextjs` (this clone) | Next.js app, `/api/v1`, Drizzle/Neon backend, Playwright E2E, MCP server |
+| `valgate-ios` | Xcode project, SwiftUI shell, typed `/api/v1` client |
+| `valgate-designs` | Design source only |
 
-If Tuist is adopted, `.xcodeproj` becomes generated and gitignored. `.xcodeproj` diffs are unreadable, which is fatal for phone review.
+The iOS clone has its own path layout (`ValgateiOS.xcodeproj`, `Sources/`, etc.). There is no `/web` or `/ios` split inside this repo — and no `ios/` tree here at all (CI AppCore/Xcode jobs skip).
+
+API contract lives in this repo first; iOS `docs/API-CONTRACT.md` mirrors it. **Generate, don't hand-write** client shapes — drift between repos developed asynchronously is the bug class hardest to catch without a human watching.
 
 Screenshot and snapshot baselines are committed artifacts. Keep them organised and don't let stale ones accumulate.
 

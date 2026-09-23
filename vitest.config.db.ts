@@ -10,9 +10,9 @@ import path from "node:path";
 // boundary validates them on import). Loading it here puts those vars in process.env
 // before any test module — and before lib/env.ts — evaluates.
 //
-// Run with `npm run test:db`. The suite itself is gated on DATABASE_URL (describe.skipIf),
-// so it no-ops cleanly if the var is absent (e.g. CI without secrets). The default
-// `npm test` suite excludes this glob entirely, so it never touches the database.
+// Run with `npm run test:db`. Locally, the suite no-ops if DATABASE_URL is absent so a
+// laptop without .env.local still gets a clean exit. In CI that no-op is forbidden —
+// GitHub Actions sets CI=true, and a skipped IDOR suite would look like a green gate.
 config({ path: ".env.local" });
 
 // Gate at the config level, not just via describe.skipIf: when DATABASE_URL is absent the test
@@ -20,6 +20,12 @@ config({ path: ".env.local" });
 // body runs). So we simply don't include the glob without a database, and passWithNoTests keeps
 // the run a clean exit-0 no-op. With a database present, the glob runs normally.
 const hasDb = !!process.env.DATABASE_URL;
+
+if (process.env.CI && !hasDb) {
+  throw new Error(
+    "test:db in CI requires DATABASE_URL. Refusing to no-op — a skipped IDOR suite is a false pass.",
+  );
+}
 
 export default defineConfig({
   plugins: [tsconfigPaths()],

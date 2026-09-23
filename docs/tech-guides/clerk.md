@@ -55,6 +55,8 @@ export const config = {
 };
 ```
 
+The live file also matches `/__clerk/(.*)` and then uses `isPublicRoute` / `shouldSkipAuthProtect()` so `auth.protect()` does not run on login, webhooks, MCP, or `/api/v1/*`. Matcher rationale, allowlist review, and the anonymous 401/redirect test live in [`middleware-matcher.md`](./middleware-matcher.md).
+
 The app is wrapped in `<ClerkProvider>` in `app/layout.tsx` (standard quickstart — see §7). Note: this backend repo (D13) is mostly `lib/` with no pages; the provider/middleware land when these modules merge into the frontend. The seam that matters here is the **shim**, not the UI.
 
 ## §3 — Mental model (minimal)
