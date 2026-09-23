@@ -78,7 +78,7 @@ async function insertAccessNotification(input: {
   description: string;
   linkTo: string;
 }): Promise<void> {
-  const id = await nextId("NOTIF");
+  const id = await nextId("NOTIF", notifications);
   await db.insert(notifications).values({
     id,
     orgId: input.orgId,
@@ -325,7 +325,7 @@ export async function requestAccess(
   }
 
   // Allocate the prefixed id and insert the pending request.
-  const requestId = await nextId("ARQ");
+  const requestId = await nextId("ARQ", accessRequests);
   try {
     await db.insert(accessRequests).values({
       id: requestId,

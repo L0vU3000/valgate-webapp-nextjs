@@ -135,7 +135,7 @@ export async function insertAccessNotification(input: {
   description: string;
   linkTo?: string;
 }): Promise<void> {
-  const id = await nextId("NOTIF");
+  const id = await nextId("NOTIF", notifications);
   await db.insert(notifications).values({
     id,
     orgId: input.orgId,
@@ -241,7 +241,7 @@ export async function onboardClientPortfolio(
   const managerAccessModel: "approval" | "full" | "remove" =
     input.intent === "leave" ? "remove" : "full";
 
-  const handoffId = await nextId("CHO");
+  const handoffId = await nextId("CHO", clientHandoffs);
   await db.insert(clientHandoffs).values({
     id: handoffId,
     managerUserId: ctx.userId,

@@ -44,7 +44,7 @@ export async function scopedInsert<T, R = unknown>(
 ): Promise<T> {
   assertCanMutate(); // D9 — demo mode refuses all writes
   requireMember(ctx);
-  const id = await nextId(prefix);
+  const id = await nextId(prefix, table);
   const dbValues = convertRowToDb(table, input);
   const values: Record<string, unknown> = {
     ...dbValues,
