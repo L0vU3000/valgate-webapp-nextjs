@@ -8,8 +8,8 @@ info:
     - iOS (SwiftUI) API client
 
 servers:
-  - url: https://srv1839855.tail98085b.ts.net/api/v1
-    description: Staging
+  - url: https://www.valgate.co/api/v1
+    description: Production
   - url: /api/v1
     description: Local (Next.js dev server)
 
