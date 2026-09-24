@@ -111,5 +111,6 @@ Exact "client" linkage (Clerk org vs portfolio link table) is TBD — identity t
 
 ## Related docs
 
-- [Next.js architecture reference](./nextjs-architecture.md)
+- [Architecture primer — start here](./plans/ARCHITECTURE-PRIMER.md) (Valgate-specific: exact-path map, request flow, `Ctx` seam, authz, gates)
+- [Next.js pattern reference](./nextjs-architecture.md) — **generic Next.js patterns only; its folder layout is not this repo's**
 - [Mock-to-backend pattern](./mock-to-backend-pattern.md) — how to replace Pro mock data with the real backend (Neon + Drizzle)

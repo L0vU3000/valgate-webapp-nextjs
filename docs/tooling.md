@@ -1,6 +1,6 @@
 # Agent Tooling — MCP Servers & CLIs
 
-Snapshot of what this agent can reach for Valgate work, and what's available but not wired up yet. Not app architecture — see `docs/nextjs-architecture.md` for that.
+Snapshot of what this agent can reach for Valgate work, and what's available but not wired up yet. Not app architecture — see `docs/plans/ARCHITECTURE-PRIMER.md` for that.
 
 ---
 

@@ -2,6 +2,15 @@
 
 *Last updated: May 2026 — Next.js 15 / React 19*
 
+> **⚠️ This is a GENERIC Next.js pattern reference, not Valgate's architecture.** The folder tree
+> below (`my-app/`, `posts.ts`, `createPost`) is illustrative and does **not** match this repo.
+> For the real map — exact paths, request flow, the `Ctx` seam, authz and CI gates — read
+> [`plans/ARCHITECTURE-PRIMER.md`](./plans/ARCHITECTURE-PRIMER.md), which is verified against source
+> and marks anything aspirational as `[INTENDED, not current]`.
+>
+> Use this file for Next.js 15 mechanics (App Router conventions, caching, patterns). Use the primer
+> for where things actually live.
+
 > **Two products in one app:** See [products.md](./products.md) for how Consumer (`(shell)`) and Professional (`(pro)`) are separated.
 
 ---
