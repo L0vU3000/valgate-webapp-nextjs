@@ -1,6 +1,8 @@
 # Next.js 15 — Codebase Rules
 
-> Quick reference for AI and developers. Full details in `docs/nextjs-architecture.md`.
+> Quick reference for AI and developers. Full details in `docs/plans/ARCHITECTURE-PRIMER.md`
+> (the accurate, Valgate-specific map). `docs/nextjs-architecture.md` is a **generic Next.js
+> pattern reference only** — its layout is not this repo's.
 
 ---
 
