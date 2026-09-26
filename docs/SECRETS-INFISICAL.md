@@ -178,6 +178,51 @@ dashboard. One human step, then the rest can be automated if you want it.
 `prj_nQ870fzy7rzZ4pNhh2urszWbwmGf` (team `team_nAZ8SakgJYQi3XpdsF10a73A`, from
 `.vercel/project.json`).
 
+### The connection already exists — do not recreate it
+
+Measured 2026-09-26 via `GET /api/v1/app-connections?projectId=<valgate>`:
+
+| app | name | id |
+|---|---|---|
+| github | `valgate` | `2737dece-53ea-4abd-8360-4b7026e4bd0a` |
+| **vercel** | **`vercel-valgate`** | **`dda275dd-0789-40e2-a4b0-4fa64c4fa447`** |
+
+Secret syncs in the project: **none**. So the connection is in place and only the
+syncs need creating. Recreating the connection would leave two of them and make
+the destination picker ambiguous.
+
+If the Vercel project dropdown comes up **empty**, the cause is the connection's
+API token, not Infisical: a token minted against a personal account cannot see
+team-owned projects. Both projects here are team-owned
+(`team_nAZ8SakgJYQi3XpdsF10a73A`), so the token must be scoped to that team.
+
+### Which Vercel project
+
+The team has **two**:
+
+| Project | Production URL | Last updated | Use it? |
+|---|---|---|---|
+| `valgate-webapp` | https://www.valgate.co | recent | **yes — this is production** |
+| `web` | https://web-puce-mu-97.vercel.app | ~37d ago | no — stale |
+
+`.vercel/project.json` links this repo to `valgate-webapp`
+(`prj_nQ870fzy7rzZ4pNhh2urszWbwmGf`), and every env audit above was run against
+that project. Pick `valgate-webapp` in the sync's destination.
+
+### Finding the right Infisical project
+
+The login sees **7** projects, and several are unrelated Infisical product types
+that contain no secrets:
+
+`Agent Vault` · `Certificate Manager` · `Example Project` (kms) ·
+`Example Project` (secret-manager) · `Example Project` (secret-scanning) ·
+`Privileged Access Manager` · **`Valgate`** (secret-manager)
+
+Open **Valgate** (`d84d9384-ce77-4aa5-a63b-29312617af15`, type `secret-manager`)
+**before** clicking Integrations. The Integrations view is project-scoped; opening
+it from the organisation level shows an empty project context, which reads as "no
+project selected".
+
 ### `scripts/push-web-env.sh` after arming
 
 Keep it, but demote it. Once the native sync is armed it is no longer the primary
