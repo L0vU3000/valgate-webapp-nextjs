@@ -7,10 +7,11 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // stable { error: { code, message } } shape and never leaks a caught error's message.
 // ---------------------------------------------------------------------------
 
-const { authMock, ctxFromMcpAuthMock, allowedMock, loggerMock, apiReadLimiter, apiWriteLimiter } =
+const { authMock, ctxFromMcpAuthMock, ourOrgIdMock, allowedMock, loggerMock, apiReadLimiter, apiWriteLimiter } =
   vi.hoisted(() => ({
     authMock: vi.fn(),
     ctxFromMcpAuthMock: vi.fn(),
+    ourOrgIdMock: vi.fn(),
     allowedMock: vi.fn(),
     loggerMock: {
       info: vi.fn(),
@@ -29,6 +30,12 @@ vi.mock("@clerk/nextjs/server", () => ({
 
 vi.mock("@/mcp-server/ctxFor", () => ({
   ctxFromMcpAuth: ctxFromMcpAuthMock,
+}));
+
+// Clerk org_* -> our internal ORG-* id. Mocked so the test stays DB-free; the real translation is
+// covered against live data separately.
+vi.mock("@/lib/services/identity-sync", () => ({
+  ourOrgId: ourOrgIdMock,
 }));
 
 vi.mock("@/lib/ratelimit", () => ({
@@ -129,7 +136,46 @@ describe("resolveApiV1Ctx", () => {
 
     expect(result).toEqual({ ok: true, ctx: CTX });
     // provisionIfMissing:false -> this surface must never JIT-provision a user, including writes.
-    expect(ctxFromMcpAuthMock).toHaveBeenCalledWith(CLERK_USER_ID, { provisionIfMissing: false });
+    // requestedOrgId:undefined -> no active org in the session keeps the primary-org default.
+    expect(ctxFromMcpAuthMock).toHaveBeenCalledWith(CLERK_USER_ID, {
+      requestedOrgId: undefined,
+      provisionIfMissing: false,
+    });
+  });
+
+  // The regression this guards: a multi-org caller signed into one workspace got a 200 carrying a
+  // DIFFERENT org's data, because the session's `o.id` claim was dropped and ctxFromMcpAuth fell
+  // back to its primary-org tie-break. Silently wrong data is worse than a 401.
+  it("forwards the session token's active org so a multi-org caller reads the org they picked", async () => {
+    authMock.mockResolvedValue({ userId: CLERK_USER_ID, orgId: "org_picked" });
+    ourOrgIdMock.mockResolvedValue("ORG-0011");
+    ctxFromMcpAuthMock.mockResolvedValue(CTX);
+    allowedMock.mockResolvedValue(true);
+
+    const result = await resolveApiV1Ctx();
+
+    expect(result).toEqual({ ok: true, ctx: CTX });
+    // Clerk's org_* is translated to our ORG-* id: requestedOrgId matches our membership rows.
+    expect(ourOrgIdMock).toHaveBeenCalledWith("org_picked");
+    expect(ctxFromMcpAuthMock).toHaveBeenCalledWith(CLERK_USER_ID, {
+      requestedOrgId: "ORG-0011",
+      provisionIfMissing: false,
+    });
+  });
+
+  // An org Clerk knows about but Neon has not mirrored must fail closed (generic 401), never fall
+  // back to whichever org the primary-org tie-break happens to pick.
+  it("fails closed when the active org has no mirrored Valgate row", async () => {
+    authMock.mockResolvedValue({ userId: CLERK_USER_ID, orgId: "org_unmirrored" });
+    ourOrgIdMock.mockRejectedValue(new Error("unauthenticated"));
+
+    const result = await resolveApiV1Ctx();
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected failure");
+    expect(result.response.status).toBe(401);
+    expect(ctxFromMcpAuthMock).not.toHaveBeenCalled();
+    expect(allowedMock).not.toHaveBeenCalled();
   });
 
   it("still refuses to auto-create a user when resolving a write ctx", async () => {
@@ -140,6 +186,9 @@ describe("resolveApiV1Ctx", () => {
     const result = await resolveApiV1Ctx("write");
 
     expect(result).toEqual({ ok: true, ctx: CTX });
-    expect(ctxFromMcpAuthMock).toHaveBeenCalledWith(CLERK_USER_ID, { provisionIfMissing: false });
+    expect(ctxFromMcpAuthMock).toHaveBeenCalledWith(CLERK_USER_ID, {
+      requestedOrgId: undefined,
+      provisionIfMissing: false,
+    });
   });
 });
