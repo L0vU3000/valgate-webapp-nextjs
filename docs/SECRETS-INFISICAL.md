@@ -82,45 +82,81 @@ do not run it for local work.
 `infisical export` quotes values (`KEY='value'`). `next` / `@t3-oss/env-nextjs`
 strip surrounding quotes, so this is fine as-is.
 
-## Still missing from `/web` staging
+## Still missing from `/web` (measured 2026-09-26)
 
-Required by `lib/env.ts` but absent: `CRON_SECRET`, `DATABASE_AUTHENTICATED_URL`,
-`DEMO_MODE`, `DEMO_ALLOW_WRITES`, `RESEND_API_KEY`, `RESEND_FROM_EMAIL`,
-`RESEND_WEBHOOK_SECRET`. All are `.optional()` or demo-only, so nothing breaks —
-but Resend (transactional email) is quietly off. `dev` intentionally carries the
-two `DEMO_*` keys; `staging`/`prod` should get them only if you want demo writes
-there.
+Absent in **all** envs: `DATABASE_AUTHENTICATED_URL`, `RESEND_FROM_EMAIL`.
+Absent in `staging`/`prod` only: `DEMO_MODE`, `DEMO_ALLOW_WRITES` (present in
+`dev` by design). Everything else the earlier version of this section listed —
+`CRON_SECRET`, `RESEND_API_KEY`, `RESEND_WEBHOOK_SECRET` — is now present.
 
-## Do NOT re-arm the native Vercel secret sync yet
+All are `.optional()` or demo-only, so nothing breaks — but Resend transactional
+email stays off until `RESEND_FROM_EMAIL` is set. `staging`/`prod` should get the
+two `DEMO_*` keys only if you want demo writes there (that is a footgun: one
+shared value that silently disables auth for whoever pulls it next).
 
-Use `scripts/push-web-env.sh` instead — one-way, never destructive, dry-run by
-default, and it skips blanks rather than propagating them.
+## Arming the native Vercel secret sync
 
-Status of the native sync's preconditions, measured 2026-09-26:
+**Preconditions were cleared on 2026-09-26.** All three pairs are byte-consistent
+and the failure mode that caused the 09-21 incident is gone:
 
-| Pair | Vercel-only keys (Secret Deletion risk) | Infisical blanks | Armable? |
-|---|---|---|---|
-| `prod -> production` | `VERCEL` (system) | none | **no** |
-| `staging -> preview` | `VERCEL` (system) | 5 (see above) | **no** |
-| `dev -> development` | none | none | yes |
+| Pair | Infisical keys | Vercel keys | Blanks | Vercel-only | State |
+|---|---|---|---|---|---|
+| `prod -> production` | 17 | 17 | 0 | 0 | **clean** |
+| `staging -> preview` | 17 | 17 | 0 | 0 | **clean** |
+| `dev -> development` | 16 | 16 | 0 | 0 | **clean** |
 
-The 2026-09-21 incident: a sync created with `isEnabled: false` still ran.
-`isEnabled` is not the auto-sync switch — `isAutoSyncEnabled` is, and it defaults
-on. The initial sync imported Vercel's `sensitive` values as **empty strings**
-(Vercel will not expose them to anyone, ever) and then pushed those blanks back,
-overwriting 9 production + 9 preview values. Full record in the iOS worktree's
-`docs/SECRETS-INFISICAL.md`.
+What changed:
 
-Safe order, if you revisit it:
+1. **No `sensitive` Vercel vars remain.** `vercel env ls --format json` reports
+   50 vars, `sensitive=0`, all `encrypted`. The 09-21 mechanism was: a sync
+   imported Vercel's `sensitive` values as empty strings (Vercel never exposes
+   them to anyone) and then pushed those blanks back, blanking 18 values. With
+   zero sensitive vars there is nothing for that to bite, and `vercel env pull`
+   can read every value — which is also why an Infisical↔Vercel diff is now
+   meaningful at all.
+2. **Staging's 5 blank placeholders were removed** (`ANTHROPIC_API_KEY`,
+   `MCP_ALLOWED_OAUTH_CLIENT_IDS`, `OPENAI_API_KEY`, `SITE_PASSWORD` — Vercel
+   preview never had them), and `NEXT_PUBLIC_CLERK_SIGN_IN_URL` was filled from
+   Vercel preview. A blank secret is not "unset" to a sync: it is a *value*, and
+   pushing it would CREATE an empty key on the destination. `lib/env.ts` sets
+   `emptyStringAsUndefined: true` and every one of these is `.optional()`, so
+   removing the blanks is behaviour-neutral.
+3. **The stray `HERMES_READINESS_PROBE`** in `/web prod` was deleted. `infisical
+   secrets delete` works; the earlier note that "CLI + API both fail" was wrong
+   (it was probably attempted against the personal rather than shared scope — the
+   CLI defaults to `--type personal`, and shared secrets need `--type shared`).
 
-1. **First** un-flag the sensitive vars in Vercel (or re-issue them) so real values exist.
-2. Create the sync, then immediately PATCH `isAutoSyncEnabled: false`.
-3. Disable Secret Deletion in the UI — it is not in the API schema.
-4. Inspect the diff, then enable.
+**Arming order — the order is the whole lesson.** `isEnabled` is NOT the
+auto-sync switch; `isAutoSyncEnabled` is, and it defaults on. So:
 
-Values first, sync second. Never the reverse. Note `vercel env pull` also cannot
-read sensitive values, so a sync would import blanks even after rotation unless
-the flags were cleared.
+1. Create the sync for **one** environment (`dev -> development` first, the
+   lowest-blast-radius pair).
+2. **Immediately** PATCH `isAutoSyncEnabled: false` before it does anything else.
+3. In the UI, **disable Secret Deletion** — it is not in the API schema, so it
+   cannot be turned off from the CLI. This is the setting that could delete
+   Vercel keys Infisical does not define.
+4. Choose **Import Secrets (Prioritize Vercel)** as the initial import direction,
+   so the first import cannot overwrite destination values.
+5. Inspect the resulting diff against `scripts/push-web-env.sh` (dry run) — it
+   should report no keys to change.
+6. Only then enable auto-sync, and only for the pairs you have verified.
+
+Do **not** repeat the 09-21 mistake of creating a sync and trusting
+`isEnabled: false` to keep it inert.
+
+### The CLI cannot create a sync
+
+`infisical` (v0.43.133) exposes no sync/integration command — `secrets`,
+`export`, `init`, `login` only. Sync creation is UI-only. Everything above was
+verified through the CLI; the sync itself must be created in the Infisical UI.
+
+### `scripts/push-web-env.sh` after arming
+
+Keep it, but demote it. Once the native sync is armed it is no longer the primary
+push path — it is the **dry-run/diff tool**, because the native sync gives you no
+preview of what it is about to change. Running its `--apply` while auto-sync is
+enabled gives you two writers on one surface; use it for the diff, not for the
+write, unless the sync is paused.
 
 ## Environment facts that cost time
 
