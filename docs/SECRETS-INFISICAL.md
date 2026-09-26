@@ -127,28 +127,56 @@ What changed:
    CLI defaults to `--type personal`, and shared secrets need `--type shared`).
 
 **Arming order — the order is the whole lesson.** `isEnabled` is NOT the
-auto-sync switch; `isAutoSyncEnabled` is, and it defaults on. So:
+auto-sync switch; the UI has a separate **Auto-Sync Enabled** option, and it
+defaults on. So:
 
 1. Create the sync for **one** environment (`dev -> development` first, the
    lowest-blast-radius pair).
-2. **Immediately** PATCH `isAutoSyncEnabled: false` before it does anything else.
-3. In the UI, **disable Secret Deletion** — it is not in the API schema, so it
-   cannot be turned off from the CLI. This is the setting that could delete
-   Vercel keys Infisical does not define.
-4. Choose **Import Secrets (Prioritize Vercel)** as the initial import direction,
-   so the first import cannot overwrite destination values.
-5. Inspect the resulting diff against `scripts/push-web-env.sh` (dry run) — it
+2. **Immediately** turn off **Auto-Sync Enabled** before it does anything else.
+   The UI is the only place for this; the API's create payload
+   (`POST /api/v1/secret-syncs/vercel`) carries `isEnabled` +
+   `syncOptions.initialSyncBehavior` and nothing about auto-sync.
+3. Set **Initial Sync Behavior** to **Import Secrets (Prioritize Vercel)**, so
+   the first import cannot overwrite destination values.
+4. Set a **Key Schema** (`{{secretKey}}`) so Infisical only manages the keys you
+   intend and leaves everything else alone. The docs recommend this explicitly.
+5. Turn ON **Disable Secret Deletion**. Read the label carefully: "If enabled,
+   Infisical will not remove secrets from the sync destination." ENABLED is the
+   safe state. This is the setting that could delete Vercel keys Infisical does
+   not define.
+6. Inspect the resulting diff against `scripts/push-web-env.sh` (dry run) — it
    should report no keys to change.
-6. Only then enable auto-sync, and only for the pairs you have verified.
+7. Only then enable auto-sync, and only for the pairs you have verified.
 
 Do **not** repeat the 09-21 mistake of creating a sync and trusting
 `isEnabled: false` to keep it inert.
 
-### The CLI cannot create a sync
+### Why `Import Secrets (Prioritize Vercel)` matters here
+
+The vendor note says Vercel does not expose `sensitive` environment variable
+values, so the initial import creates them in Infisical **empty** and they must
+be re-entered by hand. That is precisely the 09-21 mechanism. We measured **0
+sensitive vars** in the project, so this no longer applies — but it is the reason
+the direction and the deletion toggle are not cosmetic choices.
+
+### The CLI cannot create a sync — but the API can
 
 `infisical` (v0.43.133) exposes no sync/integration command — `secrets`,
-`export`, `init`, `login` only. Sync creation is UI-only. Everything above was
-verified through the CLI; the sync itself must be created in the Infisical UI.
+`export`, `init`, `login` only.
+
+The **HTTP API** can: `POST /api/v1/secret-syncs/vercel` takes `name`,
+`projectId`, `connectionId`, `environment`, `secretPath`, `isEnabled`,
+`syncOptions.initialSyncBehavior` and `destinationConfig` (`app`, `env`,
+`branch`, `appName`, `teamId`). It needs an auth token and a `connectionId`,
+which is why the App Connection must exist first.
+
+That means the whole thing is scriptable **except** creating the App Connection,
+whose credential is a Vercel API token that can only be minted in the Vercel
+dashboard. One human step, then the rest can be automated if you want it.
+
+`destinationConfig.app` is the Vercel **project id** — for this project that is
+`prj_nQ870fzy7rzZ4pNhh2urszWbwmGf` (team `team_nAZ8SakgJYQi3XpdsF10a73A`, from
+`.vercel/project.json`).
 
 ### `scripts/push-web-env.sh` after arming
 
