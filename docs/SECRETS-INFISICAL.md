@@ -136,8 +136,10 @@ defaults on. So:
    The UI is the only place for this; the API's create payload
    (`POST /api/v1/secret-syncs/vercel`) carries `isEnabled` +
    `syncOptions.initialSyncBehavior` and nothing about auto-sync.
-3. Set **Initial Sync Behavior** to **Import Secrets (Prioritize Vercel)**, so
-   the first import cannot overwrite destination values.
+3. Set **Initial Sync Behavior** to **Import Secrets (Prioritize Infisical)** if
+   Infisical is meant to be the master (see the table below). It imports the
+   destination's existing secrets first — nothing is lost — and resolves conflicts
+   in Infisical's favour.
 4. Set a **Key Schema** (`{{secretKey}}`) so Infisical only manages the keys you
    intend and leaves everything else alone. The docs recommend this explicitly.
 5. Turn ON **Disable Secret Deletion**. Read the label carefully: "If enabled,
@@ -151,13 +153,38 @@ defaults on. So:
 Do **not** repeat the 09-21 mistake of creating a sync and trusting
 `isEnabled: false` to keep it inert.
 
-### Why `Import Secrets (Prioritize Vercel)` matters here
+### Why the sync direction matters
 
-The vendor note says Vercel does not expose `sensitive` environment variable
-values, so the initial import creates them in Infisical **empty** and they must
-be re-entered by hand. That is precisely the 09-21 mechanism. We measured **0
-sensitive vars** in the project, so this no longer applies — but it is the reason
-the direction and the deletion toggle are not cosmetic choices.
+From Infisical's own docs, the three options are:
+
+| Option | What it does | Master |
+|---|---|---|
+| **Overwrite Destination Secrets** | **Removes** any destination secrets not present in Infisical | Infisical, destructively |
+| **Import Secrets (Prioritize Infisical)** | Imports destination secrets first; conflicts resolve to **Infisical** | **Infisical** |
+| **Import Secrets (Prioritize Vercel)** | Imports destination secrets first; conflicts resolve to **Vercel** | Vercel |
+
+**To make Infisical the master, choose "Import Secrets (Prioritize Infisical)".**
+
+It sounds backwards — "import from Vercel" reads like Vercel wins — but the note
+is about *conflicts during the initial import only*, not about later syncs.
+"Import first" means nothing on the destination is lost; "(Prioritize Infisical)"
+means the conflict tiebreak goes Infisical's way. Steady-state, the sync always
+writes Infisical → Vercel. There is no "Vercel wins forever" mode.
+
+`Overwrite Destination Secrets` is also Infisical-as-master, and is how you'd
+eventually delete keys you removed from Infisical — but it deletes on the
+destination, so it is the wrong first move.
+
+For **this project** the choice is nearly academic: all three pairs are already
+byte-identical, so there are no conflicts to break. Pick
+**Import Secrets (Prioritize Infisical)** because it matches the intent and is
+safe in both directions.
+
+The vendor note about `sensitive` vars is the 09-21 mechanism: Vercel does not
+expose those values, so the initial import would create them in Infisical
+**empty** and they would need re-entering by hand. We measured **0 sensitive
+vars**, so it does not apply here — but do not re-introduce `--sensitive` flags
+before arming a sync.
 
 ### The CLI cannot create a sync — but the API can
 
