@@ -22,7 +22,37 @@ delete (TM1-62 adjacent).
 scripts/sync-web-env.sh                 # Infisical env "staging" -> .env.local
 scripts/sync-web-env.sh prod            # or "dev" / "prod"
 scripts/sync-web-env.sh --selftest      # fixture check, no network or auth
+
+# Infisical -> Vercel (the deployment side; .env.local does not reach Vercel)
+scripts/push-web-env.sh                 # dry run: shows the plan, writes nothing
+scripts/push-web-env.sh --apply         # apply it
+scripts/push-web-env.sh prod production --apply
+scripts/push-web-env.sh --selftest      # invariant checks, no network or auth
 ```
+
+`push-web-env.sh` is the supported way to get Infisical values into Vercel. It is
+one-way and non-destructive by three invariants, each with a selftest case:
+
+1. **Never pushes an empty value.** An empty Infisical secret means "not
+   configured", not "set this to nothing". On `staging -> preview` this
+   currently skips 5 blanks (`ANTHROPIC_API_KEY`, `MCP_ALLOWED_OAUTH_CLIENT_IDS`,
+   `NEXT_PUBLIC_CLERK_SIGN_IN_URL`, `OPENAI_API_KEY`, `SITE_PASSWORD`) and
+   leaves Vercel's values alone.
+2. **Never deletes a Vercel key.** Vercel's own injected keys (`VERCEL_*`,
+   `NX_*`, `TURBO_*`) and any key Infisical does not define are KEPT and
+   reported. Nothing in the script can remove a value.
+3. **Always compares normalized values.** `infisical export` quotes values, and
+   can *double*-quote them. Comparing raw text makes byte-identical secrets look
+   different and pushes a literal-quoted value over a good one. This was a real
+   near-miss: the first draft planned to overwrite production `UPSTASH_*` with a
+   quote-wrapped copy of the same string.
+
+Dry run is the default; `--apply` is required to write. It never prints a secret
+value — names and fingerprints only. All three environments currently plan as
+no-ops, which is the healthy state.
+
+Vercel only applies environment changes to **new** deployments — redeploy after
+applying.
 
 The script **merges**, it does not overwrite. `.env.local` holds operator switches
 that must not live in a shared secret store:
@@ -61,7 +91,18 @@ but Resend (transactional email) is quietly off. `dev` intentionally carries the
 two `DEMO_*` keys; `staging`/`prod` should get them only if you want demo writes
 there.
 
-## Do NOT re-arm the Vercel secret sync yet
+## Do NOT re-arm the native Vercel secret sync yet
+
+Use `scripts/push-web-env.sh` instead — one-way, never destructive, dry-run by
+default, and it skips blanks rather than propagating them.
+
+Status of the native sync's preconditions, measured 2026-09-26:
+
+| Pair | Vercel-only keys (Secret Deletion risk) | Infisical blanks | Armable? |
+|---|---|---|---|
+| `prod -> production` | `VERCEL` (system) | none | **no** |
+| `staging -> preview` | `VERCEL` (system) | 5 (see above) | **no** |
+| `dev -> development` | none | none | yes |
 
 The 2026-09-21 incident: a sync created with `isEnabled: false` still ran.
 `isEnabled` is not the auto-sync switch — `isAutoSyncEnabled` is, and it defaults
