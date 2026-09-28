@@ -115,12 +115,36 @@ Raw data: `conductor-logs/bakeoff-grabmaps.json`
 - PROP-0021 is actually a HIT: `ផ្លូវ6អេ` is Khmer for "Street 6A" (naive ASCII matching scored it
   wrong).
 
-**Implication:** GrabMaps belongs behind a *suggestion list the user picks from* (the Suggest →
-GetPlace two-step already chosen), never as a silent auto-resolve — which would have written a
-wrong street for ~4/23 addresses.
+**Implication:** GrabMaps belongs behind a *suggestion list the user picks from*, never as a silent
+auto-resolve — which would have written a wrong street for ~4/23 addresses.
 
 **Cost/ops:** free tier 10k Suggest Label + 20k Core/month for 3 months. Region ap-southeast-1.
 Server-side SigV4 only; the key is not public and must never reach the browser bundle.
+
+## Build: GET /api/v1/address/suggest (shipped 2026-09-28, commit ec7f88f)
+
+**One hop** — `SearchText` returns `Position` AND `Address` together, so the planned
+Suggest -> GetPlace two-step was dropped: it would have been a second billable call and a
+place-id round trip for data already in hand.
+
+| File | Role |
+|---|---|
+| `lib/services/address.ts` | SearchText wrapper. Reuses the S3 `valgate-storage` principal; region pinned to `ap-southeast-1` (a policy in another region cannot see the provider ARN). |
+| `app/api/v1/address/suggest/route.ts` | `GET ?q=` -> `{ items: AddressSuggestionDto[] }`. 400 outside 3-200 chars. Generic 500, never the provider message. |
+| `docs/api-spec/valgate-api-v1.yaml` | path + `AddressQuery` + `AddressSuggestionDto`. CI lints with redocly. |
+| `tests/address-suggest.test.ts` | 6 tests, incl. "never a single resolved address" and "no message leak". |
+
+Verified: typecheck clean; redocly valid (1 pre-existing license warning); **554/554** unit tests;
+6/6 new route tests; and a **real** SearchText call through the service layer returned
+`#146, St.215, Sangkat Vealvong, Khan 7Makara` with `position [104.9120247, 11.5545411]`.
+
+### Not done, deliberately
+- **The web wizard still uses Mapbox** (`_lib/use-geocode.ts`). Swapping it is a user-facing
+  behaviour change, and `.env.local` has **no** `STORAGE_ACCESS_KEY_ID`/`STORAGE_SECRET_ACCESS_KEY`
+  — a naive swap would 500 locally where Mapbox currently works. Confirm AWS creds exist per
+  environment first.
+- **Policy is `SearchText` only** — sufficient. Earlier claims that `Autocomplete`/`GetPlace` were
+  needed were wrong.
 
 ## Three bugs found and fixed in my own harness (mine, not the API's)
 1. `--additional-features Address` → `ValidationException`. The enum name is not exposed in the
