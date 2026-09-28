@@ -176,3 +176,31 @@ Verified: typecheck clean; redocly valid (1 pre-existing license warning); **554
   login**. One server cannot serve both modes.
 - Dev server left running on **port 3001 only** (user request: one port to avoid confusion),
   on real Clerk keys.
+
+## IAM: the repo file is aspirational, not a record (2026-09-28, later)
+
+Two traps found while adding `ReverseGeocode`:
+
+1. **The policy file here never matched what was deployed.** This file held four actions
+   (SearchText/Autocomplete/GetPlace/ReverseGeocode) at `f048f1d`, but live probes show
+   **only `SearchText`** is granted — `Autocomplete`, `GetPlace` and `ReverseGeocode` all return
+   `AccessDeniedException`. Do not treat this file as the current state; it is a draft.
+
+2. **`put-user-policy` replaces by policy NAME, not by Sid.** The deployed name recorded below is
+   `ValgateGeoPlacesBakeoff`. A first draft of the grant script invented
+   `ValgateGeoPlacesAddressLookup`, which would have created a *second* overlapping policy and left
+   the original untouched. The script now reuses the deployed name and has `--list`.
+
+**Probed live grant surface** (valgate-storage, 2026-09-28):
+
+| Action | State |
+|---|---|
+| `s3:PutObject` / `s3:GetObject` / `s3:DeleteObject` | ALLOW |
+| `s3:ListBucket` | DENY |
+| `geo-places:SearchText` | ALLOW |
+| `geo-places:ReverseGeocode` | DENY ← blocks the pin-follows-address feature |
+| `iam:GetUserPolicy` / `iam:ListUserPolicies` | DENY (cannot self-audit) |
+
+GetObject/HeadObject must be probed against an **existing** key: without `s3:ListBucket`, S3 answers
+`403` for a missing key even when `s3:GetObject` is allowed, so a nonexistent-key probe reports a
+false DENY.
