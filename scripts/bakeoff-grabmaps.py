@@ -20,43 +20,66 @@ CORPUS = Path("conductor-logs/bakeoff-mapbox.json")
 
 
 def search_text(query: str, bias_lng: float, bias_lat: float) -> dict:
-    """One-hop SearchText. Returns Position + Address, which is what we can legally store."""
+    """One-hop SearchText. Returns Position + Address, which is what we can legally store.
+
+    NOTE: do NOT pass --additional-features. The only value it accepts is from
+    SearchTextAdditionalFeature and the enum name is not exposed in the CLI help; passing
+    "Address" fails with ValidationException. The default response already carries a full
+    Address (Label/Street/District/SubDistrict/PostalCode), which is all we need.
+    """
     cmd = [
         "aws", "geo-places", "search-text",
         "--region", REGION,
         "--query-text", query,
         "--max-results", "5",
         "--bias-position", str(bias_lng), str(bias_lat),
-        "--additional-features", "Address",
+        "--cli-error-format", "json",
         "--output", "json",
     ]
     r = subprocess.run(cmd, capture_output=True, text=True)
     if r.returncode != 0:
-        return {"error": r.stderr.strip().splitlines()[-1][:300] if r.stderr else "unknown"}
+        return {"error": _err(r.stderr)}
     try:
         return json.loads(r.stdout or "{}")
     except json.JSONDecodeError as e:
         return {"error": f"bad json: {e}"}
 
 
+def _err(stderr: str) -> str:
+    """Surface the real AWS message, not the boilerplate 'use --cli-error-format' tail."""
+    try:
+        d = json.loads(stderr)
+        return f"{d.get('Code','')}: {d.get('Message','')}".strip()[:300]
+    except Exception:
+        return (stderr or "unknown").strip().splitlines()[-1][:300]
+
+
 def classify(result: dict) -> dict:
-    """Street-level or not? GrabMaps Address has Label + AddressComponents; the presence of a
-    street component (Street / AddressNumber) is what distinguishes street from locality."""
+    """Street-level or not?
+
+    The response Address is FLAT (Label/Street/District/SubDistrict/Locality/PostalCode) — it is
+    NOT an AddressComponents array, which is what an earlier version of this script wrongly
+    looked for (that bug made every row report locality-level).
+    """
     items = (result.get("ResultItems") or [])
     if not items:
         return {"hits": 0, "hit": False}
     top = items[0]
-    comps = {c.get("ComponentType"): c for c in ((top.get("Address") or {}).get("AddressComponents") or [])}
-    label = (top.get("Address") or {}).get("Label") or top.get("Title") or ""
-    pos = top.get("Position") or []
+    addr = top.get("Address") or {}
+    label = addr.get("Label") or top.get("Title") or ""
     return {
         "hits": len(items),
         "hit": True,
         "top_label": label,
-        "position": pos,
-        "types": top.get("PlaceType", ""),
-        "street_level": bool(comps.get("Street") or comps.get("AddressNumber")),
-        "components": sorted(comps.keys()),
+        "position": top.get("Position") or [],
+        "place_type": top.get("PlaceType", ""),
+        # The presence of a Street component is exactly what separates a street address from a
+        # district/locality centroid.
+        "street_level": bool(addr.get("Street")),
+        "street": addr.get("Street", ""),
+        "district": addr.get("District", ""),
+        "sub_district": addr.get("SubDistrict", ""),
+        "postal_code": addr.get("PostalCode", ""),
         "distance_m": top.get("Distance"),
     }
 

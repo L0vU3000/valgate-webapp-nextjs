@@ -90,14 +90,54 @@ Cambodian addresses.
 - Note: granting this widens `valgate-storage` past object storage. A dedicated user for
   address lookups would be cleaner.
 
+## Q15 RESULT — GrabMaps vs Mapbox (measured 2026-09-28, all 23 addresses)
+
+| Provider | Hits | Street-level | Street number agrees with query |
+|---|---|---|---|
+| Mapbox v5 (shipped) | 23/23 | **0/23** | 0 — khan centroid only |
+| Mapbox v6 (newer) | 22/23 | **0/23** | 0 — khan centroid only |
+| **GrabMaps SearchText** | **22/23** | **22/23** | **13/23 exact, 4 wrong street, 6 unparseable** |
+
+Raw data: `conductor-logs/bakeoff-grabmaps.json`
+
+**Verdict: a decisive class improvement, NOT a solved problem.**
+
+- GrabMaps returns a real street address where Mapbox returns a district centroid. Q15's question
+  is answered: **yes, GrabMaps is materially better for Cambodia.**
+- But it is street/compound-level, not unit-level. The 8 unit-number variants of
+  "No. 172xx, Street 215, Veal Vong" all collapse to ONE result (`#146, St.215`). GrabMaps cannot
+  distinguish units within a building — the seed's "No. 172AE1" style codes are not resolvable by
+  any provider.
+- 4/23 returned a DIFFERENT street than asked: PROP-0017 (asked Street 71 → St 63),
+  PROP-0019 (Samdech Pan St 2 → St 228), PROP-0023 (Street 106 → Street 172),
+  PROP-0002 (no result at all).
+- Distances 443 m – 4849 m from bias point; results are not tight.
+- PROP-0021 is actually a HIT: `ផ្លូវ6អេ` is Khmer for "Street 6A" (naive ASCII matching scored it
+  wrong).
+
+**Implication:** GrabMaps belongs behind a *suggestion list the user picks from* (the Suggest →
+GetPlace two-step already chosen), never as a silent auto-resolve — which would have written a
+wrong street for ~4/23 addresses.
+
+**Cost/ops:** free tier 10k Suggest Label + 20k Core/month for 3 months. Region ap-southeast-1.
+Server-side SigV4 only; the key is not public and must never reach the browser bundle.
+
+## Three bugs found and fixed in my own harness (mine, not the API's)
+1. `--additional-features Address` → `ValidationException`. The enum name is not exposed in the
+   CLI help; the default response already carries the full flat Address. Flag removed.
+2. `_err()` reported the `--cli-error-format` boilerplate tail instead of the real AWS message,
+   which disguised bug 1 as an access denial and nearly made me re-report Q15 as blocked.
+3. `classify()` looked for an `AddressComponents[]` array; the real `Address` is FLAT
+   (`Label`/`Street`/`District`/`SubDistrict`/`Locality`/`PostalCode`). This bug made every row
+   report locality-level — it would have produced a false "GrabMaps is no better" verdict.
+
 ## Next actions
-1. Admin runs the `put-user-policy` command above. **Only this unblocks Q15** — no local
-   workaround exists (verified with Claude Code and a credential audit).
-2. `python3 scripts/bakeoff-grabmaps.py` — one command; the 23-address corpus is staged
-   and the script fails cleanly when blocked (verified).
+1. ~~Admin runs the `put-user-policy` command~~ — **DONE**, grant verified live.
+   `geo-places:SearchText` is now callable by `valgate-storage`.
+2. Decide whether to build the Suggest → GetPlace endpoint, given the unit-level ceiling above.
 3. Decide fate of the **9 properties on the centroid** (all `ORG-0018`). Re-measured this
    session: 9 of 141 rows exact-match the centroid.
-4. Commit or drop the diagnostic/harness scripts; they are untracked.
+4. Commit the harness + result.
 
 ## Notes
 - **Verification evidence:** typecheck pass, eslint pass, 450 unit tests pass
