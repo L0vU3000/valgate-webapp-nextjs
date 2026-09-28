@@ -24,6 +24,18 @@ export async function submitPropertyAction(
       };
     }
 
+    // Refuse a property with no resolved coordinates. lib/services requires lat/lng, but
+    // mapWizardToProperty silently falls back to the Cambodia centroid when form.mapCenter is
+    // unset — so a property could be created at a country-centre guess, in the wrong province,
+    // with no warning to the user. Guarding here (the server trust boundary) covers every wizard
+    // entry path, including a resumed draft that never passed the step-2 gate.
+    if (!form.mapCenter) {
+      return {
+        ok: false,
+        error: "Please pick your address from the search suggestions so we can pin it on the map.",
+      };
+    }
+
     // 1. Create the property first (so a later file step failing can't lose the property).
     const propertyInput = mapWizardToProperty(form);
     const result = await createProperty(propertyInput);
