@@ -4,6 +4,9 @@ Status: **local `.env.local` is Infisical-sourced, and the native
 Infisical → Vercel secret syncs are armed for all three environments.** Auto-sync
 remains **off** on all three. Vercel remains the runtime source of truth.
 
+Not verified: real Clerk webhook **delivery** in dev. See the last section —
+configured, but no delivery has ever arrived. Do not read that section as "done".
+
 ## The split, and why
 
 | Consumer | Source | Why |
@@ -13,9 +16,14 @@ remains **off** on all three. Vercel remains the runtime source of truth.
 | CI (`ci.yml`) | GitHub Actions secrets + a throwaway local Postgres | Never touch Infisical — a secret-store outage must not fail CI |
 | iOS build config | **Infisical `/ios`** via `scripts/sync-secrets.sh` | Already shipped (xcconfig has no runtime store) |
 
-`ci.yml:181-184` references four secrets that **do not exist** on the repo, so the
-E2E job has never run. Decide: set them, or delete the refs. Recommendation was to
-delete (TM1-62 adjacent).
+`ci.yml` E2E job references secrets that **do not exist** on the repo, so the job
+has never run. It needs `CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` (GitHub
+holds only `DATABASE_URL`). The two `E2E_CLERK_USER_EMAIL` / `_PASSWORD` refs at
+`ci.yml:183-184` are **dead** — nothing in the repo reads them; `e2e/auth/auth.setup.ts`
+signs in with hardcoded `+clerk_test` emails via Clerk's fixed dev OTP `424242`.
+The job is `continue-on-error: true` on purpose and must stay that way until it
+actually passes (TM1-62). Order: add the Clerk secrets → verify green → then drop
+`continue-on-error`. Do not drop it first, or CI just goes red again.
 
 ## Daily use
 
@@ -357,3 +365,54 @@ give you two writers on one surface. Use it for the diff.
 - A preflight gate that cannot read its inputs must **fail**, not pass. An early
   version of the emptiness check printed a confident "GATE: clear" while every
   environment had failed to parse — it had zero data and still returned green.
+
+## Dev Clerk webhook — configured, delivery UNVERIFIED (2026-09-28)
+
+`CLERK_WEBHOOK_SIGNING_SECRET` now exists in Infisical `/web` **dev** and is synced
+to Vercel `development`. It is a **distinct value per environment** (dev, staging,
+prod each hold their own) because each points at a different Clerk instance —
+do not copy one across.
+
+**What is proven:** a correctly-signed payload reaches the handler and is accepted
+— `200 ok` on `POST /api/webhooks/clerk` both on `127.0.0.1:3001` and through the
+public cloudflared tunnel. The handler and the secret match.
+
+**What is NOT proven:** a real Clerk delivery has **never arrived**. After a real
+sign-in the dev log showed `0` Clerk-originated webhook POSTs and the tunnel
+logged `0` inbound requests. The rows that appeared were written by the web-UI
+JIT path, identifiable because the org row is a placeholder
+(`name == clerk_org_id`, `slug = null`; `lib/auth/ctx.ts:53`). The webhook path
+would have written a **real** org name via
+`organizations.createOrganization()` (`lib/services/owner-home-org.ts:175`).
+
+So: **configured ≠ delivered.** Next step is the Clerk dashboard delivery log.
+Empty log = endpoint URL or instance wrong. Failed rows = secret mismatch.
+
+### Why the webhook matters even though the web app works
+
+For a web user it is nearly redundant — `requireCtx()` (`lib/auth/ctx.ts:35-55`)
+JIT-upserts the mirror rows from the session's existing active org, so the web UI
+is fully functional without it.
+
+**iOS is the opposite.** `resolveApiV1Ctx` runs
+`ctxFromMcpAuth(..., { provisionIfMissing: false })` (`lib/api/v1/auth.ts:68`) —
+it refuses to auto-provision, and ClerkKit sign-in does not run the web JIT path.
+The webhook is the **only** thing that creates a consumer's first Clerk org
+(`ensureOwnerHomeOrganizationForClerkUser` step 5). No webhook ⇒ no org ⇒
+`/api/v1` 401 for iOS, no matter how many Neon rows exist.
+
+### Local dev checklist
+
+- `DEMO_MODE` **must be `false`** or `resolveApiV1Ctx` short-circuits and returns
+  `USR-0001` **before Clerk runs** (`lib/api/v1/auth.ts:32`) — the webhook fires,
+  writes rows, and every request ignores them. A working webhook then looks broken.
+- The signing secret must be in **`.env.local`**, not only in Infisical.
+  `npm run env:sync dev` is the supported path; `LOCAL_ONLY_RE` preserves
+  `DEMO_MODE`, `DEMO_ALLOW_WRITES`, `VERCEL_OIDC_TOKEN` (`scripts/sync-web-env.sh:29`).
+  Symptom of missing it: correct signatures rejected with `400 bad signature`.
+- Clerk cannot reach `localhost`. Needs a public URL —
+  `npm run dev:tunnel` (cloudflared quick tunnel). The hostname changes on every
+  restart, so re-paste it into the Clerk endpoint each time.
+- **Dev shares a Neon branch with staging** (`ep-tiny-rice-…`). Rows written by a
+  dev-Clerk webhook land in the staging dataset. Expected — don't treat them as
+  disposable.
