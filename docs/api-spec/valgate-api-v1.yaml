@@ -40,6 +40,44 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
+  /address/suggest:
+    get:
+      operationId: suggestAddress
+      summary: Suggest addresses for the add-property wizard
+      description: |
+        Returns address candidates for a free-text query. **Always a pick list, never a single
+        resolved answer**: street/compound precision only (unit numbers are not resolvable by any
+        provider), and on a 23-address Cambodian corpus ~4 returned a neighbouring street. Callers
+        MUST let the user choose a suggestion; do not auto-resolve.
+
+        Each item carries `position`, so no second lookup is needed to obtain coordinates.
+
+        Backed by AWS Geo Places `SearchText` (GrabMaps). Measured 22/23 street-level on the
+        Cambodian demo corpus vs 0/23 (district centroid) for the previous Mapbox geocoder.
+      parameters:
+        - $ref: "#/components/parameters/AddressQuery"
+      responses:
+        "200":
+          description: Address candidates, best-first. Empty array is a valid "nothing matched".
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AddressSuggestionDto"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
   /properties:
     get:
       operationId: listProperties
@@ -640,6 +678,15 @@ components:
       description: Ownership record ID
       schema:
         type: string
+    AddressQuery:
+      name: q
+      in: query
+      required: true
+      description: Free-text address query (3-200 characters). Anything else is a 400.
+      schema:
+        type: string
+        minLength: 3
+        maxLength: 200
     LimitQuery:
       name: limit
       in: query
@@ -657,6 +704,43 @@ components:
         type: string
 
   schemas:
+    AddressSuggestionDto:
+      type: object
+      required: [placeId, label, street, subDistrict, district, locality, postalCode, country, position]
+      description: |
+        One address candidate. Present as a pick list — never auto-resolve to a single item
+        (street/compound precision only; unit numbers are not resolvable).
+      properties:
+        placeId:
+          type: string
+          description: Provider place identifier.
+        label:
+          type: string
+          description: Full formatted address, for display.
+        street:
+          type: [string, "null"]
+          description: Street line. Null when the provider only resolved to a district level.
+        subDistrict:
+          type: [string, "null"]
+          description: Sangkat / sub-district.
+        district:
+          type: [string, "null"]
+          description: Khan / district.
+        locality:
+          type: [string, "null"]
+          description: City / province.
+        postalCode:
+          type: [string, "null"]
+        country:
+          type: [string, "null"]
+        position:
+          type: array
+          description: "[lng, lat] — GeoJSON order, matching the rest of this API."
+          items:
+            type: number
+          minItems: 2
+          maxItems: 2
+
     MeDto:
       type: object
       required: [email, displayName, role, orgName]
