@@ -1,7 +1,8 @@
 # Secrets in the web repo — Infisical for local, Vercel for runtime
 
-Status: **local `.env.local` is now Infisical-sourced.** Vercel remains the
-runtime source of truth. No secret sync is armed.
+Status: **local `.env.local` is Infisical-sourced, and the native
+Infisical → Vercel secret syncs are armed for all three environments.** Auto-sync
+remains **off** on all three. Vercel remains the runtime source of truth.
 
 ## The split, and why
 
@@ -34,13 +35,16 @@ scripts/push-web-env.sh --selftest      # invariant checks, no network or auth
 one-way and non-destructive by three invariants, each with a selftest case:
 
 1. **Never pushes an empty value.** An empty Infisical secret means "not
-   configured", not "set this to nothing". On `staging -> preview` this
-   currently skips 5 blanks (`ANTHROPIC_API_KEY`, `MCP_ALLOWED_OAUTH_CLIENT_IDS`,
-   `NEXT_PUBLIC_CLERK_SIGN_IN_URL`, `OPENAI_API_KEY`, `SITE_PASSWORD`) and
-   leaves Vercel's values alone.
-2. **Never deletes a Vercel key.** Vercel's own injected keys (`VERCEL_*`,
-   `NX_*`, `TURBO_*`) and any key Infisical does not define are KEPT and
-   reported. Nothing in the script can remove a value.
+   configured", not "set this to nothing". As of 2026-09-28 no env has blanks
+   left, so this skips nothing — it reported 5 blanks in `staging` before they
+   were cleaned up.
+2. **Never deletes a Vercel key.** Any key Infisical does not define is KEPT and
+   reported. Nothing in the script can remove a value. Vercel's own
+   platform-injected names (`VERCEL`, `VERCEL_*`, `TURBO_*`, `NX_*`) are excluded
+   from the report entirely: `vercel env pull` writes them into the pulled file
+   while `vercel env ls` never lists them, so counting them made the tool claim
+   ~21 phantom "destination-only secrets" that Infisical was supposedly silent
+   about. They are not secrets and nobody manages them.
 3. **Always compares normalized values.** `infisical export` quotes values, and
    can *double*-quote them. Comparing raw text makes byte-identical secrets look
    different and pushes a literal-quoted value over a good one. This was a real
@@ -126,32 +130,98 @@ What changed:
    (it was probably attempted against the personal rather than shared scope — the
    CLI defaults to `--type personal`, and shared secrets need `--type shared`).
 
-**Arming order — the order is the whole lesson.** `isEnabled` is NOT the
-auto-sync switch; the UI has a separate **Auto-Sync Enabled** option, and it
-defaults on. So:
+## Armed: three syncs, verified 2026-09-28
+
+All three syncs exist and have completed a **successful** first run. Verified by
+reading the sync records back from the API, not from the UI:
+
+| Sync | id | source | destination | first run | auto-sync |
+|---|---|---|---|---|---|
+| `vercel-development-web` | `a61d5b82-8d21-40f0-b726-8adb4e0ed545` | `dev /web` | `valgate-webapp` development | ✅ succeeded | off |
+| `vercel-preview-web` | `4773acd8-339a-4aba-aac1-7fd0880a996b` | `staging /web` | `valgate-webapp` preview | ✅ succeeded | off |
+| `vercel-production-web` | `34300d32-1e6b-4992-a39c-511f606fb15a` | `prod /web` | `valgate-webapp` production | ✅ succeeded | off |
+
+Every one carries the same options, copied from the dev sync that had already run
+green rather than re-derived:
+
+```
+initialSyncBehavior   overwrite-destination
+keySchema             {{secretKey}}
+disableSecretDeletion true
+isAutoSyncEnabled     false
+```
+
+Post-run independent check (`scripts/push-web-env.sh`, dry run) reports
+`ADD 0 / UPDATE 0` and full agreement in all three pairs — 16 keys in
+development, 17 in preview and production, zero blanks on either side. So the
+first run overwrote nothing that differed and removed nothing.
+
+### What `overwrite-destination` does when deletion is disabled
+
+The two settings govern **different authorities** and compose cleanly:
+
+| Setting | Governs | This project |
+|---|---|---|
+| `initialSyncBehavior` | which **value** wins a conflict | Infisical wins |
+| `disableSecretDeletion` | whether Infisical may **delete** | no, never |
+
+The first run is the evidence: 16–17 values agreed, nothing was blanked, and no
+destination-only key disappeared. `overwrite-destination` did not remove anything,
+because removal is `disableSecretDeletion`'s job and it is `true`.
+
+So "Infisical is the master" is now **true for values** and **false for
+deletions** — which is exactly the intended, non-destructive arrangement. If you
+ever want Infisical deletions to propagate, that is a separate, deliberate change
+to `disableSecretDeletion`, and it is the one that can blank a runtime.
+
+### Arming order — the order is the whole lesson
+
+`isEnabled` is NOT the auto-sync switch; the API's `isAutoSyncEnabled` is, and
+**the create endpoint defaults it to `true`**. So:
 
 1. Create the sync for **one** environment (`dev -> development` first, the
    lowest-blast-radius pair).
-2. **Immediately** turn off **Auto-Sync Enabled** before it does anything else.
-   The UI is the only place for this; the API's create payload
-   (`POST /api/v1/secret-syncs/vercel`) carries `isEnabled` +
-   `syncOptions.initialSyncBehavior` and nothing about auto-sync.
-3. Set **Initial Sync Behavior** to **Import Secrets (Prioritize Infisical)** if
-   Infisical is meant to be the master (see the table below). It imports the
-   destination's existing secrets first — nothing is lost — and resolves conflicts
-   in Infisical's favour.
-4. Set a **Key Schema** (`{{secretKey}}`) so Infisical only manages the keys you
-   intend and leaves everything else alone. The docs recommend this explicitly.
+2. In the payload, set `isAutoSyncEnabled: false` **explicitly** — the API
+   default is `true`, and a sync that silently arms itself is the 09-21 shape.
+3. Set **Initial Sync Behavior**. `overwrite-destination` is fine (see above);
+   it is what this project runs.
+4. Set a **Key Schema** (`{{secretKey}}`). Without it `syncOptions` carries no
+   key restriction. Vendor docs recommend it.
 5. Turn ON **Disable Secret Deletion**. Read the label carefully: "If enabled,
    Infisical will not remove secrets from the sync destination." ENABLED is the
-   safe state. This is the setting that could delete Vercel keys Infisical does
-   not define.
-6. Inspect the resulting diff against `scripts/push-web-env.sh` (dry run) — it
-   should report no keys to change.
-7. Only then enable auto-sync, and only for the pairs you have verified.
+   safe state.
+6. **Trigger one run and read the result back.** `syncStatus` must become
+   `succeeded` and `lastSyncedAt` must be non-null. A configured sync is not a
+   run sync.
+7. Inspect the diff with `scripts/push-web-env.sh` (dry run) — it should report
+   no keys to change.
+8. Only then consider auto-sync, and only for the pairs you have verified. This
+   project has **not** enabled it anywhere.
 
 Do **not** repeat the 09-21 mistake of creating a sync and trusting
 `isEnabled: false` to keep it inert.
+
+### Field names that cost time
+
+Two of these read as null on a healthy sync and make a working setup look broken:
+
+- There is **no `lastSyncStatus`** and no `lastSyncJob` object. The result fields
+  are **`syncStatus`** and **`lastSyncedAt`**.
+- **`isAutoSyncEnabled` is top-level**, not a `syncOptions` key. Reading it out of
+  `syncOptions` yields `None` and silently passes a sync that is actually armed.
+- The source path is **`folder.path`**; there is no top-level `secretPath` on a
+  sync record (though the *create* payload uses `secretPath`).
+
+`~/valgate-migration/verify_sync_settings.py` reads the correct fields and asserts
+no-completed-run; it has a self-test covering all four hazards.
+
+### Updating a sync via API: `syncOptions` is replaced, not merged
+
+`PATCH /api/v1/secret-syncs/vercel/{syncId}` **replaces the whole `syncOptions`
+object**. Sending only the field you want to change silently drops the others —
+including `disableSecretDeletion`, which disarms the deletion guard. Echo every
+field back plus the one you are changing, then re-read and assert nothing else
+moved.
 
 ### Why the sync direction matters
 
@@ -159,11 +229,19 @@ From Infisical's own docs, the three options are:
 
 | Option | What it does | Master |
 |---|---|---|
-| **Overwrite Destination Secrets** | **Removes** any destination secrets not present in Infisical | Infisical, destructively |
+| **Overwrite Destination Secrets** | Skips the import step; Infisical's values win on conflict | Infisical |
 | **Import Secrets (Prioritize Infisical)** | Imports destination secrets first; conflicts resolve to **Infisical** | **Infisical** |
 | **Import Secrets (Prioritize Vercel)** | Imports destination secrets first; conflicts resolve to **Vercel** | Vercel |
 
-**To make Infisical the master, choose "Import Secrets (Prioritize Infisical)".**
+`Overwrite Destination Secrets` was described here as "**Removes** any
+destination secrets not present in Infisical". **That was wrong, and it was
+verified wrong on 2026-09-28** — see the next section. It does not delete; it
+only decides who wins a *value* conflict. Deletion is controlled **solely** by
+`disableSecretDeletion`.
+
+**To make Infisical the master of value conflicts, any of the first two works.**
+This project uses `overwrite-destination`, which is what the dev sync was
+configured with and what ran green.
 
 It sounds backwards — "import from Vercel" reads like Vercel wins — but the note
 is about *conflicts during the initial import only*, not about later syncs.
@@ -250,13 +328,13 @@ Open **Valgate** (`d84d9384-ce77-4aa5-a63b-29312617af15`, type `secret-manager`)
 it from the organisation level shows an empty project context, which reads as "no
 project selected".
 
-### `scripts/push-web-env.sh` after arming
+### `scripts/push-web-env.sh` now that the syncs are armed
 
-Keep it, but demote it. Once the native sync is armed it is no longer the primary
-push path — it is the **dry-run/diff tool**, because the native sync gives you no
-preview of what it is about to change. Running its `--apply` while auto-sync is
-enabled gives you two writers on one surface; use it for the diff, not for the
-write, unless the sync is paused.
+Keep it, but demote it. Now that the native syncs exist it is no longer the
+primary push path — it is the **dry-run/diff tool**, because the native sync gives
+you no preview of what it is about to change. Auto-sync is off on all three, so
+there is no second writer today; if you ever enable it, running `--apply` would
+give you two writers on one surface. Use it for the diff.
 
 ## Environment facts that cost time
 
@@ -264,6 +342,18 @@ write, unless the sync is paused.
   `infisical init`'d; the error reads like a missing folder. The script supplies
   the id by default.
 - The Infisical CLI's stored token is a `go-keyring-base64:<json>` envelope, not a
-  raw JWT — unusable as a `curl` header.
+  raw JWT — unusable as a `curl` header. The key inside it is spelled
+  `JTWToken` (Infisical's own typo, not `JWTToken`).
 - Vercel `sensitive` vars are write-only for everyone including the CLI. They can
   never be imported; they must be re-issued to enter Infisical at all.
+- `vercel env ls --format json` prints a CLI banner before the JSON **and** may
+  print more after it, so `json.loads(stdout)` fails with
+  `Extra data: line N`. Decode one value with `raw_decode` starting at the first
+  `[`.
+- A sync's `POST .../sync-secrets` can return **HTTP 500** while the run itself
+  still succeeds. A 500 is "unknown", not "failed" — poll `syncStatus` /
+  `lastSyncedAt` before drawing a conclusion. This is the same Infisical-side
+  flakiness previously seen on sync deletion.
+- A preflight gate that cannot read its inputs must **fail**, not pass. An early
+  version of the emptiness check printed a confident "GATE: clear" while every
+  environment had failed to parse — it had zero data and still returned green.

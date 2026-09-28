@@ -37,6 +37,12 @@ INFISICAL_PROJECT_ID="${INFISICAL_PROJECT_ID:-d84d9384-ce77-4aa5-a63b-29312617af
 # Infisical holds scratch/junk secrets that must not reach a runtime.
 SKIP_RE='^(HERMES_|TEST_|VPS_|LOCAL_)'
 
+# Platform-injected names. `vercel env pull` writes these into the pulled file but
+# `vercel env ls` never lists them, so without this they land in the KEEP bucket
+# and get reported as destination-only secrets that Infisical is "silent" about.
+# They are not secrets and nobody manages them; neither pushed nor counted.
+PLATFORM_RE='^(VERCEL|TURBO_|NX_)'
+
 # peel_quotes <value> -> value with ALL surrounding quote layers removed.
 # Iterative on purpose: one pass is not enough when the exporter double-quotes.
 peel_quotes() {
@@ -111,6 +117,21 @@ selftest() {
   grep -q '^KEEP ONLY_VERCEL$' "$tmp/plan" || { echo "FAIL: vercel-only key not kept" >&2; cat "$tmp/plan" >&2; return 1; }
   grep -qiE 'delete|remove' "$tmp/plan"    && { echo "FAIL: plan mentions delete/remove" >&2; cat "$tmp/plan" >&2; return 1; }
 
+  # invariant 3: platform vars Vercel injects must not be reported as "kept"
+  # destination-only secrets. `env pull` writes them, `env ls` never lists them.
+  printf 'A=1\nVERCEL_URL=https://x\nVERCEL=1\nTURBO_CACHE=local:x\nNX_DAEMON=false\n' >"$tmp/cur"
+  printf 'A=1\n' >"$tmp/fresh"
+  plan "$tmp/cur" "$tmp/fresh" >"$tmp/plan"
+  grep -qE '^KEEP (VERCEL|TURBO_|NX_)' "$tmp/plan" \
+    && { echo "FAIL: platform var counted as a destination secret" >&2; cat "$tmp/plan" >&2; return 1; }
+  grep -q '^KEEP REAL_SECRET$' "$tmp/plan" || {
+    # a genuine destination-only secret must STILL be kept (guard, not a blanket mute)
+    printf 'A=1\nVERCEL=1\nREAL_SECRET=keep\n' >"$tmp/cur"
+    plan "$tmp/cur" "$tmp/fresh" >"$tmp/plan"
+    grep -q '^KEEP REAL_SECRET$' "$tmp/plan" \
+      || { echo "FAIL: real destination-only secret stopped being kept" >&2; cat "$tmp/plan" >&2; return 1; }
+  }
+
   echo "push-web-env selftest: OK"
 }
 
@@ -122,7 +143,7 @@ selftest() {
 # load() would read an empty filename and emit a silently blank plan.
 plan() {
   local cur="$1" fresh="$2"
-  awk -v skipre="$SKIP_RE" -v cur="$cur" -v fresh="$fresh" -v mainfile="$cur" '
+  awk -v skipre="$SKIP_RE" -v plat="$PLATFORM_RE" -v cur="$cur" -v fresh="$fresh" -v mainfile="$cur" '
     function unq(v,  q) {
       while (length(v) >= 2) {
         q=substr(v,1,1)
@@ -156,7 +177,7 @@ plan() {
       }
       for (i=1;i<=nc;i++) {
         k=curorder[i]
-        if (!(k in frval)) print "KEEP " k
+        if (!(k in frval) && k !~ plat) print "KEEP " k
       }
     }
   '
