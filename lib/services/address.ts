@@ -68,6 +68,9 @@ export async function searchAddress(
       QueryText: query,
       MaxResults: MAX_RESULTS,
       BiasPosition: [lng, lat],
+      // Without this, Street/District/Locality come back in KHMER SCRIPT (measured 2026-09-28),
+      // which silently blanks the English province <select> in the wizard. The UI is English-only.
+      Language: "en",
     }),
   );
 
