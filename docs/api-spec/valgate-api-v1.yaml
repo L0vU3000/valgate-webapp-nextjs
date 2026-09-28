@@ -78,6 +78,46 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
+  /address/reverse:
+    get:
+      operationId: reverseGeocodeAddress
+      summary: Resolve the address at a coordinate
+      description: |
+        Returns the address nearest a coordinate, for the add-property wizard's map pin: dragging the
+        pin refreshes the address fields instead of leaving them stale from an earlier suggestion.
+
+        Responds `200` with `item: null` when there is no address near the coordinate — a pin dropped
+        on water or farmland is legitimate, not an error to surface.
+
+        Street/compound precision (same provider and limits as `/address/suggest`), so dragging within
+        one block legitimately returns an unchanged address.
+
+        Backed by AWS Geo Places `ReverseGeocode` (GrabMaps).
+      parameters:
+        - $ref: "#/components/parameters/LngQuery"
+        - $ref: "#/components/parameters/LatQuery"
+      responses:
+        "200":
+          description: The nearest address, or null when none is near the coordinate.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [item]
+                properties:
+                  item:
+                    oneOf:
+                      - $ref: "#/components/schemas/AddressSuggestionDto"
+                      - type: "null"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
   /properties:
     get:
       operationId: listProperties
@@ -687,6 +727,22 @@ components:
         type: string
         minLength: 3
         maxLength: 200
+    LngQuery:
+      name: lng
+      in: query
+      required: true
+      description: Longitude (-180..180). Anything else is a 400.
+      schema:
+        type: number
+        format: double
+    LatQuery:
+      name: lat
+      in: query
+      required: true
+      description: Latitude (-90..90). Anything else is a 400.
+      schema:
+        type: number
+        format: double
     LimitQuery:
       name: limit
       in: query
@@ -706,7 +762,7 @@ components:
   schemas:
     AddressSuggestionDto:
       type: object
-      required: [placeId, label, street, subDistrict, district, locality, postalCode, country, position]
+      required: [placeId, label, title, street, subDistrict, district, locality, postalCode, country, position]
       description: |
         One address candidate. Present as a pick list — never auto-resolve to a single item
         (street/compound precision only; unit numbers are not resolvable).
@@ -717,6 +773,12 @@ components:
         label:
           type: string
           description: Full formatted address, for display.
+        title:
+          type: [string, "null"]
+          description: |
+            The provider's name for the place — a building/POI name when one matched ("J Tower 2
+            BKK1"), otherwise a street-level label. Users search by building name, so this is the
+            primary line in the pick list; it is not repeated in `street`.
         street:
           type: [string, "null"]
           description: Street line. Null when the provider only resolved to a district level.

@@ -2,12 +2,10 @@
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "GeoPlacesSearchForAddressBakeoff",
+      "Sid": "GeoPlacesAddressLookup",
       "Effect": "Allow",
       "Action": [
         "geo-places:SearchText",
-        "geo-places:Autocomplete",
-        "geo-places:GetPlace",
         "geo-places:ReverseGeocode"
       ],
       "Resource": "arn:aws:geo-places:ap-southeast-1::provider/default"

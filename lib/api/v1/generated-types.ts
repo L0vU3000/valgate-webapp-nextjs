@@ -52,6 +52,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/address/reverse": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Resolve the address at a coordinate
+         * @description Returns the address nearest a coordinate, for the add-property wizard's map pin: dragging the
+         *     pin refreshes the address fields instead of leaving them stale from an earlier suggestion.
+         *
+         *     Responds `200` with `item: null` when there is no address near the coordinate — a pin dropped
+         *     on water or farmland is legitimate, not an error to surface.
+         *
+         *     Street/compound precision (same provider and limits as `/address/suggest`), so dragging within
+         *     one block legitimately returns an unchanged address.
+         *
+         *     Backed by AWS Geo Places `ReverseGeocode` (GrabMaps).
+         */
+        get: operations["reverseGeocodeAddress"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/properties": {
         parameters: {
             query?: never;
@@ -362,6 +391,12 @@ export interface components {
             placeId: string;
             /** @description Full formatted address, for display. */
             label: string;
+            /**
+             * @description The provider's name for the place — a building/POI name when one matched ("J Tower 2
+             *     BKK1"), otherwise a street-level label. Users search by building name, so this is the
+             *     primary line in the pick list; it is not repeated in `street`.
+             */
+            title: string | null;
             /** @description Street line. Null when the provider only resolved to a district level. */
             street: string | null;
             /** @description Sangkat / sub-district. */
@@ -720,6 +755,10 @@ export interface components {
         OwnershipRecordIdPath: string;
         /** @description Free-text address query (3-200 characters). Anything else is a 400. */
         AddressQuery: string;
+        /** @description Longitude (-180..180). Anything else is a 400. */
+        LngQuery: number;
+        /** @description Latitude (-90..90). Anything else is a 400. */
+        LatQuery: number;
         /** @description Number of items per page (1-100). Defaults to 20. Anything else is a 400. */
         LimitQuery: number;
         /** @description Opaque cursor from the previous page's `nextCursor`. Never construct or decode it yourself. */
@@ -773,6 +812,37 @@ export interface operations {
                 content: {
                     "application/json": {
                         items: components["schemas"]["AddressSuggestionDto"][];
+                    };
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthorized"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    reverseGeocodeAddress: {
+        parameters: {
+            query: {
+                /** @description Longitude (-180..180). Anything else is a 400. */
+                lng: components["parameters"]["LngQuery"];
+                /** @description Latitude (-90..90). Anything else is a 400. */
+                lat: components["parameters"]["LatQuery"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The nearest address, or null when none is near the coordinate. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        item: components["schemas"]["AddressSuggestionDto"] | null;
                     };
                 };
             };

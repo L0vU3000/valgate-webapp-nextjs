@@ -7,6 +7,7 @@ import { CAMBODIA_PROVINCES } from "@/lib/constants/cambodia-provinces";
 import { cn } from "@/components/ui/utils";
 import { RequiredMark, OptionalLabel } from "@/components/ui/required-mark";
 import { useGeocode } from "@/app/_shared/add-property/_lib/use-geocode";
+import type { GeocodeSuggestion } from "@/app/_shared/add-property/_lib/use-geocode";
 import type { FormData } from "./types";
 
 const PropertyLocationMap = dynamic(
@@ -112,6 +113,38 @@ export function Step2BasicInfo({
     if (composed.length < 5) return;
     const hit = await geocode.lookup(composed);
     if (hit) setMapCenter(hit.center);
+  };
+
+  // The pin is the source of truth for where the property is, so moving it refreshes the address
+  // fields. Without this the fields stay pinned to whatever was last typed/searched while the marker
+  // sits somewhere else — the two disagree, and `mapCenter` (which is what gets saved as the
+  // coordinate) is the one that's right.
+  //
+  // ponytail: only the address subfields are overwritten, and only from a successful lookup — a pin
+  // dropped where nothing resolves (ocean, farmland) leaves the typed address alone rather than
+  // blanking it. Runs on drag END, not per frame.
+  const applyReverseGeocode = async (c: [number, number]) => {
+    const hit = await geocode.reverseLookup(c);
+    if (!hit) return;
+    reviewAddress();
+    setForm((prev) => ({
+      ...prev,
+      addressLine: hit.addressLine || prev.addressLine,
+      // The province <select> is a fixed English list. Writing a value it doesn't contain would leave
+      // it rendering blank, so keep whatever's there when the provider's district isn't a match.
+      city: hit.city || prev.city,
+      province: CAMBODIA_PROVINCES.includes(hit.province as (typeof CAMBODIA_PROVINCES)[number])
+        ? hit.province
+        : prev.province,
+      country: hit.country || prev.country,
+      zip: hit.zip || prev.zip,
+    }));
+  };
+
+  const handlePinMoved = (lat: number, lng: number) => {
+    const c: [number, number] = [lng, lat];
+    setMapCenter(c);
+    void applyReverseGeocode(c);
   };
 
   // Scan-review state for the fields Step 2 renders. Sets are empty for manual entry, so all of this
@@ -352,7 +385,7 @@ export function Step2BasicInfo({
             <div className="relative flex-1 min-h-0 rounded-xl overflow-hidden border border-border">
               <PropertyLocationMap
                 center={mapCenter}
-                onLocationChange={(lat, lng) => setMapCenter([lng, lat])}
+                onLocationChange={handlePinMoved}
                 onLoad={() => setMapLoaded(true)}
                 className="absolute inset-0"
               />
@@ -416,7 +449,9 @@ export function Step2BasicInfo({
           center={mapCenter}
           onClose={() => setShowModal(false)}
           onConfirm={(newCenter) => {
-            setMapCenter(newCenter);
+            // Same path as dragging the inline pin: the modal is the precise-placement surface, so its
+            // result must refresh the address too, not just the coordinate.
+            handlePinMoved(newCenter[1], newCenter[0]);
             setShowModal(false);
           }}
         />

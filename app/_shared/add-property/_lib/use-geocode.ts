@@ -25,6 +25,7 @@ export type GeocodeSuggestion = {
 type ApiSuggestion = {
   placeId: string;
   label: string;
+  title: string | null;
   street: string | null;
   district: string | null;
   locality: string | null;
@@ -38,10 +39,16 @@ function toSuggestion(s: ApiSuggestion): GeocodeSuggestion {
   return {
     id: s.placeId,
     placeName: s.label,
-    mainText: s.street ?? parts[0] ?? s.label,
+    // Title first: for a building match the provider puts the NAME here ("J Tower 2 BKK1") and the
+    // street in `street` — showing `street` alone would hide the thing the user actually searched for.
+    // Only fall back to the street when the provider returned no title (plain street queries).
+    mainText: s.title || s.street || parts[0] || s.label,
     secondaryText: parts.slice(1).join(", "),
     center: s.position,
-    addressLine: s.street ?? parts[0] ?? s.label,
+    // ponytail: the building name goes into the free-text addressLine, so "J Tower 2" is preserved
+    // in the saved address instead of being thrown away in favour of the street. Upgrading to a
+    // real unit/floor field needs a schema change — not worth it until users ask.
+    addressLine: s.title || s.street || parts[0] || s.label,
     city: s.locality ?? "",
     province: s.district ?? "",
     country: s.country ?? "",
@@ -56,6 +63,19 @@ export async function geocodeQuery(query: string): Promise<GeocodeSuggestion[]> 
   // `items` matches the OpenAPI contract (docs/api-spec/valgate-api-v1.yaml) and the route.
   // Getting this key wrong fails SILENTLY (empty list, no error) — see the parity test.
   return (data.items ?? []).map(toSuggestion);
+}
+
+// The address at a coordinate. `null` means "no address near here" (a valid answer over water or
+// farmland) — distinct from a network failure, which also returns null. Neither should block the
+// pin: the coordinate is already known, the address is a nicety.
+export async function reverseQuery(
+  position: [number, number],
+): Promise<GeocodeSuggestion | null> {
+  const [lng, lat] = position;
+  const res = await fetch(`/api/v1/address/reverse?lng=${lng}&lat=${lat}`);
+  if (!res.ok) return null;
+  const data = (await res.json()) as { item?: ApiSuggestion | null };
+  return data.item ? toSuggestion(data.item) : null;
 }
 
 export function useGeocode(debounceMs = 300) {
@@ -99,11 +119,24 @@ export function useGeocode(debounceMs = 300) {
     }
   }, []);
 
+  // Address at a coordinate, for the map pin. Same contract as `lookup`: null means "nothing to
+  // write", never an error the caller has to handle.
+  const reverseLookup = useCallback(
+    async (position: [number, number]): Promise<GeocodeSuggestion | null> => {
+      try {
+        return await reverseQuery(position);
+      } catch {
+        return null;
+      }
+    },
+    [],
+  );
+
   const clear = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
     setSuggestions([]);
     setLoading(false);
   }, []);
 
-  return { suggestions, loading, search, clear, lookup };
+  return { suggestions, loading, search, clear, lookup, reverseLookup };
 }

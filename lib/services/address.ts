@@ -1,5 +1,9 @@
 import "server-only"; // C1
-import { GeoPlacesClient, SearchTextCommand } from "@aws-sdk/client-geo-places";
+import {
+  GeoPlacesClient,
+  SearchTextCommand,
+  ReverseGeocodeCommand,
+} from "@aws-sdk/client-geo-places";
 import { env } from "@/lib/env";
 
 // Address lookup for the add-property wizard. SearchText is deliberately the ONLY geo-places
@@ -19,6 +23,12 @@ import { env } from "@/lib/env";
 export type AddressSuggestion = {
   placeId: string;
   label: string;
+  /**
+   * The provider's name for this place — a BUILDING/POI name when one matched ("J Tower 2 BKK1")
+   * and a street-ish label otherwise ("N159E0E1 St 215 Veal Vong"). Users search by building name,
+   * so the pick list shows this first; `street` alone would hide the match.
+   */
+  title: string | null;
   street: string | null;
   subDistrict: string | null;
   district: string | null;
@@ -79,6 +89,9 @@ export async function searchAddress(
     .map((r) => ({
       placeId: r.PlaceId ?? "",
       label: r.Address?.Label ?? r.Title ?? "",
+      // Title is the building/POI name when SearchText matched one. It is NOT duplicated in
+      // Address, so it must be carried separately or "J Tower 2" shows up as "Street 398".
+      title: r.Title ?? null,
       street: r.Address?.Street ?? null,
       subDistrict: r.Address?.SubDistrict ?? null,
       district: r.Address?.District ?? null,
@@ -87,4 +100,40 @@ export async function searchAddress(
       country: r.Address?.Country?.Name ?? null,
       position: [r.Position[0], r.Position[1]],
     }));
+}
+
+// Reverse geocode a single coordinate to the nearest address. Drives the pin: as the user drags,
+// the address fields follow the pin instead of going stale.
+//
+// ponytail: one provider call per drag END, never per drag frame. GrabMaps reverse geocoding is
+// street/compound precision, so a drag inside one block returns the same street — that is expected,
+// not a bug. Upgrade path: debounce per ~50m of movement if per-drag calls prove noisy.
+export async function reverseGeocode(
+  position: [number, number],
+): Promise<AddressSuggestion | null> {
+  const client = getClient();
+
+  const out = await client.send(
+    new ReverseGeocodeCommand({
+      QueryPosition: [position[0], position[1]],
+      MaxResults: 1,
+      Language: "en",
+    }),
+  );
+
+  const r = out.ResultItems?.[0];
+  if (!r || !Array.isArray(r.Position)) return null;
+
+  return {
+    placeId: r.PlaceId ?? "",
+    label: r.Address?.Label ?? r.Title ?? "",
+    title: r.Title ?? null,
+    street: r.Address?.Street ?? null,
+    subDistrict: r.Address?.SubDistrict ?? null,
+    district: r.Address?.District ?? null,
+    locality: r.Address?.Locality ?? null,
+    postalCode: r.Address?.PostalCode ?? null,
+    country: r.Address?.Country?.Name ?? null,
+    position: [r.Position[0], r.Position[1]],
+  };
 }
