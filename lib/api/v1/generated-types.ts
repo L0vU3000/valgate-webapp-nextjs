@@ -24,6 +24,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/address/suggest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Suggest addresses for the add-property wizard
+         * @description Returns address candidates for a free-text query. **Always a pick list, never a single
+         *     resolved answer**: street/compound precision only (unit numbers are not resolvable by any
+         *     provider), and on a 23-address Cambodian corpus ~4 returned a neighbouring street. Callers
+         *     MUST let the user choose a suggestion; do not auto-resolve.
+         *
+         *     Each item carries `position`, so no second lookup is needed to obtain coordinates.
+         *
+         *     Backed by AWS Geo Places `SearchText` (GrabMaps). Measured 22/23 street-level on the
+         *     Cambodian demo corpus vs 0/23 (district centroid) for the previous Mapbox geocoder.
+         */
+        get: operations["suggestAddress"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/properties": {
         parameters: {
             query?: never;
@@ -325,6 +353,28 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * @description One address candidate. Present as a pick list — never auto-resolve to a single item
+         *     (street/compound precision only; unit numbers are not resolvable).
+         */
+        AddressSuggestionDto: {
+            /** @description Provider place identifier. */
+            placeId: string;
+            /** @description Full formatted address, for display. */
+            label: string;
+            /** @description Street line. Null when the provider only resolved to a district level. */
+            street: string | null;
+            /** @description Sangkat / sub-district. */
+            subDistrict: string | null;
+            /** @description Khan / district. */
+            district: string | null;
+            /** @description City / province. */
+            locality: string | null;
+            postalCode: string | null;
+            country: string | null;
+            /** @description [lng, lat] — GeoJSON order, matching the rest of this API. */
+            position: number[];
+        };
         MeDto: {
             /** Format: email */
             email: string;
@@ -668,6 +718,8 @@ export interface components {
         ValuationIdPath: string;
         /** @description Ownership record ID */
         OwnershipRecordIdPath: string;
+        /** @description Free-text address query (3-200 characters). Anything else is a 400. */
+        AddressQuery: string;
         /** @description Number of items per page (1-100). Defaults to 20. Anything else is a 400. */
         LimitQuery: number;
         /** @description Opaque cursor from the previous page's `nextCursor`. Never construct or decode it yourself. */
@@ -698,6 +750,35 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    suggestAddress: {
+        parameters: {
+            query: {
+                /** @description Free-text address query (3-200 characters). Anything else is a 400. */
+                q: components["parameters"]["AddressQuery"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Address candidates, best-first. Empty array is a valid "nothing matched". */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["AddressSuggestionDto"][];
+                    };
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthorized"];
+            429: components["responses"]["RateLimited"];
             500: components["responses"]["InternalError"];
         };
     };
