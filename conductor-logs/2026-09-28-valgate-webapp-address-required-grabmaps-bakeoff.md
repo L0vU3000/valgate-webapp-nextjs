@@ -71,15 +71,28 @@ Cambodian addresses.
   call `mapWizardToProperty` legitimately without a `mapCenter`.
 
 ## Blockers
-- **Q15 cannot run.** Live re-test (not memory): principal is
-  `arn:aws:iam::867418408748:user/valgate-storage`; `geo-places:SearchText` →
-  `AccessDeniedException`; `iam:PutUserPolicy` → `AccessDenied`. Nothing was provisioned.
-  Policy JSON is staged at `conductor-logs/iam-geo-places-policy.json`.
+- **Q15 cannot run.** Re-tested 2026-09-28 with **Claude Code 2.1.283**
+  (`claude -p --allowedTools Bash`) to rule out a Hermes-side limitation. Same principal,
+  same verdict — exit 254 both times:
+  ```
+  aws iam put-user-policy --user-name valgate-storage ...
+   → AccessDenied: iam:PutUserPolicy  (authz id 2607qwd9k1otsuwhmnzk47ivi)
+
+  aws geo-places search-text --region ap-southeast-1 --query-text "Phnom Penh"
+   → AccessDeniedException: geo-places:SearchText on
+     arn:aws:geo-places:ap-southeast-1::provider/default
+  ```
+  Audited the credentials on this Mac: `~/.aws/credentials` holds **only `[default]`**
+  (`valgate-storage`, AIDA4T5RKQ4WCGSCRSDBX) — no SSO, no admin profile, no AWS keys in
+  `~/.hermes/.env` or the project env. Infisical holds **no GrabMaps key and no Mapbox
+  secret token** (only the public `pk.`). Nothing on this machine can grant the permission.
+  Policy JSON is staged at `conductor-logs/iam-geo-places-policy.json`. Nothing was provisioned.
 - Note: granting this widens `valgate-storage` past object storage. A dedicated user for
   address lookups would be cleaner.
 
 ## Next actions
-1. Admin runs the `put-user-policy` command above.
+1. Admin runs the `put-user-policy` command above. **Only this unblocks Q15** — no local
+   workaround exists (verified with Claude Code and a credential audit).
 2. `python3 scripts/bakeoff-grabmaps.py` — one command; the 23-address corpus is staged
    and the script fails cleanly when blocked (verified).
 3. Decide fate of the **9 properties on the centroid** (all `ORG-0018`). Re-measured this
