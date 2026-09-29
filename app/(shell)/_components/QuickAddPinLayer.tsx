@@ -47,9 +47,18 @@ export function QuickAddPinLayer({
   const reducedMotionRef = useRef(reducedMotion);
   reducedMotionRef.current = reducedMotion;
 
-  // Create and destroy the marker. Keyed on `active` ONLY — see the note above about `pin`.
+  // A marker may only exist once there is a coordinate. Mapbox's `addTo()` dereferences the marker's
+  // own LngLat, so creating one before the user has dropped a pin throws inside this effect — which
+  // takes the whole map subtree down with it, not just the pin.
+  const hasPin = pin !== null;
+
+  // Create and destroy the marker. Keyed on whether a pin EXISTS, never on its value — keying on the
+  // value would tear the marker down on every drag and replay the arrival animation each time.
   useEffect(() => {
-    if (!active) return;
+    if (!active || !hasPin) return;
+    // Read once, at creation. A ref, not `pin`, so this effect does not re-run on every move.
+    const initial = pinRef.current;
+    if (!initial) return;
     let cancelled = false;
     let settleTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -80,9 +89,12 @@ export function QuickAddPinLayer({
         circle.style.animation = "pin-appear 280ms cubic-bezier(0.16, 1, 0.3, 1) both";
       }
 
-      const marker = new mapboxgl.Marker({ element: el, anchor: "center", draggable: true });
-      if (pinRef.current) marker.setLngLat(pinRef.current);
-      marker.addTo(map);
+      // setLngLat MUST come before addTo, and in that order in one chain: Mapbox's addTo() reads the
+      // marker's own LngLat to place it, so a marker that reaches addTo without one throws. Every
+      // other marker in this repo chains them for the same reason.
+      const marker = new mapboxgl.Marker({ element: el, anchor: "center", draggable: true })
+        .setLngLat(initial)
+        .addTo(map);
 
       marker.on("dragend", () => {
         const { lng, lat } = marker.getLngLat();
@@ -107,7 +119,7 @@ export function QuickAddPinLayer({
       markerRef.current?.remove();
       markerRef.current = null;
     };
-  }, [active, mapRef]);
+  }, [active, hasPin, mapRef]);
 
   // Follow the coordinate when it changes from outside (a fresh drop, or the user panned the map and
   // took that centre). A drag already moved the marker, so re-setting the same position is a no-op.
