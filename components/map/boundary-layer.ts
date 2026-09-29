@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useRef } from "react";
 import type mapboxgl from "mapbox-gl";
 import type { BoundaryGeometry } from "@/lib/data/types/land-parcel";
 
@@ -9,6 +8,23 @@ export const BOUNDARY_FILL_ID = "valgate-boundary-fill";
 export const BOUNDARY_LINE_ID = "valgate-boundary-line";
 
 const EMPTY: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
+
+/** [minLng, minLat, maxLng, maxLat] over a Polygon/MultiPolygon's coordinates. Null if empty. */
+export function boundaryBounds(
+  geometry: BoundaryGeometry | null | undefined,
+): [number, number, number, number] | null {
+  if (!geometry) return null;
+  const pts: number[][] = [];
+  const walk = (n: unknown) => {
+    if (Array.isArray(n) && typeof n[0] === "number" && typeof n[1] === "number") pts.push(n as number[]);
+    else if (Array.isArray(n)) n.forEach(walk);
+  };
+  walk(geometry.coordinates);
+  if (!pts.length) return null;
+  const lngs = pts.map((p) => p[0]);
+  const lats = pts.map((p) => p[1]);
+  return [Math.min(...lngs), Math.min(...lats), Math.max(...lngs), Math.max(...lats)];
+}
 
 /**
  * Add (or update) the boundary fill+outline on a map. Idempotent — safe to call on `load` and
@@ -51,35 +67,31 @@ export function setBoundaryGeometry(map: mapboxgl.Map, geometry: BoundaryGeometr
   source?.setData(toFeature(geometry));
 }
 
-function toFeature(geometry: BoundaryGeometry | null): GeoJSON.FeatureCollection {
-  return geometry ? { ...EMPTY, features: [{ type: "Feature", properties: {}, geometry: geometry as GeoJSON.Geometry }] } : EMPTY;
+/**
+ * Frame a boundary so the whole ring is visible.
+ *
+ * Parcels are tiny — the smallest in the reference set is ~17 m across, which at the detail map's
+ * default zoom 15 is under 4 px, i.e. hidden behind the 36 px pin. Fitting to the ring is what
+ * makes the boundary visible at all on load, and it does it for a 124 m² plot and an 87,000 m²
+ * estate alike instead of opening both at the same fixed zoom.
+ *
+ * `maxZoom` is capped at 20 because Google Earth's parcel rings carry centimetre precision; fitting
+ * without a cap would zoom to street-furniture level. The padding keeps the ring clear of the
+ * container's rounded corners and the expand/map controls that overhang it.
+ */
+export function fitBoundary(map: mapboxgl.Map, geometry: BoundaryGeometry | null | undefined): boolean {
+  const b = boundaryBounds(geometry);
+  if (!b) return false;
+  map.fitBounds(
+    [
+      [b[0], b[1]],
+      [b[2], b[3]],
+    ],
+    { padding: 48, maxZoom: 20, duration: 0 },
+  );
+  return true;
 }
 
-/**
- * Draw a boundary over a map's lifetime. Handles the three things a plain `addLayer` gets wrong:
- * re-adding after a style swap, updating when the geometry changes, and clearing on unmount.
- */
-export function useBoundaryLayer(
-  mapRef: React.RefObject<mapboxgl.Map | null>,
-  geometry: BoundaryGeometry | null | undefined,
-  opts: { minZoom?: number } = {},
-) {
-  // Serialised so the effect re-runs on a real geometry change, not on every parent render
-  // (the geometry object is rebuilt from props each time).
-  const key = geometry ? JSON.stringify(geometry) : "";
-  const optsRef = useRef(opts);
-  optsRef.current = opts;
-
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !key) return;
-    const parsed = JSON.parse(key) as BoundaryGeometry;
-
-    const draw = () => addBoundaryLayer(map, parsed, optsRef.current);
-    if (map.isStyleLoaded()) draw();
-    map.on("style.load", draw);
-    return () => {
-      map.off("style.load", draw);
-    };
-  }, [mapRef, key]);
+function toFeature(geometry: BoundaryGeometry | null): GeoJSON.FeatureCollection {
+  return geometry ? { ...EMPTY, features: [{ type: "Feature", properties: {}, geometry: geometry as GeoJSON.Geometry }] } : EMPTY;
 }
