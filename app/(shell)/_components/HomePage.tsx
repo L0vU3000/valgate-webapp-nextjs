@@ -471,9 +471,10 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
           reducedMotion={quickAdd.reducedMotion.current}
         />
 
-        {/* Quick-add card. Present from the moment the mode arms — it has to be, because it is what
-            tells the user how to choose a location. */}
-        {quickAdd.active && (
+        {/* Quick-add card. Gated on a real pin: a suggestion being previewed is not a dropped pin,
+            and the card is only ever the answer to "what is at this pin?" — it has nothing to say
+            before one exists. */}
+        {quickAdd.active && quickAdd.pin && (
           <QuickAddPanel
             pin={quickAdd.pin}
             resolving={quickAdd.resolving}

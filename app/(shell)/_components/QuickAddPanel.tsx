@@ -20,7 +20,10 @@ export type QuickAddFields = {
 };
 
 interface QuickAddPanelProps {
-  pin: QuickAddPin | null;
+  // Non-null: the card only renders once a pin has been dropped (see HomePage). A previewed
+  // suggestion is deliberately not enough — nothing about the record can be answered before the
+  // user has chosen a location.
+  pin: QuickAddPin;
   // True while the reverse lookup for the current coordinate is in flight.
   resolving: boolean;
   // True while the draft is being created on the server.
@@ -62,9 +65,8 @@ export function QuickAddPanel({
   onConfirm,
   onCancel,
 }: QuickAddPanelProps) {
-  const address = pin ? quickAddAddressLine(pin) : "";
-  const coords = pin ? `${pin.center[1].toFixed(5)}, ${pin.center[0].toFixed(5)}` : "";
-  const canConfirm = !!pin && !saving;
+  const address = quickAddAddressLine(pin);
+  const coords = `${pin.center[1].toFixed(5)}, ${pin.center[0].toFixed(5)}`;
 
   return (
     <div
@@ -87,11 +89,9 @@ export function QuickAddPanel({
           <h3 className="text-[15px] font-display font-semibold text-foreground leading-snug">
             Add a property here?
           </h3>
-          {pin && (
-            <p className="text-xs text-secondary mt-0.5">
-              Drag the pin to adjust the exact spot.
-            </p>
-          )}
+          <p className="text-xs text-secondary mt-0.5">
+            Drag the pin to adjust the exact spot.
+          </p>
         </div>
         {/* 44px on touch, the drawer's 32px from `sm:` up (pointer only). Negative margin keeps the
             larger hit area from indenting the header. */}
@@ -106,16 +106,7 @@ export function QuickAddPanel({
 
       <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-1">
         <p className={LABEL}>Location</p>
-        {!pin ? (
-          // The card is up before any location is chosen, so it has to say how to choose one. The
-          // search bar is desktop-only; on a phone the map is the way in.
-          <p className="text-sm text-secondary">
-            <span className="hidden sm:inline">
-              Search an address above, or tap the map to drop a pin.
-            </span>
-            <span className="sm:hidden">Tap the map to drop a pin.</span>
-          </p>
-        ) : resolving ? (
+        {resolving ? (
           // Skeleton at the address's own line height, so resolving a new coordinate does not
           // collapse the card and shove the fields up under the user's finger.
           <div role="status" aria-busy="true" className="flex items-center gap-2">
@@ -138,9 +129,9 @@ export function QuickAddPanel({
             </p>
           </div>
         )}
-        {pin && <p className="mt-1.5 text-[11px] tabular-nums text-text-disabled">{coords}</p>}
+        <p className="mt-1.5 text-[11px] tabular-nums text-text-disabled">{coords}</p>
 
-        {pin && !resolving && (
+        {!resolving && (
           <>
             <div className="my-4 h-px bg-border-subtle" role="presentation" />
             <div className="flex flex-col gap-3">
@@ -227,10 +218,10 @@ export function QuickAddPanel({
         </button>
         <button
           onClick={onConfirm}
-          disabled={!canConfirm}
+          disabled={saving}
           className={cn(
             "flex-1 rounded-xl px-4 py-3 sm:py-2.5 text-sm font-semibold text-white transition-all duration-150",
-            canConfirm
+            !saving
               ? "bg-interactive-primary hover:brightness-110 active:scale-[0.98]"
               : "bg-interactive-primary/40 cursor-not-allowed",
           )}
