@@ -28,12 +28,27 @@ behaviour, not a bug — a blind write is how you drop S3 access while "adding" 
 the full grant set: `valgate-storage` cannot read its own policies, so the complete set is currently
 **unknown to anyone** who hasn't looked at the console.
 
-### Equivalent manual path
+### Equivalent manual path (use this when you have no admin profile)
+
+Confirmed 2026-09-29: this machine has **only** `[default]` = `valgate-storage`, no SSO, no role to
+assume, and `valgate-storage` cannot perform *any* IAM action (not even `iam:ListUsers`). So there is
+no `AWS_PROFILE=<admin>` to find — the script cannot be run here by anyone. A human with console
+access must do it, either by pasting the script to their own machine or via the console below.
 
 Console → IAM → Users → `valgate-storage` → Permissions → the policy named
-**`ValgateGeoPlacesBakeoff`** → Edit → Visual tab → add `geo-places:ReverseGeocode`.
+**`ValgateGeoPlacesBakeoff`** → Edit → **Visual** tab → add `geo-places:ReverseGeocode`.
 
-Use the **Visual** tab; the JSON tab overwrites existing statements.
+Do **not** use the JSON tab — it overwrites the existing statements. For reference, the intended
+final statement for that policy is:
+
+```json
+{
+  "Sid": "GeoPlacesAddressLookup",
+  "Effect": "Allow",
+  "Action": ["geo-places:SearchText", "geo-places:ReverseGeocode"],
+  "Resource": "arn:aws:geo-places:ap-southeast-1::provider/default"
+}
+```
 
 Do **not** rename the policy. A new name creates a second overlapping policy and leaves the original
 in place, so the grant appears to work while the old policy still governs.
