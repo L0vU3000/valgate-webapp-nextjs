@@ -409,6 +409,7 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
           stats={portfolioStats}
           mapLoaded={mapLoaded}
           drawerOpen={!!drawerProperty || !!quickAddCardPin}
+          quickAddOpen={!!quickAddCardPin}
           action={
             // The map's primary action, so it gets the brand colour and reads as a button rather
             // than one of the white chips. It sits above the stats bar because that is where the

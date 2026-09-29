@@ -25,11 +25,16 @@ export function PortfolioLegend({
   stats,
   mapLoaded,
   drawerOpen,
+  quickAddOpen = false,
   action,
 }: {
   stats: PortfolioStats;
   mapLoaded: boolean;
   drawerOpen: boolean;
+  // True while the quick-add card occupies the drawer slot. Distinct from `drawerOpen` because the
+  // two want different placement: the property drawer leaves the pill centred in the space beside
+  // it, the quick-add card parks it against the left edge (see `align` below).
+  quickAddOpen?: boolean;
   // Rendered directly above the stats card, inside the same positioned wrapper. The action button
   // lives here rather than in HomePage so it inherits the legend's placement maths — safe-area
   // inset, the FAB gap on mobile, and the drawer's right shift — instead of re-deriving them and
@@ -38,9 +43,15 @@ export function PortfolioLegend({
 }) {
   const isMobile = useIsMobile();
 
+  // Quick add moves the whole column — search bar and stats pill both — to the left edge of the map
+  // pane. With the card up on the right, the pill is reference data: centring it in the gap left
+  // over would leave it sliding around under the card on every pin drag.
+  const align = !isMobile && quickAddOpen;
+
   // On mobile the drawer pushes up from the bottom (not from the right),
-  // so the right offset is only meaningful at tablet+ widths.
-  const rightOffset = !isMobile && drawerOpen ? "20rem" : 0;
+  // so the right offset is only meaningful at tablet+ widths. Left-aligned, there is nothing to
+  // centre in, so the offset goes away entirely.
+  const rightOffset = !isMobile && drawerOpen && !align ? "20rem" : 0;
 
   // Common card content (the four stats). On mobile each stat is its own
   // grid cell, on desktop they sit in a horizontal flex row with dividers.
@@ -140,12 +151,19 @@ export function PortfolioLegend({
   return (
     <div
       data-no-drag
-      className="absolute bottom-4 z-10 flex justify-center transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]"
+      className={cn(
+        "absolute bottom-4 z-10 flex transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]",
+        // Left-aligned while the quick-add card is up; otherwise centred in the map pane.
+        align ? "justify-start pl-4" : "justify-center",
+      )}
       style={{ left: 0, right: rightOffset }}
     >
       <div
         className={cn(
-          "flex flex-col items-center gap-2",
+          "flex flex-col gap-2",
+          // The search bar is wider than the stats pill, so the column has to be left-flush when it
+          // is parked left or the two would stagger against each other's centres.
+          align ? "items-start" : "items-center",
           mapLoaded
             ? "[animation:fade-slide-up_0.5s_cubic-bezier(0.16,1,0.3,1)_300ms_both]"
             : "opacity-0",
