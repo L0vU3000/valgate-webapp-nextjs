@@ -12,9 +12,6 @@ interface QuickAddPinLayerProps {
   // the pin holds its place on the ground while the user zooms and pans to find the exact spot.
   pin: [number, number] | null;
   onPinChange: (lngLat: [number, number]) => void;
-  // Called once the pin has animated in. The address panel waits for this so the panel does not
-  // race the pin the user is looking at.
-  onSettled?: () => void;
   // Suppresses the pin's arrival travel for users who asked for reduced motion. The pin still
   // appears at its final position — it just does not move to get there.
   reducedMotion?: boolean;
@@ -30,7 +27,6 @@ export function QuickAddPinLayer({
   active,
   pin,
   onPinChange,
-  onSettled,
   reducedMotion = false,
 }: QuickAddPinLayerProps) {
   const markerRef = useRef<mapboxgl.Marker | null>(null);
@@ -40,8 +36,6 @@ export function QuickAddPinLayer({
   // replay the arrival animation on every single drag).
   const onPinChangeRef = useRef(onPinChange);
   onPinChangeRef.current = onPinChange;
-  const onSettledRef = useRef(onSettled);
-  onSettledRef.current = onSettled;
   const pinRef = useRef(pin);
   pinRef.current = pin;
   const reducedMotionRef = useRef(reducedMotion);
@@ -60,7 +54,6 @@ export function QuickAddPinLayer({
     const initial = pinRef.current;
     if (!initial) return;
     let cancelled = false;
-    let settleTimer: ReturnType<typeof setTimeout> | null = null;
 
     void (async () => {
       const map = mapRef.current;
@@ -102,20 +95,10 @@ export function QuickAddPinLayer({
       });
 
       markerRef.current = marker;
-
-      if (reducedMotionRef.current) {
-        onSettledRef.current?.();
-      } else {
-        // Let the arrival finish before the address panel claims attention; the timeout matches the
-        // keyframe's duration. Tracked out here so the cleanup can actually reach it — returning it
-        // from the async IIFE would drop it on the floor.
-        settleTimer = setTimeout(() => onSettledRef.current?.(), 280);
-      }
     })();
 
     return () => {
       cancelled = true;
-      if (settleTimer) clearTimeout(settleTimer);
       markerRef.current?.remove();
       markerRef.current = null;
     };

@@ -87,9 +87,11 @@ export function QuickAddPanel({
           <h3 className="text-[15px] font-display font-semibold text-foreground leading-snug">
             Add a property here?
           </h3>
-          <p className="text-xs text-secondary mt-0.5">
-            Drag the pin to adjust the exact spot.
-          </p>
+          {pin && (
+            <p className="text-xs text-secondary mt-0.5">
+              Drag the pin to adjust the exact spot.
+            </p>
+          )}
         </div>
         {/* 44px on touch, the drawer's 32px from `sm:` up (pointer only). Negative margin keeps the
             larger hit area from indenting the header. */}
@@ -105,7 +107,14 @@ export function QuickAddPanel({
       <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-1">
         <p className={LABEL}>Location</p>
         {!pin ? (
-          <p className="text-sm text-secondary">Tap the map to drop a pin.</p>
+          // The card is up before any location is chosen, so it has to say how to choose one. The
+          // search bar is desktop-only; on a phone the map is the way in.
+          <p className="text-sm text-secondary">
+            <span className="hidden sm:inline">
+              Search an address above, or tap the map to drop a pin.
+            </span>
+            <span className="sm:hidden">Tap the map to drop a pin.</span>
+          </p>
         ) : resolving ? (
           // Skeleton at the address's own line height, so resolving a new coordinate does not
           // collapse the card and shove the fields up under the user's finger.

@@ -33,6 +33,7 @@ import type { TableAnimationConfig } from "@/components/portfolio/PropertyTable"
 import { PortfolioLegend } from "./PortfolioLegend";
 import { QuickAddPinLayer } from "./QuickAddPinLayer";
 import { QuickAddPanel } from "./QuickAddPanel";
+import { QuickAddSearch } from "./QuickAddSearch";
 import { useQuickAdd } from "./use-quick-add";
 import type mapboxgl from "mapbox-gl";
 
@@ -131,6 +132,21 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
     // which would tear down and re-add the click listener on every render for no reason.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quickAdd.active, quickAdd.dropPin, mapLoaded]);
+
+  // Bring a searched address into view. Only a search sets `focus`: a pin the user tapped or dragged
+  // is already where they were looking, and flying on every drag would fight the gesture. Reduced
+  // motion jumps instead of travelling — the address is the information, the flight is not.
+  const quickAddFocus = quickAdd.focus;
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !quickAddFocus) return;
+    const [lng, lat] = quickAddFocus;
+    if (quickAdd.reducedMotion.current) {
+      map.jumpTo({ center: [lng, lat] });
+    } else {
+      map.flyTo({ center: [lng, lat], zoom: Math.max(map.getZoom(), 15), duration: 900 });
+    }
+  }, [quickAddFocus, quickAdd.reducedMotion]);
 
   const startQuickAdd = useCallback(() => {
     // The quick-add card and the property drawer share one slot, so opening one closes the other.
@@ -390,21 +406,43 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
             // than one of the white chips. It sits above the stats bar because that is where the
             // eye already goes for "what's on this map" — and it is rendered by PortfolioLegend so
             // it inherits the legend's safe-area and drawer offsets instead of duplicating them.
-            <button
-              onClick={() => (quickAdd.active ? quickAdd.cancel() : startQuickAdd())}
-              aria-pressed={quickAdd.active}
-              aria-label={quickAdd.active ? "Cancel quick add" : "Quick Add a property on the map"}
-              className={cn(
-                "flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold shadow-lg transition-all duration-200 active:scale-[0.98]",
-                quickAdd.active
-                  ? "bg-surface-base text-foreground border border-border-default"
-                  : "bg-interactive-primary text-white hover:bg-interactive-primary-hover hover:shadow-xl",
-                mapLoaded ? "[animation:fade-slide-up_0.4s_cubic-bezier(0.16,1,0.3,1)_250ms_both]" : "opacity-0",
-              )}
-            >
-              {quickAdd.active ? <X className="size-4" /> : <LocateFixed className="size-4" />}
-              {quickAdd.active ? "Cancel" : "Quick Add"}
-            </button>
+            //
+            // Armed, the button IS the address field: the same slot, no second control to find. The
+            // field is desktop-only (QuickAddSearch hides itself under `sm`), so the cancel button
+            // stays behind it for the phone, where the bottom sheet covers the legend anyway.
+            quickAdd.active ? (
+              <div className="flex items-center gap-2">
+                <QuickAddSearch
+                  query={quickAdd.query}
+                  suggestions={quickAdd.suggestions}
+                  loading={quickAdd.searching}
+                  onChange={quickAdd.searchAddress}
+                  onSubmit={quickAdd.submitAddress}
+                  onPick={quickAdd.pickAddress}
+                />
+                <button
+                  onClick={quickAdd.cancel}
+                  aria-label="Cancel quick add"
+                  className="hidden items-center gap-2 rounded-full border border-border-default bg-surface-base px-5 py-2.5 text-sm font-semibold text-foreground shadow-lg transition-all duration-200 active:scale-[0.98] sm:flex"
+                >
+                  <X className="size-4" />
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={startQuickAdd}
+                aria-label="Quick Add a property on the map"
+                className={cn(
+                  "flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold shadow-lg transition-all duration-200 active:scale-[0.98]",
+                  "bg-interactive-primary text-white hover:bg-interactive-primary-hover hover:shadow-xl",
+                  mapLoaded ? "[animation:fade-slide-up_0.4s_cubic-bezier(0.16,1,0.3,1)_250ms_both]" : "opacity-0",
+                )}
+              >
+                <LocateFixed className="size-4" />
+                Quick Add
+              </button>
+            )
           }
         />
 
@@ -424,12 +462,12 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
           active={quickAdd.active}
           pin={quickAdd.pin?.center ?? null}
           onPinChange={quickAdd.resolveAt}
-          onSettled={quickAdd.settle}
           reducedMotion={quickAdd.reducedMotion.current}
         />
 
-        {/* Quick-add card. Hidden until the pin has arrived, so the card does not race the pin. */}
-        {quickAdd.active && quickAdd.settled && (
+        {/* Quick-add card. Present from the moment the mode arms — it has to be, because it is what
+            tells the user how to choose a location. */}
+        {quickAdd.active && (
           <QuickAddPanel
             pin={quickAdd.pin}
             resolving={quickAdd.resolving}
