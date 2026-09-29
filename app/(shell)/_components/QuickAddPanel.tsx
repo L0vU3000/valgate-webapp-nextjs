@@ -1,14 +1,19 @@
 "use client";
 
-import { AlertTriangle, Loader2, MapPin, X } from "lucide-react";
+import { AlertTriangle, ChevronDown, Loader2, MapPin, X } from "lucide-react";
 import { cn } from "@/components/ui/utils";
 import { Input } from "@/components/ui/input";
+import { TYPE_LABEL } from "@/lib/property-helpers";
+import { propertyTypeChoiceSchema } from "@/lib/data/types/property";
 import type { QuickAddPin } from "./quick-add";
 import { quickAddAddressLine } from "./quick-add";
 
-// Fields the user can correct in the card. Deliberately a small subset — the rest of the property
-// (type, financials, photos) belongs in the wizard, which already asks for them in order.
+// Fields the user can set in the card. Deliberately a small subset — financials and photos belong
+// in the wizard, which already asks for them in order. Property type is here because it is the one
+// required field that cannot be derived from a coordinate: `createProperty` rejects a record
+// without it, and guessing one would quietly file a house as land.
 export type QuickAddFields = {
+  propertyType: string;
   name: string;
   addressLine: string;
   city: string;
@@ -30,13 +35,18 @@ interface QuickAddPanelProps {
 // One label treatment for the whole card, so the five of them cannot drift apart.
 const LABEL = "block text-[11px] font-semibold uppercase tracking-[0.05em] text-secondary mb-1.5";
 
+// A native <select> cannot use the Input component (different element), so it restates Input's
+// classes. Same approach Step2BasicInfo takes for the wizard's province control.
+const SELECT =
+  "h-11 md:h-9 w-full min-w-0 appearance-none rounded-md border border-input bg-input-background px-3 pr-8 text-base text-foreground outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] md:text-sm";
+
 // The quick-add card, in the same slot the property drawer occupies (right sidebar on tablet+,
 // bottom sheet on phone) so the handoff reads as one surface rather than two.
 //
 // One card, two beats: before confirmation it shows what was resolved at the pin (the last cheap
-// moment to catch a wrong street, before a draft exists); after, the same slot becomes the place
-// the user starts adding details. Replacing the panel with a second panel would flash the drawer's
-// slide-out/slide-in animations for no reason.
+// moment to catch a wrong street, before a record exists); after, the same slot shows the property
+// that was created. Replacing the panel with a second panel would flash the drawer's
+// slide-out/slide-in animations for no reason — so the card morphs into the drawer instead.
 //
 // Hierarchy is carried by TYPE, not by boxes: the resolved address is the anchor (largest, boldest
 // thing in the card), the coordinates are reference data, and the editable fields sit below a
@@ -125,6 +135,29 @@ export function QuickAddPanel({
           <>
             <div className="my-4 h-px bg-border-subtle" role="presentation" />
             <div className="flex flex-col gap-3">
+              <div>
+                <label htmlFor="quick-add-type" className={LABEL}>
+                  Property type
+                </label>
+                <div className="relative">
+                  <select
+                    id="quick-add-type"
+                    value={fields.propertyType}
+                    onChange={(e) => onFieldChange("propertyType", e.target.value)}
+                    className={cn(SELECT, !fields.propertyType && "text-muted-foreground")}
+                  >
+                    <option value="" disabled>
+                      Select a type
+                    </option>
+                    {propertyTypeChoiceSchema.options.map((t) => (
+                      <option key={t} value={t}>
+                        {TYPE_LABEL[t]}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                </div>
+              </div>
               <div>
                 <label htmlFor="quick-add-name" className={LABEL}>
                   Property name

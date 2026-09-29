@@ -2,30 +2,27 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { reverseQuery } from "@/app/_shared/add-property/_lib/use-geocode";
-import { upsertPropertyDraftAction } from "@/app/actions/property-drafts";
-import {
-  QUICK_ADD_STEP,
-  quickAddToDraftForm,
-  type QuickAddPin,
-} from "./quick-add";
+import { submitPropertyAction } from "@/app/(shell)/add-property/actions";
+import { quickAddFormData, quickAddPropertyName, type QuickAddPin } from "./quick-add";
 import type { QuickAddFields } from "./QuickAddPanel";
 
 // How long to wait after the pin stops before asking for its address. Matches the wizard's
 // `useGeocode` debounce, and keeps a nudge-and-release from firing a second billed lookup.
 const LOOKUP_DEBOUNCE_MS = 300;
 
-const EMPTY_FIELDS: QuickAddFields = { name: "", addressLine: "", city: "" };
+const EMPTY_FIELDS: QuickAddFields = { propertyType: "", name: "", addressLine: "", city: "" };
 
 function prefersReducedMotion(): boolean {
   return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
 // State machine for the map's quick-add flow: arm → drop/drag a pin → confirm → the card becomes the
-// property editor.
+// property's sidebar.
 //
-// The draft is created on confirm, not on drop, so a pin the user abandons never leaves an orphan
-// row. After that first write the server mints a DRFT id, and later edits update it — the same
-// create-once-then-update shape `useDrafts` uses in the wizard.
+// The property is created on confirm, not on drop, so a pin the user abandons never leaves an
+// orphan row. Confirm is the ONLY write in this flow: it goes through the wizard's own submit
+// action, so a quick-added property is built by exactly the same mapping and validation as one
+// added through the wizard — there is no second create path to keep in sync.
 export function useQuickAdd() {
   const [active, setActive] = useState(false);
   const [pin, setPin] = useState<QuickAddPin | null>(null);
@@ -33,7 +30,6 @@ export function useQuickAdd() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fields, setFields] = useState<QuickAddFields>(EMPTY_FIELDS);
-  const [draftId, setDraftId] = useState<string | null>(null);
   // False only in the window between dropping a fresh pin and the pin's arrival animation ending.
   const [settled, setSettled] = useState(true);
   const reducedMotion = useRef(false);
@@ -45,6 +41,10 @@ export function useQuickAdd() {
   // Monotonic request id. A slow lookup for an old coordinate must never overwrite the result for a
   // newer one — the user drags faster than the network answers.
   const lookupSeq = useRef(0);
+  // The property this flow created. Confirm is the only write, and it must stay the only one: the
+  // card is still on screen while the page re-fetches, so a second click would create a second
+  // property. Once this is set, confirm returns the same id without writing again.
+  const createdIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     reducedMotion.current = prefersReducedMotion();
@@ -57,16 +57,16 @@ export function useQuickAdd() {
   const start = useCallback(() => {
     setActive(true);
     hasPinRef.current = false;
+    createdIdRef.current = null;
     setPin(null);
     setFields(EMPTY_FIELDS);
     setError(null);
-    setDraftId(null);
     setSettled(true);
     setResolving(false);
   }, []);
 
-  // Leave the mode. An already-created draft is deliberately NOT deleted — the user may have typed
-  // a name, and the wizard's Step 0 draft list is the right place to offer it back.
+  // Leave the mode. The property that was created is NOT deleted — the user asked for it, and the
+  // map keeps its pin. Only the card goes away.
   const cancel = useCallback(() => {
     lookupSeq.current += 1; // invalidate any in-flight lookup
     if (lookupTimer.current) clearTimeout(lookupTimer.current);
@@ -93,6 +93,7 @@ export function useQuickAdd() {
       // The provider's parts are a starting point the user can correct below. Never clobber
       // something they already typed.
       setFields((prev) => ({
+        propertyType: prev.propertyType,
         name: prev.name,
         addressLine: address?.addressLine ?? prev.addressLine,
         city: address?.city ?? prev.city,
@@ -137,34 +138,34 @@ export function useQuickAdd() {
     setFields((prev) => ({ ...prev, [key]: value }));
   }, []);
 
-  // Confirm: create the draft once, then update it. Returns the draft id so the caller can link to
-  // the wizard, or null if the write failed.
+  // Confirm: create the property. Returns its id so the caller can open its drawer and refresh the
+  // map, or null if the write failed.
   const confirm = useCallback(async (): Promise<string | null> => {
+    // Already created — return that property instead of writing a second one. The card stays on
+    // screen while the page re-fetches its data, so this click is reachable.
+    if (createdIdRef.current) return createdIdRef.current;
     if (!pin || saving) return null;
     setSaving(true);
     setError(null);
 
-    const form = quickAddToDraftForm(pin, fields.name, {
+    const form = quickAddFormData(pin, quickAddPropertyName(pin, fields.name), {
+      propertyType: fields.propertyType,
       addressLine: fields.addressLine,
       city: fields.city,
     });
-    const title = fields.name.trim() || "Untitled Property";
 
-    const res = await upsertPropertyDraftAction({
-      ...(draftId ? { id: draftId } : {}),
-      title,
-      step: QUICK_ADD_STEP,
-      form: form as unknown as Record<string, unknown>,
-    });
-
+    // The wizard's own submit action — same Zod gate, same FormData → NewProperty mapping, same
+    // lat/lng requirement. A missing name or type is refused there with a message meant for a user,
+    // so surface it rather than inventing a second one here.
+    const res = await submitPropertyAction(form);
     setSaving(false);
-    if (!res.ok) {
-      setError("Couldn't save this location. Please try again.");
+    if (!res.ok || !res.propertyId) {
+      setError(res.error ?? "Couldn't add this property. Please try again.");
       return null;
     }
-    setDraftId(res.data.id);
-    return res.data.id;
-  }, [pin, saving, fields, draftId]);
+    createdIdRef.current = res.propertyId;
+    return res.propertyId;
+  }, [pin, saving, fields]);
 
   return {
     active,
@@ -173,7 +174,6 @@ export function useQuickAdd() {
     saving,
     error,
     fields,
-    draftId,
     settled,
     reducedMotion,
     start,

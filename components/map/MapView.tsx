@@ -35,6 +35,11 @@ export function MapView({
   const activeMarkersRef = useRef<Map<string, mapboxgl.Marker>>(new Map());
   const pinMarkersRef = useRef<Map<string, mapboxgl.Marker>>(new Map());
   const clusterIndex = useRef<Supercluster | null>(null);
+  // Latest properties, so the map's own event handlers (bound once, in the init effect) never read
+  // a stale closure — same reason isDark/isSatellite keep refs. A property created after mount must
+  // be findable by updateClusters, which is called from map `move` long after that first render.
+  const propertiesRef = useRef(properties);
+  propertiesRef.current = properties;
   const exitingMarkersRef = useRef<
     Map<string, { marker: mapboxgl.Marker; timeout: ReturnType<typeof setTimeout> }>
   >(new Map());
@@ -53,7 +58,7 @@ export function MapView({
     // Build cluster index once
     const index = new Supercluster({ radius: 60, maxZoom: 14 });
     index.load(
-      properties.map((p) => ({
+      propertiesRef.current.map((p) => ({
         type: "Feature" as const,
         geometry: { type: "Point" as const, coordinates: [p.lng, p.lat] },
         properties: { id: p.id },
@@ -124,6 +129,26 @@ export function MapView({
         : "mapbox://styles/mapbox/light-v11";
     map.setStyle(style);
   }, [isDark, isSatellite]);
+
+  // Rebuild the cluster index when the property set changes — a property created by Quick Add lands
+  // in the list but not in the index built on mount, so it would be in the sidebar and invisible on
+  // the map. updateClusters then diffs the new cluster set against the visible markers, which adds
+  // the new pin and animates the removed ones out.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !clusterIndex.current) return;
+    clusterIndex.current.load(
+      properties.map((p) => ({
+        type: "Feature" as const,
+        geometry: { type: "Point" as const, coordinates: [p.lng, p.lat] },
+        properties: { id: p.id },
+      }))
+    );
+    updateClusters(map);
+    // updateClusters is redeclared every render; depending on it would loop. The property list is
+    // the only real input.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [properties]);
 
   // Update marker highlight when selectedId changes
   useEffect(() => {
@@ -422,7 +447,7 @@ export function MapView({
         });
         activeMarkersRef.current.set(key, m);
       } else {
-        const property = properties.find((p) => p.id === f.properties.id)!;
+        const property = propertiesRef.current.find((p) => p.id === f.properties.id)!;
         const { wrapper } = createPinElement(property);
         const pin = wrapper.querySelector<HTMLElement>("[data-pin]");
         if (pin) {

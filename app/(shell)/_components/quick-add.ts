@@ -1,8 +1,8 @@
 // Pure mapping for the map's quick-add flow.
 //
 // Kept out of the component so it is testable without a browser. The wizard's `FormData` is the
-// contract between a dropped pin and the draft it becomes, so getting this shape wrong would
-// silently produce a draft that the wizard cannot resume.
+// contract between a dropped pin and the property it becomes, so getting this shape wrong would
+// silently produce a record the wizard could not have made.
 
 import { defaultForm } from "@/app/_shared/add-property/types";
 import type { FormData } from "@/app/_shared/add-property/types";
@@ -16,16 +16,14 @@ export type QuickAddPin = {
   address: GeocodeSuggestion | null;
 };
 
-// A quick-added pin IS a step-2 artifact (address + pin), so the draft lands on step 2 instead of
-// inventing a second entry point into the wizard.
-export const QUICK_ADD_STEP = 2;
-
-export function quickAddToDraftForm(
+// A quick-added pin supplies the address and the pin, so the form it builds is the same shape the
+// wizard's step 2 builds — which is what lets it go straight through mapWizardToProperty.
+export function quickAddFormData(
   pin: QuickAddPin,
   name: string,
-  // Fields the user edited in the card after confirmation. Anything they touched wins over the
-  // provider's value — the same "the user's text is the record of intent" rule the wizard follows.
-  overrides: Partial<Pick<FormData, "addressLine" | "city" | "province" | "zip" | "country">> = {},
+  // Fields the user set in the card. Anything they touched wins over the provider's value — the
+  // same "the user's text is the record of intent" rule the wizard follows.
+  overrides: Partial<Pick<FormData, "propertyType" | "addressLine" | "city" | "province" | "zip" | "country">> = {},
 ): FormData {
   const a = pin.address;
   const province = overrides.province ?? a?.province ?? "";
@@ -33,6 +31,7 @@ export function quickAddToDraftForm(
     ...defaultForm,
     method: "manual",
     propertyName: name.trim(),
+    propertyType: overrides.propertyType ?? defaultForm.propertyType,
     mapCenter: pin.center,
     addressLine: overrides.addressLine ?? a?.addressLine ?? "",
     city: overrides.city ?? a?.city ?? "",
@@ -56,4 +55,12 @@ export function quickAddAddressLine(pin: QuickAddPin): string {
   // as "... Street 398, Phnom Penh, Phnom Penh".
   const parts = [a.addressLine, a.city, a.province].filter((p): p is string => !!p);
   return [...new Set(parts)].join(", ");
+}
+
+// The name the property gets when the user confirms without typing one. `createProperty` requires a
+// name, and the primary gesture here is "drop a pin, hit confirm" — so an empty box must not be a
+// dead end. The address the user just confirmed is the honest default: it is a real value from the
+// provider, and it labels the map pin better than a placeholder would.
+export function quickAddPropertyName(pin: QuickAddPin, typed: string): string {
+  return typed.trim() || quickAddAddressLine(pin) || "Untitled Property";
 }

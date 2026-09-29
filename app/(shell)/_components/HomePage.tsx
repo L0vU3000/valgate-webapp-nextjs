@@ -80,6 +80,9 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
   const [placeholderVisible, setPlaceholderVisible] = useState(true);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [isSatellite, setIsSatellite] = useState(false);
+  // The property quick-add just created, held until the refreshed list contains it (see the handoff
+  // effect below). Non-null means "creation succeeded, waiting for the server data".
+  const [handoffId, setHandoffId] = useState<string | null>(null);
   // Cover photo for the currently-open drawer, resolved lazily when a pin is selected
   // (signed urls are short-lived, so we sign one on open rather than all up front).
   const [drawerCover, setDrawerCover] = useState<{ id: string; url: string | null } | null>(null);
@@ -137,10 +140,35 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
 
   const handleQuickAddConfirm = useCallback(async () => {
     const id = await quickAdd.confirm();
-    // Straight into the wizard with the map's location already in the draft, rather than growing a
-    // second property form on the map. The draft was created by `confirm`.
-    if (id) router.push(`/add-property?draftId=${id}`);
+    if (!id) return;
+    // The property exists now. Point the drawer at it and re-fetch the server-rendered data so the
+    // map, the stats bar and the drawer all see it — without the refresh, the record is in the DB
+    // while `initialProperties` (which both the map's markers and the drawer's lookup read) is still
+    // the list from page load.
+    //
+    // The card is closed by the effect below, not here: the drawer can only render once the new
+    // property is in `initialProperties`, so closing the card now would leave the slot empty for
+    // however long the refresh takes.
+    setHandoffId(id);
+    setSelectedPin(id);
+    router.refresh();
   }, [quickAdd, router]);
+
+  // Hand the card's slot to the drawer in a single commit: this runs on the render where the
+  // refreshed property list first contains the new record, so the card unmounts and the drawer
+  // mounts together and the sidebar is never empty in between.
+  //
+  // Deps use `quickAdd.active`, not the `quickAdd` object: that object is rebuilt every render, so
+  // depending on it would re-run this effect constantly — the same reason the map-click effect above
+  // lists primitives.
+  const quickAddActive = quickAdd.active;
+  const quickAddCancel = quickAdd.cancel;
+  useEffect(() => {
+    if (!handoffId || !quickAddActive) return;
+    if (!initialProperties.some((p) => p.id === handoffId)) return;
+    quickAddCancel();
+    setHandoffId(null);
+  }, [handoffId, quickAddActive, quickAddCancel, initialProperties]);
 
   // Cmd+K / Ctrl+K to open command palette
   useEffect(() => {
