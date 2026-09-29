@@ -57,6 +57,11 @@ export function addBoundaryLayer(
     type: "line",
     source: BOUNDARY_SOURCE_ID,
     ...(opts.minZoom != null ? { minzoom: opts.minZoom } : {}),
+    // `line-join: round` is load-bearing, not cosmetic. These rings come from a survey and carry
+    // near-collinear vertices (KEP00001 has one at ~-1° between two 12 m and 30 m edges). Mapbox's
+    // default miter join projects that vertex OUTWARD to build the corner, which draws a spike that
+    // does not exist in the data — reproduced in isolation. Round joins cannot overshoot a vertex.
+    layout: { "line-join": "round", "line-cap": "round" },
     paint: { "line-color": "#2563eb", "line-width": 2 },
   });
 }

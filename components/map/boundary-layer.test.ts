@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { boundaryBounds, fitBoundary } from "./boundary-layer";
+import { boundaryBounds, fitBoundary, addBoundaryLayer, BOUNDARY_LINE_ID } from "./boundary-layer";
+import type { BoundaryGeometry } from "@/lib/data/types/land-parcel";
 
 // The bug this guards: the detail map opened at a fixed zoom 15, where the smallest parcel in the
 // reference set (~17 m across) draws at under 4 px and is hidden behind a 36 px pin. Fitting to
@@ -53,5 +54,38 @@ describe("fitBoundary", () => {
     const { map, calls } = fakeMap();
     expect(fitBoundary(map, null)).toBe(false);
     expect(calls).toHaveLength(0);
+  });
+});
+
+describe("boundary line style", () => {
+  // The bug this guards: Mapbox's default `line-join: miter` projects a near-collinear vertex
+  // OUTWARD when building the corner, drawing a spike that is not in the data. 31 of the 41
+  // reference rings have such a vertex (KEP00001's is ~1.2° between a 12 m and a 30 m edge), so the
+  // spike was visible on most parcels. A round join cannot overshoot, so `line-join` is required
+  // rather than cosmetic — and it must be LAYOUT, not paint (Mapbox rejects it in paint).
+  function captureLayers(geometry: BoundaryGeometry) {
+    const added: { id: string; [k: string]: unknown }[] = [];
+    const map = {
+      getSource: () => undefined,
+      addSource: () => {},
+      addLayer: (l: { id: string }) => added.push(l),
+    } as unknown as Parameters<typeof addBoundaryLayer>[0];
+    addBoundaryLayer(map, geometry);
+    return added;
+  }
+
+  const square: BoundaryGeometry = {
+    type: "Polygon",
+    coordinates: [[[104.5, 11.45], [104.5001, 11.45], [104.5001, 11.4501], [104.5, 11.4501]]],
+  };
+
+  it("uses a round join so a near-collinear vertex cannot spike", () => {
+    const line = captureLayers(square).find((l) => l.id === BOUNDARY_LINE_ID)!;
+    expect(line.layout).toMatchObject({ "line-join": "round" });
+  });
+
+  it("keeps line-join out of paint, where Mapbox would reject it", () => {
+    const line = captureLayers(square).find((l) => l.id === BOUNDARY_LINE_ID)!;
+    expect(line.paint).not.toHaveProperty("line-join");
   });
 });
