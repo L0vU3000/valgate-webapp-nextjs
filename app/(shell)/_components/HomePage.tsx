@@ -133,20 +133,23 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quickAdd.active, quickAdd.dropPin, mapLoaded]);
 
-  // Bring a searched address into view. Only a search sets `focus`: a pin the user tapped or dragged
-  // is already where they were looking, and flying on every drag would fight the gesture. Reduced
-  // motion jumps instead of travelling — the address is the information, the flight is not.
-  const quickAddFocus = quickAdd.focus;
+  // Bring the highlighted suggestion into view. Only the suggestion list sets `preview`, so a pin
+  // the user tapped or dragged is left alone — it is already where they were looking, and flying on
+  // every drag would fight the gesture. Reduced motion jumps instead of travelling: the address is
+  // the information, the flight is not.
+  const quickAddPreview = quickAdd.preview;
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !quickAddFocus) return;
-    const [lng, lat] = quickAddFocus;
+    if (!map || !quickAddPreview) return;
+    const [lng, lat] = quickAddPreview;
     if (quickAdd.reducedMotion.current) {
       map.jumpTo({ center: [lng, lat] });
     } else {
-      map.flyTo({ center: [lng, lat], zoom: Math.max(map.getZoom(), 15), duration: 900 });
+      // 700ms, not the 900ms of a deliberate "take me there": this replays on every arrow key, so it
+      // has to settle before the next one lands or the camera never stops moving.
+      map.flyTo({ center: [lng, lat], zoom: Math.max(map.getZoom(), 15), duration: 700 });
     }
-  }, [quickAddFocus, quickAdd.reducedMotion]);
+  }, [quickAddPreview, quickAdd.reducedMotion]);
 
   const startQuickAdd = useCallback(() => {
     // The quick-add card and the property drawer share one slot, so opening one closes the other.
@@ -417,7 +420,7 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
                   suggestions={quickAdd.suggestions}
                   loading={quickAdd.searching}
                   onChange={quickAdd.searchAddress}
-                  onSubmit={quickAdd.submitAddress}
+                  onHighlight={quickAdd.highlightAddress}
                   onPick={quickAdd.pickAddress}
                 />
                 <button
@@ -456,11 +459,14 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
 
         {/* Quick-add pin. Owned by its own layer because MapView's markers are a Supercluster view of
             saved properties that rebuilds on every map move — a pin being dragged is neither. The
-            address is looked up on drop and on drag end, so it follows the pin. */}
+            address is looked up on drop and on drag end, so it follows the pin.
+            `preview` wins while it exists: the suggestion the list is pointing at is the thing the
+            camera is flying to, so it must be the thing on screen. */}
         <QuickAddPinLayer
           mapRef={mapRef}
           active={quickAdd.active}
-          pin={quickAdd.pin?.center ?? null}
+          pin={quickAdd.preview ?? quickAdd.pin?.center ?? null}
+          preview={!!quickAdd.preview}
           onPinChange={quickAdd.resolveAt}
           reducedMotion={quickAdd.reducedMotion.current}
         />

@@ -2,14 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  geocodeQuery,
   reverseQuery,
   useGeocode,
   type GeocodeSuggestion,
 } from "@/app/_shared/add-property/_lib/use-geocode";
 import { submitPropertyAction } from "@/app/(shell)/add-property/actions";
 import {
-  bestAddressMatch,
   mergeAddressFields,
   quickAddFormData,
   quickAddPropertyName,
@@ -46,11 +44,12 @@ export function useQuickAdd() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fields, setFields] = useState<QuickAddFields>(EMPTY_FIELDS);
-  // The coordinate a search chose, or null. Only a search sets it, so the map follows a searched
-  // address (which can be anywhere) and leaves a tapped or dragged pin alone — the pin is already
-  // under the user's finger, and flying there would fight the gesture. A fresh array each time, so
-  // searching the same address twice still counts as a change.
-  const [focus, setFocus] = useState<[number, number] | null>(null);
+  // The address the suggestion list is currently pointing at — the pre-selected first row, or
+  // wherever ↑/↓ landed. Drives both the map flight and a preview pin, so the user sees where the
+  // provider thinks their words point BEFORE committing to it. The provider mis-ranks this corpus
+  // (live: "j Tower 2" puts "J And T Express St 271" above the real "J Tower 2 BKK1"), so this
+  // preview is the correction path, not a nicety.
+  const [preview, setPreview] = useState<[number, number] | null>(null);
   const reducedMotion = useRef(false);
 
   // The same search the wizard's address step uses — one debounce, one provider contract, one
@@ -98,7 +97,7 @@ export function useQuickAdd() {
     setError(null);
     setResolving(false);
     setSaving(false);
-    setFocus(null);
+    setPreview(null);
     clearGeocode();
   }, [clearGeocode]);
 
@@ -110,7 +109,7 @@ export function useQuickAdd() {
     setResolving(false);
     setPin({ center, address });
     setFields((prev) => mergeAddressFields(prev, address));
-    setFocus(center);
+    setPreview(null);
   }, []);
 
   // Resolve the address for a coordinate: debounce, then one reverse lookup. The sequence guard
@@ -133,9 +132,11 @@ export function useQuickAdd() {
     }, LOOKUP_DEBOUNCE_MS);
   }, []);
 
-  // A fresh drop (a tap on the map).
+  // A fresh drop (a tap on the map). A tap is a deliberate placement, so it supersedes a suggestion
+  // being previewed — without this the tap looks ignored, because the preview owns the marker.
   const dropPin = useCallback(
     (center: [number, number]) => {
+      setPreview(null);
       setPin({ center, address: null });
       lookupAddress(center);
     },
@@ -146,6 +147,7 @@ export function useQuickAdd() {
   // old address is cleared immediately (it described the previous spot) and re-resolved.
   const resolveAt = useCallback(
     (center: [number, number]) => {
+      setPreview(null);
       setPin({ center, address: null });
       lookupAddress(center);
     },
@@ -153,7 +155,7 @@ export function useQuickAdd() {
   );
 
   // Typing in the address bar. The suggestion list is the pick list the provider's accuracy
-  // requires — never silently take the first answer.
+  // requires — the pre-selected row is a starting point the arrows and the map preview correct.
   const searchAddress = useCallback(
     (value: string) => {
       setQuery(value);
@@ -174,25 +176,11 @@ export function useQuickAdd() {
     [applyLocation, clearGeocode],
   );
 
-  // Enter with nothing picked: commit only to a candidate the query actually names, then let the
-  // same suggestions stand as the correction path if none matches.
-  const submitAddress = useCallback(async () => {
-    if (!query.trim()) return;
-    // Reuse the list already on screen when there is one; otherwise ask once for the typed text.
-    // `geocodeQuery` rather than the hook's `lookup`: that one returns a single best guess, which is
-    // exactly the guess this must not make.
-    const candidates =
-      geocode.suggestions.length > 0 ? geocode.suggestions : await geocodeQuery(query);
-    const best = bestAddressMatch(query, candidates);
-    clearGeocode();
-    if (!best) {
-      setError("No address found for that search. Try a different one, or tap the map.");
-      return;
-    }
-    applyLocation(best.center, best);
-    setQuery(best.placeName);
-    setError(null);
-  }, [query, geocode.suggestions, clearGeocode, applyLocation]);
+  // The highlight moved. The map flies there and a preview pin marks the spot, so the row under the
+  // cursor is always the thing on screen — that is the whole point of pre-selecting the first one.
+  const highlightAddress = useCallback((suggestion: GeocodeSuggestion | null) => {
+    setPreview(suggestion ? suggestion.center : null);
+  }, []);
 
   const setField = useCallback((key: keyof QuickAddFields, value: string) => {
     setFields((prev) => ({ ...prev, [key]: value }));
@@ -237,7 +225,7 @@ export function useQuickAdd() {
     saving,
     error,
     fields,
-    focus,
+    preview,
     reducedMotion,
     start,
     cancel,
@@ -245,7 +233,7 @@ export function useQuickAdd() {
     resolveAt,
     searchAddress,
     pickAddress,
-    submitAddress,
+    highlightAddress,
     setField,
     confirm,
   };

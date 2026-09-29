@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
 import {
-  bestAddressMatch,
   quickAddFormData,
   quickAddAddressLine,
   mergeAddressFields,
+  moveHighlight,
   quickAddPropertyName,
   type QuickAddPin,
 } from "@/app/(shell)/_components/quick-add";
@@ -140,44 +140,21 @@ describe("mergeAddressFields", () => {
   });
 });
 
-describe("bestAddressMatch", () => {
-  // Real payload from /api/v1/address/suggest?q=j Tower 2. The provider ranks "J And T Express St
-  // 271" FIRST and the building the user named only third — so the obvious `items[0]` implementation
-  // would confirm a pin on the wrong building. These are the actual strings, not invented ones.
-  const live = [
-    suggestion({
-      id: "a",
-      placeName: "Yothapol Khemarak Phumin Boulevard 271, Meanchey, Phnom Penh, Cambodia, 120612",
-      mainText: "J And T Express St 271",
-      center: [104.917256, 11.526982],
-    }),
-    suggestion({ id: "b", placeName: "Street 271, Toul Kouk, Phnom Penh", mainText: "J And T Express St 271", center: [104.887, 11.553] }),
-    suggestion({
-      id: "c",
-      placeName: "J Tower 2 BKK1, Street 398, Boeng Keng Kang, Phnom Penh",
-      mainText: "J Tower 2 BKK1",
-      center: [104.92391428562706, 11.545366339856642],
-    }),
-    suggestion({ id: "d", placeName: "J Tower, Chomkarmon, Phnom Penh", mainText: "J Tower", center: [104.924837, 11.543149] }),
-  ];
-
-  it("picks the building the query names, not the provider's first result", () => {
-    expect(bestAddressMatch("j Tower 2", live)?.id).toBe("c");
+describe("moveHighlight", () => {
+  // Clamped, not wrapping. Wrapping would make ArrowUp at the top of a short list jump to the far
+  // end and fly the map to the last address — a bigger, wronger move than doing nothing.
+  it("walks down and up the list", () => {
+    expect(moveHighlight(0, 5, 1)).toBe(1);
+    expect(moveHighlight(3, 5, -1)).toBe(2);
   });
 
-  // No row was clicked, so nothing should be committed on a guess. The pick list stays the answer —
-  // the caller shows an error rather than dropping a pin on an unrelated street.
-  it("refuses to commit when no candidate matches the text", () => {
-    expect(bestAddressMatch("Koh Pich penthouse", live)).toBeNull();
+  it("stops at both ends instead of wrapping", () => {
+    expect(moveHighlight(0, 5, -1)).toBe(0);
+    expect(moveHighlight(4, 5, 1)).toBe(4);
   });
 
-  it("takes a lone candidate without needing a text match", () => {
-    expect(bestAddressMatch("anything at all", [live[2]])?.id).toBe("c");
-  });
-
-  it("returns null for an empty list or a blank query", () => {
-    expect(bestAddressMatch("j Tower 2", [])).toBeNull();
-    expect(bestAddressMatch("   ", live)).toBeNull();
+  it("stays at zero for an empty list", () => {
+    expect(moveHighlight(0, 0, 1)).toBe(0);
   });
 });
 
