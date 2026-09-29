@@ -31,9 +31,9 @@ export function PortfolioLegend({
   stats: PortfolioStats;
   mapLoaded: boolean;
   drawerOpen: boolean;
-  // True while the quick-add card occupies the drawer slot. Distinct from `drawerOpen` because the
-  // two want different placement: the property drawer leaves the pill centred in the space beside
-  // it, the quick-add card parks it against the left edge (see `align` below).
+  // True as soon as quick-add is active — before a pin is dropped and while suggestions are only
+  // previewed. Distinct from `drawerOpen` because the two want different placement: the property
+  // drawer leaves the pill centred in the space beside it, quick-add parks it left (see `align`).
   quickAddOpen?: boolean;
   // Rendered directly above the stats card, inside the same positioned wrapper. The action button
   // lives here rather than in HomePage so it inherits the legend's placement maths — safe-area
@@ -44,14 +44,28 @@ export function PortfolioLegend({
   const isMobile = useIsMobile();
 
   // Quick add moves the whole column — search bar and stats pill both — to the left edge of the map
-  // pane. With the card up on the right, the pill is reference data: centring it in the gap left
-  // over would leave it sliding around under the card on every pin drag.
+  // pane, from the moment it becomes active. The card lands on the right, so the pill gets out of
+  // the way up front and does not slide around under the card on every pin drag.
   const align = !isMobile && quickAddOpen;
 
   // On mobile the drawer pushes up from the bottom (not from the right),
-  // so the right offset is only meaningful at tablet+ widths. Left-aligned, there is nothing to
-  // centre in, so the offset goes away entirely.
-  const rightOffset = !isMobile && drawerOpen && !align ? "20rem" : 0;
+  // so the centre shift is only meaningful at tablet+ widths. Left-aligned, there is nothing to
+  // centre in, so the shift goes away entirely.
+  //
+  // Expressed as an offset on `left` rather than a `right` inset: the anchored element is
+  // shrink-to-fit, so a `right` inset would resize it, and the pill inside it would not track the
+  // resize smoothly. Half the drawer width pulls the centred pill to the same spot either way — the
+  // old `left: 0; right: 20rem` and `justify-center` centred it at `50% - 10rem`.
+  const centreShift = !isMobile && drawerOpen && !align ? "10rem" : "0px";
+
+  // Anchored with `left` + `transform` instead of `justify-content`: changing a justify value is
+  // discrete, so the move to the left edge used to snap. Both of these interpolate, so the column
+  // glides. Written as `calc()` in both states so the interpolated values stay the same shape as
+  // the endpoints. Same resting positions as before: centred on the map pane's middle (less half
+  // the drawer), or 1rem from its left edge while quick-add is active.
+  const anchor = align
+    ? { left: "calc(0% + 1rem)", transform: "translateX(0)" }
+    : { left: `calc(50% - ${centreShift})`, transform: "translateX(-50%)" };
 
   // Common card content (the four stats). On mobile each stat is its own
   // grid cell, on desktop they sit in a horizontal flex row with dividers.
@@ -152,11 +166,15 @@ export function PortfolioLegend({
     <div
       data-no-drag
       className={cn(
-        "absolute bottom-4 z-10 flex transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]",
-        // Left-aligned while the quick-add card is up; otherwise centred in the map pane.
-        align ? "justify-start pl-4" : "justify-center",
+        // 600ms on the Material standard curve, not the house expo-out. Expo-out front-loads the
+        // move: sampled at 60fps it covers 16% of this ~390px travel in one frame, which reads as a
+        // snap with a long tail. Standard spreads that to 7.5% per frame and still settles in 0.58s.
+        // (`transition-all` so the pin-gated drawer shift, which moves `left` the same way, matches.)
+        "absolute bottom-4 z-10 flex transition-all duration-[600ms] ease-[cubic-bezier(0.4,0,0.2,1)]",
       )}
-      style={{ left: 0, right: rightOffset }}
+      // Shrink-to-fit box anchored by `left`/`transform` (see `anchor`), so the outer flex needs no
+      // justify value: the column is the only child.
+      style={{ ...anchor, right: "auto" }}
     >
       <div
         className={cn(
