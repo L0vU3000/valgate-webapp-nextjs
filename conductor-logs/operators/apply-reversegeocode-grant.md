@@ -1,17 +1,48 @@
 # Operator step: grant `geo-places:ReverseGeocode`
 
-**Status: NOT APPLIED.** `valgate-storage` cannot read or write its own IAM policies
-(`iam:GetUserPolicy`, `iam:ListUserPolicies`, `iam:PutUserPolicy` all return AccessDenied), and this
-machine holds no admin credentials — `~/.aws/{config,credentials}` contain only `[default]` =
-`valgate-storage`, no SSO, no admin profile.
+**Status: APPLIED AND VERIFIED 2026-09-29.**
 
-**What it unblocks:** the add-property wizard's pin→address feature. Dragging the map pin calls
-`/api/v1/address/reverse`, which fails with `AccessDeniedException` until this lands. Address *search*
-(`SearchText`) already works.
+The policy `ValgateGeoPlacesBakeoff` now holds two statements — `SearchText` and `ReverseGeocode`,
+both on `arn:aws:geo-places:ap-southeast-1::provider/default`. Applied by the owner in the AWS
+console (JSON tab, two separate statements; the earlier "add a new action to the existing statement"
+approach would have worked too).
+
+Evidence (this machine, after the edit):
+
+```
+$ aws geo-places reverse-geocode --region ap-southeast-1 \
+    --query-position 104.9239 11.5454 --language en \
+    --query 'ResultItems[0].Address.Street' --output text
+Street 398
+
+ 104.9282 11.5564  -> Preah Sihanouk Boulevard 274
+ 104.9180 11.5500  -> Street 113
+ 104.9350 11.5400  -> Street 369
+```
+
+And through the app's own service module (`lib/services/address.ts`), real AWS, no mocks:
+
+```
+$ npm run test:db   # tests/grabmaps-address.db.test.ts
+Test Files  1 passed (1) | Tests  2 passed (2)
+```
+
+**Two traps that cost time here — both were live:**
+
+1. `--query` on a denied call prints an **empty line**, and the AWS CLI emits a leading blank line
+   before its error. A `head -1` retry loop therefore looks like it "succeeded" while actually
+   failing. Check for `AccessDenied` explicitly, or use `--output json` and read the whole body.
+2. **IAM propagation was not the cause of the delay** — 8 attempts over 2.5 minutes stayed denied,
+   then the grant worked. The lag was console save→attach, not propagation. Do not burn time
+   re-polling a correct policy; verify the policy is *attached* first.
+
+**What this unblocks:** the add-property wizard's pin→address feature. Dragging the map pin calls
+`/api/v1/address/reverse`, which returned `AccessDeniedException` until now. Address *search*
+(`SearchText`) was never blocked.
 
 ---
 
-## The command (admin principal)
+## Historic: how to apply it (admin principal)
 
 ```bash
 python3 scripts/grant-geo-places-policy.py

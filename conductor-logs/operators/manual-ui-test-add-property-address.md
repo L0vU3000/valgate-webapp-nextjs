@@ -1,14 +1,13 @@
 # Manual UI test — add-property address search + pin follow (localhost:3001)
 
-Two behaviours to check, and they have **different prerequisites**:
+Two behaviours to check. **Both are now unblocked** — the `geo-places:ReverseGeocode` grant was
+applied and verified 2026-09-29 (4 live coordinates + the app's own `test:db` lane). See
+`apply-reversegeocode-grant.md`.
 
 | Behaviour | Needs IAM grant? |
 |---|---|
-| (A) Search by street **or property name** ("J Tower 2") → suggestion shows the name, selecting it fills the address | No — already live |
-| (B) Drag the map pin → address fields follow the pin | **Yes** — `geo-places:ReverseGeocode`, currently **NOT APPLIED** |
-
-If you test (B) before the grant lands, **nothing will happen and it will look broken.** It is not
-broken; it is an unauthorised provider call. See `apply-reversegeocode-grant.md`.
+| (A) Search by street **or property name** ("J Tower 2") → suggestion shows the name, selecting it fills the address | No |
+| (B) Drag the map pin → address fields follow the pin | Yes — **granted & verified** |
 
 ## Prerequisite: the grant (do this first if you want to test B)
 
