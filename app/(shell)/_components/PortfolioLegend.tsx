@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { cn } from "@/components/ui/utils";
 import { useIsMobile } from "@/components/ui/use-mobile";
 import { formatCurrency } from "@/lib/format";
@@ -24,10 +25,16 @@ export function PortfolioLegend({
   stats,
   mapLoaded,
   drawerOpen,
+  action,
 }: {
   stats: PortfolioStats;
   mapLoaded: boolean;
   drawerOpen: boolean;
+  // Rendered directly above the stats card, inside the same positioned wrapper. The action button
+  // lives here rather than in HomePage so it inherits the legend's placement maths — safe-area
+  // inset, the FAB gap on mobile, and the drawer's right shift — instead of re-deriving them and
+  // drifting the first time one of them changes.
+  action?: ReactNode;
 }) {
   const isMobile = useIsMobile();
 
@@ -55,11 +62,13 @@ export function PortfolioLegend({
       >
         <div
           className={cn(
+            "flex flex-col gap-2",
             mapLoaded
               ? "[animation:fade-slide-up_0.5s_cubic-bezier(0.16,1,0.3,1)_300ms_both]"
               : "opacity-0",
           )}
         >
+          {action}
           <div className="grid grid-cols-2 gap-x-3 gap-y-2 bg-glass-panel-fill backdrop-blur-md border border-glass-panel-border rounded-2xl shadow-sm px-4 py-3">
             {/* Portfolio value */}
             <div className="flex flex-col">
@@ -136,11 +145,13 @@ export function PortfolioLegend({
     >
       <div
         className={cn(
+          "flex flex-col items-center gap-2",
           mapLoaded
             ? "[animation:fade-slide-up_0.5s_cubic-bezier(0.16,1,0.3,1)_300ms_both]"
             : "opacity-0",
         )}
       >
+        {action}
         <div className="flex items-center bg-glass-panel-fill backdrop-blur-md border border-glass-panel-border rounded-full shadow-sm px-5 py-2.5 gap-4 whitespace-nowrap">
           {/* Total value */}
           <div className="flex items-baseline gap-2">

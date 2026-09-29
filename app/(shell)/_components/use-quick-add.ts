@@ -37,6 +37,9 @@ export function useQuickAdd() {
   // False only in the window between dropping a fresh pin and the pin's arrival animation ending.
   const [settled, setSettled] = useState(true);
   const reducedMotion = useRef(false);
+  // Whether a pin has already been placed. The arrival animation only plays when the marker element
+  // is CREATED (first pin), so this is what decides whether there is anything to wait for.
+  const hasPinRef = useRef(false);
 
   const lookupTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Monotonic request id. A slow lookup for an old coordinate must never overwrite the result for a
@@ -53,6 +56,7 @@ export function useQuickAdd() {
   // Arm the mode. Nothing is written to the server until the user confirms a location.
   const start = useCallback(() => {
     setActive(true);
+    hasPinRef.current = false;
     setPin(null);
     setFields(EMPTY_FIELDS);
     setError(null);
@@ -67,6 +71,7 @@ export function useQuickAdd() {
     lookupSeq.current += 1; // invalidate any in-flight lookup
     if (lookupTimer.current) clearTimeout(lookupTimer.current);
     setActive(false);
+    hasPinRef.current = false;
     setPin(null);
     setResolving(false);
     setSaving(false);
@@ -100,7 +105,13 @@ export function useQuickAdd() {
   // the coordinate, so no drag event ever fires for it.
   const dropPin = useCallback(
     (center: [number, number]) => {
-      setSettled(reducedMotion.current);
+      // Only the FIRST pin animates in — QuickAddPinLayer creates the marker once and then just
+      // moves it, so a later drop has no arrival animation to wait for. Holding the panel back for
+      // one that will never fire is what made the card vanish on the user's second click and never
+      // come back.
+      const isFirstPin = !hasPinRef.current;
+      hasPinRef.current = true;
+      setSettled(isFirstPin ? reducedMotion.current : true);
       setPin({ center, address: null });
       lookupAddress(center);
     },

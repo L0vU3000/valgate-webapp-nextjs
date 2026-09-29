@@ -132,7 +132,12 @@ export function MapView({
       if (!el) return;
       if (id === selectedId) {
         el.style.transform = "scale(1.5)";
-        el.style.boxShadow = "0 0 0 4px rgba(var(--color-interactive-primary), 0.35)";
+        // color-mix, not rgba(): `rgba(var(--x), 0.35)` is invalid CSS — custom properties are
+        // substituted as raw token streams, so the ring silently never rendered and a selected pin
+        // had no indicator beyond its own 1.5× scale. Every other token-based shadow in
+        // styles/theme.css uses this form for the same reason.
+        el.style.boxShadow =
+          "0 0 0 4px color-mix(in srgb, var(--interactive-primary) 35%, transparent)";
         el.setAttribute("data-selected", "true");
       } else {
         el.style.transform = "scale(1)";

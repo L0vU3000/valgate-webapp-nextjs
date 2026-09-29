@@ -15,6 +15,7 @@ import {
   Command as CommandIcon,
   ArrowUpRight,
   MapPin,
+  LocateFixed,
   Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -95,14 +96,33 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
     if (!map || !quickAdd.active || !mapLoaded) return;
     const canvas = map.getCanvas();
     const prevCursor = canvas.style.cursor;
-    canvas.style.cursor = "crosshair";
+    // A bare crosshair says "something will happen"; it does not say what, and it is the same
+    // cursor every map tool uses. This one names the action and carries the brand colour, so the
+    // armed state is unmistakable even before the first pin is placed. The ring is drawn INSIDE
+    // the glyph area (hotspot 16,16, a dot) so the point that clicks is visibly the point that
+    // drops — a cursor whose hotspot is not where the mark is feels broken at high zoom.
+    // Plain "#2563eb" — NOT "%232563eb". encodeURIComponent below already escapes the "#" to
+    // "%23"; pre-escaping it here would double-encode to "%2523", and the SVG would then contain
+    // the literal text "%232563eb", which is not a colour, so the ring and dot would render black.
+    const CURSOR_HOTSPOT = "16 16";
+    const armCursor = `url("data:image/svg+xml,${encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">' +
+        "<circle cx='16' cy='16' r='11' fill='none' stroke='white' stroke-width='4'/>" +
+        "<circle cx='16' cy='16' r='11' fill='none' stroke='#2563eb' stroke-width='2'/>" +
+        "<circle cx='16' cy='16' r='2.5' fill='#2563eb' stroke='white' stroke-width='1.5'/>" +
+        "</svg>",
+    )}") ${CURSOR_HOTSPOT}, crosshair`;
+    canvas.style.cursor = armCursor;
     const onClick = (e: mapboxgl.MapMouseEvent) => {
       quickAdd.dropPin([e.lngLat.lng, e.lngLat.lat]);
     };
     map.on("click", onClick);
     return () => {
       map.off("click", onClick);
-      canvas.style.cursor = prevCursor;
+      // Only unwind our own cursor. Mapbox writes this same property during a pan/drag, and this
+      // effect is torn down and re-created whenever the mode toggles — restoring a captured value
+      // blindly would stomp a cursor Mapbox set in the meantime and leave a stuck targeting cursor.
+      if (canvas.style.cursor === armCursor) canvas.style.cursor = prevCursor;
     };
     // Deps are the primitives, not the `quickAdd` object itself: that object is rebuilt every render,
     // which would tear down and re-add the click listener on every render for no reason.
@@ -297,14 +317,10 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
           */}
           <div className="flex items-center gap-3 w-full sm:w-auto overflow-x-auto scrollbar-none -mx-4 sm:mx-0 px-4 sm:px-0 py-1">
             {[
-              // Quick add is the map-first path: drop a pin, confirm, then the wizard opens with the
-              // location already filled in. "New Property" stays for users who already know the
-              // address and would rather type it.
-              {
-                label: quickAdd.active ? "Cancel" : "Quick Add",
-                icon: quickAdd.active ? X : MapPin,
-                action: () => (quickAdd.active ? quickAdd.cancel() : startQuickAdd()),
-              },
+              // Quick Add is deliberately NOT in this row — it is the map's primary action, so it
+              // lives as its own blue button above the stats bar. These chips stay for the
+              // secondary destinations, and "New Property" remains for users who already know the
+              // address and would rather type it than point at it.
               { label: "New Property", icon: Plus, action: () => router.push("/add-property") },
               { label: "Portfolio", icon: BarChart2, action: () => router.push("/portfolio") },
               { label: "Documents", icon: FileText, action: () => setCommandOpen(true) },
@@ -341,6 +357,27 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
           stats={portfolioStats}
           mapLoaded={mapLoaded}
           drawerOpen={!!drawerProperty || quickAdd.active}
+          action={
+            // The map's primary action, so it gets the brand colour and reads as a button rather
+            // than one of the white chips. It sits above the stats bar because that is where the
+            // eye already goes for "what's on this map" — and it is rendered by PortfolioLegend so
+            // it inherits the legend's safe-area and drawer offsets instead of duplicating them.
+            <button
+              onClick={() => (quickAdd.active ? quickAdd.cancel() : startQuickAdd())}
+              aria-pressed={quickAdd.active}
+              aria-label={quickAdd.active ? "Cancel quick add" : "Quick Add a property on the map"}
+              className={cn(
+                "flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold shadow-lg transition-all duration-200 active:scale-[0.98]",
+                quickAdd.active
+                  ? "bg-surface-base text-foreground border border-border-default"
+                  : "bg-interactive-primary text-white hover:bg-interactive-primary-hover hover:shadow-xl",
+                mapLoaded ? "[animation:fade-slide-up_0.4s_cubic-bezier(0.16,1,0.3,1)_250ms_both]" : "opacity-0",
+              )}
+            >
+              {quickAdd.active ? <X className="size-4" /> : <LocateFixed className="size-4" />}
+              {quickAdd.active ? "Cancel" : "Quick Add"}
+            </button>
+          }
         />
 
         {/* Map controls */}
