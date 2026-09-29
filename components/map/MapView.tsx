@@ -11,6 +11,19 @@ import type { Property } from "@/lib/data/types/property";
 const CAMBODIA_CENTER: [number, number] = [104.9, 12.5];
 const CAMBODIA_ZOOM = 7;
 
+// The deepest zoom the map may reach, shared by Mapbox's `maxZoom` and Supercluster's `maxZoom`.
+//
+// Supercluster STOPS clustering above its `maxZoom` and hands back raw points. With Mapbox free to
+// reach its default 22 while Supercluster stopped at 14, any coordinate shared by several properties
+// (the seed has 8 Olympic units on one lat/lng) eventually un-clustered into 8 pins drawn on the same
+// pixel — 8 real properties, so it reads as one duplicate that never goes away. Raising Supercluster
+// alone only moves that wall: the map still out-zooms it. Pinning both to one value keeps the
+// un-clustered regime unreachable, and identical coordinates stay a cluster, which is what the
+// co-located swipe-card design wants.
+// ponytail: at max zoom a stack is still possible if a real pair sits inside `radius` px; the honest
+// fix there is the swipe cards, not a bigger number.
+const MAP_MAX_ZOOM = 20;
+
 interface MapViewProps {
   properties: Property[];
   selectedId: string | null;
@@ -55,8 +68,8 @@ export function MapView({
 
     mapboxgl.accessToken = env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
-    // Build cluster index once
-    const index = new Supercluster({ radius: 60, maxZoom: 14 });
+    // Build cluster index once. `maxZoom` matches the map's own ceiling — see MAP_MAX_ZOOM.
+    const index = new Supercluster({ radius: 60, maxZoom: MAP_MAX_ZOOM });
     index.load(
       propertiesRef.current.map((p) => ({
         type: "Feature" as const,
@@ -75,6 +88,7 @@ export function MapView({
           : "mapbox://styles/mapbox/light-v11",
       center: CAMBODIA_CENTER,
       zoom: CAMBODIA_ZOOM,
+      maxZoom: MAP_MAX_ZOOM,
       pitch: 45,
       bearing: -17.6,
       antialias: true,
@@ -99,20 +113,14 @@ export function MapView({
     map.on("style.load", () => {
       if (destroyed) return;
       add3DBuildings(map);
-      exitingMarkersRef.current.forEach(e => { clearTimeout(e.timeout); e.marker.remove(); });
-      exitingMarkersRef.current.clear();
-      activeMarkersRef.current.clear();
-      pinMarkersRef.current.clear();
+      clearMarkers();
       updateClusters(map);
     });
 
     return () => {
       destroyed = true;
+      clearMarkers();
       map.remove();
-      exitingMarkersRef.current.forEach(e => { clearTimeout(e.timeout); e.marker.remove(); });
-      exitingMarkersRef.current.clear();
-      activeMarkersRef.current.clear();
-      pinMarkersRef.current.clear();
       mapRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -272,6 +280,22 @@ export function MapView({
     });
 
     return { wrapper };
+  }
+
+  // Tear every marker out of the map, including the ones mid-exit. Clearing the refs alone is not
+  // enough: `setStyle` leaves marker DOM in the canvas container untouched, so a bare `.clear()`
+  // orphans those elements — they stay drawn on the map with nothing holding a handle to remove
+  // them, and the next updateClusters stacks a fresh marker on top. That is the glitch: duplicates
+  // that never go away, one more per style switch.
+  function clearMarkers() {
+    exitingMarkersRef.current.forEach((e) => {
+      clearTimeout(e.timeout);
+      e.marker.remove();
+    });
+    exitingMarkersRef.current.clear();
+    activeMarkersRef.current.forEach((m) => m.remove());
+    activeMarkersRef.current.clear();
+    pinMarkersRef.current.clear();
   }
 
   function updateClusters(map: mapboxgl.Map) {
@@ -439,10 +463,20 @@ export function MapView({
           .setLngLat([lng, lat])
           .addTo(map);
         el.addEventListener("click", () => {
-          const z = Math.min(
-            clusterIndex.current!.getClusterExpansionZoom(f.properties.cluster_id),
-            20
-          );
+          const expansion = clusterIndex.current!.getClusterExpansionZoom(f.properties.cluster_id);
+          // Expansion zoom above the ceiling means the cluster can never split — every member sits
+          // on the same coordinate (8 Olympic units in the seed do). Easing to a clamped zoom would
+          // be a no-op, leaving those properties unreachable on the map. Select the first member
+          // instead, so the badge still opens the drawer.
+          // ponytail: opens the first member only; the co-located swipe cards are the real design.
+          if (expansion > MAP_MAX_ZOOM) {
+            const first = clusterIndex.current!.getLeaves(f.properties.cluster_id, 1)[0];
+            if (first) {
+              onSelectProperty((first.properties as { id: string }).id);
+              return;
+            }
+          }
+          const z = Math.min(expansion, MAP_MAX_ZOOM);
           map.easeTo({ center: [lng, lat], zoom: z });
         });
         activeMarkersRef.current.set(key, m);
