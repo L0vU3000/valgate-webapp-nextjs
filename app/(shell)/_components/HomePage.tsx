@@ -151,6 +151,11 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
     }
   }, [quickAddPreview, quickAdd.reducedMotion]);
 
+  // The pin the quick-add card renders, or null when there is no card. Gated on a DROPPED PIN, not
+  // on the mode being armed: the card does not exist until then, so anything that offsets itself for
+  // that slot must not move before there is a card in it.
+  const quickAddCardPin = quickAdd.active ? quickAdd.pin : null;
+
   const startQuickAdd = useCallback(() => {
     // The quick-add card and the property drawer share one slot, so opening one closes the other.
     setSelectedPin(null);
@@ -403,7 +408,7 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
         <PortfolioLegend
           stats={portfolioStats}
           mapLoaded={mapLoaded}
-          drawerOpen={!!drawerProperty || quickAdd.active}
+          drawerOpen={!!drawerProperty || !!quickAddCardPin}
           action={
             // The map's primary action, so it gets the brand colour and reads as a button rather
             // than one of the white chips. It sits above the stats bar because that is where the
@@ -452,7 +457,7 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
         {/* Map controls */}
         <MapControls
           mapRef={mapRef}
-          drawerOpen={!!selectedProperty || quickAdd.active}
+          drawerOpen={!!selectedProperty || !!quickAddCardPin}
           isSatellite={isSatellite}
           onToggleSatellite={() => setIsSatellite((s) => !s)}
         />
@@ -474,9 +479,9 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
         {/* Quick-add card. Gated on a real pin: a suggestion being previewed is not a dropped pin,
             and the card is only ever the answer to "what is at this pin?" — it has nothing to say
             before one exists. */}
-        {quickAdd.active && quickAdd.pin && (
+        {quickAddCardPin && (
           <QuickAddPanel
-            pin={quickAdd.pin}
+            pin={quickAddCardPin}
             resolving={quickAdd.resolving}
             saving={quickAdd.saving}
             error={quickAdd.error}
