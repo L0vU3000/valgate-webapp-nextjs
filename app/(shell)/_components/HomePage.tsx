@@ -30,6 +30,9 @@ import { CommandPalette } from "@/components/home/CommandPalette";
 import { PropertyTable } from "@/components/portfolio/PropertyTable";
 import type { TableAnimationConfig } from "@/components/portfolio/PropertyTable";
 import { PortfolioLegend } from "./PortfolioLegend";
+import { QuickAddPinLayer } from "./QuickAddPinLayer";
+import { QuickAddPanel } from "./QuickAddPanel";
+import { useQuickAdd } from "./use-quick-add";
 import type mapboxgl from "mapbox-gl";
 
 const MapView = dynamic(
@@ -81,6 +84,43 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
   const [drawerCover, setDrawerCover] = useState<{ id: string; url: string | null } | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const router = useRouter();
+
+  const quickAdd = useQuickAdd();
+
+  // Map clicks drop the quick-add pin. Wired here rather than inside MapView so the map component
+  // stays unaware of quick-add, and unwired the moment the mode is off — a stray click must not drop
+  // a pin while the user is just browsing.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !quickAdd.active || !mapLoaded) return;
+    const canvas = map.getCanvas();
+    const prevCursor = canvas.style.cursor;
+    canvas.style.cursor = "crosshair";
+    const onClick = (e: mapboxgl.MapMouseEvent) => {
+      quickAdd.dropPin([e.lngLat.lng, e.lngLat.lat]);
+    };
+    map.on("click", onClick);
+    return () => {
+      map.off("click", onClick);
+      canvas.style.cursor = prevCursor;
+    };
+    // Deps are the primitives, not the `quickAdd` object itself: that object is rebuilt every render,
+    // which would tear down and re-add the click listener on every render for no reason.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quickAdd.active, quickAdd.dropPin, mapLoaded]);
+
+  const startQuickAdd = useCallback(() => {
+    // The quick-add card and the property drawer share one slot, so opening one closes the other.
+    setSelectedPin(null);
+    quickAdd.start();
+  }, [quickAdd]);
+
+  const handleQuickAddConfirm = useCallback(async () => {
+    const id = await quickAdd.confirm();
+    // Straight into the wizard with the map's location already in the draft, rather than growing a
+    // second property form on the map. The draft was created by `confirm`.
+    if (id) router.push(`/add-property?draftId=${id}`);
+  }, [quickAdd, router]);
 
   // Cmd+K / Ctrl+K to open command palette
   useEffect(() => {
@@ -143,6 +183,10 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
   const handlePinClick = useCallback(
     (pinId: string | null) => {
       if (pinId === null) return;
+      // Quick-add owns the map while it is armed. Without this, tapping an existing property pin
+      // also sets `selectedPin` — invisible at the time (the drawer is suppressed while quick-add is
+      // active), then the property drawer springs open on cancel, long after the click that caused it.
+      if (quickAdd.active) return;
       if (selectedPin === pinId) {
         closeDrawer();
       } else {
@@ -150,7 +194,7 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
         setSelectedPin(pinId);
       }
     },
-    [selectedPin, closeDrawer],
+    [selectedPin, closeDrawer, quickAdd.active],
   );
 
   // Resolve the selected property's cover photo when a drawer opens. A missing/expired
@@ -253,6 +297,14 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
           */}
           <div className="flex items-center gap-3 w-full sm:w-auto overflow-x-auto scrollbar-none -mx-4 sm:mx-0 px-4 sm:px-0 py-1">
             {[
+              // Quick add is the map-first path: drop a pin, confirm, then the wizard opens with the
+              // location already filled in. "New Property" stays for users who already know the
+              // address and would rather type it.
+              {
+                label: quickAdd.active ? "Cancel" : "Quick Add",
+                icon: quickAdd.active ? X : MapPin,
+                action: () => (quickAdd.active ? quickAdd.cancel() : startQuickAdd()),
+              },
               { label: "New Property", icon: Plus, action: () => router.push("/add-property") },
               { label: "Portfolio", icon: BarChart2, action: () => router.push("/portfolio") },
               { label: "Documents", icon: FileText, action: () => setCommandOpen(true) },
@@ -285,22 +337,52 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
         />
 
         {/* Portfolio legend — centered, bottom of map */}
-        <PortfolioLegend stats={portfolioStats} mapLoaded={mapLoaded} drawerOpen={!!drawerProperty} />
+        <PortfolioLegend
+          stats={portfolioStats}
+          mapLoaded={mapLoaded}
+          drawerOpen={!!drawerProperty || quickAdd.active}
+        />
 
         {/* Map controls */}
         <MapControls
           mapRef={mapRef}
-          drawerOpen={!!selectedProperty}
+          drawerOpen={!!selectedProperty || quickAdd.active}
           isSatellite={isSatellite}
           onToggleSatellite={() => setIsSatellite((s) => !s)}
         />
+
+        {/* Quick-add pin. Owned by its own layer because MapView's markers are a Supercluster view of
+            saved properties that rebuilds on every map move — a pin being dragged is neither. The
+            address is looked up on drop and on drag end, so it follows the pin. */}
+        <QuickAddPinLayer
+          mapRef={mapRef}
+          active={quickAdd.active}
+          pin={quickAdd.pin?.center ?? null}
+          onPinChange={quickAdd.resolveAt}
+          onSettled={quickAdd.settle}
+          reducedMotion={quickAdd.reducedMotion.current}
+        />
+
+        {/* Quick-add card. Hidden until the pin has arrived, so the card does not race the pin. */}
+        {quickAdd.active && quickAdd.settled && (
+          <QuickAddPanel
+            pin={quickAdd.pin}
+            resolving={quickAdd.resolving}
+            saving={quickAdd.saving}
+            error={quickAdd.error}
+            fields={quickAdd.fields}
+            onFieldChange={quickAdd.setField}
+            onConfirm={handleQuickAddConfirm}
+            onCancel={quickAdd.cancel}
+          />
+        )}
 
         {/* Property info panel.
             Phone (Apple Maps pattern): bottom-anchored sheet with rounded top,
             grab handle, ~55dvh height, slides up from below. Map stays visible
             above and remains pan-able.
             Tablet+: full-height floating sidebar pinned to the right (original). */}
-        {drawerProperty && (
+        {drawerProperty && !quickAdd.active && (
           <div
             key={selectedPin ?? closingKey}
             className={cn(
