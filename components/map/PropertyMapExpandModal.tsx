@@ -7,6 +7,7 @@ import type mapboxgl from "mapbox-gl";
 import { X, Map as MapIcon } from "lucide-react";
 import { cn } from "@/components/ui/utils";
 import { MapControls } from "@/components/map/MapControls";
+import type { BoundaryGeometry } from "@/lib/data/types/land-parcel";
 
 const PropertyDetailMap = dynamic(
   () => import("@/components/map/PropertyDetailMap").then((m) => m.PropertyDetailMap),
@@ -16,6 +17,7 @@ const PropertyDetailMap = dynamic(
 interface PropertyMapExpandModalProps {
   lat: number;
   lng: number;
+  boundary?: BoundaryGeometry | null;
   title: string;
   subtitle?: string;
   onClose: () => void;
@@ -24,6 +26,7 @@ interface PropertyMapExpandModalProps {
 export function PropertyMapExpandModal({
   lat,
   lng,
+  boundary,
   title,
   subtitle,
   onClose,
@@ -95,6 +98,7 @@ export function PropertyMapExpandModal({
           <PropertyDetailMap
             lat={lat}
             lng={lng}
+            boundary={boundary}
             onLoad={() => setMapLoaded(true)}
             onMapReady={(map) => {
               mapRef.current = map;

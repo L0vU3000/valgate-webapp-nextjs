@@ -53,6 +53,7 @@ import { PropertyMapExpandModal } from "@/components/map/PropertyMapExpandModal"
 import type { PropertyComparable } from "@/lib/data/types/property-comparable";
 import type { MarketSnapshot } from "@/lib/data/types/market-snapshot";
 import { formatAcquiredLabel } from "@/lib/data/derivations/property-comparables";
+import { PropertyBoundaryCard } from "./PropertyBoundaryCard";
 
 export function PropertyLocationPage({
   property,
@@ -106,6 +107,7 @@ export function PropertyLocationPage({
           <LocationContent
             property={property}
             parcel={parcel}
+            landParcels={landParcels}
             unlockState={unlockState}
             openWizard={openWizard}
             onOpenRevoke={() => setRevokeOpen(true)}
@@ -279,6 +281,7 @@ function MetaCell({
 function LocationContent({
   property,
   parcel,
+  landParcels,
   unlockState,
   openWizard,
   onOpenRevoke,
@@ -292,6 +295,7 @@ function LocationContent({
   onOpenRevoke: () => void;
   comparables: PropertyComparable[];
   marketSnapshot: MarketSnapshot;
+  landParcels: LandParcel[];
 }) {
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const [mapMounted, setMapMounted] = useState(false);
@@ -303,6 +307,11 @@ function LocationContent({
   }, []);
   const propertyCenter: [number, number] = [property.lng, property.lat];
   const mapSubtitle = [property.addressLine, property.city].filter(Boolean).join(", ");
+  // One land parcel per property today; the first one carrying a boundary is the drawn ring.
+  const boundary = landParcels.find((p) => p.boundary != null)?.boundary ?? null;
+  // Declared (official document) vs measured (the ring). Both shown, neither replaced.
+  const declaredM2 = Number((property.totalArea ?? "").replace(/,/g, "")) || 0;
+  const measuredM2 = boundary ? (landParcels.find((p) => p.boundary != null)?.sizeM2 ?? null) : null;
 
   return (
     <div className="flex flex-col">
@@ -379,6 +388,7 @@ function LocationContent({
             <PropertyDetailMap
               lat={property.lat}
               lng={property.lng}
+              boundary={boundary}
               onLoad={() => setMapLoaded(true)}
               onMapReady={(map) => {
                 mapRef.current = map;
@@ -430,6 +440,7 @@ function LocationContent({
           <PropertyMapExpandModal
             lat={property.lat}
             lng={property.lng}
+            boundary={boundary}
             title={`${property.name || property.code} — Location`}
             subtitle={mapSubtitle || undefined}
             onClose={() => setMapExpanded(false)}
@@ -528,6 +539,16 @@ function LocationContent({
             )}
           </div>
         </div>
+
+        {/* Land boundary — upload the KMZ that defines this property's exact land dimensions.
+            Sits below the KPI cards: it is the input that fills them, not a summary of them. */}
+        <PropertyBoundaryCard
+          propertyId={property.id}
+          propertyName={property.name || property.code}
+          hasBoundary={boundary != null}
+          declaredM2={declaredM2}
+          measuredM2={measuredM2}
+        />
 
         {/* Bottom section: comparables + investment */}
         <div

@@ -5,12 +5,16 @@ import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { env } from "@/lib/env";
 import { useShellContext } from "@/components/layout/shell-context";
+import { addBoundaryLayer, setBoundaryGeometry } from "@/components/map/boundary-layer";
+import type { BoundaryGeometry } from "@/lib/data/types/land-parcel";
 
 const DEFAULT_ZOOM = 15;
 
 interface PropertyDetailMapProps {
   lat: number;
   lng: number;
+  /** The property's land boundary, drawn as a filled outline under the pin. */
+  boundary?: BoundaryGeometry | null;
   zoom?: number;
   onMapReady?: (map: mapboxgl.Map) => void;
   onLoad?: () => void;
@@ -20,6 +24,7 @@ interface PropertyDetailMapProps {
 export function PropertyDetailMap({
   lat,
   lng,
+  boundary,
   zoom = DEFAULT_ZOOM,
   onMapReady,
   onLoad,
@@ -30,6 +35,8 @@ export function PropertyDetailMap({
   const markerRef = useRef<mapboxgl.Marker | null>(null);
   const { isDark } = useShellContext();
   const center: [number, number] = [lng, lat];
+  const boundaryRef = useRef(boundary);
+  boundaryRef.current = boundary;
 
   function addMarker(map: mapboxgl.Map) {
     markerRef.current?.remove();
@@ -76,10 +83,14 @@ export function PropertyDetailMap({
       onLoad?.();
       onMapReady?.(map);
       addMarker(map);
+      addBoundaryLayer(map, boundaryRef.current ?? null);
     });
 
     map.on("style.load", () => {
       addMarker(map);
+      // A style swap (theme / satellite) replaces the whole style, destroying every layer,
+      // so the boundary has to be re-added — not just re-positioned.
+      addBoundaryLayer(map, boundaryRef.current ?? null);
     });
 
     return () => {
@@ -98,6 +109,12 @@ export function PropertyDetailMap({
     marker.setLngLat(center);
     map.flyTo({ center, zoom, duration: 600 });
   }, [lat, lng, zoom]);
+
+  // Geometry changed without a remount (e.g. a boundary just attached): swap it in place
+  // rather than tearing the map down.
+  useEffect(() => {
+    if (mapRef.current) setBoundaryGeometry(mapRef.current, boundary ?? null);
+  }, [boundary]);
 
   useEffect(() => {
     const map = mapRef.current;
