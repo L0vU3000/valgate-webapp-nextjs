@@ -149,9 +149,20 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
     router.replace(`/add-property?${params.toString()}`);
   }, [activeId, mounted, router]);
 
-  // Clear step errors whenever the user edits the form
+  // Clear step errors when the user EDITS the form — but not on mount. `form` is a new object on
+  // every render, so keying only on `form` also wiped the errors the instant a step's validation set
+  // them (e.g. arriving at step 2 cleared them before they could render). Track the previous form
+  // and skip the first run.
+  const prevFormRef = useRef<FormData | null>(null);
   useEffect(() => {
-    setStepErrors(null);
+    if (prevFormRef.current === null) {
+      prevFormRef.current = form;
+      return;
+    }
+    if (prevFormRef.current !== form) {
+      prevFormRef.current = form;
+      setStepErrors(null);
+    }
   }, [form]);
 
   const advanceToStep1 = useCallback(
@@ -253,6 +264,14 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
       if (!form.propertyName.trim()) {
         errors.propertyName = "Please enter a property name";
       }
+      // Address is required AND must be geocoded: mapWizardToProperty needs form.mapCenter, and
+      // without it the property would silently land on the Cambodia centroid. Picking a search
+      // suggestion (or dropping the pin) is what sets mapCenter.
+      if (!form.addressLine.trim()) {
+        errors.addressLine = "Please enter the property address";
+      } else if (!form.mapCenter) {
+        errors.addressLine = "Select your address from the suggestions so we can pin it on the map";
+      }
       if (form.totalArea && !/^\d+(\.\d+)?$/.test(form.totalArea)) {
         errors.totalArea = "Total area must be a number";
       }
@@ -334,6 +353,9 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
       annualPropertyTax: "12500",
       taxAssessmentValue: "1100000",
       annualInsurance: "3200",
+      // Dev-only demo fixture. mapCenter is required to submit (see submitPropertyAction), so set
+      // it to Phnom Penh — otherwise "Load demo" dead-ends at the final step.
+      mapCenter: [104.9282, 11.5564],
       photos: ["exterior.jpg", "living-room.jpg", "kitchen.jpg", "bedroom.jpg"],
       documents: ["Purchase_Agreement.pdf", "Title_Deed.pdf", "Insurance_Policy.pdf"],
     };

@@ -17,6 +17,17 @@ export const ALLOWED_MIME = new Set([
 
 export const ALLOWED_DOC_EXT = new Set([".pdf", ".doc", ".docx", ".xls", ".xlsx"]);
 
+// KMZ (a zipped KML). Browsers often report an empty type for it, so it is matched by
+// EXTENSION — see isKmz. Kept out of ALLOWED_MIME so the document/photo pickers stay unchanged;
+// only the boundary upload accepts it, and it goes up on a SEPARATE presign path.
+export const KMZ_MIME = "application/vnd.google-earth.kmz";
+export const KMZ_MAX_BYTES = 5 * 1024 * 1024; // real KMZ files are a few KB; generous ceiling
+
+export function isKmz(file: File): boolean {
+  if (file.type.toLowerCase() === KMZ_MIME) return true;
+  return file.name.toLowerCase().endsWith(".kmz");
+}
+
 // iOS sometimes reports HEIC files with an empty MIME type, so we check both
 // the MIME type and the file extension to be safe.
 export function isHeic(file: File): boolean {

@@ -1,0 +1,207 @@
+{
+  "0049": {
+    "code": "KEP00001",
+    "folder": "Kep",
+    "how": "tail+folder (23010307-0049)"
+  },
+  "05020507-0001": {
+    "code": "KPS00002",
+    "folder": "Kampong_Speu",
+    "how": "exact doc-code"
+  },
+  "05020507-0026": {
+    "code": "KPS00012",
+    "folder": "Kampong_Speu",
+    "how": "exact doc-code"
+  },
+  "05040109-0654": {
+    "code": "KPS00015",
+    "folder": "Kampong_Speu",
+    "how": "exact doc-code"
+  },
+  "05040109-0655": {
+    "code": "KPS00011",
+    "folder": "Kampong_Speu",
+    "how": "exact doc-code"
+  },
+  "05071303-0109": {
+    "code": "KPS00014",
+    "folder": "Kampong_Speu",
+    "how": "exact doc-code"
+  },
+  "05071303-0171": {
+    "code": "KPS00007",
+    "folder": "Kampong_Speu",
+    "how": "exact doc-code"
+  },
+  "05071303-0172": {
+    "code": "KPS00005",
+    "folder": "Kampong_Speu",
+    "how": "exact doc-code"
+  },
+  "05071303-0432": {
+    "code": "KPS00001",
+    "folder": "Kampong_Speu",
+    "how": "exact doc-code"
+  },
+  "05071303-0472": {
+    "code": "KPS00003",
+    "folder": "Kampong_Speu",
+    "how": "exact doc-code"
+  },
+  "05080809-0532": {
+    "code": "KPS00010",
+    "folder": "Kampong_Speu",
+    "how": "exact doc-code"
+  },
+  "05090409-0262": {
+    "code": "KPS00004",
+    "folder": "Kampong_Speu",
+    "how": "tail+folder (05050709-0262)"
+  },
+  "07031502-1319": {
+    "code": "KP00001",
+    "folder": "Kampot",
+    "how": "exact doc-code"
+  },
+  "08110703-0109": {
+    "code": "KD00011",
+    "folder": "Kandal",
+    "how": "tail+folder (08101303-0109)"
+  },
+  "08110703-0865": {
+    "code": "KD00010",
+    "folder": "Kandal",
+    "how": "tail+folder (08101303-0865)"
+  },
+  "08130701-1184": {
+    "code": "KD00006",
+    "folder": "Kandal",
+    "how": "tail+folder (08060101-1184)"
+  },
+  "08130701-1212": {
+    "code": "KD00005",
+    "folder": "Kandal",
+    "how": "tail+folder (08060101-1212)"
+  },
+  "0828": {
+    "code": "KEP00006",
+    "folder": "Kep",
+    "how": "tail+folder (23010307-0828)"
+  },
+  "11050304-0849": {
+    "code": "MDK00003",
+    "folder": "Mondulkiri",
+    "how": "exact doc-code"
+  },
+  "1106": {
+    "code": "KEP00007",
+    "folder": "Kep",
+    "how": "tail+folder (23010307-1106)"
+  },
+  "12011106-0040": {
+    "code": "PP00001",
+    "folder": "Phnom Penh",
+    "how": "exact doc-code"
+  },
+  "12050523-0002": {
+    "code": "PP00028",
+    "folder": "Phnom Penh",
+    "how": "exact doc-code"
+  },
+  "12050523-0003": {
+    "code": "PP00029",
+    "folder": "Phnom Penh",
+    "how": "exact doc-code"
+  },
+  "12050523-0052": {
+    "code": "PP00031",
+    "folder": "Phnom Penh",
+    "how": "exact doc-code"
+  },
+  "12050523-0053": {
+    "code": "PP00030",
+    "folder": "Phnom Penh",
+    "how": "exact doc-code"
+  },
+  "12050523-0055": {
+    "code": "PP00032",
+    "folder": "Phnom Penh",
+    "how": "exact doc-code"
+  },
+  "12050523-0056": {
+    "code": "PP00033",
+    "folder": "Phnom Penh",
+    "how": "exact doc-code"
+  },
+  "12060703-0069": {
+    "code": "PP00018",
+    "folder": "Phnom Penh",
+    "how": "exact doc-code"
+  },
+  "12110502-0102": {
+    "code": "PP00023",
+    "folder": "Phnom Penh",
+    "how": "exact doc-code"
+  },
+  "12130101-0026": {
+    "code": "PP00013",
+    "folder": "Phnom Penh",
+    "how": "tail+folder (12010201-0026)"
+  },
+  "12130101-0027": {
+    "code": "PP00014",
+    "folder": "Phnom Penh",
+    "how": "tail+folder (12010201-0027)"
+  },
+  "12130103-0076": {
+    "code": "PP00011",
+    "folder": "Phnom Penh",
+    "how": "tail+folder (12010203-0076)"
+  },
+  "12130109-0135": {
+    "code": "PP00019",
+    "folder": "Phnom Penh",
+    "how": "tail+folder (12010209-0135)"
+  },
+  "14040603-0005": {
+    "code": "PV00002",
+    "folder": "Prey Veng",
+    "how": "exact doc-code"
+  },
+  "14040604-0001": {
+    "code": "PV00001",
+    "folder": "Prey Veng",
+    "how": "exact doc-code"
+  },
+  "1666": {
+    "code": "KEP00009",
+    "folder": "Kep",
+    "how": "tail+folder (23010306-1666)"
+  },
+  "17100208-0151": {
+    "code": "SR00006",
+    "folder": "Siem Reap",
+    "how": "exact doc-code"
+  },
+  "17100208-1913": {
+    "code": "SR00007",
+    "folder": "Siem Reap",
+    "how": "exact doc-code"
+  },
+  "17100301-0151": {
+    "code": "SR00005",
+    "folder": "Siem Reap",
+    "how": "exact doc-code"
+  },
+  "17100403-0641": {
+    "code": "SR00004",
+    "folder": "Siem Reap",
+    "how": "exact doc-code"
+  },
+  "1740": {
+    "code": "KEP00008",
+    "folder": "Kep",
+    "how": "tail+folder (23010306-1740)"
+  }
+}

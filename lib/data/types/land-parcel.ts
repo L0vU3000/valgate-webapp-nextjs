@@ -4,6 +4,15 @@ import { idSchema, propertyIdSchema } from "./_common";
 export const TerrainTypeSchema = z.enum(["Flat", "Rolling", "Hilly", "Mountainous", "Mixed"]);
 export type TerrainType = z.infer<typeof TerrainTypeSchema>;
 
+// A land boundary is GeoJSON geometry: a Polygon (what a KMZ import produces today) or a
+// MultiPolygon (a hand-drawn or multi-part parcel later). Only the two members are accepted —
+// a Point or LineString has no interior, so it cannot be a boundary.
+export const BoundaryGeometrySchema = z.object({
+  type: z.enum(["Polygon", "MultiPolygon"]),
+  coordinates: z.array(z.unknown()),
+});
+export type BoundaryGeometry = z.infer<typeof BoundaryGeometrySchema>;
+
 export const LandParcelSchema = z.object({
   id: idSchema,
   propertyId: propertyIdSchema,
@@ -13,6 +22,10 @@ export const LandParcelSchema = z.object({
   zoningCode: z.string().optional(),
   zoningClass: z.string().optional(),
   developmentPotential: z.array(z.string()).optional(),
+  // Measured boundary + provenance. sizeM2 above is the MEASURED area when a boundary exists
+  // (properties.totalArea stays the officially-declared figure); both are shown, never merged.
+  boundary: BoundaryGeometrySchema.optional(),
+  boundarySource: z.enum(["kmz", "manual"]).optional(),
   elevationM: z.number().optional(),
   slopeAngleDeg: z.number().optional(),
   terrainType: TerrainTypeSchema.optional(),

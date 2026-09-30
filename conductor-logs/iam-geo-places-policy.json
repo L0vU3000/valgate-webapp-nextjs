@@ -1,0 +1,14 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "GeoPlacesAddressLookup",
+      "Effect": "Allow",
+      "Action": [
+        "geo-places:SearchText",
+        "geo-places:ReverseGeocode"
+      ],
+      "Resource": "arn:aws:geo-places:ap-southeast-1::provider/default"
+    }
+  ]
+}

@@ -1,0 +1,506 @@
+{
+  "summary": {
+    "provider": "amazon-location/grabmaps",
+    "region": "ap-southeast-1",
+    "principal": "arn:aws:iam::867418408748:user/valgate-storage",
+    "corpus_size": 23,
+    "hits": 22,
+    "street_level": 22,
+    "street_level_rate": 0.957
+  },
+  "results": [
+    {
+      "id": "PROP-0001",
+      "query": "No. AA21, Street 99, Boeng Trabek, Chamkar Mon",
+      "city": "Phnom Penh",
+      "province": "Phnom Penh",
+      "grabmaps": {
+        "hits": 5,
+        "hit": true,
+        "top_label": "#AA21 Street 99,Sangkat Beng Tro Baek, Khan Cham Ka Morn, Phnom Penh, Boeung Trabek, Chomkarmon, 120111",
+        "position": [
+          104.921687,
+          11.539494
+        ],
+        "place_type": "PointOfInterest",
+        "street_level": true,
+        "street": "#AA21 Street 99,Sangkat Beng Tro Baek, Khan Cham Ka Morn, Phnom Penh",
+        "district": "\u1785\u17c6\u1780\u17b6\u179a\u1798\u1793",
+        "sub_district": "\u1794\u17b9\u1784\u178f\u17d2\u179a\u1794\u17c2\u1780",
+        "postal_code": "120111",
+        "distance_m": 2009
+      }
+    },
+    {
+      "id": "PROP-0002",
+      "query": "No. 172AE1, Street 215, Veal Vong, 7 Makara",
+      "city": "Phnom Penh",
+      "province": "Phnom Penh",
+      "grabmaps": {
+        "error": "AccessDeniedException: authorization failed: User: arn:aws:iam::867418408748:user/valgate-storage is not authorized to perform: geo-places:SearchText on resource: arn:aws:geo-places:ap-southeast-1::provider/default because no identity-based policy allows the geo-places:SearchText action"
+      }
+    },
+    {
+      "id": "PROP-0003",
+      "query": "No. 172BEo, Street 215, Veal Vong, 7 Makara",
+      "city": "Phnom Penh",
+      "province": "Phnom Penh",
+      "grabmaps": {
+        "hits": 5,
+        "hit": true,
+        "top_label": "#146, St.215, Sangkat Vealvong, Khan 7Makara, Phnom Penh, 121304",
+        "position": [
+          104.9120247,
+          11.5545411
+        ],
+        "place_type": "PointOfInterest",
+        "street_level": true,
+        "street": "#146, St.215, Sangkat Vealvong, Khan 7Makara, Phnom Penh",
+        "district": "\u1794\u17b9\u1784\u1780\u17c1\u1784\u1780\u1784",
+        "sub_district": "\u17a2\u17bc\u17a1\u17b6\u17c6\u1796\u17b7\u1780",
+        "postal_code": "121304",
+        "distance_m": 1774
+      }
+    },
+    {
+      "id": "PROP-0004",
+      "query": "No. 172BE1, Street 215, Veal Vong, 7 Makara",
+      "city": "Phnom Penh",
+      "province": "Phnom Penh",
+      "grabmaps": {
+        "hits": 5,
+        "hit": true,
+        "top_label": "#146, St.215, Sangkat Vealvong, Khan 7Makara, Phnom Penh, 121304",
+        "position": [
+          104.9120247,
+          11.5545411
+        ],
+        "place_type": "PointOfInterest",
+        "street_level": true,
+        "street": "#146, St.215, Sangkat Vealvong, Khan 7Makara, Phnom Penh",
+        "district": "\u1794\u17b9\u1784\u1780\u17c1\u1784\u1780\u1784",
+        "sub_district": "\u17a2\u17bc\u17a1\u17b6\u17c6\u1796\u17b7\u1780",
+        "postal_code": "121304",
+        "distance_m": 1774
+      }
+    },
+    {
+      "id": "PROP-0005",
+      "query": "No. 172CDE0, Street 215, Veal Vong, 7 Makara",
+      "city": "Phnom Penh",
+      "province": "Phnom Penh",
+      "grabmaps": {
+        "hits": 5,
+        "hit": true,
+        "top_label": "#146, St.215, Sangkat Vealvong, Khan 7Makara, Phnom Penh, 121304",
+        "position": [
+          104.9120247,
+          11.5545411
+        ],
+        "place_type": "PointOfInterest",
+        "street_level": true,
+        "street": "#146, St.215, Sangkat Vealvong, Khan 7Makara, Phnom Penh",
+        "district": "\u1794\u17b9\u1784\u1780\u17c1\u1784\u1780\u1784",
+        "sub_district": "\u17a2\u17bc\u17a1\u17b6\u17c6\u1796\u17b7\u1780",
+        "postal_code": "121304",
+        "distance_m": 1774
+      }
+    },
+    {
+      "id": "PROP-0006",
+      "query": "No. 172CE1, Street 215, Veal Vong, 7 Makara",
+      "city": "Phnom Penh",
+      "province": "Phnom Penh",
+      "grabmaps": {
+        "hits": 5,
+        "hit": true,
+        "top_label": "#146, St.215, Sangkat Vealvong, Khan 7Makara, Phnom Penh, 121304",
+        "position": [
+          104.9120247,
+          11.5545411
+        ],
+        "place_type": "PointOfInterest",
+        "street_level": true,
+        "street": "#146, St.215, Sangkat Vealvong, Khan 7Makara, Phnom Penh",
+        "district": "\u1794\u17b9\u1784\u1780\u17c1\u1784\u1780\u1784",
+        "sub_district": "\u17a2\u17bc\u17a1\u17b6\u17c6\u1796\u17b7\u1780",
+        "postal_code": "121304",
+        "distance_m": 1774
+      }
+    },
+    {
+      "id": "PROP-0007",
+      "query": "No. 172DE1, Street 215, Veal Vong, 7 Makara",
+      "city": "Phnom Penh",
+      "province": "Phnom Penh",
+      "grabmaps": {
+        "hits": 5,
+        "hit": true,
+        "top_label": "#146, St.215, Sangkat Vealvong, Khan 7Makara, Phnom Penh, 121304",
+        "position": [
+          104.9120247,
+          11.5545411
+        ],
+        "place_type": "PointOfInterest",
+        "street_level": true,
+        "street": "#146, St.215, Sangkat Vealvong, Khan 7Makara, Phnom Penh",
+        "district": "\u1794\u17b9\u1784\u1780\u17c1\u1784\u1780\u1784",
+        "sub_district": "\u17a2\u17bc\u17a1\u17b6\u17c6\u1796\u17b7\u1780",
+        "postal_code": "121304",
+        "distance_m": 1774
+      }
+    },
+    {
+      "id": "PROP-0008",
+      "query": "No. 172EE0, Street 215, Veal Vong, 7 Makara",
+      "city": "Phnom Penh",
+      "province": "Phnom Penh",
+      "grabmaps": {
+        "hits": 5,
+        "hit": true,
+        "top_label": "#146, St.215, Sangkat Vealvong, Khan 7Makara, Phnom Penh, 121304",
+        "position": [
+          104.9120247,
+          11.5545411
+        ],
+        "place_type": "PointOfInterest",
+        "street_level": true,
+        "street": "#146, St.215, Sangkat Vealvong, Khan 7Makara, Phnom Penh",
+        "district": "\u1794\u17b9\u1784\u1780\u17c1\u1784\u1780\u1784",
+        "sub_district": "\u17a2\u17bc\u17a1\u17b6\u17c6\u1796\u17b7\u1780",
+        "postal_code": "121304",
+        "distance_m": 1774
+      }
+    },
+    {
+      "id": "PROP-0009",
+      "query": "No. 172EE1, Street 215, Veal Vong, 7 Makara",
+      "city": "Phnom Penh",
+      "province": "Phnom Penh",
+      "grabmaps": {
+        "hits": 5,
+        "hit": true,
+        "top_label": "#146, St.215, Sangkat Vealvong, Khan 7Makara, Phnom Penh, 121304",
+        "position": [
+          104.9120247,
+          11.5545411
+        ],
+        "place_type": "PointOfInterest",
+        "street_level": true,
+        "street": "#146, St.215, Sangkat Vealvong, Khan 7Makara, Phnom Penh",
+        "district": "\u1794\u17b9\u1784\u1780\u17c1\u1784\u1780\u1784",
+        "sub_district": "\u17a2\u17bc\u17a1\u17b6\u17c6\u1796\u17b7\u1780",
+        "postal_code": "121304",
+        "distance_m": 1774
+      }
+    },
+    {
+      "id": "PROP-0010",
+      "query": "No. 191D, Street 63, Boeung Keng Kang 1, Chamkar Mon",
+      "city": "Phnom Penh",
+      "province": "Phnom Penh",
+      "grabmaps": {
+        "hits": 5,
+        "hit": true,
+        "top_label": "Street 63, Sangkat Boeng KengKang, Khan Chamkarmon, Phnom Penh, Boeng Keng Kang, 121301",
+        "position": [
+          104.9237862398632,
+          11.55212265653715
+        ],
+        "place_type": "PointOfInterest",
+        "street_level": true,
+        "street": "Street 63, Sangkat Boeng KengKang, Khan Chamkarmon, Phnom Penh",
+        "district": "\u1794\u17b9\u1784\u1780\u17c1\u1784\u1780\u1784",
+        "sub_district": "\u1794\u17b9\u1784\u1780\u17c1\u1784\u1780\u1784\u1791\u17b8 \u17e1",
+        "postal_code": "121301",
+        "distance_m": 676
+      }
+    },
+    {
+      "id": "PROP-0011",
+      "query": "No. 35, Street 334, Boeung Keng Kang 1, Chamkar Mon",
+      "city": "Phnom Penh",
+      "province": "Phnom Penh",
+      "grabmaps": {
+        "hits": 5,
+        "hit": true,
+        "top_label": "27b St 334, Phnom Penh, Boeng Keng Kang, 121301",
+        "position": [
+          104.924557,
+          11.550126
+        ],
+        "place_type": "PointOfInterest",
+        "street_level": true,
+        "street": "27b St 334, Phnom Penh",
+        "district": "\u1794\u17b9\u1784\u1780\u17c1\u1784\u1780\u1784",
+        "sub_district": "\u1794\u17b9\u1784\u1780\u17c1\u1784\u1780\u1784\u1791\u17b8 \u17e1",
+        "postal_code": "121301",
+        "distance_m": 802
+      }
+    },
+    {
+      "id": "PROP-0012",
+      "query": "No. 223, Street 63, Boeung Keng Kang 1, Chamkar Mon",
+      "city": "Phnom Penh",
+      "province": "Phnom Penh",
+      "grabmaps": {
+        "hits": 5,
+        "hit": true,
+        "top_label": "Street 63, Sangkat Boeng KengKang, Khan Chamkarmon, Phnom Penh, Boeng Keng Kang, 121301",
+        "position": [
+          104.9237862398632,
+          11.55212265653715
+        ],
+        "place_type": "PointOfInterest",
+        "street_level": true,
+        "street": "Street 63, Sangkat Boeng KengKang, Khan Chamkarmon, Phnom Penh",
+        "district": "\u1794\u17b9\u1784\u1780\u17c1\u1784\u1780\u1784",
+        "sub_district": "\u1794\u17b9\u1784\u1780\u17c1\u1784\u1780\u1784\u1791\u17b8 \u17e1",
+        "postal_code": "121301",
+        "distance_m": 676
+      }
+    },
+    {
+      "id": "PROP-0013",
+      "query": "No. 16 (Building A), Peng Huot Road, Chak Angre Leu, Meanchey",
+      "city": "Phnom Penh",
+      "province": "Phnom Penh",
+      "grabmaps": {
+        "hits": 5,
+        "hit": true,
+        "top_label": "C1 16, \u1798\u17a0\u17b6\u179c\u17b7\u1790\u17b8\u179f\u1798\u17d2\u178f\u17c1\u1785\u17a0\u17ca\u17bb\u1793\u179f\u17c2\u1793, \u1785\u17b6\u1780\u17cb\u17a2\u1784\u17d2\u179a\u17c2\u179b\u17be, \u1798\u17b6\u1793\u1787\u17d0\u1799, \u1797\u17d2\u1793\u17c6\u1796\u17c1\u1789, Cambodia, 120606",
+        "position": [
+          104.92780603410284,
+          11.526453718199562
+        ],
+        "place_type": "PointOfInterest",
+        "street_level": true,
+        "street": "\u1798\u17a0\u17b6\u179c\u17b7\u1790\u17b8\u179f\u1798\u17d2\u178f\u17c1\u1785\u17a0\u17ca\u17bb\u1793\u179f\u17c2\u1793",
+        "district": "\u1798\u17b6\u1793\u1787\u17d0\u1799",
+        "sub_district": "\u1785\u17b6\u1780\u17cb\u17a2\u1784\u17d2\u179a\u17c2\u179b\u17be",
+        "postal_code": "120606",
+        "distance_m": 3330
+      }
+    },
+    {
+      "id": "PROP-0014",
+      "query": "No. 16 (Building B), Peng Huot Road, Chak Angre Leu, Meanchey",
+      "city": "Phnom Penh",
+      "province": "Phnom Penh",
+      "grabmaps": {
+        "hits": 5,
+        "hit": true,
+        "top_label": "C1 16, \u1798\u17a0\u17b6\u179c\u17b7\u1790\u17b8\u179f\u1798\u17d2\u178f\u17c1\u1785\u17a0\u17ca\u17bb\u1793\u179f\u17c2\u1793, \u1785\u17b6\u1780\u17cb\u17a2\u1784\u17d2\u179a\u17c2\u179b\u17be, \u1798\u17b6\u1793\u1787\u17d0\u1799, \u1797\u17d2\u1793\u17c6\u1796\u17c1\u1789, Cambodia, 120606",
+        "position": [
+          104.92780603410284,
+          11.526453718199562
+        ],
+        "place_type": "PointOfInterest",
+        "street_level": true,
+        "street": "\u1798\u17a0\u17b6\u179c\u17b7\u1790\u17b8\u179f\u1798\u17d2\u178f\u17c1\u1785\u17a0\u17ca\u17bb\u1793\u179f\u17c2\u1793",
+        "district": "\u1798\u17b6\u1793\u1787\u17d0\u1799",
+        "sub_district": "\u1785\u17b6\u1780\u17cb\u17a2\u1784\u17d2\u179a\u17c2\u179b\u17be",
+        "postal_code": "120606",
+        "distance_m": 3330
+      }
+    },
+    {
+      "id": "PROP-0015",
+      "query": "Chak Angre Leu, Meanchey (near National Road 1 overpass)",
+      "city": "Phnom Penh",
+      "province": "Phnom Penh",
+      "grabmaps": {
+        "hits": 5,
+        "hit": true,
+        "top_label": "\u1795\u17d2\u179b\u17bc\u179c\u1787\u17b6\u178f\u17b71, \u1785\u17b6\u1780\u17cb\u17a2\u1784\u17d2\u179a\u17c2\u179b\u17be, \u1798\u17b6\u1793\u1787\u17d0\u1799, \u1797\u17d2\u1793\u17c6\u1796\u17c1\u1789, Cambodia, 120606",
+        "position": [
+          104.931118,
+          11.530434
+        ],
+        "place_type": "PointOfInterest",
+        "street_level": true,
+        "street": "\u1795\u17d2\u179b\u17bc\u179c\u1787\u17b6\u178f\u17b71",
+        "district": "\u1798\u17b6\u1793\u1787\u17d0\u1799",
+        "sub_district": "\u1785\u17b6\u1780\u17cb\u17a2\u1784\u17d2\u179a\u17c2\u179b\u17be",
+        "postal_code": "120606",
+        "distance_m": 2904
+      }
+    },
+    {
+      "id": "PROP-0016",
+      "query": "Tuol Roka 1, Chak Angre Leu, Meanchey",
+      "city": "Phnom Penh",
+      "province": "Phnom Penh",
+      "grabmaps": {
+        "hits": 5,
+        "hit": true,
+        "top_label": "\u1798\u17a0\u17b6\u179c\u17b7\u1790\u17b8\u179f\u1798\u17d2\u178f\u17c1\u1785\u17a0\u17ca\u17bb\u1793\u179f\u17c2\u1793, \u1785\u17b6\u1780\u17cb\u17a2\u1784\u17d2\u179a\u17c2\u179b\u17be, \u1798\u17b6\u1793\u1787\u17d0\u1799, \u1797\u17d2\u1793\u17c6\u1796\u17c1\u1789, Cambodia, 120606",
+        "position": [
+          104.92851813252793,
+          11.52185251948032
+        ],
+        "place_type": "PointOfInterest",
+        "street_level": true,
+        "street": "\u1798\u17a0\u17b6\u179c\u17b7\u1790\u17b8\u179f\u1798\u17d2\u178f\u17c1\u1785\u17a0\u17ca\u17bb\u1793\u179f\u17c2\u1793",
+        "district": "\u1798\u17b6\u1793\u1787\u17d0\u1799",
+        "sub_district": "\u1785\u17b6\u1780\u17cb\u17a2\u1784\u17d2\u179a\u17c2\u179b\u17be",
+        "postal_code": "120606",
+        "distance_m": 3841
+      }
+    },
+    {
+      "id": "PROP-0017",
+      "query": "No. 158, Street 71, Boeung Keng Kang 1, Chamkar Mon",
+      "city": "Phnom Penh",
+      "province": "Phnom Penh",
+      "grabmaps": {
+        "hits": 5,
+        "hit": true,
+        "top_label": "#158, St. 63, Songkat Beoung Keng Kong, Khan Beoung Keng Kang, Boeng Keng Kang, 121301",
+        "position": [
+          104.92321,
+          11.555516
+        ],
+        "place_type": "PointOfInterest",
+        "street_level": true,
+        "street": "#158, St. 63, Songkat Beoung Keng Kong, Khan Beoung Keng Kang",
+        "district": "\u1794\u17b9\u1784\u1780\u17c1\u1784\u1780\u1784",
+        "sub_district": "\u1794\u17b9\u1784\u1780\u17c1\u1784\u1780\u1784\u1791\u17b8 \u17e1",
+        "postal_code": "121301",
+        "distance_m": 552
+      }
+    },
+    {
+      "id": "PROP-0018",
+      "query": "Unit A105-1301, Camko City, Toul Sangke, Roessei Keo",
+      "city": "Phnom Penh",
+      "province": "Phnom Penh",
+      "grabmaps": {
+        "hits": 5,
+        "hit": true,
+        "top_label": "N015, \u1795\u17d2\u179b\u17bc\u179c\u1794\u17c1\u178f\u17bb\u1784, \u17ab\u179f\u17d2\u179f\u17b8\u1780\u17c2\u179c, \u17ab\u179f\u17d2\u179f\u17b8\u1780\u17c2\u179c, \u1797\u17d2\u1793\u17c6\u1796\u17c1\u1789, Cambodia, 120706",
+        "position": [
+          104.917656,
+          11.596849
+        ],
+        "place_type": "PointOfInterest",
+        "street_level": true,
+        "street": "\u1795\u17d2\u179b\u17bc\u179c\u1794\u17c1\u178f\u17bb\u1784",
+        "district": "\u17ab\u179f\u17d2\u179f\u17b8\u1780\u17c2\u179c",
+        "sub_district": "\u17ab\u179f\u17d2\u179f\u17b8\u1780\u17c2\u179c",
+        "postal_code": "120706",
+        "distance_m": 4642
+      }
+    },
+    {
+      "id": "PROP-0019",
+      "query": "Unit 06 F21, Samdech Pan Street 2, Boeng Raing, Daun Penh",
+      "city": "Phnom Penh",
+      "province": "Phnom Penh",
+      "grabmaps": {
+        "hits": 5,
+        "hit": true,
+        "top_label": "\u1795\u17d2\u179b\u17bc\u179c228, \u1785\u178f\u17bb\u1798\u17bb\u1781, \u178a\u17bc\u1793\u1796\u17c1\u1789, \u1797\u17d2\u1793\u17c6\u1796\u17c1\u1789, Cambodia, 120207",
+        "position": [
+          104.9257331,
+          11.55957320002
+        ],
+        "place_type": "PointOfInterest",
+        "street_level": true,
+        "street": "\u1795\u17d2\u179b\u17bc\u179c228",
+        "district": "\u178a\u17bc\u1793\u1796\u17c1\u1789",
+        "sub_district": "\u1785\u178f\u17bb\u1798\u17bb\u1781",
+        "postal_code": "120207",
+        "distance_m": 443
+      }
+    },
+    {
+      "id": "PROP-0020",
+      "query": "Prek Takong, Prek Tasek, Chroy Changvar",
+      "city": "Phnom Penh",
+      "province": "Phnom Penh",
+      "grabmaps": {
+        "hits": 5,
+        "hit": true,
+        "top_label": "OCIC Blvd, Chroy Chongvar, Chroy Chongvar, Phnom Penh, Cambodia, 121102",
+        "position": [
+          104.92442207857624,
+          11.599858284007723
+        ],
+        "place_type": "PointOfInterest",
+        "street_level": true,
+        "street": "OCIC Blvd",
+        "district": "\u1787\u17d2\u179a\u17c4\u1799\u1785\u1784\u17d2\u179c\u17b6\u179a",
+        "sub_district": "\u1787\u17d2\u179a\u17c4\u1799\u1785\u1784\u17d2\u179c\u17b6\u179a",
+        "postal_code": "121102",
+        "distance_m": 4849
+      }
+    },
+    {
+      "id": "PROP-0021",
+      "query": "No. F153, Street 6A, Prek Leab, Chroy Changvar",
+      "city": "Phnom Penh",
+      "province": "Phnom Penh",
+      "grabmaps": {
+        "hits": 5,
+        "hit": true,
+        "top_label": "\u1795\u17d2\u179b\u17bc\u179c6\u17a2\u17c1, khan Chroy Changvar, \u1787\u17d2\u179a\u17c4\u1799\u1785\u1784\u17d2\u179c\u17b6\u179a, \u1787\u17d2\u179a\u17c4\u1799\u1785\u1784\u17d2\u179c\u17b6\u179a, \u1797\u17d2\u1793\u17c6\u1796\u17c1\u1789, Cambodia, 121102",
+        "position": [
+          104.9306668,
+          11.5952362
+        ],
+        "place_type": "PointOfInterest",
+        "street_level": true,
+        "street": "\u1795\u17d2\u179b\u17bc\u179c6\u17a2\u17c1",
+        "district": "\u1787\u17d2\u179a\u17c4\u1799\u1785\u1784\u17d2\u179c\u17b6\u179a",
+        "sub_district": "\u1787\u17d2\u179a\u17c4\u1799\u1785\u1784\u17d2\u179c\u17b6\u179a",
+        "postal_code": "121102",
+        "distance_m": 4326
+      }
+    },
+    {
+      "id": "PROP-0022",
+      "query": "No. 45, Street 163, Toul Tom Poung 1, Chamkar Mon",
+      "city": "Phnom Penh",
+      "province": "Phnom Penh",
+      "grabmaps": {
+        "hits": 5,
+        "hit": true,
+        "top_label": "46, \u1795\u17d2\u179b\u17bc\u179c163, \u1791\u17bd\u179b\u1791\u17c6\u1796\u17bc\u1784\u1791\u17b8 \u17e1, \u1785\u17c6\u1780\u17b6\u179a\u1798\u1793, \u1797\u17d2\u1793\u17c6\u1796\u17c1\u1789, Cambodia, 120110",
+        "position": [
+          104.91401544469386,
+          11.542804896692346
+        ],
+        "place_type": "PointOfInterest",
+        "street_level": true,
+        "street": "\u1795\u17d2\u179b\u17bc\u179c163",
+        "district": "\u1785\u17c6\u1780\u17b6\u179a\u1798\u1793",
+        "sub_district": "\u1791\u17bd\u179b\u1791\u17c6\u1796\u17bc\u1784\u1791\u17b8 \u17e1",
+        "postal_code": "120110",
+        "distance_m": 2161
+      }
+    },
+    {
+      "id": "PROP-0023",
+      "query": "No. 12, Street 106, Phsar Kandal 2, Daun Penh",
+      "city": "Phnom Penh",
+      "province": "Phnom Penh",
+      "grabmaps": {
+        "hits": 5,
+        "hit": true,
+        "top_label": "N142 A11, \u1795\u17d2\u179b\u17bc\u179c172, \u1787\u17d0\u1799\u1787\u17c6\u1793\u17c7, \u178a\u17bc\u1793\u1796\u17c1\u1789, \u1797\u17d2\u1793\u17c6\u1796\u17c1\u1789, Cambodia, 120208",
+        "position": [
+          104.92693432275985,
+          11.566645574332185
+        ],
+        "place_type": "PointOfInterest",
+        "street_level": true,
+        "street": "\u1795\u17d2\u179b\u17bc\u179c172",
+        "district": "\u178a\u17bc\u1793\u1796\u17c1\u1789",
+        "sub_district": "\u1787\u17d0\u1799\u1787\u17c6\u1793\u17c7",
+        "postal_code": "120208",
+        "distance_m": 1147
+      }
+    }
+  ]
+}
