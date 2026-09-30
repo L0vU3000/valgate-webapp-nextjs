@@ -1,7 +1,10 @@
 # Land boundary (KMZ) upload — QC findings
 
 Source: 41 KMZ files in `KMZ_Properties/`, joined to the **addy** organization (`ORG-0018`,
-109 properties) in the **dev** database. All 41 boundaries are attached in dev.
+109 properties) in the **dev** database. All 41 boundaries are attached in dev — and since
+re-run, in **production** (`ORG-0011`, "KLYP estate") as well: the migration and the backfill
+were both applied there. Production still needs the feature code **deployed** before the UI
+shows them; the data is in place.
 
 Every property's boundary is stored as GeoJSON in `land_parcels.boundary`. The ring's measured
 area is `land_parcels.sizeM2`; the officially-declared area stays on `properties.total_area`.
@@ -43,11 +46,39 @@ Measured against the 26 exactly-matched parcels, before this change:
 - `PP00013` and `PP00014` both carried Phnom Penh's default map centre
   (`12.5657, 104.991`) — **113 km** from their land.
 
-Attaching a boundary now moves the pin to the ring's centre, so `properties.lat/lng` follows
-the measured geometry. The old pin values are discarded, not preserved.
+Attaching a boundary moves the pin to the ring's centre, so `properties.lat/lng` follows the
+measured geometry. The old pin values are discarded, not preserved.
 
 **This means: do not use the old pin positions as an input to any matching or distance
 calculation.** They were wrong for 24 of 26 parcels.
+
+### Which "centre"
+
+The first version used the *point average* of the ring's vertices. That is biased toward whichever
+side has more vertices, so on a narrow plot the pin landed near an edge rather than the middle —
+`PV00002` was **65 m off** the true centre on a parcel only ~58 m wide. The centre is now the
+area-weighted (shoelace) centroid, and each candidate is checked to actually fall *on the land*
+before it is used:
+
+1. shoelace centre, when it is inside the ring (the common, convex case);
+2. the widest inside span at the ring's centre latitude (concave parcels, where the shoelace
+   centre can fall in a notch);
+3. the point average, as a last resort.
+
+Verified against the real parser on all 43 KMZs: **0 of 43 centres fall off their parcel.** Re-running
+the backfill moved every pin by **1–65 m** into the middle. Both dev (`ORG-0018`) and production
+(`ORG-0011`) were re-run: 41 boundaries each, 0 pins off the land.
+
+## Guard against writing to production
+
+`assertSafeDatabaseUrl` blocks URLs whose text looks non-dev. That check **failed on production**:
+the prod Neon branch is hosted at `ep-wild-violet-aot0pvt7`, which contains none of
+"prod"/"production"/"staging", so a backfill run against the live branch passed the guard. The rule
+now also blocks the known production branch name.
+
+A remote URL must NOT be treated as unsafe in general — the ordinary dev branch is hosted on Neon
+too (`ep-tiny-rice-…`). The guard blocks a named production branch, not "anything remote".
+`lib/db/assert-safe-database-url.test.ts` covers both directions.
 
 ## The join
 
