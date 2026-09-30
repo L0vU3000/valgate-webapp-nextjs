@@ -50,6 +50,49 @@ async function reachStep1(page: Page) {
   await clickContinue(page)
 }
 
+// Address is required to leave Step 2 (see the guard in AddPropertyFlow.goNext): a property saved
+// without a picked address lands on the Cambodia centroid. Picking a suggestion sets BOTH the
+// address fields and `mapCenter`, so this is the credentials-free way to satisfy the guard — the
+// drag-the-pin route cannot work here, because CI runs NEXT_PUBLIC_MAPBOX_TOKEN=pk.ci-dummy, the
+// style request 403s, `map.on("load")` never fires and the draggable marker is never created.
+//
+// Stubbing the route is what makes this independent of the live provider: CI has no
+// STORAGE_ACCESS_KEY_ID/SECRET for GrabMaps, so a real search returns [] and the list never opens.
+const STUB_SUGGESTION = {
+  placeId: 'e2e-stub-place',
+  label: 'E2E Test Street, Phnom Penh, Cambodia',
+  title: 'E2E Test Street',
+  street: 'E2E Test Street',
+  district: 'Phnom Penh',
+  locality: 'Phnom Penh',
+  postalCode: '12000',
+  country: 'Cambodia',
+  position: [104.9282, 11.5564] as [number, number],
+}
+
+async function fillAddress(page: Page) {
+  await page.route('**/api/v1/address/suggest*', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ items: [STUB_SUGGESTION] }),
+    }),
+  )
+
+  // The placeholder is "Search address…" with a real ellipsis character, so match on the words
+  // only — a literal "Search address..." pattern would never match it.
+  const addressInput = page.locator('input[placeholder^="Search address"]').first()
+  await addressInput.fill('E2E Test Street')
+
+  // Debounced 300ms, then the results render as buttons. The option handler listens for mousedown;
+  // a normal click still works because Playwright dispatches mousedown before click.
+  const option = page.getByRole('button', { name: /E2E Test Street/i }).first()
+  await option.click({ timeout: 10_000 })
+
+  // The pin banner only renders once mapCenter is set — that is exactly what the guard requires.
+  await expect(page.getByText(/location pinned at/i)).toBeVisible({ timeout: 5_000 })
+}
+
 // From Step 1, pick a property type (auto-advances to Step 2) and wait for the
 // Property Name field. Returns the name input locator.
 async function reachStep2(page: Page) {
@@ -94,6 +137,8 @@ test.describe.serial('C — Add property', () => {
       await test.step('Reach Step 2 and name the property', async () => {
         const field = await reachStep2(page)
         await field.fill('E2E Full Flow Test')
+        // The name alone no longer clears Step 2 — the address must be picked so the pin is set.
+        await fillAddress(page)
       })
 
       await test.step('Step 2 → Gate 2 → Step 3', async () => {
