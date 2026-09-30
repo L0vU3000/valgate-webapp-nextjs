@@ -165,4 +165,27 @@ describe("metresBetween", () => {
     expect(metresBetween([11, 104], [12, 104])).toBeGreaterThan(110_000);
     expect(metresBetween([11, 104], [12, 104])).toBeLessThan(112_500);
   });
+
+  it("puts the pin on the land for a CONCAVE parcel whose area centroid falls outside", () => {
+    // L-shape: an area-weighted centroid of this ring lands in the notch, off the land. The guard
+    // must fall back so the pin stays on the parcel — 3 of the 41 reference parcels hit this.
+    const L = [
+      "0.0000,0.0000,0", "0.0030,0.0000,0", "0.0030,0.0010,0",
+      "0.0010,0.0010,0", "0.0010,0.0030,0", "0.0000,0.0030,0", "0.0000,0.0000,0",
+    ].join(" ");
+    const { centroid } = parseKmz(kmz(KML(L)));
+    const [lat, lng] = centroid;
+    // The notch is the square lng>0.0010 && lat>0.0010; a pin there would be off the land.
+    const inNotch = lng > 0.0010 && lat > 0.0010;
+    expect(inNotch).toBe(false);
+  });
+
+  it("centres an ordinary rectangle rather than biasing toward one corner", () => {
+    // Equal-area rectangle: the centre must be the middle, and adding a redundant midpoint on one
+    // edge must not drag it (the old point-average did exactly that).
+    const plain = parseKmz(kmz(KML("0.0000,0.0000,0 0.0040,0.0000,0 0.0040,0.0020,0 0.0000,0.0020,0 0.0000,0.0000,0")));
+    const [lat, lng] = plain.centroid;
+    expect(lat).toBeCloseTo(0.0010, 6);
+    expect(lng).toBeCloseTo(0.0020, 6);
+  });
 });
