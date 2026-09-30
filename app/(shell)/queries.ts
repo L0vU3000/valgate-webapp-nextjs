@@ -15,6 +15,7 @@ import { listCertifications } from "@/lib/services/certifications";
 import { listEmergencyContacts } from "@/lib/services/emergency-contacts";
 import { listEstateAssignments } from "@/lib/services/estate-assignments";
 import { listDocuments } from "@/lib/services/documents";
+import { listLandParcels } from "@/lib/services/land-parcels";
 import {
   computeStats,
   type PortfolioStats,
@@ -29,7 +30,7 @@ import { formatCurrency } from "@/lib/format";
 
 export type { Property, TitleVariant, PortfolioStats };
 
-export type HomeProperty = Property & { buy: string; progress: number };
+export type HomeProperty = Property & { buy: string; progress: number; boundary?: unknown };
 
 export type HomePageData = {
   properties: HomeProperty[];
@@ -58,6 +59,7 @@ export async function getHomePageData(ctxOverride?: Ctx): Promise<HomePageData> 
     emergencyContacts,
     successorAssignments,
     documents,
+    landParcels,
   ] = await Promise.all([
     listProperties(authCtx),
     listPayments(authCtx),
@@ -73,7 +75,15 @@ export async function getHomePageData(ctxOverride?: Ctx): Promise<HomePageData> 
     listEmergencyContacts(authCtx),
     listEstateAssignments(authCtx),
     listDocuments(authCtx),
+    listLandParcels(authCtx),
   ]);
+
+  // The boundary lives on the property's land parcel (one parcel per property for now — the
+  // location page reads landParcels[0] the same way). Only the properties that HAVE one carry
+  // geometry into the cluster view; the rest stay plain pins.
+  const boundaryByProperty = new Map(
+    landParcels.filter((lp) => lp.boundary != null).map((lp) => [lp.propertyId, lp.boundary]),
+  );
 
   const ctx: ProgressContext = {
     leases,
@@ -91,11 +101,15 @@ export async function getHomePageData(ctxOverride?: Ctx): Promise<HomePageData> 
     documents,
   };
 
-  const items: HomeProperty[] = properties.map((p) => ({
-    ...p,
-    buy: p.buyNumeric ? formatCurrency(p.buyNumeric) : "—",
-    progress: computeProgress(p, ctx),
-  }));
+  const items: HomeProperty[] = properties.map((p) => {
+    const boundary = boundaryByProperty.get(p.id);
+    return {
+      ...p,
+      buy: p.buyNumeric ? formatCurrency(p.buyNumeric) : "—",
+      progress: computeProgress(p, ctx),
+      ...(boundary ? { boundary } : {}),
+    };
+  });
 
   return {
     properties: items,

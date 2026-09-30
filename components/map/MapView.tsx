@@ -7,6 +7,7 @@ import Supercluster from "supercluster";
 import { env } from "@/lib/env";
 import { useShellContext } from "@/components/layout/shell-context";
 import type { Property } from "@/lib/data/types/property";
+import { addBoundaryLayer, BOUNDARY_SOURCE_ID } from "@/components/map/boundary-layer";
 
 const CAMBODIA_CENTER: [number, number] = [104.9, 12.5];
 const CAMBODIA_ZOOM = 7;
@@ -24,8 +25,13 @@ const CAMBODIA_ZOOM = 7;
 // fix there is the swipe cards, not a bigger number.
 const MAP_MAX_ZOOM = 20;
 
+// Boundaries are parcel-sized — at portfolio zoom a ring is a sub-pixel smudge, and shipping
+// every org's geometry to the cluster view for that is pure waste. Draw them only once the user
+// has zoomed to a single building, matching the 3D-buildings reveal at zoom 15.
+const BOUNDARY_MIN_ZOOM = 16;
+
 interface MapViewProps {
-  properties: Property[];
+  properties: (Property & { boundary?: unknown })[];
   selectedId: string | null;
   onSelectProperty: (id: string | null) => void;
   onMapLoaded?: () => void;
@@ -53,6 +59,23 @@ export function MapView({
   // be findable by updateClusters, which is called from map `move` long after that first render.
   const propertiesRef = useRef(properties);
   propertiesRef.current = properties;
+
+  // Boundary geometry as a single FeatureCollection, derived from propertiesRef at draw time rather
+  // than captured at mount — a boundary uploaded after mount must appear without remounting the map.
+  // Only properties that actually carry geometry: a null-geometry feature is a Mapbox warning per
+  // frame for no visual result.
+  function boundaryData(): GeoJSON.FeatureCollection {
+    return {
+      type: "FeatureCollection",
+      features: propertiesRef.current
+        .filter((p) => p.boundary)
+        .map((p) => ({
+          type: "Feature" as const,
+          properties: { id: p.id },
+          geometry: p.boundary as GeoJSON.Geometry,
+        })),
+    };
+  }
   const exitingMarkersRef = useRef<
     Map<string, { marker: mapboxgl.Marker; timeout: ReturnType<typeof setTimeout> }>
   >(new Map());
@@ -100,6 +123,7 @@ export function MapView({
     map.on("load", () => {
       if (destroyed) return;
       add3DBuildings(map);
+      addBoundaries(map);
       onMapLoaded?.();
       onMapReady?.(map);
       updateClusters(map);
@@ -113,6 +137,7 @@ export function MapView({
     map.on("style.load", () => {
       if (destroyed) return;
       add3DBuildings(map);
+      addBoundaries(map);
       clearMarkers();
       updateClusters(map);
     });
@@ -531,6 +556,15 @@ export function MapView({
         "fill-extrusion-opacity": isDarkRef.current ? 0.7 : 0.5,
       },
     });
+  }
+
+  // Portfolio boundaries live in ONE source with a minzoom, not one layer per property: they share
+  // a style and are invisible below BOUNDARY_MIN_ZOOM, so N layers would be N× the style
+  // bookkeeping for identical pixels.
+  function addBoundaries(map: mapboxgl.Map) {
+    addBoundaryLayer(map, null, { minZoom: BOUNDARY_MIN_ZOOM });
+    const src = map.getSource(BOUNDARY_SOURCE_ID) as mapboxgl.GeoJSONSource | undefined;
+    src?.setData(boundaryData());
   }
 
   return (
