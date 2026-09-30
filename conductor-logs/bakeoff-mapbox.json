@@ -1,0 +1,1137 @@
+[
+ {
+  "id": "PROP-0001",
+  "query": "No. AA21, Street 99, Boeng Trabek, Chamkar Mon",
+  "city": "Phnom Penh",
+  "province": "Phnom Penh",
+  "country": "Cambodia",
+  "mapbox": {
+   "bare": {
+    "n": 5,
+    "hit": true,
+    "top_place_name": "Mongstad, Vestland, Norway",
+    "top_relevance": 0.471481,
+    "top_type": [
+     "place"
+    ],
+    "ctx": {
+     "region": "Vestland",
+     "country": "Norway"
+    }
+   },
+   "country_kh": {
+    "n": 2,
+    "hit": true,
+    "top_place_name": "Chamkar Mon, Phnom Penh, Cambodia",
+    "top_relevance": 0.388889,
+    "top_type": [
+     "locality"
+    ],
+    "ctx": {
+     "place": "Phnom Penh",
+     "country": "Cambodia"
+    }
+   },
+   "kh_proximity": {
+    "n": 5,
+    "hit": true,
+    "top_place_name": "Chamkar Mon, Phnom Penh, Cambodia",
+    "top_relevance": 0.388889,
+    "top_type": [
+     "locality"
+    ],
+    "ctx": {
+     "place": "Phnom Penh",
+     "country": "Cambodia"
+    }
+   }
+  }
+ },
+ {
+  "id": "PROP-0002",
+  "query": "No. 172AE1, Street 215, Veal Vong, 7 Makara",
+  "city": "Phnom Penh",
+  "province": "Phnom Penh",
+  "country": "Cambodia",
+  "mapbox": {
+   "bare": {
+    "n": 5,
+    "hit": true,
+    "top_place_name": "St\u00f8, Nordland, Norway",
+    "top_relevance": 0.471481,
+    "top_type": [
+     "place"
+    ],
+    "ctx": {
+     "region": "Nordland",
+     "country": "Norway"
+    }
+   },
+   "country_kh": {
+    "n": 5,
+    "hit": true,
+    "top_place_name": "Veal Vong, Kampong Cham, Kampong Cham, Cambodia",
+    "top_relevance": 0.388889,
+    "top_type": [
+     "locality"
+    ],
+    "ctx": {
+     "place": "Kampong Cham",
+     "region": "Kampong Cham",
+     "country": "Cambodia"
+    }
+   },
+   "kh_proximity": {
+    "n": 3,
+    "hit": true,
+    "top_place_name": "Veal Vong, Kampong Cham, Kampong Cham, Cambodia",
+    "top_relevance": 0.388889,
+    "top_type": [
+     "locality"
+    ],
+    "ctx": {
+     "place": "Kampong Cham",
+     "region": "Kampong Cham",
+     "country": "Cambodia"
+    }
+   }
+  }
+ },
+ {
+  "id": "PROP-0003",
+  "query": "No. 172BEo, Street 215, Veal Vong, 7 Makara",
+  "city": "Phnom Penh",
+  "province": "Phnom Penh",
+  "country": "Cambodia",
+  "mapbox": {
+   "bare": {
+    "n": 5,
+    "hit": true,
+    "top_place_name": "St\u00f8, Nordland, Norway",
+    "top_relevance": 0.471481,
+    "top_type": [
+     "place"
+    ],
+    "ctx": {
+     "region": "Nordland",
+     "country": "Norway"
+    }
+   },
+   "country_kh": {
+    "n": 5,
+    "hit": true,
+    "top_place_name": "Veal Vong, Kampong Cham, Kampong Cham, Cambodia",
+    "top_relevance": 0.388889,
+    "top_type": [
+     "locality"
+    ],
+    "ctx": {
+     "place": "Kampong Cham",
+     "region": "Kampong Cham",
+     "country": "Cambodia"
+    }
+   },
+   "kh_proximity": {
+    "n": 3,
+    "hit": true,
+    "top_place_name": "Veal Vong, Kampong Cham, Kampong Cham, Cambodia",
+    "top_relevance": 0.388889,
+    "top_type": [
+     "locality"
+    ],
+    "ctx": {
+     "place": "Kampong Cham",
+     "region": "Kampong Cham",
+     "country": "Cambodia"
+    }
+   }
+  }
+ },
+ {
+  "id": "PROP-0004",
+  "query": "No. 172BE1, Street 215, Veal Vong, 7 Makara",
+  "city": "Phnom Penh",
+  "province": "Phnom Penh",
+  "country": "Cambodia",
+  "mapbox": {
+   "bare": {
+    "n": 5,
+    "hit": true,
+    "top_place_name": "St\u00f8, Nordland, Norway",
+    "top_relevance": 0.471481,
+    "top_type": [
+     "place"
+    ],
+    "ctx": {
+     "region": "Nordland",
+     "country": "Norway"
+    }
+   },
+   "country_kh": {
+    "n": 5,
+    "hit": true,
+    "top_place_name": "Veal Vong, Kampong Cham, Kampong Cham, Cambodia",
+    "top_relevance": 0.388889,
+    "top_type": [
+     "locality"
+    ],
+    "ctx": {
+     "place": "Kampong Cham",
+     "region": "Kampong Cham",
+     "country": "Cambodia"
+    }
+   },
+   "kh_proximity": {
+    "n": 3,
+    "hit": true,
+    "top_place_name": "Veal Vong, Kampong Cham, Kampong Cham, Cambodia",
+    "top_relevance": 0.388889,
+    "top_type": [
+     "locality"
+    ],
+    "ctx": {
+     "place": "Kampong Cham",
+     "region": "Kampong Cham",
+     "country": "Cambodia"
+    }
+   }
+  }
+ },
+ {
+  "id": "PROP-0005",
+  "query": "No. 172CDE0, Street 215, Veal Vong, 7 Makara",
+  "city": "Phnom Penh",
+  "province": "Phnom Penh",
+  "country": "Cambodia",
+  "mapbox": {
+   "bare": {
+    "n": 5,
+    "hit": true,
+    "top_place_name": "St\u00f8, Nordland, Norway",
+    "top_relevance": 0.471481,
+    "top_type": [
+     "place"
+    ],
+    "ctx": {
+     "region": "Nordland",
+     "country": "Norway"
+    }
+   },
+   "country_kh": {
+    "n": 5,
+    "hit": true,
+    "top_place_name": "Veal Vong, Kampong Cham, Kampong Cham, Cambodia",
+    "top_relevance": 0.388889,
+    "top_type": [
+     "locality"
+    ],
+    "ctx": {
+     "place": "Kampong Cham",
+     "region": "Kampong Cham",
+     "country": "Cambodia"
+    }
+   },
+   "kh_proximity": {
+    "n": 3,
+    "hit": true,
+    "top_place_name": "Veal Vong, Kampong Cham, Kampong Cham, Cambodia",
+    "top_relevance": 0.388889,
+    "top_type": [
+     "locality"
+    ],
+    "ctx": {
+     "place": "Kampong Cham",
+     "region": "Kampong Cham",
+     "country": "Cambodia"
+    }
+   }
+  }
+ },
+ {
+  "id": "PROP-0006",
+  "query": "No. 172CE1, Street 215, Veal Vong, 7 Makara",
+  "city": "Phnom Penh",
+  "province": "Phnom Penh",
+  "country": "Cambodia",
+  "mapbox": {
+   "bare": {
+    "n": 5,
+    "hit": true,
+    "top_place_name": "St\u00f8, Nordland, Norway",
+    "top_relevance": 0.471481,
+    "top_type": [
+     "place"
+    ],
+    "ctx": {
+     "region": "Nordland",
+     "country": "Norway"
+    }
+   },
+   "country_kh": {
+    "n": 5,
+    "hit": true,
+    "top_place_name": "Veal Vong, Kampong Cham, Kampong Cham, Cambodia",
+    "top_relevance": 0.388889,
+    "top_type": [
+     "locality"
+    ],
+    "ctx": {
+     "place": "Kampong Cham",
+     "region": "Kampong Cham",
+     "country": "Cambodia"
+    }
+   },
+   "kh_proximity": {
+    "n": 3,
+    "hit": true,
+    "top_place_name": "Veal Vong, Kampong Cham, Kampong Cham, Cambodia",
+    "top_relevance": 0.388889,
+    "top_type": [
+     "locality"
+    ],
+    "ctx": {
+     "place": "Kampong Cham",
+     "region": "Kampong Cham",
+     "country": "Cambodia"
+    }
+   }
+  }
+ },
+ {
+  "id": "PROP-0007",
+  "query": "No. 172DE1, Street 215, Veal Vong, 7 Makara",
+  "city": "Phnom Penh",
+  "province": "Phnom Penh",
+  "country": "Cambodia",
+  "mapbox": {
+   "bare": {
+    "n": 5,
+    "hit": true,
+    "top_place_name": "St\u00f8, Nordland, Norway",
+    "top_relevance": 0.471481,
+    "top_type": [
+     "place"
+    ],
+    "ctx": {
+     "region": "Nordland",
+     "country": "Norway"
+    }
+   },
+   "country_kh": {
+    "n": 5,
+    "hit": true,
+    "top_place_name": "Veal Vong, Kampong Cham, Kampong Cham, Cambodia",
+    "top_relevance": 0.388889,
+    "top_type": [
+     "locality"
+    ],
+    "ctx": {
+     "place": "Kampong Cham",
+     "region": "Kampong Cham",
+     "country": "Cambodia"
+    }
+   },
+   "kh_proximity": {
+    "n": 3,
+    "hit": true,
+    "top_place_name": "Veal Vong, Kampong Cham, Kampong Cham, Cambodia",
+    "top_relevance": 0.388889,
+    "top_type": [
+     "locality"
+    ],
+    "ctx": {
+     "place": "Kampong Cham",
+     "region": "Kampong Cham",
+     "country": "Cambodia"
+    }
+   }
+  }
+ },
+ {
+  "id": "PROP-0008",
+  "query": "No. 172EE0, Street 215, Veal Vong, 7 Makara",
+  "city": "Phnom Penh",
+  "province": "Phnom Penh",
+  "country": "Cambodia",
+  "mapbox": {
+   "bare": {
+    "n": 5,
+    "hit": true,
+    "top_place_name": "St\u00f8, Nordland, Norway",
+    "top_relevance": 0.471481,
+    "top_type": [
+     "place"
+    ],
+    "ctx": {
+     "region": "Nordland",
+     "country": "Norway"
+    }
+   },
+   "country_kh": {
+    "n": 5,
+    "hit": true,
+    "top_place_name": "Veal Vong, Kampong Cham, Kampong Cham, Cambodia",
+    "top_relevance": 0.388889,
+    "top_type": [
+     "locality"
+    ],
+    "ctx": {
+     "place": "Kampong Cham",
+     "region": "Kampong Cham",
+     "country": "Cambodia"
+    }
+   },
+   "kh_proximity": {
+    "n": 3,
+    "hit": true,
+    "top_place_name": "Veal Vong, Kampong Cham, Kampong Cham, Cambodia",
+    "top_relevance": 0.388889,
+    "top_type": [
+     "locality"
+    ],
+    "ctx": {
+     "place": "Kampong Cham",
+     "region": "Kampong Cham",
+     "country": "Cambodia"
+    }
+   }
+  }
+ },
+ {
+  "id": "PROP-0009",
+  "query": "No. 172EE1, Street 215, Veal Vong, 7 Makara",
+  "city": "Phnom Penh",
+  "province": "Phnom Penh",
+  "country": "Cambodia",
+  "mapbox": {
+   "bare": {
+    "n": 5,
+    "hit": true,
+    "top_place_name": "St\u00f8, Nordland, Norway",
+    "top_relevance": 0.471481,
+    "top_type": [
+     "place"
+    ],
+    "ctx": {
+     "region": "Nordland",
+     "country": "Norway"
+    }
+   },
+   "country_kh": {
+    "n": 5,
+    "hit": true,
+    "top_place_name": "Veal Vong, Kampong Cham, Kampong Cham, Cambodia",
+    "top_relevance": 0.388889,
+    "top_type": [
+     "locality"
+    ],
+    "ctx": {
+     "place": "Kampong Cham",
+     "region": "Kampong Cham",
+     "country": "Cambodia"
+    }
+   },
+   "kh_proximity": {
+    "n": 3,
+    "hit": true,
+    "top_place_name": "Veal Vong, Kampong Cham, Kampong Cham, Cambodia",
+    "top_relevance": 0.388889,
+    "top_type": [
+     "locality"
+    ],
+    "ctx": {
+     "place": "Kampong Cham",
+     "region": "Kampong Cham",
+     "country": "Cambodia"
+    }
+   }
+  }
+ },
+ {
+  "id": "PROP-0010",
+  "query": "No. 191D, Street 63, Boeung Keng Kang 1, Chamkar Mon",
+  "city": "Phnom Penh",
+  "province": "Phnom Penh",
+  "country": "Cambodia",
+  "mapbox": {
+   "bare": {
+    "n": 5,
+    "hit": true,
+    "top_place_name": "Mongstad, Vestland, Norway",
+    "top_relevance": 0.449259,
+    "top_type": [
+     "place"
+    ],
+    "ctx": {
+     "region": "Vestland",
+     "country": "Norway"
+    }
+   },
+   "country_kh": {
+    "n": 2,
+    "hit": true,
+    "top_place_name": "Chamkar Mon, Phnom Penh, Cambodia",
+    "top_relevance": 0.366667,
+    "top_type": [
+     "locality"
+    ],
+    "ctx": {
+     "place": "Phnom Penh",
+     "country": "Cambodia"
+    }
+   },
+   "kh_proximity": {
+    "n": 3,
+    "hit": true,
+    "top_place_name": "Chamkar Mon, Phnom Penh, Cambodia",
+    "top_relevance": 0.366667,
+    "top_type": [
+     "locality"
+    ],
+    "ctx": {
+     "place": "Phnom Penh",
+     "country": "Cambodia"
+    }
+   }
+  }
+ },
+ {
+  "id": "PROP-0011",
+  "query": "No. 35, Street 334, Boeung Keng Kang 1, Chamkar Mon",
+  "city": "Phnom Penh",
+  "province": "Phnom Penh",
+  "country": "Cambodia",
+  "mapbox": {
+   "bare": {
+    "n": 5,
+    "hit": true,
+    "top_place_name": "Mongstad, Vestland, Norway",
+    "top_relevance": 0.449259,
+    "top_type": [
+     "place"
+    ],
+    "ctx": {
+     "region": "Vestland",
+     "country": "Norway"
+    }
+   },
+   "country_kh": {
+    "n": 2,
+    "hit": true,
+    "top_place_name": "Chamkar Mon, Phnom Penh, Cambodia",
+    "top_relevance": 0.366667,
+    "top_type": [
+     "locality"
+    ],
+    "ctx": {
+     "place": "Phnom Penh",
+     "country": "Cambodia"
+    }
+   },
+   "kh_proximity": {
+    "n": 3,
+    "hit": true,
+    "top_place_name": "Chamkar Mon, Phnom Penh, Cambodia",
+    "top_relevance": 0.366667,
+    "top_type": [
+     "locality"
+    ],
+    "ctx": {
+     "place": "Phnom Penh",
+     "country": "Cambodia"
+    }
+   }
+  }
+ },
+ {
+  "id": "PROP-0012",
+  "query": "No. 223, Street 63, Boeung Keng Kang 1, Chamkar Mon",
+  "city": "Phnom Penh",
+  "province": "Phnom Penh",
+  "country": "Cambodia",
+  "mapbox": {
+   "bare": {
+    "n": 5,
+    "hit": true,
+    "top_place_name": "Mongstad, Vestland, Norway",
+    "top_relevance": 0.449259,
+    "top_type": [
+     "place"
+    ],
+    "ctx": {
+     "region": "Vestland",
+     "country": "Norway"
+    }
+   },
+   "country_kh": {
+    "n": 2,
+    "hit": true,
+    "top_place_name": "Chamkar Mon, Phnom Penh, Cambodia",
+    "top_relevance": 0.366667,
+    "top_type": [
+     "locality"
+    ],
+    "ctx": {
+     "place": "Phnom Penh",
+     "country": "Cambodia"
+    }
+   },
+   "kh_proximity": {
+    "n": 3,
+    "hit": true,
+    "top_place_name": "Chamkar Mon, Phnom Penh, Cambodia",
+    "top_relevance": 0.366667,
+    "top_type": [
+     "locality"
+    ],
+    "ctx": {
+     "place": "Phnom Penh",
+     "country": "Cambodia"
+    }
+   }
+  }
+ },
+ {
+  "id": "PROP-0013",
+  "query": "No. 16 (Building A), Peng Huot Road, Chak Angre Leu, Meanchey",
+  "city": "Phnom Penh",
+  "province": "Phnom Penh",
+  "country": "Cambodia",
+  "mapbox": {
+   "bare": {
+    "n": 5,
+    "hit": true,
+    "top_place_name": "16 West Pennsylvania Avenue, Chickasha, Oklahoma 73018, United States",
+    "top_relevance": 0.408009,
+    "top_type": [
+     "address"
+    ],
+    "ctx": {
+     "postcode": "73018",
+     "place": "Chickasha",
+     "district": "Grady County",
+     "region": "Oklahoma",
+     "country": "United States"
+    }
+   },
+   "country_kh": {
+    "n": 3,
+    "hit": true,
+    "top_place_name": "Mean Chey, Phnom Penh, Cambodia",
+    "top_relevance": 0.318182,
+    "top_type": [
+     "locality"
+    ],
+    "ctx": {
+     "place": "Phnom Penh",
+     "country": "Cambodia"
+    }
+   },
+   "kh_proximity": {
+    "n": 4,
+    "hit": true,
+    "top_place_name": "Mean Chey, Phnom Penh, Cambodia",
+    "top_relevance": 0.318182,
+    "top_type": [
+     "locality"
+    ],
+    "ctx": {
+     "place": "Phnom Penh",
+     "country": "Cambodia"
+    }
+   }
+  }
+ },
+ {
+  "id": "PROP-0014",
+  "query": "No. 16 (Building B), Peng Huot Road, Chak Angre Leu, Meanchey",
+  "city": "Phnom Penh",
+  "province": "Phnom Penh",
+  "country": "Cambodia",
+  "mapbox": {
+   "bare": {
+    "n": 5,
+    "hit": true,
+    "top_place_name": "East 16 Road, Manton, Michigan 49663, United States",
+    "top_relevance": 0.351515,
+    "top_type": [
+     "address"
+    ],
+    "ctx": {
+     "postcode": "49663",
+     "locality": "Cedar Creek Township",
+     "place": "Manton",
+     "district": "Wexford County",
+     "region": "Michigan",
+     "country": "United States"
+    }
+   },
+   "country_kh": {
+    "n": 3,
+    "hit": true,
+    "top_place_name": "Mean Chey, Phnom Penh, Cambodia",
+    "top_relevance": 0.318182,
+    "top_type": [
+     "locality"
+    ],
+    "ctx": {
+     "place": "Phnom Penh",
+     "country": "Cambodia"
+    }
+   },
+   "kh_proximity": {
+    "n": 4,
+    "hit": true,
+    "top_place_name": "Mean Chey, Phnom Penh, Cambodia",
+    "top_relevance": 0.318182,
+    "top_type": [
+     "locality"
+    ],
+    "ctx": {
+     "place": "Phnom Penh",
+     "country": "Cambodia"
+    }
+   }
+  }
+ },
+ {
+  "id": "PROP-0015",
+  "query": "Chak Angre Leu, Meanchey (near National Road 1 overpass)",
+  "city": "Phnom Penh",
+  "province": "Phnom Penh",
+  "country": "Cambodia",
+  "mapbox": {
+   "bare": {
+    "n": 5,
+    "hit": true,
+    "top_place_name": "1 East Main Street, Columbus, Ohio 43215, United States",
+    "top_relevance": 0.413827,
+    "top_type": [
+     "address"
+    ],
+    "ctx": {
+     "neighborhood": "South Downtown",
+     "postcode": "43215",
+     "locality": "Downtown Columbus",
+     "place": "Columbus",
+     "district": "Franklin County",
+     "region": "Ohio",
+     "country": "United States"
+    }
+   },
+   "country_kh": {
+    "n": 2,
+    "hit": true,
+    "top_place_name": "Chak, Ou Reang Ov, Tbong Khmum, Cambodia",
+    "top_relevance": 0.32716,
+    "top_type": [
+     "locality"
+    ],
+    "ctx": {
+     "place": "Ou Reang Ov",
+     "region": "Tbong Khmum",
+     "country": "Cambodia"
+    }
+   },
+   "kh_proximity": {
+    "n": 4,
+    "hit": true,
+    "top_place_name": "Mean Chey, Phnom Penh, Cambodia",
+    "top_relevance": 0.32716,
+    "top_type": [
+     "locality"
+    ],
+    "ctx": {
+     "place": "Phnom Penh",
+     "country": "Cambodia"
+    }
+   }
+  }
+ },
+ {
+  "id": "PROP-0016",
+  "query": "Tuol Roka 1, Chak Angre Leu, Meanchey",
+  "city": "Phnom Penh",
+  "province": "Phnom Penh",
+  "country": "Cambodia",
+  "mapbox": {
+   "bare": {
+    "n": 5,
+    "hit": true,
+    "top_place_name": "Toul, Logone Occidental, Chad",
+    "top_relevance": 0.435185,
+    "top_type": [
+     "place"
+    ],
+    "ctx": {
+     "region": "Logone Occidental",
+     "country": "Chad"
+    }
+   },
+   "country_kh": {
+    "n": 5,
+    "hit": true,
+    "top_place_name": "Mean Chey, Phnom Penh, Cambodia",
+    "top_relevance": 0.34127,
+    "top_type": [
+     "locality"
+    ],
+    "ctx": {
+     "place": "Phnom Penh",
+     "country": "Cambodia"
+    }
+   },
+   "kh_proximity": {
+    "n": 5,
+    "hit": true,
+    "top_place_name": "Mean Chey, Phnom Penh, Cambodia",
+    "top_relevance": 0.34127,
+    "top_type": [
+     "locality"
+    ],
+    "ctx": {
+     "place": "Phnom Penh",
+     "country": "Cambodia"
+    }
+   }
+  }
+ },
+ {
+  "id": "PROP-0017",
+  "query": "No. 158, Street 71, Boeung Keng Kang 1, Chamkar Mon",
+  "city": "Phnom Penh",
+  "province": "Phnom Penh",
+  "country": "Cambodia",
+  "mapbox": {
+   "bare": {
+    "n": 5,
+    "hit": true,
+    "top_place_name": "Mongstad, Vestland, Norway",
+    "top_relevance": 0.449259,
+    "top_type": [
+     "place"
+    ],
+    "ctx": {
+     "region": "Vestland",
+     "country": "Norway"
+    }
+   },
+   "country_kh": {
+    "n": 1,
+    "hit": true,
+    "top_place_name": "Chamkar Mon, Phnom Penh, Cambodia",
+    "top_relevance": 0.366667,
+    "top_type": [
+     "locality"
+    ],
+    "ctx": {
+     "place": "Phnom Penh",
+     "country": "Cambodia"
+    }
+   },
+   "kh_proximity": {
+    "n": 3,
+    "hit": true,
+    "top_place_name": "Chamkar Mon, Phnom Penh, Cambodia",
+    "top_relevance": 0.366667,
+    "top_type": [
+     "locality"
+    ],
+    "ctx": {
+     "place": "Phnom Penh",
+     "country": "Cambodia"
+    }
+   }
+  }
+ },
+ {
+  "id": "PROP-0018",
+  "query": "Unit A105-1301, Camko City, Toul Sangke, Roessei Keo",
+  "city": "Phnom Penh",
+  "province": "Phnom Penh",
+  "country": "Cambodia",
+  "mapbox": {
+   "bare": {
+    "n": 5,
+    "hit": true,
+    "top_place_name": "1301 Cameo Drive, Fort Worth, Texas 76134, United States",
+    "top_relevance": 0.361235,
+    "top_type": [
+     "address"
+    ],
+    "ctx": {
+     "neighborhood": "Lytle",
+     "postcode": "76134",
+     "locality": "Hallmark",
+     "place": "Fort Worth",
+     "district": "Tarrant County",
+     "region": "Texas",
+     "country": "United States"
+    }
+   },
+   "country_kh": {
+    "n": 0,
+    "hit": false,
+    "top_place_name": null,
+    "top_relevance": null,
+    "top_type": null,
+    "ctx": {}
+   },
+   "kh_proximity": {
+    "n": 0,
+    "hit": false,
+    "top_place_name": null,
+    "top_relevance": null,
+    "top_type": null,
+    "ctx": {}
+   }
+  }
+ },
+ {
+  "id": "PROP-0019",
+  "query": "Unit 06 F21, Samdech Pan Street 2, Boeng Raing, Daun Penh",
+  "city": "Phnom Penh",
+  "province": "Phnom Penh",
+  "country": "Cambodia",
+  "mapbox": {
+   "bare": {
+    "n": 5,
+    "hit": true,
+    "top_place_name": "2 Pine Street, Dartmouth, Nova Scotia B2Y 2W5, Canada",
+    "top_relevance": 0.406425,
+    "top_type": [
+     "address"
+    ],
+    "ctx": {
+     "neighborhood": "Austenville",
+     "postcode": "B2Y 2W5",
+     "place": "Dartmouth",
+     "district": "Halifax County",
+     "region": "Nova Scotia",
+     "country": "Canada"
+    }
+   },
+   "country_kh": {
+    "n": 2,
+    "hit": true,
+    "top_place_name": "Doun Penh, Phnom Penh, Cambodia",
+    "top_relevance": 0.358586,
+    "top_type": [
+     "locality"
+    ],
+    "ctx": {
+     "place": "Phnom Penh",
+     "country": "Cambodia"
+    }
+   },
+   "kh_proximity": {
+    "n": 2,
+    "hit": true,
+    "top_place_name": "Doun Penh, Phnom Penh, Cambodia",
+    "top_relevance": 0.358586,
+    "top_type": [
+     "locality"
+    ],
+    "ctx": {
+     "place": "Phnom Penh",
+     "country": "Cambodia"
+    }
+   }
+  }
+ },
+ {
+  "id": "PROP-0020",
+  "query": "Prek Takong, Prek Tasek, Chroy Changvar",
+  "city": "Phnom Penh",
+  "province": "Phnom Penh",
+  "country": "Cambodia",
+  "mapbox": {
+   "bare": {
+    "n": 5,
+    "hit": true,
+    "top_place_name": "Phek, Nagaland, India",
+    "top_relevance": 0.453704,
+    "top_type": [
+     "place"
+    ],
+    "ctx": {
+     "district": "Phek",
+     "region": "Nagaland",
+     "country": "India"
+    }
+   },
+   "country_kh": {
+    "n": 5,
+    "hit": true,
+    "top_place_name": "Chraoy Chongvar, Phnom Penh, Cambodia",
+    "top_relevance": 0.425926,
+    "top_type": [
+     "locality"
+    ],
+    "ctx": {
+     "place": "Phnom Penh",
+     "country": "Cambodia"
+    }
+   },
+   "kh_proximity": {
+    "n": 3,
+    "hit": true,
+    "top_place_name": "Chraoy Chongvar, Phnom Penh, Cambodia",
+    "top_relevance": 0.425926,
+    "top_type": [
+     "locality"
+    ],
+    "ctx": {
+     "place": "Phnom Penh",
+     "country": "Cambodia"
+    }
+   }
+  }
+ },
+ {
+  "id": "PROP-0021",
+  "query": "No. F153, Street 6A, Prek Leab, Chroy Changvar",
+  "city": "Phnom Penh",
+  "province": "Phnom Penh",
+  "country": "Cambodia",
+  "mapbox": {
+   "bare": {
+    "n": 5,
+    "hit": true,
+    "top_place_name": "St\u00f8, Nordland, Norway",
+    "top_relevance": 0.471481,
+    "top_type": [
+     "place"
+    ],
+    "ctx": {
+     "region": "Nordland",
+     "country": "Norway"
+    }
+   },
+   "country_kh": {
+    "n": 5,
+    "hit": true,
+    "top_place_name": "Chraoy Chongvar, Phnom Penh, Cambodia",
+    "top_relevance": 0.388889,
+    "top_type": [
+     "locality"
+    ],
+    "ctx": {
+     "place": "Phnom Penh",
+     "country": "Cambodia"
+    }
+   },
+   "kh_proximity": {
+    "n": 3,
+    "hit": true,
+    "top_place_name": "Chraoy Chongvar, Phnom Penh, Cambodia",
+    "top_relevance": 0.388889,
+    "top_type": [
+     "locality"
+    ],
+    "ctx": {
+     "place": "Phnom Penh",
+     "country": "Cambodia"
+    }
+   }
+  }
+ },
+ {
+  "id": "PROP-0022",
+  "query": "No. 45, Street 163, Toul Tom Poung 1, Chamkar Mon",
+  "city": "Phnom Penh",
+  "province": "Phnom Penh",
+  "country": "Cambodia",
+  "mapbox": {
+   "bare": {
+    "n": 5,
+    "hit": true,
+    "top_place_name": "Monza, Monza and Brianza, Italy",
+    "top_relevance": 0.22963,
+    "top_type": [
+     "place"
+    ],
+    "ctx": {
+     "region": "Monza and Brianza",
+     "country": "Italy"
+    }
+   },
+   "country_kh": {
+    "n": 2,
+    "hit": true,
+    "top_place_name": "Chamkar Mon, Phnom Penh, Cambodia",
+    "top_relevance": 0.366667,
+    "top_type": [
+     "locality"
+    ],
+    "ctx": {
+     "place": "Phnom Penh",
+     "country": "Cambodia"
+    }
+   },
+   "kh_proximity": {
+    "n": 3,
+    "hit": true,
+    "top_place_name": "Chamkar Mon, Phnom Penh, Cambodia",
+    "top_relevance": 0.366667,
+    "top_type": [
+     "locality"
+    ],
+    "ctx": {
+     "place": "Phnom Penh",
+     "country": "Cambodia"
+    }
+   }
+  }
+ },
+ {
+  "id": "PROP-0023",
+  "query": "No. 12, Street 106, Phsar Kandal 2, Daun Penh",
+  "city": "Phnom Penh",
+  "province": "Phnom Penh",
+  "country": "Cambodia",
+  "mapbox": {
+   "bare": {
+    "n": 5,
+    "hit": true,
+    "top_place_name": "St\u00f8, Nordland, Norway",
+    "top_relevance": 0.459136,
+    "top_type": [
+     "place"
+    ],
+    "ctx": {
+     "region": "Nordland",
+     "country": "Norway"
+    }
+   },
+   "country_kh": {
+    "n": 3,
+    "hit": true,
+    "top_place_name": "Phsar Kandal, Paoy Paet, Banteay Meanchey, Cambodia",
+    "top_relevance": 0.376543,
+    "top_type": [
+     "locality"
+    ],
+    "ctx": {
+     "place": "Paoy Paet",
+     "region": "Banteay Meanchey",
+     "country": "Cambodia"
+    }
+   },
+   "kh_proximity": {
+    "n": 3,
+    "hit": true,
+    "top_place_name": "Phsar Kandal, Paoy Paet, Banteay Meanchey, Cambodia",
+    "top_relevance": 0.376543,
+    "top_type": [
+     "locality"
+    ],
+    "ctx": {
+     "place": "Paoy Paet",
+     "region": "Banteay Meanchey",
+     "country": "Cambodia"
+    }
+   }
+  }
+ }
+]

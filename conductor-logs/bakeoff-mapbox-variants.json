@@ -1,0 +1,40 @@
+{
+  "V0 current (no country/proximity)": {
+    "hit": "23/23",
+    "street_precision": "0/23",
+    "sangkat_matches": "6/23",
+    "top_types": {
+      "locality": 22,
+      "region,place": 1
+    }
+  },
+  "V1 +country+proximity": {
+    "hit": "23/23",
+    "street_precision": "0/23",
+    "sangkat_matches": "6/23",
+    "top_types": {
+      "locality": 22,
+      "region,place": 1
+    }
+  },
+  "V2 +country+prox, addr/place only": {
+    "hit": "23/23",
+    "street_precision": "0/23",
+    "sangkat_matches": "0/23",
+    "top_types": {
+      "region,place": 23
+    }
+  },
+  "V3 +country+prox, address only": {
+    "hit": "0/23",
+    "street_precision": "0/0",
+    "sangkat_matches": "0/0",
+    "top_types": {}
+  },
+  "V4 +country+prox, addr/poi": {
+    "hit": "0/23",
+    "street_precision": "0/0",
+    "sangkat_matches": "0/0",
+    "top_types": {}
+  }
+}
