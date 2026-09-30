@@ -87,7 +87,16 @@ export function PropertyDetailMap({
     map.addControl(new mapboxgl.AttributionControl({ compact: true }), "bottom-left");
     mapRef.current = map;
 
-    map.on("load", () => {
+    // Mapbox fires these handlers from its own render loop, not synchronously with our React tree.
+    // If the component unmounts while a handler is queued (a parent re-render can do it — the
+    // location page sets state from `onLoad`, which runs inside this very `load` callback), the
+    // handler then runs against a torn-down map: `map.remove()` nulls the canvas container, and
+    // `Marker.addTo` does `getCanvasContainer().appendChild(...)` on undefined, which is the
+    // "can't access property appendChild" console error. Every handler therefore re-checks that
+    // this is still the mounted map before touching it.
+    const isLive = () => mapRef.current === map;
+    const onLoadHandler = () => {
+      if (!isLive()) return;
       addMarker(map);
       addBoundaryLayer(map, boundaryRef.current ?? null);
       // Fit to the ring, so a 124 m² parcel and an 87,000 m² estate both open showing their land
@@ -95,19 +104,26 @@ export function PropertyDetailMap({
       fitBoundary(map, boundaryRef.current);
       onLoad?.();
       onMapReady?.(map);
-    });
-
-    map.on("style.load", () => {
+    };
+    const onStyleLoadHandler = () => {
+      if (!isLive()) return;
       addMarker(map);
       // A style swap (theme / satellite) replaces the whole style, destroying every layer,
       // so the boundary has to be re-added — not just re-positioned.
       addBoundaryLayer(map, boundaryRef.current ?? null);
-    });
+    };
+
+    map.on("load", onLoadHandler);
+    map.on("style.load", onStyleLoadHandler);
 
     return () => {
+      map.off("load", onLoadHandler);
+      map.off("style.load", onStyleLoadHandler);
+      // Null the ref BEFORE removing, so any handler already queued behind this sees `isLive()`
+      // false and bails instead of touching a removed map.
+      mapRef.current = null;
       markerRef.current = null;
       map.remove();
-      mapRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
