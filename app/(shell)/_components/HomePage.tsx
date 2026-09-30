@@ -15,6 +15,7 @@ import {
   Command as CommandIcon,
   ArrowUpRight,
   MapPin,
+  LocateFixed,
   Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,10 @@ import { CommandPalette } from "@/components/home/CommandPalette";
 import { PropertyTable } from "@/components/portfolio/PropertyTable";
 import type { TableAnimationConfig } from "@/components/portfolio/PropertyTable";
 import { PortfolioLegend } from "./PortfolioLegend";
+import { QuickAddPinLayer } from "./QuickAddPinLayer";
+import { QuickAddPanel } from "./QuickAddPanel";
+import { QuickAddSearch } from "./QuickAddSearch";
+import { useQuickAdd } from "./use-quick-add";
 import type mapboxgl from "mapbox-gl";
 
 const MapView = dynamic(
@@ -76,11 +81,118 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
   const [placeholderVisible, setPlaceholderVisible] = useState(true);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [isSatellite, setIsSatellite] = useState(false);
+  // The property quick-add just created, held until the refreshed list contains it (see the handoff
+  // effect below). Non-null means "creation succeeded, waiting for the server data".
+  const [handoffId, setHandoffId] = useState<string | null>(null);
   // Cover photo for the currently-open drawer, resolved lazily when a pin is selected
   // (signed urls are short-lived, so we sign one on open rather than all up front).
   const [drawerCover, setDrawerCover] = useState<{ id: string; url: string | null } | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const router = useRouter();
+
+  const quickAdd = useQuickAdd();
+
+  // Map clicks drop the quick-add pin. Wired here rather than inside MapView so the map component
+  // stays unaware of quick-add, and unwired the moment the mode is off — a stray click must not drop
+  // a pin while the user is just browsing.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !quickAdd.active || !mapLoaded) return;
+    const canvas = map.getCanvas();
+    const prevCursor = canvas.style.cursor;
+    // A bare crosshair says "something will happen"; it does not say what, and it is the same
+    // cursor every map tool uses. This one names the action and carries the brand colour, so the
+    // armed state is unmistakable even before the first pin is placed. The ring is drawn INSIDE
+    // the glyph area (hotspot 16,16, a dot) so the point that clicks is visibly the point that
+    // drops — a cursor whose hotspot is not where the mark is feels broken at high zoom.
+    // Plain "#2563eb" — NOT "%232563eb". encodeURIComponent below already escapes the "#" to
+    // "%23"; pre-escaping it here would double-encode to "%2523", and the SVG would then contain
+    // the literal text "%232563eb", which is not a colour, so the ring and dot would render black.
+    const CURSOR_HOTSPOT = "16 16";
+    const armCursor = `url("data:image/svg+xml,${encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">' +
+        "<circle cx='16' cy='16' r='11' fill='none' stroke='white' stroke-width='4'/>" +
+        "<circle cx='16' cy='16' r='11' fill='none' stroke='#2563eb' stroke-width='2'/>" +
+        "<circle cx='16' cy='16' r='2.5' fill='#2563eb' stroke='white' stroke-width='1.5'/>" +
+        "</svg>",
+    )}") ${CURSOR_HOTSPOT}, crosshair`;
+    canvas.style.cursor = armCursor;
+    const onClick = (e: mapboxgl.MapMouseEvent) => {
+      quickAdd.dropPin([e.lngLat.lng, e.lngLat.lat]);
+    };
+    map.on("click", onClick);
+    return () => {
+      map.off("click", onClick);
+      // Only unwind our own cursor. Mapbox writes this same property during a pan/drag, and this
+      // effect is torn down and re-created whenever the mode toggles — restoring a captured value
+      // blindly would stomp a cursor Mapbox set in the meantime and leave a stuck targeting cursor.
+      if (canvas.style.cursor === armCursor) canvas.style.cursor = prevCursor;
+    };
+    // Deps are the primitives, not the `quickAdd` object itself: that object is rebuilt every render,
+    // which would tear down and re-add the click listener on every render for no reason.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quickAdd.active, quickAdd.dropPin, mapLoaded]);
+
+  // Bring the highlighted suggestion into view. Only the suggestion list sets `preview`, so a pin
+  // the user tapped or dragged is left alone — it is already where they were looking, and flying on
+  // every drag would fight the gesture. Reduced motion jumps instead of travelling: the address is
+  // the information, the flight is not.
+  const quickAddPreview = quickAdd.preview;
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !quickAddPreview) return;
+    const [lng, lat] = quickAddPreview;
+    if (quickAdd.reducedMotion.current) {
+      map.jumpTo({ center: [lng, lat] });
+    } else {
+      // 700ms, not the 900ms of a deliberate "take me there": this replays on every arrow key, so it
+      // has to settle before the next one lands or the camera never stops moving.
+      map.flyTo({ center: [lng, lat], zoom: Math.max(map.getZoom(), 15), duration: 700 });
+    }
+  }, [quickAddPreview, quickAdd.reducedMotion]);
+
+  // The pin the quick-add card renders, or null when there is no card. Gated on a DROPPED PIN, not
+  // on the mode being armed: the card does not exist until then, so anything that offsets itself for
+  // that slot must not move before there is a card in it.
+  const quickAddCardPin = quickAdd.active ? quickAdd.pin : null;
+
+  const startQuickAdd = useCallback(() => {
+    // The quick-add card and the property drawer share one slot, so opening one closes the other.
+    setSelectedPin(null);
+    quickAdd.start();
+  }, [quickAdd]);
+
+  const handleQuickAddConfirm = useCallback(async () => {
+    const id = await quickAdd.confirm();
+    if (!id) return;
+    // The property exists now. Point the drawer at it and re-fetch the server-rendered data so the
+    // map, the stats bar and the drawer all see it — without the refresh, the record is in the DB
+    // while `initialProperties` (which both the map's markers and the drawer's lookup read) is still
+    // the list from page load.
+    //
+    // The card is closed by the effect below, not here: the drawer can only render once the new
+    // property is in `initialProperties`, so closing the card now would leave the slot empty for
+    // however long the refresh takes.
+    setHandoffId(id);
+    setSelectedPin(id);
+    router.refresh();
+  }, [quickAdd, router]);
+
+  // Hand the card's slot to the drawer in a single commit: this runs on the render where the
+  // refreshed property list first contains the new record, so the card unmounts and the drawer
+  // mounts together and the sidebar is never empty in between.
+  //
+  // Deps use `quickAdd.active`, not the `quickAdd` object: that object is rebuilt every render, so
+  // depending on it would re-run this effect constantly — the same reason the map-click effect above
+  // lists primitives.
+  const quickAddActive = quickAdd.active;
+  const quickAddCancel = quickAdd.cancel;
+  useEffect(() => {
+    if (!handoffId || !quickAddActive) return;
+    if (!initialProperties.some((p) => p.id === handoffId)) return;
+    quickAddCancel();
+    setHandoffId(null);
+  }, [handoffId, quickAddActive, quickAddCancel, initialProperties]);
 
   // Cmd+K / Ctrl+K to open command palette
   useEffect(() => {
@@ -143,6 +255,10 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
   const handlePinClick = useCallback(
     (pinId: string | null) => {
       if (pinId === null) return;
+      // Quick-add owns the map while it is armed. Without this, tapping an existing property pin
+      // also sets `selectedPin` — invisible at the time (the drawer is suppressed while quick-add is
+      // active), then the property drawer springs open on cancel, long after the click that caused it.
+      if (quickAdd.active) return;
       if (selectedPin === pinId) {
         closeDrawer();
       } else {
@@ -150,7 +266,7 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
         setSelectedPin(pinId);
       }
     },
-    [selectedPin, closeDrawer],
+    [selectedPin, closeDrawer, quickAdd.active],
   );
 
   // Resolve the selected property's cover photo when a drawer opens. A missing/expired
@@ -253,6 +369,10 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
           */}
           <div className="flex items-center gap-3 w-full sm:w-auto overflow-x-auto scrollbar-none -mx-4 sm:mx-0 px-4 sm:px-0 py-1">
             {[
+              // Quick Add is deliberately NOT in this row — it is the map's primary action, so it
+              // lives as its own blue button above the stats bar. These chips stay for the
+              // secondary destinations, and "New Property" remains for users who already know the
+              // address and would rather type it than point at it.
               { label: "New Property", icon: Plus, action: () => router.push("/add-property") },
               { label: "Portfolio", icon: BarChart2, action: () => router.push("/portfolio") },
               { label: "Documents", icon: FileText, action: () => setCommandOpen(true) },
@@ -285,22 +405,100 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
         />
 
         {/* Portfolio legend — centered, bottom of map */}
-        <PortfolioLegend stats={portfolioStats} mapLoaded={mapLoaded} drawerOpen={!!drawerProperty} />
+        <PortfolioLegend
+          stats={portfolioStats}
+          mapLoaded={mapLoaded}
+          drawerOpen={!!drawerProperty || !!quickAddCardPin}
+          quickAddOpen={quickAdd.active}
+          action={
+            // The map's primary action, so it gets the brand colour and reads as a button rather
+            // than one of the white chips. It sits above the stats bar because that is where the
+            // eye already goes for "what's on this map" — and it is rendered by PortfolioLegend so
+            // it inherits the legend's safe-area and drawer offsets instead of duplicating them.
+            //
+            // Armed, the button IS the address field: the same slot, no second control to find. The
+            // field is desktop-only (QuickAddSearch hides itself under `sm`), so the cancel button
+            // stays behind it for the phone, where the bottom sheet covers the legend anyway.
+            quickAdd.active ? (
+              <div className="flex items-center gap-2">
+                <QuickAddSearch
+                  query={quickAdd.query}
+                  suggestions={quickAdd.suggestions}
+                  loading={quickAdd.searching}
+                  onChange={quickAdd.searchAddress}
+                  onHighlight={quickAdd.highlightAddress}
+                  onPick={quickAdd.pickAddress}
+                />
+                <button
+                  onClick={quickAdd.cancel}
+                  aria-label="Cancel quick add"
+                  className="hidden items-center gap-2 rounded-full border border-border-default bg-surface-base px-5 py-2.5 text-sm font-semibold text-foreground shadow-lg transition-all duration-200 active:scale-[0.98] sm:flex"
+                >
+                  <X className="size-4" />
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={startQuickAdd}
+                aria-label="Quick Add a property on the map"
+                className={cn(
+                  "flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold shadow-lg transition-all duration-200 active:scale-[0.98]",
+                  "bg-interactive-primary text-white hover:bg-interactive-primary-hover hover:shadow-xl",
+                  mapLoaded ? "[animation:fade-slide-up_0.4s_cubic-bezier(0.16,1,0.3,1)_250ms_both]" : "opacity-0",
+                )}
+              >
+                <LocateFixed className="size-4" />
+                Quick Add
+              </button>
+            )
+          }
+        />
 
         {/* Map controls */}
         <MapControls
           mapRef={mapRef}
-          drawerOpen={!!selectedProperty}
+          drawerOpen={!!selectedProperty || !!quickAddCardPin}
           isSatellite={isSatellite}
           onToggleSatellite={() => setIsSatellite((s) => !s)}
         />
+
+        {/* Quick-add pin. Owned by its own layer because MapView's markers are a Supercluster view of
+            saved properties that rebuilds on every map move — a pin being dragged is neither. The
+            address is looked up on drop and on drag end, so it follows the pin.
+            `preview` wins while it exists: the suggestion the list is pointing at is the thing the
+            camera is flying to, so it must be the thing on screen. */}
+        <QuickAddPinLayer
+          mapRef={mapRef}
+          active={quickAdd.active}
+          pin={quickAdd.preview ?? quickAdd.pin?.center ?? null}
+          preview={!!quickAdd.preview}
+          onPinChange={quickAdd.resolveAt}
+          reducedMotion={quickAdd.reducedMotion.current}
+        />
+
+        {/* Quick-add card. Gated on a real pin: a suggestion being previewed is not a dropped pin,
+            and the card is only ever the answer to "what is at this pin?" — it has nothing to say
+            before one exists. */}
+        {quickAddCardPin && (
+          <QuickAddPanel
+            pin={quickAddCardPin}
+            resolving={quickAdd.resolving}
+            saving={quickAdd.saving}
+            error={quickAdd.error}
+            fields={quickAdd.fields}
+            onFieldChange={quickAdd.setField}
+            onConfirm={handleQuickAddConfirm}
+            onCancel={quickAdd.cancel}
+          />
+        )}
 
         {/* Property info panel.
             Phone (Apple Maps pattern): bottom-anchored sheet with rounded top,
             grab handle, ~55dvh height, slides up from below. Map stays visible
             above and remains pan-able.
             Tablet+: full-height floating sidebar pinned to the right (original). */}
-        {drawerProperty && (
+        {drawerProperty && !quickAdd.active && (
           <div
             key={selectedPin ?? closingKey}
             className={cn(

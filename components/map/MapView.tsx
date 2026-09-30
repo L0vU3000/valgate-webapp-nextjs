@@ -12,6 +12,19 @@ import { addBoundaryLayer, BOUNDARY_SOURCE_ID } from "@/components/map/boundary-
 const CAMBODIA_CENTER: [number, number] = [104.9, 12.5];
 const CAMBODIA_ZOOM = 7;
 
+// The deepest zoom the map may reach, shared by Mapbox's `maxZoom` and Supercluster's `maxZoom`.
+//
+// Supercluster STOPS clustering above its `maxZoom` and hands back raw points. With Mapbox free to
+// reach its default 22 while Supercluster stopped at 14, any coordinate shared by several properties
+// (the seed has 8 Olympic units on one lat/lng) eventually un-clustered into 8 pins drawn on the same
+// pixel — 8 real properties, so it reads as one duplicate that never goes away. Raising Supercluster
+// alone only moves that wall: the map still out-zooms it. Pinning both to one value keeps the
+// un-clustered regime unreachable, and identical coordinates stay a cluster, which is what the
+// co-located swipe-card design wants.
+// ponytail: at max zoom a stack is still possible if a real pair sits inside `radius` px; the honest
+// fix there is the swipe cards, not a bigger number.
+const MAP_MAX_ZOOM = 20;
+
 // Boundaries are parcel-sized — at portfolio zoom a ring is a sub-pixel smudge, and shipping
 // every org's geometry to the cluster view for that is pure waste. Draw them only once the user
 // has zoomed to a single building, matching the 3D-buildings reveal at zoom 15.
@@ -41,14 +54,28 @@ export function MapView({
   const activeMarkersRef = useRef<Map<string, mapboxgl.Marker>>(new Map());
   const pinMarkersRef = useRef<Map<string, mapboxgl.Marker>>(new Map());
   const clusterIndex = useRef<Supercluster | null>(null);
-  const boundaryData = useRef<GeoJSON.FeatureCollection>({
-    type: "FeatureCollection",
-    // Only properties that actually carry geometry; a null-geometry feature is a Mapbox warning
-    // per frame for no visual result.
-    features: properties
-      .filter((p) => p.boundary)
-      .map((p) => ({ type: "Feature" as const, properties: { id: p.id }, geometry: p.boundary as GeoJSON.Geometry })),
-  });
+  // Latest properties, so the map's own event handlers (bound once, in the init effect) never read
+  // a stale closure — same reason isDark/isSatellite keep refs. A property created after mount must
+  // be findable by updateClusters, which is called from map `move` long after that first render.
+  const propertiesRef = useRef(properties);
+  propertiesRef.current = properties;
+
+  // Boundary geometry as a single FeatureCollection, derived from propertiesRef at draw time rather
+  // than captured at mount — a boundary uploaded after mount must appear without remounting the map.
+  // Only properties that actually carry geometry: a null-geometry feature is a Mapbox warning per
+  // frame for no visual result.
+  function boundaryData(): GeoJSON.FeatureCollection {
+    return {
+      type: "FeatureCollection",
+      features: propertiesRef.current
+        .filter((p) => p.boundary)
+        .map((p) => ({
+          type: "Feature" as const,
+          properties: { id: p.id },
+          geometry: p.boundary as GeoJSON.Geometry,
+        })),
+    };
+  }
   const exitingMarkersRef = useRef<
     Map<string, { marker: mapboxgl.Marker; timeout: ReturnType<typeof setTimeout> }>
   >(new Map());
@@ -64,10 +91,10 @@ export function MapView({
 
     mapboxgl.accessToken = env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
-    // Build cluster index once
-    const index = new Supercluster({ radius: 60, maxZoom: 14 });
+    // Build cluster index once. `maxZoom` matches the map's own ceiling — see MAP_MAX_ZOOM.
+    const index = new Supercluster({ radius: 60, maxZoom: MAP_MAX_ZOOM });
     index.load(
-      properties.map((p) => ({
+      propertiesRef.current.map((p) => ({
         type: "Feature" as const,
         geometry: { type: "Point" as const, coordinates: [p.lng, p.lat] },
         properties: { id: p.id },
@@ -84,6 +111,7 @@ export function MapView({
           : "mapbox://styles/mapbox/light-v11",
       center: CAMBODIA_CENTER,
       zoom: CAMBODIA_ZOOM,
+      maxZoom: MAP_MAX_ZOOM,
       pitch: 45,
       bearing: -17.6,
       antialias: true,
@@ -110,20 +138,14 @@ export function MapView({
       if (destroyed) return;
       add3DBuildings(map);
       addBoundaries(map);
-      exitingMarkersRef.current.forEach(e => { clearTimeout(e.timeout); e.marker.remove(); });
-      exitingMarkersRef.current.clear();
-      activeMarkersRef.current.clear();
-      pinMarkersRef.current.clear();
+      clearMarkers();
       updateClusters(map);
     });
 
     return () => {
       destroyed = true;
+      clearMarkers();
       map.remove();
-      exitingMarkersRef.current.forEach(e => { clearTimeout(e.timeout); e.marker.remove(); });
-      exitingMarkersRef.current.clear();
-      activeMarkersRef.current.clear();
-      pinMarkersRef.current.clear();
       mapRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -141,6 +163,26 @@ export function MapView({
     map.setStyle(style);
   }, [isDark, isSatellite]);
 
+  // Rebuild the cluster index when the property set changes — a property created by Quick Add lands
+  // in the list but not in the index built on mount, so it would be in the sidebar and invisible on
+  // the map. updateClusters then diffs the new cluster set against the visible markers, which adds
+  // the new pin and animates the removed ones out.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !clusterIndex.current) return;
+    clusterIndex.current.load(
+      properties.map((p) => ({
+        type: "Feature" as const,
+        geometry: { type: "Point" as const, coordinates: [p.lng, p.lat] },
+        properties: { id: p.id },
+      }))
+    );
+    updateClusters(map);
+    // updateClusters is redeclared every render; depending on it would loop. The property list is
+    // the only real input.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [properties]);
+
   // Update marker highlight when selectedId changes
   useEffect(() => {
     pinMarkersRef.current.forEach((marker, id) => {
@@ -148,7 +190,12 @@ export function MapView({
       if (!el) return;
       if (id === selectedId) {
         el.style.transform = "scale(1.5)";
-        el.style.boxShadow = "0 0 0 4px rgba(var(--color-interactive-primary), 0.35)";
+        // color-mix, not rgba(): `rgba(var(--x), 0.35)` is invalid CSS — custom properties are
+        // substituted as raw token streams, so the ring silently never rendered and a selected pin
+        // had no indicator beyond its own 1.5× scale. Every other token-based shadow in
+        // styles/theme.css uses this form for the same reason.
+        el.style.boxShadow =
+          "0 0 0 4px color-mix(in srgb, var(--interactive-primary) 35%, transparent)";
         el.setAttribute("data-selected", "true");
       } else {
         el.style.transform = "scale(1)";
@@ -258,6 +305,22 @@ export function MapView({
     });
 
     return { wrapper };
+  }
+
+  // Tear every marker out of the map, including the ones mid-exit. Clearing the refs alone is not
+  // enough: `setStyle` leaves marker DOM in the canvas container untouched, so a bare `.clear()`
+  // orphans those elements — they stay drawn on the map with nothing holding a handle to remove
+  // them, and the next updateClusters stacks a fresh marker on top. That is the glitch: duplicates
+  // that never go away, one more per style switch.
+  function clearMarkers() {
+    exitingMarkersRef.current.forEach((e) => {
+      clearTimeout(e.timeout);
+      e.marker.remove();
+    });
+    exitingMarkersRef.current.clear();
+    activeMarkersRef.current.forEach((m) => m.remove());
+    activeMarkersRef.current.clear();
+    pinMarkersRef.current.clear();
   }
 
   function updateClusters(map: mapboxgl.Map) {
@@ -425,15 +488,25 @@ export function MapView({
           .setLngLat([lng, lat])
           .addTo(map);
         el.addEventListener("click", () => {
-          const z = Math.min(
-            clusterIndex.current!.getClusterExpansionZoom(f.properties.cluster_id),
-            20
-          );
+          const expansion = clusterIndex.current!.getClusterExpansionZoom(f.properties.cluster_id);
+          // Expansion zoom above the ceiling means the cluster can never split — every member sits
+          // on the same coordinate (8 Olympic units in the seed do). Easing to a clamped zoom would
+          // be a no-op, leaving those properties unreachable on the map. Select the first member
+          // instead, so the badge still opens the drawer.
+          // ponytail: opens the first member only; the co-located swipe cards are the real design.
+          if (expansion > MAP_MAX_ZOOM) {
+            const first = clusterIndex.current!.getLeaves(f.properties.cluster_id, 1)[0];
+            if (first) {
+              onSelectProperty((first.properties as { id: string }).id);
+              return;
+            }
+          }
+          const z = Math.min(expansion, MAP_MAX_ZOOM);
           map.easeTo({ center: [lng, lat], zoom: z });
         });
         activeMarkersRef.current.set(key, m);
       } else {
-        const property = properties.find((p) => p.id === f.properties.id)!;
+        const property = propertiesRef.current.find((p) => p.id === f.properties.id)!;
         const { wrapper } = createPinElement(property);
         const pin = wrapper.querySelector<HTMLElement>("[data-pin]");
         if (pin) {
@@ -491,7 +564,7 @@ export function MapView({
   function addBoundaries(map: mapboxgl.Map) {
     addBoundaryLayer(map, null, { minZoom: BOUNDARY_MIN_ZOOM });
     const src = map.getSource(BOUNDARY_SOURCE_ID) as mapboxgl.GeoJSONSource | undefined;
-    src?.setData(boundaryData.current);
+    src?.setData(boundaryData());
   }
 
   return (
