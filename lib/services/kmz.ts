@@ -100,8 +100,10 @@ export function ringAreaM2(ring: number[][]): number {
 }
 
 function centroidOf(rings: number[][][]): [number, number] {
-  // ponytail: point-average, not a true area-weighted centroid. A parcel ring is compact
-  // enough that they differ by centimetres; upgrade if a concave parcel ever needs it.
+  // ponytail: point-average, not a true area-weighted centroid. Measured across the 41 reference
+  // parcels the two differ by up to 65 m — which matters on a narrow plot, where the point average
+  // sits near an edge rather than the middle. Fine while the pin is only a locator; swap in a
+  // polygon centroid if the pin is ever used to place anything.
   let lat = 0, lng = 0, n = 0;
   for (const ring of rings) {
     // Skip the repeated closing position: rings are closed (RFC 7946), so counting it would bias
