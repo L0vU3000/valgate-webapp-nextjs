@@ -98,5 +98,35 @@ export function fitBoundary(map: mapboxgl.Map, geometry: BoundaryGeometry | null
 }
 
 function toFeature(geometry: BoundaryGeometry | null): GeoJSON.FeatureCollection {
-  return geometry ? { ...EMPTY, features: [{ type: "Feature", properties: {}, geometry: geometry as GeoJSON.Geometry }] } : EMPTY;
+  return geometry
+    ? { ...EMPTY, features: [{ type: "Feature", properties: {}, geometry: closeRings(geometry) }] }
+    : EMPTY;
+}
+
+/**
+ * Close every linear ring (first position repeated at the end), as RFC 7946 requires.
+ *
+ * The parser now emits closed rings, but rows written before that fix are stored unclosed, and the
+ * drawn outline is what suffers: Mapbox's `fill` auto-closes a ring, `line` does not, so an unclosed
+ * ring renders with the closing edge missing — the boundary looks like it has three sides, and the
+ * stroke appears to sit inside the fill on those three. Cheap to guarantee here (a handful of
+ * parcels, once per fit), and it repairs existing rows without a re-import.
+ */
+function closeRings(geometry: BoundaryGeometry): GeoJSON.Geometry {
+  const close = (ring: number[][]): number[][] => {
+    if (ring.length < 2) return ring;
+    const [f, l] = [ring[0], ring[ring.length - 1]];
+    return f[0] === l[0] && f[1] === l[1] ? ring : [...ring, [f[0], f[1]]];
+  };
+  // coordinates are schema-typed as unknown[] (the shape varies by geometry type), so narrow here
+  // rather than widening the schema — the schema stays permissive, this function stays honest.
+  if (geometry.type === "Polygon") {
+    const poly = geometry.coordinates as number[][][];
+    return { type: "Polygon", coordinates: poly.map(close) };
+  }
+  const multi = geometry.coordinates as number[][][][];
+  return {
+    type: "MultiPolygon",
+    coordinates: multi.map((poly) => poly.map(close)),
+  };
 }

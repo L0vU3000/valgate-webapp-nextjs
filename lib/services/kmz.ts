@@ -74,10 +74,16 @@ function parseRing(text: string): number[][] {
     if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue;
     ring.push([lng, lat]);
   }
-  // KML repeats the first point to close the ring; GeoJSON must NOT.
+  // RFC 7946 requires a linear ring to be CLOSED: the last position repeats the first. KML already
+  // repeats it, so this normally just keeps the point we were handed.
+  //
+  // This used to pop the repeated point, on the belief that GeoJSON "must not" repeat it. That is
+  // backwards, and it is what broke the drawn outline: Mapbox's fill auto-closes a ring but the
+  // line layer does not, so the closing edge was never stroked — the boundary rendered with a
+  // missing side, and the stroke only reached the fill's edge on the three sides that were drawn.
   if (ring.length > 1) {
     const [f, l] = [ring[0], ring[ring.length - 1]];
-    if (f[0] === l[0] && f[1] === l[1]) ring.pop();
+    if (f[0] !== l[0] || f[1] !== l[1]) ring.push([f[0], f[1]]);
   }
   return ring;
 }
@@ -97,7 +103,14 @@ function centroidOf(rings: number[][][]): [number, number] {
   // ponytail: point-average, not a true area-weighted centroid. A parcel ring is compact
   // enough that they differ by centimetres; upgrade if a concave parcel ever needs it.
   let lat = 0, lng = 0, n = 0;
-  for (const ring of rings) for (const [x, y] of ring) { lng += x; lat += y; n++; }
+  for (const ring of rings) {
+    // Skip the repeated closing position: rings are closed (RFC 7946), so counting it would bias
+    // the average toward the first vertex. Matters for the 3-4 vertex parcels in this set.
+    const last = ring.length > 1 && ring[0][0] === ring[ring.length - 1][0] && ring[0][1] === ring[ring.length - 1][1]
+      ? ring.length - 1
+      : ring.length;
+    for (let i = 0; i < last; i++) { lng += ring[i][0]; lat += ring[i][1]; n++; }
+  }
   if (!n) throw new KmzError("That KMZ has no coordinates.");
   return [lat / n, lng / n];
 }
@@ -113,7 +126,9 @@ export function parseKmz(buf: Buffer): ParsedBoundary {
 
   const rings = [...kml.matchAll(RING_RE)]
     .map((m) => parseRing(m[1]))
-    .filter((r) => r.length >= 3); // a polygon needs 3 distinct points
+    // A polygon needs 3 DISTINCT points. Counting length would pass a 2-point ring once closing
+    // appends the repeat (length 3), so count unique positions and drop what is still degenerate.
+    .filter((r) => new Set(r.slice(0, -1).map((p) => p.join(","))).size >= 3);
 
   if (!rings.length) throw new KmzError("That KMZ has no land boundary in it.");
 

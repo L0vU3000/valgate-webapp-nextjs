@@ -35,10 +35,21 @@ describe("parseKmz", () => {
   it("inflates a deflated KMZ and reads the ring", () => {
     const parsed = parseKmz(kmz(KML("104.0,11.0,0 104.001,11.0,0 104.001,11.001,0 104.0,11.0,0")));
     expect(parsed.geometry.type).toBe("Polygon");
-    // The KML's repeated closing point must be dropped — GeoJSON rings are implicitly closed,
-    // and leaving it in double-counts one edge of the area.
-    expect((parsed.geometry.coordinates as number[][][])[0]).toHaveLength(3);
+    // The ring must stay CLOSED — first position repeated at the end. KML writes it that way and
+    // RFC 7946 requires it. Dropping the repeat (which this parser used to do) breaks the drawn
+    // outline: Mapbox's fill auto-closes but its line layer does not, so the closing edge is never
+    // stroked and the boundary shows one side short.
+    const ring = (parsed.geometry.coordinates as number[][][])[0];
+    expect(ring).toHaveLength(4);
+    expect(ring[0]).toEqual(ring[ring.length - 1]);
     expect(parsed.fields.uprn).toBe("40");
+  });
+
+  it("closes a ring the source left open", () => {
+    const parsed = parseKmz(kmz(KML("104.0,11.0,0 104.001,11.0,0 104.001,11.001,0")));
+    const ring = (parsed.geometry.coordinates as number[][][])[0];
+    expect(ring).toHaveLength(4);
+    expect(ring[0]).toEqual(ring[ring.length - 1]);
   });
 
   it("reads a stored (uncompressed) KMZ too", () => {
