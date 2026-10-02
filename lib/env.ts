@@ -36,6 +36,11 @@ export const env = createEnv({
     // boot. Optional so local builds without AI still start — the summarize route just lands in
     // its "failed" state if the key is missing. Never expose this to the client (no NEXT_PUBLIC_).
     OPENAI_API_KEY: z.string().min(1).optional(),
+    // Jev (TypeSafe decision model) via OpenRouter's Decisions API. Read as `env.OPENROUTER_API_KEY`
+    // in lib/services/jev.ts, which is imported by lib/env.ts — so it must be declared here or tsc
+    // fails. Optional: an unconfigured Jev makes decide() return null and callers use their default.
+    // Server-only; never prefix with NEXT_PUBLIC_.
+    OPENROUTER_API_KEY: z.string().min(1).optional(),
     // Resend — client invitation emails + bounce webhooks (Phase 3 onboarding).
     RESEND_API_KEY: z.string().min(1).optional(),
     RESEND_WEBHOOK_SECRET: z.string().min(1).optional(),
@@ -79,6 +84,7 @@ export const env = createEnv({
     DATABASE_AUTHENTICATED_URL: process.env.DATABASE_AUTHENTICATED_URL,
     CRON_SECRET: process.env.CRON_SECRET,
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+    OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
     RESEND_API_KEY: process.env.RESEND_API_KEY,
     RESEND_WEBHOOK_SECRET: process.env.RESEND_WEBHOOK_SECRET,
     RESEND_FROM_EMAIL: process.env.RESEND_FROM_EMAIL,
