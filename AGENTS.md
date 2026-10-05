@@ -11,6 +11,8 @@
 | Concern | Library |
 |---|---|
 | Styling | Tailwind CSS + shadcn/ui |
+| Maps (interactive) | Google Map Tiles (2D) via MapLibre GL — see `docs/MAPS-GOOGLE-TILES.md` |
+| Maps (static images) | Mapbox static API |
 | Auth | Clerk |
 | Database | Neon (serverless Postgres) + Drizzle ORM |
 | Validation | Zod |
