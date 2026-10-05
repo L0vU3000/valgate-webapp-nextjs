@@ -44,6 +44,10 @@ export default defineConfig({
       // Live-DB integration tests run in their own project (vitest.config.db.ts) so this
       // default suite stays DB-free and green without DATABASE_URL.
       "**/*.db.test.ts",
+      // Paid-API tests run in vitest.config.live.ts. They need a real OPENROUTER_API_KEY, which
+      // this suite's setup file deliberately blanks, so collecting them here fails them on every
+      // machine and CI run. Same reason as the db exclusion.
+      "**/*.live.test.ts",
     ],
     // describe / it / expect / vi available without imports in spec files.
     globals: true,

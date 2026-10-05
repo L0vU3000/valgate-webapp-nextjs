@@ -67,8 +67,13 @@ function excerpt(text: string, max = 1200): string {
  *
  * `ponytail:` one Jev call per candidate document, run concurrently. At $0.00002/call and a
  * handful of documents per property that is fractions of a cent; batch only if a property ever
- * carries dozens of documents, which would also blow the 800ms budget.
+ * carries dozens of documents, which would also blow the 1500ms budget.
  */
+// ponytail: no UI caller yet, deliberately. `VerificationStep.handleVerify` uploads the evidence
+// document in the SAME click that verifies, so a document is never summarised before a human could
+// choose it — there is no text for Jev to read, and Jev cannot read the raw file. Wiring this in
+// means splitting upload-then-verify into upload, summarise, suggest, tick, across five pillar
+// wizards. Build it when a wizard offers a document to CHOOSE from, not just to stage.
 export async function suggestEvidence(
   ctx: Ctx,
   propertyId: string,

@@ -24,7 +24,14 @@ const DEFAULT_MODEL = "typesafe/jev-1.13";
 
 // A decision is advisory: the caller has a default it is happy to render. So we would rather lose
 // the personalisation than hold a page render.
-const TIMEOUT_MS = 800;
+//
+// 1500ms, not 800. Measured 2026-10-05 against typesafe/jev-1.13 with a real key: 389ms / 640ms /
+// 909ms for three short-text calls. The original 800ms budget sat INSIDE that spread, so a valid
+// answer was thrown away roughly one time in three — the advisory path then rendered the default
+// and nothing ever looked wrong. The first call of a cold connection is the slow one; the decision
+// runs alongside other panel data, so an extra 700ms is invisible and a silently dropped decision
+// is not. Raise with evidence, never guess.
+const TIMEOUT_MS = 1500;
 
 export type JevChoiceQuestion = {
   type: "choice";
