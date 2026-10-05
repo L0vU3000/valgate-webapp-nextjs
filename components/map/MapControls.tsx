@@ -7,7 +7,7 @@ import { cn } from "@/components/ui/utils";
 // Type-only import: this component uses `mapboxgl.Map` solely as a type on `mapRef`,
 // never the runtime. `import type` keeps the ~500 kB mapbox-gl library out of any
 // bundle that pulls in MapControls.
-import type mapboxgl from "mapbox-gl";
+import type * as mapboxgl from "maplibre-gl";
 
 const CAMBODIA_CENTER: [number, number] = [104.9, 12.5];
 const CAMBODIA_ZOOM = 7;

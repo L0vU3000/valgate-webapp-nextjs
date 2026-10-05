@@ -35,7 +35,7 @@ import { QuickAddPinLayer } from "./QuickAddPinLayer";
 import { QuickAddPanel } from "./QuickAddPanel";
 import { QuickAddSearch } from "./QuickAddSearch";
 import { useQuickAdd } from "./use-quick-add";
-import type mapboxgl from "mapbox-gl";
+import type * as mapboxgl from "maplibre-gl";
 
 const MapView = dynamic(
   () => import("@/components/map/MapView").then((m) => m.MapView),

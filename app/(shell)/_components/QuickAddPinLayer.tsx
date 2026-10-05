@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 // Type-only: MapView already loads mapbox-gl, so this adds it to no bundle.
-import type mapboxgl from "mapbox-gl";
+import type * as mapboxgl from "maplibre-gl";
 
 interface QuickAddPinLayerProps {
   mapRef: React.RefObject<mapboxgl.Map | null>;
@@ -70,7 +70,8 @@ export function QuickAddPinLayer({
     void (async () => {
       const map = mapRef.current;
       if (cancelled || !map || markerRef.current) return;
-      const { default: mapboxgl } = await import("mapbox-gl");
+      // Namespace import, because maplibre-gl (unlike mapbox-gl) has no default export.
+      const maplibre = await import("maplibre-gl");
       // The import is async and the user can leave quick-add while it is in flight.
       if (cancelled || !mapRef.current) return;
 
@@ -107,7 +108,7 @@ export function QuickAddPinLayer({
       // setLngLat MUST come before addTo, and in that order in one chain: Mapbox's addTo() reads the
       // marker's own LngLat to place it, so a marker that reaches addTo without one throws. Every
       // other marker in this repo chains them for the same reason.
-      const marker = new mapboxgl.Marker({
+      const marker = new maplibre.Marker({
         element: el,
         anchor: "center",
         draggable: !previewRef.current,

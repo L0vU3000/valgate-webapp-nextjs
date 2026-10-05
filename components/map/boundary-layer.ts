@@ -1,6 +1,6 @@
 "use client";
 
-import type mapboxgl from "mapbox-gl";
+import type { Map as MapLibreMap, GeoJSONSource } from "maplibre-gl";
 import type { BoundaryGeometry } from "@/lib/data/types/land-parcel";
 
 export const BOUNDARY_SOURCE_ID = "valgate-boundary";
@@ -35,12 +35,12 @@ export function boundaryBounds(
  * it on the property's own map, where the boundary is the subject rather than a speck.
  */
 export function addBoundaryLayer(
-  map: mapboxgl.Map,
+  map: MapLibreMap,
   geometry: BoundaryGeometry | null,
   opts: { minZoom?: number } = {},
 ) {
   if (map.getSource(BOUNDARY_SOURCE_ID)) {
-    (map.getSource(BOUNDARY_SOURCE_ID) as mapboxgl.GeoJSONSource).setData(toFeature(geometry));
+    (map.getSource(BOUNDARY_SOURCE_ID) as GeoJSONSource).setData(toFeature(geometry));
     return;
   }
   map.addSource(BOUNDARY_SOURCE_ID, { type: "geojson", data: toFeature(geometry) });
@@ -67,8 +67,8 @@ export function addBoundaryLayer(
 }
 
 /** Swap the drawn boundary without rebuilding the map. */
-export function setBoundaryGeometry(map: mapboxgl.Map, geometry: BoundaryGeometry | null) {
-  const source = map.getSource(BOUNDARY_SOURCE_ID) as mapboxgl.GeoJSONSource | undefined;
+export function setBoundaryGeometry(map: MapLibreMap, geometry: BoundaryGeometry | null) {
+  const source = map.getSource(BOUNDARY_SOURCE_ID) as GeoJSONSource | undefined;
   source?.setData(toFeature(geometry));
 }
 
@@ -84,7 +84,7 @@ export function setBoundaryGeometry(map: mapboxgl.Map, geometry: BoundaryGeometr
  * without a cap would zoom to street-furniture level. The padding keeps the ring clear of the
  * container's rounded corners and the expand/map controls that overhang it.
  */
-export function fitBoundary(map: mapboxgl.Map, geometry: BoundaryGeometry | null | undefined): boolean {
+export function fitBoundary(map: MapLibreMap, geometry: BoundaryGeometry | null | undefined): boolean {
   const b = boundaryBounds(geometry);
   if (!b) return false;
   map.fitBounds(

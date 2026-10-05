@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
-import type mapboxgl from "mapbox-gl";
+import type * as mapboxgl from "maplibre-gl";
 // Load the mapbox-based map lazily and client-only. mapbox-gl is ~500 kB; a static
 // import here forced every visitor to download it before the page could render.
 // `ssr: false` defers that download until the map actually mounts in the browser,
