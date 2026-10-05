@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { Map as MapLibreMap, Marker, AttributionControl } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import {
+  configureWorker,
   googleSession,
   basemapStyle,
   placeholderStyle,
@@ -55,6 +56,8 @@ export function LocationPickerModal({
 
     const timerId = setTimeout(() => {
       if (destroyed || !containerRef.current || mapRef.current) return;
+
+      configureWorker();
 
       const map = new MapLibreMap({
         container: containerRef.current,

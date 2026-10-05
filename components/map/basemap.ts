@@ -1,6 +1,7 @@
 "use client";
 
 import type { StyleSpecification } from "maplibre-gl";
+import { setWorkerUrl } from "maplibre-gl";
 import { env } from "@/lib/env";
 
 /**
@@ -17,6 +18,22 @@ import { env } from "@/lib/env";
  * (no `composite` source, no 3D buildings, no street labels to restyle).
  */
 export type BasemapTheme = "satellite" | "terrain" | "roadmap";
+
+/**
+ * Point MapLibre at a worker it can actually load.
+ *
+ * v6 resolves its default worker against `import.meta.url`, which after bundling points at the app
+ * chunk rather than the maplibre dist folder — so the URL comes out as an empty string and the map
+ * silently never fires `load`. The failure mode is nasty: tiles still return 200 and the canvas
+ * still exists, so it looks like a slow basemap rather than a broken one.
+ *
+ * Both files are copied into `public/` (same approach as the existing `pdf.worker.min.mjs`), and
+ * the worker's own `./maplibre-gl-shared.mjs` import resolves next to it. MapLibre's v5→v6 migration
+ * guide names this as a required one-time call for every bundler, not a Next-specific workaround.
+ */
+export function configureWorker() {
+  setWorkerUrl("/maplibre-gl-worker.mjs");
+}
 
 const CREATE_SESSION = "https://tile.googleapis.com/v1/createSession";
 const TILE_ROOT = "https://tile.googleapis.com/v1/2dtiles";

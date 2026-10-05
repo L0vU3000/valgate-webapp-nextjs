@@ -8,6 +8,7 @@ import { useShellContext } from "@/components/layout/shell-context";
 import type { Property } from "@/lib/data/types/property";
 import { addBoundaryLayer, BOUNDARY_SOURCE_ID } from "@/components/map/boundary-layer";
 import {
+  configureWorker,
   googleSession,
   basemapStyle,
   placeholderStyle,
@@ -93,6 +94,8 @@ export function MapView({
   // Initialize map
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
+
+    configureWorker();
 
     // Build cluster index once. `maxZoom` matches the map's own ceiling — see MAP_MAX_ZOOM.
     const index = new Supercluster({ radius: 60, maxZoom: MAP_MAX_ZOOM });

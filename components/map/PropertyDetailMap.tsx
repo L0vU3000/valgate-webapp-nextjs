@@ -6,6 +6,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { useShellContext } from "@/components/layout/shell-context";
 import { addBoundaryLayer, setBoundaryGeometry, fitBoundary } from "@/components/map/boundary-layer";
 import {
+  configureWorker,
   googleSession,
   basemapStyle,
   placeholderStyle,
@@ -78,6 +79,8 @@ export function PropertyDetailMap({
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
+
+    configureWorker();
 
     const map = new MapLibreMap({
       container: containerRef.current,

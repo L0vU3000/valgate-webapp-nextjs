@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Map as MapLibreMap, Marker, AttributionControl } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { googleSession, basemapStyle, placeholderStyle } from "@/components/map/basemap";
+import { configureWorker, googleSession, basemapStyle, placeholderStyle } from "@/components/map/basemap";
 import { logger } from "@/lib/logger";
 
 const DEFAULT_ZOOM = 13;
@@ -38,6 +38,8 @@ export function PropertyLocationMap({
 
     let map: MapLibreMap;
     try {
+      configureWorker();
+
       map = new MapLibreMap({
         container: containerRef.current,
         style: placeholderStyle(false),

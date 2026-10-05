@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { readFileSync } from "node:fs";
 
 // The basemap module reads a public key at call time. It is required by lib/env.ts, but these
 // tests only care about the URLs and shapes built from it, so a literal is enough and keeps the
@@ -108,5 +109,19 @@ describe("placeholderStyle", () => {
     expect(style.version).toBe(8);
     expect(Object.keys(style.sources)).toHaveLength(0);
     expect(style.layers).toHaveLength(1);
+  });
+});
+
+describe("worker files in public/", () => {
+  // The map's worker is served from public/, not bundled, because maplibre v6 cannot resolve its
+  // own worker URL after bundling. That copy is the one thing here that can rot silently: upgrade
+  // maplibre and the stale worker fails at runtime with "Worker failed to load", which looks
+  // exactly like a slow basemap. Byte-comparing against node_modules turns that into a test failure.
+  const pairs = ["maplibre-gl-worker.mjs", "maplibre-gl-shared.mjs"];
+
+  it.each(pairs)("%s matches the installed maplibre build", (name) => {
+    const pub = readFileSync(new URL(`../../public/${name}`, import.meta.url));
+    const dist = readFileSync(new URL(`../../node_modules/maplibre-gl/dist/${name}`, import.meta.url));
+    expect(pub.equals(dist)).toBe(true);
   });
 });
