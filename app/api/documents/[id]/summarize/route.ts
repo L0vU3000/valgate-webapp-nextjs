@@ -3,7 +3,8 @@ import { z } from "zod";
 import { generateObject } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { resolveRouteCtx } from "@/lib/auth/ctx";
-import { getDocument, setDocumentAiStatus, saveDocumentSummary } from "@/lib/services/documents";
+import { getDocument, setDocumentAiStatus, setDocumentCategory, saveDocumentSummary } from "@/lib/services/documents";
+import { classifyDocument } from "@/lib/services/document-classify";
 import { resolveDocumentUrl } from "@/lib/services/storage";
 import { aiLimiter, allowed } from "@/lib/ratelimit";
 import { log } from "@/lib/log";
@@ -101,7 +102,17 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
     // Store the result and mark it ready in a single write.
     await saveDocumentSummary(ctx, id, { ...object, status: "ready" });
-    return Response.json({ ok: true, summary: object });
+
+    // Fill `documents.category`, which nothing has ever populated. Advisory: a null return (no
+    // key, Jev outage, unrecognised choice) writes nothing — the category simply stays null, as
+    // it is today. Deliberately after the summary write so a triage failure can never lose the
+    // summary the user actually asked for. Digest is the model's own summary, not the file.
+    const category = await classifyDocument(object.summary, doc.name);
+    if (category) {
+      await setDocumentCategory(ctx, id, category);
+    }
+
+    return Response.json({ ok: true, summary: object, category });
   } catch (err) {
     // Never leak internals to the client: log the real error, return a generic message, and leave
     // the row in "failed" so the Summary tab shows the error state with a working Retry button.
