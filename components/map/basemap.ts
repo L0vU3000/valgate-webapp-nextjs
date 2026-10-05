@@ -11,13 +11,18 @@ import { env } from "@/lib/env";
  * licence permits use "only with the relevant Mapbox product(s)". Rendering Google tiles through
  * it is not a config change, it is a licence violation. MapLibre GL is the BSD-3-Clause fork and
  * is the renderer Google's own policy anticipates ("Display the Google Maps logo with third-party
- * renderers"). So every interactive map now goes through here.
+ * renderers").
+ *
+ * Scope: ONLY the satellite view. That is the one view the portfolio map offers as an alternative
+ * to its own basemap. The remaining maps (property detail, add-property picker, wizard location)
+ * stay on Mapbox — they never had satellite, so moving them would trade a working light/dark
+ * basemap for a worse one.
  *
  * Google 2D tiles are RASTER, which is why this returns a hand-built style instead of a URL
  * string: there is no vector style to point at, so there are no vector-only things downstream
  * (no `composite` source, no 3D buildings, no street labels to restyle).
  */
-export type BasemapTheme = "satellite" | "terrain" | "roadmap";
+export type BasemapTheme = "satellite" | "roadmap";
 
 /**
  * Point MapLibre at a worker it can actually load.
@@ -51,10 +56,10 @@ export function googleSession(mapType: BasemapTheme): Promise<string> {
   const existing = sessions.get(mapType);
   if (existing) return existing;
 
-  // `terrain` requires the roadmap layer explicitly, per Google's docs. Without it the request
-  // 400s rather than falling back.
+  // `terrain` is deliberately absent from BasemapTheme: nothing requests it, and Google's terrain
+  // needs an explicit `layerRoadmap` layer or it 400s. Add it back here (plus the layerTypes line)
+  // if a terrain view is ever actually built.
   const body: Record<string, unknown> = { mapType, language: "en-US", region: "KH" };
-  if (mapType === "terrain") body.layerTypes = ["layerRoadmap"];
 
   const p = fetch(`${CREATE_SESSION}?key=${env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`, {
     method: "POST",
@@ -79,7 +84,7 @@ export function googleSession(mapType: BasemapTheme): Promise<string> {
 /**
  * Build the raster style for a theme. `session` comes from {@link googleSession}.
  *
- * Dark mode: Google ships no dark theme (roadmap / satellite / terrain only). Rather than lose
+ * Dark mode: Google ships no dark theme (roadmap / satellite). Rather than lose
  * dark altogether, roadmap is darkened with MapLibre's native raster paint properties — no CSS
  * filter, no second tile set. Satellite is left alone: it is already dark enough that dimming it
  * only destroys detail, which is the whole reason to look at satellite.

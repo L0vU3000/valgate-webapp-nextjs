@@ -2,17 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Map as MapLibreMap, Marker, AttributionControl } from "maplibre-gl";
-import "maplibre-gl/dist/maplibre-gl.css";
-import {
-  configureWorker,
-  googleSession,
-  basemapStyle,
-  placeholderStyle,
-  ATTRIBUTION_POSITION,
-} from "@/components/map/basemap";
+import mapboxgl from "mapbox-gl";
+import "mapbox-gl/dist/mapbox-gl.css";
 import { X, Search, MapPin, Plus, Minus, Map as MapIcon, Loader2 } from "lucide-react";
 import { cn } from "@/components/ui/utils";
+import { env } from "@/lib/env";
 import { useGeocode } from "@/app/_shared/add-property/_lib/use-geocode";
 
 const DEFAULT_ZOOM = 13;
@@ -29,8 +23,8 @@ export function LocationPickerModal({
   onConfirm,
 }: LocationPickerModalProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<MapLibreMap | null>(null);
-  const markerRef = useRef<Marker | null>(null);
+  const mapRef = useRef<mapboxgl.Map | null>(null);
+  const markerRef = useRef<mapboxgl.Marker | null>(null);
   const [coords, setCoords] = useState<[number, number]>(center);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [visible, setVisible] = useState(false);
@@ -57,29 +51,18 @@ export function LocationPickerModal({
     const timerId = setTimeout(() => {
       if (destroyed || !containerRef.current || mapRef.current) return;
 
-      configureWorker();
+      mapboxgl.accessToken = env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
-      const map = new MapLibreMap({
+      const map = new mapboxgl.Map({
         container: containerRef.current,
-        style: placeholderStyle(false),
+        style: "mapbox://styles/mapbox/light-v11",
         center,
         zoom: DEFAULT_ZOOM,
         attributionControl: false,
       });
 
-      map.addControl(new AttributionControl({ compact: true }), ATTRIBUTION_POSITION);
+      map.addControl(new mapboxgl.AttributionControl({ compact: true }), "bottom-left");
       mapRef.current = map;
-
-      // The picker is where a user commits a coordinate, so it opens on satellite: picking a plot of
-      // land off a drawn map is guesswork, picking it off imagery is not.
-      void googleSession("satellite")
-        .then((session) => {
-          if (destroyed || mapRef.current !== map) return;
-          map.setStyle(basemapStyle("satellite", false, session));
-        })
-        .catch(() => {
-          /* blank basemap; the pin and the confirm flow still work */
-        });
 
       map.on("style.load", () => map.resize());
 
@@ -126,7 +109,7 @@ export function LocationPickerModal({
         el.addEventListener("mouseenter", () => { circle.style.transform = "scale(1.1)"; });
         el.addEventListener("mouseleave", () => { circle.style.transform = "scale(1)"; });
 
-        const marker = new Marker({ element: el, anchor: "bottom", draggable: true })
+        const marker = new mapboxgl.Marker({ element: el, anchor: "bottom", draggable: true })
           .setLngLat(center)
           .addTo(map);
 

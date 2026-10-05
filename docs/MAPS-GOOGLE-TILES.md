@@ -1,7 +1,8 @@
 # Google Map Tiles — the interactive basemap
 
-Every interactive map in the web app draws **Google Map Tiles (2D)** through **MapLibre GL**.
-Mapbox is still a dependency, but only for static map images.
+**One view** draws Google Map Tiles (2D) through **MapLibre GL**: the *satellite* view on the
+portfolio map. Every other map view still runs Mapbox GL, and Mapbox also serves the static map
+images.
 
 ## Why MapLibre and not Mapbox GL
 

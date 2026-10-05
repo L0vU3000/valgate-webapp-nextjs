@@ -1,17 +1,11 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { Map as MapLibreMap, Marker, AttributionControl } from "maplibre-gl";
-import "maplibre-gl/dist/maplibre-gl.css";
+import mapboxgl from "mapbox-gl";
+import "mapbox-gl/dist/mapbox-gl.css";
+import { env } from "@/lib/env";
 import { useShellContext } from "@/components/layout/shell-context";
 import { addBoundaryLayer, setBoundaryGeometry, fitBoundary } from "@/components/map/boundary-layer";
-import {
-  configureWorker,
-  googleSession,
-  basemapStyle,
-  placeholderStyle,
-  ATTRIBUTION_POSITION,
-} from "@/components/map/basemap";
 import type { BoundaryGeometry } from "@/lib/data/types/land-parcel";
 
 const DEFAULT_ZOOM = 15;
@@ -22,7 +16,7 @@ interface PropertyDetailMapProps {
   /** The property's land boundary, drawn as a filled outline under the pin. */
   boundary?: BoundaryGeometry | null;
   zoom?: number;
-  onMapReady?: (map: MapLibreMap) => void;
+  onMapReady?: (map: mapboxgl.Map) => void;
   onLoad?: () => void;
   className?: string;
 }
@@ -37,16 +31,14 @@ export function PropertyDetailMap({
   className,
 }: PropertyDetailMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<MapLibreMap | null>(null);
-  const markerRef = useRef<Marker | null>(null);
+  const mapRef = useRef<mapboxgl.Map | null>(null);
+  const markerRef = useRef<mapboxgl.Marker | null>(null);
   const { isDark } = useShellContext();
   const center: [number, number] = [lng, lat];
   const boundaryRef = useRef(boundary);
   boundaryRef.current = boundary;
-  const isDarkRef = useRef(isDark);
-  isDarkRef.current = isDark;
 
-  function addMarker(map: MapLibreMap) {
+  function addMarker(map: mapboxgl.Map) {
     markerRef.current?.remove();
 
     // With a boundary drawn, the ring is the subject and the pin is just a locator — and parcels
@@ -70,7 +62,7 @@ export function PropertyDetailMap({
 
     el.appendChild(circle);
 
-    const marker = new Marker({ element: el, anchor: "center" })
+    const marker = new mapboxgl.Marker({ element: el, anchor: "center" })
       .setLngLat(center)
       .addTo(map);
 
@@ -80,35 +72,20 @@ export function PropertyDetailMap({
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
-    configureWorker();
+    mapboxgl.accessToken = env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
-    const map = new MapLibreMap({
+    const map = new mapboxgl.Map({
       container: containerRef.current,
-      // Google tiles need a session token, which is an async round trip. Start on a blank style so
-      // the map, its controls and its pins are usable immediately, then swap the basemap in when
-      // the token lands (the `style.load` handler below re-adds pins and the boundary).
-      style: placeholderStyle(isDark),
+      style: isDark
+        ? "mapbox://styles/mapbox/dark-v11"
+        : "mapbox://styles/mapbox/light-v11",
       center,
       zoom,
       attributionControl: false,
     });
 
-    map.addControl(new AttributionControl({ compact: true }), ATTRIBUTION_POSITION);
+    map.addControl(new mapboxgl.AttributionControl({ compact: true }), "bottom-left");
     mapRef.current = map;
-
-    // `isLive` guards the token arriving after unmount — the effect below has no other way to
-    // know, and calling setStyle on a removed map is the same class of crash the handlers guard.
-    googleSession("roadmap")
-      .then((session) => {
-        if (!isLive()) return;
-        // Roadmap, not satellite: this map had light/dark, and roadmap is the only Google theme
-        // with a light/dark pair. Satellite is available on the portfolio map, which has a toggle.
-        map.setStyle(basemapStyle("roadmap", isDarkRef.current, session));
-      })
-      .catch(() => {
-        // A failed basemap is not fatal: pins and the boundary still draw over the blank style, and
-        // PropertyLocationMap already handles the harder case of no WebGL at all by bailing out.
-      });
 
     // Mapbox fires these handlers from its own render loop, not synchronously with our React tree.
     // If the component unmounts while a handler is queued (a parent re-render can do it — the
@@ -178,17 +155,10 @@ export function PropertyDetailMap({
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    // A theme switch is a full style swap, same as before — but the style is now built from the
-    // cached session token rather than a mapbox:// URL. If the token has not landed yet there is
-    // nothing to swap to; the init effect above will apply the current theme when it arrives.
-    let cancelled = false;
-    googleSession("roadmap").then((session) => {
-      if (cancelled || mapRef.current !== map) return;
-      map.setStyle(basemapStyle("roadmap", isDark, session));
-    });
-    return () => {
-      cancelled = true;
-    };
+    const style = isDark
+      ? "mapbox://styles/mapbox/dark-v11"
+      : "mapbox://styles/mapbox/light-v11";
+    map.setStyle(style);
   }, [isDark]);
 
   return (

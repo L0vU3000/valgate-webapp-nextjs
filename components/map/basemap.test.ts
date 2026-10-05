@@ -39,24 +39,6 @@ describe("googleSession", () => {
     expect(String(fetchMock.mock.calls[0]?.[0])).toContain("createSession?key=test-google-key");
   });
 
-  it("adds the roadmap layer for terrain, which Google rejects without it", async () => {
-    const bodies: string[] = [];
-    vi.stubGlobal(
-      "fetch",
-      vi.fn((_url: string, init: RequestInit) => {
-        bodies.push(String(init.body));
-        return okSession("tok-terrain");
-      }),
-    );
-
-    await googleSession("terrain");
-
-    expect(JSON.parse(bodies[0])).toMatchObject({
-      mapType: "terrain",
-      layerTypes: ["layerRoadmap"],
-    });
-  });
-
   it("does not memoise a failure — the next mount retries", async () => {
     let calls = 0;
     vi.stubGlobal(

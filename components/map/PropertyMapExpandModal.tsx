@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
-import type * as mapboxgl from "maplibre-gl";
+import type mapboxgl from "mapbox-gl";
 import { X, Map as MapIcon } from "lucide-react";
 import { cn } from "@/components/ui/utils";
 import { MapControls } from "@/components/map/MapControls";

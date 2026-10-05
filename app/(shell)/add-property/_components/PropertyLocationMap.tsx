@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Map as MapLibreMap, Marker, AttributionControl } from "maplibre-gl";
-import "maplibre-gl/dist/maplibre-gl.css";
-import { configureWorker, googleSession, basemapStyle, placeholderStyle } from "@/components/map/basemap";
+import mapboxgl from "mapbox-gl";
+import "mapbox-gl/dist/mapbox-gl.css";
+import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 
 const DEFAULT_ZOOM = 13;
@@ -22,8 +22,8 @@ export function PropertyLocationMap({
   className,
 }: PropertyLocationMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<MapLibreMap | null>(null);
-  const markerRef = useRef<Marker | null>(null);
+  const mapRef = useRef<mapboxgl.Map | null>(null);
+  const markerRef = useRef<mapboxgl.Marker | null>(null);
   const isDragRef = useRef(false);
   const prevCenterRef = useRef<[number, number]>(center);
   // Mapbox throws "Failed to initialize WebGL" when the browser has no WebGL
@@ -36,13 +36,13 @@ export function PropertyLocationMap({
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
-    let map: MapLibreMap;
-    try {
-      configureWorker();
+    mapboxgl.accessToken = env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
-      map = new MapLibreMap({
+    let map: mapboxgl.Map;
+    try {
+      map = new mapboxgl.Map({
         container: containerRef.current,
-        style: placeholderStyle(false),
+        style: "mapbox://styles/mapbox/light-v11",
         center,
         zoom: DEFAULT_ZOOM,
         attributionControl: false,
@@ -54,18 +54,8 @@ export function PropertyLocationMap({
       return;
     }
 
-    map.addControl(new AttributionControl({ compact: true }), "bottom-right");
+    map.addControl(new mapboxgl.AttributionControl({ compact: true }), "bottom-right");
     mapRef.current = map;
-
-    // Same satellite-on-commit rationale as LocationPickerModal.
-    void googleSession("satellite")
-      .then((session) => {
-        if (mapRef.current !== map) return;
-        map.setStyle(basemapStyle("satellite", false, session));
-      })
-      .catch(() => {
-        /* blank basemap; the wizard can still be completed */
-      });
 
     map.on("load", () => {
       onLoad?.();
@@ -85,7 +75,7 @@ export function PropertyLocationMap({
       el.addEventListener("mouseenter", () => { circle.style.transform = "scale(1.1)"; });
       el.addEventListener("mouseleave", () => { circle.style.transform = "scale(1)"; });
 
-      const marker = new Marker({ element: el, anchor: "center", draggable: true })
+      const marker = new mapboxgl.Marker({ element: el, anchor: "center", draggable: true })
         .setLngLat(center)
         .addTo(map);
 
