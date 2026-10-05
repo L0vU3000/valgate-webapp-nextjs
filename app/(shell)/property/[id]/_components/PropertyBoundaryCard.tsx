@@ -140,7 +140,9 @@ export function PropertyBoundaryCard({
   }
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
+    // No card shell: this renders as the footer action of the Parcel panel, which already
+    // owns the border, background and padding. A nested card would double every edge.
+    <div className="mt-5 border-t border-slate-100 pt-4">
       <div className="flex items-start justify-between gap-4">
         <div>
           <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">
