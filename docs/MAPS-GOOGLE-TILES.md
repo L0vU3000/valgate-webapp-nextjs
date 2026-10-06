@@ -1,8 +1,8 @@
 # Google Map Tiles — the interactive basemap
 
-**One view** draws Google Map Tiles (2D) through **MapLibre GL**: the *satellite* view on the
-portfolio map. Every other map view still runs Mapbox GL, and Mapbox also serves the static map
-images.
+**One view** draws Google Map Tiles (2D) through **MapLibre GL**: the *satellite* mode on the home
+map (`/app`). That same map draws **Mapbox** in its light/dark mode. Every other map view runs
+Mapbox GL, and Mapbox also serves the static map images.
 
 ## Why MapLibre and not Mapbox GL
 
@@ -77,8 +77,9 @@ fails the suite instead of failing silently in production.
 
 ## Themes in use
 
-- Portfolio map (`MapView`): **roadmap** by default, then **satellite** when the sat/roadmap toggle
-  is on. Those two are the only Google renders in the app.
+- Home map (`/app`, `MapView`): **Mapbox** light/dark by default, **MapLibre + Google** when the
+  satellite toggle is on. It is the only surface with two renderers, so a toggle remounts the map
+  rather than swapping its style — the two libraries share no style format.
 - Everything else: Mapbox light/dark, so dark mode keeps working —
   property detail, expand modal, add-property picker, wizard location, static images.
 - `terrain` was removed in `2d90f17`. It was never called, and Google rejects it without an explicit
@@ -99,6 +100,20 @@ request — `x-clerk-auth-reason: protect-rewrite` — which looks like a broken
 
 ## Known gaps
 
+- **The MapLibre worker does not load in `next dev`, so the satellite basemap renders blank.**
+  MapLibre's own console error is `Worker failed to load. Check that the worker URL is correct.`
+  `createSession` still returns 200 and the key is valid (a server-side tile fetch returns a 23 KB
+  JPEG), so this is the worker, not the tiles. Two observations that should shortcut the fix:
+  - MapLibre constructs its worker from a **`blob:` URL**, and `setWorkerUrl()` does not change
+    that on this version — so `configureWorker()` in `basemap.ts`, and the two `public/` worker
+    copies it points at, have no effect. Verify before trusting them.
+  - The bundle emits its **own** worker asset at `.next/static/media/maplibre-gl-worker.<hash>.mjs`.
+    A bundler-aware worker reference is the likeliest fix; the `public/` copies then become dead
+    weight.
+  Reproduced deterministically in Chromium on 2026-10-05 and again on a clean rebuild: 0 requests
+  to `tile.googleapis.com/v1/2dtiles` with the satellite toggle on, and the same 0 on a checkout
+  with none of the mixed-renderer work applied. **Unverified whether this affects production** —
+  measure there before treating it as a release blocker.
 - `lib/services/property-import.ts` still geocodes server-side against `api.mapbox.com`. Address
   lookup in the UI goes through `/api/v1/address/suggest` (GrabMaps); this import path does not.
 - Static map images (5 call sites) remain on `api.mapbox.com/.../static`.

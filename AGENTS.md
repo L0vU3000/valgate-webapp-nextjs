@@ -11,8 +11,8 @@
 | Concern | Library |
 |---|---|
 | Styling | Tailwind CSS + shadcn/ui |
-| Maps (satellite view) | Google Map Tiles (2D) via MapLibre GL — see `docs/MAPS-GOOGLE-TILES.md` |
-| Maps (all other views) | Mapbox GL (`mapbox-gl`) |
+| Maps (home map, satellite mode) | Google Map Tiles (2D) via MapLibre GL — see `docs/MAPS-GOOGLE-TILES.md` |
+| Maps (home map, light/dark mode) | Mapbox GL (`mapbox-gl`) |
 | Maps (static images) | Mapbox static API |
 | Auth | Clerk |
 | Database | Neon (serverless Postgres) + Drizzle ORM |
