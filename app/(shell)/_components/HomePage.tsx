@@ -32,6 +32,8 @@ import { PropertyTable } from "@/components/portfolio/PropertyTable";
 import type { TableAnimationConfig } from "@/components/portfolio/PropertyTable";
 import { PortfolioLegend } from "./PortfolioLegend";
 import { QuickAddPinLayer } from "./QuickAddPinLayer";
+import type { AnyMap } from "@/components/map/types";
+import type { Map as MapLibreMap } from "maplibre-gl";
 import { QuickAddPanel } from "./QuickAddPanel";
 import { QuickAddSearch } from "./QuickAddSearch";
 import { useQuickAdd } from "./use-quick-add";
@@ -87,7 +89,7 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
   // Cover photo for the currently-open drawer, resolved lazily when a pin is selected
   // (signed urls are short-lived, so we sign one on open rather than all up front).
   const [drawerCover, setDrawerCover] = useState<{ id: string; url: string | null } | null>(null);
-  const mapRef = useRef<mapboxgl.Map | null>(null);
+  const mapRef = useRef<AnyMap | null>(null);
   const router = useRouter();
 
   const quickAdd = useQuickAdd();
@@ -96,7 +98,7 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
   // stays unaware of quick-add, and unwired the moment the mode is off — a stray click must not drop
   // a pin while the user is just browsing.
   useEffect(() => {
-    const map = mapRef.current;
+    const map = mapRef.current as MapLibreMap | null;
     if (!map || !quickAdd.active || !mapLoaded) return;
     const canvas = map.getCanvas();
     const prevCursor = canvas.style.cursor;
@@ -139,7 +141,7 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
   // the information, the flight is not.
   const quickAddPreview = quickAdd.preview;
   useEffect(() => {
-    const map = mapRef.current;
+    const map = mapRef.current as MapLibreMap | null;
     if (!map || !quickAddPreview) return;
     const [lng, lat] = quickAddPreview;
     if (quickAdd.reducedMotion.current) {
@@ -307,8 +309,12 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
       {/* Map area */}
       <div className="relative flex-1 overflow-hidden select-none">
 
-        {/* Mapbox map */}
+        {/* The basemap's renderer. Mapbox for the light/dark view, MapLibre + Google for satellite.
+            `key` REMOUNTS on a satellite toggle instead of swapping styles: a style swap cannot cross
+            renderers (the two libraries share no style format), and a remount is the honest way to
+            change the map object itself. */}
         <MapView
+          key={isSatellite ? "satellite" : "base"}
           properties={initialProperties}
           selectedId={selectedPin}
           onSelectProperty={handlePinClick}
@@ -475,6 +481,7 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
           preview={!!quickAdd.preview}
           onPinChange={quickAdd.resolveAt}
           reducedMotion={quickAdd.reducedMotion.current}
+          satellite={isSatellite}
         />
 
         {/* Quick-add card. Gated on a real pin: a suggestion being previewed is not a dropped pin,

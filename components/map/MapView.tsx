@@ -1,22 +1,51 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { Map as MapLibreMap, Marker, LngLat, AttributionControl, type GeoJSONSource } from "maplibre-gl";
+import mapboxgl from "mapbox-gl";
+import "mapbox-gl/dist/mapbox-gl.css";
+import { Map as MapLibreMap, Marker as MapLibreMarker, LngLat as MapLibreLngLat, AttributionControl, type GeoJSONSource } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import Supercluster from "supercluster";
+import { env } from "@/lib/env";
 import { useShellContext } from "@/components/layout/shell-context";
 import type { Property } from "@/lib/data/types/property";
 import { addBoundaryLayer, BOUNDARY_SOURCE_ID } from "@/components/map/boundary-layer";
 import {
-  configureWorker,
   googleSession,
   basemapStyle,
   placeholderStyle,
   ATTRIBUTION_POSITION,
 } from "@/components/map/basemap";
 
+/**
+ * Which renderer draws the basemap.
+ *
+ * Two, not one, and not by preference: Google's 2D tiles may not be drawn through `mapbox-gl`
+ * (licence), and Google has no light/dark roadmap equivalent. So the light/dark basemap stays on
+ * Mapbox and Google satellite is the only MapLibre surface. `boundary-layer.ts` and `MapControls.tsx`
+ * already accept either renderer; this file is the one that has to pick.
+ */
+export type MapRenderer = "mapbox" | "maplibre";
+
+import type { AnyMap, AnyMarker } from "@/components/map/types";
+
 const CAMBODIA_CENTER: [number, number] = [104.9, 12.5];
 const CAMBODIA_ZOOM = 7;
+
+/** The Mapbox basemap for the light/dark (non-satellite) view. Satellite is MapLibre + Google. */
+export function mapboxStyle(isDark: boolean): string {
+  return isDark ? "mapbox://styles/mapbox/dark-v11" : "mapbox://styles/mapbox/light-v11";
+}
+
+/** The marker class for whichever renderer is mounted. Both implement the {@link AnyMarker} surface. */
+function MarkerFor(map: AnyMap): new (opts: { element: HTMLElement; anchor: string }) => AnyMarker {
+  return (map instanceof mapboxgl.Map ? mapboxgl.Marker : MapLibreMarker) as never;
+}
+
+/** The coordinate class for whichever renderer is mounted; only `project()` needs it. */
+function LngLatFor(map: AnyMap): new (lng: number, lat: number) => MapLibreLngLat {
+  return (map instanceof mapboxgl.Map ? mapboxgl.LngLat : MapLibreLngLat) as never;
+}
 
 // The deepest zoom the map may reach, shared by Mapbox's `maxZoom` and Supercluster's `maxZoom`.
 //
@@ -41,7 +70,11 @@ interface MapViewProps {
   selectedId: string | null;
   onSelectProperty: (id: string | null) => void;
   onMapLoaded?: () => void;
-  onMapReady?: (map: MapLibreMap) => void;
+  /**
+   * The live map, for the callers that drive it from outside (quick-add's click handler and pin
+   * layer). Typed as either renderer because which one exists depends on `isSatellite`.
+   */
+  onMapReady?: (map: AnyMap) => void;
   isSatellite?: boolean;
   className?: string;
 }
@@ -56,9 +89,9 @@ export function MapView({
   className,
 }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<MapLibreMap | null>(null);
-  const activeMarkersRef = useRef<Map<string, Marker>>(new Map());
-  const pinMarkersRef = useRef<Map<string, Marker>>(new Map());
+  const mapRef = useRef<AnyMap | null>(null);
+  const activeMarkersRef = useRef<Map<string, AnyMarker>>(new Map());
+  const pinMarkersRef = useRef<Map<string, AnyMarker>>(new Map());
   const clusterIndex = useRef<Supercluster | null>(null);
   // Latest properties, so the map's own event handlers (bound once, in the init effect) never read
   // a stale closure — same reason isDark/isSatellite keep refs. A property created after mount must
@@ -83,7 +116,7 @@ export function MapView({
     };
   }
   const exitingMarkersRef = useRef<
-    Map<string, { marker: Marker; timeout: ReturnType<typeof setTimeout> }>
+    Map<string, { marker: AnyMarker; timeout: ReturnType<typeof setTimeout> }>
   >(new Map());
   const { isDark } = useShellContext();
   const isDarkRef = useRef(isDark);
@@ -95,7 +128,18 @@ export function MapView({
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
-    configureWorker();
+    // Which renderer this mount uses. Read ONCE, at mount: the map object is created here and only
+    // re-created by a full remount, which is what the satellite toggle triggers (via `key`). A style
+    // swap cannot cross renderers, so this is deliberately not reactive.
+    const useMapbox = !isSatelliteRef.current;
+
+    if (useMapbox) {
+      // Mapbox draws its own style URL; there is no session token to wait for, so no blank-style
+      // phase and no swap. `mapbox-gl` needs the token on the module, not per map.
+      mapboxgl.accessToken = env.NEXT_PUBLIC_MAPBOX_TOKEN;
+    }
+    // MapLibre's worker URL is configured in basemap.ts at module scope, not here — see the note
+    // there on why a per-mount call races the module's own initialisation.
 
     // Build cluster index once. `maxZoom` matches the map's own ceiling — see MAP_MAX_ZOOM.
     const index = new Supercluster({ radius: 60, maxZoom: MAP_MAX_ZOOM });
@@ -108,52 +152,72 @@ export function MapView({
     );
     clusterIndex.current = index;
 
-    // The Google session token is an async round trip, so the basemap is swapped in after the map
-    // exists. The `style.load` handler below is what makes that swap safe: it re-adds the boundary
-    // layer and the pins, which is the same path a theme switch already used.
-    const map = new MapLibreMap({
+    // Both renderers take the same camera options; only the style differs.
+    const camera = {
       container: containerRef.current,
-      style: placeholderStyle(isDarkRef.current),
       center: CAMBODIA_CENTER,
       zoom: CAMBODIA_ZOOM,
       maxZoom: MAP_MAX_ZOOM,
       pitch: 45,
       bearing: -17.6,
-    });
+    };
 
-    map.addControl(new AttributionControl({ compact: true }), ATTRIBUTION_POSITION);
+    const map: AnyMap = useMapbox
+      ? new mapboxgl.Map({ ...camera, style: mapboxStyle(isDarkRef.current), attributionControl: false })
+      : new MapLibreMap({ ...camera, style: placeholderStyle(isDarkRef.current) });
+
+    // `Map` is a union of two classes whose overloaded methods do not merge, so `on`/`off`/`addControl`
+    // are addressed through one renderer's type. At runtime both libraries implement this surface
+    // identically, and which one is really there is already decided by `useMapbox` above. This is the
+    // single narrowing point for the whole mount, matching boundary-layer.ts's `sourceOf`.
+    const m = map as MapLibreMap;
+
+    if (useMapbox) {
+      (map as mapboxgl.Map).addControl(
+        new mapboxgl.AttributionControl({ compact: true }),
+        ATTRIBUTION_POSITION,
+      );
+    } else {
+      m.addControl(new AttributionControl({ compact: true }), ATTRIBUTION_POSITION);
+    }
     mapRef.current = map;
     let destroyed = false;
 
-    const theme = () => (isSatelliteRef.current ? "satellite" : "roadmap");
-    googleSession(theme())
-      .then((session) => {
-        if (destroyed || mapRef.current !== map) return;
-        map.setStyle(basemapStyle(theme(), isDarkRef.current, session));
-      })
-      .catch(() => {
-        // Blank basemap, still usable: pins and boundaries draw regardless. Same posture as
-        // PropertyLocationMap's no-WebGL fallback.
-      });
+    // Satellite only: Google's session token is an async round trip, so the basemap is swapped in
+    // after the map exists. The `style.load` handler below is what makes that swap safe: it re-adds
+    // the boundary layer and the pins, which is the same path a theme switch already used.
+    if (!useMapbox) {
+      googleSession("satellite")
+        .then((session) => {
+          if (destroyed || mapRef.current !== map) return;
+          m.setStyle(basemapStyle("satellite", isDarkRef.current, session));
+        })
+        .catch((err) => {
+          // Blank basemap, still usable: pins and boundaries draw regardless. Same posture as
+          // PropertyLocationMap's no-WebGL fallback. Logged rather than swallowed — this catch also
+          // wraps `setStyle`, and a silent failure there is indistinguishable from a slow basemap.
+          console.error("[MapView] satellite basemap failed", err);
+        });
+    }
 
-    map.on("load", () => {
+    m.on("load", () => {
       if (destroyed) return;
-      addBoundaries(map);
+      addBoundaries(m);
       onMapLoaded?.();
       onMapReady?.(map);
-      updateClusters(map);
+      updateClusters(m);
     });
 
-    map.on("move", () => {
+    m.on("move", () => {
       if (destroyed) return;
-      updateClusters(map);
+      updateClusters(m);
     });
 
-    map.on("style.load", () => {
+    m.on("style.load", () => {
       if (destroyed) return;
-      addBoundaries(map);
+      addBoundaries(m);
       clearMarkers();
-      updateClusters(map);
+      updateClusters(m);
     });
 
     return () => {
@@ -165,21 +229,14 @@ export function MapView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Switch style when theme or satellite mode changes. The session token is memoised per map type,
-  // so a toggle is a cache hit rather than a new createSession call.
+  // A theme switch, Mapbox only. Its style is a URL, so a theme change is one `setStyle` call.
+  // Satellite is not re-styled: Google has no dark variant, and the satellite toggle remounts the map
+  // (see the `key` in HomePage) rather than swapping its style.
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
-    const theme = isSatellite ? "satellite" : "roadmap";
-    let cancelled = false;
-    googleSession(theme).then((session) => {
-      if (cancelled || mapRef.current !== map) return;
-      map.setStyle(basemapStyle(theme, isDark, session));
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [isDark, isSatellite]);
+    if (!map || isSatelliteRef.current) return;
+    (map as mapboxgl.Map).setStyle(mapboxStyle(isDark));
+  }, [isDark]);
 
   // Rebuild the cluster index when the property set changes — a property created by Quick Add lands
   // in the list but not in the index built on mount, so it would be in the sidebar and invisible on
@@ -341,10 +398,14 @@ export function MapView({
     pinMarkersRef.current.clear();
   }
 
-  function updateClusters(map: MapLibreMap) {
+  function updateClusters(map: AnyMap) {
     if (!clusterIndex.current) return;
 
-    const bounds = map.getBounds();
+    const ml = map as MapLibreMap;
+    const Mk = MarkerFor(map);
+    const LL = LngLatFor(map);
+
+    const bounds = ml.getBounds();
     if (!bounds) return;
     const bbox: [number, number, number, number] = [
       bounds.getWest(),
@@ -352,7 +413,7 @@ export function MapView({
       bounds.getEast(),
       bounds.getNorth(),
     ];
-    const zoom = Math.floor(map.getZoom());
+    const zoom = Math.floor(ml.getZoom());
     const clusters = clusterIndex.current.getClusters(bbox, zoom);
 
     // Determine which keys should be visible
@@ -365,14 +426,14 @@ export function MapView({
       );
     }
 
-    const canvas = map.getCanvas();
+    const canvas = ml.getCanvas();
 
     // Returns true if a lngLat is outside or within 40px of the viewport edge.
     // canvas.clientWidth/clientHeight are CSS pixels — same space as map.project() output.
     // canvas.width/height are physical pixels (2× on retina) and must not be used here.
     const EDGE_BUFFER = 40;
-    const isOffScreen = (lngLat: LngLat) => {
-      const { x, y } = map.project(lngLat);
+    const isOffScreen = (lngLat: MapLibreLngLat) => {
+      const { x, y } = ml.project(lngLat);
       return (
         x < EDGE_BUFFER ||
         x > canvas.clientWidth - EDGE_BUFFER ||
@@ -385,12 +446,12 @@ export function MapView({
     // When zooming in, the splitting cluster has no nearby absorbing cluster → returns null.
     // When zooming out, the absorbing cluster is nearby → returns delta.
     // Skips target clusters that are off-screen so edge pins don't fly off the viewport.
-    const nearestIncomingCluster = (lngLat: LngLat): { dx: number; dy: number } | null => {
-      const fromPx = map.project(lngLat);
+    const nearestIncomingCluster = (lngLat: MapLibreLngLat): { dx: number; dy: number } | null => {
+      const fromPx = ml.project(lngLat);
       let bestDx = 0, bestDy = 0, minSq = Infinity;
       for (const f of clusters) {
         if (!f.properties.cluster) continue;
-        const toPx = map.project(f.geometry.coordinates as [number, number]);
+        const toPx = ml.project(f.geometry.coordinates as [number, number]);
         if (toPx.x < 0 || toPx.x > canvas.clientWidth || toPx.y < 0 || toPx.y > canvas.clientHeight) continue;
         const dx = toPx.x - fromPx.x;
         const dy = toPx.y - fromPx.y;
@@ -402,12 +463,12 @@ export function MapView({
 
     // Nearest exiting cluster within 350px — used for emerge-from-cluster entrance animations.
     // exitingMarkersRef is already populated for this frame before this loop runs.
-    const nearestExitingCluster = (lngLat: LngLat): { dx: number; dy: number } | null => {
-      const toPx = map.project(lngLat);
+    const nearestExitingCluster = (lngLat: MapLibreLngLat): { dx: number; dy: number } | null => {
+      const toPx = ml.project(lngLat);
       let bestDx = 0, bestDy = 0, minSq = Infinity;
       for (const [key, entry] of exitingMarkersRef.current) {
         if (!key.startsWith("cluster-")) continue;
-        const fromPx = map.project(entry.marker.getLngLat());
+        const fromPx = ml.project(entry.marker.getLngLat() as unknown as [number, number]);
         const dx = fromPx.x - toPx.x;
         const dy = fromPx.y - toPx.y;
         const sq = dx * dx + dy * dy;
@@ -426,7 +487,7 @@ export function MapView({
           isPin ? "[data-pin]" : "[data-cluster-circle]"
         );
         if (innerEl) {
-          const lngLat = marker.getLngLat();
+          const lngLat = marker.getLngLat() as unknown as MapLibreLngLat;
           const offScreen = isOffScreen(lngLat);
           if (!offScreen) {
             const target = nearestIncomingCluster(lngLat);
@@ -493,7 +554,7 @@ export function MapView({
         const el = createClusterElement(f.properties.point_count);
         const circle = el.querySelector<HTMLElement>("[data-cluster-circle]");
         if (circle) {
-          const origin = nearestExitingCluster(new LngLat(lng, lat));
+          const origin = nearestExitingCluster(new LL(lng, lat));
           if (origin) {
             circle.style.setProperty("--cluster-ox", `${origin.dx}px`);
             circle.style.setProperty("--cluster-oy", `${origin.dy}px`);
@@ -502,7 +563,7 @@ export function MapView({
             circle.style.animation = "cluster-appear 380ms cubic-bezier(0.16, 1, 0.3, 1) both";
           }
         }
-        const m = new Marker({ element: el, anchor: "center" })
+        const m = new Mk({ element: el, anchor: "center" })
           .setLngLat([lng, lat])
           .addTo(map);
         el.addEventListener("click", () => {
@@ -528,7 +589,7 @@ export function MapView({
         const { wrapper } = createPinElement(property);
         const pin = wrapper.querySelector<HTMLElement>("[data-pin]");
         if (pin) {
-          const origin = nearestExitingCluster(new LngLat(lng, lat));
+          const origin = nearestExitingCluster(new LL(lng, lat));
           const delay = Math.floor(Math.random() * 80);
           if (origin) {
             pin.style.setProperty("--pin-ox", `${origin.dx}px`);
@@ -538,7 +599,7 @@ export function MapView({
             pin.style.animation = `pin-appear 280ms cubic-bezier(0.16, 1, 0.3, 1) ${delay}ms both`;
           }
         }
-        const m = new Marker({ element: wrapper, anchor: "center" })
+        const m = new Mk({ element: wrapper, anchor: "center" })
           .setLngLat([lng, lat])
           .addTo(map);
         activeMarkersRef.current.set(key, m);
@@ -555,9 +616,9 @@ export function MapView({
   // Portfolio boundaries live in ONE source with a minzoom, not one layer per property: they share
   // a style and are invisible below BOUNDARY_MIN_ZOOM, so N layers would be N× the style
   // bookkeeping for identical pixels.
-  function addBoundaries(map: MapLibreMap) {
+  function addBoundaries(map: AnyMap) {
     addBoundaryLayer(map, null, { minZoom: BOUNDARY_MIN_ZOOM });
-    const src = map.getSource(BOUNDARY_SOURCE_ID) as GeoJSONSource | undefined;
+    const src = (map as MapLibreMap).getSource(BOUNDARY_SOURCE_ID) as GeoJSONSource | undefined;
     src?.setData(boundaryData());
   }
 
