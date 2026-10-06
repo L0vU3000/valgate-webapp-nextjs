@@ -56,6 +56,7 @@ for (const k of [
   'RESEND_API_KEY',
   'OPENAI_API_KEY',
   'ANTHROPIC_API_KEY',
+  'OPENROUTER_API_KEY',
 ]) {
   process.env[k] = ''
 }
