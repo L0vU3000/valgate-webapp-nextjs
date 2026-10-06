@@ -77,10 +77,12 @@ fails the suite instead of failing silently in production.
 
 ## Themes in use
 
-- Portfolio map (`MapView`): **satellite** by default, with the existing sat/roadmap toggle.
-- Property detail + location picker: **roadmap**, so light/dark mode keeps working.
-- `terrain` is implemented in `basemap.ts` and needs `layerTypes: ["layerRoadmap"]`, which Google
-  rejects the request without.
+- Portfolio map (`MapView`): **roadmap** by default, then **satellite** when the sat/roadmap toggle
+  is on. Those two are the only Google renders in the app.
+- Everything else: Mapbox light/dark, so dark mode keeps working —
+  property detail, expand modal, add-property picker, wizard location, static images.
+- `terrain` was removed in `2d90f17`. It was never called, and Google rejects it without an explicit
+  `layerTypes: ["layerRoadmap"]`. Restore it there if a terrain view is ever built.
 
 ## Verifying it by hand
 
