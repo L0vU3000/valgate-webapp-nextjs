@@ -70,6 +70,7 @@ export async function POST(req: Request) {
         centroid: p.centroid,
         pinShiftM: p.pinShiftM,
         pinMoved: p.pinMoved,
+        pinInside: p.pinInside,
         replaced: p.replaced,
         geometry: p.geometry,
       });

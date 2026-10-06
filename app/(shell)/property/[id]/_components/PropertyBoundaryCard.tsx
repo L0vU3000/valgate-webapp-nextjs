@@ -34,6 +34,8 @@ type Row = {
   centroid?: [number, number];
   pinShiftM?: number;
   pinMoved?: boolean;
+  /** Whether the property's CURRENT pin falls inside the uploaded ring. */
+  pinInside?: boolean;
   replaced?: boolean;
   geometry?: BoundaryGeometry;
 };
@@ -268,6 +270,16 @@ export function PropertyBoundaryCard({
                           move {fmt(r.pinShiftM ?? 0)} m
                         </span>
                       </label>
+                    )}
+                    {/* The pin must end up ON the land. Unticking the move keeps a pin that the
+                        uploaded ring does not contain — say so, and name the action that fixes it,
+                        rather than letting an off-parcel pin through unremarked. */}
+                    {r.status === "ready" && r.pinInside === false && (
+                      <span className="mt-1 block text-[11px] text-red-600">
+                        {movePin[r.file] ?? true
+                          ? "current pin is outside this boundary — ticked above to move it inside"
+                          : "current pin is outside this boundary — edit the pin location on the map to fix it"}
+                      </span>
                     )}
                   </td>
                 </tr>

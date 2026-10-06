@@ -150,6 +150,23 @@ function pointInRing(pt: [number, number], ring: number[][]): boolean {
 }
 
 /**
+ * Is `pt` ([lat, lng]) on the land of this boundary?
+ *
+ * A MultiPolygon is inside if it is inside ANY polygon's outer ring — the owner holds all the
+ * plots, so a pin in the second plot is on their land.
+ *
+ * Holes are deliberately not considered: the parser ignores `<innerBoundaryIs>`, so no boundary in
+ * the store has one. If holes are ever parsed, this must subtract them or the pin can sit in one.
+ */
+export function boundaryContains(geometry: BoundaryGeometry, pt: [number, number]): boolean {
+  const polys =
+    geometry.type === "Polygon"
+      ? [geometry.coordinates as number[][][]]
+      : (geometry.coordinates as number[][][][]);
+  return polys.some((poly) => poly[0] && pointInRing(pt, poly[0]));
+}
+
+/**
  * Midpoint of the widest inside span of the ring along a horizontal line at latitude `lat`.
  *
  * This is the "middle of the land" answer for a CONCAVE parcel, where the area centroid can fall in

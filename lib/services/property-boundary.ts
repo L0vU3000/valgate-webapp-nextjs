@@ -2,7 +2,7 @@ import "server-only"; // C1
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { properties } from "@/lib/db/schema";
-import { parseKmz, KmzError, type ParsedBoundary } from "@/lib/services/kmz";
+import { parseKmz, KmzError, boundaryContains, type ParsedBoundary } from "@/lib/services/kmz";
 import { createLandParcel, updateLandParcel, listLandParcels } from "@/lib/services/land-parcels";
 import { updateProperty } from "@/lib/services/properties";
 import { assertCanMutate, type Ctx } from "@/lib/services/_mapping";
@@ -34,6 +34,14 @@ export type BoundaryAttach = {
   pinShiftM: number;
   /** true when a pin already existed and the move is a real change. */
   pinMoved: boolean;
+  /**
+   * Whether the CURRENT pin sits inside the uploaded ring.
+   *
+   * The auto-move always ends up inside (`centroidOf` verifies its candidates), so this only
+   * matters when the user declines the move: a pin outside the parcel is a data error, and the
+   * preview must say so rather than let it through unremarked.
+   */
+  pinInside: boolean;
   /** The land parcel row that now holds the boundary. */
   landParcelId: string;
   /** The stored source `.kmz` Document, when one was kept. */
@@ -88,6 +96,7 @@ export async function previewBoundary(
       pinShiftM: Math.round(shift),
       // ponytail: 1 m threshold — a sub-metre shift is the same pin, not a move worth confirming.
       pinMoved: shift > 1,
+      pinInside: boundaryContains(parsed.geometry, previousPin),
       landParcelId: existing?.id ?? "",
       replaced: existing != null,
     },
@@ -169,6 +178,7 @@ export async function attachBoundary(
     previousPin,
     pinShiftM: Math.round(shift),
     pinMoved: movePin,
+    pinInside: boundaryContains(parsed.geometry, previousPin),
     landParcelId,
     documentId,
     replaced: existing != null,
