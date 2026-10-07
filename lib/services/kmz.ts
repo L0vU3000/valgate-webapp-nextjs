@@ -5,6 +5,7 @@
 //
 // Everything here is pure so it runs in a test without a filesystem or a database.
 import { inflateRawSync } from "node:zlib";
+import { ringAreaM2 } from "@/lib/utils/geo";
 import type { BoundaryGeometry } from "@/lib/data/types/land-parcel";
 
 export type ParsedBoundary = {
@@ -19,8 +20,6 @@ export type ParsedBoundary = {
   fields: Record<string, string>;
 };
 
-const EARTH_R = 6378137;
-const DEG = Math.PI / 180;
 
 // A KMZ is a few kilobytes. This bounds how much a ZIP BOMB can make us allocate: without it,
 // `inflateRawSync` will happily expand a hand-crafted 1 KB entry into gigabytes and take the
@@ -88,16 +87,7 @@ function parseRing(text: string): number[][] {
   return ring;
 }
 
-/** Spherical polygon area (Chamberlain–Duquette) in m². Exact enough at parcel scale. */
-export function ringAreaM2(ring: number[][]): number {
-  let total = 0;
-  for (let i = 0; i < ring.length; i++) {
-    const [lo1, la1] = ring[i];
-    const [lo2, la2] = ring[(i + 1) % ring.length];
-    total += (lo2 - lo1) * DEG * (2 + Math.sin(la1 * DEG) + Math.sin(la2 * DEG));
-  }
-  return Math.abs((total * EARTH_R * EARTH_R) / 2);
-}
+export { ringAreaM2 } from "@/lib/utils/geo";
 
 /** Number of positions in a ring excluding the repeated closing one (RFC 7946 closes rings). */
 function distinctLength(ring: number[][]): number {
@@ -164,6 +154,45 @@ export function boundaryContains(geometry: BoundaryGeometry, pt: [number, number
       ? [geometry.coordinates as number[][][]]
       : (geometry.coordinates as number[][][][]);
   return polys.some((poly) => poly[0] && pointInRing(pt, poly[0]));
+}
+
+/**
+ * Does this ring cross itself?
+ *
+ * A bow-tie stores and draws fine and reports a nonsense area, because the shoelace formula is only
+ * meaningful for a simple polygon. Refusing it is better than saving a number nobody can trust.
+ *
+ * O(n²) over the edges, which is deliberate: a hand-drawn parcel is tens of corners, and the cheap
+ * sweep-line version is far more code than the saving. Upgrade if a ring ever reaches 4 figures.
+ *
+ * Adjacent edges are skipped — they share a corner by construction, and that is not a crossing.
+ */
+export function ringSelfIntersects(ring: number[][]): boolean {
+  const n = ring.length > 1 && ring[0][0] === ring[ring.length - 1][0] && ring[0][1] === ring[ring.length - 1][1]
+    ? ring.length - 1
+    : ring.length;
+  if (n < 4) return false;
+
+  const orient = (a: number[], b: number[], c: number[]) =>
+    (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+  const straddles = (a: number[], b: number[], c: number[], d: number[]) => {
+    const d1 = orient(a, b, c);
+    const d2 = orient(a, b, d);
+    const d3 = orient(c, d, a);
+    const d4 = orient(c, d, b);
+    return d1 * d2 < 0 && d3 * d4 < 0;
+  };
+
+  for (let i = 0; i < n; i++) {
+    const a = ring[i];
+    const b = ring[(i + 1) % n];
+    for (let j = i + 1; j < n; j++) {
+      // Skip the edge itself and the two edges that share a corner with it.
+      if (j === i || (j + 1) % n === i || (i + 1) % n === j) continue;
+      if (straddles(a, b, ring[j], ring[(j + 1) % n])) return true;
+    }
+  }
+  return false;
 }
 
 /**

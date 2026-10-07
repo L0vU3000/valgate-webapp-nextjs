@@ -2,8 +2,8 @@ import "server-only"; // C1
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { properties } from "@/lib/db/schema";
-import { parseKmz, KmzError, boundaryContains, type ParsedBoundary } from "@/lib/services/kmz";
-import { createLandParcel, updateLandParcel, listLandParcels } from "@/lib/services/land-parcels";
+import { parseKmz, ringAreaM2, ringSelfIntersects, KmzError, boundaryContains, type ParsedBoundary } from "@/lib/services/kmz";
+import { createLandParcel, updateLandParcel, listLandParcels, deleteLandParcel } from "@/lib/services/land-parcels";
 import { updateProperty } from "@/lib/services/properties";
 import { assertCanMutate, type Ctx } from "@/lib/services/_mapping";
 import { createDocument } from "@/lib/services/documents";
@@ -113,7 +113,7 @@ export async function attachBoundary(
   ctx: Ctx,
   propertyId: string,
   parsed: ParsedBoundary,
-  opts: { movePin?: boolean; sourceFile?: { buffer: Buffer; name: string } } = {},
+  opts: { movePin?: boolean; sourceFile?: { buffer: Buffer; name: string }; drawn?: boolean } = {},
 ): Promise<BoundaryAttach> {
   assertCanMutate(); // D9 — demo mode refuses all writes
 
@@ -129,7 +129,7 @@ export async function attachBoundary(
   const patch = {
     sizeM2: parsed.sizeM2,
     boundary: parsed.geometry,
-    boundarySource: "kmz" as const,
+    boundarySource: opts.drawn ? ("manual" as const) : ("kmz" as const),
   };
 
   let landParcelId: string;
@@ -196,6 +196,103 @@ export type BackfillOptions = {
   /** false keeps the existing pin (the user declined the move) while still storing the boundary. */
   movePin?: boolean;
 };
+
+/**
+ * Remove a property's land boundary.
+ *
+ * DELETE rather than null-the-geometry: the parcel row also carries the measured size and the source
+ * document, and a row holding `boundary: null` plus a size would be a shape the rest of the app has to
+ * keep guarding against. The pin is deliberately left where it is — it is the property's own location,
+ * not part of the boundary.
+ *
+ * Returns whether there was anything to remove, so the caller can tell "cleared" from "nothing there".
+ */
+export async function clearBoundary(ctx: Ctx, propertyId: string): Promise<boolean> {
+  const existing = (await listLandParcels(ctx, propertyId)).find((p) => p.boundary != null);
+  if (!existing) return false;
+  await deleteLandParcel(ctx, existing.id);
+  return true;
+}
+
+/**
+ * Attach a boundary the user drew on the map, rather than uploaded as a KMZ.
+ *
+ * Same storage, same pin rule, same replace rule as the upload — it goes through {@link attachBoundary},
+ * so the two entry points cannot drift. The only differences are the source label and the absence of
+ * a source file: there is no KMZ behind a drawn ring, so nothing is put in storage.
+ */
+export async function attachDrawnBoundary(
+  ctx: Ctx,
+  propertyId: string,
+  ring: number[][],
+  opts: { movePin?: boolean } = {},
+): Promise<BoundaryAttach> {
+  if (ring.length < 3) throw new Error("A boundary needs at least 3 points.");
+  // Same validation the KMZ parser applies: a ring that is not closed renders with its closing edge
+  // missing (Mapbox's `line` does not auto-close the way `fill` does), so close it here too.
+  const closed = [...ring];
+  const [f, l] = [closed[0], closed[closed.length - 1]];
+  if (closed.length > 1 && (f[0] !== l[0] || f[1] !== l[1])) closed.push([f[0], f[1]]);
+  if (new Set(closed.slice(0, -1).map((p) => p.join(","))).size < 3) {
+    throw new Error("A boundary needs 3 points that are not in a line.");
+  }
+  // A ring that crosses itself has no meaningful area, and the shoelace formula returns a confident
+  // nonsense number for it rather than failing. Refuse it here, where the write happens, so a
+  // hand-edited request cannot store one either.
+  if (ringSelfIntersects(closed)) {
+    throw new Error("The boundary crosses itself. Move a corner so the outline does not overlap.");
+  }
+
+  return attachBoundary(
+    ctx,
+    propertyId,
+    {
+      geometry: { type: "Polygon", coordinates: [closed] },
+      sizeM2: Math.round(ringAreaM2(closed) * 100) / 100,
+      // `centroidOf` is not exported, but the pin only needs to land ON the land, and a drawn ring
+      // is convex-ish by construction: the area-weighted centre of the widest horizontal span is
+      // safer than a plain average for a ring the user clicked, which can be concave.
+      centroid: widestSpanCentroid(closed),
+      bbox: bboxOf(closed),
+      fields: {},
+    },
+    { ...opts, drawn: true },
+  );
+}
+
+/** The centre of the widest inside span, over the ring's own latitude range. Falls back to the mean. */
+function widestSpanCentroid(ring: number[][]): [number, number] {
+  const n = ring.length > 1 && ring[0][0] === ring[ring.length - 1][0] && ring[0][1] === ring[ring.length - 1][1]
+    ? ring.length - 1
+    : ring.length;
+  const lats = ring.slice(0, n).map((p) => p[1]);
+  const midLat = (Math.min(...lats) + Math.max(...lats)) / 2;
+
+  const xs: number[] = [];
+  for (let i = 0; i < n; i++) {
+    const [x1, y1] = ring[i];
+    const [x2, y2] = ring[(i + 1) % n];
+    if (y1 > midLat !== y2 > midLat) xs.push(x1 + ((midLat - y1) * (x2 - x1)) / (y2 - y1));
+  }
+  xs.sort((a, b) => a - b);
+  let bestMid: number | null = null;
+  let bestWidth = -1;
+  for (let i = 0; i + 1 < xs.length; i += 2) {
+    const width = xs[i + 1] - xs[i];
+    if (width > bestWidth) { bestWidth = width; bestMid = (xs[i] + xs[i + 1]) / 2; }
+  }
+  if (bestMid !== null) return [midLat, bestMid];
+  return [
+    lats.reduce((s, v) => s + v, 0) / n,
+    ring.slice(0, n).reduce((s, p) => s + p[0], 0) / n,
+  ];
+}
+
+function bboxOf(ring: number[][]): [number, number, number, number] {
+  const lngs = ring.map((p) => p[0]);
+  const lats = ring.map((p) => p[1]);
+  return [Math.min(...lngs), Math.min(...lats), Math.max(...lngs), Math.max(...lats)];
+}
 
 export async function attachBoundaryFromBytes(
   ctx: Ctx,
