@@ -14,7 +14,10 @@ import type { UseFormReturn } from "react-hook-form";
 import {
   updateProperty,
   getLocationWizardInitialAction,
+  getLocationWizardBoundaryAction,
 } from "@/app/actions/properties";
+import { PropertyBoundaryCard } from "@/app/(shell)/property/[id]/_components/PropertyBoundaryCard";
+import { BoundaryStep } from "../BoundaryStep";
 import {
   propertyTypeChoiceSchema,
   propertyTitleSchema,
@@ -429,6 +432,20 @@ export const locationWizardConfig: WizardConfig<typeof LocationWizardSchema> = {
         <MapPinStep
           form={form as UseFormReturn<LocationWizardValues>}
           values={values as LocationWizardValues}
+        />
+      ),
+    },
+    {
+      // The step verification used to be. `fields` is empty on purpose: the boundary lives on the
+      // Location tab and is optional, so this step validates nothing and does not gate the wizard.
+      key: "boundary",
+      title: "Land boundary",
+      description: "Attach the KMZ, or draw the boundary on the Location tab.",
+      fields: [],
+      render: ({ propertyId, values }) => (
+        <BoundaryStep
+          propertyId={propertyId}
+          propertyName={(values as LocationWizardValues).name || "this property"}
         />
       ),
     },
