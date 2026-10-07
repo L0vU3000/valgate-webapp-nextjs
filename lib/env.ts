@@ -72,7 +72,12 @@ export const env = createEnv({
     // Google Map Tiles (2D). Public by necessity: the browser mints its own session token and then
     // fetches tiles directly, so the key ships in the bundle. Protection is the HTTP-referrer
     // restriction in Google Cloud Console, not secrecy — same posture as the Mapbox public token.
-    NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: z.string().min(1),
+    //
+    // OPTIONAL, deliberately. It gates one basemap, not the app: `googleSession`'s rejection is caught
+    // in MapView, which leaves pins and boundaries drawing over a plain background. A required key
+    // here could fail the whole build — and did, on every Vercel preview, because the schema is
+    // evaluated while collecting page data. Absent now means a missing satellite layer, not no deploy.
+    NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: z.string().min(1).optional(),
   },
   runtimeEnv: {
     DATABASE_URL: process.env.DATABASE_URL,

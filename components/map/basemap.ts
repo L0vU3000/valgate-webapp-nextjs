@@ -56,6 +56,13 @@ export function googleSession(mapType: BasemapTheme): Promise<string> {
   const existing = sessions.get(mapType);
   if (existing) return existing;
 
+  // Fail with a reason. The key is optional in the env schema, so this is a reachable state — and
+  // without this guard the request goes out as `key=undefined`, which Google 403s: a confusing error
+  // for what is really "no satellite key on this deployment".
+  if (!env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
+    return Promise.reject(new Error("NEXT_PUBLIC_GOOGLE_MAPS_API_KEY is not set"));
+  }
+
   // `terrain` is deliberately absent from BasemapTheme: nothing requests it, and Google's terrain
   // needs an explicit `layerRoadmap` layer or it 400s. Add it back here (plus the layerTypes line)
   // if a terrain view is ever actually built.

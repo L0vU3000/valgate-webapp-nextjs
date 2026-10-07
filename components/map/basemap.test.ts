@@ -1,11 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { readFileSync } from "node:fs";
 
-// The basemap module reads a public key at call time. It is required by lib/env.ts, but these
-// tests only care about the URLs and shapes built from it, so a literal is enough and keeps the
-// suite runnable from a clean checkout.
+// The basemap module reads a public key at call time. It is optional in lib/env.ts (a missing key
+// must not fail the build), but these tests only care about the URLs and shapes built from it, so a
+// literal is enough and keeps the suite runnable from a clean checkout. `keylessMock` below flips it
+// off for the one test that covers the absent case.
+let keylessMock = false;
 vi.mock("@/lib/env", () => ({
-  env: { NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: "test-google-key" },
+  env: {
+    get NEXT_PUBLIC_GOOGLE_MAPS_API_KEY() {
+      return keylessMock ? undefined : "test-google-key";
+    },
+  },
 }));
 
 const { googleSession, basemapStyle, placeholderStyle } = await import("./basemap");
@@ -37,6 +43,21 @@ describe("googleSession", () => {
     // The whole point of the memo: a route mounting several maps mints once, not once each.
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(String(fetchMock.mock.calls[0]?.[0])).toContain("createSession?key=test-google-key");
+  });
+
+  it("rejects with a named reason when no key is configured, and does not call Google", async () => {
+    // The schema makes the key optional, so this is a reachable deployment state. Without the guard
+    // the URL would read `key=undefined` and Google would 403, which looks like a bad key rather
+    // than a missing one.
+    keylessMock = true;
+    try {
+      const fetchMock = vi.fn();
+      vi.stubGlobal("fetch", fetchMock);
+      await expect(googleSession("satellite")).rejects.toThrow("NEXT_PUBLIC_GOOGLE_MAPS_API_KEY is not set");
+      expect(fetchMock).not.toHaveBeenCalled();
+    } finally {
+      keylessMock = false;
+    }
   });
 
   it("does not memoise a failure — the next mount retries", async () => {
