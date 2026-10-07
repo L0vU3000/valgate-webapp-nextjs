@@ -8,13 +8,29 @@ import { X, Search, MapPin, Plus, Minus, Map as MapIcon, Loader2 } from "lucide-
 import { cn } from "@/components/ui/utils";
 import { env } from "@/lib/env";
 import { useGeocode } from "@/app/_shared/add-property/_lib/use-geocode";
+import { syncCadastreLayer, type HoveredParcel } from "@/components/map/cadastre-layer";
 
 const DEFAULT_ZOOM = 13;
+
+/** What the user picked from the cadastre, waiting to be attached once the property exists. */
+export type CadastreChoice = {
+  /** Official parcel id (`idu`). */
+  ref: string;
+  /** Where the pin was when the user pressed "Use this parcel". */
+  point: [number, number];
+  /** Human label for the card once the cursor has left the parcel ("AJ 0002"). Display only. */
+  label: string;
+};
 
 interface LocationPickerModalProps {
   center: [number, number];
   onClose: () => void;
-  onConfirm: (center: [number, number]) => void;
+  /**
+   * `choice` is the cadastral parcel the user picked, if any. It rides along with the confirm
+   * rather than arriving separately, so the caller can tell "the pin moved by hand" (no parcel)
+   * from "the user picked this parcel and then confirmed it".
+   */
+  onConfirm: (center: [number, number], choice: CadastreChoice | null) => void;
 }
 
 export function LocationPickerModal({
@@ -25,11 +41,16 @@ export function LocationPickerModal({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markerRef = useRef<mapboxgl.Marker | null>(null);
+  // Teardown for the cadastre layer's hover listeners, so unmounting detaches them.
+  const detachCadastreRef = useRef<(() => void) | null>(null);
   const [coords, setCoords] = useState<[number, number]>(center);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [visible, setVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
+  // The parcel under the cursor, and the one the user committed to. Both null outside France.
+  const [hovered, setHovered] = useState<HoveredParcel | null>(null);
+  const [chosen, setChosen] = useState<CadastreChoice | null>(null);
   const geocode = useGeocode();
 
   useEffect(() => {
@@ -120,11 +141,21 @@ export function LocationPickerModal({
 
         markerRef.current = marker;
       });
+
+      // French cadastre: parcels draw under the pin so the user can see which plot they are
+      // pointing at, and hovering names it. The helper re-checks on every map move (this modal
+      // opens on the property's existing pin, which for today's data is in Cambodia), and shares
+      // that rule with the map's quick-add card so the two cannot drift.
+      detachCadastreRef.current = syncCadastreLayer(map, (parcel) => {
+        if (!destroyed) setHovered(parcel);
+      });
     }, 50);
 
     return () => {
       destroyed = true;
       clearTimeout(timerId);
+      detachCadastreRef.current?.();
+      detachCadastreRef.current = null;
       markerRef.current = null;
       mapRef.current?.remove();
       mapRef.current = null;
@@ -255,7 +286,9 @@ export function LocationPickerModal({
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
-                geocode.search(e.target.value);
+                // The map centre travels with the query: it selects the provider (BAN in France,
+                // GrabMaps elsewhere), so typing a French street finds French streets.
+                geocode.search(e.target.value, coords);
                 setShowSuggestions(true);
               }}
               onFocus={() => {
@@ -423,6 +456,67 @@ export function LocationPickerModal({
               </span>
             </div>
 
+            {/* Cadastre parcel card — the answer to "is this the right plot?". Hover fills it on
+                desktop; on touch the pin's own parcel is looked up as the map settles, so the card is
+                reachable without a hover. Rendered in React (not a Mapbox popup) so it inherits our
+                typography and dark mode. Read-only until the user presses the button. */}
+            {(hovered || chosen) && (
+              <div
+                className="absolute z-10 left-3 sm:left-6 bottom-[168px] sm:bottom-[176px] w-[208px] max-w-[52%] rounded-2xl border border-border bg-white/95 backdrop-blur-sm shadow-lg p-3"
+                style={{ fontFamily: "var(--font-display)" }}
+              >
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-[13px] h-[13px] text-[#2563eb] shrink-0" />
+                  <span className="text-[13px] font-semibold text-foreground truncate">
+                    {chosen
+                      ? `Parcel ${chosen.label}`
+                      : hovered?.section && hovered.numero
+                        ? `Parcel ${hovered.section} ${hovered.numero}`
+                        : "Cadastral parcel"}
+                  </span>
+                </div>
+                {hovered?.commune && (
+                  <p className="mt-0.5 text-[11px] text-secondary truncate">
+                    {[hovered.section && `Section ${hovered.section}`, hovered.numero && `n° ${hovered.numero}`, hovered.commune]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                )}
+                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                  {(hovered?.contenanceM2 ?? 0) > 0 && (
+                    <span className="rounded-full bg-[#2563eb] px-2 py-[1px] text-[11px] font-medium text-white">
+                      {Math.round(hovered!.contenanceM2!).toLocaleString()} m²
+                    </span>
+                  )}
+                  <span className="rounded-full border border-border bg-[#eef4ff] px-2 py-[1px] text-[11px] text-secondary">
+                    Cadastre
+                  </span>
+                </div>
+                {chosen ? (
+                  <p className="mt-2 text-[11px] text-emerald-600">
+                    Parcel will be attached to this property.
+                  </p>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!hovered?.idu) return;
+                      const choice = {
+                    ref: hovered.idu,
+                    point: coords,
+                    label: [hovered.section, hovered.numero].filter(Boolean).join(" ") || hovered.idu,
+                  };
+                      setChosen(choice);
+                    }}
+                    disabled={!hovered?.idu}
+                    className="mt-2 w-full rounded-lg bg-[#2563eb] px-3 py-1.5 text-[12px] font-medium text-white hover:opacity-90 transition-opacity disabled:opacity-50"
+                  >
+                    Use this parcel
+                  </button>
+                )}
+              </div>
+            )}
+
             {/* Buttons */}
             <button
               onClick={handleClose}
@@ -432,7 +526,7 @@ export function LocationPickerModal({
               Cancel
             </button>
             <button
-              onClick={() => { onConfirm(coords); handleClose(); }}
+              onClick={() => { onConfirm(coords, chosen); handleClose(); }}
               className="w-full sm:w-auto h-12 sm:h-auto rounded-full sm:rounded-2xl px-6 sm:py-2.5 text-[15px] sm:text-[16px] font-medium text-white bg-foreground hover:bg-foreground/90 transition-colors"
               style={{ fontFamily: "var(--font-display)", boxShadow: "0px 1px 2px 0px rgba(0,0,0,0.05)" }}
             >

@@ -247,6 +247,105 @@ function centroidOf(polygons: number[][][][]): [number, number] {
   return candidates[candidates.length - 1];
 }
 
+/** Area of one GeoJSON polygon: its outer ring MINUS its holes. Never negative. */
+function polygonAreaM2(poly: number[][][]): number {
+  let holes = 0;
+  for (let i = 1; i < poly.length; i++) {
+    if (Array.isArray(poly[i]) && distinctLength(poly[i]) >= 3) holes += ringAreaM2(poly[i]);
+  }
+  return Math.max(0, ringAreaM2(poly[0]) - holes);
+}
+
+/**
+ * True when a point is on the LAND: inside the polygon's outer ring and not inside any hole.
+ * RFC 7946 puts the exterior ring first and every subsequent ring is a hole.
+ */
+function pointInLand(pt: [number, number], poly: number[][][]): boolean {
+  if (!pointInRing(pt, poly[0])) return false;
+  for (let i = 1; i < poly.length; i++) {
+    if (Array.isArray(poly[i]) && pointInRing(pt, poly[i])) return false;
+  }
+  return true;
+}
+
+/**
+ * Measure a GeoJSON polygon that did NOT come from a KML file (today: the French cadastre).
+ *
+ * Reuses the KML path's shoelace area and inside-the-ring centroid, so a cadastre parcel and an
+ * uploaded KMZ are measured by one implementation — the centroid guard is the part with the bugs
+ * in its history (a point average sat ~65 m off-centre; an unguarded shoelace put 3 of 41 pins off
+ * the land entirely), and one implementation means one place to be right.
+ *
+ * HOLE-AWARE, unlike the KMZ path, because real cadastral parcels have courtyards and the KMZ
+ * reference set had none. Measured on the first real parcel fetched (Paris 1er, idu
+ * 75101000AJ0002): outer ring 42,083 m², courtyard 14,886 m², official 27,227 m². Summing outer
+ * rings alone therefore overstated the land by 55% — and this number is displayed beside the
+ * official area, so that reads as a broken calculation rather than a wrong one. Subtracting the
+ * holes gives 27,197 m², within 0.1% of the cadastre's own figure.
+ */
+export function parseGeometry(geometry: BoundaryGeometry): ParsedBoundary {
+  const polys: number[][][][] =
+    geometry.type === "Polygon"
+      ? [geometry.coordinates as number[][][]]
+      : (geometry.coordinates as number[][][][]);
+
+  const usable = polys.filter((p) => Array.isArray(p[0]) && distinctLength(p[0]) >= 3);
+  if (!usable.length) throw new KmzError("That parcel has no usable boundary.");
+
+  const all = usable.flat(2);
+  const lngs = all.map((p) => p[0]);
+  const lats = all.map((p) => p[1]);
+
+  // Sum, not max: a MultiPolygon parcel's whole area is what the owner owns — but per polygon the
+  // holes come OFF, or a courtyard is counted as land.
+  const sizeM2 = usable.reduce((sum, p) => sum + polygonAreaM2(p), 0);
+
+  // The main plot is the largest by land area, holes included in that judgement.
+  let main = usable[0];
+  let mainArea = -1;
+  for (const p of usable) {
+    const a = polygonAreaM2(p);
+    if (a > mainArea) { mainArea = a; main = p; }
+  }
+
+  // Start from the guarded shoelace centre of the main plot. Reject it if it landed in a courtyard:
+  // a pin in a hole is not on the land, which is the exact failure this guard exists to stop. A
+  // courtyard in the middle of a symmetric parcel defeats every single-centre answer (the ring's
+  // centre IS the hole's centre), so fall back to a short latitude scan and take the widest inside
+  // span that is genuinely on land. That keeps the pin as central as the holes allow.
+  let centroid = centroidOf(usable);
+  if (!pointInLand(centroid, main)) {
+    const outer = main[0];
+    const lats = outer.map((p) => p[1]);
+    const [minLat, maxLat] = [Math.min(...lats), Math.max(...lats)];
+    let best: [number, number] | null = null;
+    let bestScore = -1;
+    // ponytail: 21 scanlines, not a true pole-of-inaccessibility search. Enough to step over any
+    // courtyard a survey produces; upgrade only if a pin must be the MOST interior point.
+    for (let i = 1; i <= 21; i++) {
+      const lat = minLat + ((maxLat - minLat) * i) / 22;
+      const span = widestSpanMidpoint(outer, lat);
+      if (!span || !pointInLand(span, main)) continue;
+      // Prefer the widest span (the most room), tie-broken by closeness to the ring's centre.
+      const score = 1 - Math.abs(lat - centroid[0]) / (maxLat - minLat);
+      if (score > bestScore) { bestScore = score; best = span; }
+    }
+    if (best) centroid = best;
+    // If nothing was on land, the hole fills the parcel — which cannot be a real parcel. Keep the
+    // ring centre rather than throwing: the boundary is still worth storing and drawing.
+  }
+
+  return {
+    geometry,
+    sizeM2: Math.round(sizeM2 * 100) / 100,
+    bbox: [Math.min(...lngs), Math.min(...lats), Math.max(...lngs), Math.max(...lats)],
+    centroid,
+    // A cadastre parcel's own attributes (idu, section, numero, contenance) travel as
+    // CadastralParcel fields, not as KML ExtendedData — this map stays for the KML caller.
+    fields: {},
+  };
+}
+
 /**
  * Parse a single-polygon KMZ into a GeoJSON boundary plus its measured size and centre.
  * Multi-polygon KMZ files are supported (each `<outerBoundaryIs>` becomes one polygon).

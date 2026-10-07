@@ -1,0 +1,87 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Cadastre layer proof</title>
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
+  <style>
+    html, body { margin: 0; height: 100%; }
+    #map { position: absolute; inset: 0; }
+  </style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+// Render the REAL French cadastre tiles using the same source/layer spec that
+// components/map/cadastre-layer.ts builds, then hit-test a point in Paris. MapLibre + a keyless
+// basemap, so this needs no Mapbox token and no app build — it isolates the one thing still
+// unproven: that these layer settings actually render parcels and answer a hover.
+const CADASTRE_TILES = "https://openmaptiles.data.gouv.fr/data/cadastre/{z}/{x}/{y}.pbf";
+const CADASTRE_SOURCE_ID = "valgate-cadastre";
+const CADASTRE_FILL_ID = "valgate-cadastre-fill";
+const CADASTRE_LINE_ID = "valgate-cadastre-line";
+const MIN_ZOOM = 13;
+const PARIS = [2.3376, 48.8606];
+
+const map = new maplibregl.Map({
+  container: "map",
+  style: "https://tiles.openfreemap.org/styles/liberty",
+  center: PARIS,
+  zoom: 16,
+});
+
+window.__result = null;
+
+map.on("load", () => {
+  map.addSource(CADASTRE_SOURCE_ID, {
+    type: "vector",
+    tiles: [CADASTRE_TILES],
+    minzoom: MIN_ZOOM,
+    maxzoom: 16,
+  });
+  map.addLayer({
+    id: CADASTRE_FILL_ID,
+    type: "fill",
+    source: CADASTRE_SOURCE_ID,
+    "source-layer": "parcelles",
+    paint: { "fill-color": "#2563eb", "fill-opacity": 0.06 },
+  });
+  map.addLayer({
+    id: CADASTRE_LINE_ID,
+    type: "line",
+    source: CADASTRE_SOURCE_ID,
+    "source-layer": "parcelles",
+    // line-join round is load-bearing (near-collinear vertices spike with miter) — same reason
+    // boundary-layer.ts sets it.
+    layout: { "line-join": "round", "line-cap": "round" },
+    paint: { "line-color": "#2563eb", "line-width": 1.25, "line-opacity": 0.85 },
+  });
+
+  const finish = () => {
+    // Query the RENDERED features, which is exactly what wireCadastreHover does on mousemove.
+    const feats = map.queryRenderedFeatures(
+      map.project(PARIS),
+      { layers: [CADASTRE_FILL_ID] },
+    );
+    window.__result = {
+      features: feats.length,
+      idu: feats[0]?.properties?.id ?? null,
+      section: feats[0]?.properties?.section ?? null,
+      numero: feats[0]?.properties?.numero ?? null,
+      commune: feats[0]?.properties?.commune ?? null,
+      contenance: feats[0]?.properties?.contenance ?? null,
+      // Does the cursor actually report a pointer over a parcel? (the cursor:pointer affordance)
+      sourceLoaded: !!map.getSource(CADASTRE_SOURCE_ID),
+    };
+  };
+
+  // The cadastre tile is an overlay; wait for it specifically rather than for "idle".
+  map.on("sourcedata", (e) => {
+    if (e.sourceId === CADASTRE_SOURCE_ID && e.isSourceLoaded && !window.__result) finish();
+  });
+  setTimeout(finish, 9000); // fallback so this always reports
+});
+</script>
+</body>
+</html>

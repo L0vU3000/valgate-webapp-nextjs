@@ -2,7 +2,9 @@ import "server-only"; // C1
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { properties } from "@/lib/db/schema";
-import { parseKmz, KmzError, type ParsedBoundary } from "@/lib/services/kmz";
+import { parseKmz, parseGeometry, KmzError, type ParsedBoundary } from "@/lib/services/kmz";
+import { parcelAtPoint } from "@/lib/services/cadastre";
+import { logger } from "@/lib/logger";
 import { createLandParcel, updateLandParcel, listLandParcels } from "@/lib/services/land-parcels";
 import { updateProperty } from "@/lib/services/properties";
 import { assertCanMutate, type Ctx } from "@/lib/services/_mapping";
@@ -104,7 +106,14 @@ export async function attachBoundary(
   ctx: Ctx,
   propertyId: string,
   parsed: ParsedBoundary,
-  opts: { movePin?: boolean; sourceFile?: { buffer: Buffer; name: string } } = {},
+  opts: {
+    movePin?: boolean;
+    sourceFile?: { buffer: Buffer; name: string };
+    /** Overrides the stored origin. Defaults to 'kmz' — every caller but the cadastre uploads a file. */
+    source?: "kmz" | "manual" | "cadastre";
+    /** The official parcel id the geometry came from (French cadastre `idu`). */
+    cadastreRef?: string;
+  } = {},
 ): Promise<BoundaryAttach> {
   assertCanMutate(); // D9 — demo mode refuses all writes
 
@@ -120,7 +129,10 @@ export async function attachBoundary(
   const patch = {
     sizeM2: parsed.sizeM2,
     boundary: parsed.geometry,
-    boundarySource: "kmz" as const,
+    boundarySource: opts.source ?? ("kmz" as const),
+    // Only set when there IS one: an undefined key would blank a previously recorded ref on an
+    // unrelated re-attach.
+    ...(opts.cadastreRef ? { cadastreRef: opts.cadastreRef } : {}),
   };
 
   let landParcelId: string;
@@ -173,6 +185,48 @@ export async function attachBoundary(
     documentId,
     replaced: existing != null,
   };
+}
+
+/** A chosen cadastral parcel: the point the user picked, and the id the cadastre gave it. */
+export type CadastreAttachInput = {
+  propertyId: string;
+  /** The official parcel id from the picked parcel's `idu`. */
+  ref: string;
+  /** Where the user's pin was when they pressed "Use this parcel". */
+  point: [number, number];
+  /** false keeps the existing pin while still storing the parcel. */
+  movePin?: boolean;
+};
+
+/**
+ * Attach the cadastral parcel at `point` to a property.
+ *
+ * Re-fetches the geometry from the cadastre by POINT rather than accepting a polygon from the
+ * client: the client only ever holds tile-clipped geometry, and a boundary that came in as a
+ * request body would be attacker-controlled. The `ref` the user picked is stored as provenance,
+ * and a mismatch with what the point resolves to is logged — it means the map and the API have
+ * drifted, which is worth knowing about and must not fail the user's click.
+ */
+export async function attachCadastralParcel(
+  ctx: Ctx,
+  input: CadastreAttachInput,
+): Promise<BoundaryAttach> {
+  const parcel = await parcelAtPoint(input.point[0], input.point[1]);
+  if (!parcel) throw new Error("No cadastral parcel at that location.");
+
+  if (input.ref && parcel.idu && input.ref !== parcel.idu) {
+    logger.warn("cadastre ref mismatch — map and API disagree", {
+      picked: input.ref,
+      resolved: parcel.idu,
+    });
+  }
+
+  const parsed = parseGeometry(parcel.geometry as BoundaryGeometry);
+  return attachBoundary(ctx, input.propertyId, parsed, {
+    movePin: input.movePin,
+    source: "cadastre",
+    cadastreRef: parcel.idu,
+  });
 }
 
 // ── Backfill ──────────────────────────────────────────────────────────────────

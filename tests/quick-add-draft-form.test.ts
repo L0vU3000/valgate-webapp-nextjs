@@ -127,11 +127,23 @@ describe("mergeAddressFields", () => {
 
   // The user's text is the record of intent. A lookup that lands after they started typing must not
   // replace what they wrote — only fill what is still blank.
-  it("keeps what the user typed over the provider's value", () => {
+  it("keeps what the user TYPED over the provider's value", () => {
+    // Third argument = the user has edited these fields, so their text is the record of intent.
     const typed = { ...fields, addressLine: "Unit 3B", city: "Krong Siem Reap" };
-    expect(mergeAddressFields(typed, suggestion())).toMatchObject({
+    expect(mergeAddressFields(typed, suggestion(), true)).toMatchObject({
       addressLine: "Unit 3B",
       city: "Krong Siem Reap",
+    });
+  });
+
+  it("replaces values OUR own lookup filled when a new address is resolved", () => {
+    // The bug this guards: without the flag, the fields filled by a previous reverse lookup beat the
+    // address the user just picked. Searching a Paris address left "Kampong Kou / Kampong Thom" in the
+    // card while the map showed Rue de Rivoli — a French property saved with a Cambodian address.
+    const stale = { ...fields, addressLine: "Kampong Kou", city: "Kampong Thom" };
+    expect(mergeAddressFields(stale, suggestion())).toMatchObject({
+      addressLine: "J Tower 2 BKK1",
+      city: "Phnom Penh",
     });
   });
 

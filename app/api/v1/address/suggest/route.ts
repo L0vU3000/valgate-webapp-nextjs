@@ -31,8 +31,23 @@ export async function GET(request: Request) {
     );
   }
 
+  // Optional map centre. This is not a ranking hint — it selects the PROVIDER: France is answered by
+  // the BAN, everywhere else by GrabMaps. Absent or unparseable falls back to the provider default
+  // rather than 400: a search box that errors because a coordinate was missing would be worse than
+  // one that answers with the default region.
+  //
+  // Presence is checked BEFORE Number(), the same trap the reverse route documents: `Number(null)`
+  // and `Number("")` are both 0 and both finite, so a request with no lng/lat would silently acquire
+  // the bias [0, 0] — the null island — and answer a French query as if it came from the Atlantic.
+  const rawLng = searchParams.get("lng");
+  const rawLat = searchParams.get("lat");
+  const lng = rawLng === null || rawLng.trim() === "" ? NaN : Number(rawLng);
+  const lat = rawLat === null || rawLat.trim() === "" ? NaN : Number(rawLat);
+  const bias: [number, number] | undefined =
+    Number.isFinite(lng) && Number.isFinite(lat) ? [lng, lat] : undefined;
+
   try {
-    const items = await searchAddress(q);
+    const items = await searchAddress(q, bias);
     return NextResponse.json({ items });
   } catch (err) {
     // Fail closed: log the real cause (a missing-credential or provider outage is an operator
