@@ -317,15 +317,45 @@ export function PropertyBoundaryCard({
             </p>
           )}
 
+          {/* A file that could not be READ is a different failure from a file that could not be
+              MATCHED, and only the second is the user's filename. Without this the table showed a red
+              reason and no way forward, so the only route was to guess that you should pick the file
+              again. Name the fix and offer it. */}
+          {rows.some((r) => r.status === "error") && (
+            <p className="mt-3 flex items-start gap-1.5 text-[12px] text-red-700">
+              <FileWarning className="mt-0.5 size-3.5 shrink-0" />
+              <span>
+                {(() => {
+                  const n = rows.filter((r) => r.status === "error").length;
+                  return `${n} file${n > 1 ? "s" : ""} could not be read. Export the KMZ again from Google Earth and re-drop it.`;
+                })()}
+              </span>
+            </p>
+          )}
+
           <div className="mt-3 flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => void commit()}
-              disabled={busy || !ready.length}
-              className="rounded-lg bg-[var(--val-primary-dark)] px-4 py-1.5 text-[12px] font-semibold text-white transition-colors hover:opacity-90 disabled:opacity-50"
-            >
-              {phase === "attaching" ? "Attaching…" : `Attach ${ready.length} boundar${ready.length === 1 ? "y" : "ies"}`}
-            </button>
+            {/* With nothing attachable there is no action to take, so the primary button becomes the
+                one that IS useful: pick another file. A disabled "Attach 0 boundaries" is a dead
+                control with a nonsense label — it states a count and offers nothing. */}
+            {ready.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => void commit()}
+                disabled={busy}
+                className="rounded-lg bg-[var(--val-primary-dark)] px-4 py-1.5 text-[12px] font-semibold text-white transition-colors hover:opacity-90 disabled:opacity-50"
+              >
+                {phase === "attaching" ? "Attaching…" : `Attach ${ready.length} boundar${ready.length === 1 ? "y" : "ies"}`}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => inputRef.current?.click()}
+                disabled={busy}
+                className="rounded-lg bg-[var(--val-primary-dark)] px-4 py-1.5 text-[12px] font-semibold text-white transition-colors hover:opacity-90 disabled:opacity-50"
+              >
+                Choose another file
+              </button>
+            )}
             <button
               type="button"
               onClick={() => { setRows(null); filesRef.current = []; }}
