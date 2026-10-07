@@ -87,8 +87,17 @@ export function addBoundaryLayer(
 
 /** Swap the drawn boundary without rebuilding the map. */
 export function setBoundaryGeometry(map: AnyMap, geometry: BoundaryGeometry | null) {
-  const source = sourceOf(map, BOUNDARY_SOURCE_ID);
-  source?.setData(toFeature(geometry));
+  // The source only exists once the style has loaded (`addBoundaryLayer` runs on `load`). Mapbox 3.32
+  // THROWS from `getSource` while the style is still being set up — "can't access property get,
+  // this.images.get(...) is undefined" — rather than returning undefined, so the optional call below
+  // never got the chance to be a no-op. This effect runs on mount, which is exactly that window.
+  try {
+    const source = sourceOf(map, BOUNDARY_SOURCE_ID);
+    source?.setData(toFeature(geometry));
+  } catch {
+    // Nothing to swap yet. `addBoundaryLayer` on `load` draws the ring from the same prop, so the
+    // boundary is not lost by returning early here.
+  }
 }
 
 /**
