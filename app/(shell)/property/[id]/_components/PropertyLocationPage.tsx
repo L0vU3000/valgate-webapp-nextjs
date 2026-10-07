@@ -18,6 +18,9 @@ const PropertyDetailMap = dynamic(
 import type { Property } from "@/lib/data/types/property";
 import type { LandParcel } from "@/lib/data/types/land-parcel";
 import { PropertyLayout } from "@/components/property/PropertyLayout";
+import { UnlockButton } from "@/components/feature-unlock/UnlockButton";
+import { LocationUnlockMount } from "@/components/feature-unlock/pillars/LocationUnlock";
+import type { UnlockState } from "@/components/feature-unlock/types";
 import { MapControls } from "@/components/map/MapControls";
 import { toast } from "sonner";
 import {
@@ -91,6 +94,16 @@ export function PropertyLocationPage({
   marketSnapshot: MarketSnapshot;
 }) {
   const activeTab = "location";
+  const [wizardOpen, setWizardOpen] = useState(false);
+
+  // Always "edit". The unlock and verify kinds are gone with verification itself: the wizard no
+  // longer gates anything, it just edits the address / identity / pin, and the boundary is attached
+  // on the page. `UnlockState` keeps the other kinds for the pillars that still use them.
+  const unlockState: UnlockState = { kind: "edit", entityId: property.id };
+
+  function openWizard() {
+    setWizardOpen(true);
+  }
 
   return (
     <PropertyLayout
@@ -102,11 +115,21 @@ export function PropertyLocationPage({
           <LocationContent
             property={property}
             landParcels={landParcels}
+            unlockState={unlockState}
+            openWizard={openWizard}
             comparables={comparables}
             marketSnapshot={marketSnapshot}
           />
         </div>
       </div>
+
+      {wizardOpen && (
+        <LocationUnlockMount
+          open
+          onOpenChange={setWizardOpen}
+          propertyId={property.id}
+        />
+      )}
     </PropertyLayout>
   );
 }
@@ -140,11 +163,15 @@ function Fact({
 function LocationContent({
   property,
   landParcels,
+  unlockState,
+  openWizard,
   comparables,
   marketSnapshot,
 }: {
   property: Property;
   landParcels: LandParcel[];
+  unlockState: UnlockState;
+  openWizard: () => void;
   comparables: PropertyComparable[];
   marketSnapshot: MarketSnapshot;
 }) {
@@ -411,6 +438,14 @@ function LocationContent({
                 <Copy className="h-3 w-3 opacity-40 transition-opacity group-hover:opacity-80" />
               </button>
             </div>
+          </div>
+
+          <div className="shrink-0">
+            <UnlockButton
+              state={unlockState}
+              onClick={openWizard}
+              editLabel="Edit location"
+            />
           </div>
         </div>
       </div>

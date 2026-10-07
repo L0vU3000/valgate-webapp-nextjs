@@ -13,7 +13,6 @@ import type { WizardConfig } from "../types";
 import type { UseFormReturn } from "react-hook-form";
 import {
   updateProperty,
-  verifyLocation,
   getLocationWizardInitialAction,
 } from "@/app/actions/properties";
 import {
@@ -394,19 +393,10 @@ export const locationWizardConfig: WizardConfig<typeof LocationWizardSchema> = {
     return { ok: true, data: { entityId: propertyId } };
   },
 
-  verification: {
-    title: "Verify location",
-    declaration:
-      "I confirm this address is correct and the uploaded document is authentic.",
-    documentLabel: "Proof of address",
-    minFiles: 1,
-    maxFiles: 5,
-    onVerify: async ({ entityId, docIds }) => {
-      const result = await verifyLocation(entityId, docIds);
-      if (!result.ok) return { ok: false, error: result.error };
-      return { ok: true, data: undefined };
-    },
-  },
+  // NO `verification` phase. Location verification is dropped: the last step is the KMZ /
+  // hand-drawn boundary on the page itself, and this wizard only owns address, identity and pin.
+  // It does not import `VerificationStep`, and its final button reads "Save" (see
+  // FeatureUnlockWizard, which keys that label off `config.verification`).
 
   steps: [
     {
