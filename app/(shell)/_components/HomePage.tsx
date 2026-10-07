@@ -41,11 +41,13 @@ import type { TableAnimationConfig } from "@/components/portfolio/PropertyTable"
 import { PortfolioLegend } from "./PortfolioLegend";
 import type { GeocodeSuggestion } from "@/app/_shared/add-property/_lib/use-geocode";
 import { QuickAddPinLayer } from "./QuickAddPinLayer";
+import type { AnyMap } from "@/components/map/types";
+import type { Map as MapLibreMap } from "maplibre-gl";
 import { QuickAddPanel } from "./QuickAddPanel";
 import { syncCadastreLayer } from "@/components/map/cadastre-layer";
 import { QuickAddSearch } from "./QuickAddSearch";
 import { useQuickAdd } from "./use-quick-add";
-import type mapboxgl from "mapbox-gl";
+import type * as mapboxgl from "maplibre-gl";
 
 const MapView = dynamic(
   () => import("@/components/map/MapView").then((m) => m.MapView),
@@ -115,7 +117,7 @@ export function HomePage({
     id: string;
     url: string | null;
   } | null>(null);
-  const mapRef = useRef<mapboxgl.Map | null>(null);
+  const mapRef = useRef<AnyMap | null>(null);
   const router = useRouter();
 
   // getBias is a stable getter (useCallback with no deps), so passing it cannot rebuild the hook on
@@ -130,7 +132,7 @@ export function HomePage({
   // stays unaware of quick-add, and unwired the moment the mode is off — a stray click must not drop
   // a pin while the user is just browsing.
   useEffect(() => {
-    const map = mapRef.current;
+    const map = mapRef.current as MapLibreMap | null;
     if (!map || !quickAdd.active || !mapLoaded) return;
     const canvas = map.getCanvas();
     const prevCursor = canvas.style.cursor;
@@ -245,7 +247,7 @@ export function HomePage({
   // the information, the flight is not.
   const quickAddPreview = quickAdd.preview;
   useEffect(() => {
-    const map = mapRef.current;
+    const map = mapRef.current as MapLibreMap | null;
     if (!map || !quickAddPreview) return;
     const [lng, lat] = quickAddPreview;
     if (quickAdd.reducedMotion.current) {
@@ -457,8 +459,12 @@ export function HomePage({
 
       {/* Map area */}
       <div className="relative flex-1 overflow-hidden select-none">
-        {/* Mapbox map */}
+        {/* The basemap's renderer. Mapbox for the light/dark view, MapLibre + Google for satellite.
+            `key` REMOUNTS on a satellite toggle instead of swapping styles: a style swap cannot cross
+            renderers (the two libraries share no style format), and a remount is the honest way to
+            change the map object itself. */}
         <MapView
+          key={isSatellite ? "satellite" : "base"}
           properties={initialProperties}
           selectedId={selectedPin}
           onSelectProperty={handlePinClick}
@@ -664,6 +670,7 @@ export function HomePage({
           preview={!!quickAdd.preview}
           onPinChange={quickAdd.resolveAt}
           reducedMotion={quickAdd.reducedMotion.current}
+          satellite={isSatellite}
         />
 
         {/* Quick-add card. Gated on a real pin: a suggestion being previewed is not a dropped pin,

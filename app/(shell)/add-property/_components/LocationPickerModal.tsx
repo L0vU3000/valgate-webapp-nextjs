@@ -4,11 +4,23 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
-import { X, Search, MapPin, Plus, Minus, Map as MapIcon, Loader2 } from "lucide-react";
+import {
+  X,
+  Search,
+  MapPin,
+  Plus,
+  Minus,
+  Map as MapIcon,
+  Loader2,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui/utils";
 import { env } from "@/lib/env";
 import { useGeocode } from "@/app/_shared/add-property/_lib/use-geocode";
-import { syncCadastreLayer, type HoveredParcel } from "@/components/map/cadastre-layer";
+import {
+  syncCadastreLayer,
+  type HoveredParcel,
+} from "@/components/map/cadastre-layer";
 
 const DEFAULT_ZOOM = 13;
 
@@ -82,7 +94,10 @@ export function LocationPickerModal({
         attributionControl: false,
       });
 
-      map.addControl(new mapboxgl.AttributionControl({ compact: true }), "bottom-left");
+      map.addControl(
+        new mapboxgl.AttributionControl({ compact: true }),
+        "bottom-left",
+      );
       mapRef.current = map;
 
       map.on("style.load", () => map.resize());
@@ -96,7 +111,8 @@ export function LocationPickerModal({
         // stable explicit dimensions: 48px circle + 11px triangle tip = 59px.
         // anchor:"bottom" places y=59 (the triangle tip) at the coordinate.
         const el = document.createElement("div");
-        el.style.cssText = "position:relative;width:48px;height:59px;cursor:grab;";
+        el.style.cssText =
+          "position:relative;width:48px;height:59px;cursor:grab;";
 
         const circle = document.createElement("div");
         circle.style.cssText =
@@ -127,10 +143,18 @@ export function LocationPickerModal({
         el.appendChild(circle);
         el.appendChild(shadow);
         el.appendChild(point);
-        el.addEventListener("mouseenter", () => { circle.style.transform = "scale(1.1)"; });
-        el.addEventListener("mouseleave", () => { circle.style.transform = "scale(1)"; });
+        el.addEventListener("mouseenter", () => {
+          circle.style.transform = "scale(1.1)";
+        });
+        el.addEventListener("mouseleave", () => {
+          circle.style.transform = "scale(1)";
+        });
 
-        const marker = new mapboxgl.Marker({ element: el, anchor: "bottom", draggable: true })
+        const marker = new mapboxgl.Marker({
+          element: el,
+          anchor: "bottom",
+          draggable: true,
+        })
           .setLngLat(center)
           .addTo(map);
 
@@ -165,14 +189,18 @@ export function LocationPickerModal({
 
   // Close on Escape
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") handleClose(); };
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") handleClose();
+    };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function handleZoom(dir: "in" | "out") {
-    mapRef.current?.easeTo({ zoom: (mapRef.current.getZoom()) + (dir === "in" ? 1 : -1) });
+    mapRef.current?.easeTo({
+      zoom: mapRef.current.getZoom() + (dir === "in" ? 1 : -1),
+    });
   }
 
   function formatCoords(lngLat: [number, number]) {
@@ -180,107 +208,45 @@ export function LocationPickerModal({
     return `${Math.abs(lat).toFixed(4)}° ${lat >= 0 ? "N" : "S"}, ${Math.abs(lng).toFixed(4)}° ${lng >= 0 ? "E" : "W"}`;
   }
 
+  // One layout, two presentations. Phone: full-bleed map with the header
+  // (search + close) and footer card floating over it. sm+: a bordered dialog
+  // where header, map and footer are stacked flex rows and the map takes the
+  // remaining height.
   return createPortal(
     <div
       className="fixed inset-0 z-[200] flex sm:items-center sm:justify-center bg-black/40 sm:backdrop-blur-sm transition-opacity duration-[250ms] ease-out"
-      style={{ opacity: visible ? 1 : 0, pointerEvents: visible ? "auto" : "none" }}
-      onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}
+      style={{
+        opacity: visible ? 1 : 0,
+        pointerEvents: visible ? "auto" : "none",
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) handleClose();
+      }}
     >
       <div
-        // Phone (Mobbin Shopee/Meituan pattern): full-bleed map sheet with
-        // floating search bar at top and pinned confirm card at bottom.
-        // Desktop: original centered 860×640 modal preserved.
         className={cn(
-          "relative bg-white overflow-hidden w-full transition-[opacity,transform] duration-[280ms] ease-[cubic-bezier(0.22,1,0.36,1)]",
-          // Phone — full screen, no rounded corners, no margin
-          "h-dvh",
-          // Desktop — return to original centered modal
-          "sm:h-[640px] sm:max-w-[860px] sm:mx-6 sm:rounded-[48px]",
+          "relative flex flex-col w-full h-dvh overflow-hidden bg-background transition-[opacity,transform] duration-[280ms] ease-[cubic-bezier(0.22,1,0.36,1)]",
+          "sm:mx-6 sm:h-[min(720px,calc(100dvh_-_4rem))] sm:max-w-[960px] sm:rounded-xl sm:border sm:border-border sm:shadow-xl",
         )}
         style={{
-          boxShadow:
-            "0px 0px 0px 1px rgba(0,0,0,0.02), 0px 2px 6px 0px rgba(0,0,0,0.04), 0px 20px 40px 0px rgba(0,0,0,0.18)",
           opacity: visible ? 1 : 0,
-          transform: visible ? "scale(1) translateY(0)" : "scale(0.96) translateY(12px)",
+          transform: visible
+            ? "scale(1) translateY(0)"
+            : "scale(0.96) translateY(12px)",
         }}
       >
-        {/* Map — fills the entire surface on phone, sized 392px on desktop */}
+        {/* Header — floats over the map on phone, a bordered row on sm+ */}
         <div
-          ref={containerRef}
-          className="absolute inset-0 sm:left-0 sm:right-0 sm:inset-y-auto"
-          style={{}}
-          // Desktop overrides applied via inline style to preserve original layout
-          // when sm: media query matches.
-        />
-        {/* Desktop-only top/height overrides for the map. Tailwind v4 lets us
-            use arbitrary values in classes; we use a style tag for the inline
-            override since sm:top-[163px] sm:h-[392px] would also work. */}
-        <style>{`
-          @media (min-width: 640px) {
-            [data-loc-map] {
-              top: 163px !important;
-              bottom: auto !important;
-              height: 392px !important;
-            }
-            [data-loc-loading] {
-              top: 163px !important;
-              bottom: auto !important;
-              height: 392px !important;
-            }
-          }
-        `}</style>
-        <span data-loc-map ref={(node) => {
-          // Re-tag the actual map container for the media-query override above.
-          if (node && containerRef.current) {
-            containerRef.current.setAttribute("data-loc-map", "");
-          }
-        }} className="hidden" />
-
-        {/* Desktop-only header (phone uses floating chrome instead) */}
-        <div className="hidden sm:flex absolute top-0 left-0 right-0 z-10 items-center justify-between px-6 py-5 bg-white border-b border-border">
-          <h2
-            className="text-[22px] font-semibold text-foreground leading-[33px]"
-            style={{ fontFamily: "var(--font-display)" }}
-          >
+          className={cn(
+            "absolute inset-x-3 top-[calc(env(safe-area-inset-top)_+_12px)] z-20 flex items-center gap-2",
+            "sm:relative sm:inset-auto sm:shrink-0 sm:gap-6 sm:px-6 sm:py-4 sm:border-b sm:border-border sm:bg-background",
+          )}
+        >
+          <h2 className="hidden sm:block shrink-0 text-lg font-semibold leading-none text-[var(--val-heading)]">
             Set exact location
           </h2>
-          <button
-            onClick={handleClose}
-            className="p-2 rounded-full hover:bg-accent/60 transition-colors"
-            aria-label="Close"
-          >
-            <X className="w-[14px] h-[14px] text-foreground" />
-          </button>
-        </div>
 
-        {/* Phone-only floating close (top-right, safe-area aware) */}
-        <button
-          onClick={handleClose}
-          className="sm:hidden absolute z-20 flex size-11 items-center justify-center rounded-full bg-white/90 backdrop-blur border border-border shadow-md hover:bg-white transition-colors"
-          style={{
-            top: "calc(env(safe-area-inset-top) + 12px)",
-            right: 12,
-          }}
-          aria-label="Close"
-        >
-          <X className="w-5 h-5 text-foreground" />
-        </button>
-
-        {/* Search bar — floats on phone (Mobbin pattern), inset 12px from edges
-            with safe-area top. On desktop, sits below the header bar as before. */}
-        <div
-          className="absolute z-10 inset-x-3 sm:inset-x-0 sm:left-0 sm:right-0 sm:px-6 sm:py-4 sm:bg-white"
-          style={{
-            top: "calc(env(safe-area-inset-top) + 64px)",
-          }}
-        >
-          {/* Desktop-only override for top */}
-          <style>{`
-            @media (min-width: 640px) {
-              [data-loc-search] { top: 73px !important; }
-            }
-          `}</style>
-          <div data-loc-search className="relative">
+          <div className="relative flex-1 sm:ml-auto sm:max-w-[420px]">
             <input
               type="text"
               value={searchQuery}
@@ -301,14 +267,21 @@ export function LocationPickerModal({
                 if (e.key === "Escape") setShowSuggestions(false);
               }}
               placeholder="Search address…"
+              aria-label="Search address"
               autoComplete="off"
               enterKeyHint="search"
-              className="w-full min-h-11 border border-border rounded-full pl-12 pr-12 sm:pr-10 py-3 text-base sm:text-[16px] font-medium text-foreground bg-white placeholder:text-muted-foreground shadow-md sm:shadow-sm focus:outline-none focus:border-primary transition-colors"
-              style={{ fontFamily: "var(--font-display)" }}
+              className={cn(
+                "w-full h-11 border border-border bg-background pl-11 pr-11 text-base text-foreground placeholder:text-muted-foreground outline-none transition-[color,box-shadow,border-color]",
+                "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
+                // Phone: floating pill over the map
+                "rounded-full shadow-md",
+                // sm+: the app's standard field
+                "sm:h-9 sm:rounded-md sm:shadow-none sm:pl-9 sm:pr-9 sm:text-sm sm:bg-[var(--val-input-surface)]",
+              )}
             />
-            <Search className="absolute left-[19px] top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-muted-foreground pointer-events-none" />
+            <Search className="absolute left-4 sm:left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
             {geocode.loading ? (
-              <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 w-[16px] h-[16px] text-muted-foreground animate-spin pointer-events-none" />
+              <Loader2 className="absolute right-4 sm:right-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground animate-spin pointer-events-none" />
             ) : searchQuery ? (
               <button
                 onMouseDown={(e) => {
@@ -317,14 +290,14 @@ export function LocationPickerModal({
                   setShowSuggestions(false);
                   geocode.clear();
                 }}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full hover:bg-accent/60 transition-colors"
+                className="absolute right-2 sm:right-1 top-1/2 -translate-y-1/2 p-2 rounded-full sm:rounded-md hover:bg-accent transition-colors"
                 aria-label="Clear search"
               >
-                <X className="w-[14px] h-[14px] text-muted-foreground" />
+                <X className="size-3.5 text-muted-foreground" />
               </button>
             ) : null}
             {showSuggestions && geocode.suggestions.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-border rounded-2xl shadow-lg z-50 overflow-hidden max-h-[40dvh] overflow-y-auto">
+              <div className="absolute top-full left-0 right-0 mt-2 z-50 max-h-[40dvh] overflow-y-auto bg-background border border-border rounded-2xl sm:rounded-lg shadow-lg">
                 {geocode.suggestions.map((s) => (
                   <button
                     key={s.id}
@@ -332,24 +305,25 @@ export function LocationPickerModal({
                     onMouseDown={(e) => {
                       e.preventDefault();
                       const [lng, lat] = s.center;
-                      mapRef.current?.flyTo({ center: s.center, zoom: DEFAULT_ZOOM, duration: 800 });
+                      mapRef.current?.flyTo({
+                        center: s.center,
+                        zoom: DEFAULT_ZOOM,
+                        duration: 800,
+                      });
                       markerRef.current?.setLngLat(s.center);
                       setCoords([lng, lat]);
                       setSearchQuery(s.placeName);
                       setShowSuggestions(false);
                       geocode.clear();
                     }}
-                    className="w-full flex items-start gap-3 px-5 py-3 hover:bg-accent/60 transition-colors text-left border-b border-border last:border-b-0"
+                    className="w-full flex items-start gap-3 px-4 py-3 sm:py-2.5 hover:bg-accent transition-colors text-left border-b border-border last:border-b-0"
                   >
-                    <MapPin className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+                    <MapPin className="size-4 text-muted-foreground shrink-0 mt-0.5" />
                     <div className="min-w-0">
-                      <div
-                        className="text-[15px] font-medium text-foreground truncate"
-                        style={{ fontFamily: "var(--font-display)" }}
-                      >
+                      <div className="text-[15px] sm:text-sm font-medium text-foreground truncate">
                         {s.mainText}
                       </div>
-                      <div className="text-[13px] text-muted-foreground truncate">
+                      <div className="text-[13px] sm:text-xs text-muted-foreground truncate">
                         {s.secondaryText}
                       </div>
                     </div>
@@ -358,190 +332,169 @@ export function LocationPickerModal({
               </div>
             )}
           </div>
+
+          <button
+            onClick={handleClose}
+            className={cn(
+              "flex shrink-0 items-center justify-center transition-colors text-foreground",
+              "size-11 rounded-full bg-background/90 backdrop-blur border border-border shadow-md hover:bg-background",
+              "sm:size-9 sm:rounded-md sm:bg-transparent sm:backdrop-blur-none sm:border-0 sm:shadow-none sm:hover:bg-accent",
+            )}
+            aria-label="Close"
+          >
+            <X className="size-5 sm:size-4" />
+          </button>
         </div>
 
-        {/* Loading overlay — covers the map area */}
-        <div
-          data-loc-loading
-          className={cn(
-            "absolute inset-0 sm:left-0 sm:right-0 sm:inset-y-auto z-[5] flex flex-col items-center justify-center bg-background gap-3 transition-opacity duration-500",
-            mapLoaded ? "opacity-0 pointer-events-none" : "opacity-100",
-          )}
-          onTransitionEnd={(e) => {
-            if (e.propertyName === "opacity" && mapLoaded)
-              (e.currentTarget as HTMLElement).style.display = "none";
-          }}
-        >
-          <div className="flex items-center gap-2">
-            <MapIcon className="size-5 text-primary animate-pulse" />
-            <span className="text-[13px] font-medium text-muted-foreground">Loading map…</span>
-          </div>
-          <div className="w-32 h-1 rounded-full bg-muted overflow-hidden">
-            <div className="h-full bg-primary rounded-full animate-[loading-bar_1.5s_ease-in-out_infinite]" />
-          </div>
-        </div>
+        {/* Map body — whole surface on phone, remaining height on sm+ */}
+        <div className="relative flex-1 min-h-0">
+          <div ref={containerRef} className="absolute inset-0" />
 
-        {/* Zoom controls — phone: bottom-right above footer, desktop: original */}
-        <div
-          className="absolute z-10 flex flex-col gap-2 right-4 sm:right-4"
-          style={{
-            bottom: "calc(env(safe-area-inset-bottom) + 120px)",
-          }}
-        >
-          <style>{`
-            @media (min-width: 640px) {
-              [data-loc-zoom] { bottom: 101px !important; }
-            }
-          `}</style>
-          <div data-loc-zoom className="flex flex-col gap-2">
+          {/* Loading overlay — covers the map area */}
+          <div
+            className={cn(
+              "absolute inset-0 z-[5] flex flex-col items-center justify-center bg-background gap-3 transition-opacity duration-500",
+              mapLoaded ? "opacity-0 pointer-events-none" : "opacity-100",
+            )}
+            onTransitionEnd={(e) => {
+              if (e.propertyName === "opacity" && mapLoaded)
+                (e.currentTarget as HTMLElement).style.display = "none";
+            }}
+          >
+            <div className="flex items-center gap-2">
+              <MapIcon className="size-5 text-primary animate-pulse" />
+              <span className="text-[13px] font-medium text-muted-foreground">
+                Loading map…
+              </span>
+            </div>
+            <div className="w-32 h-1 rounded-full bg-muted overflow-hidden">
+              <div className="h-full bg-primary rounded-full animate-[loading-bar_1.5s_ease-in-out_infinite]" />
+            </div>
+          </div>
+
+          {/* Zoom — clears the floating footer card on phone */}
+          <div className="absolute z-10 right-4 bottom-[calc(env(safe-area-inset-bottom)_+_120px)] sm:bottom-4 flex flex-col gap-2">
             <button
               onClick={() => handleZoom("in")}
-              className="w-11 h-11 sm:w-10 sm:h-10 rounded-full bg-white border border-border flex items-center justify-center hover:bg-accent/60 transition-colors"
-              style={{ boxShadow: "0px 1px 3px 0px rgba(0,0,0,0.1),0px 1px 2px -1px rgba(0,0,0,0.1)" }}
+              className="size-11 sm:size-9 rounded-full sm:rounded-md bg-background border border-border shadow-sm flex items-center justify-center hover:bg-accent transition-colors"
               aria-label="Zoom in"
             >
-              <Plus className="w-[14px] h-[14px] text-foreground" />
+              <Plus className="size-3.5 text-foreground" />
             </button>
             <button
               onClick={() => handleZoom("out")}
-              className="w-11 h-11 sm:w-10 sm:h-10 rounded-full bg-white border border-border flex items-center justify-center hover:bg-accent/60 transition-colors"
-              style={{ boxShadow: "0px 1px 3px 0px rgba(0,0,0,0.1),0px 1px 2px -1px rgba(0,0,0,0.1)" }}
+              className="size-11 sm:size-9 rounded-full sm:rounded-md bg-background border border-border shadow-sm flex items-center justify-center hover:bg-accent transition-colors"
               aria-label="Zoom out"
             >
-              <Minus className="w-[14px] h-[14px] text-foreground" />
+              <Minus className="size-3.5 text-foreground" />
             </button>
           </div>
         </div>
 
-        {/* Footer / selected-location card.
-            Phone: floating card with coords + wide Confirm CTA, pb-safe so it
-            clears the home indicator. Desktop: original bottom-aligned footer. */}
+        {/* Footer — floating card on phone; on sm+ a bordered row with the
+            coordinates on the left and the actions on the right */}
         <div
           className={cn(
-            "absolute z-10 bg-white",
-            // Phone — floating card, inset from edges, rounded, shadow
-            "inset-x-3 rounded-2xl shadow-lg border border-border p-3 flex flex-col gap-2",
-            // Desktop — pinned full-width footer, no rounding/shadow
-            "sm:inset-x-0 sm:bottom-0 sm:rounded-none sm:shadow-none sm:border-0 sm:border-t sm:border-border sm:p-0 sm:flex-row sm:items-center sm:justify-end sm:gap-4 sm:px-6 sm:py-5",
+            "absolute inset-x-3 bottom-[calc(env(safe-area-inset-bottom)_+_12px)] z-10 flex flex-col gap-2 p-3 bg-background border border-border rounded-2xl shadow-lg",
+            "sm:relative sm:inset-auto sm:shrink-0 sm:flex-row sm:items-center sm:gap-3 sm:px-6 sm:py-4 sm:rounded-none sm:border-0 sm:border-t sm:shadow-none",
           )}
-          style={{
-            bottom: "calc(env(safe-area-inset-bottom) + 12px)",
-          }}
         >
-          <style>{`
-            @media (min-width: 640px) {
-              [data-loc-footer] { bottom: 0 !important; }
-            }
-          `}</style>
-          <div data-loc-footer className="contents">
-            {/* Coords summary — phone shows inline at top of card */}
-            <div className="flex items-center gap-2 sm:hidden px-1 pt-1">
-              <MapPin className="w-4 h-4 text-muted-foreground shrink-0" />
-              <span
-                className="text-[13px] font-medium text-secondary truncate"
-                style={{ fontFamily: "var(--font-display)" }}
-              >
-                {formatCoords(coords)}
-              </span>
-            </div>
-            {/* Desktop coords pill */}
-            <div className="hidden sm:flex absolute left-4 items-center gap-2 px-3.5 py-[7px] rounded-full border border-border bg-background/90 backdrop-blur-sm shadow-sm"
-                 style={{ bottom: 101 }}>
-              <MapPin className="w-[14px] h-[14px] text-muted-foreground shrink-0" />
-              <span
-                className="text-[14px] font-medium text-[#434655] whitespace-nowrap"
-                style={{ fontFamily: "var(--font-display)" }}
-              >
-                {formatCoords(coords)}
-              </span>
-            </div>
-
-            {/* Cadastre parcel card — the answer to "is this the right plot?". Hover fills it on
-                desktop; on touch the pin's own parcel is looked up as the map settles, so the card is
-                reachable without a hover. Rendered in React (not a Mapbox popup) so it inherits our
-                typography and dark mode. Read-only until the user presses the button. */}
-            {(hovered || chosen) && (
-              <div
-                className="absolute z-10 left-3 sm:left-6 bottom-[168px] sm:bottom-[176px] w-[208px] max-w-[52%] rounded-2xl border border-border bg-white/95 backdrop-blur-sm shadow-lg p-3"
-                style={{ fontFamily: "var(--font-display)" }}
-              >
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-[13px] h-[13px] text-[#2563eb] shrink-0" />
-                  <span className="text-[13px] font-semibold text-foreground truncate">
-                    {chosen
-                      ? `Parcel ${chosen.label}`
-                      : hovered?.section && hovered.numero
-                        ? `Parcel ${hovered.section} ${hovered.numero}`
-                        : "Cadastral parcel"}
-                  </span>
-                </div>
-                {hovered?.commune && (
-                  <p className="mt-0.5 text-[11px] text-secondary truncate">
-                    {[hovered.section && `Section ${hovered.section}`, hovered.numero && `n° ${hovered.numero}`, hovered.commune]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </p>
-                )}
-                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                  {(hovered?.contenanceM2 ?? 0) > 0 && (
-                    <span className="rounded-full bg-[#2563eb] px-2 py-[1px] text-[11px] font-medium text-white">
-                      {Math.round(hovered!.contenanceM2!).toLocaleString()} m²
-                    </span>
-                  )}
-                  <span className="rounded-full border border-border bg-[#eef4ff] px-2 py-[1px] text-[11px] text-secondary">
-                    Cadastre
-                  </span>
-                </div>
-                {chosen ? (
-                  <p className="mt-2 text-[11px] text-emerald-600">
-                    Parcel will be attached to this property.
-                  </p>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!hovered?.idu) return;
-                      const choice = {
-                    ref: hovered.idu,
-                    point: coords,
-                    label: [hovered.section, hovered.numero].filter(Boolean).join(" ") || hovered.idu,
-                  };
-                      setChosen(choice);
-                    }}
-                    disabled={!hovered?.idu}
-                    className="mt-2 w-full rounded-lg bg-[#2563eb] px-3 py-1.5 text-[12px] font-medium text-white hover:opacity-90 transition-opacity disabled:opacity-50"
-                  >
-                    Use this parcel
-                  </button>
-                )}
-              </div>
-            )}
-
-            {/* Buttons */}
-            <button
-              onClick={handleClose}
-              className="hidden sm:inline-block px-5 py-2.5 text-[16px] font-medium text-[#434655] hover:text-foreground transition-colors"
-              style={{ fontFamily: "var(--font-display)" }}
-            >
-              Cancel
-            </button>
-            <button
-              onClick={() => { onConfirm(coords, chosen); handleClose(); }}
-              className="w-full sm:w-auto h-12 sm:h-auto rounded-full sm:rounded-2xl px-6 sm:py-2.5 text-[15px] sm:text-[16px] font-medium text-white bg-foreground hover:bg-foreground/90 transition-colors"
-              style={{ fontFamily: "var(--font-display)", boxShadow: "0px 1px 2px 0px rgba(0,0,0,0.05)" }}
-            >
-              Confirm location
-            </button>
-            <button
-              onClick={handleClose}
-              className="sm:hidden min-h-11 w-full text-center text-[14px] text-secondary underline underline-offset-4 hover:text-foreground transition-colors py-3"
-            >
-              Cancel
-            </button>
+          <div className="flex min-w-0 items-center gap-2 px-1 pt-1 sm:p-0 sm:mr-auto">
+            <MapPin className="size-4 text-muted-foreground shrink-0" />
+            <span className="text-[13px] sm:text-sm font-medium tabular-nums text-foreground truncate">
+              {formatCoords(coords)}
+            </span>
           </div>
+
+          {/* Cadastre parcel card — the answer to "is this the right plot?". Hover fills it on
+              desktop; on touch the pin's own parcel is looked up as the map settles, so the card is
+              reachable without a hover. Rendered in React (not a Mapbox popup) so it inherits our
+              typography and dark mode. Read-only until the user presses the button. */}
+          {(hovered || chosen) && (
+            <div className="absolute z-10 left-3 sm:left-6 bottom-[168px] sm:bottom-[176px] w-[208px] max-w-[52%] rounded-2xl border border-border bg-white/95 backdrop-blur-sm shadow-lg p-3">
+              <div className="flex items-center gap-2">
+                <MapPin className="size-3.5 text-[#2563eb] shrink-0" />
+                <span className="text-[13px] font-semibold text-foreground truncate">
+                  {chosen
+                    ? `Parcel ${chosen.label}`
+                    : hovered?.section && hovered.numero
+                      ? `Parcel ${hovered.section} ${hovered.numero}`
+                      : "Cadastral parcel"}
+                </span>
+              </div>
+              {hovered?.commune && (
+                <p className="mt-0.5 text-[11px] text-secondary truncate">
+                  {[
+                    hovered.section && `Section ${hovered.section}`,
+                    hovered.numero && `n° ${hovered.numero}`,
+                    hovered.commune,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              )}
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                {(hovered?.contenanceM2 ?? 0) > 0 && (
+                  <span className="rounded-full bg-[#2563eb] px-2 py-[1px] text-[11px] font-medium text-white">
+                    {Math.round(hovered!.contenanceM2!).toLocaleString()} m²
+                  </span>
+                )}
+                <span className="rounded-full border border-border bg-[#eef4ff] px-2 py-[1px] text-[11px] text-secondary">
+                  Cadastre
+                </span>
+              </div>
+              {chosen ? (
+                <p className="mt-2 text-[11px] text-emerald-600">
+                  Parcel will be attached to this property.
+                </p>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!hovered?.idu) return;
+                    setChosen({
+                      ref: hovered.idu,
+                      point: coords,
+                      label:
+                        [hovered.section, hovered.numero]
+                          .filter(Boolean)
+                          .join(" ") || hovered.idu,
+                    });
+                  }}
+                  disabled={!hovered?.idu}
+                  className="mt-2 w-full rounded-lg bg-[#2563eb] px-3 py-1.5 text-[12px] font-medium text-white hover:opacity-90 transition-opacity disabled:opacity-50"
+                >
+                  Use this parcel
+                </button>
+              )}
+            </div>
+          )}
+
+          <Button
+            variant="ghost"
+            onClick={handleClose}
+            className="hidden sm:inline-flex"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={() => {
+              onConfirm(coords, chosen);
+              handleClose();
+            }}
+            className="w-full h-12 rounded-full text-[15px] sm:w-auto sm:h-10 sm:rounded-md sm:text-sm"
+          >
+            Confirm location
+          </Button>
+          <button
+            onClick={handleClose}
+            className="sm:hidden min-h-11 w-full text-center text-[14px] text-secondary underline underline-offset-4 hover:text-foreground transition-colors py-3"
+          >
+            Cancel
+          </button>
         </div>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }

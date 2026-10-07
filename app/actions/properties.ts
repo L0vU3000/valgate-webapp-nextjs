@@ -25,6 +25,7 @@ import { log } from "@/lib/log";
 import {
   getFinancialsWizardInitial,
   getLocationWizardInitial,
+  getLocationWizardBoundary,
   getRentalWizardInitial,
   getEstateWizardInitial,
   type EstateWizardInitial,
@@ -158,6 +159,14 @@ export async function getFinancialsWizardInitialAction(propertyId: string): Prom
 export async function getLocationWizardInitialAction(propertyId: string): Promise<ActionResult<{ property: Property | null }>> {
   const ctx = await requireCtx();
   return { ok: true, data: await getLocationWizardInitial(ctx, propertyId) };
+}
+
+/** Props for the wizard's boundary step: ring on file, declared area, measured area. */
+export async function getLocationWizardBoundaryAction(
+  propertyId: string,
+): Promise<ActionResult<{ hasBoundary: boolean; declaredM2: number; measuredM2: number | null }>> {
+  const ctx = await requireCtx();
+  return { ok: true, data: await getLocationWizardBoundary(ctx, propertyId) };
 }
 export async function getRentalWizardInitialAction(propertyId: string): Promise<ActionResult<{ property: Property | null; activeLease: Lease | null; primaryTenant: Tenant | null; recentPayments: Payment[] }>> {
   const ctx = await requireCtx();

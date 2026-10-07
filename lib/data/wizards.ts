@@ -10,6 +10,7 @@ import { listCoOwners } from "@/lib/services/co-owners";
 import { listEstateAssignments } from "@/lib/services/estate-assignments";
 import { listSuccessors } from "@/lib/services/successors";
 import { listDocuments } from "@/lib/services/documents";
+import { listLandParcels } from "@/lib/services/land-parcels";
 import type { Property } from "@/lib/data/types/property";
 import type { PropertyValuation } from "@/lib/data/types/property-valuation";
 import type { Lease } from "@/lib/data/types/lease";
@@ -33,6 +34,32 @@ export async function getFinancialsWizardInitial(ctx: Ctx, propertyId: string): 
 
 export async function getLocationWizardInitial(ctx: Ctx, propertyId: string): Promise<{ property: Property | null }> {
   return { property: await getProperty(ctx, propertyId) };
+}
+
+/**
+ * What the boundary step needs to render: whether a ring is on file, and its area.
+ *
+ * The KMZ card is self-contained (it POSTs and refreshes on its own), so it only needs its props —
+ * not the parcel rows. `measuredM2` is read off the row that HOLDS the ring, matching the page.
+
+ * ponytail: no separate wizard-boundary loader — this reuses `getProperties` + `listLandParcels`
+ * exactly as the Location page does. A dedicated service would be a third copy of the same two reads.
+ */
+export async function getLocationWizardBoundary(
+  ctx: Ctx,
+  propertyId: string,
+): Promise<{ hasBoundary: boolean; declaredM2: number; measuredM2: number | null }> {
+  const [property, parcels] = await Promise.all([
+    getProperty(ctx, propertyId),
+    listLandParcels(ctx, propertyId),
+  ]);
+  const ring = parcels.find((p) => p.boundary != null) ?? null;
+  const declared = Number((property?.totalArea ?? "").replace(/,/g, ""));
+  return {
+    hasBoundary: ring != null,
+    declaredM2: Number.isFinite(declared) && declared > 0 ? declared : 0,
+    measuredM2: ring?.sizeM2 ?? null,
+  };
 }
 
 export async function getRentalWizardInitial(ctx: Ctx, propertyId: string): Promise<{

@@ -2,10 +2,23 @@ import "server-only"; // C1
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { properties } from "@/lib/db/schema";
-import { parseKmz, parseGeometry, KmzError, type ParsedBoundary } from "@/lib/services/kmz";
+import {
+  parseKmz,
+  parseGeometry,
+  ringAreaM2,
+  ringSelfIntersects,
+  boundaryContains,
+  KmzError,
+  type ParsedBoundary,
+} from "@/lib/services/kmz";
 import { parcelAtPoint } from "@/lib/services/cadastre";
 import { logger } from "@/lib/logger";
-import { createLandParcel, updateLandParcel, listLandParcels } from "@/lib/services/land-parcels";
+import {
+  createLandParcel,
+  updateLandParcel,
+  listLandParcels,
+  deleteLandParcel,
+} from "@/lib/services/land-parcels";
 import { updateProperty } from "@/lib/services/properties";
 import { assertCanMutate, type Ctx } from "@/lib/services/_mapping";
 import { createDocument } from "@/lib/services/documents";
@@ -36,6 +49,14 @@ export type BoundaryAttach = {
   pinShiftM: number;
   /** true when a pin already existed and the move is a real change. */
   pinMoved: boolean;
+  /**
+   * Whether the CURRENT pin sits inside the uploaded ring.
+   *
+   * The auto-move always ends up inside (`centroidOf` verifies its candidates), so this only
+   * matters when the user declines the move: a pin outside the parcel is a data error, and the
+   * preview must say so rather than let it through unremarked.
+   */
+  pinInside: boolean;
   /** The land parcel row that now holds the boundary. */
   landParcelId: string;
   /** The stored source `.kmz` Document, when one was kept. */
@@ -45,12 +66,18 @@ export type BoundaryAttach = {
 
 const EARTH_R = 6378137;
 /** Metres between two [lat, lng] points — haversine on a sphere, plenty at parcel scale. */
-export function metresBetween(a: [number, number], b: [number, number]): number {
+export function metresBetween(
+  a: [number, number],
+  b: [number, number],
+): number {
   const [lat1, lng1] = a;
   const [lat2, lng2] = b;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLng = ((lng2 - lng1) * Math.PI) / 180;
-  return Math.hypot(dLat * EARTH_R, dLng * EARTH_R * Math.cos((((lat1 + lat2) / 2) * Math.PI) / 180));
+  return Math.hypot(
+    dLat * EARTH_R,
+    dLng * EARTH_R * Math.cos((((lat1 + lat2) / 2) * Math.PI) / 180),
+  );
 }
 
 /**
@@ -63,8 +90,12 @@ export async function previewBoundary(
   ctx: Ctx,
   propertyId: string,
   buf: Buffer,
-): Promise<{ ok: true; preview: BoundaryAttach } | { ok: false; error: string }> {
-  const [row] = await db.select({ lat: properties.lat, lng: properties.lng }).from(properties)
+): Promise<
+  { ok: true; preview: BoundaryAttach } | { ok: false; error: string }
+> {
+  const [row] = await db
+    .select({ lat: properties.lat, lng: properties.lng })
+    .from(properties)
     .where(and(eq(properties.orgId, ctx.orgId), eq(properties.id, propertyId)));
   if (!row) return { ok: false, error: "Property not found" };
 
@@ -73,12 +104,17 @@ export async function previewBoundary(
     parsed = parseKmz(buf);
   } catch (err) {
     // KmzError messages are written for the user; anything else is a bug and stays generic.
-    return { ok: false, error: err instanceof KmzError ? err.message : "Could not read that KMZ." };
+    return {
+      ok: false,
+      error: err instanceof KmzError ? err.message : "Could not read that KMZ.",
+    };
   }
 
   const previousPin: [number, number] = [row.lat, row.lng];
   const shift = metresBetween(previousPin, parsed.centroid);
-  const existing = (await listLandParcels(ctx, propertyId)).find((p) => p.boundary != null);
+  const existing = (await listLandParcels(ctx, propertyId)).find(
+    (p) => p.boundary != null,
+  );
 
   return {
     ok: true,
@@ -90,6 +126,7 @@ export async function previewBoundary(
       pinShiftM: Math.round(shift),
       // ponytail: 1 m threshold — a sub-metre shift is the same pin, not a move worth confirming.
       pinMoved: shift > 1,
+      pinInside: boundaryContains(parsed.geometry, previousPin),
       landParcelId: existing?.id ?? "",
       replaced: existing != null,
     },
@@ -113,23 +150,30 @@ export async function attachBoundary(
     source?: "kmz" | "manual" | "cadastre";
     /** The official parcel id the geometry came from (French cadastre `idu`). */
     cadastreRef?: string;
+    /** True when the ring was DRAWN by hand rather than parsed from a file. */
+    drawn?: boolean;
   } = {},
 ): Promise<BoundaryAttach> {
   assertCanMutate(); // D9 — demo mode refuses all writes
 
   // Confirm the property belongs to the caller's org BEFORE writing anything (IDOR). The FK would
   // catch a cross-org id at insert time, but only as a 500 — this returns cleanly.
-  const [target] = await db.select({ id: properties.id, lat: properties.lat, lng: properties.lng })
-    .from(properties).where(and(eq(properties.orgId, ctx.orgId), eq(properties.id, propertyId)));
+  const [target] = await db
+    .select({ id: properties.id, lat: properties.lat, lng: properties.lng })
+    .from(properties)
+    .where(and(eq(properties.orgId, ctx.orgId), eq(properties.id, propertyId)));
   if (!target) throw new Error("Property not found");
 
-  const existing = (await listLandParcels(ctx, propertyId)).find((p) => p.boundary != null);
+  const existing = (await listLandParcels(ctx, propertyId)).find(
+    (p) => p.boundary != null,
+  );
   // Land size IS the measured ring area once a boundary exists; properties.totalArea keeps the
   // officially-declared figure. Two numbers, never merged (see the location page KPI card).
   const patch = {
     sizeM2: parsed.sizeM2,
     boundary: parsed.geometry,
-    boundarySource: opts.source ?? ("kmz" as const),
+    boundarySource:
+      opts.source ?? (opts.drawn ? ("manual" as const) : ("kmz" as const)),
     // Only set when there IS one: an undefined key would blank a previously recorded ref on an
     // unrelated re-attach.
     ...(opts.cadastreRef ? { cadastreRef: opts.cadastreRef } : {}),
@@ -151,7 +195,11 @@ export async function attachBoundary(
   // bucket ever needs it.
   let documentId: string | undefined;
   if (opts.sourceFile) {
-    const { storageId } = await putKmz(ctx, opts.sourceFile.buffer, opts.sourceFile.name);
+    const { storageId } = await putKmz(
+      ctx,
+      opts.sourceFile.buffer,
+      opts.sourceFile.name,
+    );
     const doc = await createDocument(ctx, {
       propertyId,
       name: opts.sourceFile.name,
@@ -171,7 +219,10 @@ export async function attachBoundary(
   const shift = metresBetween(previousPin, parsed.centroid);
   const movePin = opts.movePin !== false && shift > 1;
   if (movePin) {
-    await updateProperty(ctx, propertyId, { lat: parsed.centroid[0], lng: parsed.centroid[1] });
+    await updateProperty(ctx, propertyId, {
+      lat: parsed.centroid[0],
+      lng: parsed.centroid[1],
+    });
   }
 
   return {
@@ -181,6 +232,7 @@ export async function attachBoundary(
     previousPin,
     pinShiftM: Math.round(shift),
     pinMoved: movePin,
+    pinInside: boundaryContains(parsed.geometry, previousPin),
     landParcelId,
     documentId,
     replaced: existing != null,
@@ -241,6 +293,123 @@ export type BackfillOptions = {
   movePin?: boolean;
 };
 
+/**
+ * Remove a property's land boundary.
+ *
+ * DELETE rather than null-the-geometry: the parcel row also carries the measured size and the source
+ * document, and a row holding `boundary: null` plus a size would be a shape the rest of the app has to
+ * keep guarding against. The pin is deliberately left where it is — it is the property's own location,
+ * not part of the boundary.
+ *
+ * Returns whether there was anything to remove, so the caller can tell "cleared" from "nothing there".
+ */
+export async function clearBoundary(
+  ctx: Ctx,
+  propertyId: string,
+): Promise<boolean> {
+  const existing = (await listLandParcels(ctx, propertyId)).find(
+    (p) => p.boundary != null,
+  );
+  if (!existing) return false;
+  await deleteLandParcel(ctx, existing.id);
+  return true;
+}
+
+/**
+ * Attach a boundary the user drew on the map, rather than uploaded as a KMZ.
+ *
+ * Same storage, same pin rule, same replace rule as the upload — it goes through {@link attachBoundary},
+ * so the two entry points cannot drift. The only differences are the source label and the absence of
+ * a source file: there is no KMZ behind a drawn ring, so nothing is put in storage.
+ */
+export async function attachDrawnBoundary(
+  ctx: Ctx,
+  propertyId: string,
+  ring: number[][],
+  opts: { movePin?: boolean } = {},
+): Promise<BoundaryAttach> {
+  if (ring.length < 3) throw new Error("A boundary needs at least 3 points.");
+  // Same validation the KMZ parser applies: a ring that is not closed renders with its closing edge
+  // missing (Mapbox's `line` does not auto-close the way `fill` does), so close it here too.
+  const closed = [...ring];
+  const [f, l] = [closed[0], closed[closed.length - 1]];
+  if (closed.length > 1 && (f[0] !== l[0] || f[1] !== l[1]))
+    closed.push([f[0], f[1]]);
+  if (new Set(closed.slice(0, -1).map((p) => p.join(","))).size < 3) {
+    throw new Error("A boundary needs 3 points that are not in a line.");
+  }
+  // A ring that crosses itself has no meaningful area, and the shoelace formula returns a confident
+  // nonsense number for it rather than failing. Refuse it here, where the write happens, so a
+  // hand-edited request cannot store one either.
+  if (ringSelfIntersects(closed)) {
+    throw new Error(
+      "The boundary crosses itself. Move a corner so the outline does not overlap.",
+    );
+  }
+
+  return attachBoundary(
+    ctx,
+    propertyId,
+    {
+      geometry: { type: "Polygon", coordinates: [closed] },
+      sizeM2: Math.round(ringAreaM2(closed) * 100) / 100,
+      // `centroidOf` is not exported, but the pin only needs to land ON the land, and a drawn ring
+      // is convex-ish by construction: the area-weighted centre of the widest horizontal span is
+      // safer than a plain average for a ring the user clicked, which can be concave.
+      centroid: widestSpanCentroid(closed),
+      bbox: bboxOf(closed),
+      fields: {},
+    },
+    { ...opts, drawn: true },
+  );
+}
+
+/** The centre of the widest inside span, over the ring's own latitude range. Falls back to the mean. */
+function widestSpanCentroid(ring: number[][]): [number, number] {
+  const n =
+    ring.length > 1 &&
+    ring[0][0] === ring[ring.length - 1][0] &&
+    ring[0][1] === ring[ring.length - 1][1]
+      ? ring.length - 1
+      : ring.length;
+  const lats = ring.slice(0, n).map((p) => p[1]);
+  const midLat = (Math.min(...lats) + Math.max(...lats)) / 2;
+
+  const xs: number[] = [];
+  for (let i = 0; i < n; i++) {
+    const [x1, y1] = ring[i];
+    const [x2, y2] = ring[(i + 1) % n];
+    if (y1 > midLat !== y2 > midLat)
+      xs.push(x1 + ((midLat - y1) * (x2 - x1)) / (y2 - y1));
+  }
+  xs.sort((a, b) => a - b);
+  let bestMid: number | null = null;
+  let bestWidth = -1;
+  for (let i = 0; i + 1 < xs.length; i += 2) {
+    const width = xs[i + 1] - xs[i];
+    if (width > bestWidth) {
+      bestWidth = width;
+      bestMid = (xs[i] + xs[i + 1]) / 2;
+    }
+  }
+  if (bestMid !== null) return [midLat, bestMid];
+  return [
+    lats.reduce((s, v) => s + v, 0) / n,
+    ring.slice(0, n).reduce((s, p) => s + p[0], 0) / n,
+  ];
+}
+
+function bboxOf(ring: number[][]): [number, number, number, number] {
+  const lngs = ring.map((p) => p[0]);
+  const lats = ring.map((p) => p[1]);
+  return [
+    Math.min(...lngs),
+    Math.min(...lats),
+    Math.max(...lngs),
+    Math.max(...lats),
+  ];
+}
+
 export async function attachBoundaryFromBytes(
   ctx: Ctx,
   propertyId: string,
@@ -277,7 +446,10 @@ export function codeFromName(name: string | null | undefined): string {
 
 /** The code a KMZ filename denotes: its stem, uppercased. "KD00005.kmz" → "KD00005". */
 export function codeFromFileName(fileName: string): string {
-  return fileName.replace(/\.kmz$/i, "").trim().toUpperCase();
+  return fileName
+    .replace(/\.kmz$/i, "")
+    .trim()
+    .toUpperCase();
 }
 
 export type BoundaryMatch = {
@@ -310,6 +482,11 @@ export function matchBoundaries(
     const code = codeFromFileName(file);
     const hits = byCode.get(code) ?? [];
     if (hits.length === 1) return { file, code, propertyId: hits[0] };
-    return { file, code, propertyId: "", reason: hits.length ? "ambiguous" : "no-match" };
+    return {
+      file,
+      code,
+      propertyId: "",
+      reason: hits.length ? "ambiguous" : "no-match",
+    };
   });
 }

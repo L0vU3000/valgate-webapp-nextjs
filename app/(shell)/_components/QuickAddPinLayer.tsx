@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-// Type-only: MapView already loads mapbox-gl, so this adds it to no bundle.
-import type mapboxgl from "mapbox-gl";
+import type { AnyMap, AnyMarker } from "@/components/map/types";
 
 interface QuickAddPinLayerProps {
-  mapRef: React.RefObject<mapboxgl.Map | null>;
+  mapRef: React.RefObject<AnyMap | null>;
   // True while the user is placing a pin (quick-add mode), false otherwise.
   active: boolean;
   // null before the pin is dropped. Anchoring on a coordinate rather than on the map's pointer means
@@ -19,6 +18,9 @@ interface QuickAddPinLayerProps {
   // Suppresses the pin's arrival travel for users who asked for reduced motion. The pin still
   // appears at its final position — it just does not move to get there.
   reducedMotion?: boolean;
+  // Which renderer owns the map right now. Passed rather than inferred: each library's `Marker` may
+  // only be added to its own map, and the two classes are indistinguishable at runtime.
+  satellite?: boolean;
 }
 
 // The quick-add pin, as a Mapbox marker.
@@ -33,8 +35,9 @@ export function QuickAddPinLayer({
   preview = false,
   onPinChange,
   reducedMotion = false,
+  satellite = false,
 }: QuickAddPinLayerProps) {
-  const markerRef = useRef<mapboxgl.Marker | null>(null);
+  const markerRef = useRef<AnyMarker | null>(null);
   // Latest props, so the marker's own event handlers never read a stale closure. Same reason
   // MapView keeps refs for isDark/isSatellite. These are read at event time and at creation time,
   // which lets the marker live across pin moves instead of being torn down and rebuilt (which would
@@ -70,7 +73,13 @@ export function QuickAddPinLayer({
     void (async () => {
       const map = mapRef.current;
       if (cancelled || !map || markerRef.current) return;
-      const { default: mapboxgl } = await import("mapbox-gl");
+      // The renderer is whichever one built this map — Mapbox for the light/dark view, MapLibre for
+      // satellite. Each library's `Marker` may only be added to its OWN map, so this is not a
+      // cosmetic choice: a MapLibre marker on a Mapbox map throws. Told, not sniffed: the two
+      // classes look alike and minification renames them.
+      const MarkerCtor = satellite
+        ? (await import("maplibre-gl")).Marker
+        : (await import("mapbox-gl")).default.Marker;
       // The import is async and the user can leave quick-add while it is in flight.
       if (cancelled || !mapRef.current) return;
 
@@ -107,13 +116,16 @@ export function QuickAddPinLayer({
       // setLngLat MUST come before addTo, and in that order in one chain: Mapbox's addTo() reads the
       // marker's own LngLat to place it, so a marker that reaches addTo without one throws. Every
       // other marker in this repo chains them for the same reason.
-      const marker = new mapboxgl.Marker({
+      // One local cast for the whole marker lifecycle: the two `Marker` classes share this surface at
+      // runtime, but TS will not merge overloads whose `this` types differ (same posture as
+      // boundary-layer.ts's `sourceOf`). Which class is really in play was decided by `MarkerCtor`.
+      const marker = new MarkerCtor({
         element: el,
         anchor: "center",
         draggable: !previewRef.current,
       })
         .setLngLat(initial)
-        .addTo(map);
+        .addTo(map as never) as unknown as AnyMarker;
 
       // A preview is not a placement, so a drag on it must not create one. This is the only write in
       // the flow, and it belongs to a coordinate the user chose.
@@ -133,7 +145,7 @@ export function QuickAddPinLayer({
       circleRef.current = null;
       elRef.current = null;
     };
-  }, [active, hasPin, mapRef]);
+  }, [active, hasPin, mapRef, satellite]);
 
   // The preview look: dimmed and not draggable, so a suggestion being pointed at never reads as a
   // location already chosen. Toggled on the existing element — see circleRef.

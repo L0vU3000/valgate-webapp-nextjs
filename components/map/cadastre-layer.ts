@@ -1,6 +1,11 @@
 "use client";
 
-import type mapboxgl from "mapbox-gl";
+import type {
+  AnyMap,
+  AnyGeoJSONFeature,
+  AnyMapLayerMouseEvent,
+  MapEventTarget,
+} from "@/components/map/types";
 import { isInFrance } from "@/lib/geo/france";
 
 // The French cadastre's parcel layer, drawn for HOVER and SELECTION.
@@ -14,7 +19,8 @@ export const CADASTRE_FILL_ID = "fr-cadastre-fill";
 export const CADASTRE_LINE_ID = "fr-cadastre-line";
 const SOURCE_LAYER = "parcelles";
 
-const TILE_URL = "https://openmaptiles.data.gouv.fr/data/cadastre/{z}/{x}/{y}.pbf";
+const TILE_URL =
+  "https://openmaptiles.data.gouv.fr/data/cadastre/{z}/{x}/{y}.pbf";
 
 // The TileJSON advertises minzoom 11, but `parcelles` only appears in the data at z13, and a z13
 // tile over central Paris is ~313 KB, which is unreadable clutter behind a pin. The useful band
@@ -68,12 +74,21 @@ export type HoveredParcel = {
 };
 
 /**
+ * `getSource` is generic on each library and the union's two signatures do not merge, so the call is
+ * uncallable even though both renderers expose it. One local view keeps the cast in a single place
+ * instead of at every probe. Same reasoning as {@link MapEventTarget} in components/map/types.ts.
+ */
+function mapAsSources(map: AnyMap) {
+  return map as unknown as { getSource: (id: string) => unknown };
+}
+
+/**
  * Add the parcel layer pair. Idempotent and safe to call on `load` AND on every `style.load`,
  * which is what a style swap (theme / satellite) requires because it destroys every layer.
  * Same contract as `addBoundaryLayer`, for the same reason.
  */
-export function addCadastreLayer(map: mapboxgl.Map) {
-  if (map.getSource(CADASTRE_SOURCE_ID)) return;
+export function addCadastreLayer(map: AnyMap) {
+  if (mapAsSources(map).getSource(CADASTRE_SOURCE_ID)) return;
 
   map.addSource(CADASTRE_SOURCE_ID, {
     type: "vector",
@@ -106,13 +121,16 @@ export function addCadastreLayer(map: mapboxgl.Map) {
       // is placed and the wizard moves on, so a "confirmed" colour would have no time on screen.
       "fill-color": [
         "case",
-        ["boolean", ["feature-state", "selected"], false], "#059669",
+        ["boolean", ["feature-state", "selected"], false],
+        "#059669",
         "#2563eb",
       ],
       "fill-opacity": [
         "case",
-        ["boolean", ["feature-state", "selected"], false], CHOSEN_FILL,
-        ["boolean", ["feature-state", "hover"], false], HOVER_FILL,
+        ["boolean", ["feature-state", "selected"], false],
+        CHOSEN_FILL,
+        ["boolean", ["feature-state", "hover"], false],
+        HOVER_FILL,
         0,
       ],
     },
@@ -131,20 +149,26 @@ export function addCadastreLayer(map: mapboxgl.Map) {
     paint: {
       "line-color": [
         "case",
-        ["boolean", ["feature-state", "selected"], false], "#059669",
-        ["boolean", ["feature-state", "hover"], false], "#2563eb",
+        ["boolean", ["feature-state", "selected"], false],
+        "#059669",
+        ["boolean", ["feature-state", "hover"], false],
+        "#2563eb",
         "#2563eb",
       ],
       "line-width": [
         "case",
-        ["boolean", ["feature-state", "selected"], false], SELECTED_LINE_WIDTH,
-        ["boolean", ["feature-state", "hover"], false], HOVER_LINE_WIDTH,
+        ["boolean", ["feature-state", "selected"], false],
+        SELECTED_LINE_WIDTH,
+        ["boolean", ["feature-state", "hover"], false],
+        HOVER_LINE_WIDTH,
         BASE_LINE_WIDTH,
       ],
       "line-opacity": [
         "case",
-        ["boolean", ["feature-state", "selected"], false], 1,
-        ["boolean", ["feature-state", "hover"], false], 0.95,
+        ["boolean", ["feature-state", "selected"], false],
+        1,
+        ["boolean", ["feature-state", "hover"], false],
+        0.95,
         0.55,
       ],
     },
@@ -158,7 +182,7 @@ export function addCadastreLayer(map: mapboxgl.Map) {
  * it silently kills the whole highlight (the call throws before any state is written). Keep it.
  */
 function setParcelState(
-  map: mapboxgl.Map,
+  map: AnyMap,
   featureId: number | null,
   state: { hover?: boolean; selected?: boolean },
 ) {
@@ -167,7 +191,7 @@ function setParcelState(
   // source's feature ids only exist once its tiles have loaded. Writing state before either is a
   // silent no-op, which is how a chosen parcel ended up with no highlight at all. Bail quietly and let
   // `reassertSelection` apply it once the tiles are actually there.
-  if (!map.getSource(CADASTRE_SOURCE_ID)) return;
+  if (!mapAsSources(map).getSource(CADASTRE_SOURCE_ID)) return;
   if (!map.getLayer(CADASTRE_FILL_ID)) return;
   if (!map.isSourceLoaded(CADASTRE_SOURCE_ID)) return;
   map.setFeatureState(
@@ -194,13 +218,15 @@ function setParcelState(
  * same thing whether the user is just looking at it or committing to it.
  */
 function parcelFromFeature(
-  f: mapboxgl.MapboxGeoJSONFeature,
+  f: AnyGeoJSONFeature,
   lngLat: { lng: number; lat: number },
   client: { x: number; y: number },
 ): HoveredParcel {
   const p = (f.properties ?? {}) as Record<string, unknown>;
-  const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
-  const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+  const str = (v: unknown) =>
+    typeof v === "string" && v.trim() ? v.trim() : null;
+  const num = (v: unknown) =>
+    typeof v === "number" && Number.isFinite(v) ? v : null;
   return {
     idu: str(p.id),
     section: str(p.section),
@@ -232,7 +258,7 @@ export function resetCadastreHover() {
 }
 
 export function wireCadastreHover(
-  map: mapboxgl.Map,
+  map: AnyMap,
   onParcel: (parcel: HoveredParcel | null) => void,
   /** Fired when a parcel is CLICKED. A click selects it; without this a click only moved the pin. */
   onSelect?: (parcel: HoveredParcel) => void,
@@ -251,7 +277,7 @@ export function wireCadastreHover(
     }
   };
 
-  const onMove = (e: mapboxgl.MapLayerMouseEvent) => {
+  const onMove = (e: AnyMapLayerMouseEvent) => {
     const f = e.features?.[0];
     if (!f) return;
     const id = typeof f.id === "number" ? f.id : null;
@@ -261,8 +287,10 @@ export function wireCadastreHover(
       setParcelState(map, hovered, { hover: true });
     }
     const p = (f.properties ?? {}) as Record<string, unknown>;
-    const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
-    const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+    const str = (v: unknown) =>
+      typeof v === "string" && v.trim() ? v.trim() : null;
+    const num = (v: unknown) =>
+      typeof v === "number" && Number.isFinite(v) ? v : null;
 
     const idu = str(p.id);
     const contenanceM2 = num(p.contenance);
@@ -273,10 +301,11 @@ export function wireCadastreHover(
     if (signature === reported) return;
     reported = signature;
 
+    const moveEvent = e.originalEvent ?? { clientX: 0, clientY: 0 };
     onParcel(
       parcelFromFeature(f, e.lngLat, {
-        x: e.originalEvent.clientX,
-        y: e.originalEvent.clientY,
+        x: moveEvent.clientX,
+        y: moveEvent.clientY,
       }),
     );
   };
@@ -287,17 +316,21 @@ export function wireCadastreHover(
    * may still be null (and often is, on the first click after arming), which is what made a clicked
    * parcel refuse to select.
    */
-  const onClick = (e: mapboxgl.MapLayerMouseEvent) => {
+  const onClick = (e: AnyMapLayerMouseEvent) => {
     const f = e.features?.[0];
     if (!f || !onSelect) return;
+    const ev = e.originalEvent ?? { clientX: 0, clientY: 0 };
     onSelect(
       parcelFromFeature(f, e.lngLat, {
-        x: e.originalEvent.clientX,
-        y: e.originalEvent.clientY,
+        x: ev.clientX,
+        y: ev.clientY,
       }),
     );
   };
-  if (onSelect) map.on("click", CADASTRE_FILL_ID, onClick);
+  // See MapEventTarget: `on`/`off` are overloaded per renderer and the overloads do not merge across
+  // the union, so the layer-targeted subscriptions go through the same local cast as the map ones.
+  const layerEvents = map as unknown as MapEventTarget;
+  if (onSelect) layerEvents.on("click", CADASTRE_FILL_ID, onClick);
 
   const onLeave = () => {
     clearHover();
@@ -306,16 +339,16 @@ export function wireCadastreHover(
     onParcel(null);
   };
 
-  map.on("mousemove", CADASTRE_FILL_ID, onMove);
-  map.on("mouseleave", CADASTRE_FILL_ID, onLeave);
+  layerEvents.on("mousemove", CADASTRE_FILL_ID, onMove);
+  layerEvents.on("mouseleave", CADASTRE_FILL_ID, onLeave);
   hoverReset = () => {
     reported = null;
   };
 
   return () => {
-    map.off("mousemove", CADASTRE_FILL_ID, onMove);
-    map.off("mouseleave", CADASTRE_FILL_ID, onLeave);
-    map.off("click", CADASTRE_FILL_ID, onClick);
+    layerEvents.off("mousemove", CADASTRE_FILL_ID, onMove);
+    layerEvents.off("mouseleave", CADASTRE_FILL_ID, onLeave);
+    layerEvents.off("click", CADASTRE_FILL_ID, onClick);
     hoverReset = null;
     clearHover();
   };
@@ -337,7 +370,7 @@ export function wireCadastreHover(
  * that has no cadastre on it. Returns a teardown.
  */
 export function syncCadastreLayer(
-  map: mapboxgl.Map,
+  map: AnyMap,
   onParcel: (parcel: HoveredParcel | null) => void,
   selectedFeatureId: number | null = null,
   /** Fired when a parcel is clicked, so the click itself can be the choice. */
@@ -361,7 +394,8 @@ export function syncCadastreLayer(
     setParcelState(map, want, { selected: true });
     // Only remember it once it actually stuck. If the tiles were not ready yet this stays stale, so the
     // NEXT call (sourcedata / style.load) tries again instead of believing it is done.
-    if (want === null || map.isSourceLoaded(CADASTRE_SOURCE_ID)) markedSelection = want;
+    if (want === null || map.isSourceLoaded(CADASTRE_SOURCE_ID))
+      markedSelection = want;
   };
 
   const sync = () => {
@@ -394,15 +428,19 @@ export function syncCadastreLayer(
 
   reassertSelection();
   sync();
-  map.on("sourcedata", onSourceData);
-  map.on("moveend", sync);
+  // ponytail: cast on the event methods only. `on`/`off` are overloaded per library, and overloads do
+  // not merge across a union (see components/map/types.ts) — the runtime signature is identical, so a
+  // local cast is the documented posture here rather than widening the whole module to `any`.
+  const events = map as unknown as MapEventTarget;
+  events.on("sourcedata", onSourceData);
+  events.on("moveend", sync);
   // A style swap destroys every layer, so the source must come back.
-  map.on("style.load", sync);
+  events.on("style.load", sync);
 
   return () => {
-    map.off("sourcedata", onSourceData);
-    map.off("moveend", sync);
-    map.off("style.load", sync);
+    events.off("sourcedata", onSourceData);
+    events.off("moveend", sync);
+    events.off("style.load", sync);
     // Clear the selection this instance applied, so choosing a SECOND parcel un-lights the first.
     // Exactly one parcel is ever highlighted, which is what makes "confirm" unambiguous.
     //

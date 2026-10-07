@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { deflateRawSync } from "node:zlib";
-import { parseKmz, ringAreaM2, KmzError } from "@/lib/services/kmz";
+import { parseKmz, ringAreaM2, boundaryContains, ringSelfIntersects, KmzError } from "@/lib/services/kmz";
+import type { BoundaryGeometry } from "@/lib/data/types/land-parcel";
 import { codeFromName, codeFromFileName, matchBoundaries, metresBetween } from "@/lib/services/property-boundary";
 
 // ── KMZ parse ─────────────────────────────────────────────────────────────────
@@ -187,5 +188,71 @@ describe("metresBetween", () => {
     const [lat, lng] = plain.centroid;
     expect(lat).toBeCloseTo(0.0010, 6);
     expect(lng).toBeCloseTo(0.0020, 6);
+  });
+});
+
+describe("ringSelfIntersects", () => {
+  it("passes a normal convex ring", () => {
+    expect(ringSelfIntersects([[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]])).toBe(false);
+  });
+
+  it("catches a bow-tie", () => {
+    // The classic crossed quad: the shoelace formula gives this a confident, meaningless area.
+    expect(ringSelfIntersects([[0, 0], [1, 1], [1, 0], [0, 1]])).toBe(true);
+  });
+
+  it("passes a concave ring that does not cross", () => {
+    expect(ringSelfIntersects([[0, 0], [3, 0], [3, 1], [1, 1], [1, 3], [0, 3]])).toBe(false);
+  });
+
+  it("treats touching an edge as legal", () => {
+    // A vertex sitting exactly ON another edge is degenerate but not a crossing; refusing it would
+    // reject shapes the parser happily accepts.
+    expect(ringSelfIntersects([[0, 0], [2, 0], [1, 0], [1, 2]])).toBe(false);
+  });
+
+  it("skips the closing repeat", () => {
+    const closed = [[0, 0], [1, 0], [1, 1], [0, 0]];
+    expect(ringSelfIntersects(closed)).toBe(false);
+  });
+});
+
+describe("boundaryContains", () => {
+  const square: BoundaryGeometry = {
+    type: "Polygon",
+    coordinates: [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]],
+  };
+
+  it("accepts a point inside and rejects one outside", () => {
+    expect(boundaryContains(square, [0.5, 0.5])).toBe(true);
+    expect(boundaryContains(square, [1.5, 0.5])).toBe(false);
+  });
+
+  it("rejects a point in the notch of a concave ring", () => {
+    // The L-shape from the centroid test: the square lng>0.001, lat>0.001 is a notch, not land.
+    // A centroid can land here (that is why centroidOf has guards), and a user-kept pin can too.
+    const ell: BoundaryGeometry = {
+      type: "Polygon",
+      coordinates: [[
+        [0.0000, 0.0000], [0.0030, 0.0000], [0.0030, 0.0010],
+        [0.0010, 0.0010], [0.0010, 0.0030], [0.0000, 0.0030], [0.0000, 0.0000],
+      ]],
+    };
+    expect(boundaryContains(ell, [0.0020, 0.0020])).toBe(false); // in the notch
+    expect(boundaryContains(ell, [0.0005, 0.0005])).toBe(true);  // on the land
+  });
+
+  it("accepts a point in EITHER plot of a MultiPolygon", () => {
+    // Two disjoint plots: the owner holds both, so a pin in the second one is on their land.
+    const split: BoundaryGeometry = {
+      type: "MultiPolygon",
+      coordinates: [
+        [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]],
+        [[[5, 5], [6, 5], [6, 6], [5, 6], [5, 5]]],
+      ],
+    };
+    expect(boundaryContains(split, [0.5, 0.5])).toBe(true);
+    expect(boundaryContains(split, [5.5, 5.5])).toBe(true);
+    expect(boundaryContains(split, [3, 3])).toBe(false); // between the plots
   });
 });
