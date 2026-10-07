@@ -86,8 +86,11 @@ graphify-out/
 docs/plans/**/shot-*.png
 docs/plans/**/.plan-state.json
 docs/plans/**/.plan-url
-# Local planning-preview helper. It reads its token from the environment; it is a
-# per-machine tool, not a deliverable, and mus...[truncated]
+
+# Local planning-preview helper: per-machine tool, not a deliverable. Reads its token from
+# the environment, so it must never be committed -- a hardcoded token here once reached the
+# remote and the branch had to be rewritten.
+docs/plans/**/viewer.py
 
 # local runtime upload storage (property photos etc. written by the app, not repo content)
 public/_storage/
