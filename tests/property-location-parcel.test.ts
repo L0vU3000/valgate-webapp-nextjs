@@ -4,6 +4,7 @@ import {
   countFactsOnFile,
   formatAddress,
   parseAreaM2,
+  ringPoints,
 } from "@/lib/data/derivations/parcel-facts";
 import type { LandParcel } from "@/lib/data/types/land-parcel";
 
@@ -52,17 +53,24 @@ describe("buildParcelFacts", () => {
 describe("countFactsOnFile", () => {
   it("counts only the groups that hold a value", () => {
     // A parcel with only size_m2 on file — the shape of all 42 rows in the dev database.
-    expect(countFactsOnFile(buildParcelFacts(parcel(), null))).toEqual({ on: 1, of: 6 });
+    expect(countFactsOnFile(buildParcelFacts(parcel(), null))).toEqual({ on: 1, of: 5 });
   });
 
   it("counts nothing when there is no parcel row at all", () => {
-    expect(countFactsOnFile(buildParcelFacts(null, null))).toEqual({ on: 0, of: 6 });
+    expect(countFactsOnFile(buildParcelFacts(null, null))).toEqual({ on: 0, of: 5 });
   });
 
   it("counts a group when any one of its fields is present", () => {
-    // Terrain groups elevation, slope and terrain — one is enough.
-    const f = buildParcelFacts(parcel({ elevationM: 12 }), null);
+    // Dimensions group width and length — one is enough.
+    const f = buildParcelFacts(parcel({ widthM: 25 }), null);
     expect(countFactsOnFile(f).on).toBe(2);
+  });
+
+  it("ignores terrain — the group was removed as unverifiable", () => {
+    // Elevation, slope and terrain are still columns, but nothing sourced them, so the panel no longer
+    // claims them and they must not inflate the "N of M on file" line.
+    const f = buildParcelFacts(parcel({ elevationM: 12, slopeAngleDeg: 3, terrainType: "Flat" }), null);
+    expect(countFactsOnFile(f)).toEqual({ on: 1, of: 5 });
   });
 });
 
@@ -77,5 +85,33 @@ describe("formatAddress", () => {
 
   it("returns an empty string when nothing is on file", () => {
     expect(formatAddress([null, undefined, ""])).toBe("");
+  });
+});
+
+describe("ringPoints", () => {
+  it("drops the repeated closing position", () => {
+    // GeoJSON closes a ring by repeating the first position. Keeping the repeat would render a second
+    // handle on top of the first and let a drag split the ring.
+    const ring = [[100, 13], [100.001, 13], [100.001, 13.001], [100, 13]];
+    expect(ringPoints({ type: "Polygon", coordinates: [ring] })).toEqual([
+      [100, 13], [100.001, 13], [100.001, 13.001],
+    ]);
+  });
+
+  it("accepts a ring that is not closed", () => {
+    const ring = [[100, 13], [100.001, 13], [100.001, 13.001]];
+    expect(ringPoints({ type: "Polygon", coordinates: [ring] })).toHaveLength(3);
+  });
+
+  it("refuses a MultiPolygon rather than seeding a half-drawn shape", () => {
+    const a = [[100, 13], [101, 13], [101, 14], [100, 13]];
+    const b = [[200, 20], [201, 20], [201, 21], [200, 20]];
+    expect(ringPoints({ type: "MultiPolygon", coordinates: [[a], [b]] })).toEqual([]);
+  });
+
+  it("returns nothing for no geometry or a degenerate ring", () => {
+    expect(ringPoints(null)).toEqual([]);
+    expect(ringPoints(undefined)).toEqual([]);
+    expect(ringPoints({ type: "Polygon", coordinates: [[[100, 13], [100, 13]]] })).toEqual([]);
   });
 });

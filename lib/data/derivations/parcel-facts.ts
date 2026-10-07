@@ -62,7 +62,6 @@ export function countFactsOnFile(f: ParcelFacts): { on: number; of: number } {
     f.widthM != null || f.lengthM != null,
     f.zoning,
     f.developmentPotential.length > 0,
-    f.elevationM != null || f.slopeDeg != null || f.terrain,
   ];
   return { on: groups.filter(Boolean).length, of: groups.length };
 }
@@ -74,4 +73,27 @@ export function formatAddress(parts: (string | null | undefined)[]): string {
     // city and province often hold the same value in Cambodia; print it once.
     .filter((v, i, all) => all.indexOf(v) === i)
     .join(", ");
+}
+/**
+ * A boundary's corners as an open ring — the repeated closing position dropped.
+ *
+ * GeoJSON closes a linear ring by repeating the first position, and the draw tool has to hand back
+ * that same closed shape when it saves. But for EDITING the repeat is a phantom vertex: it renders a
+ * second handle on top of the first, and dragging it would silently split the ring. So the editor
+ * opens on the open ring and the server closes it again on save.
+ *
+ * The first polygon only: a MultiPolygon parcel cannot be represented by the single-ring editor, and
+ * seeding a half-drawn shape would be worse than refusing it. It is left alone, not mangled.
+ */
+export function ringPoints(
+  geometry: { type: string; coordinates: unknown } | null | undefined,
+): number[][] {
+  if (!geometry || geometry.type !== "Polygon") return [];
+  const outer = (geometry.coordinates as number[][][])?.[0];
+  if (!Array.isArray(outer) || outer.length < 3) return [];
+  const open = [...outer];
+  const [f, l] = [open[0], open[open.length - 1]];
+  // Only drop a repeat that is genuinely the same position, so an unclosed ring is still accepted.
+  if (open.length > 1 && f[0] === l[0] && f[1] === l[1]) open.pop();
+  return open;
 }

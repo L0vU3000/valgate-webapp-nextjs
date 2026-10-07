@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import type mapboxgl from "mapbox-gl";
 // Load the mapbox-based map lazily and client-only. mapbox-gl is ~500 kB; a static
 // import here forced every visitor to download it before the page could render.
@@ -45,9 +46,15 @@ import {
   Map as MapIcon,
   MapPin,
   Maximize2,
+  PencilLine,
+  Redo2,
+  Spline,
+  Trash2,
+  Undo2,
 } from "lucide-react";
 import { cn } from "@/components/ui/utils";
 import { PropertyMapExpandModal } from "@/components/map/PropertyMapExpandModal";
+import { DrawBoundaryTool, type DrawMode } from "@/components/map/DrawBoundaryTool";
 import type { PropertyComparable } from "@/lib/data/types/property-comparable";
 import type { MarketSnapshot } from "@/lib/data/types/market-snapshot";
 import {
@@ -55,8 +62,35 @@ import {
   countFactsOnFile,
   formatAddress,
   parseAreaM2,
+  ringPoints,
 } from "@/lib/data/derivations/parcel-facts";
 import { PropertyBoundaryCard } from "./PropertyBoundaryCard";
+
+/** One square icon button in the vector toolbar. Kept local — it exists for this bar only. */
+function ToolButton({
+  onClick,
+  disabled,
+  title,
+  children,
+}: {
+  onClick: () => void;
+  disabled?: boolean;
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      aria-label={title}
+      className="flex size-7 items-center justify-center rounded-full text-foreground transition-colors hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent"
+    >
+      {children}
+    </button>
+  );
+}
 
 // ── Parcel facts ───────────────────────────────────────────────────────────────
 //
@@ -81,8 +115,6 @@ export function PropertyLocationPage({
   const [wizardStartAt, setWizardStartAt] = useState<"data" | "verification">("data");
   const [revokeOpen, setRevokeOpen] = useState(false);
   const [revoking, setRevoking] = useState(false);
-
-  const parcel = landParcels[0] ?? null;
 
   const unlockState: UnlockState = property.locationVerified
     ? { kind: "edit", entityId: property.id }
@@ -116,7 +148,6 @@ export function PropertyLocationPage({
         <div className="max-w-[1200px] mx-auto w-full flex flex-col min-h-full">
           <LocationContent
             property={property}
-            parcel={parcel}
             landParcels={landParcels}
             unlockState={unlockState}
             openWizard={openWizard}
@@ -198,7 +229,6 @@ function Fact({
 
 function LocationContent({
   property,
-  parcel,
   landParcels,
   unlockState,
   openWizard,
@@ -207,7 +237,6 @@ function LocationContent({
   marketSnapshot,
 }: {
   property: Property;
-  parcel: LandParcel | null;
   landParcels: LandParcel[];
   unlockState: UnlockState;
   openWizard: () => void;
@@ -220,16 +249,169 @@ function LocationContent({
   const [mapLoaded, setMapLoaded] = useState(false);
   const [mapExpanded, setMapExpanded] = useState(false);
 
+  // ── Draw or edit a boundary by hand ──────────────────────────────────────────
+  // For a user with no KMZ: click the corners on the map instead of importing a file. With a ring
+  // already on file, the same tool EDITS it rather than starting over — so it opens seeded with the
+  // stored corners and a click near an edge inserts one.
+  // The points live here rather than inside the tool, so Undo / Cancel / Save sit beside the state
+  // they act on.
+  const [drawing, setDrawing] = useState(false);
+  const [drawMode, setDrawMode] = useState<DrawMode>("draw");
+  const [drawPoints, setDrawPoints] = useState<number[][]>([]);
+  // Area of the ring being drawn, reported by the tool as corners are added and dragged. Null until
+  // the ring has 3 corners. This is the live figure the map badge shows while the tool is open.
+  const [liveAreaM2, setLiveAreaM2] = useState<number | null>(null);
+  // Undo/redo history. Kept as snapshots rather than diffs: a ring is tens of points, so the cheap
+  // thing (copy the array) is also the correct thing — no inverse-operation bookkeeping to get wrong.
+  const [undoStack, setUndoStack] = useState<number[][][]>([]);
+  const [redoStack, setRedoStack] = useState<number[][][]>([]);
+  const [drawBusy, setDrawBusy] = useState(false);
+  // The map object reaches this component through `onMapReady`, which fires inside the map's own
+  // `load` handler — not on first render. So it is mirrored into state to make the tool re-render
+  // once the map actually exists, instead of being handed a null it never recovers from.
+  const [drawMap, setDrawMap] = useState<mapboxgl.Map | null>(null);
+  const router = useRouter();
+
+  async function saveDrawnBoundary() {
+    if (!property.id || drawPoints.length < 3) return;
+    setDrawBusy(true);
+    try {
+      const res = await fetch("/api/property-boundary/draw", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ propertyId: property.id, ring: drawPoints }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.ok) {
+        toast.error(data?.error ?? "Could not save that boundary.");
+        return;
+      }
+      toast.success(drawMode === "edit" ? "Boundary updated." : "Boundary saved.");
+      setDrawPoints([]);
+      setDrawing(false);
+      router.refresh();
+    } finally {
+      setDrawBusy(false);
+    }
+  }
+
   useEffect(() => {
     setMapMounted(true);
   }, []);
   const propertyCenter: [number, number] = [property.lng, property.lat];
   const mapSubtitle = [property.addressLine, property.city].filter(Boolean).join(", ");
   // One land parcel per property today; the first one carrying a boundary is the drawn ring.
-  const boundary = landParcels.find((p) => p.boundary != null)?.boundary ?? null;
+  // The MEASURED figure belongs to the row that HOLDS the ring, never to index 0: a ring-less seed row
+  // can carry a size left over from import, which made the panel show a stale area after a clear.
+  // No ring, no measurement.
+  const measuredParcel = landParcels.find((p) => p.boundary != null) ?? null;
+  const boundary = measuredParcel?.boundary ?? null;
+  /** The stored ring's corners, without the repeated closing position. */
+  const storedRing = useMemo(() => ringPoints(boundary), [boundary]);
+
+  /** Open the hand tool, seeded with what is already on file. */
+  function openTool() {
+    // With a ring on file the tool EDITs it: it opens on the stored corners so the first thing the
+    // user sees is their own boundary with handles on it, not an empty map demanding a redraw.
+    setDrawMode(storedRing.length >= 3 ? "edit" : "draw");
+    setDrawPoints(storedRing);
+    setUndoStack([]);
+    setRedoStack([]);
+    setDrawing(true);
+  }
+
+  /**
+   * Every edit goes through here so Undo has something to go back to.
+   *
+   * `useCallback` with an empty dep list, reading the current ring from a ref: `drawPoints` in the
+   * dependency list would hand the draw tool a new `onChange` on every render, and a handler that
+   * changes identity is a handler the tool has to rebind — which is what tore its markers down
+   * mid-drag. The identity has to be stable for the same reason.
+   *
+   * ponytail: a drag reports one change, not one per mouse move — `dragend` fires once, so the whole
+   * drag is a single undo step. That is the behaviour a vector editor should have anyway.
+   */
+  const drawPointsRef = useRef(drawPoints);
+  drawPointsRef.current = drawPoints;
+
+  const editPoints = useCallback((next: number[][]) => {
+    setUndoStack((s) => [...s, drawPointsRef.current]);
+    setRedoStack([]);
+    setDrawPoints(next);
+  }, []);
+
+  function undo() {
+    setUndoStack((s) => {
+      if (!s.length) return s;
+      setRedoStack((r) => [...r, drawPoints]);
+      setDrawPoints(s[s.length - 1]);
+      return s.slice(0, -1);
+    });
+  }
+
+  function redo() {
+    setRedoStack((r) => {
+      if (!r.length) return r;
+      setUndoStack((s) => [...s, drawPoints]);
+      setDrawPoints(r[r.length - 1]);
+      return r.slice(0, -1);
+    });
+  }
+
+  async function clearBoundaryOnServer() {
+    if (!property.id) return;
+    if (!confirm("Remove this property's boundary? The drawn outline and its measured area are deleted.")) return;
+    setDrawBusy(true);
+    try {
+      const res = await fetch("/api/property-boundary/clear", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ propertyId: property.id }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.ok) {
+        toast.error(data?.error ?? "Could not clear that boundary.");
+        return;
+      }
+      toast.success("Boundary cleared.");
+      closeTool();
+      router.refresh();
+    } finally {
+      setDrawBusy(false);
+    }
+  }
+
+  function closeTool() {
+    setDrawing(false);
+    setDrawPoints([]);
+    setUndoStack([]);
+    setRedoStack([]);
+  }
+  const finishDrawing = useCallback(() => setDrawMode("edit"), []);
+  const shortcutsRef = useRef({ undo, redo, saveDrawnBoundary, closeTool, drawBusy });
+  shortcutsRef.current = { undo, redo, saveDrawnBoundary, closeTool, drawBusy };
+  useEffect(() => {
+    if (!drawing) return;
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target;
+      if (target instanceof HTMLElement && (target.closest("input, textarea") || target.isContentEditable)) return;
+      const actions = shortcutsRef.current;
+      const key = event.key.toLowerCase();
+      const command = event.metaKey || event.ctrlKey;
+      const action = key === "escape" ? actions.closeTool
+        : key === "enter" ? actions.saveDrawnBoundary
+          : command && key === "z" ? (event.shiftKey ? actions.redo : actions.undo)
+            : event.ctrlKey && key === "y" ? actions.redo : null;
+      if (!action) return;
+      event.preventDefault();
+      if (!actions.drawBusy && !event.repeat) void action();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [drawing]);
   // Declared (official document) vs measured (the ring). Both shown, neither replaced.
   const declaredM2 = parseAreaM2(property.totalArea);
-  const facts = useMemo(() => buildParcelFacts(parcel, declaredM2), [parcel, declaredM2]);
+  const facts = useMemo(() => buildParcelFacts(measuredParcel, declaredM2), [measuredParcel, declaredM2]);
   const { on, of } = countFactsOnFile(facts);
 
   const addressLine = useMemo(
@@ -372,21 +554,120 @@ function LocationContent({
             <PropertyDetailMap
               lat={property.lat}
               lng={property.lng}
-              boundary={boundary}
+              boundary={drawing ? null : boundary}
               onLoad={() => setMapLoaded(true)}
               onMapReady={(map) => {
                 mapRef.current = map;
+                setDrawMap(map);
               }}
               className="absolute inset-0"
             />
           )}
 
+          {/* Draw a boundary by hand. Only mounted once the map object exists, because a click
+              handler bound before `load` would place points on a map that is not ready. */}
+          {drawMap && (
+            <DrawBoundaryTool
+              map={drawMap}
+              enabled={drawing}
+              mode={drawMode}
+              points={drawPoints}
+              onChange={editPoints}
+              onArea={setLiveAreaM2}
+              onFinish={finishDrawing}
+            />
+          )}
+
+          {/* Vector-editor toolbar. Bottom-centre, like every vector tool, because that is where the
+              hand already is and it stays clear of the corners the user is dragging. The entry
+              button stays top-left with the other map chrome; once editing, the bar takes over. */}
+          {drawMap && !mapExpanded && (
+            <div
+              data-no-drag
+              className={cn(
+                "absolute z-20 flex items-center rounded-full border border-border/60 bg-background/90 shadow-sm backdrop-blur-md",
+                drawing
+                  ? "bottom-4 left-1/2 -translate-x-1/2 gap-1.5 px-2 py-1.5"
+                  : "left-3 top-14 px-2 py-1.5",
+              )}
+            >
+              {!drawing ? (
+                <button
+                  type="button"
+                  onClick={openTool}
+                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-semibold text-foreground transition-colors hover:bg-slate-100"
+                >
+                  {storedRing.length >= 3 ? <Spline className="size-3" /> : <PencilLine className="size-3" />}
+                  {/* The label states what the tool will do to THIS property: with a ring on file it
+                      edits, without one it draws. "Draw boundary" over an existing boundary would
+                      promise a redraw the user does not want. */}
+                  {storedRing.length >= 3 ? "Edit boundary" : "Draw boundary"}
+                </button>
+              ) : (
+                <>
+                  <span className="px-2 text-[12px] tabular-nums text-muted-foreground">
+                    {drawMode === "edit"
+                      ? `${drawPoints.length} corners`
+                      : drawPoints.length < 3
+                        ? `${drawPoints.length} point${drawPoints.length === 1 ? "" : "s"}`
+                        : `${drawPoints.length} points`}
+                  </span>
+                  <span className="h-4 w-px bg-border" />
+                  <ToolButton onClick={undo} disabled={!undoStack.length} title="Undo">
+                    <Undo2 className="size-3.5" />
+                  </ToolButton>
+                  <ToolButton onClick={redo} disabled={!redoStack.length} title="Redo">
+                    <Redo2 className="size-3.5" />
+                  </ToolButton>
+                  <ToolButton
+                    onClick={() => editPoints([])}
+                    disabled={!drawPoints.length}
+                    title={drawMode === "edit" ? "Remove every corner" : "Clear"}
+                  >
+                    <Trash2 className="size-3.5" />
+                  </ToolButton>
+                  <span className="h-4 w-px bg-border" />
+                  {storedRing.length >= 3 && (
+                    <button
+                      type="button"
+                      onClick={() => void clearBoundaryOnServer()}
+                      disabled={drawBusy}
+                      className="rounded-full px-2.5 py-1 text-[12px] font-semibold text-red-600 transition-colors hover:bg-red-50 disabled:opacity-40"
+                    >
+                      Remove boundary
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={closeTool}
+                    className="rounded-full px-2.5 py-1 text-[12px] font-semibold text-foreground transition-colors hover:bg-slate-100"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void saveDrawnBoundary()}
+                    disabled={drawPoints.length < 3 || drawBusy}
+                    className="rounded-full bg-[var(--val-primary-dark)] px-3 py-1 text-[12px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+                  >
+                    {drawBusy ? "Saving…" : drawMode === "edit" ? "Save changes" : "Save boundary"}
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+
           {/* Measured area rides on the map: it is the figure the drawing supports, so it
-              belongs with the drawing rather than in a card below it. */}
-          {mapLoaded && facts.landSizeM2 != null && (
+              belongs with the drawing rather than in a card below it. While the tool is open the
+              figure is the LIVE one — computed from the ring as it is drawn — so the number and the
+              outline cannot disagree. Gated on the computed value, not on `mapLoaded`: the saved
+              figure can exist while the ring has not loaded yet. */}
+          {facts.landSizeM2 != null && (
             <span className="absolute left-3 top-3 z-10 inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/90 px-3 py-1.5 text-[12px] font-semibold text-foreground tabular-nums shadow-sm backdrop-blur-md animate-[fade-slide-down_0.35s_cubic-bezier(0.22,1,0.36,1)_both]">
-              {facts.landSizeM2.toLocaleString()} m²
-              <span className="font-normal text-muted-foreground">measured</span>
+              {(drawing && liveAreaM2 != null ? liveAreaM2 : facts.landSizeM2).toLocaleString()} m²
+              <span className="font-normal text-muted-foreground">
+                {drawing ? "of the outline so far" : "measured"}
+              </span>
             </span>
           )}
 
@@ -504,19 +785,6 @@ function LocationContent({
                     facts.developmentPotential.length > 0
                       ? facts.developmentPotential.join(", ")
                       : undefined
-                  }
-                />
-              )}
-
-              {(facts.elevationM != null || facts.slopeDeg != null || facts.terrain) && (
-                <Fact
-                  label="Terrain"
-                  value={
-                    facts.terrain ??
-                    (facts.elevationM != null ? `${facts.elevationM} m` : "—")
-                  }
-                  note={
-                    facts.slopeDeg != null ? `${facts.slopeDeg}° slope` : undefined
                   }
                 />
               )}
