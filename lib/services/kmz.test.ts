@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { deflateRawSync } from "node:zlib";
-import { parseKmz, ringAreaM2, boundaryContains, KmzError } from "@/lib/services/kmz";
+import { parseKmz, ringAreaM2, boundaryContains, ringSelfIntersects, KmzError } from "@/lib/services/kmz";
 import type { BoundaryGeometry } from "@/lib/data/types/land-parcel";
 import { codeFromName, codeFromFileName, matchBoundaries, metresBetween } from "@/lib/services/property-boundary";
 
@@ -188,6 +188,32 @@ describe("metresBetween", () => {
     const [lat, lng] = plain.centroid;
     expect(lat).toBeCloseTo(0.0010, 6);
     expect(lng).toBeCloseTo(0.0020, 6);
+  });
+});
+
+describe("ringSelfIntersects", () => {
+  it("passes a normal convex ring", () => {
+    expect(ringSelfIntersects([[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]])).toBe(false);
+  });
+
+  it("catches a bow-tie", () => {
+    // The classic crossed quad: the shoelace formula gives this a confident, meaningless area.
+    expect(ringSelfIntersects([[0, 0], [1, 1], [1, 0], [0, 1]])).toBe(true);
+  });
+
+  it("passes a concave ring that does not cross", () => {
+    expect(ringSelfIntersects([[0, 0], [3, 0], [3, 1], [1, 1], [1, 3], [0, 3]])).toBe(false);
+  });
+
+  it("treats touching an edge as legal", () => {
+    // A vertex sitting exactly ON another edge is degenerate but not a crossing; refusing it would
+    // reject shapes the parser happily accepts.
+    expect(ringSelfIntersects([[0, 0], [2, 0], [1, 0], [1, 2]])).toBe(false);
+  });
+
+  it("skips the closing repeat", () => {
+    const closed = [[0, 0], [1, 0], [1, 1], [0, 0]];
+    expect(ringSelfIntersects(closed)).toBe(false);
   });
 });
 
