@@ -99,7 +99,9 @@ export const landParcels = pgTable("land_parcels", {
   // Land boundary as GeoJSON (Polygon | MultiPolygon) — the ring the map draws. jsonb, not
   // PostGIS: no spatial query reads it, the client renders it and parse-time computes area.
   boundary: jsonb("boundary"),
-  boundarySource: text("boundary_source"),                       // 'kmz' | 'manual'
+  boundarySource: text("boundary_source"),                       // 'kmz' | 'manual' | 'cadastre'
+  // The official parcel id the boundary was taken from (French cadastre `idu`). Provenance only.
+  cadastreRef: text("cadastre_ref"),
   elevationM: numeric("elevation_m"),
   slopeAngleDeg: numeric("slope_angle_deg"),
   terrainType: terrainTypeEnum("terrain_type"),

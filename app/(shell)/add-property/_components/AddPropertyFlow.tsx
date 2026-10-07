@@ -418,7 +418,8 @@ export function AddPropertyFlow({ drafts }: { drafts: PropertyDraftSummary[] }) 
 
       // Create the property + convert the draft's staged files into its documents (server-side,
       // reusing each storageId; draft rows are then deleted, S3 objects kept).
-      const result = await submitPropertyAction(form, draftId ?? undefined);
+      // Pass the picked cadastral parcel through: it can only be attached once the property exists.
+      const result = await submitPropertyAction(form, draftId ?? undefined, form.cadastreChoice ?? null);
       if (!result.ok) {
         if (draftId) setActive(draftId);
         setSubmitError(result.error ?? "Something went wrong. Please try again.");

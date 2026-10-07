@@ -9,6 +9,7 @@ import { RequiredMark, OptionalLabel } from "@/components/ui/required-mark";
 import { useGeocode } from "@/app/_shared/add-property/_lib/use-geocode";
 import type { GeocodeSuggestion } from "@/app/_shared/add-property/_lib/use-geocode";
 import type { FormData } from "./types";
+import type { CadastreChoice } from "@/app/(shell)/add-property/_components/LocationPickerModal";
 
 const PropertyLocationMap = dynamic(
   () => import("@/app/(shell)/add-property/_components/PropertyLocationMap").then((m) => ({ default: m.PropertyLocationMap })),
@@ -93,6 +94,13 @@ export function Step2BasicInfo({
   const mapCenter = form.mapCenter ?? DEFAULT_CENTER;
   const setMapCenter = (c: [number, number]) => setForm((prev) => ({ ...prev, mapCenter: c }));
 
+  // The cadastral parcel the user picked rides on the form (see FormData.cadastreChoice): the
+  // property does not exist yet, so submit attaches it later, and form state survives stepping back
+  // and forth where local state would not. This step only WRITES it — nothing here renders it, so
+  // there is deliberately no reader for it in this file.
+  const setCadastreChoice = (c: CadastreChoice | null) =>
+    setForm((prev) => ({ ...prev, cadastreChoice: c }));
+
   // Editing a field counts as reviewing it, so tell the parent to drop that field's scan badge.
   const update = (key: keyof FormData, val: string) => {
     onReviewScanField?.(key);
@@ -144,6 +152,8 @@ export function Step2BasicInfo({
   const handlePinMoved = (lat: number, lng: number) => {
     const c: [number, number] = [lng, lat];
     setMapCenter(c);
+    // The pin moved away from the parcel that was chosen, so keep the two from disagreeing.
+    setCadastreChoice(null);
     void applyReverseGeocode(c);
   };
 
@@ -271,7 +281,9 @@ export function Step2BasicInfo({
                 onChange={(e) => {
                   reviewAddress();
                   setSearchQuery(e.target.value);
-                  geocode.search(e.target.value);
+                  // The current pin travels with the query: it selects the provider (BAN in France,
+                  // GrabMaps elsewhere), so typing a French street finds French streets.
+                  geocode.search(e.target.value, mapCenter);
                   setShowSuggestions(true);
                 }}
                 onFocus={() => {
@@ -448,10 +460,13 @@ export function Step2BasicInfo({
         <LocationPickerModal
           center={mapCenter}
           onClose={() => setShowModal(false)}
-          onConfirm={(newCenter) => {
+          onConfirm={(newCenter, choice) => {
             // Same path as dragging the inline pin: the modal is the precise-placement surface, so its
-            // result must refresh the address too, not just the coordinate.
+            // result must refresh the address too, not just the coordinate. Set the parcel AFTER the
+            // move — handlePinMoved deliberately clears any previous choice, and re-applying here is
+            // what keeps a parcel the user just picked from being wiped by their own confirm.
             handlePinMoved(newCenter[1], newCenter[0]);
+            setCadastreChoice(choice);
             setShowModal(false);
           }}
         />

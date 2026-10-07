@@ -72,10 +72,27 @@ describe("GET /api/v1/address/suggest", () => {
     expect(body.items[0].placeId).toBe("p1");
   });
 
-  it("passes the trimmed query through to the provider", async () => {
+  it("passes the trimmed query through to the provider, with no bias when none was given", async () => {
     searchAddressMock.mockResolvedValue([]);
     await GET(req("?q=%20%20St%20215%20%20"));
-    expect(searchAddressMock).toHaveBeenCalledWith("St 215");
+    // The second argument is the optional map centre that selects the provider — absent here, so the
+    // service falls back to its default region. Passing it explicitly (undefined) keeps the route's
+    // contract visible rather than hidden in an arity difference.
+    expect(searchAddressMock).toHaveBeenCalledWith("St 215", undefined);
+  });
+
+  it("forwards lng/lat as the provider-selecting bias when the client sends them", async () => {
+    searchAddressMock.mockResolvedValue([]);
+    await GET(req("?q=rue+de+rivoli&lng=2.3376&lat=48.8606"));
+    expect(searchAddressMock).toHaveBeenCalledWith("rue de rivoli", [2.3376, 48.8606]);
+  });
+
+  it("ignores an unparseable coordinate rather than failing the search", async () => {
+    searchAddressMock.mockResolvedValue([]);
+    const res = await GET(req("?q=rue+de+rivoli&lng=abc&lat="));
+    expect(res.status).toBe(200);
+    // A missing coordinate must not 400: the search box still has to answer.
+    expect(searchAddressMock).toHaveBeenCalledWith("rue de rivoli", undefined);
   });
 
   it("fails closed with a generic 500 when the provider throws (no message leak)", async () => {

@@ -25,7 +25,13 @@ export const LandParcelSchema = z.object({
   // Measured boundary + provenance. sizeM2 above is the MEASURED area when a boundary exists
   // (properties.totalArea stays the officially-declared figure); both are shown, never merged.
   boundary: BoundaryGeometrySchema.optional(),
-  boundarySource: z.enum(["kmz", "manual"]).optional(),
+  // Where the ring came from. 'cadastre' is the French official parcel (hover-and-pick);
+  // 'kmz' is an uploaded survey file; 'manual' is drawn in-app, still unwired.
+  boundarySource: z.enum(["kmz", "manual", "cadastre"]).optional(),
+  // The cadastral parcel this boundary was taken from, e.g. '75101000AJ0002'. Provenance only —
+  // kept so a re-import can tell WHICH parcel the ring came from, which is unrecoverable from the
+  // geometry alone.
+  cadastreRef: z.string().optional(),
   elevationM: z.number().optional(),
   slopeAngleDeg: z.number().optional(),
   terrainType: TerrainTypeSchema.optional(),

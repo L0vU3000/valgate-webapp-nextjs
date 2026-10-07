@@ -1,12 +1,16 @@
 "use client";
 
+import { createPortal } from "react-dom";
 import { AlertTriangle, ChevronDown, Loader2, MapPin, X } from "lucide-react";
 import { cn } from "@/components/ui/utils";
 import { Input } from "@/components/ui/input";
 import { TYPE_LABEL } from "@/lib/property-helpers";
 import { propertyTypeChoiceSchema } from "@/lib/data/types/property";
+import { useEffect, useRef } from "react";
 import type { QuickAddPin } from "./quick-add";
 import { quickAddAddressLine } from "./quick-add";
+import type { CadastreChoice } from "./use-quick-add";
+import type { HoveredParcel } from "@/components/map/cadastre-layer";
 
 // Fields the user can set in the card. Deliberately a small subset — financials and photos belong
 // in the wizard, which already asks for them in order. Property type is here because it is the one
@@ -30,13 +34,28 @@ interface QuickAddPanelProps {
   saving: boolean;
   error: string | null;
   fields: QuickAddFields;
+  // The cadastral parcel under the cursor (null outside France). Display-only.
+  cadastreParcel?: HoveredParcel | null;
+  /** Street address of the parcel under the cursor, resolved while the pointer rests on it. Null until
+   *  that lookup lands — the cadastre itself carries no address data. */
+  cadastreHoverAddress?: {
+    key: string;
+    line: string | null;
+    loading: boolean;
+  } | null;
+  // The parcel the user committed to, if any. Once set, this is what gets attached.
+  cadastreChoice?: CadastreChoice | null;
+  /** Chooses a parcel. Called with the parcel from a map click, or with none from the card's button
+   *  (which then uses the parcel currently under the cursor). */
+  onChooseCadastre?: (parcel?: HoveredParcel) => void;
   onFieldChange: (key: keyof QuickAddFields, value: string) => void;
   onConfirm: () => void;
   onCancel: () => void;
 }
 
 // One label treatment for the whole card, so the five of them cannot drift apart.
-const LABEL = "block text-[11px] font-semibold uppercase tracking-[0.05em] text-secondary mb-1.5";
+const LABEL =
+  "block text-[11px] font-semibold uppercase tracking-[0.05em] text-secondary mb-1.5";
 
 // A native <select> cannot use the Input component (different element), so it restates Input's
 // classes. Same approach Step2BasicInfo takes for the wizard's province control.
@@ -61,12 +80,37 @@ export function QuickAddPanel({
   saving,
   error,
   fields,
+  cadastreParcel,
+  cadastreHoverAddress,
+  cadastreChoice,
+  onChooseCadastre,
   onFieldChange,
   onConfirm,
   onCancel,
 }: QuickAddPanelProps) {
   const address = quickAddAddressLine(pin);
   const coords = `${pin.center[1].toFixed(5)}, ${pin.center[0].toFixed(5)}`;
+
+  // The read-out follows the cursor, so its position is written IMPERATIVELY rather than through
+  // React state: a mousemove fires ~60x/second, and re-rendering this subtree that often would land
+  // on the map's own frame loop (the camera included). The element moves; React does not re-render.
+  //
+  // The listener is on `window`, not on the card: the card is a SIBLING of the map, so pointer events
+  // over the canvas never reach it. `window` sees every pointer move wherever it is.
+  const labelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!cadastreParcel) return;
+    const onMove = (e: MouseEvent) => {
+      const el = labelRef.current;
+      if (!el) return;
+      el.style.left = `${e.clientX}px`;
+      el.style.top = `${e.clientY - 14}px`;
+    };
+    window.addEventListener("mousemove", onMove);
+    return () => window.removeEventListener("mousemove", onMove);
+  }, [cadastreParcel]);
+
+  const areaM2 = cadastreChoice?.areaM2 ?? cadastreParcel?.contenanceM2 ?? null;
 
   return (
     <div
@@ -80,7 +124,79 @@ export function QuickAddPanel({
         "[animation:slide-in-up_0.3s_cubic-bezier(0.16,1,0.3,1)_both] sm:[animation:slide-in-right_0.3s_cubic-bezier(0.16,1,0.3,1)_both]",
       )}
     >
-      <div className="flex shrink-0 justify-center pt-2 pb-1 sm:hidden" aria-hidden="true">
+      {/* Hover read-out. Anchored to the pointer while a parcel is under it, so the answer to "what
+          is under my cursor" appears where the cursor is — the card below then carries only the
+          SELECTION. Colour is never the only signal: the dot, the parcel number and the area all
+          name it, and the label is aria-hidden because the same parcel is announced by the card. */}
+      {cadastreParcel &&
+        // PORTALLED to <body>, and shown whenever a parcel is under the cursor — including before
+        // anything is chosen, which is the state the user asked for. `position: fixed` alone is not
+        // enough: this card has a transform and a backdrop-filter, either of which becomes the
+        // containing block for a fixed descendant, so nested here the label was positioned against the
+        // CARD and then cut off by its overflow-hidden. The portal removes every ancestor from that
+        // chain, exactly as LocationPickerModal does for itself.
+        createPortal(
+          <div
+            ref={labelRef}
+            aria-hidden="true"
+            // Seeded from the hover event's own cursor position, then kept in step by the mousemove
+            // listener. Without the seed the label mounts AFTER the move that revealed it and sits at
+            // 0,0 until the pointer's next pixel — a visible jump to the corner.
+            style={{
+              left: cadastreParcel.client.x,
+              top: cadastreParcel.client.y - 14,
+            }}
+            // `left/top` are written by the mousemove listener; -50% keeps it centred on the cursor and
+            // -translate-y-full lifts it above the pointer so it never covers what is being read.
+            className="pointer-events-none fixed left-0 top-0 z-[60] -translate-x-1/2 -translate-y-full rounded-md border border-border-subtle bg-surface-base/95 px-2 py-1 shadow-md backdrop-blur-sm"
+          >
+            <div className="flex items-center gap-1.5 whitespace-nowrap">
+              {/* Decorative: green matches the chosen/parcel green, and the parcel number beside it
+                  carries the meaning, so colour is never the only signal. */}
+              <span className="size-1.5 shrink-0 rounded-full bg-[color:var(--status-success)]" />
+              <span className="text-[11px] font-semibold tabular-nums text-foreground">
+                {[
+                  cadastreParcel.section && `Section ${cadastreParcel.section}`,
+                  cadastreParcel.numero && `n° ${cadastreParcel.numero}`,
+                ]
+                  .filter(Boolean)
+                  .join(" ") || "Cadastral parcel"}
+              </span>
+              {cadastreParcel.contenanceM2 != null && (
+                <span className="text-[11px] tabular-nums text-secondary">
+                  {Math.round(cadastreParcel.contenanceM2).toLocaleString()} m²
+                </span>
+              )}
+            </div>
+            {/* The street address of the parcel UNDER THE CURSOR — the question the label exists to
+                answer. The cadastre carries no address data (parcels only), so this is a reverse lookup
+                of the cursor's own point, debounced while the pointer rests. Until it lands the row
+                shows a spinner rather than the pin's address, which would name a different place and
+                read as a wrong answer. */}
+            {cadastreHoverAddress?.key === cadastreParcel.idu &&
+              (cadastreHoverAddress.loading ? (
+                <p className="mt-0.5 flex items-center gap-1 text-[10px] text-secondary">
+                  <Loader2
+                    className="size-3 shrink-0 animate-spin"
+                    aria-hidden="true"
+                  />
+                  Finding address…
+                </p>
+              ) : (
+                cadastreHoverAddress.line && (
+                  <p className="mt-0.5 max-w-[220px] truncate text-[10px] text-secondary">
+                    {cadastreHoverAddress.line}
+                  </p>
+                )
+              ))}
+          </div>,
+          document.body,
+        )}
+
+      <div
+        className="flex shrink-0 justify-center pt-2 pb-1 sm:hidden"
+        aria-hidden="true"
+      >
         <div className="h-1 w-9 rounded-full bg-white/60" />
       </div>
 
@@ -109,7 +225,11 @@ export function QuickAddPanel({
         {resolving ? (
           // Skeleton at the address's own line height, so resolving a new coordinate does not
           // collapse the card and shove the fields up under the user's finger.
-          <div role="status" aria-busy="true" className="flex items-center gap-2">
+          <div
+            role="status"
+            aria-busy="true"
+            className="flex items-center gap-2"
+          >
             <Loader2 className="size-4 shrink-0 animate-spin text-interactive-primary" />
             <span className="h-5 w-3/5 animate-pulse rounded bg-surface-sunken" />
             <span className="sr-only">Finding the address…</span>
@@ -117,7 +237,9 @@ export function QuickAddPanel({
         ) : address ? (
           <div className="flex items-start gap-2">
             <MapPin className="size-4 text-interactive-primary shrink-0 mt-0.5" />
-            <span className="text-[15px] font-semibold leading-snug text-foreground">{address}</span>
+            <span className="text-[15px] font-semibold leading-snug text-foreground">
+              {address}
+            </span>
           </div>
         ) : (
           // A 200 with no item is a valid "nothing here" (water, farmland), not an error and not a
@@ -129,7 +251,58 @@ export function QuickAddPanel({
             </p>
           </div>
         )}
-        <p className="mt-1.5 text-[11px] tabular-nums text-text-disabled">{coords}</p>
+        <p className="mt-1.5 text-[11px] tabular-nums text-text-disabled">
+          {coords}
+        </p>
+
+        {/* Not yet chosen, but a parcel is under the cursor. The ACTION lives here rather than in the
+            floating read-out: a moving target is hard to hit, and the read-out is pointer-events-none
+            so it can never swallow the click. The read-out names what the cursor found; this commits
+            to it. */}
+        {!cadastreChoice && cadastreParcel?.idu && (
+          <div className="mt-3 flex items-center gap-2 rounded-lg border border-border-subtle bg-surface-base/60 p-2">
+            <span className="min-w-0 flex-1 text-[12px] font-medium text-secondary">
+              Use the parcel under your cursor?
+            </span>
+            <button
+              type="button"
+              onClick={() => onChooseCadastre?.()}
+              className="shrink-0 rounded-md bg-interactive-primary px-3 py-1.5 text-[12px] font-semibold text-white transition-opacity hover:opacity-90"
+            >
+              Use this parcel
+            </button>
+          </div>
+        )}
+
+        {/* The chosen parcel. This card owns the SELECTION only — the hovered parcel is named by the
+            read-out at the cursor, so the two never compete for the same reading. Read-only until the
+            button: hovering a parcel must never attach land on its own. */}
+        {cadastreChoice && (
+          <div className="mt-3 rounded-lg border border-[color:var(--status-success-border)] bg-[color:var(--status-success-bg)] p-2.5">
+            <div className="flex items-center gap-1.5">
+              <span className="size-2 shrink-0 rounded-full bg-[color:var(--status-success-text)]" />
+              <span className="text-[13px] font-semibold text-[color:var(--status-success-text)]">
+                {`Parcel ${cadastreChoice.label}`}
+              </span>
+            </div>
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+              {areaM2 != null && (
+                // The area pill uses the success TOKEN SET (bg + border + text), not white-on-accent.
+                // In dark mode --status-success is #10B981, where white text fails contrast; the set
+                // is designed to work in both modes, so it is the only safe pairing.
+                <span className="rounded-full border border-[color:var(--status-success-border)] bg-[color:var(--status-success-bg)] px-2 py-[1px] text-[11px] font-semibold tabular-nums text-[color:var(--status-success-text)]">
+                  {Math.round(areaM2).toLocaleString()} m²
+                </span>
+              )}
+              <span className="rounded-full border border-[color:var(--status-success-border)] px-2 py-[1px] text-[11px] text-[color:var(--status-success-text)]">
+                Cadastre
+              </span>
+            </div>
+            <p className="mt-2 text-[11px] font-medium text-[color:var(--status-success-text)]">
+              Selected — confirm the location below to save this parcel.
+            </p>
+          </div>
+        )}
 
         {!resolving && (
           <>
@@ -143,8 +316,13 @@ export function QuickAddPanel({
                   <select
                     id="quick-add-type"
                     value={fields.propertyType}
-                    onChange={(e) => onFieldChange("propertyType", e.target.value)}
-                    className={cn(SELECT, !fields.propertyType && "text-muted-foreground")}
+                    onChange={(e) =>
+                      onFieldChange("propertyType", e.target.value)
+                    }
+                    className={cn(
+                      SELECT,
+                      !fields.propertyType && "text-muted-foreground",
+                    )}
                   >
                     <option value="" disabled>
                       Select a type
@@ -203,7 +381,10 @@ export function QuickAddPanel({
       {error && (
         // The Confirm button below stays enabled, so it is the retry — the message does not need a
         // second one of its own.
-        <p role="alert" className="flex items-start gap-1.5 px-4 pt-2 shrink-0 text-[13px] text-destructive">
+        <p
+          role="alert"
+          className="flex items-start gap-1.5 px-4 pt-2 shrink-0 text-[13px] text-destructive"
+        >
           <AlertTriangle className="size-3.5 shrink-0 mt-0.5" />
           {error}
         </p>

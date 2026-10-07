@@ -18,6 +18,42 @@ import type { Map as MapboxMap } from "mapbox-gl";
 
 export type AnyMap = MapLibreMap | MapboxMap;
 
+/**
+ * The feature shape both libraries hand back from `queryRenderedFeatures`. Named `mapboxgl.` on one
+ * side and `MapGeoJSONFeature` on the other, but structurally identical for the fields this app reads
+ * (properties, layer, source, id), so a local alias avoids importing either library by name.
+ */
+export type AnyGeoJSONFeature = {
+  properties?: Record<string, unknown> | null;
+  layer?: { id?: string };
+  source?: string;
+  id?: string | number;
+};
+
+/**
+ * The pointer event both libraries fire on their layers. Mapbox's carries `features` and
+ * `point`, MapLibre's the same; only the wrapper type name differs.
+ */
+export type AnyMapLayerMouseEvent = {
+  features?: AnyGeoJSONFeature[];
+  point?: { x: number; y: number };
+  lngLat: { lng: number; lat: number };
+  originalEvent?: { clientX: number; clientY: number };
+};
+
+/**
+ * The event surface both libraries expose. `AnyMap` cannot express it because `on`/`off` are
+ * overloaded, and TypeScript will not merge overloads across a union — the call is uncallable even
+ * though both renderers accept it at runtime. Modules that need to subscribe cast to this at the
+ * call site rather than widening their whole interface to `any`.
+ */
+export type MapEventTarget = {
+  // Loose on purpose: the same method serves map-level `(event, handler)` and layer-level
+  // `(event, layerId, handler)` calls, and each library types those as different overloads.
+  on: (event: string, layerOrHandler: unknown, handler?: unknown) => unknown;
+  off: (event: string, layerOrHandler: unknown, handler?: unknown) => unknown;
+};
+
 /** The marker surface both libraries implement identically at runtime. */
 export interface AnyMarker {
   remove: () => unknown;

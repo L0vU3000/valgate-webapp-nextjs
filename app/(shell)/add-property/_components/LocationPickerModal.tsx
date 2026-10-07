@@ -4,18 +4,45 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
-import { X, Search, MapPin, Plus, Minus, Map as MapIcon, Loader2 } from "lucide-react";
+import {
+  X,
+  Search,
+  MapPin,
+  Plus,
+  Minus,
+  Map as MapIcon,
+  Loader2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui/utils";
 import { env } from "@/lib/env";
 import { useGeocode } from "@/app/_shared/add-property/_lib/use-geocode";
+import {
+  syncCadastreLayer,
+  type HoveredParcel,
+} from "@/components/map/cadastre-layer";
 
 const DEFAULT_ZOOM = 13;
+
+/** What the user picked from the cadastre, waiting to be attached once the property exists. */
+export type CadastreChoice = {
+  /** Official parcel id (`idu`). */
+  ref: string;
+  /** Where the pin was when the user pressed "Use this parcel". */
+  point: [number, number];
+  /** Human label for the card once the cursor has left the parcel ("AJ 0002"). Display only. */
+  label: string;
+};
 
 interface LocationPickerModalProps {
   center: [number, number];
   onClose: () => void;
-  onConfirm: (center: [number, number]) => void;
+  /**
+   * `choice` is the cadastral parcel the user picked, if any. It rides along with the confirm
+   * rather than arriving separately, so the caller can tell "the pin moved by hand" (no parcel)
+   * from "the user picked this parcel and then confirmed it".
+   */
+  onConfirm: (center: [number, number], choice: CadastreChoice | null) => void;
 }
 
 export function LocationPickerModal({
@@ -26,11 +53,16 @@ export function LocationPickerModal({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markerRef = useRef<mapboxgl.Marker | null>(null);
+  // Teardown for the cadastre layer's hover listeners, so unmounting detaches them.
+  const detachCadastreRef = useRef<(() => void) | null>(null);
   const [coords, setCoords] = useState<[number, number]>(center);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [visible, setVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
+  // The parcel under the cursor, and the one the user committed to. Both null outside France.
+  const [hovered, setHovered] = useState<HoveredParcel | null>(null);
+  const [chosen, setChosen] = useState<CadastreChoice | null>(null);
   const geocode = useGeocode();
 
   useEffect(() => {
@@ -62,7 +94,10 @@ export function LocationPickerModal({
         attributionControl: false,
       });
 
-      map.addControl(new mapboxgl.AttributionControl({ compact: true }), "bottom-left");
+      map.addControl(
+        new mapboxgl.AttributionControl({ compact: true }),
+        "bottom-left",
+      );
       mapRef.current = map;
 
       map.on("style.load", () => map.resize());
@@ -76,7 +111,8 @@ export function LocationPickerModal({
         // stable explicit dimensions: 48px circle + 11px triangle tip = 59px.
         // anchor:"bottom" places y=59 (the triangle tip) at the coordinate.
         const el = document.createElement("div");
-        el.style.cssText = "position:relative;width:48px;height:59px;cursor:grab;";
+        el.style.cssText =
+          "position:relative;width:48px;height:59px;cursor:grab;";
 
         const circle = document.createElement("div");
         circle.style.cssText =
@@ -107,10 +143,18 @@ export function LocationPickerModal({
         el.appendChild(circle);
         el.appendChild(shadow);
         el.appendChild(point);
-        el.addEventListener("mouseenter", () => { circle.style.transform = "scale(1.1)"; });
-        el.addEventListener("mouseleave", () => { circle.style.transform = "scale(1)"; });
+        el.addEventListener("mouseenter", () => {
+          circle.style.transform = "scale(1.1)";
+        });
+        el.addEventListener("mouseleave", () => {
+          circle.style.transform = "scale(1)";
+        });
 
-        const marker = new mapboxgl.Marker({ element: el, anchor: "bottom", draggable: true })
+        const marker = new mapboxgl.Marker({
+          element: el,
+          anchor: "bottom",
+          draggable: true,
+        })
           .setLngLat(center)
           .addTo(map);
 
@@ -121,11 +165,21 @@ export function LocationPickerModal({
 
         markerRef.current = marker;
       });
+
+      // French cadastre: parcels draw under the pin so the user can see which plot they are
+      // pointing at, and hovering names it. The helper re-checks on every map move (this modal
+      // opens on the property's existing pin, which for today's data is in Cambodia), and shares
+      // that rule with the map's quick-add card so the two cannot drift.
+      detachCadastreRef.current = syncCadastreLayer(map, (parcel) => {
+        if (!destroyed) setHovered(parcel);
+      });
     }, 50);
 
     return () => {
       destroyed = true;
       clearTimeout(timerId);
+      detachCadastreRef.current?.();
+      detachCadastreRef.current = null;
       markerRef.current = null;
       mapRef.current?.remove();
       mapRef.current = null;
@@ -135,14 +189,18 @@ export function LocationPickerModal({
 
   // Close on Escape
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") handleClose(); };
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") handleClose();
+    };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function handleZoom(dir: "in" | "out") {
-    mapRef.current?.easeTo({ zoom: (mapRef.current.getZoom()) + (dir === "in" ? 1 : -1) });
+    mapRef.current?.easeTo({
+      zoom: mapRef.current.getZoom() + (dir === "in" ? 1 : -1),
+    });
   }
 
   function formatCoords(lngLat: [number, number]) {
@@ -157,8 +215,13 @@ export function LocationPickerModal({
   return createPortal(
     <div
       className="fixed inset-0 z-[200] flex sm:items-center sm:justify-center bg-black/40 sm:backdrop-blur-sm transition-opacity duration-[250ms] ease-out"
-      style={{ opacity: visible ? 1 : 0, pointerEvents: visible ? "auto" : "none" }}
-      onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}
+      style={{
+        opacity: visible ? 1 : 0,
+        pointerEvents: visible ? "auto" : "none",
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) handleClose();
+      }}
     >
       <div
         className={cn(
@@ -167,7 +230,9 @@ export function LocationPickerModal({
         )}
         style={{
           opacity: visible ? 1 : 0,
-          transform: visible ? "scale(1) translateY(0)" : "scale(0.96) translateY(12px)",
+          transform: visible
+            ? "scale(1) translateY(0)"
+            : "scale(0.96) translateY(12px)",
         }}
       >
         {/* Header — floats over the map on phone, a bordered row on sm+ */}
@@ -187,7 +252,9 @@ export function LocationPickerModal({
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
-                geocode.search(e.target.value);
+                // The map centre travels with the query: it selects the provider (BAN in France,
+                // GrabMaps elsewhere), so typing a French street finds French streets.
+                geocode.search(e.target.value, coords);
                 setShowSuggestions(true);
               }}
               onFocus={() => {
@@ -238,7 +305,11 @@ export function LocationPickerModal({
                     onMouseDown={(e) => {
                       e.preventDefault();
                       const [lng, lat] = s.center;
-                      mapRef.current?.flyTo({ center: s.center, zoom: DEFAULT_ZOOM, duration: 800 });
+                      mapRef.current?.flyTo({
+                        center: s.center,
+                        zoom: DEFAULT_ZOOM,
+                        duration: 800,
+                      });
                       markerRef.current?.setLngLat(s.center);
                       setCoords([lng, lat]);
                       setSearchQuery(s.placeName);
@@ -292,7 +363,9 @@ export function LocationPickerModal({
           >
             <div className="flex items-center gap-2">
               <MapIcon className="size-5 text-primary animate-pulse" />
-              <span className="text-[13px] font-medium text-muted-foreground">Loading map…</span>
+              <span className="text-[13px] font-medium text-muted-foreground">
+                Loading map…
+              </span>
             </div>
             <div className="w-32 h-1 rounded-full bg-muted overflow-hidden">
               <div className="h-full bg-primary rounded-full animate-[loading-bar_1.5s_ease-in-out_infinite]" />
@@ -333,11 +406,82 @@ export function LocationPickerModal({
             </span>
           </div>
 
-          <Button variant="ghost" onClick={handleClose} className="hidden sm:inline-flex">
+          {/* Cadastre parcel card — the answer to "is this the right plot?". Hover fills it on
+              desktop; on touch the pin's own parcel is looked up as the map settles, so the card is
+              reachable without a hover. Rendered in React (not a Mapbox popup) so it inherits our
+              typography and dark mode. Read-only until the user presses the button. */}
+          {(hovered || chosen) && (
+            <div className="absolute z-10 left-3 sm:left-6 bottom-[168px] sm:bottom-[176px] w-[208px] max-w-[52%] rounded-2xl border border-border bg-white/95 backdrop-blur-sm shadow-lg p-3">
+              <div className="flex items-center gap-2">
+                <MapPin className="size-3.5 text-[#2563eb] shrink-0" />
+                <span className="text-[13px] font-semibold text-foreground truncate">
+                  {chosen
+                    ? `Parcel ${chosen.label}`
+                    : hovered?.section && hovered.numero
+                      ? `Parcel ${hovered.section} ${hovered.numero}`
+                      : "Cadastral parcel"}
+                </span>
+              </div>
+              {hovered?.commune && (
+                <p className="mt-0.5 text-[11px] text-secondary truncate">
+                  {[
+                    hovered.section && `Section ${hovered.section}`,
+                    hovered.numero && `n° ${hovered.numero}`,
+                    hovered.commune,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              )}
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                {(hovered?.contenanceM2 ?? 0) > 0 && (
+                  <span className="rounded-full bg-[#2563eb] px-2 py-[1px] text-[11px] font-medium text-white">
+                    {Math.round(hovered!.contenanceM2!).toLocaleString()} m²
+                  </span>
+                )}
+                <span className="rounded-full border border-border bg-[#eef4ff] px-2 py-[1px] text-[11px] text-secondary">
+                  Cadastre
+                </span>
+              </div>
+              {chosen ? (
+                <p className="mt-2 text-[11px] text-emerald-600">
+                  Parcel will be attached to this property.
+                </p>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!hovered?.idu) return;
+                    setChosen({
+                      ref: hovered.idu,
+                      point: coords,
+                      label:
+                        [hovered.section, hovered.numero]
+                          .filter(Boolean)
+                          .join(" ") || hovered.idu,
+                    });
+                  }}
+                  disabled={!hovered?.idu}
+                  className="mt-2 w-full rounded-lg bg-[#2563eb] px-3 py-1.5 text-[12px] font-medium text-white hover:opacity-90 transition-opacity disabled:opacity-50"
+                >
+                  Use this parcel
+                </button>
+              )}
+            </div>
+          )}
+
+          <Button
+            variant="ghost"
+            onClick={handleClose}
+            className="hidden sm:inline-flex"
+          >
             Cancel
           </Button>
           <Button
-            onClick={() => { onConfirm(coords); handleClose(); }}
+            onClick={() => {
+              onConfirm(coords, chosen);
+              handleClose();
+            }}
             className="w-full h-12 rounded-full text-[15px] sm:w-auto sm:h-10 sm:rounded-md sm:text-sm"
           >
             Confirm location
@@ -351,6 +495,6 @@ export function LocationPickerModal({
         </div>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }
