@@ -2,6 +2,7 @@ import "server-only";
 import { resolveRouteCtx } from "@/lib/auth/ctx";
 import { listProperties } from "@/lib/services/properties";
 import { previewBoundary, matchBoundaries } from "@/lib/services/property-boundary";
+import { parseKmz, KmzError } from "@/lib/services/kmz";
 import { actionLimiter, allowed } from "@/lib/ratelimit";
 import { log } from "@/lib/log";
 
@@ -46,8 +47,29 @@ export async function POST(req: Request) {
       const file = byName.get(match.file);
       if (!file) continue;
       const base = { file: match.file, code: match.code, propertyId: match.propertyId, reason: match.reason };
-      if (!match.propertyId || !file.name.toLowerCase().endsWith(".kmz")) {
-        rows.push({ ...base, status: "unmatched" as const, error: match.propertyId ? "Not a KMZ file" : "No matching property" });
+
+      // Parse BEFORE reporting a match failure. These are two independent facts about a file, and
+      // short-circuiting on "no matching property" hid a real one: a `.kmz` that is not a readable
+      // archive at all was reported as a name-matching problem, sending the user to look for a
+      // property that was never the issue. An unreadable file is broken whatever it is called.
+      const isKmz = file.name.toLowerCase().endsWith(".kmz");
+      if (!isKmz) {
+        rows.push({ ...base, status: "unmatched" as const, error: "Not a KMZ file" });
+        continue;
+      }
+      // With no property to preview against, still prove the archive reads; report only what we
+      // learned without also claiming a match succeeded.
+      if (!match.propertyId) {
+        try {
+          parseKmz(Buffer.from(await file.arrayBuffer()));
+          rows.push({ ...base, status: "unmatched" as const, error: "No matching property" });
+        } catch (err) {
+          rows.push({
+            ...base,
+            status: "error" as const,
+            error: err instanceof KmzError ? err.message : "That file could not be read.",
+          });
+        }
         continue;
       }
       const preview = await previewBoundary(ctx, match.propertyId, Buffer.from(await file.arrayBuffer()));
