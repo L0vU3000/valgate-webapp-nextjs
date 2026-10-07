@@ -58,7 +58,10 @@ export function PropertyBoundaryCard({
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [rows, setRows] = useState<Row[] | null>(null);
-  const [busy, setBusy] = useState(false);
+  // Which request is in flight. Two values, not a boolean, so the drop zone can say which step is
+  // running — "Reading…" while /commit runs would be a lie.
+  const [phase, setPhase] = useState<"reading" | "attaching" | null>(null);
+  const busy = phase != null;
   const [dragging, setDragging] = useState(false);
   // The files themselves, kept so /commit can re-send the same bytes it previewed — no
   // server-side staging, no upload token to expire.
@@ -70,7 +73,8 @@ export function PropertyBoundaryCard({
   const ready = (rows ?? []).filter((r) => r.status === "ready");
 
   async function handleFiles(list: FileList | null) {
-    if (!list?.length) return;
+    // The picker is disabled while a request runs; a drop must not start a second one either.
+    if (!list?.length || busy) return;
     const files = [...list];
     const notKmz = files.filter((f) => !f.name.toLowerCase().endsWith(".kmz"));
     if (notKmz.length) {
@@ -84,7 +88,7 @@ export function PropertyBoundaryCard({
     if (!kmz.length) return;
 
     filesRef.current = kmz;
-    setBusy(true);
+    setPhase("reading");
     try {
       const body = new FormData();
       for (const f of kmz) body.append("files", f);
@@ -106,14 +110,14 @@ export function PropertyBoundaryCard({
     } catch {
       toast.error("Could not read those files.");
     } finally {
-      setBusy(false);
+      setPhase(null);
     }
   }
 
   async function commit() {
     const items = ready.filter((r) => r.propertyId);
     if (!items.length) return;
-    setBusy(true);
+    setPhase("attaching");
     try {
       const body = new FormData();
       for (const f of filesRef.current) body.append("files", f);
@@ -137,7 +141,7 @@ export function PropertyBoundaryCard({
     } catch {
       toast.error("Could not attach those boundaries.");
     } finally {
-      setBusy(false);
+      setPhase(null);
     }
   }
 
@@ -189,11 +193,15 @@ export function PropertyBoundaryCard({
         onDrop={(e) => { e.preventDefault(); setDragging(false); void handleFiles(e.dataTransfer.files); }}
         className={cn(
           "mt-4 flex items-center justify-center gap-2 rounded-lg border border-dashed px-4 py-6 text-[13px] transition-colors",
-          dragging ? "border-[var(--val-primary-dark)] bg-blue-50/50" : "border-slate-200 text-slate-400",
+          dragging && !busy ? "border-[var(--val-primary-dark)] bg-blue-50/50" : "border-slate-200 text-slate-400",
         )}
       >
         {busy ? <Loader2 className="size-4 animate-spin" /> : <UploadCloud className="size-4" />}
-        {busy ? "Reading…" : "Drop KMZ files here"}
+        {phase === "reading"
+          ? "Reading…"
+          : phase === "attaching"
+            ? "Attaching…"
+            : "Drop .kmz files to preview them — nothing is saved until you attach"}
       </div>
 
       {/* Area: two numbers, never merged. The declared figure is what the official document says;
@@ -258,7 +266,8 @@ export function PropertyBoundaryCard({
                     ) : !r.pinMoved ? (
                       <span className="text-slate-400">unchanged</span>
                     ) : (
-                      <label className="inline-flex cursor-pointer items-center gap-1.5">
+                      // -my-1 py-1 grows the hit area to ~24px without moving the row.
+                      <label className="-my-1 inline-flex cursor-pointer items-center gap-1.5 py-1">
                         <input
                           type="checkbox"
                           checked={movePin[r.file] ?? true}
@@ -315,7 +324,7 @@ export function PropertyBoundaryCard({
               disabled={busy || !ready.length}
               className="rounded-lg bg-[var(--val-primary-dark)] px-4 py-1.5 text-[12px] font-semibold text-white transition-colors hover:opacity-90 disabled:opacity-50"
             >
-              {busy ? "Attaching…" : `Attach ${ready.length} boundar${ready.length === 1 ? "y" : "ies"}`}
+              {phase === "attaching" ? "Attaching…" : `Attach ${ready.length} boundar${ready.length === 1 ? "y" : "ies"}`}
             </button>
             <button
               type="button"

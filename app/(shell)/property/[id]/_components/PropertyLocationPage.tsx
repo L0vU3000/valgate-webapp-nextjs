@@ -85,7 +85,7 @@ function ToolButton({
       disabled={disabled}
       title={title}
       aria-label={title}
-      className="flex size-7 items-center justify-center rounded-full text-foreground transition-colors hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent"
+      className="flex size-8 items-center justify-center rounded-full text-foreground transition-colors hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent"
     >
       {children}
     </button>
@@ -290,6 +290,9 @@ function LocationContent({
       setDrawPoints([]);
       setDrawing(false);
       router.refresh();
+    } catch {
+      // Network failure: the ring is still in the editor, so say so and let the user retry.
+      toast.error("Could not save that boundary.");
     } finally {
       setDrawBusy(false);
     }
@@ -376,6 +379,8 @@ function LocationContent({
       toast.success("Boundary cleared.");
       closeTool();
       router.refresh();
+    } catch {
+      toast.error("Could not clear that boundary.");
     } finally {
       setDrawBusy(false);
     }
@@ -580,22 +585,26 @@ function LocationContent({
 
           {/* Vector-editor toolbar. Bottom-centre, like every vector tool, because that is where the
               hand already is and it stays clear of the corners the user is dragging. The entry
-              button stays top-left with the other map chrome; once editing, the bar takes over. */}
+              button stays top-left with the other map chrome; once editing, the bar takes over.
+              The open bar is ~500px wide, wider than a phone's map: it wraps inside the map instead
+              of being clipped by it, which used to cut Save off. The shadow stays — this floats on
+              satellite imagery, where a 1px border alone disappears, and it matches the other map
+              chrome (area badge, Expand). */}
           {drawMap && !mapExpanded && (
             <div
               data-no-drag
               className={cn(
-                "absolute z-20 flex items-center rounded-full border border-border/60 bg-background/90 shadow-sm backdrop-blur-md",
+                "absolute z-20 flex items-center border border-border/60 bg-background/90 shadow-sm backdrop-blur-md",
                 drawing
-                  ? "bottom-4 left-1/2 -translate-x-1/2 gap-1.5 px-2 py-1.5"
-                  : "left-3 top-14 px-2 py-1.5",
+                  ? "bottom-4 left-1/2 w-max max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-wrap justify-center gap-1.5 rounded-2xl px-2 py-1.5"
+                  : "left-3 top-14 rounded-full px-2 py-1.5",
               )}
             >
               {!drawing ? (
                 <button
                   type="button"
                   onClick={openTool}
-                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-semibold text-foreground transition-colors hover:bg-slate-100"
+                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-semibold text-foreground transition-colors hover:bg-slate-100"
                 >
                   {storedRing.length >= 3 ? <Spline className="size-3" /> : <PencilLine className="size-3" />}
                   {/* The label states what the tool will do to THIS property: with a ring on file it
@@ -605,12 +614,15 @@ function LocationContent({
                 </button>
               ) : (
                 <>
+                  {/* The count doubles as the instruction: an empty ring says how to start, and a
+                      short one says how many more corners Save is waiting for, so a disabled Save
+                      is never unexplained. */}
                   <span className="px-2 text-[12px] tabular-nums text-muted-foreground">
-                    {drawMode === "edit"
-                      ? `${drawPoints.length} corners`
+                    {drawPoints.length === 0
+                      ? "Click the map to add corners"
                       : drawPoints.length < 3
-                        ? `${drawPoints.length} point${drawPoints.length === 1 ? "" : "s"}`
-                        : `${drawPoints.length} points`}
+                        ? `${drawPoints.length} of 3 corners`
+                        : `${drawPoints.length} corners`}
                   </span>
                   <span className="h-4 w-px bg-border" />
                   <ToolButton onClick={undo} disabled={!undoStack.length} title="Undo">
@@ -619,8 +631,10 @@ function LocationContent({
                   <ToolButton onClick={redo} disabled={!redoStack.length} title="Redo">
                     <Redo2 className="size-3.5" />
                   </ToolButton>
+                  {/* Clearing drops back to draw mode: edit mode only inserts on an existing edge,
+                      so an empty ring left in edit mode ignored every click. */}
                   <ToolButton
-                    onClick={() => editPoints([])}
+                    onClick={() => { editPoints([]); setDrawMode("draw"); }}
                     disabled={!drawPoints.length}
                     title={drawMode === "edit" ? "Remove every corner" : "Clear"}
                   >
@@ -632,7 +646,7 @@ function LocationContent({
                       type="button"
                       onClick={() => void clearBoundaryOnServer()}
                       disabled={drawBusy}
-                      className="rounded-full px-2.5 py-1 text-[12px] font-semibold text-red-600 transition-colors hover:bg-red-50 disabled:opacity-40"
+                      className="rounded-full px-2.5 py-1.5 text-[12px] font-semibold text-red-600 transition-colors hover:bg-red-50 disabled:opacity-40"
                     >
                       Remove boundary
                     </button>
@@ -640,7 +654,7 @@ function LocationContent({
                   <button
                     type="button"
                     onClick={closeTool}
-                    className="rounded-full px-2.5 py-1 text-[12px] font-semibold text-foreground transition-colors hover:bg-slate-100"
+                    className="rounded-full px-2.5 py-1.5 text-[12px] font-semibold text-foreground transition-colors hover:bg-slate-100"
                   >
                     Cancel
                   </button>
@@ -648,7 +662,7 @@ function LocationContent({
                     type="button"
                     onClick={() => void saveDrawnBoundary()}
                     disabled={drawPoints.length < 3 || drawBusy}
-                    className="rounded-full bg-[var(--val-primary-dark)] px-3 py-1 text-[12px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+                    className="rounded-full bg-[var(--val-primary-dark)] px-3 py-1.5 text-[12px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
                   >
                     {drawBusy ? "Saving…" : drawMode === "edit" ? "Save changes" : "Save boundary"}
                   </button>
@@ -733,8 +747,7 @@ function LocationContent({
 
           {on === 0 ? (
             <p className="mt-3 text-[13px] text-slate-500">
-              No parcel record yet. Drop the KMZ for this property to draw its exact land
-              dimensions on the map.
+              No parcel record yet. Attach a KMZ below, or draw the boundary on the map.
             </p>
           ) : (
             <div className="mt-4 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
