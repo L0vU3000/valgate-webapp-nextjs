@@ -311,7 +311,14 @@ function getClient(): GeoPlacesClient {
 }
 
 const GEO_REGION = "ap-southeast-1";
-const MAX_RESULTS = 5;
+// Provider page size AND the cap on the merged list — it is passed straight through as BAN's `limit`
+// and GrabMaps' `MaxResults`, so raising it costs a bigger request per provider, not just more UI
+// rows. 5 was too tight to be useful: the bias only re-orders results, so at the home map's default
+// country view (104.9, 12.5 — ~100 km north of Phnom Penh) a real target fell off the end. "J Tower 2
+// BKK1" lands at rank 6 at that bias (measured 2026-10-07), i.e. invisible at 5 and visible at 8.
+// ponytail: still an arbitrary cutoff — rank 9+ remains hidden until search ranks better than a
+// distance bias; 8 covers the observed miss without an API-contract change.
+const MAX_RESULTS = 8;
 
 // Phnom Penh city centre. Used as the bias when the caller has no map centre yet, so results are
 // ordered around the capital instead of the whole planet. Callers that already know where the user
