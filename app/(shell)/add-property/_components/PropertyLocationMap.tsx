@@ -34,64 +34,73 @@ export function PropertyLocationMap({
 
   // Init map once
   useEffect(() => {
-    if (!containerRef.current || mapRef.current) return;
+    // StrictMode discards its first mount immediately. Do not start Mapbox's async style/sprite
+    // work for that mount: remove() cannot cancel every callback once the load has started.
+    let dispose: (() => void) | undefined;
+    const timer = setTimeout(() => {
+      if (!containerRef.current || mapRef.current) return;
 
-    mapboxgl.accessToken = env.NEXT_PUBLIC_MAPBOX_TOKEN;
+      mapboxgl.accessToken = env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
-    let map: mapboxgl.Map;
-    try {
-      map = new mapboxgl.Map({
-        container: containerRef.current,
-        style: "mapbox://styles/mapbox/light-v11",
-        center,
-        zoom: DEFAULT_ZOOM,
-        attributionControl: false,
+      let map: mapboxgl.Map;
+      try {
+        map = new mapboxgl.Map({
+          container: containerRef.current,
+          style: "mapbox://styles/mapbox/light-v11",
+          center,
+          zoom: DEFAULT_ZOOM,
+          attributionControl: false,
+        });
+      } catch (err) {
+        logger.error("PropertyLocationMap: map init failed", { err });
+        setMapFailed(true);
+        onLoad?.(); // unblock the wizard — don't leave it waiting on a map that won't load
+        return;
+      }
+
+      map.addControl(new mapboxgl.AttributionControl({ compact: true }), "bottom-right");
+      mapRef.current = map;
+
+      map.on("load", () => {
+        onLoad?.();
+        const el = document.createElement("div");
+        el.style.cssText = "width:36px;height:36px;cursor:grab;";
+
+        const circle = document.createElement("div");
+        circle.style.cssText =
+          "width:36px;height:36px;border-radius:50%;" +
+          "background:#2563eb;border:3px solid #fff;" +
+          "box-shadow:0 2px 8px rgba(0,0,0,0.25);" +
+          "display:flex;align-items:center;justify-content:center;" +
+          "transition:transform 150ms ease;";
+        circle.innerHTML = `<svg width="16" height="20" viewBox="0 0 16 20" fill="none"><path d="M8 0C3.589 0 0 3.589 0 8c0 5.25 7.125 11.438 7.438 11.703a.75.75 0 0 0 1.124 0C8.875 19.438 16 13.25 16 8c0-4.411-3.589-8-8-8zm0 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6z" fill="#fff"/></svg>`;
+
+        el.appendChild(circle);
+        el.addEventListener("mouseenter", () => { circle.style.transform = "scale(1.1)"; });
+        el.addEventListener("mouseleave", () => { circle.style.transform = "scale(1)"; });
+
+        const marker = new mapboxgl.Marker({ element: el, anchor: "center", draggable: true })
+          .setLngLat(center)
+          .addTo(map);
+
+        marker.on("dragend", () => {
+          const { lat, lng } = marker.getLngLat();
+          isDragRef.current = true;
+          onLocationChange?.(lat, lng);
+        });
+
+        markerRef.current = marker;
       });
-    } catch (err) {
-      logger.error("PropertyLocationMap: map init failed", { err });
-      setMapFailed(true);
-      onLoad?.(); // unblock the wizard — don't leave it waiting on a map that won't load
-      return;
-    }
 
-    map.addControl(new mapboxgl.AttributionControl({ compact: true }), "bottom-right");
-    mapRef.current = map;
-
-    map.on("load", () => {
-      onLoad?.();
-      const el = document.createElement("div");
-      el.style.cssText = "width:36px;height:36px;cursor:grab;";
-
-      const circle = document.createElement("div");
-      circle.style.cssText =
-        "width:36px;height:36px;border-radius:50%;" +
-        "background:#2563eb;border:3px solid #fff;" +
-        "box-shadow:0 2px 8px rgba(0,0,0,0.25);" +
-        "display:flex;align-items:center;justify-content:center;" +
-        "transition:transform 150ms ease;";
-      circle.innerHTML = `<svg width="16" height="20" viewBox="0 0 16 20" fill="none"><path d="M8 0C3.589 0 0 3.589 0 8c0 5.25 7.125 11.438 7.438 11.703a.75.75 0 0 0 1.124 0C8.875 19.438 16 13.25 16 8c0-4.411-3.589-8-8-8zm0 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6z" fill="#fff"/></svg>`;
-
-      el.appendChild(circle);
-      el.addEventListener("mouseenter", () => { circle.style.transform = "scale(1.1)"; });
-      el.addEventListener("mouseleave", () => { circle.style.transform = "scale(1)"; });
-
-      const marker = new mapboxgl.Marker({ element: el, anchor: "center", draggable: true })
-        .setLngLat(center)
-        .addTo(map);
-
-      marker.on("dragend", () => {
-        const { lat, lng } = marker.getLngLat();
-        isDragRef.current = true;
-        onLocationChange?.(lat, lng);
-      });
-
-      markerRef.current = marker;
-    });
-
+      dispose = () => {
+        markerRef.current = null;
+        map.remove();
+        mapRef.current = null;
+      };
+    }, 0);
     return () => {
-      markerRef.current = null;
-      map.remove();
-      mapRef.current = null;
+      clearTimeout(timer);
+      dispose?.();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

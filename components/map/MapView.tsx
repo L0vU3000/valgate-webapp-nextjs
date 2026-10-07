@@ -126,105 +126,114 @@ export function MapView({
 
   // Initialize map
   useEffect(() => {
-    if (!containerRef.current || mapRef.current) return;
+    // StrictMode discards its first mount immediately. Do not start Mapbox's async style/sprite
+    // work for that mount: remove() cannot cancel every callback once the load has started.
+    let dispose: (() => void) | undefined;
+    const timer = setTimeout(() => {
+      if (!containerRef.current || mapRef.current) return;
 
-    // Which renderer this mount uses. Read ONCE, at mount: the map object is created here and only
-    // re-created by a full remount, which is what the satellite toggle triggers (via `key`). A style
-    // swap cannot cross renderers, so this is deliberately not reactive.
-    const useMapbox = !isSatelliteRef.current;
+      // Which renderer this mount uses. Read ONCE, at mount: the map object is created here and only
+      // re-created by a full remount, which is what the satellite toggle triggers (via `key`). A style
+      // swap cannot cross renderers, so this is deliberately not reactive.
+      const useMapbox = !isSatelliteRef.current;
 
-    if (useMapbox) {
-      // Mapbox draws its own style URL; there is no session token to wait for, so no blank-style
-      // phase and no swap. `mapbox-gl` needs the token on the module, not per map.
-      mapboxgl.accessToken = env.NEXT_PUBLIC_MAPBOX_TOKEN;
-    }
-    // MapLibre's worker URL is configured in basemap.ts at module scope, not here — see the note
-    // there on why a per-mount call races the module's own initialisation.
+      if (useMapbox) {
+        // Mapbox draws its own style URL; there is no session token to wait for, so no blank-style
+        // phase and no swap. `mapbox-gl` needs the token on the module, not per map.
+        mapboxgl.accessToken = env.NEXT_PUBLIC_MAPBOX_TOKEN;
+      }
+      // MapLibre's worker URL is configured in basemap.ts at module scope, not here — see the note
+      // there on why a per-mount call races the module's own initialisation.
 
-    // Build cluster index once. `maxZoom` matches the map's own ceiling — see MAP_MAX_ZOOM.
-    const index = new Supercluster({ radius: 60, maxZoom: MAP_MAX_ZOOM });
-    index.load(
-      propertiesRef.current.map((p) => ({
-        type: "Feature" as const,
-        geometry: { type: "Point" as const, coordinates: [p.lng, p.lat] },
-        properties: { id: p.id },
-      }))
-    );
-    clusterIndex.current = index;
-
-    // Both renderers take the same camera options; only the style differs.
-    const camera = {
-      container: containerRef.current,
-      center: CAMBODIA_CENTER,
-      zoom: CAMBODIA_ZOOM,
-      maxZoom: MAP_MAX_ZOOM,
-      pitch: 45,
-      bearing: -17.6,
-    };
-
-    const map: AnyMap = useMapbox
-      ? new mapboxgl.Map({ ...camera, style: mapboxStyle(isDarkRef.current), attributionControl: false })
-      : new MapLibreMap({ ...camera, style: placeholderStyle(isDarkRef.current) });
-
-    // `Map` is a union of two classes whose overloaded methods do not merge, so `on`/`off`/`addControl`
-    // are addressed through one renderer's type. At runtime both libraries implement this surface
-    // identically, and which one is really there is already decided by `useMapbox` above. This is the
-    // single narrowing point for the whole mount, matching boundary-layer.ts's `sourceOf`.
-    const m = map as MapLibreMap;
-
-    if (useMapbox) {
-      (map as mapboxgl.Map).addControl(
-        new mapboxgl.AttributionControl({ compact: true }),
-        ATTRIBUTION_POSITION,
+      // Build cluster index once. `maxZoom` matches the map's own ceiling — see MAP_MAX_ZOOM.
+      const index = new Supercluster({ radius: 60, maxZoom: MAP_MAX_ZOOM });
+      index.load(
+        propertiesRef.current.map((p) => ({
+          type: "Feature" as const,
+          geometry: { type: "Point" as const, coordinates: [p.lng, p.lat] },
+          properties: { id: p.id },
+        }))
       );
-    } else {
-      m.addControl(new AttributionControl({ compact: true }), ATTRIBUTION_POSITION);
-    }
-    mapRef.current = map;
-    let destroyed = false;
+      clusterIndex.current = index;
 
-    // Satellite only: Google's session token is an async round trip, so the basemap is swapped in
-    // after the map exists. The `style.load` handler below is what makes that swap safe: it re-adds
-    // the boundary layer and the pins, which is the same path a theme switch already used.
-    if (!useMapbox) {
-      googleSession("satellite")
-        .then((session) => {
-          if (destroyed || mapRef.current !== map) return;
-          m.setStyle(basemapStyle("satellite", isDarkRef.current, session));
-        })
-        .catch((err) => {
-          // Blank basemap, still usable: pins and boundaries draw regardless. Same posture as
-          // PropertyLocationMap's no-WebGL fallback. Logged rather than swallowed — this catch also
-          // wraps `setStyle`, and a silent failure there is indistinguishable from a slow basemap.
-          console.error("[MapView] satellite basemap failed", err);
-        });
-    }
+      // Both renderers take the same camera options; only the style differs.
+      const camera = {
+        container: containerRef.current,
+        center: CAMBODIA_CENTER,
+        zoom: CAMBODIA_ZOOM,
+        maxZoom: MAP_MAX_ZOOM,
+        pitch: 45,
+        bearing: -17.6,
+      };
 
-    m.on("load", () => {
-      if (destroyed) return;
-      addBoundaries(m);
-      onMapLoaded?.();
-      onMapReady?.(map);
-      updateClusters(m);
-    });
+      const map: AnyMap = useMapbox
+        ? new mapboxgl.Map({ ...camera, style: mapboxStyle(isDarkRef.current), attributionControl: false })
+        : new MapLibreMap({ ...camera, style: placeholderStyle(isDarkRef.current) });
 
-    m.on("move", () => {
-      if (destroyed) return;
-      updateClusters(m);
-    });
+      // `Map` is a union of two classes whose overloaded methods do not merge, so `on`/`off`/`addControl`
+      // are addressed through one renderer's type. At runtime both libraries implement this surface
+      // identically, and which one is really there is already decided by `useMapbox` above. This is the
+      // single narrowing point for the whole mount, matching boundary-layer.ts's `sourceOf`.
+      const m = map as MapLibreMap;
 
-    m.on("style.load", () => {
-      if (destroyed) return;
-      addBoundaries(m);
-      clearMarkers();
-      updateClusters(m);
-    });
+      if (useMapbox) {
+        (map as mapboxgl.Map).addControl(
+          new mapboxgl.AttributionControl({ compact: true }),
+          ATTRIBUTION_POSITION,
+        );
+      } else {
+        m.addControl(new AttributionControl({ compact: true }), ATTRIBUTION_POSITION);
+      }
+      mapRef.current = map;
+      let destroyed = false;
 
+      // Satellite only: Google's session token is an async round trip, so the basemap is swapped in
+      // after the map exists. The `style.load` handler below is what makes that swap safe: it re-adds
+      // the boundary layer and the pins, which is the same path a theme switch already used.
+      if (!useMapbox) {
+        googleSession("satellite")
+          .then((session) => {
+            if (destroyed || mapRef.current !== map) return;
+            m.setStyle(basemapStyle("satellite", isDarkRef.current, session));
+          })
+          .catch((err) => {
+            // Blank basemap, still usable: pins and boundaries draw regardless. Same posture as
+            // PropertyLocationMap's no-WebGL fallback. Logged rather than swallowed — this catch also
+            // wraps `setStyle`, and a silent failure there is indistinguishable from a slow basemap.
+            console.error("[MapView] satellite basemap failed", err);
+          });
+      }
+
+      m.on("load", () => {
+        if (destroyed) return;
+        addBoundaries(m);
+        onMapLoaded?.();
+        onMapReady?.(map);
+        updateClusters(m);
+      });
+
+      m.on("move", () => {
+        if (destroyed) return;
+        updateClusters(m);
+      });
+
+      m.on("style.load", () => {
+        if (destroyed) return;
+        addBoundaries(m);
+        clearMarkers();
+        updateClusters(m);
+      });
+
+      dispose = () => {
+        destroyed = true;
+        clearMarkers();
+        mapRef.current = null;
+        map.remove();
+      };
+    }, 0);
     return () => {
-      destroyed = true;
-      clearMarkers();
-      map.remove();
-      mapRef.current = null;
+      clearTimeout(timer);
+      dispose?.();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

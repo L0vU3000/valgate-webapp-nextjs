@@ -72,64 +72,73 @@ export function PropertyDetailMap({
   }
 
   useEffect(() => {
-    if (!containerRef.current || mapRef.current) return;
+    // StrictMode discards its first mount immediately. Do not start Mapbox's async style/sprite
+    // work for that mount: remove() cannot cancel every callback once the load has started.
+    let dispose: (() => void) | undefined;
+    const timer = setTimeout(() => {
+      if (!containerRef.current || mapRef.current) return;
 
-    mapboxgl.accessToken = env.NEXT_PUBLIC_MAPBOX_TOKEN;
+      mapboxgl.accessToken = env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
-    const map = new mapboxgl.Map({
-      container: containerRef.current,
-      style: isDark
-        ? "mapbox://styles/mapbox/dark-v11"
-        : "mapbox://styles/mapbox/light-v11",
-      center,
-      zoom,
-      attributionControl: false,
-    });
+      const map = new mapboxgl.Map({
+        container: containerRef.current,
+        style: isDark
+          ? "mapbox://styles/mapbox/dark-v11"
+          : "mapbox://styles/mapbox/light-v11",
+        center,
+        zoom,
+        attributionControl: false,
+      });
 
-    map.addControl(new mapboxgl.AttributionControl({ compact: true }), "bottom-left");
-    mapRef.current = map;
+      map.addControl(new mapboxgl.AttributionControl({ compact: true }), "bottom-left");
+      mapRef.current = map;
 
-    // Mapbox fires these handlers from its own render loop, not synchronously with our React tree.
-    // If the component unmounts while a handler is queued (a parent re-render can do it — the
-    // location page sets state from `onLoad`, which runs inside this very `load` callback), the
-    // handler then runs against a torn-down map: `map.remove()` nulls the canvas container, and
-    // `Marker.addTo` does `getCanvasContainer().appendChild(...)` on undefined, which is the
-    // "can't access property appendChild" console error. Every handler therefore re-checks that
-    // this is still the mounted map before touching it.
-    const isLive = () => mapRef.current === map;
-    const onLoadHandler = () => {
-      if (!isLive()) return;
-      layersReadyRef.current = true;
-      addMarker(map);
-      // Read the PROP, not `boundaryRef`: the ref is assigned during render, so at mount it can still
-      // hold the previous render's value — which drew a SECOND ring under the draw tool's own.
-      addBoundaryLayer(map, boundary ?? null);
-      // Fit to the ring, so a 124 m² parcel and an 87,000 m² estate both open showing their land
-      // rather than the same fixed zoom.
-      fitBoundary(map, boundary ?? null);
-      onLoad?.();
-      onMapReady?.(map);
-    };
-    const onStyleLoadHandler = () => {
-      if (!isLive()) return;
-      layersReadyRef.current = true;
-      addMarker(map);
-      // A style swap (theme / satellite) replaces the whole style, destroying every layer,
-      // so the boundary has to be re-added — not just re-positioned.
-      addBoundaryLayer(map, boundary ?? null);
-    };
+      // Mapbox fires these handlers from its own render loop, not synchronously with our React tree.
+      // If the component unmounts while a handler is queued (a parent re-render can do it — the
+      // location page sets state from `onLoad`, which runs inside this very `load` callback), the
+      // handler then runs against a torn-down map: `map.remove()` nulls the canvas container, and
+      // `Marker.addTo` does `getCanvasContainer().appendChild(...)` on undefined, which is the
+      // "can't access property appendChild" console error. Every handler therefore re-checks that
+      // this is still the mounted map before touching it.
+      const isLive = () => mapRef.current === map;
+      const onLoadHandler = () => {
+        if (!isLive()) return;
+        layersReadyRef.current = true;
+        addMarker(map);
+        // Read the PROP, not `boundaryRef`: the ref is assigned during render, so at mount it can still
+        // hold the previous render's value — which drew a SECOND ring under the draw tool's own.
+        addBoundaryLayer(map, boundary ?? null);
+        // Fit to the ring, so a 124 m² parcel and an 87,000 m² estate both open showing their land
+        // rather than the same fixed zoom.
+        fitBoundary(map, boundary ?? null);
+        onLoad?.();
+        onMapReady?.(map);
+      };
+      const onStyleLoadHandler = () => {
+        if (!isLive()) return;
+        layersReadyRef.current = true;
+        addMarker(map);
+        // A style swap (theme / satellite) replaces the whole style, destroying every layer,
+        // so the boundary has to be re-added — not just re-positioned.
+        addBoundaryLayer(map, boundary ?? null);
+      };
 
-    map.on("load", onLoadHandler);
-    map.on("style.load", onStyleLoadHandler);
+      map.on("load", onLoadHandler);
+      map.on("style.load", onStyleLoadHandler);
 
+      dispose = () => {
+        map.off("load", onLoadHandler);
+        map.off("style.load", onStyleLoadHandler);
+        // Null the ref BEFORE removing, so any handler already queued behind this sees `isLive()`
+        // false and bails instead of touching a removed map.
+        mapRef.current = null;
+        markerRef.current = null;
+        map.remove();
+      };
+    }, 0);
     return () => {
-      map.off("load", onLoadHandler);
-      map.off("style.load", onStyleLoadHandler);
-      // Null the ref BEFORE removing, so any handler already queued behind this sees `isLive()`
-      // false and bails instead of touching a removed map.
-      mapRef.current = null;
-      markerRef.current = null;
-      map.remove();
+      clearTimeout(timer);
+      dispose?.();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
