@@ -18,29 +18,9 @@ const PropertyDetailMap = dynamic(
 import type { Property } from "@/lib/data/types/property";
 import type { LandParcel } from "@/lib/data/types/land-parcel";
 import { PropertyLayout } from "@/components/property/PropertyLayout";
-import { UnlockButton } from "@/components/feature-unlock/UnlockButton";
-import { LocationUnlockMount } from "@/components/feature-unlock/pillars/LocationUnlock";
-import type { UnlockState } from "@/components/feature-unlock/types";
-import { revokeLocationVerification } from "@/app/actions/properties";
 import { MapControls } from "@/components/map/MapControls";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import {
-  BadgeCheck,
-  MoreHorizontal,
   Copy,
   Download,
   Map as MapIcon,
@@ -111,33 +91,6 @@ export function PropertyLocationPage({
   marketSnapshot: MarketSnapshot;
 }) {
   const activeTab = "location";
-  const [wizardOpen, setWizardOpen] = useState(false);
-  const [wizardStartAt, setWizardStartAt] = useState<"data" | "verification">("data");
-  const [revokeOpen, setRevokeOpen] = useState(false);
-  const [revoking, setRevoking] = useState(false);
-
-  const unlockState: UnlockState = property.locationVerified
-    ? { kind: "edit", entityId: property.id }
-    : property.addressLine && property.city
-      ? { kind: "verify", entityId: property.id }
-      : { kind: "unlock" };
-
-  function openWizard() {
-    setWizardStartAt(unlockState.kind === "verify" ? "verification" : "data");
-    setWizardOpen(true);
-  }
-
-  async function handleRevoke() {
-    setRevoking(true);
-    const result = await revokeLocationVerification(property.id);
-    setRevoking(false);
-    setRevokeOpen(false);
-    if (result.ok) {
-      toast.success("Location verification revoked");
-    } else {
-      toast.error(result.error ?? "Failed to revoke verification");
-    }
-  }
 
   return (
     <PropertyLayout
@@ -149,54 +102,11 @@ export function PropertyLocationPage({
           <LocationContent
             property={property}
             landParcels={landParcels}
-            unlockState={unlockState}
-            openWizard={openWizard}
-            onOpenRevoke={() => setRevokeOpen(true)}
             comparables={comparables}
             marketSnapshot={marketSnapshot}
           />
         </div>
       </div>
-
-      {wizardOpen && (
-        <LocationUnlockMount
-          open
-          onOpenChange={setWizardOpen}
-          propertyId={property.id}
-          startAt={wizardStartAt}
-        />
-      )}
-
-      {revokeOpen && (
-      <Dialog open onOpenChange={setRevokeOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center mb-1">
-              <BadgeCheck className="w-5 h-5 text-red-500" />
-            </div>
-            <DialogTitle>Revoke location verification?</DialogTitle>
-            <DialogDescription>
-              The verified status will be removed from this property&apos;s location. Evidence documents will remain in your Documents tab. You can re-verify at any time.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <button
-              onClick={() => setRevokeOpen(false)}
-              className="px-4 py-2 text-sm font-semibold text-val-heading border border-slate-200 rounded hover:bg-slate-50 transition-colors duration-150"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleRevoke}
-              disabled={revoking}
-              className="px-4 py-2 text-sm font-semibold text-white rounded bg-red-500 hover:bg-red-600 disabled:opacity-50 transition-colors duration-150"
-            >
-              {revoking ? "Revoking…" : "Revoke verification"}
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      )}
     </PropertyLayout>
   );
 }
@@ -230,17 +140,11 @@ function Fact({
 function LocationContent({
   property,
   landParcels,
-  unlockState,
-  openWizard,
-  onOpenRevoke,
   comparables,
   marketSnapshot,
 }: {
   property: Property;
   landParcels: LandParcel[];
-  unlockState: UnlockState;
-  openWizard: () => void;
-  onOpenRevoke: () => void;
   comparables: PropertyComparable[];
   marketSnapshot: MarketSnapshot;
 }) {
@@ -476,33 +380,6 @@ function LocationContent({
               <h1 className="text-[24px] sm:text-[32px] font-extrabold text-val-heading tracking-tight leading-tight">
                 {property.name || property.code}
               </h1>
-              {property.locationVerified && (
-                <div className="flex items-center gap-1">
-                  <span className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
-                    <BadgeCheck className="h-3.5 w-3.5" />
-                    Valgate Verified
-                  </span>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        aria-label="Verification options"
-                        className="rounded p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
-                      >
-                        <MoreHorizontal className="h-4 w-4" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="w-52">
-                      <DropdownMenuItem
-                        className="cursor-pointer text-red-600 focus:bg-red-50 focus:text-red-600"
-                        onSelect={onOpenRevoke}
-                      >
-                        <BadgeCheck className="mr-2 h-4 w-4" />
-                        Revoke verification
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              )}
             </div>
 
             {addressLine ? (
@@ -534,14 +411,6 @@ function LocationContent({
                 <Copy className="h-3 w-3 opacity-40 transition-opacity group-hover:opacity-80" />
               </button>
             </div>
-          </div>
-
-          <div className="shrink-0">
-            <UnlockButton
-              state={unlockState}
-              onClick={openWizard}
-              editLabel="Edit location"
-            />
           </div>
         </div>
       </div>
