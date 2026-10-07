@@ -344,14 +344,40 @@ you no preview of what it is about to change. Auto-sync is off on all three, so
 there is no second writer today; if you ever enable it, running `--apply` would
 give you two writers on one surface. Use it for the diff.
 
+## Keys land on `origin/main`, not in a worktree
+
+A key added to Infisical `/web` is **not** visible from any checkout until someone
+runs `npm run env:sync <env>` there. `.env.local` is untracked and never copied
+between worktrees, so each checkout (main clone, kmz-location, parcel, octopus) has
+its own snapshot and its own staleness. Checking for a new key in one worktree
+proves nothing about another.
+
+Verified 2026-10-05: `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` reported "added", yet it was
+absent from Infisical `/web` dev/staging/prod, absent from every `.env.local`, and
+absent from the Vercel `valgate-webapp` project (17 keys in each of production /
+preview / development, no `GOOGLE*`). Three separate surfaces, all empty. See the
+token-expiry entry below for why Infisical itself could not be re-read to confirm.
+
+When a key is "added", prove it on the surface the code actually reads:
+`infisical export --env dev --path /web | grep NAME` **and** `npm run env:sync dev`,
+then restart the dev server.
+
 ## Environment facts that cost time
 
+- **The Infisical CLI session expires in ~14 days.** The stored token is a
+  `go-keyring-base64:<json>` envelope, not a raw JWT — unusable as a `curl` header.
+  The key inside it is spelled `JTWToken` (Infisical's own typo, not `JWTToken`).
+  Decoded (2026-10-05) it returns `403 Your token has expired`, so the CLI cannot
+  read secrets *even though the keyring entry and `~/.infisical/infisical-config.json`
+  both still look healthy*. Re-run `infisical login` (browser, 60 s) before trusting
+  any "not found" result from the CLI. Script:
+  `python3 /tmp/vg-infisical-token.py` — writes `/tmp/.iftok`, 0600, never prints the value.
 - `infisical export --path /web` needs `--projectId` unless the repo has been
   `infisical init`'d; the error reads like a missing folder. The script supplies
   the id by default.
-- The Infisical CLI's stored token is a `go-keyring-base64:<json>` envelope, not a
-  raw JWT — unusable as a `curl` header. The key inside it is spelled
-  `JTWToken` (Infisical's own typo, not `JWTToken`).
+- **A dead CLI session exits 1 with an interactive login prompt on stdout.** It never
+  fails loudly, so `grep NAME` prints nothing and every missing key looks like
+  "confirmed absent". Check the exit code, or the absence is not evidence.
 - Vercel `sensitive` vars are write-only for everyone including the CLI. They can
   never be imported; they must be re-issued to enter Infisical at all.
 - `vercel env ls --format json` prints a CLI banner before the JSON **and** may

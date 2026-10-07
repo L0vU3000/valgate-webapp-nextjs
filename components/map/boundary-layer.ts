@@ -1,13 +1,32 @@
 "use client";
 
-import type mapboxgl from "mapbox-gl";
+/**
+ * The boundary layer is called by two maps that run different renderers: the portfolio map on
+ * MapLibre (Google tiles) and the property detail map on Mapbox.
+ *
+ * Their `Map` classes are structurally incompatible — overloaded signatures do not merge, and
+ * `addLayer`'s source/paint shape differs enough that a hand-written structural type is not
+ * assignable in either direction. Rather than duplicate this module or fight the union, the public
+ * signatures accept "either", and the two API calls used here cast once, locally, to MapLibre's
+ * types. Both libraries expose an identical `getSource`/`addSource`/`addLayer`/`fitBounds` contract
+ * at runtime — this is the same layer spec Mapbox and MapLibre both implement.
+ */
+import type { Map as MapLibreMap, GeoJSONSource } from "maplibre-gl";
+import type { Map as MapboxMap } from "mapbox-gl";
 import type { BoundaryGeometry } from "@/lib/data/types/land-parcel";
+
+type AnyMap = MapLibreMap | MapboxMap;
 
 export const BOUNDARY_SOURCE_ID = "valgate-boundary";
 export const BOUNDARY_FILL_ID = "valgate-boundary-fill";
 export const BOUNDARY_LINE_ID = "valgate-boundary-line";
 
 const EMPTY: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
+
+/** `getSource`'s overloads do not merge across the two renderers, so narrow in one place. */
+function sourceOf(map: AnyMap, id: string): GeoJSONSource | undefined {
+  return (map as MapLibreMap).getSource(id) as GeoJSONSource | undefined;
+}
 
 /** [minLng, minLat, maxLng, maxLat] over a Polygon/MultiPolygon's coordinates. Null if empty. */
 export function boundaryBounds(
@@ -35,12 +54,12 @@ export function boundaryBounds(
  * it on the property's own map, where the boundary is the subject rather than a speck.
  */
 export function addBoundaryLayer(
-  map: mapboxgl.Map,
+  map: AnyMap,
   geometry: BoundaryGeometry | null,
   opts: { minZoom?: number } = {},
 ) {
-  if (map.getSource(BOUNDARY_SOURCE_ID)) {
-    (map.getSource(BOUNDARY_SOURCE_ID) as mapboxgl.GeoJSONSource).setData(toFeature(geometry));
+  if (sourceOf(map, BOUNDARY_SOURCE_ID)) {
+    sourceOf(map, BOUNDARY_SOURCE_ID)!.setData(toFeature(geometry));
     return;
   }
   map.addSource(BOUNDARY_SOURCE_ID, { type: "geojson", data: toFeature(geometry) });
@@ -67,9 +86,18 @@ export function addBoundaryLayer(
 }
 
 /** Swap the drawn boundary without rebuilding the map. */
-export function setBoundaryGeometry(map: mapboxgl.Map, geometry: BoundaryGeometry | null) {
-  const source = map.getSource(BOUNDARY_SOURCE_ID) as mapboxgl.GeoJSONSource | undefined;
-  source?.setData(toFeature(geometry));
+export function setBoundaryGeometry(map: AnyMap, geometry: BoundaryGeometry | null) {
+  // The source only exists once the style has loaded (`addBoundaryLayer` runs on `load`). Mapbox 3.32
+  // THROWS from `getSource` while the style is still being set up — "can't access property get,
+  // this.images.get(...) is undefined" — rather than returning undefined, so the optional call below
+  // never got the chance to be a no-op. This effect runs on mount, which is exactly that window.
+  try {
+    const source = sourceOf(map, BOUNDARY_SOURCE_ID);
+    source?.setData(toFeature(geometry));
+  } catch {
+    // Nothing to swap yet. `addBoundaryLayer` on `load` draws the ring from the same prop, so the
+    // boundary is not lost by returning early here.
+  }
 }
 
 /**
@@ -84,7 +112,7 @@ export function setBoundaryGeometry(map: mapboxgl.Map, geometry: BoundaryGeometr
  * without a cap would zoom to street-furniture level. The padding keeps the ring clear of the
  * container's rounded corners and the expand/map controls that overhang it.
  */
-export function fitBoundary(map: mapboxgl.Map, geometry: BoundaryGeometry | null | undefined): boolean {
+export function fitBoundary(map: AnyMap, geometry: BoundaryGeometry | null | undefined): boolean {
   const b = boundaryBounds(geometry);
   if (!b) return false;
   map.fitBounds(

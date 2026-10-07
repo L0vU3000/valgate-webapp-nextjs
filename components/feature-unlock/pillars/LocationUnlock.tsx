@@ -13,9 +13,11 @@ import type { WizardConfig } from "../types";
 import type { UseFormReturn } from "react-hook-form";
 import {
   updateProperty,
-  verifyLocation,
   getLocationWizardInitialAction,
+  getLocationWizardBoundaryAction,
 } from "@/app/actions/properties";
+import { PropertyBoundaryCard } from "@/app/(shell)/property/[id]/_components/PropertyBoundaryCard";
+import { BoundaryStep } from "../BoundaryStep";
 import {
   propertyTypeChoiceSchema,
   propertyTitleSchema,
@@ -394,19 +396,10 @@ export const locationWizardConfig: WizardConfig<typeof LocationWizardSchema> = {
     return { ok: true, data: { entityId: propertyId } };
   },
 
-  verification: {
-    title: "Verify location",
-    declaration:
-      "I confirm this address is correct and the uploaded document is authentic.",
-    documentLabel: "Proof of address",
-    minFiles: 1,
-    maxFiles: 5,
-    onVerify: async ({ entityId, docIds }) => {
-      const result = await verifyLocation(entityId, docIds);
-      if (!result.ok) return { ok: false, error: result.error };
-      return { ok: true, data: undefined };
-    },
-  },
+  // NO `verification` phase. Location verification is dropped: the last step is the KMZ /
+  // hand-drawn boundary on the page itself, and this wizard only owns address, identity and pin.
+  // It does not import `VerificationStep`, and its final button reads "Save" (see
+  // FeatureUnlockWizard, which keys that label off `config.verification`).
 
   steps: [
     {
@@ -439,6 +432,20 @@ export const locationWizardConfig: WizardConfig<typeof LocationWizardSchema> = {
         <MapPinStep
           form={form as UseFormReturn<LocationWizardValues>}
           values={values as LocationWizardValues}
+        />
+      ),
+    },
+    {
+      // The step verification used to be. `fields` is empty on purpose: the boundary lives on the
+      // Location tab and is optional, so this step validates nothing and does not gate the wizard.
+      key: "boundary",
+      title: "Land boundary",
+      description: "Attach the KMZ, or draw the boundary on the Location tab.",
+      fields: [],
+      render: ({ propertyId, values }) => (
+        <BoundaryStep
+          propertyId={propertyId}
+          propertyName={(values as LocationWizardValues).name || "this property"}
         />
       ),
     },

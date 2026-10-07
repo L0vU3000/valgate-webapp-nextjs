@@ -37,6 +37,8 @@ export function PropertyDetailMap({
   const center: [number, number] = [lng, lat];
   const boundaryRef = useRef(boundary);
   boundaryRef.current = boundary;
+  /** True once the map's own `load`/`style.load` has added the layers. Gates the geometry effect. */
+  const layersReadyRef = useRef(false);
 
   function addMarker(map: mapboxgl.Map) {
     markerRef.current?.remove();
@@ -97,20 +99,24 @@ export function PropertyDetailMap({
     const isLive = () => mapRef.current === map;
     const onLoadHandler = () => {
       if (!isLive()) return;
+      layersReadyRef.current = true;
       addMarker(map);
-      addBoundaryLayer(map, boundaryRef.current ?? null);
+      // Read the PROP, not `boundaryRef`: the ref is assigned during render, so at mount it can still
+      // hold the previous render's value — which drew a SECOND ring under the draw tool's own.
+      addBoundaryLayer(map, boundary ?? null);
       // Fit to the ring, so a 124 m² parcel and an 87,000 m² estate both open showing their land
       // rather than the same fixed zoom.
-      fitBoundary(map, boundaryRef.current);
+      fitBoundary(map, boundary ?? null);
       onLoad?.();
       onMapReady?.(map);
     };
     const onStyleLoadHandler = () => {
       if (!isLive()) return;
+      layersReadyRef.current = true;
       addMarker(map);
       // A style swap (theme / satellite) replaces the whole style, destroying every layer,
       // so the boundary has to be re-added — not just re-positioned.
-      addBoundaryLayer(map, boundaryRef.current ?? null);
+      addBoundaryLayer(map, boundary ?? null);
     };
 
     map.on("load", onLoadHandler);
@@ -145,6 +151,7 @@ export function PropertyDetailMap({
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
+    if (!layersReadyRef.current) return;
     setBoundaryGeometry(map, boundary ?? null);
     markerRef.current?.remove();
     addMarker(map);

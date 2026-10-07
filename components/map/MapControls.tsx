@@ -4,16 +4,25 @@ import type React from "react";
 import { Layers, RefreshCw, ZoomIn, ZoomOut } from "lucide-react";
 import { MapIconButton } from "@/components/home/QuickStats";
 import { cn } from "@/components/ui/utils";
-// Type-only import: this component uses `mapboxgl.Map` solely as a type on `mapRef`,
-// never the runtime. `import type` keeps the ~500 kB mapbox-gl library out of any
-// bundle that pulls in MapControls.
-import type mapboxgl from "mapbox-gl";
 
 const CAMBODIA_CENTER: [number, number] = [104.9, 12.5];
 const CAMBODIA_ZOOM = 7;
 
+/**
+ * Only the three camera methods used below, named structurally rather than pinned to one
+ * renderer's `Map` class. The portfolio map runs MapLibre (Google tiles) and the property detail
+ * map still runs Mapbox; a union of the two `Map` types is unusable because their overloaded
+ * signatures do not merge, so this is the smaller honest type. It also keeps both ~500 kB
+ * libraries out of any bundle that merely renders these buttons — no runtime import either way.
+ */
+interface CameraMap {
+  zoomIn: () => unknown;
+  zoomOut: () => unknown;
+  flyTo: (options: { center: [number, number]; zoom: number }) => unknown;
+}
+
 interface MapControlsProps {
-  mapRef: React.RefObject<mapboxgl.Map | null>;
+  mapRef: React.RefObject<CameraMap | null>;
   drawerOpen?: boolean;
   resetCenter?: [number, number];
   resetZoom?: number;

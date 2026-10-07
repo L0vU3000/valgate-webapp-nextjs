@@ -23,6 +23,9 @@ config({ path: resolve(process.cwd(), '.env.local') })
 // treated as absent here too, or validation still fails.
 process.env.DATABASE_URL ||= 'postgres://test:test@localhost:5432/test'
 process.env.NEXT_PUBLIC_MAPBOX_TOKEN ||= 'test-mapbox-token'
+// Still required by lib/env.ts (static hero images), but nothing in the unit suite fetches a
+// Google tile, so a dummy is enough here — same posture as the Mapbox token above.
+process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ||= 'test-google-maps-key'
 
 // --- third-party credentials are neutralised for the DEFAULT suite -----------
 //

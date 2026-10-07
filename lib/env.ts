@@ -65,8 +65,19 @@ export const env = createEnv({
   },
   client: {
     NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: z.string().min(1).optional(),
-    // FE: Mapbox token — required; the map components depend on it (preserves the old env.ts guarantee).
+    // Mapbox is now static-images only (api.mapbox.com/styles/v1/.../static). Every *interactive*
+    // map renders Google tiles through MapLibre — see components/map/basemap.ts for why the
+    // renderer had to change rather than the URL.
     NEXT_PUBLIC_MAPBOX_TOKEN: z.string().min(1),
+    // Google Map Tiles (2D). Public by necessity: the browser mints its own session token and then
+    // fetches tiles directly, so the key ships in the bundle. Protection is the HTTP-referrer
+    // restriction in Google Cloud Console, not secrecy — same posture as the Mapbox public token.
+    //
+    // OPTIONAL, deliberately. It gates one basemap, not the app: `googleSession`'s rejection is caught
+    // in MapView, which leaves pins and boundaries drawing over a plain background. A required key
+    // here could fail the whole build — and did, on every Vercel preview, because the schema is
+    // evaluated while collecting page data. Absent now means a missing satellite layer, not no deploy.
+    NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: z.string().min(1).optional(),
   },
   runtimeEnv: {
     DATABASE_URL: process.env.DATABASE_URL,
@@ -91,6 +102,7 @@ export const env = createEnv({
     MCP_ALLOWED_OAUTH_CLIENT_IDS: process.env.MCP_ALLOWED_OAUTH_CLIENT_IDS,
     MCP_ALLOW_ANY_OAUTH_CLIENT: process.env.MCP_ALLOW_ANY_OAUTH_CLIENT,
     NEXT_PUBLIC_MAPBOX_TOKEN: process.env.NEXT_PUBLIC_MAPBOX_TOKEN,
+    NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
   },
   emptyStringAsUndefined: true,
 });
