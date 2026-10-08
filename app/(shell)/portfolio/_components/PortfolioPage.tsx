@@ -18,6 +18,7 @@ const PropertyFilters = dynamic(
 );
 import type { TableAnimationConfig, SortKey } from "@/components/portfolio/PropertyTable";
 import { AppHeader } from "@/components/layout/AppHeader";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { CAMBODIA_PROVINCES } from "@/lib/constants/cambodia-provinces";
 
 const PAGE_SIZE = 16;
@@ -220,42 +221,73 @@ export function PortfolioPage({
             </KpiCard>
           </div>
 
-          {/* Filters */}
-          <PropertyFilters
-            typeFilter={typeFilter}
-            setTypeFilter={setTypeFilter}
-            statusFilter={statusFilter}
-            setStatusFilter={setStatusFilter}
-            provinceFilter={provinceFilter}
-            setProvinceFilter={setProvinceFilter}
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            setCurrentPage={setCurrentPage}
-            mounted={mounted}
-            provinces={provinces}
-          />
+          {/* Table — or the empty-state onboarding.
+              A brand-new account has no properties, and the pen contract draws
+              this exact case as its own screen (`03.3 · Portfolio — empty` in
+              valgate-webapp.pen), with copy on the `Empty State` component
+              (`lSd1K`). Without this the first thing a new user saw was an empty
+              table under four KPI zeros — the dashboard never told them what to
+              do. The KPIs and page header stay: the empty frame keeps both.
+              The filters stay hidden until there is something to filter. */}
+          {source.length === 0 ? (
+            <EmptyState
+              className="py-16"
+              icon={<Building2 className="size-5" />}
+              title="No properties yet"
+              description="Add your first property to start tracking value, leases and documents."
+              action={
+                readOnly ? undefined : (
+                  <button
+                    onClick={() => router.push("/add-property")}
+                    className="flex items-center gap-2 px-4 py-2 text-white text-[14px] font-semibold rounded shadow-[0_4px_6px_-1px_rgba(0,74,198,0.25),0_2px_4px_-2px_rgba(0,74,198,0.15)] hover:opacity-90 active:scale-[0.97] transition-all duration-150"
+                    style={{ background: "linear-gradient(168deg, var(--val-primary-dark) 0%, #2563eb 100%)" }}
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Add Property
+                  </button>
+                )
+              }
+            />
+          ) : (
+            <>
+              {/* Filters */}
+              <PropertyFilters
+                typeFilter={typeFilter}
+                setTypeFilter={setTypeFilter}
+                statusFilter={statusFilter}
+                setStatusFilter={setStatusFilter}
+                provinceFilter={provinceFilter}
+                setProvinceFilter={setProvinceFilter}
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+                setCurrentPage={setCurrentPage}
+                mounted={mounted}
+                provinces={provinces}
+              />
 
-          {/* Table */}
-          <PropertyTable
-            pageRows={pageRows}
-            pageStart={pageStart}
-            filtered={sorted}
-            properties={source}
-            mounted={mounted}
-            navigate={(path) => router.push(path)}
-            totalPages={totalPages}
-            safePage={safePage}
-            goToPage={goToPage}
-            onClearFilters={clearAllFilters}
-            animationConfig={PORTFOLIO_TABLE_ANIMATION}
-            showArchived={archivedFilter}
-            canDelete={canDelete}
-            refresh={() => router.refresh()}
-            sortKey={sortKey}
-            sortDir={sortDir}
-            onSort={handleSort}
-            hideAddPropertyCta={readOnly}
-          />
+              {/* Table */}
+              <PropertyTable
+                pageRows={pageRows}
+                pageStart={pageStart}
+                filtered={sorted}
+                properties={source}
+                mounted={mounted}
+                navigate={(path) => router.push(path)}
+                totalPages={totalPages}
+                safePage={safePage}
+                goToPage={goToPage}
+                onClearFilters={clearAllFilters}
+                animationConfig={PORTFOLIO_TABLE_ANIMATION}
+                showArchived={archivedFilter}
+                canDelete={canDelete}
+                refresh={() => router.refresh()}
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={handleSort}
+                hideAddPropertyCta={readOnly}
+              />
+            </>
+          )}
 
           {/* Footer — sold / archived counts */}
           {(soldCount > 0 || archivedCount > 0) && (
