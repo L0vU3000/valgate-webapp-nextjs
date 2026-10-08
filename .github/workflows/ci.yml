@@ -4,7 +4,7 @@ on:
   push:
     branches-ignore: [main]
   pull_request:
-    branches: [main]
+    branches: [main, staging]
 
 # A new push to the same branch cancels the older run. Matters more than
 # usual here: the Mac is a single runner, so stale queued iOS jobs would
