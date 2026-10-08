@@ -25,6 +25,12 @@ export interface FormData {
   zip: string;
   country: string;
   mapCenter?: [number, number];
+  /**
+   * The cadastral parcel the user picked on the modal, if any. Lives on the form rather than in
+   * step-local state so it survives stepping back and forth, and so submit — which already receives
+   * the form — can attach it once the property has an id.
+   */
+  cadastreChoice?: { ref: string; point: [number, number]; label: string } | null;
   yearBuilt: string;
   totalArea: string;
   bedrooms: string;

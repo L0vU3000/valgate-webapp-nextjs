@@ -1,0 +1,237 @@
+# Add the French cadastre as the parcel source
+
+**One line:** draw the official cadastral parcel layer under the map, let the user hover to see
+exactly which parcel they are pointing at, and attach that parcel's real boundary to the property.
+
+France first, because the source is free, keyless, CORS-open, and every parcel already carries an
+official identifier and an official area.
+
+---
+
+## Why France is the right first provider
+
+| | |
+|---|---|
+| Cost | **€0.** `data.gouv.fr` / IGN, Etalab open licence. No key, no account, no quota. |
+| Coverage | 100% of France (metropole + Corsica + DOM). Parcel geometry is the legal cadastre, not a guess. |
+| Identity | Every parcel has a stable national id — `idu` (`75101000AJ0002` = dept `75101` + commune `000` + prefix `AJ` + numero `0002`), plus `section`, `numero`, `commune`, `contenance` (official area in m²). |
+| Hover | Vector tiles (`parcelles` layer) — the client can hit-test without a round trip, so hover is instant. |
+| Fits us | Zero new dependencies. Zero new accounts. The map we already run is Mapbox GL with real `addSource` / `addLayer`. |
+
+Cambodia has no equivalent public source, so this does not carry over — but the seam it establishes
+(a cadastre provider behind one bounds check) is exactly what a Cambodian provider would plug into.
+
+---
+
+## What I verified against live sources
+
+Not read from docs — actually fetched, at the time of writing:
+
+| Check | Result |
+|---|---|
+| TileJSON `cadastre.json` | `minzoom 11`, `maxzoom 16`, layers `parcelles`, `sections`, `batiments` |
+| Tile fetch `…/cadastre/15/16593/11257.pbf` | **HTTP 200**, 51 KB, `application/x-protobuf` |
+| Tile fetch at zoom **13** | **HTTP 200**, 313 KB — `parcelles` present at z13 (no blank gap) |
+| Tile fetch at zoom **12** | 21 KB, `sections` only — parcelles genuinely start at z13 |
+| CORS on tiles | `Access-Control-Allow-Origin: https://www.valgate.co` — direct from the browser, no proxy |
+| CORS on APICarto | `access-control-allow-origin: https://www.valgate.co`, `allow-credentials: true`, preflight `204` |
+| `APICarto /parcelle?geom=Point` | **HTTP 200**, 27 KB, `MultiPolygon` (**335 points**), `idu 75101000AJ0002`, `contenance 27227` |
+| Same call at Phnom Penh | `features: []`, `numberReturned: 0` → **clean empty result**, so the bounds check is a fast path, not a correctness requirement |
+| Tile `id` field vs APICarto `idu` | **Identical format.** MVT decode of the Paris tile returned `parcelles.id = "95210000AH0171"` alongside `section AH`, `numero 171`, `contenance 26287` |
+
+That last row is the one that matters: the thing you hover and the thing you download are joined by
+the same key, so "what am I pointing at" and "what am I attaching" cannot drift apart.
+
+---
+
+## Architecture
+
+Two sources, two jobs. The tile is for *looking*, the API is for *committing*.
+
+<Diagram id="fr-cadastre-flow" title="Hover vs commit" summary="The hover path never writes. Only an explicit click crosses into the property's land data.">
+
+```html
+<div class="diagram-panel" data-rough>
+  <div class="diagram-box">Mapbox map<div class="diagram-muted"><small>existing PropertyLocationMap</small></div></div>
+  <div class="diagram-arrow">→</div>
+  <div class="diagram-box">cadastre vector tiles<div class="diagram-muted"><small>openmaptiles.data.gouv.fr · hover + hit-test · no write</small></div></div>
+  <div class="diagram-arrow">→</div>
+  <div class="diagram-box">idu<div class="diagram-muted"><small>75101000AJ0002</small></div></div>
+</div>
+<div class="diagram-panel" data-rough>
+  <div class="diagram-box">"Use this parcel"<div class="diagram-muted"><small>the only write trigger</small></div></div>
+  <div class="diagram-arrow">→</div>
+  <div class="diagram-box">GET /api/v1/cadastre/parcel<div class="diagram-muted"><small>our route · auth + bounds + cache</small></div></div>
+  <div class="diagram-arrow">→</div>
+  <div class="diagram-box">APICarto<div class="diagram-muted"><small>exact MultiPolygon</small></div></div>
+  <div class="diagram-arrow">→</div>
+  <div class="diagram-box">attachBoundary()<div class="diagram-muted"><small>existing, unchanged</small></div></div>
+</div>
+```
+
+```css
+.diagram-panel { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 8px 0; }
+.diagram-box { flex: 1; min-width: 150px; }
+.diagram-arrow { font-weight: 600; }
+```
+
+</Diagram>
+
+**Why not tiles for both?** Tiles are clipped to the tile edge, so a parcel that straddles a
+boundary arrives as a partial polygon. Perfect for a highlight, wrong for the stored boundary.
+Fetching the full geometry only on click costs one request per commit instead of one per hover.
+
+---
+
+## The ladder, applied
+
+Before writing anything, what already exists:
+
+| Need | Already here | Verdict |
+|---|---|---|
+| Map with layers | `PropertyLocationMap.tsx` (Mapbox GL, drag-to-place pin) | **Add a source + layers.** No second map. |
+| Boundary storage + pin move | `attachBoundary(ctx, propertyId, parsed, {sourceFile})` | **Reuse unchanged.** Takes a `ParsedBoundary`. |
+| Area + centroid math | `ringAreaM2`, `shoelaceArea2`, `centroidOf` in `lib/services/kmz.ts` (pure, `node:zlib` only) | **Reuse.** Export one wrapper. |
+| Boundary rendering helpers | `boundary-layer.ts` — `addBoundaryLayer`, `fitBoundary` | **Reuse on the detail map**, unchanged. |
+| Spatial queries, PostGIS | — | **Not needed.** No query reads the geometry; it is rendered and area-measured at parse time. Same reason the column is `jsonb`. |
+
+**Zero new dependencies. Zero new services. One new API route, one new client module, one new layer module.**
+
+---
+
+## What to build
+
+### 1. `lib/services/kmz.ts` — extract the geometry math (≈15 lines, no new file)
+
+`centroidOf` / `shoelaceArea2` / `ringAreaM2` are already the right code; they are just private to
+the KML path. Export one entry point so the cadastre polygon reuses the exact same area and
+centroid logic as a KMZ upload:
+
+<Code id="cadastre-parse-export" filename="lib/services/kmz.ts" language="ts" caption="One wrapper makes the KML math reusable for any GeoJSON polygon." code={"// Public entry for a polygon that did not come from a KML file (today: the French cadastre).\n// Reuses the same shoelace + inside-the-ring guard the KMZ path is tested against, so a\n// cadastre parcel and a KMZ parcel are measured by one implementation, not two.\nexport function parseGeometry(geometry: BoundaryGeometry): ParsedBoundary {\n  const polys =\n    geometry.type === \"Polygon\"\n      ? [geometry.coordinates as number[][][]]\n      : (geometry.coordinates as number[][][][]);\n  const sizeM2 = ringAreaM2(polys[0][0]);\n  const centroid = centroidOf(polys);\n  // …bbox from the same walk boundaryBounds() uses.\n  return { geometry, sizeM2, bbox, centroid, fields: {} };\n}"} />
+
+### 2. `components/map/cadastre-layer.ts` (new, ≈60 lines)
+
+Adds the tiles, wires hover, returns the hovered parcel. Modelled on `boundary-layer.ts` — same
+idempotent add-on-`load`-and-`style.load` contract, because a theme swap destroys every layer.
+
+<Code id="cadastre-layer-snippet" filename="components/map/cadastre-layer.ts" language="ts" caption="Source, layers, hover. Fills only — nothing here writes." code={"// Parcelles from z14: the tile metadata says z13, but z13 is ~313 KB in central Paris and the\n// density is unreadable behind a pin. ponytail: minzoom 14, drop to 13 only if a rural user\n// reports blank parcels.\nconst SRC = \"fr-cadastre\";\nexport const MIN_ZOOM = 14;\n\nexport function addCadastreLayer(map: mapboxgl.Map) {\n  if (map.getSource(SRC)) return;\n  map.addSource(SRC, {\n    type: \"vector\",\n    tiles: [\"https://openmaptiles.data.gouv.fr/data/cadastre/{z}/{x}/{y}.pbf\"],\n    minzoom: MIN_ZOOM,\n    maxzoom: 16,\n    attribution: '© DINUM · <a href=\"https://cadastre.data.gouv.fr/\">cadastre.data.gouv.fr</a>',\n  });\n  map.addLayer({\n    id: \"fr-cadastre-fill\", type: \"fill\", source: SRC, \"source-layer\": \"parcelles\",\n    minzoom: MIN_ZOOM,\n    paint: { \"fill-color\": \"#2563eb\", \"fill-opacity\": [\"case\", [\"boolean\", [\"feature-state\", \"hover\"], false], 0.22, 0] },\n  });\n  map.addLayer({\n    id: \"fr-cadastre-line\", type: \"line\", source: SRC, \"source-layer\": \"parcelles\",\n    minzoom: MIN_ZOOM,\n    // round joins, same reason as boundary-layer.ts: survey vertices are near-collinear and a\n    // miter join projects them into spikes that are not in the data.\n    layout: { \"line-join\": \"round\", \"line-cap\": \"round\" },\n    paint: { \"line-color\": \"#2563eb\", \"line-width\": 0.8, \"line-opacity\": 0.55 },\n  });\n}"} />
+
+Hover uses `feature-state`, not `setData` — Mapbox's own mechanism for "highlight the thing under
+the cursor", so there is no per-frame GeoJSON round trip:
+
+<Code id="cadastre-hover" filename="components/map/cadastre-layer.ts" language="ts" caption="Hover is read-only: it sets feature-state and reports the id." code={"// Hover never touches property data. It sets feature-state and hands the caller the idu.\nexport function wireCadastreHover(\n  map: mapboxgl.Map,\n  onParcel: (p: { idu: string; section: string; numero: string; commune: string; contenance?: number } | null) => void,\n) {\n  let hovering: string | number | null = null;\n  map.on(\"mousemove\", \"fr-cadastre-fill\", (e) => {\n    const f = e.features?.[0];\n    if (!f) return;\n    if (hovering !== null) map.setFeatureState({ source: SRC, id: hovering }, { hover: false });\n    hovering = f.id ?? null;\n    if (hovering !== null) map.setFeatureState({ source: SRC, id: hovering }, { hover: true });\n    onParcel(f.properties as never);\n    map.getCanvas().style.cursor = \"pointer\";\n  });\n  map.on(\"mouseleave\", \"fr-cadastre-fill\", () => {\n    if (hovering !== null) map.setFeatureState({ source: SRC, id: hovering }, { hover: false });\n    hovering = null;\n    map.getCanvas().style.cursor = \"\";\n    onParcel(null);\n  });\n}"} />
+
+### 3. `PropertyLocationMap.tsx` — show the layer + the hover card (≈25 lines changed)
+
+<Diff id="picker-diff" filename="app/(shell)/add-property/_components/PropertyLocationMap.tsx" language="tsx" mode="split" before={"      const marker = new mapboxgl.Marker({ element: el, anchor: \"center\", draggable: true })\n        .setLngLat(center)\n        .addTo(map);"} after={"      const marker = new mapboxgl.Marker({ element: el, anchor: \"center\", draggable: true })\n        .setLngLat(center)\n        .addTo(map);\n\n      // French cadastre, only where it exists. The API answers an empty feature set outside\n      // France, so this gate is a fast path — the data itself is the real guard.\n      if (isInFrance(map.getCenter().lng, map.getCenter().lat)) {\n        addCadastreLayer(map);\n        wireCadastreHover(map, onParcelHover);\n      }"} annotations={[{"side":"after","lines":"6-11","label":"Same bounds gate","note":"Also runs on style.load — a theme swap destroys every layer, exactly as boundary-layer.ts documents."}]} />
+
+The hover card renders in React (a `wf-card`-shaped panel under the pin, per the wireframe), not as
+a Mapbox popup, so it inherits our typography and dark mode for free.
+
+### 4. `app/api/v1/cadastre/parcel/route.ts` (new, ≈45 lines)
+
+The commit path. The client never talks to APICarto directly — our route owns auth, the bounds
+check, the timeout, and the log line.
+
+<Endpoint id="ep-cadastre-parcel" method="GET" path="/api/v1/cadastre/parcel" summary="The cadastral parcel containing a point (France only)." auth="Session or API token (same as the other /api/v1 routes)" params={[{"name":"lng","in":"query","type":"number","required":true,"description":"WGS84 longitude"},{"name":"lat","in":"query","type":"number","required":true,"description":"WGS84 latitude"}]} responses={[{"status":"200","description":"A parcel, or null when the point is not in France.","example":"{ \"parcel\": { \"idu\": \"75101000AJ0002\", \"section\": \"AJ\", \"numero\": \"0002\", \"commune\": \"Paris\", \"codeInsee\": \"75056\", \"contenanceM2\": 27227, \"geometry\": { \"type\": \"MultiPolygon\", \"coordinates\": [] } } }"},{"status":"400","description":"lng/lat missing or not finite"},{"status":"401","description":"No session or token"},{"status":"502","description":"Upstream cadastre unreachable"}]}>
+
+Read-only: this route **fetches geometry, it does not save it.** Attaching is a separate, explicit
+call, so fetching a parcel can never change a property on its own.
+
+- `AbortSignal.timeout(4000)` — a public free service gets a short leash, and a slow reply must not
+  hold a Serverless function open.
+- Bounds check first, so a Cambodian property never makes an outbound request at all.
+- Never echo the upstream body. Log `describeError(err)`, return the generic envelope — the same
+  rule the address route already follows.
+- A real User-Agent identifying us, per `data.gouv.fr` etiquette. Being a good citizen on a free
+  API is what keeps it free.
+
+</Endpoint>
+
+### 5. Attach — call the function that already exists
+
+<Code id="attach-reuse" filename="app/api/v1/cadastre/attach/route.ts" language="ts" caption="The write path is five lines because attachBoundary already does the work." code={"const parsed = parseGeometry(parcel.geometry);   // step 1's wrapper\nawait attachBoundary(ctx, propertyId, parsed, { movePin: true });"} />
+
+`attachBoundary` already: asserts demo mode refuses writes, checks the property belongs to the
+caller's org before writing (IDOR), reuses the existing land-parcel row instead of stacking a
+second one, stores the measured area, and reports the pin shift so the UI can confirm before it
+moves the pin. None of that needs to be rebuilt — which is the whole reason this feature is small.
+
+<Callout id="co-pin" tone="warn">
+
+**The pin will move, and the user must be asked first.** Across the KMZ reference set 24 of 26
+pins sat *outside* their own parcel (median 1.5 km off). `attachBoundary` returns
+`pinShiftM` / `pinMoved` for exactly this: show the shift, let the user accept, then pass
+`movePin: true`. Attaching a boundary silently must never happen.
+
+</Callout>
+
+### 6. Provenance — one widened enum, and one optional column
+
+- `boundarySource` gains `"cadastre"`. `land_parcels.boundary_source` is plain `text` (migration
+  `0025`), so **this is a one-line Zod enum change and needs no migration.** It keeps "where did
+  this boundary come from" honest across kmz / manual / cadastre.
+- **Optional, and the only migration in this plan:** `land_parcels.cadastre_ref text` to store the
+  `idu`. Without it, a re-import cannot tell which parcel a boundary came from and the link is
+  unrecoverable. Adding it later means a hand-authored migration for a column that could have been
+  populated at write time. My recommendation is to include it — but it is genuinely droppable if
+  you want this plan to be zero-migration. Hand-authored SQL per
+  `drizzle-only-hand-authored-migrations`, `0026_land_parcel_cadastre_ref.sql`.
+
+---
+
+## Files touched
+
+<FileTree id="ft-cadastre" title="Scope" entries={[{"path":"lib/services/kmz.ts","change":"modified","note":"Export parseGeometry() — reuses the KML area/centroid math."},{"path":"components/map/cadastre-layer.ts","change":"added","note":"Tile source, fill+line layers, feature-state hover."},{"path":"app/(shell)/add-property/_components/PropertyLocationMap.tsx","change":"modified","note":"Adds the layer + React hover card; new onParcelHover prop."},{"path":"app/_shared/add-property/Step2BasicInfo.tsx","change":"modified","note":"Holds the hovered parcel, renders the card, wires Use this parcel."},{"path":"app/api/v1/cadastre/parcel/route.ts","change":"added","note":"Point → exact parcel. Auth, bounds, timeout, no body echo."},{"path":"app/api/v1/cadastre/attach/route.ts","change":"added","note":"Explicit write. Calls attachBoundary unchanged."},{"path":"lib/data/types/land-parcel.ts","change":"modified","note":"boundarySource gains 'cadastre' (one line, no migration)."},{"path":"lib/services/property-boundary.ts","change":"untouched","note":"Reused as-is. This is the point."},{"path":"tests/cadastre-layer.test.ts","change":"added","note":"Bounds gate + parseGeometry round-trip. No network, no DB."},{"path":"drizzle/0026_land_parcel_cadastre_ref.sql","change":"added","note":"Optional — the cadastre_ref column."}]} />
+
+---
+
+## Where it goes in the UI
+
+`LocationPickerModal` is the surface that already says **"Set exact location."** That is where a
+user is looking at a pin and asking "is this the right plot?" — the question the cadastre layer
+answers. Today it shows the pin and nothing else:
+
+<Annotation targetId="ft-cadastre" placement="bottom" title="Not the wizard's main map" body="The Step-2 inline map is a preview; the modal is where the user commits a location. Build the hover there first, and only later decide whether the preview needs it." />
+
+<Checklist id="cl-sequence" items={[{"id":"s1","label":"parseGeometry() + unit test (pure, no network)","checked":false},{"id":"s2","label":"cadastre-layer.ts — layers appear in the modal at z14+ over Paris","checked":false,"note":"Visual check against known coordinates before any hover code."},{"id":"s3","label":"Hover highlight + idu in the card, on desktop","checked":false},{"id":"s4","label":"GET /api/v1/cadastre/parcel + attach route, with the bounds gate test","checked":false},{"id":"s5","label":"Use this parcel → confirm pin shift → boundary drawn by the existing detail map","checked":false,"note":"End-to-end proof that the ring is real: it must frame itself via fitBoundary()."},{"id":"s6","label":"Touch: tap-to-select fallback (hover does not exist on a phone)","checked":false},{"id":"s7","label":"Provenance: enum + cadastre_ref, and the KPI card reads 'Cadastre' as the source","checked":false}]} />
+
+---
+
+## Costs, risks, and what this does not do
+
+<Table id="tb-cost" columns={["Concern","Reality"]} rows={[["French cadastre tiles","€0 — free and open. No key, no quota, no account to create."],["APICarto","€0 — free public service. Called once per commit, not per hover."],["Mapbox","No change. These are raster-free vector layers on a map whose Map Loads are already billed."],["Public-service etiquette","One identifying User-Agent, a 4 s timeout, and no hover-time calls. This is a gift; do not hammer it."],["Attribution","Required: '© DINUM · cadastre.data.gouv.fr'. Added as the source attribution so it renders automatically."],["Cambodia","No public equivalent exists. Out of scope — but the provider seam this creates is where one would go."],["Offline / API blocked","Map still works. The cadastre layer simply never loads, exactly as today."]]} />
+
+**Explicitly not doing:**
+
+- No PostGIS, no spatial index, no stored tile copy. Nothing queries the geometry; it is rendered
+  and area-measured. The day a "properties within 1 km of X" query appears is the day PostGIS
+  earns its place, not before.
+- No French *address* search. GrabMaps already covers address lookup; this adds parcels, and the
+  two are independent.
+- No second map component. The picker gains a layer, not a rewrite.
+- Not auto-attaching on hover. Ever. Hover is a question; the click is the answer.
+
+<Callout id="co-ceiling" tone="info">
+
+**Known ceiling, deliberately accepted:** the bounds gate is a coarse bbox, so a point in
+Geneva/Barcelona/Brussels falls inside it and makes one wasted APICarto call that returns an empty
+feature set. That is a sub-second round trip on a free API, and the empty result is handled as a
+normal "no parcel" — so the cost of being wrong is nil and a real point-in-polygon test of France's
+border is not worth the code. The same gate decides whether the tile layer is added at all, where
+being loose is equally harmless.
+
+</Callout>
+
+---
+
+## Open questions
+
+<QuestionForm id="qf-cadastre" questions={[{"id":"touch","title":"Touch devices have no hover. What is the interaction?","mode":"single","options":[{"id":"tap","label":"Tap a parcel to select it","detail":"Tap highlights the parcel and opens the same card. One extra tap to commit, and it is the iOS-consistent gesture.","recommended":true},{"id":"longpress","label":"Long-press to preview, tap to commit","detail":"Keeps a plain tap meaning 'move the pin', but a long-press is an invisible affordance."},{"id":"none","label":"Desktop-only for now","detail":"Smallest diff. Phone users keep today's pin-only picker."}]},{"id":"ref-column","title":"Store the cadastre parcel id (needs the one migration)?","mode":"single","options":[{"id":"yes","label":"Yes — add cadastre_ref","detail":"Provenance is captured at write time and the link can never be recovered otherwise.","recommended":true},{"id":"no","label":"No — keep this zero-migration","detail":"The boundary and its source label are enough for now; the specific parcel is not stored."}]},{"id":"surface","title":"Where does the layer ship first?","mode":"single","options":[{"id":"modal","label":"The Set exact location modal","detail":"Where the user actually commits a location.","recommended":true},{"id":"both","label":"Modal and the Step-2 preview map","detail":"Consistent between the preview and the picker, but two integration points to keep in sync."}]},{"id":"cambodia","title":"Should a Cambodian equivalent be chased next?","mode":"single","options":[{"id":"later","label":"Later — land France first","detail":"Ship one provider end to end, then look for a source.","recommended":true},{"id":"now","label":"Research a source in parallel","detail":"Nothing public is known to exist; expect a licensed or ministry-provided dataset rather than an open API."}]}]} />
+
+<Callout id="co-mode" tone="info">
+
+This plan is **local-only** — written to disk, never sent to the Plan database
+(`localOnly: true` in `.plan-state.json`).
+
+</Callout>

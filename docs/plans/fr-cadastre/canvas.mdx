@@ -1,0 +1,106 @@
+<DesignBoard>
+
+<Artboard id="ab-picker-today" title="Set exact location — today" height={700}>
+  <Screen surface="desktop" html={`<div style="display:flex;flex-direction:column;height:100%;box-sizing:border-box;padding:16px;gap:12px">
+  <div style="display:flex;align-items:center;gap:10px;width:100%">
+    <strong>Set exact location</strong>
+    <div style="flex:1"></div>
+    <span data-icon="x" aria-label="Close"></span>
+  </div>
+  <div class="wf-card" style="display:flex;align-items:center;gap:8px;border-radius:999px">
+    <span data-icon="search" aria-label="Search"></span>
+    <span class="wf-muted">Search address…</span>
+  </div>
+  <div class="wf-box" style="flex:1;min-height:0;padding:0;overflow:hidden">
+    <svg viewBox="0 0 420 240" preserveAspectRatio="xMidYMid slice" style="width:100%;height:100%;display:block">
+      <rect x="0" y="0" width="420" height="240" fill="var(--wf-paper)"></rect>
+      <path d="M0 60 L420 90" stroke="var(--wf-line)" stroke-width="10" fill="none"></path>
+      <path d="M120 0 L150 240" stroke="var(--wf-line)" stroke-width="7" fill="none"></path>
+      <path d="M0 170 L420 150" stroke="var(--wf-line)" stroke-width="5" fill="none"></path>
+      <path d="M300 0 L330 240" stroke="var(--wf-line)" stroke-width="4" fill="none"></path>
+      <circle cx="186" cy="112" r="9" fill="var(--wf-accent)" stroke="var(--wf-paper)" stroke-width="4"></circle>
+    </svg>
+    <small class="wf-muted" style="position:absolute"></small>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px;width:100%">
+    <span class="wf-pill">48.8606° N, 2.3376° E</span>
+    <div style="flex:1"></div>
+    <button>Cancel</button>
+    <button class="primary">Confirm location</button>
+  </div>
+</div>`} />
+</Artboard>
+
+<Artboard id="ab-picker-cadastre" title="Set exact location — with cadastre hover" height={700}>
+  <Screen surface="desktop" html={`<div style="display:flex;flex-direction:column;height:100%;box-sizing:border-box;padding:16px;gap:12px">
+  <div style="display:flex;align-items:center;gap:10px;width:100%">
+    <strong>Set exact location</strong>
+    <div style="flex:1"></div>
+    <span data-icon="x" aria-label="Close"></span>
+  </div>
+  <div class="wf-card" style="display:flex;align-items:center;gap:8px;border-radius:999px">
+    <span data-icon="search" aria-label="Search"></span>
+    <span class="wf-muted">Search address…</span>
+  </div>
+  <div class="wf-box" style="position:relative;flex:1;min-height:0;padding:0;overflow:hidden">
+    <svg viewBox="0 0 420 240" preserveAspectRatio="xMidYMid slice" style="width:100%;height:100%;display:block">
+      <rect x="0" y="0" width="420" height="240" fill="var(--wf-paper)"></rect>
+      <path d="M0 60 L420 90" stroke="var(--wf-line)" stroke-width="10" fill="none"></path>
+      <path d="M120 0 L150 240" stroke="var(--wf-line)" stroke-width="7" fill="none"></path>
+      <g stroke="var(--wf-line)" stroke-width="1.4" fill="none">
+        <polygon points="40,40 150,30 165,120 55,135"></polygon>
+        <polygon points="150,30 260,25 275,115 165,120"></polygon>
+        <polygon points="260,25 370,35 380,125 275,115"></polygon>
+        <polygon points="55,135 165,120 175,200 65,215"></polygon>
+        <polygon points="165,120 275,115 285,195 175,200"></polygon>
+        <polygon points="275,115 380,125 390,205 285,195"></polygon>
+      </g>
+      <polygon points="150,30 260,25 275,115 165,120" fill="var(--wf-accent-soft)" stroke="var(--wf-accent)" stroke-width="2.5"></polygon>
+      <circle cx="248" cy="60" r="9" fill="var(--wf-accent)" stroke="var(--wf-paper)" stroke-width="4"></circle>
+    </svg>
+    <div class="wf-card" style="position:absolute;left:12px;bottom:12px;width:196px;max-width:46%;display:flex;flex-direction:column;gap:4px;padding:10px">
+      <strong>Parcel AJ 0002</strong>
+      <small class="wf-muted">Section AJ · n° 0002 · Paris</small>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <span class="wf-pill accent">2.72 ha</span>
+        <span class="wf-pill">Measured</span>
+      </div>
+      <button class="primary" style="margin-top:4px">Use this parcel</button>
+    </div>
+    <small class="wf-muted" style="position:absolute;right:10px;bottom:6px">© DINUM · cadastre.data.gouv.fr</small>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px;width:100%">
+    <span class="wf-pill">48.8606° N, 2.3376° E</span>
+    <div style="flex:1"></div>
+    <button>Cancel</button>
+    <button class="primary">Confirm location</button>
+  </div>
+</div>`} />
+</Artboard>
+
+<Artboard id="ab-hover-popup" title="Hover popup" height={360}>
+  <Screen surface="popover" html={`<div class="wf-card" style="display:flex;flex-direction:column;gap:6px;padding:14px;box-sizing:border-box">
+  <div style="display:flex;align-items:center;gap:8px;width:100%">
+    <strong>Parcel AJ 0002</strong>
+    <div style="flex:1"></div>
+    <span data-icon="x" aria-label="Dismiss"></span>
+  </div>
+  <small class="wf-muted">Section AJ · n° 0002 · Paris</small>
+  <div style="display:flex;gap:6px;flex-wrap:wrap">
+    <span class="wf-pill accent">27 227 m²</span>
+    <span class="wf-pill">Cadastre</span>
+  </div>
+  <small class="wf-muted">75101000AJ0002</small>
+  <hr />
+  <button class="primary">Use this parcel</button>
+  <small class="wf-muted">Read-only until you click.</small>
+</div>`} />
+</Artboard>
+
+<Annotation targetId="ab-picker-today" placement="right" title="Today" body="The map draws only the user's pin. There is nothing to hover, so the user cannot see where the plot boundary runs — the pin is a guess about the inside of a parcel, not knowledge of it." />
+
+<Annotation targetId="ab-picker-cadastre" placement="right" title="Hover shows the real parcel" body="Cadastral parcels draw under the pin. The parcel under the cursor highlights and a popup names the commune, section and number, and the official area." />
+
+<Annotation targetId="ab-hover-popup" placement="bottom" title="Popup is read-only" body="Hover never changes the property. The boundary is attached only when the user presses Use this parcel, so a stray mouse movement can never rewrite saved land data." />
+
+</DesignBoard>

@@ -1,0 +1,24 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ObjectStorage",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:GetObject",
+        "s3:DeleteObject"
+      ],
+      "Resource": "arn:aws:s3:::valgate-documents-dev-867418408748-ap-southeast-2-an/*"
+    },
+    {
+      "Sid": "AddressLookup",
+      "Effect": "Allow",
+      "Action": [
+        "geo-places:SearchText",
+        "geo-places:ReverseGeocode"
+      ],
+      "Resource": "arn:aws:geo-places:ap-southeast-1::provider/default"
+    }
+  ]
+}

@@ -13,9 +13,11 @@ import type { WizardConfig } from "../types";
 import type { UseFormReturn } from "react-hook-form";
 import {
   updateProperty,
-  verifyLocation,
   getLocationWizardInitialAction,
+  getLocationWizardBoundaryAction,
 } from "@/app/actions/properties";
+import { PropertyBoundaryCard } from "@/app/(shell)/property/[id]/_components/PropertyBoundaryCard";
+import { BoundaryStep } from "../BoundaryStep";
 import {
   propertyTypeChoiceSchema,
   propertyTitleSchema,
@@ -28,7 +30,8 @@ const LocationPickerModal = dynamic(
   () => import("@/app/(shell)/add-property/_components/LocationPickerModal").then((m) => m.LocationPickerModal),
   { ssr: false },
 );
-import { Map as MapIcon, MapPin, Navigation } from "lucide-react";
+import { attachPropertyCadastre } from "@/app/actions/property-cadastre";
+import { AlertTriangle, Map as MapIcon, MapPin, Navigation } from "lucide-react";
 import { env } from "@/lib/env";
 import { cn } from "@/components/ui/utils";
 
@@ -242,12 +245,15 @@ function IdentityStep({
 function MapPinStep({
   form,
   values,
+  propertyId,
 }: {
   form: UseFormReturn<LocationWizardValues>;
   values: LocationWizardValues;
+  propertyId: string;
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [pickerError, setPickerError] = useState<string | null>(null);
 
   const lat = values.lat ?? 0;
   const lng = values.lng ?? 0;
@@ -324,14 +330,31 @@ function MapPinStep({
         If you updated the address in step 1, use &quot;Adjust pin on map&quot; to move the pin to the correct location.
       </p>
 
+      {/* The pin is saved either way, so this is a partial failure, not a blocked step. Saying so
+          is the difference between "my parcel is gone" and "re-try the parcel". */}
+      {pickerError && (
+        <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
+          <AlertTriangle className="mt-[1px] size-3.5 shrink-0 text-amber-600" />
+          <span className="text-[12px] text-amber-800">{pickerError}</span>
+        </div>
+      )}
+
       {/* Sub-modal: LocationPickerModal */}
       {pickerOpen && (
         <LocationPickerModal
           center={[lng, lat]}
           onClose={() => setPickerOpen(false)}
-          onConfirm={([newLng, newLat]) => {
+          onConfirm={([newLng, newLat], choice) => {
             form.setValue("lat", newLat, { shouldValidate: true });
             form.setValue("lng", newLng, { shouldValidate: true });
+            // Unlike the add-property wizard, this property ALREADY EXISTS, so the parcel is
+            // attached now. Failure is surfaced rather than swallowed: the pin is still correct,
+            // but the user should know the parcel did not attach.
+            if (choice) {
+              void attachPropertyCadastre(propertyId, choice).then((r) => {
+                if (!r.ok) setPickerError(r.error);
+              });
+            }
             setPickerOpen(false);
           }}
         />
@@ -394,19 +417,10 @@ export const locationWizardConfig: WizardConfig<typeof LocationWizardSchema> = {
     return { ok: true, data: { entityId: propertyId } };
   },
 
-  verification: {
-    title: "Verify location",
-    declaration:
-      "I confirm this address is correct and the uploaded document is authentic.",
-    documentLabel: "Proof of address",
-    minFiles: 1,
-    maxFiles: 5,
-    onVerify: async ({ entityId, docIds }) => {
-      const result = await verifyLocation(entityId, docIds);
-      if (!result.ok) return { ok: false, error: result.error };
-      return { ok: true, data: undefined };
-    },
-  },
+  // NO `verification` phase. Location verification is dropped: the last step is the KMZ /
+  // hand-drawn boundary on the page itself, and this wizard only owns address, identity and pin.
+  // It does not import `VerificationStep`, and its final button reads "Save" (see
+  // FeatureUnlockWizard, which keys that label off `config.verification`).
 
   steps: [
     {
@@ -435,10 +449,25 @@ export const locationWizardConfig: WizardConfig<typeof LocationWizardSchema> = {
       title: "Map pin",
       description: "Confirm the exact map pin.",
       fields: ["lat", "lng"],
-      render: ({ form, values }) => (
+      render: ({ form, values, propertyId }) => (
         <MapPinStep
           form={form as UseFormReturn<LocationWizardValues>}
           values={values as LocationWizardValues}
+          propertyId={propertyId}
+        />
+      ),
+    },
+    {
+      // The step verification used to be. `fields` is empty on purpose: the boundary lives on the
+      // Location tab and is optional, so this step validates nothing and does not gate the wizard.
+      key: "boundary",
+      title: "Land boundary",
+      description: "Attach the KMZ, or draw the boundary on the Location tab.",
+      fields: [],
+      render: ({ propertyId, values }) => (
+        <BoundaryStep
+          propertyId={propertyId}
+          propertyName={(values as LocationWizardValues).name || "this property"}
         />
       ),
     },

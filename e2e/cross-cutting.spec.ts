@@ -98,8 +98,17 @@ test.describe('P — Cross-cutting safety', () => {
 
     await test.step('No unexpected console errors', async () => {
       const realErrors = consoleErrors.filter((e) => {
-        // Known noise: mapbox GL, ResizeObserver loop warnings, extension logs.
-        if (e.includes('mapbox') || e.includes('ResizeObserver') || e.includes('chrome-extension')) {
+        // Known noise: map renderer GL warnings, ResizeObserver loop warnings, extension logs.
+        // CI runs dummy provider tokens, so the basemap has no imagery and the renderer is expected
+        // to complain — that is the documented CI condition, not a regression.
+        if (
+          e.includes('mapbox') ||
+          e.includes('maplibre') ||
+          e.includes('tile.googleapis') ||
+          e.includes('createSession') ||
+          e.includes('ResizeObserver') ||
+          e.includes('chrome-extension')
+        ) {
           return false
         }
         // Help menu is a Radix dropdown: SSR vs client useId can log a hydration

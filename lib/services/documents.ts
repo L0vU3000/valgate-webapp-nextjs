@@ -5,6 +5,7 @@ import { documents } from "@/lib/db/schema";
 import { encodeCursor, decodeCursor } from "@/lib/pagination/cursor";
 import { DocumentSchema, type Document } from "@/lib/data/types/document";
 import type { NewDocument, DocumentPatch } from "@/lib/data/types/document";
+import type { DocumentCategory } from "@/lib/services/document-classify";
 import { toDomain, type Ctx } from "@/lib/services/_mapping";
 import { scopedInsert, scopedUpdate, scopedDelete, assertOrgAdmin } from "@/lib/services/_crud";
 import { deleteStorageObject } from "@/lib/services/storage";
@@ -206,4 +207,21 @@ export async function saveDocumentSummary(
     rowToDocument,
     false,
   );
+}
+
+// Persists an AI-chosen category onto the document row.
+//
+// `documents.category` is a real enum that nothing populated until now: the only writer was a
+// hardcoded "Photos" on the photo path, so every uploaded document carried category = null. The
+// caller decides the value (Jev picks from the enum's own labels) and passes it in; this function
+// only writes it, so the service stays free of any model dependency.
+//
+// Org-scoped via scopedUpdate — same no-IDOR guarantee as setDocumentAiStatus: a cross-org id
+// returns null rather than writing. Demo mode and insufficient role throw, per scopedUpdate.
+export async function setDocumentCategory(
+  ctx: Ctx,
+  id: string,
+  category: DocumentCategory,
+): Promise<Document | null> {
+  return scopedUpdate(ctx, documents, id, { category }, rowToDocument, false);
 }

@@ -3,20 +3,78 @@
 import { useEffect, useRef } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
+import { Map as MapLibreMap, Marker as MapLibreMarker, LngLat as MapLibreLngLat, AttributionControl, type GeoJSONSource } from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
 import Supercluster from "supercluster";
 import { env } from "@/lib/env";
 import { useShellContext } from "@/components/layout/shell-context";
 import type { Property } from "@/lib/data/types/property";
+import { addBoundaryLayer, BOUNDARY_SOURCE_ID } from "@/components/map/boundary-layer";
+import {
+  googleSession,
+  basemapStyle,
+  placeholderStyle,
+  ATTRIBUTION_POSITION,
+} from "@/components/map/basemap";
+
+/**
+ * Which renderer draws the basemap.
+ *
+ * Two, not one, and not by preference: Google's 2D tiles may not be drawn through `mapbox-gl`
+ * (licence), and Google has no light/dark roadmap equivalent. So the light/dark basemap stays on
+ * Mapbox and Google satellite is the only MapLibre surface. `boundary-layer.ts` and `MapControls.tsx`
+ * already accept either renderer; this file is the one that has to pick.
+ */
+export type MapRenderer = "mapbox" | "maplibre";
+
+import type { AnyMap, AnyMarker } from "@/components/map/types";
 
 const CAMBODIA_CENTER: [number, number] = [104.9, 12.5];
 const CAMBODIA_ZOOM = 7;
 
+/** The Mapbox basemap for the light/dark (non-satellite) view. Satellite is MapLibre + Google. */
+export function mapboxStyle(isDark: boolean): string {
+  return isDark ? "mapbox://styles/mapbox/dark-v11" : "mapbox://styles/mapbox/light-v11";
+}
+
+/** The marker class for whichever renderer is mounted. Both implement the {@link AnyMarker} surface. */
+function MarkerFor(map: AnyMap): new (opts: { element: HTMLElement; anchor: string }) => AnyMarker {
+  return (map instanceof mapboxgl.Map ? mapboxgl.Marker : MapLibreMarker) as never;
+}
+
+/** The coordinate class for whichever renderer is mounted; only `project()` needs it. */
+function LngLatFor(map: AnyMap): new (lng: number, lat: number) => MapLibreLngLat {
+  return (map instanceof mapboxgl.Map ? mapboxgl.LngLat : MapLibreLngLat) as never;
+}
+
+// The deepest zoom the map may reach, shared by Mapbox's `maxZoom` and Supercluster's `maxZoom`.
+//
+// Supercluster STOPS clustering above its `maxZoom` and hands back raw points. With Mapbox free to
+// reach its default 22 while Supercluster stopped at 14, any coordinate shared by several properties
+// (the seed has 8 Olympic units on one lat/lng) eventually un-clustered into 8 pins drawn on the same
+// pixel — 8 real properties, so it reads as one duplicate that never goes away. Raising Supercluster
+// alone only moves that wall: the map still out-zooms it. Pinning both to one value keeps the
+// un-clustered regime unreachable, and identical coordinates stay a cluster, which is what the
+// co-located swipe-card design wants.
+// ponytail: at max zoom a stack is still possible if a real pair sits inside `radius` px; the honest
+// fix there is the swipe cards, not a bigger number.
+const MAP_MAX_ZOOM = 20;
+
+// Boundaries are parcel-sized — at portfolio zoom a ring is a sub-pixel smudge, and shipping
+// every org's geometry to the cluster view for that is pure waste. Draw them only once the user
+// has zoomed to a single building, matching the 3D-buildings reveal at zoom 15.
+const BOUNDARY_MIN_ZOOM = 16;
+
 interface MapViewProps {
-  properties: Property[];
+  properties: (Property & { boundary?: unknown })[];
   selectedId: string | null;
   onSelectProperty: (id: string | null) => void;
   onMapLoaded?: () => void;
-  onMapReady?: (map: mapboxgl.Map) => void;
+  /**
+   * The live map, for the callers that drive it from outside (quick-add's click handler and pin
+   * layer). Typed as either renderer because which one exists depends on `isSatellite`.
+   */
+  onMapReady?: (map: AnyMap) => void;
   isSatellite?: boolean;
   className?: string;
 }
@@ -31,12 +89,34 @@ export function MapView({
   className,
 }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<mapboxgl.Map | null>(null);
-  const activeMarkersRef = useRef<Map<string, mapboxgl.Marker>>(new Map());
-  const pinMarkersRef = useRef<Map<string, mapboxgl.Marker>>(new Map());
+  const mapRef = useRef<AnyMap | null>(null);
+  const activeMarkersRef = useRef<Map<string, AnyMarker>>(new Map());
+  const pinMarkersRef = useRef<Map<string, AnyMarker>>(new Map());
   const clusterIndex = useRef<Supercluster | null>(null);
+  // Latest properties, so the map's own event handlers (bound once, in the init effect) never read
+  // a stale closure — same reason isDark/isSatellite keep refs. A property created after mount must
+  // be findable by updateClusters, which is called from map `move` long after that first render.
+  const propertiesRef = useRef(properties);
+  propertiesRef.current = properties;
+
+  // Boundary geometry as a single FeatureCollection, derived from propertiesRef at draw time rather
+  // than captured at mount — a boundary uploaded after mount must appear without remounting the map.
+  // Only properties that actually carry geometry: a null-geometry feature is a Mapbox warning per
+  // frame for no visual result.
+  function boundaryData(): GeoJSON.FeatureCollection {
+    return {
+      type: "FeatureCollection",
+      features: propertiesRef.current
+        .filter((p) => p.boundary)
+        .map((p) => ({
+          type: "Feature" as const,
+          properties: { id: p.id },
+          geometry: p.boundary as GeoJSON.Geometry,
+        })),
+    };
+  }
   const exitingMarkersRef = useRef<
-    Map<string, { marker: mapboxgl.Marker; timeout: ReturnType<typeof setTimeout> }>
+    Map<string, { marker: AnyMarker; timeout: ReturnType<typeof setTimeout> }>
   >(new Map());
   const { isDark } = useShellContext();
   const isDarkRef = useRef(isDark);
@@ -46,84 +126,146 @@ export function MapView({
 
   // Initialize map
   useEffect(() => {
-    if (!containerRef.current || mapRef.current) return;
+    // StrictMode discards its first mount immediately. Do not start Mapbox's async style/sprite
+    // work for that mount: remove() cannot cancel every callback once the load has started.
+    let dispose: (() => void) | undefined;
+    const timer = setTimeout(() => {
+      if (!containerRef.current || mapRef.current) return;
 
-    mapboxgl.accessToken = env.NEXT_PUBLIC_MAPBOX_TOKEN;
+      // Which renderer this mount uses. Read ONCE, at mount: the map object is created here and only
+      // re-created by a full remount, which is what the satellite toggle triggers (via `key`). A style
+      // swap cannot cross renderers, so this is deliberately not reactive.
+      const useMapbox = !isSatelliteRef.current;
 
-    // Build cluster index once
-    const index = new Supercluster({ radius: 60, maxZoom: 14 });
-    index.load(
+      if (useMapbox) {
+        // Mapbox draws its own style URL; there is no session token to wait for, so no blank-style
+        // phase and no swap. `mapbox-gl` needs the token on the module, not per map.
+        mapboxgl.accessToken = env.NEXT_PUBLIC_MAPBOX_TOKEN;
+      }
+      // MapLibre's worker URL is configured in basemap.ts at module scope, not here — see the note
+      // there on why a per-mount call races the module's own initialisation.
+
+      // Build cluster index once. `maxZoom` matches the map's own ceiling — see MAP_MAX_ZOOM.
+      const index = new Supercluster({ radius: 60, maxZoom: MAP_MAX_ZOOM });
+      index.load(
+        propertiesRef.current.map((p) => ({
+          type: "Feature" as const,
+          geometry: { type: "Point" as const, coordinates: [p.lng, p.lat] },
+          properties: { id: p.id },
+        }))
+      );
+      clusterIndex.current = index;
+
+      // Both renderers take the same camera options; only the style differs.
+      const camera = {
+        container: containerRef.current,
+        center: CAMBODIA_CENTER,
+        zoom: CAMBODIA_ZOOM,
+        maxZoom: MAP_MAX_ZOOM,
+        pitch: 45,
+        bearing: -17.6,
+      };
+
+      const map: AnyMap = useMapbox
+        ? new mapboxgl.Map({ ...camera, style: mapboxStyle(isDarkRef.current), attributionControl: false })
+        : new MapLibreMap({ ...camera, style: placeholderStyle(isDarkRef.current) });
+
+      // `Map` is a union of two classes whose overloaded methods do not merge, so `on`/`off`/`addControl`
+      // are addressed through one renderer's type. At runtime both libraries implement this surface
+      // identically, and which one is really there is already decided by `useMapbox` above. This is the
+      // single narrowing point for the whole mount, matching boundary-layer.ts's `sourceOf`.
+      const m = map as MapLibreMap;
+
+      if (useMapbox) {
+        (map as mapboxgl.Map).addControl(
+          new mapboxgl.AttributionControl({ compact: true }),
+          ATTRIBUTION_POSITION,
+        );
+      } else {
+        m.addControl(new AttributionControl({ compact: true }), ATTRIBUTION_POSITION);
+      }
+      mapRef.current = map;
+      let destroyed = false;
+
+      // Satellite only: Google's session token is an async round trip, so the basemap is swapped in
+      // after the map exists. The `style.load` handler below is what makes that swap safe: it re-adds
+      // the boundary layer and the pins, which is the same path a theme switch already used.
+      if (!useMapbox) {
+        googleSession("satellite")
+          .then((session) => {
+            if (destroyed || mapRef.current !== map) return;
+            m.setStyle(basemapStyle("satellite", isDarkRef.current, session));
+          })
+          .catch((err) => {
+            // Blank basemap, still usable: pins and boundaries draw regardless. Same posture as
+            // PropertyLocationMap's no-WebGL fallback. Logged rather than swallowed — this catch also
+            // wraps `setStyle`, and a silent failure there is indistinguishable from a slow basemap.
+            console.error("[MapView] satellite basemap failed", err);
+          });
+      }
+
+      m.on("load", () => {
+        if (destroyed) return;
+        addBoundaries(m);
+        onMapLoaded?.();
+        onMapReady?.(map);
+        updateClusters(m);
+      });
+
+      m.on("move", () => {
+        if (destroyed) return;
+        updateClusters(m);
+      });
+
+      m.on("style.load", () => {
+        if (destroyed) return;
+        addBoundaries(m);
+        clearMarkers();
+        updateClusters(m);
+      });
+
+      dispose = () => {
+        destroyed = true;
+        clearMarkers();
+        mapRef.current = null;
+        map.remove();
+      };
+    }, 0);
+    return () => {
+      clearTimeout(timer);
+      dispose?.();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // A theme switch, Mapbox only. Its style is a URL, so a theme change is one `setStyle` call.
+  // Satellite is not re-styled: Google has no dark variant, and the satellite toggle remounts the map
+  // (see the `key` in HomePage) rather than swapping its style.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || isSatelliteRef.current) return;
+    (map as mapboxgl.Map).setStyle(mapboxStyle(isDark));
+  }, [isDark]);
+
+  // Rebuild the cluster index when the property set changes — a property created by Quick Add lands
+  // in the list but not in the index built on mount, so it would be in the sidebar and invisible on
+  // the map. updateClusters then diffs the new cluster set against the visible markers, which adds
+  // the new pin and animates the removed ones out.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !clusterIndex.current) return;
+    clusterIndex.current.load(
       properties.map((p) => ({
         type: "Feature" as const,
         geometry: { type: "Point" as const, coordinates: [p.lng, p.lat] },
         properties: { id: p.id },
       }))
     );
-    clusterIndex.current = index;
-
-    const map = new mapboxgl.Map({
-      container: containerRef.current,
-      style: isSatellite
-        ? "mapbox://styles/mapbox/satellite-streets-v12"
-        : isDark
-          ? "mapbox://styles/mapbox/dark-v11"
-          : "mapbox://styles/mapbox/light-v11",
-      center: CAMBODIA_CENTER,
-      zoom: CAMBODIA_ZOOM,
-      pitch: 45,
-      bearing: -17.6,
-      antialias: true,
-    });
-
-    mapRef.current = map;
-    let destroyed = false;
-
-    map.on("load", () => {
-      if (destroyed) return;
-      add3DBuildings(map);
-      onMapLoaded?.();
-      onMapReady?.(map);
-      updateClusters(map);
-    });
-
-    map.on("move", () => {
-      if (destroyed) return;
-      updateClusters(map);
-    });
-
-    map.on("style.load", () => {
-      if (destroyed) return;
-      add3DBuildings(map);
-      exitingMarkersRef.current.forEach(e => { clearTimeout(e.timeout); e.marker.remove(); });
-      exitingMarkersRef.current.clear();
-      activeMarkersRef.current.clear();
-      pinMarkersRef.current.clear();
-      updateClusters(map);
-    });
-
-    return () => {
-      destroyed = true;
-      map.remove();
-      exitingMarkersRef.current.forEach(e => { clearTimeout(e.timeout); e.marker.remove(); });
-      exitingMarkersRef.current.clear();
-      activeMarkersRef.current.clear();
-      pinMarkersRef.current.clear();
-      mapRef.current = null;
-    };
+    updateClusters(map);
+    // updateClusters is redeclared every render; depending on it would loop. The property list is
+    // the only real input.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Switch style when theme or satellite mode changes
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-    const style = isSatellite
-      ? "mapbox://styles/mapbox/satellite-streets-v12"
-      : isDark
-        ? "mapbox://styles/mapbox/dark-v11"
-        : "mapbox://styles/mapbox/light-v11";
-    map.setStyle(style);
-  }, [isDark, isSatellite]);
+  }, [properties]);
 
   // Update marker highlight when selectedId changes
   useEffect(() => {
@@ -132,7 +274,12 @@ export function MapView({
       if (!el) return;
       if (id === selectedId) {
         el.style.transform = "scale(1.5)";
-        el.style.boxShadow = "0 0 0 4px rgba(var(--color-interactive-primary), 0.35)";
+        // color-mix, not rgba(): `rgba(var(--x), 0.35)` is invalid CSS — custom properties are
+        // substituted as raw token streams, so the ring silently never rendered and a selected pin
+        // had no indicator beyond its own 1.5× scale. Every other token-based shadow in
+        // styles/theme.css uses this form for the same reason.
+        el.style.boxShadow =
+          "0 0 0 4px color-mix(in srgb, var(--interactive-primary) 35%, transparent)";
         el.setAttribute("data-selected", "true");
       } else {
         el.style.transform = "scale(1)";
@@ -244,10 +391,30 @@ export function MapView({
     return { wrapper };
   }
 
-  function updateClusters(map: mapboxgl.Map) {
+  // Tear every marker out of the map, including the ones mid-exit. Clearing the refs alone is not
+  // enough: `setStyle` leaves marker DOM in the canvas container untouched, so a bare `.clear()`
+  // orphans those elements — they stay drawn on the map with nothing holding a handle to remove
+  // them, and the next updateClusters stacks a fresh marker on top. That is the glitch: duplicates
+  // that never go away, one more per style switch.
+  function clearMarkers() {
+    exitingMarkersRef.current.forEach((e) => {
+      clearTimeout(e.timeout);
+      e.marker.remove();
+    });
+    exitingMarkersRef.current.clear();
+    activeMarkersRef.current.forEach((m) => m.remove());
+    activeMarkersRef.current.clear();
+    pinMarkersRef.current.clear();
+  }
+
+  function updateClusters(map: AnyMap) {
     if (!clusterIndex.current) return;
 
-    const bounds = map.getBounds();
+    const ml = map as MapLibreMap;
+    const Mk = MarkerFor(map);
+    const LL = LngLatFor(map);
+
+    const bounds = ml.getBounds();
     if (!bounds) return;
     const bbox: [number, number, number, number] = [
       bounds.getWest(),
@@ -255,7 +422,7 @@ export function MapView({
       bounds.getEast(),
       bounds.getNorth(),
     ];
-    const zoom = Math.floor(map.getZoom());
+    const zoom = Math.floor(ml.getZoom());
     const clusters = clusterIndex.current.getClusters(bbox, zoom);
 
     // Determine which keys should be visible
@@ -268,14 +435,14 @@ export function MapView({
       );
     }
 
-    const canvas = map.getCanvas();
+    const canvas = ml.getCanvas();
 
     // Returns true if a lngLat is outside or within 40px of the viewport edge.
     // canvas.clientWidth/clientHeight are CSS pixels — same space as map.project() output.
     // canvas.width/height are physical pixels (2× on retina) and must not be used here.
     const EDGE_BUFFER = 40;
-    const isOffScreen = (lngLat: mapboxgl.LngLat) => {
-      const { x, y } = map.project(lngLat);
+    const isOffScreen = (lngLat: MapLibreLngLat) => {
+      const { x, y } = ml.project(lngLat);
       return (
         x < EDGE_BUFFER ||
         x > canvas.clientWidth - EDGE_BUFFER ||
@@ -288,12 +455,12 @@ export function MapView({
     // When zooming in, the splitting cluster has no nearby absorbing cluster → returns null.
     // When zooming out, the absorbing cluster is nearby → returns delta.
     // Skips target clusters that are off-screen so edge pins don't fly off the viewport.
-    const nearestIncomingCluster = (lngLat: mapboxgl.LngLat): { dx: number; dy: number } | null => {
-      const fromPx = map.project(lngLat);
+    const nearestIncomingCluster = (lngLat: MapLibreLngLat): { dx: number; dy: number } | null => {
+      const fromPx = ml.project(lngLat);
       let bestDx = 0, bestDy = 0, minSq = Infinity;
       for (const f of clusters) {
         if (!f.properties.cluster) continue;
-        const toPx = map.project(f.geometry.coordinates as [number, number]);
+        const toPx = ml.project(f.geometry.coordinates as [number, number]);
         if (toPx.x < 0 || toPx.x > canvas.clientWidth || toPx.y < 0 || toPx.y > canvas.clientHeight) continue;
         const dx = toPx.x - fromPx.x;
         const dy = toPx.y - fromPx.y;
@@ -305,12 +472,12 @@ export function MapView({
 
     // Nearest exiting cluster within 350px — used for emerge-from-cluster entrance animations.
     // exitingMarkersRef is already populated for this frame before this loop runs.
-    const nearestExitingCluster = (lngLat: mapboxgl.LngLat): { dx: number; dy: number } | null => {
-      const toPx = map.project(lngLat);
+    const nearestExitingCluster = (lngLat: MapLibreLngLat): { dx: number; dy: number } | null => {
+      const toPx = ml.project(lngLat);
       let bestDx = 0, bestDy = 0, minSq = Infinity;
       for (const [key, entry] of exitingMarkersRef.current) {
         if (!key.startsWith("cluster-")) continue;
-        const fromPx = map.project(entry.marker.getLngLat());
+        const fromPx = ml.project(entry.marker.getLngLat() as unknown as [number, number]);
         const dx = fromPx.x - toPx.x;
         const dy = fromPx.y - toPx.y;
         const sq = dx * dx + dy * dy;
@@ -329,7 +496,7 @@ export function MapView({
           isPin ? "[data-pin]" : "[data-cluster-circle]"
         );
         if (innerEl) {
-          const lngLat = marker.getLngLat();
+          const lngLat = marker.getLngLat() as unknown as MapLibreLngLat;
           const offScreen = isOffScreen(lngLat);
           if (!offScreen) {
             const target = nearestIncomingCluster(lngLat);
@@ -396,7 +563,7 @@ export function MapView({
         const el = createClusterElement(f.properties.point_count);
         const circle = el.querySelector<HTMLElement>("[data-cluster-circle]");
         if (circle) {
-          const origin = nearestExitingCluster(new mapboxgl.LngLat(lng, lat));
+          const origin = nearestExitingCluster(new LL(lng, lat));
           if (origin) {
             circle.style.setProperty("--cluster-ox", `${origin.dx}px`);
             circle.style.setProperty("--cluster-oy", `${origin.dy}px`);
@@ -405,23 +572,33 @@ export function MapView({
             circle.style.animation = "cluster-appear 380ms cubic-bezier(0.16, 1, 0.3, 1) both";
           }
         }
-        const m = new mapboxgl.Marker({ element: el, anchor: "center" })
+        const m = new Mk({ element: el, anchor: "center" })
           .setLngLat([lng, lat])
           .addTo(map);
         el.addEventListener("click", () => {
-          const z = Math.min(
-            clusterIndex.current!.getClusterExpansionZoom(f.properties.cluster_id),
-            20
-          );
+          const expansion = clusterIndex.current!.getClusterExpansionZoom(f.properties.cluster_id);
+          // Expansion zoom above the ceiling means the cluster can never split — every member sits
+          // on the same coordinate (8 Olympic units in the seed do). Easing to a clamped zoom would
+          // be a no-op, leaving those properties unreachable on the map. Select the first member
+          // instead, so the badge still opens the drawer.
+          // ponytail: opens the first member only; the co-located swipe cards are the real design.
+          if (expansion > MAP_MAX_ZOOM) {
+            const first = clusterIndex.current!.getLeaves(f.properties.cluster_id, 1)[0];
+            if (first) {
+              onSelectProperty((first.properties as { id: string }).id);
+              return;
+            }
+          }
+          const z = Math.min(expansion, MAP_MAX_ZOOM);
           map.easeTo({ center: [lng, lat], zoom: z });
         });
         activeMarkersRef.current.set(key, m);
       } else {
-        const property = properties.find((p) => p.id === f.properties.id)!;
+        const property = propertiesRef.current.find((p) => p.id === f.properties.id)!;
         const { wrapper } = createPinElement(property);
         const pin = wrapper.querySelector<HTMLElement>("[data-pin]");
         if (pin) {
-          const origin = nearestExitingCluster(new mapboxgl.LngLat(lng, lat));
+          const origin = nearestExitingCluster(new LL(lng, lat));
           const delay = Math.floor(Math.random() * 80);
           if (origin) {
             pin.style.setProperty("--pin-ox", `${origin.dx}px`);
@@ -431,7 +608,7 @@ export function MapView({
             pin.style.animation = `pin-appear 280ms cubic-bezier(0.16, 1, 0.3, 1) ${delay}ms both`;
           }
         }
-        const m = new mapboxgl.Marker({ element: wrapper, anchor: "center" })
+        const m = new Mk({ element: wrapper, anchor: "center" })
           .setLngLat([lng, lat])
           .addTo(map);
         activeMarkersRef.current.set(key, m);
@@ -440,33 +617,18 @@ export function MapView({
     }
   }
 
-  function add3DBuildings(map: mapboxgl.Map) {
-    if (isSatelliteRef.current) return;
-    // Skip if layer already exists (e.g. called twice on style reload)
-    if (map.getLayer("3d-buildings")) return;
+  // 3D buildings used to be drawn here from Mapbox's `composite` vector source. Google's 2D Map
+  // Tiles are raster, so there is no building source layer to extrude from and no vector source at
+  // all — the function had no reachable path, so it is gone rather than left disabled. Restoring it
+  // needs a vector basemap alongside the raster imagery, which is a product decision, not a flag.
 
-    map.addLayer({
-      id: "3d-buildings",
-      source: "composite",
-      "source-layer": "building",
-      type: "fill-extrusion",
-      minzoom: 15,
-      paint: {
-        "fill-extrusion-color": isDarkRef.current ? "#1e2235" : "#c8cdd6",
-        // Animate buildings rising from the ground as the user zooms past zoom 15
-        "fill-extrusion-height": [
-          "interpolate", ["linear"], ["zoom"],
-          15, 0,
-          15.05, ["get", "height"],
-        ],
-        "fill-extrusion-base": [
-          "interpolate", ["linear"], ["zoom"],
-          15, 0,
-          15.05, ["get", "min_height"],
-        ],
-        "fill-extrusion-opacity": isDarkRef.current ? 0.7 : 0.5,
-      },
-    });
+  // Portfolio boundaries live in ONE source with a minzoom, not one layer per property: they share
+  // a style and are invisible below BOUNDARY_MIN_ZOOM, so N layers would be N× the style
+  // bookkeeping for identical pixels.
+  function addBoundaries(map: AnyMap) {
+    addBoundaryLayer(map, null, { minZoom: BOUNDARY_MIN_ZOOM });
+    const src = (map as MapLibreMap).getSource(BOUNDARY_SOURCE_ID) as GeoJSONSource | undefined;
+    src?.setData(boundaryData());
   }
 
   return (

@@ -4,7 +4,7 @@ on:
   push:
     branches-ignore: [main]
   pull_request:
-    branches: [main]
+    branches: [main, staging]
 
 # A new push to the same branch cancels the older run. Matters more than
 # usual here: the Mac is a single runner, so stale queued iOS jobs would
@@ -13,11 +13,13 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# seed:neon imports lib/env.ts, which requires NEXT_PUBLIC_MAPBOX_TOKEN at
-# parse time. A dummy is enough here — seed/migrate/tests never call Mapbox.
-# Keep the real token required in lib/env.ts for production/runtime.
+# seed:neon imports lib/env.ts, which requires NEXT_PUBLIC_MAPBOX_TOKEN and
+# NEXT_PUBLIC_GOOGLE_MAPS_API_KEY at parse time. Dummies are enough here —
+# seed/migrate/tests never call Mapbox or Google.
+# Keep both tokens required in lib/env.ts for production/runtime.
 env:
   NEXT_PUBLIC_MAPBOX_TOKEN: test-mapbox-token
+  NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: test-google-maps-key
 
 jobs:
   # ---------------------------------------------------------------
@@ -182,8 +184,10 @@ jobs:
       CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
       E2E_CLERK_USER_EMAIL: ${{ secrets.E2E_CLERK_USER_EMAIL }}
       E2E_CLERK_USER_PASSWORD: ${{ secrets.E2E_CLERK_USER_PASSWORD }}
-      # Dummy token for CI — t3-env validation requires it but Mapbox isn't exercised in E2E
+      # Dummy tokens for CI — t3-env validation requires them but neither map provider is
+      # exercised in E2E (no live tiles, so no map imagery and no pins).
       NEXT_PUBLIC_MAPBOX_TOKEN: pk.ci-dummy
+      NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ci-dummy-google-key
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

@@ -1,10 +1,10 @@
 import "server-only"; // C1
-import { S3Client, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, GetObjectCommand, DeleteObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { createPresignedPost } from "@aws-sdk/s3-presigned-post";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { env } from "@/lib/env";
 import { nextId, type Ctx } from "@/lib/services/_mapping";
-import { MAX_BYTES, ALLOWED_MIME } from "@/lib/upload-constants";
+import { MAX_BYTES, ALLOWED_MIME, KMZ_MIME, KMZ_MAX_BYTES } from "@/lib/upload-constants";
 
 export { MAX_BYTES, ALLOWED_MIME };
 
@@ -43,6 +43,23 @@ export async function presignUpload(
     Fields: { "Content-Type": mimeType },
   });
   return { url, fields, storageId };
+}
+
+// Server-side put of an already-validated KMZ. Deliberately NOT a presigned POST: the boundary
+// route has the bytes in hand (it just parsed them) and the user never needs a direct upload URL,
+// so a presign would add a round trip and a second trust boundary for nothing.
+export async function putKmz(
+  ctx: Ctx,
+  buffer: Buffer,
+  fileName: string,
+): Promise<{ storageId: string }> {
+  if (buffer.length > KMZ_MAX_BYTES) throw new Error("KMZ is too large to store");
+  const { client, bucket } = getS3();
+  const storageId = `${ctx.orgId}/BOUNDARY/${await nextId("DOC")}/${fileName}`;
+  await client.send(
+    new PutObjectCommand({ Bucket: bucket, Key: storageId, Body: buffer, ContentType: KMZ_MIME }),
+  );
+  return { storageId };
 }
 
 const MAX_LOGGED_BODY_LENGTH = 2000;

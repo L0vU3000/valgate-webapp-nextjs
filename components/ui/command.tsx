@@ -1,8 +1,16 @@
 "use client";
 
 import * as React from "react";
-import { Command as CommandPrimitive } from "cmdk";
+import {
+  Command as CommandPrimitive,
+  useCommandState as useCmdkState,
+} from "cmdk";
 import { SearchIcon } from "lucide-react";
+
+// Re-exported so callers can read the live search text without lifting state out of cmdk. cmdk owns
+// the input's value, so anything that needs to react to typing (e.g. an on-demand place search) must
+// read it here rather than guessing. It is a standalone function, not a property of the component.
+export const useCommandState = useCmdkState;
 
 import { cn } from "./utils";
 import {

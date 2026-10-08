@@ -281,7 +281,12 @@ export function FeatureUnlockWizard<TSchema extends ZodTypeAny>({
       >
         <PhoneSheetTitle className="sr-only">{config.title}</PhoneSheetTitle>
 
-        <div className="flex min-h-0 flex-1 sm:min-h-[660px] sm:max-h-[88vh]">
+        {/* `min-h-[660px]` on a short laptop screen is a floor the dialog cannot fit under: at a
+            1512x660 viewport the Continue button landed 31px BELOW the fold, so the user had to
+            scroll a footer that is meant to be pinned. The floor now applies only to windows that
+            are actually that TALL — `min-[760px]` would be wrong here, that variant is min-WIDTH and
+            matched every desktop. `[@media(min-height:760px)]` is the height query this needs. */}
+        <div className="flex min-h-0 flex-1 sm:max-h-[88vh] sm:[@media(min-height:760px)]:min-h-[660px]">
 
           {/* ── Left rail ── */}
           <div
@@ -503,7 +508,7 @@ export function FeatureUnlockWizard<TSchema extends ZodTypeAny>({
                         Saving…
                       </>
                     ) : isLastDataStep ? (
-                      config.verification ? "Save & verify →" : "Save"
+                      "Save"
                     ) : (
                       "Continue →"
                     )}

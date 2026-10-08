@@ -4,7 +4,7 @@
 // dates→timestamptz (D7). Spec strings (total_area, year_built, …) kept TEXT to match
 // the Zod contract; properties.health dropped (Zod no longer has it).
 import {
-  pgTable, text, numeric, boolean, doublePrecision, timestamp, pgEnum, index,
+  pgTable, text, numeric, boolean, doublePrecision, timestamp, pgEnum, jsonb, index,
 } from "drizzle-orm/pg-core";
 import { organizations } from "./identity";
 
@@ -96,6 +96,12 @@ export const landParcels = pgTable("land_parcels", {
   zoningCode: text("zoning_code"),
   zoningClass: text("zoning_class"),
   developmentPotential: text("development_potential").array(),
+  // Land boundary as GeoJSON (Polygon | MultiPolygon) — the ring the map draws. jsonb, not
+  // PostGIS: no spatial query reads it, the client renders it and parse-time computes area.
+  boundary: jsonb("boundary"),
+  boundarySource: text("boundary_source"),                       // 'kmz' | 'manual' | 'cadastre'
+  // The official parcel id the boundary was taken from (French cadastre `idu`). Provenance only.
+  cadastreRef: text("cadastre_ref"),
   elevationM: numeric("elevation_m"),
   slopeAngleDeg: numeric("slope_angle_deg"),
   terrainType: terrainTypeEnum("terrain_type"),

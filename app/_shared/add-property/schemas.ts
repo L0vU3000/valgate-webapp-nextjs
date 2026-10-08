@@ -66,6 +66,18 @@ export const step4Schema = z.object({
 export const fullPropertySchema = step1Schema
   .merge(step2Schema)
   .merge(step3Schema)
-  .merge(step4Schema);
+  .merge(step4Schema)
+  .extend({
+    // Carried through, not validated as user input: the point is re-resolved against the cadastre
+    // server-side and the ref is only used for a drift warning, so a bogus value cannot become a
+    // boundary. Typed loosely so a malformed one fails the field, not the whole submit.
+    cadastreChoice: z
+      .object({
+        ref: z.string(),
+        point: z.tuple([z.number(), z.number()]),
+        label: z.string(),
+      })
+      .nullish(),
+  });
 
 export type FullPropertyInput = z.infer<typeof fullPropertySchema>;

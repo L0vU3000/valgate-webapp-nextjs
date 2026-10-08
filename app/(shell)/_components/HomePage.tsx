@@ -15,6 +15,7 @@ import {
   Command as CommandIcon,
   ArrowUpRight,
   MapPin,
+  LocateFixed,
   Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -22,15 +23,31 @@ import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { getPropertyCoverUrl } from "@/app/actions/property-photos";
 import { pickHeroImage } from "@/lib/property-hero";
 import { cn } from "@/components/ui/utils";
-import { progressClass, progressBgClass, titleToVariant } from "@/lib/property-helpers";
-import type { HomeProperty, TitleVariant, PortfolioStats } from "@/app/(shell)/queries";
+import {
+  progressClass,
+  progressBgClass,
+  titleToVariant,
+} from "@/lib/property-helpers";
+import type {
+  HomeProperty,
+  TitleVariant,
+  PortfolioStats,
+} from "@/app/(shell)/queries";
 import type { Document } from "@/lib/data/types/document";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { CommandPalette } from "@/components/home/CommandPalette";
 import { PropertyTable } from "@/components/portfolio/PropertyTable";
 import type { TableAnimationConfig } from "@/components/portfolio/PropertyTable";
 import { PortfolioLegend } from "./PortfolioLegend";
-import type mapboxgl from "mapbox-gl";
+import type { GeocodeSuggestion } from "@/app/_shared/add-property/_lib/use-geocode";
+import { QuickAddPinLayer } from "./QuickAddPinLayer";
+import type { AnyMap } from "@/components/map/types";
+import type { Map as MapLibreMap } from "maplibre-gl";
+import { QuickAddPanel } from "./QuickAddPanel";
+import { syncCadastreLayer } from "@/components/map/cadastre-layer";
+import { QuickAddSearch } from "./QuickAddSearch";
+import { useQuickAdd } from "./use-quick-add";
+import type * as mapboxgl from "maplibre-gl";
 
 const MapView = dynamic(
   () => import("@/components/map/MapView").then((m) => m.MapView),
@@ -38,7 +55,10 @@ const MapView = dynamic(
 );
 
 const MapControls = dynamic(
-  () => import("@/components/map/MapControls").then((m) => ({ default: m.MapControls })),
+  () =>
+    import("@/components/map/MapControls").then((m) => ({
+      default: m.MapControls,
+    })),
   { ssr: false },
 );
 
@@ -47,6 +67,10 @@ const titleClasses: Record<TitleVariant, string> = {
   soft: "text-status-warning-text",
   none: "text-secondary",
 };
+
+/** Camera zoom for a searched place. Close enough to see a street and its surroundings, and to bring
+ *  French cadastre parcels into range (~13+), without dropping the user at rooftop level. */
+const PLACE_ZOOM = 15;
 
 const HOME_TABLE_ANIMATION: TableAnimationConfig = {
   containerDuration: 250,
@@ -59,15 +83,23 @@ const HOME_TABLE_ANIMATION: TableAnimationConfig = {
 
 const triggerPlaceholders = [
   "Search properties, documents, tenants...",
-  "Find: Phnom Penh land plots",
+  // "Go to", not "Find": this bar moves the camera and never places a pin. The wording is the thing
+  // that keeps it distinct from the address bar's "places the pin" promise.
+  "Go to: Phnom Penh",
   "Find: Q1 2026 valuation report",
   "Find: Hard title properties",
   "Find: Vacant properties in Siem Reap",
 ];
 
-
-export function HomePage({ initialProperties, portfolioStats, documents }: { initialProperties: HomeProperty[]; portfolioStats: PortfolioStats; documents: Document[] }) {
-
+export function HomePage({
+  initialProperties,
+  portfolioStats,
+  documents,
+}: {
+  initialProperties: HomeProperty[];
+  portfolioStats: PortfolioStats;
+  documents: Document[];
+}) {
   const [selectedPin, setSelectedPin] = useState<string | null>(null);
   const [closingKey, setClosingKey] = useState<string | null>(null);
   const [tableOpen, setTableOpen] = useState(false);
@@ -76,11 +108,236 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
   const [placeholderVisible, setPlaceholderVisible] = useState(true);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [isSatellite, setIsSatellite] = useState(false);
+  // The property quick-add just created, held until the refreshed list contains it (see the handoff
+  // effect below). Non-null means "creation succeeded, waiting for the server data".
+  const [handoffId, setHandoffId] = useState<string | null>(null);
   // Cover photo for the currently-open drawer, resolved lazily when a pin is selected
   // (signed urls are short-lived, so we sign one on open rather than all up front).
-  const [drawerCover, setDrawerCover] = useState<{ id: string; url: string | null } | null>(null);
-  const mapRef = useRef<mapboxgl.Map | null>(null);
+  const [drawerCover, setDrawerCover] = useState<{
+    id: string;
+    url: string | null;
+  } | null>(null);
+  const mapRef = useRef<AnyMap | null>(null);
   const router = useRouter();
+
+  // getBias is a stable getter (useCallback with no deps), so passing it cannot rebuild the hook on
+  // every pan. It is what routes address search to the BAN in France vs GrabMaps elsewhere.
+  const getBias = useCallback((): [number, number] | undefined => {
+    const c = mapRef.current?.getCenter();
+    return c ? [c.lng, c.lat] : undefined;
+  }, []);
+  const quickAdd = useQuickAdd(getBias);
+
+  // Map clicks drop the quick-add pin. Wired here rather than inside MapView so the map component
+  // stays unaware of quick-add, and unwired the moment the mode is off — a stray click must not drop
+  // a pin while the user is just browsing.
+  useEffect(() => {
+    const map = mapRef.current as MapLibreMap | null;
+    if (!map || !quickAdd.active || !mapLoaded) return;
+    const canvas = map.getCanvas();
+    const prevCursor = canvas.style.cursor;
+    // A bare crosshair says "something will happen"; it does not say what, and it is the same
+    // cursor every map tool uses. This one names the action and carries the brand colour, so the
+    // armed state is unmistakable even before the first pin is placed. The ring is drawn INSIDE
+    // the glyph area (hotspot 16,16, a dot) so the point that clicks is visibly the point that
+    // drops — a cursor whose hotspot is not where the mark is feels broken at high zoom.
+    // Plain "#2563eb" — NOT "%232563eb". encodeURIComponent below already escapes the "#" to
+    // "%23"; pre-escaping it here would double-encode to "%2523", and the SVG would then contain
+    // the literal text "%232563eb", which is not a colour, so the ring and dot would render black.
+    const CURSOR_HOTSPOT = "16 16";
+    const armCursor = `url("data:image/svg+xml,${encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">' +
+        "<circle cx='16' cy='16' r='11' fill='none' stroke='white' stroke-width='4'/>" +
+        "<circle cx='16' cy='16' r='11' fill='none' stroke='#2563eb' stroke-width='2'/>" +
+        "<circle cx='16' cy='16' r='2.5' fill='#2563eb' stroke='white' stroke-width='1.5'/>" +
+        "</svg>",
+    )}") ${CURSOR_HOTSPOT}, crosshair`;
+
+    // Over a cadastral parcel the target is a FIELD, not a point, so the crosshair above is the
+    // wrong glyph. A small tilted plane reads as "this shape"; the solid centre says "you have
+    // this one" and only appears once a parcel is chosen, so the cursor itself reports the state.
+    // Chosen = GREEN, matching the parcel fill: the same colour must mean the same thing in both
+    // places or the two read as unrelated. White under-ring keeps it legible on the pale map and on
+    // a saturated fill.
+    const parcelCursor = (chosen: boolean) =>
+      `url("data:image/svg+xml,${encodeURIComponent(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28">' +
+          "<path d='M6 15 L14 7 L22 15 L14 23 Z' fill='white' stroke='white' stroke-width='5' stroke-linejoin='round'/>" +
+          "<path d='M6 15 L14 7 L22 15 L14 23 Z' fill='none' stroke='#004ac6' stroke-width='2' stroke-linejoin='round'/>" +
+          (chosen
+            ? "<circle cx='14' cy='15' r='2.6' fill='#059669'/>"
+            : "<circle cx='14' cy='15' r='2.6' fill='#fff' stroke='#004ac6' stroke-width='1.4'/>") +
+          "</svg>",
+      )}") 14 14, crosshair`;
+    const parcelCursorIdle = parcelCursor(false);
+    const parcelCursorChosen = parcelCursor(true);
+    const OURS = new Set([armCursor, parcelCursorIdle, parcelCursorChosen]);
+
+    canvas.style.cursor = armCursor;
+
+    // Swap in the parcel cursor only while the pointer is actually over one. Leaving France or the
+    // parcel restores the crosshair the mode armed with.
+    const onParcelMove = (e: mapboxgl.MapLayerMouseEvent) => {
+      const over = (e.features ?? []).length > 0;
+      const next = over
+        ? quickAdd.cadastreChoice
+          ? parcelCursorChosen
+          : parcelCursorIdle
+        : armCursor;
+      if (canvas.style.cursor !== next) canvas.style.cursor = next;
+    };
+    const onParcelLeave = () => {
+      if (canvas.style.cursor !== armCursor) canvas.style.cursor = armCursor;
+    };
+    // Bound on the fill layer, so it fires for parcels only — not for every mouse move on the map.
+    map.on("mousemove", "fr-cadastre-fill", onParcelMove);
+    map.on("mouseleave", "fr-cadastre-fill", onParcelLeave);
+    const onClick = (e: mapboxgl.MapMouseEvent) => {
+      quickAdd.dropPin([e.lngLat.lng, e.lngLat.lat]);
+    };
+    map.on("click", onClick);
+    return () => {
+      map.off("click", onClick);
+      map.off("mousemove", "fr-cadastre-fill", onParcelMove);
+      map.off("mouseleave", "fr-cadastre-fill", onParcelLeave);
+      // Only unwind our own cursors — all three glyphs this effect installed. Mapbox writes the
+      // same property during a pan/drag, and this effect is torn down and re-created whenever the
+      // mode toggles, so restoring a captured value blindly would stomp a cursor Mapbox set in the
+      // meantime and leave a stuck targeting cursor. Comparing against the SET (not one value)
+      // matters now that a parcel can leave a second glyph installed.
+      if (OURS.has(canvas.style.cursor)) canvas.style.cursor = prevCursor;
+    };
+    // Deps are the primitives, not the `quickAdd` object itself: that object is rebuilt every render,
+    // which would tear down and re-add the click listener on every render for no reason.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quickAdd.active, quickAdd.dropPin, mapLoaded]);
+
+  // The French cadastre, live only while quick-add is armed: parcels draw under the pin and hovering
+  // one names it. Detached the moment the mode ends, so no hover handler outlives the card. The
+  // helper re-checks on every map move (quick-add arms wherever the user last was — Cambodia for
+  // today's data), so panning to France brings the parcels in without any extra wiring here.
+  const quickAddActiveForLayer = quickAdd.active;
+  const setCadastreParcel = quickAdd.setCadastreParcel;
+  const chooseCadastreForLayer = quickAdd.chooseCadastre;
+  const quickAddSelectedFeature = quickAdd.cadastreChoice?.featureId ?? null;
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !quickAddActiveForLayer || !mapLoaded) return;
+    // The 4th argument makes a CLICK on a parcel the choice: a user who clicks a plot means "this one",
+    // and expecting them to also find a button was the whole problem. The parcel comes from the click
+    // event, so it works on the first tap even before any hover callback has landed.
+    const detach = syncCadastreLayer(
+      map,
+      setCadastreParcel,
+      quickAddSelectedFeature,
+      chooseCadastreForLayer,
+    );
+    return detach;
+  }, [
+    quickAddActiveForLayer,
+    setCadastreParcel,
+    mapLoaded,
+    quickAddSelectedFeature,
+    chooseCadastreForLayer,
+  ]);
+
+  // Bring the highlighted suggestion into view. Only the suggestion list sets `preview`, so a pin
+  // the user tapped or dragged is left alone — it is already where they were looking, and flying on
+  // every drag would fight the gesture. Reduced motion jumps instead of travelling: the address is
+  // the information, the flight is not.
+  const quickAddPreview = quickAdd.preview;
+  useEffect(() => {
+    const map = mapRef.current as MapLibreMap | null;
+    if (!map || !quickAddPreview) return;
+    const [lng, lat] = quickAddPreview;
+    if (quickAdd.reducedMotion.current) {
+      map.jumpTo({ center: [lng, lat] });
+    } else {
+      // 700ms, not the 900ms of a deliberate "take me there": this replays on every arrow key, so it
+      // has to settle before the next one lands or the camera never stops moving.
+      map.flyTo({
+        center: [lng, lat],
+        zoom: Math.max(map.getZoom(), 15),
+        duration: 700,
+      });
+    }
+  }, [quickAddPreview, quickAdd.reducedMotion]);
+
+  // The pin the quick-add card renders, or null when there is no card. Gated on a DROPPED PIN, not
+  // on the mode being armed: the card does not exist until then, so anything that offsets itself for
+  // that slot must not move before there is a card in it.
+  const quickAddCardPin = quickAdd.active ? quickAdd.pin : null;
+
+  // Take the MAP to a searched place. Navigation only — this deliberately does NOT drop a pin or open
+  // quick add. Search is "where is it / take me there"; choosing a property is a separate act on the
+  // map (click a parcel, use quick add). Dropping a pin here meant a plain location search silently
+  // started a portfolio addition.
+  //
+  // An area result (country, region) is FRAMED with fitBounds so searching "France" shows France; a
+  // point result (address, POI) is flown to at street zoom.
+  const goToPlace = useCallback(
+    (place: GeocodeSuggestion) => {
+      const map = mapRef.current;
+      if (!map) return;
+      const reduced = quickAdd.reducedMotion.current;
+      if (place.bbox) {
+        const [w, s, e, n] = place.bbox;
+        map.fitBounds(
+          [
+            [w, s],
+            [e, n],
+          ],
+          { padding: 48, duration: reduced ? 0 : 900 },
+        );
+        return;
+      }
+      const [lng, lat] = place.center;
+      if (reduced) {
+        map.jumpTo({ center: [lng, lat], zoom: PLACE_ZOOM });
+      } else {
+        map.flyTo({ center: [lng, lat], zoom: PLACE_ZOOM, duration: 900 });
+      }
+    },
+    [quickAdd],
+  );
+
+  const startQuickAdd = useCallback(() => {
+    // The quick-add card and the property drawer share one slot, so opening one closes the other.
+    setSelectedPin(null);
+    quickAdd.start();
+  }, [quickAdd]);
+
+  const handleQuickAddConfirm = useCallback(async () => {
+    const id = await quickAdd.confirm();
+    if (!id) return;
+    // The property exists now. Point the drawer at it and re-fetch the server-rendered data so the
+    // map, the stats bar and the drawer all see it — without the refresh, the record is in the DB
+    // while `initialProperties` (which both the map's markers and the drawer's lookup read) is still
+    // the list from page load.
+    //
+    // The card is closed by the effect below, not here: the drawer can only render once the new
+    // property is in `initialProperties`, so closing the card now would leave the slot empty for
+    // however long the refresh takes.
+    setHandoffId(id);
+    setSelectedPin(id);
+    router.refresh();
+  }, [quickAdd, router]);
+
+  // Hand the card's slot to the drawer in a single commit: this runs on the render where the
+  // refreshed property list first contains the new record, so the card unmounts and the drawer
+  // mounts together and the sidebar is never empty in between.
+  //
+  // Deps use `quickAdd.active`, not the `quickAdd` object: that object is rebuilt every render, so
+  // depending on it would re-run this effect constantly — the same reason the map-click effect above
+  // lists primitives.
+  const quickAddActive = quickAdd.active;
+  const quickAddCancel = quickAdd.cancel;
+  useEffect(() => {
+    if (!handoffId || !quickAddActive) return;
+    if (!initialProperties.some((p) => p.id === handoffId)) return;
+    quickAddCancel();
+    setHandoffId(null);
+  }, [handoffId, quickAddActive, quickAddCancel, initialProperties]);
 
   // Cmd+K / Ctrl+K to open command palette
   useEffect(() => {
@@ -125,11 +382,15 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
   // overview hero's Mapbox static-image format.
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
   const drawerMapUrl =
-    drawerProperty && mapboxToken && (drawerProperty.lat !== 0 || drawerProperty.lng !== 0)
+    drawerProperty &&
+    mapboxToken &&
+    (drawerProperty.lat !== 0 || drawerProperty.lng !== 0)
       ? `https://api.mapbox.com/styles/v1/mapbox/light-v11/static/pin-l+2563eb(${drawerProperty.lng},${drawerProperty.lat})/${drawerProperty.lng},${drawerProperty.lat},13,0/640x360@2x?access_token=${mapboxToken}`
       : null;
   const drawerCoverUrl =
-    drawerCover && drawerProperty && drawerCover.id === drawerProperty.id ? drawerCover.url : null;
+    drawerCover && drawerProperty && drawerCover.id === drawerProperty.id
+      ? drawerCover.url
+      : null;
   const drawerHero = pickHeroImage(drawerCoverUrl, drawerMapUrl);
 
   const closeDrawer = useCallback(() => {
@@ -143,6 +404,10 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
   const handlePinClick = useCallback(
     (pinId: string | null) => {
       if (pinId === null) return;
+      // Quick-add owns the map while it is armed. Without this, tapping an existing property pin
+      // also sets `selectedPin` — invisible at the time (the drawer is suppressed while quick-add is
+      // active), then the property drawer springs open on cancel, long after the click that caused it.
+      if (quickAdd.active) return;
       if (selectedPin === pinId) {
         closeDrawer();
       } else {
@@ -150,7 +415,7 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
         setSelectedPin(pinId);
       }
     },
-    [selectedPin, closeDrawer],
+    [selectedPin, closeDrawer, quickAdd.active],
   );
 
   // Resolve the selected property's cover photo when a drawer opens. A missing/expired
@@ -159,14 +424,16 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
     if (!selectedPin) return;
     let cancelled = false;
     getPropertyCoverUrl(selectedPin).then((result) => {
-      if (!cancelled && result.ok) setDrawerCover({ id: selectedPin, url: result.data.url });
+      if (!cancelled && result.ok)
+        setDrawerCover({ id: selectedPin, url: result.data.url });
     });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [selectedPin]);
 
   return (
     <div className="flex flex-col flex-1 min-w-0 h-full">
-
       {/* Loading screen */}
       <div
         className={cn(
@@ -181,7 +448,9 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
       >
         <div className="flex items-center gap-3">
           <MapIcon className="size-6 text-interactive-primary animate-pulse" />
-          <span className="text-sm font-medium text-secondary">Loading map…</span>
+          <span className="text-sm font-medium text-secondary">
+            Loading map…
+          </span>
         </div>
         <div className="w-48 h-1 rounded-full bg-surface-sunken overflow-hidden">
           <div className="h-full bg-interactive-primary rounded-full animate-[loading-bar_1.5s_ease-in-out_infinite]" />
@@ -190,14 +459,19 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
 
       {/* Map area */}
       <div className="relative flex-1 overflow-hidden select-none">
-
-        {/* Mapbox map */}
+        {/* The basemap's renderer. Mapbox for the light/dark view, MapLibre + Google for satellite.
+            `key` REMOUNTS on a satellite toggle instead of swapping styles: a style swap cannot cross
+            renderers (the two libraries share no style format), and a remount is the honest way to
+            change the map object itself. */}
         <MapView
+          key={isSatellite ? "satellite" : "base"}
           properties={initialProperties}
           selectedId={selectedPin}
           onSelectProperty={handlePinClick}
           onMapLoaded={() => setMapLoaded(true)}
-          onMapReady={(map) => { mapRef.current = map; }}
+          onMapReady={(map) => {
+            mapRef.current = map;
+          }}
           isSatellite={isSatellite}
           className="absolute inset-0"
         />
@@ -216,62 +490,92 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
             selectedProperty && "sm:right-80",
           )}
         >
-          <div className={cn(
-            "flex flex-col items-center gap-3 w-full max-w-[calc(100%-2rem)] sm:w-[700px] sm:max-w-[calc(100%-3rem)]",
-            mapLoaded ? "[animation:fade-slide-down_0.5s_cubic-bezier(0.16,1,0.3,1)_both]" : "opacity-0",
-          )}>
-          <button
-            onClick={() => setCommandOpen(true)}
+          <div
             className={cn(
-              "group w-full bg-surface-base border rounded-2xl shadow-lg flex items-center gap-3 px-5 h-14 text-left transition-all duration-200",
-              commandOpen
-                ? "border-interactive-primary/40 shadow-[0_0_0_4px_rgba(37,99,235,0.12)]"
-                : "border-border-default hover:border-interactive-primary/30 hover:shadow-[0_0_0_4px_rgba(37,99,235,0.06)]",
+              "flex flex-col items-center gap-3 w-full max-w-[calc(100%-2rem)] sm:w-[700px] sm:max-w-[calc(100%-3rem)]",
+              mapLoaded
+                ? "[animation:fade-slide-down_0.5s_cubic-bezier(0.16,1,0.3,1)_both]"
+                : "opacity-0",
             )}
           >
-            <Search className="size-5 text-secondary shrink-0 group-hover:scale-110 group-hover:text-interactive-primary transition-all duration-200" />
-            <span
+            <button
+              onClick={() => setCommandOpen(true)}
               className={cn(
-                "flex-1 text-sm text-secondary inline-block transition-all duration-200",
-                placeholderVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1",
+                "group w-full bg-surface-base border rounded-2xl shadow-lg flex items-center gap-3 px-5 h-14 text-left transition-all duration-200",
+                commandOpen
+                  ? "border-interactive-primary/40 shadow-[0_0_0_4px_rgba(37,99,235,0.12)]"
+                  : "border-border-default hover:border-interactive-primary/30 hover:shadow-[0_0_0_4px_rgba(37,99,235,0.06)]",
               )}
             >
-              {triggerPlaceholders[placeholderIdx]}
-            </span>
-            <div className="flex items-center gap-1 bg-surface-sunken border border-border-default rounded-lg px-2 py-1 shrink-0 group-hover:bg-brand-subtle group-hover:border-interactive-primary/20 transition-all duration-200">
-              <CommandIcon className="size-3 text-secondary" />
-              <span className="text-xs font-medium text-text-disabled">K</span>
-            </div>
-          </button>
+              <Search className="size-5 text-secondary shrink-0 group-hover:scale-110 group-hover:text-interactive-primary transition-all duration-200" />
+              <span
+                className={cn(
+                  "flex-1 text-sm text-secondary inline-block transition-all duration-200",
+                  placeholderVisible
+                    ? "opacity-100 translate-y-0"
+                    : "opacity-0 translate-y-1",
+                )}
+              >
+                {triggerPlaceholders[placeholderIdx]}
+              </span>
+              <div className="flex items-center gap-1 bg-surface-sunken border border-border-default rounded-lg px-2 py-1 shrink-0 group-hover:bg-brand-subtle group-hover:border-interactive-primary/20 transition-all duration-200">
+                <CommandIcon className="size-3 text-secondary" />
+                <span className="text-xs font-medium text-text-disabled">
+                  K
+                </span>
+              </div>
+            </button>
 
-          {/* Quick actions */}
-          {/*
+            {/* Quick actions */}
+            {/*
             On mobile this becomes a horizontally-scrolling strip so all four
             chips remain reachable without wrapping. Each button shrinks-0
             and the parent allows overflow-x. On `sm:` and above the row
             returns to a static centered flex layout.
           */}
-          <div className="flex items-center gap-3 w-full sm:w-auto overflow-x-auto scrollbar-none -mx-4 sm:mx-0 px-4 sm:px-0 py-1">
-            {[
-              { label: "New Property", icon: Plus, action: () => router.push("/add-property") },
-              { label: "Portfolio", icon: BarChart2, action: () => router.push("/portfolio") },
-              { label: "Documents", icon: FileText, action: () => setCommandOpen(true) },
-              { label: "Rental", icon: Users, action: () => router.push("/rental") },
-            ].map(({ label, icon: Icon, action }, i) => (
-              <button
-                key={label}
-                onClick={action}
-                style={{ animationDelay: `${80 + i * 50}ms` }}
-                className={cn(
-                  "shrink-0 flex items-center gap-2 bg-surface-base border border-border-default rounded-full px-4 py-2 text-sm font-medium text-secondary hover:bg-surface-tint hover:text-foreground hover:-translate-y-0.5 hover:shadow-sm active:translate-y-0 transition-all duration-150",
-                  mapLoaded ? "[animation:fade-slide-up_0.4s_cubic-bezier(0.16,1,0.3,1)_both]" : "opacity-0",
-                )}
-              >
-                <Icon className="size-4 shrink-0" />
-                {label}
-              </button>
-            ))}
-          </div>
+            <div className="flex items-center gap-3 w-full sm:w-auto overflow-x-auto scrollbar-none -mx-4 sm:mx-0 px-4 sm:px-0 py-1">
+              {[
+                // Quick Add is deliberately NOT in this row — it is the map's primary action, so it
+                // lives as its own blue button above the stats bar. These chips stay for the
+                // secondary destinations, and "New Property" remains for users who already know the
+                // address and would rather type it than point at it.
+                {
+                  label: "New Property",
+                  icon: Plus,
+                  action: () => router.push("/add-property"),
+                },
+                {
+                  label: "Portfolio",
+                  icon: BarChart2,
+                  action: () => router.push("/portfolio"),
+                },
+                {
+                  label: "Documents",
+                  icon: FileText,
+                  action: () => setCommandOpen(true),
+                },
+                {
+                  label: "Rental",
+                  icon: Users,
+                  action: () => router.push("/rental"),
+                },
+              ].map(({ label, icon: Icon, action }, i) => (
+                <button
+                  key={label}
+                  onClick={action}
+                  style={{ animationDelay: `${80 + i * 50}ms` }}
+                  className={cn(
+                    "shrink-0 flex items-center gap-2 bg-surface-base border border-border-default rounded-full px-4 py-2 text-sm font-medium text-secondary hover:bg-surface-tint hover:text-foreground hover:-translate-y-0.5 hover:shadow-sm active:translate-y-0 transition-all duration-150",
+                    mapLoaded
+                      ? "[animation:fade-slide-up_0.4s_cubic-bezier(0.16,1,0.3,1)_both]"
+                      : "opacity-0",
+                  )}
+                >
+                  <Icon className="size-4 shrink-0" />
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -282,25 +586,119 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
           properties={initialProperties}
           documents={documents}
           navigate={(path) => runCommand(() => router.push(path))}
+          getBias={getBias}
+          onPickPlace={(place) => {
+            if (!place.isArea) {
+              startQuickAdd();
+              quickAdd.pickAddress(place);
+            }
+            goToPlace(place);
+          }}
         />
 
         {/* Portfolio legend — centered, bottom of map */}
-        <PortfolioLegend stats={portfolioStats} mapLoaded={mapLoaded} drawerOpen={!!drawerProperty} />
+        <PortfolioLegend
+          stats={portfolioStats}
+          mapLoaded={mapLoaded}
+          drawerOpen={!!drawerProperty || !!quickAddCardPin}
+          quickAddOpen={quickAdd.active}
+          action={
+            // The map's primary action, so it gets the brand colour and reads as a button rather
+            // than one of the white chips. It sits above the stats bar because that is where the
+            // eye already goes for "what's on this map" — and it is rendered by PortfolioLegend so
+            // it inherits the legend's safe-area and drawer offsets instead of duplicating them.
+            //
+            // Armed, the button IS the address field: the same slot, no second control to find. The
+            // field is desktop-only (QuickAddSearch hides itself under `sm`), so the cancel button
+            // stays behind it for the phone, where the bottom sheet covers the legend anyway.
+            quickAdd.active ? (
+              <div className="flex items-center gap-2">
+                <QuickAddSearch
+                  query={quickAdd.query}
+                  suggestions={quickAdd.suggestions}
+                  areaCount={quickAdd.areaCount}
+                  loading={quickAdd.searching}
+                  onChange={quickAdd.searchAddress}
+                  onHighlight={quickAdd.highlightAddress}
+                  onPick={quickAdd.pickAddress}
+                />
+                <button
+                  onClick={quickAdd.cancel}
+                  aria-label="Cancel quick add"
+                  className="hidden items-center gap-2 rounded-full border border-border-default bg-surface-base px-5 py-2.5 text-sm font-semibold text-foreground shadow-lg transition-all duration-200 active:scale-[0.98] sm:flex"
+                >
+                  <X className="size-4" />
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={startQuickAdd}
+                aria-label="Quick Add a property on the map"
+                className={cn(
+                  "flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold shadow-lg transition-all duration-200 active:scale-[0.98]",
+                  "bg-interactive-primary text-white hover:bg-interactive-primary-hover hover:shadow-xl",
+                  mapLoaded
+                    ? "[animation:fade-slide-up_0.4s_cubic-bezier(0.16,1,0.3,1)_250ms_both]"
+                    : "opacity-0",
+                )}
+              >
+                <LocateFixed className="size-4" />
+                Quick Add
+              </button>
+            )
+          }
+        />
 
         {/* Map controls */}
         <MapControls
           mapRef={mapRef}
-          drawerOpen={!!selectedProperty}
+          drawerOpen={!!selectedProperty || !!quickAddCardPin}
           isSatellite={isSatellite}
           onToggleSatellite={() => setIsSatellite((s) => !s)}
         />
+
+        {/* Quick-add pin. Owned by its own layer because MapView's markers are a Supercluster view of
+            saved properties that rebuilds on every map move — a pin being dragged is neither. The
+            address is looked up on drop and on drag end, so it follows the pin.
+            `preview` wins while it exists: the suggestion the list is pointing at is the thing the
+            camera is flying to, so it must be the thing on screen. */}
+        <QuickAddPinLayer
+          mapRef={mapRef}
+          active={quickAdd.active}
+          pin={quickAdd.preview ?? quickAdd.pin?.center ?? null}
+          preview={!!quickAdd.preview}
+          onPinChange={quickAdd.resolveAt}
+          reducedMotion={quickAdd.reducedMotion.current}
+          satellite={isSatellite}
+        />
+
+        {/* Quick-add card. Gated on a real pin: a suggestion being previewed is not a dropped pin,
+            and the card is only ever the answer to "what is at this pin?" — it has nothing to say
+            before one exists. */}
+        {quickAddCardPin && (
+          <QuickAddPanel
+            pin={quickAddCardPin}
+            resolving={quickAdd.resolving}
+            saving={quickAdd.saving}
+            error={quickAdd.error}
+            fields={quickAdd.fields}
+            cadastreParcel={quickAdd.cadastreParcel}
+            cadastreHoverAddress={quickAdd.cadastreHoverAddress}
+            cadastreChoice={quickAdd.cadastreChoice}
+            onChooseCadastre={quickAdd.chooseCadastre}
+            onFieldChange={quickAdd.setField}
+            onConfirm={handleQuickAddConfirm}
+            onCancel={quickAdd.cancel}
+          />
+        )}
 
         {/* Property info panel.
             Phone (Apple Maps pattern): bottom-anchored sheet with rounded top,
             grab handle, ~55dvh height, slides up from below. Map stays visible
             above and remains pan-able.
             Tablet+: full-height floating sidebar pinned to the right (original). */}
-        {drawerProperty && (
+        {drawerProperty && !quickAdd.active && (
           <div
             key={selectedPin ?? closingKey}
             className={cn(
@@ -316,7 +714,10 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
             data-no-drag
           >
             {/* Phone-only grab handle */}
-            <div className="flex shrink-0 justify-center pt-2 pb-1 sm:hidden" aria-hidden="true">
+            <div
+              className="flex shrink-0 justify-center pt-2 pb-1 sm:hidden"
+              aria-hidden="true"
+            >
               <div className="h-1 w-9 rounded-full bg-white/60" />
             </div>
 
@@ -325,7 +726,11 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
               <ImageWithFallback
                 key={drawerHero?.src ?? "placeholder"}
                 src={drawerHero?.src ?? ""}
-                alt={drawerHero?.kind === "cover" ? `${drawerProperty.name} cover photo` : drawerProperty.name}
+                alt={
+                  drawerHero?.kind === "cover"
+                    ? `${drawerProperty.name} cover photo`
+                    : drawerProperty.name
+                }
                 className="w-full h-44 object-cover [animation:card-image-reveal_0.5s_cubic-bezier(0.16,1,0.3,1)_0.15s_both]"
               />
               {/* Scrim gradient */}
@@ -339,32 +744,44 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
               </button>
               {/* Status pill */}
               <div className="absolute top-3 left-3 [animation:pill-in_0.3s_cubic-bezier(0.16,1,0.3,1)_0.1s_both]">
-                <span className={cn(
-                  "px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide uppercase",
-                  drawerProperty.status === "Rented"
-                    ? "bg-emerald-500/90 text-white"
-                    : drawerProperty.status === "Vacant"
-                    ? "bg-amber-400/90 text-amber-950"
-                    : "bg-white/20 text-white",
-                )}>
+                <span
+                  className={cn(
+                    "px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wide uppercase",
+                    drawerProperty.status === "Rented"
+                      ? "bg-emerald-500/90 text-white"
+                      : drawerProperty.status === "Vacant"
+                        ? "bg-amber-400/90 text-amber-950"
+                        : "bg-white/20 text-white",
+                  )}
+                >
                   {drawerProperty.status}
                 </span>
               </div>
               {/* Title overlay */}
               <div className="absolute bottom-0 left-0 right-0 px-4 pb-3.5 flex items-end justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-white/70">{drawerProperty.code}</p>
-                  <h3 className="text-[15px] sm:text-[18px] font-display font-semibold text-white leading-snug mt-0.5">{drawerProperty.name}</h3>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-white/70">
+                    {drawerProperty.code}
+                  </p>
+                  <h3 className="text-[15px] sm:text-[18px] font-display font-semibold text-white leading-snug mt-0.5">
+                    {drawerProperty.name}
+                  </h3>
                   <div className="flex items-center gap-1 mt-1">
                     <MapPin className="size-3 text-white/50 shrink-0" />
                     <span className="text-xs text-white/65 truncate">
-                      {[drawerProperty.city, drawerProperty.province].filter(Boolean).join(", ")}
+                      {[drawerProperty.city, drawerProperty.province]
+                        .filter(Boolean)
+                        .join(", ")}
                     </span>
                   </div>
                 </div>
                 {/* Small edit-property button → overview with the edit wizard auto-opened */}
                 <button
-                  onClick={() => router.push(`/property/${drawerProperty.id}/overview?edit=1`)}
+                  onClick={() =>
+                    router.push(
+                      `/property/${drawerProperty.id}/overview?edit=1`,
+                    )
+                  }
                   aria-label="Edit property"
                   className="shrink-0 inline-flex items-center gap-1.5 rounded-full bg-white/15 backdrop-blur-sm border border-white/25 text-white text-[11px] font-semibold px-2.5 py-1 hover:bg-white/25 active:scale-95 transition-[background-color,transform] duration-150"
                 >
@@ -377,14 +794,24 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
             {/* Progress strip */}
             <div className="px-4 py-3 border-b border-border-default shrink-0 [animation:card-row-in_0.35s_cubic-bezier(0.16,1,0.3,1)_0.2s_both]">
               <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">Progress</span>
-                <span className={cn("text-xs font-semibold tabular-nums", progressClass(drawerProperty.progress))}>
+                <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">
+                  Progress
+                </span>
+                <span
+                  className={cn(
+                    "text-xs font-semibold tabular-nums",
+                    progressClass(drawerProperty.progress),
+                  )}
+                >
                   {drawerProperty.progress}%
                 </span>
               </div>
               <div className="w-full h-1.5 rounded-full bg-surface-sunken overflow-hidden">
                 <div
-                  className={cn("h-full rounded-full origin-left [animation:health-bar-fill_0.6s_cubic-bezier(0.16,1,0.3,1)_0.5s_both]", progressBgClass(drawerProperty.progress))}
+                  className={cn(
+                    "h-full rounded-full origin-left [animation:health-bar-fill_0.6s_cubic-bezier(0.16,1,0.3,1)_0.5s_both]",
+                    progressBgClass(drawerProperty.progress),
+                  )}
                   style={{ width: `${drawerProperty.progress}%` }}
                 />
               </div>
@@ -393,29 +820,51 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
             {/* Scrollable sections */}
             <div className="flex-1 overflow-y-auto">
               <div className="px-4 pt-4 pb-4 space-y-5 [animation:card-row-in_0.35s_cubic-bezier(0.16,1,0.3,1)_0.3s_both]">
-
                 {/* Section: Property */}
                 <section>
                   <div className="flex items-center gap-2 mb-3">
-                    <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 whitespace-nowrap">Property</span>
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 whitespace-nowrap">
+                      Property
+                    </span>
                     <div className="flex-1 h-px bg-border-subtle" />
                   </div>
                   <div className="grid grid-cols-2 gap-x-3 gap-y-3">
                     <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">Type</p>
-                      <p className="text-sm font-medium text-foreground capitalize">{drawerProperty.type}</p>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">
+                        Type
+                      </p>
+                      <p className="text-sm font-medium text-foreground capitalize">
+                        {drawerProperty.type}
+                      </p>
                     </div>
                     <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">Use</p>
-                      <p className="text-sm font-medium text-foreground capitalize">{drawerProperty.propertyUse || "—"}</p>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">
+                        Use
+                      </p>
+                      <p className="text-sm font-medium text-foreground capitalize">
+                        {drawerProperty.propertyUse || "—"}
+                      </p>
                     </div>
                     <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">Title</p>
-                      <p className={cn("text-sm font-medium", titleClasses[titleToVariant(drawerProperty.title)])}>{drawerProperty.title}</p>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">
+                        Title
+                      </p>
+                      <p
+                        className={cn(
+                          "text-sm font-medium",
+                          titleClasses[titleToVariant(drawerProperty.title)],
+                        )}
+                      >
+                        {drawerProperty.title}
+                      </p>
                     </div>
                     <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">Year Built</p>
-                      <p className="text-sm font-medium text-foreground">{drawerProperty.yearBuilt || "—"}</p>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">
+                        Year Built
+                      </p>
+                      <p className="text-sm font-medium text-foreground">
+                        {drawerProperty.yearBuilt || "—"}
+                      </p>
                     </div>
                   </div>
                 </section>
@@ -423,27 +872,45 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
                 {/* Section: Physical */}
                 <section>
                   <div className="flex items-center gap-2 mb-3">
-                    <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 whitespace-nowrap">Physical</span>
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 whitespace-nowrap">
+                      Physical
+                    </span>
                     <div className="flex-1 h-px bg-border-subtle" />
                   </div>
                   <div className="grid grid-cols-2 gap-x-3 gap-y-3">
                     <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">Total Area</p>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">
+                        Total Area
+                      </p>
                       <p className="text-sm font-medium text-foreground">
-                        {drawerProperty.totalArea ? `${Number(drawerProperty.totalArea).toLocaleString()} m²` : "—"}
+                        {drawerProperty.totalArea
+                          ? `${Number(drawerProperty.totalArea).toLocaleString()} m²`
+                          : "—"}
                       </p>
                     </div>
                     <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">Parking</p>
-                      <p className="text-sm font-medium text-foreground">{drawerProperty.parkingSpaces || "—"}</p>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">
+                        Parking
+                      </p>
+                      <p className="text-sm font-medium text-foreground">
+                        {drawerProperty.parkingSpaces || "—"}
+                      </p>
                     </div>
                     <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">Bedrooms</p>
-                      <p className="text-sm font-medium text-foreground">{drawerProperty.bedrooms || "—"}</p>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">
+                        Bedrooms
+                      </p>
+                      <p className="text-sm font-medium text-foreground">
+                        {drawerProperty.bedrooms || "—"}
+                      </p>
                     </div>
                     <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">Bathrooms</p>
-                      <p className="text-sm font-medium text-foreground">{drawerProperty.bathrooms || "—"}</p>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">
+                        Bathrooms
+                      </p>
+                      <p className="text-sm font-medium text-foreground">
+                        {drawerProperty.bathrooms || "—"}
+                      </p>
                     </div>
                   </div>
                 </section>
@@ -451,37 +918,60 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
                 {/* Section: Location */}
                 <section>
                   <div className="flex items-center gap-2 mb-3">
-                    <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 whitespace-nowrap">Location</span>
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 whitespace-nowrap">
+                      Location
+                    </span>
                     <div className="flex-1 h-px bg-border-subtle" />
                   </div>
                   <div className="space-y-3">
                     {drawerProperty.addressLine && (
                       <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">Address</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">
+                          Address
+                        </p>
                         <p className="text-sm font-medium text-foreground">
-                          {drawerProperty.addressLine}{drawerProperty.addressLine2 ? `, ${drawerProperty.addressLine2}` : ""}
+                          {drawerProperty.addressLine}
+                          {drawerProperty.addressLine2
+                            ? `, ${drawerProperty.addressLine2}`
+                            : ""}
                         </p>
                       </div>
                     )}
                     <div className="grid grid-cols-2 gap-x-3 gap-y-3">
                       <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">City</p>
-                        <p className="text-sm font-medium text-foreground">{drawerProperty.city || "—"}</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">
+                          City
+                        </p>
+                        <p className="text-sm font-medium text-foreground">
+                          {drawerProperty.city || "—"}
+                        </p>
                       </div>
                       <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">Province</p>
-                        <p className="text-sm font-medium text-foreground">{drawerProperty.province || "—"}</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">
+                          Province
+                        </p>
+                        <p className="text-sm font-medium text-foreground">
+                          {drawerProperty.province || "—"}
+                        </p>
                       </div>
                       {drawerProperty.country && (
                         <div>
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">Country</p>
-                          <p className="text-sm font-medium text-foreground">{drawerProperty.country}</p>
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">
+                            Country
+                          </p>
+                          <p className="text-sm font-medium text-foreground">
+                            {drawerProperty.country}
+                          </p>
                         </div>
                       )}
                       {drawerProperty.zip && (
                         <div>
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">ZIP</p>
-                          <p className="text-sm font-medium text-foreground">{drawerProperty.zip}</p>
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">
+                            ZIP
+                          </p>
+                          <p className="text-sm font-medium text-foreground">
+                            {drawerProperty.zip}
+                          </p>
                         </div>
                       )}
                     </div>
@@ -491,56 +981,83 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
                 {/* Section: Financials */}
                 <section>
                   <div className="flex items-center gap-2 mb-3">
-                    <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 whitespace-nowrap">Financials</span>
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 whitespace-nowrap">
+                      Financials
+                    </span>
                     <div className="flex-1 h-px bg-border-subtle" />
                   </div>
                   <div className="space-y-3">
                     <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">Purchase Price</p>
-                      <p className="text-[22px] sm:text-[26px] font-bold font-display text-foreground leading-none tabular-nums">{drawerProperty.buy}</p>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">
+                        Purchase Price
+                      </p>
+                      <p className="text-[22px] sm:text-[26px] font-bold font-display text-foreground leading-none tabular-nums">
+                        {drawerProperty.buy}
+                      </p>
                     </div>
                     <div className="grid grid-cols-2 gap-x-3 gap-y-3">
                       <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">Market Value</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">
+                          Market Value
+                        </p>
                         <p className="text-sm font-medium text-foreground">
-                          {drawerProperty.currentMarketValue ? formatCurrency(drawerProperty.currentMarketValue) : "—"}
+                          {drawerProperty.currentMarketValue
+                            ? formatCurrency(drawerProperty.currentMarketValue)
+                            : "—"}
                         </p>
                       </div>
                       <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">Mortgage</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">
+                          Mortgage
+                        </p>
                         <p className="text-sm font-medium text-foreground">
-                          {drawerProperty.outstandingMortgage ? formatCurrency(drawerProperty.outstandingMortgage) : "—"}
+                          {drawerProperty.outstandingMortgage
+                            ? formatCurrency(drawerProperty.outstandingMortgage)
+                            : "—"}
                         </p>
                       </div>
                       <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">Monthly</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">
+                          Monthly
+                        </p>
                         <p className="text-sm font-medium text-foreground">
-                          {drawerProperty.monthlyPayment ? `$${drawerProperty.monthlyPayment.toLocaleString()}` : "—"}
+                          {drawerProperty.monthlyPayment
+                            ? `$${drawerProperty.monthlyPayment.toLocaleString()}`
+                            : "—"}
                         </p>
                       </div>
                       <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">Annual Tax</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">
+                          Annual Tax
+                        </p>
                         <p className="text-sm font-medium text-foreground">
-                          {drawerProperty.annualPropertyTax ? `$${drawerProperty.annualPropertyTax.toLocaleString()}` : "—"}
+                          {drawerProperty.annualPropertyTax
+                            ? `$${drawerProperty.annualPropertyTax.toLocaleString()}`
+                            : "—"}
                         </p>
                       </div>
                     </div>
                     {drawerProperty.purchaseDate ? (
                       <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">Purchased</p>
-                        <p className="text-sm font-medium text-foreground">{formatDate(drawerProperty.purchaseDate)}</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">
+                          Purchased
+                        </p>
+                        <p className="text-sm font-medium text-foreground">
+                          {formatDate(drawerProperty.purchaseDate)}
+                        </p>
                       </div>
                     ) : null}
                   </div>
                 </section>
-
               </div>
             </div>
 
             {/* CTA */}
             <div className="px-4 py-3 shrink-0 border-t border-border-default flex items-center gap-2 [animation:card-row-in_0.35s_cubic-bezier(0.16,1,0.3,1)_0.5s_both]">
               <button
-                onClick={() => router.push(`/property/${drawerProperty.id}/overview?edit=1`)}
+                onClick={() =>
+                  router.push(`/property/${drawerProperty.id}/overview?edit=1`)
+                }
                 aria-label="Edit property"
                 className="shrink-0 flex items-center justify-center size-10 rounded-lg border border-border-default text-secondary hover:bg-surface-tint hover:text-foreground active:scale-[0.98] transition-all duration-150"
               >
@@ -576,7 +1093,10 @@ export function HomePage({ initialProperties, portfolioStats, documents }: { ini
           <Button
             variant="outline"
             size="sm"
-            onClick={(e) => { e.stopPropagation(); router.push("/portfolio"); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              router.push("/portfolio");
+            }}
           >
             Full List
           </Button>
