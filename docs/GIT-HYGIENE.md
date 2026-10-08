@@ -1,7 +1,8 @@
 # Git Hygiene Policy
 
-Goal: keep a clean, auditable history where `main` is always the source of
-truth and feature work never strays.
+Goal: keep a clean, auditable history where `staging` is the integration trunk
+and `main` is production. Feature work never strays, and nothing reaches
+production without passing staging first.
 
 ## Diagram
 
@@ -10,27 +11,47 @@ truth and feature work never strays.
 
 ## 1. Trunk
 
-- `main` is the single source of truth.
-- `main` must stay green and deployable at all times.
-- Direct commits to `main` are allowed only for trivial, safe, single-file
-  changes (docs, templates, config comments). Anything risky or multi-file
-  must go through a feature branch/worktree.
+- `staging` is the integration trunk. **Every feature PR targets `staging`.**
+- `main` is **production**. It only receives `staging → main` promotion PRs.
+- Both branches are protected: required checks (strict), PRs required, no force
+  pushes, no deletions. Direct commits to either are blocked by the ruleset.
+- `release/launch-readiness` is retired — do not route work through it.
+
+```
+feature branch ──PR──▶ staging ──PR──▶ main (production)
+```
+
+| | staging | main (production) |
+|---|---|---|
+| Neon | `ep-tiny-rice-aozn7g4j-pooler` | `ep-wild-violet-aot0pvt7` |
+| Clerk | `pk_test_…` | `pk_live_…` |
+| URL | `valgate-webapp-git-staging-*.vercel.app` | `www.valgate.co` |
+
+Two traps:
+
+- **`vercel.json` `buildCommand` runs `npm run db:migrate` on every deploy,
+  Preview included.** A PR into `staging` migrates the staging Neon branch; a
+  promotion to `main` migrates production. Never promote a PR carrying a
+  destructive or half-written migration.
+- **`STAGING_DEMO_MODE=true` short-circuits Clerk auth** (`lib/api/v1/auth.ts`,
+  `lib/auth/ctx.ts`) and grants unauthenticated `ORG-0001` owner access. It
+  belongs on the Vercel **Preview** scope only. Production must never set it.
 
 ## 2. Feature branches and worktrees
 
-- Start every feature or investigation from the latest `main`:
+- Start every feature or investigation from the latest `staging`:
   ```bash
   git fetch origin
-  git checkout -b feature/<name> origin/main
+  git checkout -b feature/<name> origin/staging
   ```
 - Use descriptive branch names: `feature/<short-name>`, `fix/<issue>`,
   `spike/<topic>`, `docs/<topic>`.
 - Keep the branch focused. One branch = one logical change.
-- Keep the branch up to date by rebasing **locally** on top of `origin/main`
+- Keep the branch up to date by rebasing **locally** on top of `origin/staging`
   before merging:
   ```bash
   git fetch origin
-  git rebase origin/main
+  git rebase origin/staging
   ```
   **Never rebase commits that have already been pushed to a shared branch.**
 
@@ -70,21 +91,24 @@ Do **not** push if:
 - The branch contains broken or incomplete commits you will rebase later.
 - You plan to rebase the pushed commits (this rewrites shared history).
 
-## 5. Returning to main
+## 5. Returning to staging, then production
 
-A feature is not done until it is back in `main`. Use:
+A feature is not done until it is back in `staging`. Open the PR against `staging`:
 
 ```bash
-git checkout main
-git pull --ff-only origin main
-git merge --no-ff feature/<name>
-git push origin main
+gh pr create --base staging --head feature/<name> --fill
 ```
 
-`--no-ff` preserves the feature bubble in history so the merge point is easy to
-find. For solo small fixes, a fast-forward merge is acceptable.
+Once it is green and verified on the staging deployment, promote:
 
-Delete the feature branch after merge:
+```bash
+gh pr create --base main --head staging \
+  --title "release: promote staging to production" --fill
+```
+
+`main` takes **only** promotion PRs. Never open a feature PR against `main`.
+
+Delete the feature branch after the `staging` merge:
 ```bash
 git branch -d feature/<name>
 git push origin --delete feature/<name>
@@ -94,14 +118,14 @@ git push origin --delete feature/<name>
 
 The VPS worktree scanner checks for:
 
-- Non-`main` branches that are not merged into `main`.
+- Non-`staging` branches that are not merged into `staging`.
 - Branches older than 7 days with no recent Conductor log.
-- Dirty `main` worktrees.
-- Worktrees behind `origin/main`.
+- Dirty worktrees.
+- Worktrees behind `origin/staging`.
 
 When the scanner reports a stray, the next action is to either:
 
-1. Confirm and merge/rebase the branch back to `main`.
+1. Confirm and merge/rebase the branch back to `staging`.
 2. Abandon and delete the branch if the work is obsolete.
 
 ## 7. Conductor-specific rule
