@@ -16,6 +16,12 @@ function getFileType(
   return "other";
 }
 
+/** True when this document renders as a PDF in the preview pane. Exported so the detail view can
+ *  lay the pane out around it — a PDF viewer needs the whole box, padding included. */
+export function isPdfPreview(extension?: string, mimeType?: string): boolean {
+  return getFileType(extension, mimeType) === "pdf";
+}
+
 interface DocumentPreviewPaneProps {
   // The file name — used as alt text for images and the download filename.
   fileName: string;
@@ -68,14 +74,16 @@ export function DocumentPreviewPane({
 
   // PDF preview: native browser PDF viewer via <iframe>.
   // The browser's built-in viewer handles all rendering — no PDF.js required.
+  // The box fills whatever height it is given: the detail view hands it the whole pane, so a
+  // title document is readable without scrolling a 500px window inside a taller one. `min-h`
+  // keeps it from collapsing where the parent has no bounded height.
   if (fileType === "pdf") {
     return (
-      <div className="w-full rounded-xl border border-slate-200 overflow-hidden" style={{ minHeight: 500 }}>
+      <div className="w-full h-full min-h-[400px] rounded-xl border border-slate-200 overflow-hidden">
         <iframe
           src={fileUrl}
           title={fileName}
-          className="w-full"
-          style={{ height: 500, display: "block" }}
+          className="w-full h-full min-h-[400px] block border-0"
         />
       </div>
     );
