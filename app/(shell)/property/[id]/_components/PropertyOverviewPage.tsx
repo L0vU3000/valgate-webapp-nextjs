@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   FileText, Wrench, Bell,
-  MoreHorizontal, Download, Pencil, Camera,
+  MoreHorizontal, Pencil, Camera,
   DollarSign, AlertTriangle, Clock, UserCheck,
   Building2, Maximize2, Calendar, MapPin,
   BedDouble, Bath, Car, FileCheck,
@@ -17,7 +17,6 @@ import { ProgressExplainerModal } from "@/components/portfolio/ProgressExplainer
 import { ProgressModal } from "@/components/portfolio/ProgressModal";
 import { ConfirmAction } from "@/components/ui/confirm-action";
 import { X } from "lucide-react";
-import { toast } from "sonner";
 import type { PropertyListItem } from "@/lib/data/types/property";
 import dynamic from "next/dynamic";
 // The recharts bar chart loads lazily, client-only, so recharts is no longer in this page's initial
@@ -188,29 +187,6 @@ function pillarBarClass(score: number): string {
   if (score === 100) return "bg-emerald-400";
   if (score > 0)     return "bg-blue-500";
   return "bg-slate-100";
-}
-
-// Build a CSV from data already loaded on this page and trigger a browser
-// download. No server round-trip — every value here is already a prop/derived
-// figure rendered on the overview, so this is a cheap, fully-client export.
-function exportPropertyCsv(
-  rows: Array<[string, string | number]>,
-  filename: string,
-): void {
-  // Quote every field and escape embedded quotes so commas/newlines are safe.
-  const escape = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
-  const csv = [["Field", "Value"], ...rows]
-    .map((row) => row.map(escape).join(","))
-    .join("\r\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
 }
 
 /* ─── Sub-components ──────────────────────────────────────────────────────── */
@@ -524,30 +500,6 @@ export function PropertyOverviewPage({
     },
   ];
 
-  // Export the headline figures already shown on this page as a CSV. Everything
-  // here is derived above from the page's own props, so the export is instant
-  // and offline — no extra fetch or server action needed.
-  function handleExportData() {
-    const rows: Array<[string, string | number]> = [
-      ["Property", property.name],
-      ["Code", property.code],
-      ["Type", TYPE_LABEL[property.type] ?? property.type],
-      ["Status", property.status],
-      ["Province", property.province ?? ""],
-      ["Purchase Price", property.buyNumeric ?? ""],
-      ["Current Valuation", latestValuation ? latestValuation.price : ""],
-      ["Monthly Income", monthlyIncome],
-      ["Income Status", incomeStatus],
-      ["YTD Income", grossIncome],
-      ["YTD Expenses", totalExpenses],
-      ["Net Operating Income", noi],
-      ["Active Leases", activeLeases.length],
-      ["Progress Score", progressDetails ? `${progressDetails.score}%` : ""],
-    ];
-    exportPropertyCsv(rows, `${property.code || "property"}-overview.csv`);
-    toast.success("Property data exported");
-  }
-
   const countUpActive = mounted && !reducedMotion;
   const ease = "cubic-bezier(0.22,1,0.36,1)";
 
@@ -646,20 +598,12 @@ export function PropertyOverviewPage({
               <button
                 type="button"
                 onClick={() => shell?.openPropertyWizard()}
-                className="bg-white/10 backdrop-blur-sm border border-white/20 text-white text-[13px] font-semibold px-4 py-2 rounded flex items-center gap-2 hover:bg-white/20 active:scale-[0.97] transition-[background-color,transform] duration-150"
+                className="text-white text-[13px] font-semibold px-4 py-2 rounded flex items-center gap-2 shadow-[0_4px_6px_-1px_rgba(0,74,198,0.3)] hover:opacity-90 active:scale-[0.97] transition-[opacity,transform] duration-150"
+                style={{ background: "linear-gradient(168deg, var(--val-primary-dark) 0%, #2563eb 100%)" }}
                 aria-label="Edit property profile"
               >
                 <Pencil className="w-3.5 h-3.5" />
                 Edit profile
-              </button>
-              <button
-                type="button"
-                onClick={handleExportData}
-                className="text-white text-[13px] font-semibold px-4 py-2 rounded flex items-center gap-2 shadow-[0_4px_6px_-1px_rgba(0,74,198,0.3)] hover:opacity-90 active:scale-[0.97] transition-[opacity,transform] duration-150"
-                style={{ background: "linear-gradient(168deg, var(--val-primary-dark) 0%, #2563eb 100%)" }}
-              >
-                <Download className="w-3.5 h-3.5" />
-                Export Data
               </button>
             </div>
           </div>
