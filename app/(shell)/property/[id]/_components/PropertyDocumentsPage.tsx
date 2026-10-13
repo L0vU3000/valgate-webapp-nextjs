@@ -2521,13 +2521,16 @@ function GridView({
             <button
               type="button"
               onClick={() => selectMode ? onToggleFile(f.id) : onOpen(f.id)}
-              className={`relative bg-white rounded-xl p-4 transition-all duration-200 cursor-pointer text-left w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[--val-primary-dark]/40 ${
+              className={`relative bg-white rounded-xl p-3 transition-all duration-200 cursor-pointer text-left w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[--val-primary-dark]/40 ${
                 isChecked && selectMode
                   ? "shadow-[0_0_0_2px_var(--val-primary-dark),0px_6px_20px_0px_rgba(18,28,40,0.10)] -translate-y-0.5"
                   : "shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)] hover:-translate-y-0.5 hover:shadow-[0px_6px_20px_0px_rgba(18,28,40,0.10)]"
               }`}
             >
-              <div className={`w-full aspect-[4/3] bg-slate-50 rounded-lg overflow-hidden mb-3 flex items-center justify-center border transition-colors duration-150 ${
+              {/* A short, fixed-height preview strip rather than a full-aspect tile: at four
+                  columns the 4:3 version was a ~250px picture per card and the grid became a wall
+                  of images. The height is the point, not the ratio. */}
+              <div className={`w-full h-24 bg-slate-50 rounded-lg overflow-hidden mb-2.5 flex items-center justify-center border transition-colors duration-150 ${
                 isChecked && selectMode ? "border-[--val-primary-dark]/20" : "border-slate-100"
               }`}>
                 {f.thumb ? (
@@ -2538,7 +2541,7 @@ function GridView({
                     loading="lazy"
                   />
                 ) : (
-                  <f.icon className={`w-10 h-10 ${f.iconClass}`} />
+                  <f.icon className={`w-8 h-8 ${f.iconClass}`} />
                 )}
               </div>
               <p className="text-[13px] font-medium truncate text-[--val-heading]">{f.name}</p>

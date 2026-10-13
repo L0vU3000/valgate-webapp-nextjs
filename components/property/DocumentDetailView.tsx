@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Download, ExternalLink, Loader2, Sparkles, AlertCircle, RotateCw } from "lucide-react";
 import type { Document as DbDocument } from "@/lib/data/types/document";
-import { DocumentPreviewPane } from "./DocumentPreviewPane";
+import { DocumentPreviewPane, isPdfPreview } from "./DocumentPreviewPane";
 import { formatBytes } from "@/lib/format";
 
 // Maps a document's verifies.entityType to a display label and chip classes.
@@ -32,7 +32,7 @@ interface DocumentDetailViewProps {
   onBack: () => void;
 }
 
-type Tab = "details" | "summary";
+type Tab = "details" | "summary" | "translate";
 
 /**
  * Two-pane document viewer.
@@ -132,8 +132,16 @@ export function DocumentDetailView({ document: doc, fileUrl, onBack }: DocumentD
       {/* Two-pane body: preview on the left, details rail on the right */}
       <div className="flex flex-1 min-h-0 overflow-hidden">
 
-        {/* Left pane: document preview */}
-        <div className="flex-1 min-w-0 p-6 overflow-y-auto">
+        {/* Left pane: document preview. A PDF viewer is handed the whole box — no padding and no
+            scroll — because a title document is unreadable inside a nested scroll area. Images
+            and the fallback keep the padded, scrollable treatment. */}
+        <div
+          className={
+            isPdfPreview(doc.extension, doc.mimeType)
+              ? "flex-1 min-w-0 min-h-0 flex"
+              : "flex-1 min-w-0 p-6 overflow-y-auto"
+          }
+        >
           <DocumentPreviewPane
             fileName={doc.name}
             extension={doc.extension}
@@ -167,6 +175,16 @@ export function DocumentDetailView({ document: doc, fileUrl, onBack }: DocumentD
             >
               Summary
             </button>
+            <button
+              onClick={() => setActiveTab("translate")}
+              className={`flex-1 py-3 text-[13px] font-semibold border-b-2 transition-colors duration-150 ${
+                activeTab === "translate"
+                  ? "border-[--val-primary-dark] text-[--val-primary-dark]"
+                  : "border-transparent text-slate-400 hover:text-slate-600"
+              }`}
+            >
+              Translate
+            </button>
           </div>
 
           {/* Tab content */}
@@ -180,9 +198,116 @@ export function DocumentDetailView({ document: doc, fileUrl, onBack }: DocumentD
               />
             )}
             {activeTab === "summary" && <SummaryTab doc={doc} />}
+            {activeTab === "translate" && <TranslateTab doc={doc} />}
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// Translate tab: the document's own text in English, on demand.
+//
+// Nothing is stored — the row is unchanged after translating — so this is a per-click model call
+// on the same paid-model route and rate limit as the summary. The result lives in this component's
+// state until the tab unmounts. Storing it on the row (like aiSummary) is the upgrade path once the
+// column exists; until then a reload simply asks again.
+function TranslateTab({ doc }: { doc: DbDocument }) {
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [translation, setTranslation] = useState<{ text: string; language: string } | null>(null);
+
+  async function translate() {
+    setIsTranslating(true);
+    setFailed(false);
+    try {
+      const response = await fetch(`/api/documents/${doc.id}/summarize`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "translate" }),
+      });
+      if (!response.ok) {
+        setFailed(true);
+        return;
+      }
+      const data = await response.json();
+      if (data?.ok && typeof data.translation === "string") {
+        setTranslation({ text: data.translation, language: String(data.detectedLanguage ?? "") });
+      } else {
+        setFailed(true);
+      }
+    } catch (error) {
+      console.error("[TranslateTab] translate request failed:", error);
+      setFailed(true);
+    } finally {
+      setIsTranslating(false);
+    }
+  }
+
+  if (isTranslating) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full min-h-[200px] text-center gap-4 py-8">
+        <Loader2 className="w-6 h-6 text-[--val-primary-dark] animate-spin" />
+        <div>
+          <p className="text-[15px] font-semibold text-[--val-heading] mb-1">Translating…</p>
+          <p className="text-[13px] text-slate-400 leading-relaxed max-w-[180px] mx-auto">
+            Reading the document and translating it into English.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (translation) {
+    return (
+      <div className="flex flex-col gap-6">
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-400">
+              Translation
+            </p>
+            {translation.language && (
+              <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                {translation.language} → English
+              </span>
+            )}
+          </div>
+          <p className="text-[13px] text-[--val-heading] leading-relaxed whitespace-pre-line">
+            {translation.text}
+          </p>
+        </div>
+
+        {/* Said plainly because it matters here: a mistranslated figure or name in a land document
+            is a real-world error, and the original is one click away in the pane on the left. */}
+        <p className="text-[11px] text-slate-400 leading-relaxed border-t border-slate-100 pt-4">
+          Machine translation. Check names, numbers and land references against the original before
+          relying on them.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col items-center justify-center h-full min-h-[200px] text-center gap-4 py-8">
+      <Sparkles className="w-6 h-6 text-[--val-primary-dark]" />
+      <div>
+        <p className="text-[15px] font-semibold text-[--val-heading] mb-1">
+          {failed ? "Translation failed" : "Read it in English"}
+        </p>
+        <p className="text-[13px] text-slate-400 leading-relaxed max-w-[190px] mx-auto">
+          {failed
+            ? "The document could not be translated. Try again in a moment."
+            : "Translates the text of this document. Nothing is saved to the document."}
+        </p>
+      </div>
+      <button
+        onClick={translate}
+        className="flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] font-semibold text-white hover:opacity-90 active:scale-[0.97] transition-all duration-150"
+        style={{ background: "var(--val-primary-dark)" }}
+      >
+        {failed ? <RotateCw className="w-3.5 h-3.5" /> : <Sparkles className="w-3.5 h-3.5" />}
+        {failed ? "Try again" : "Translate to English"}
+      </button>
     </div>
   );
 }
