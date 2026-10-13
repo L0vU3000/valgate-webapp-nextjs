@@ -275,3 +275,60 @@ export async function cleanupSafetyRisk(riskId: string | undefined): Promise<voi
   if (!riskId) return
   await q('DELETE FROM safety_risks WHERE id = $1', [riskId])
 }
+
+// ──────────────────────────────────────────
+// Draft intake (add-property wizard, step 4)
+// ──────────────────────────────────────────
+
+export type StagedDraftFile = { draft_id: string; kind: string; name: string; storage_id: string; size_bytes: string | number }
+
+/**
+ * The rows the wizard staged for a file name.
+ *
+ * A row only exists once the server-side upload to S3 returned OK (see uploadDraftFileAction — it
+ * records the row AFTER it checks the storage response), so a non-empty result is evidence the
+ * bytes reached storage, not just that a local thumbnail appeared.
+ */
+export async function draftFileRows(name: string): Promise<StagedDraftFile[]> {
+  return q<StagedDraftFile>(
+    `SELECT draft_id, kind, name, storage_id, size_bytes FROM property_draft_files WHERE name = $1`,
+    [name],
+  )
+}
+
+/**
+ * Poll until the staged row for a file name is visible.
+ *
+ * Polling rather than a single read: the row is written by the wizard's Server Action, which runs
+ * in the dev server's process against its own connection while the test reads through another one.
+ * A read taken the instant the UI flips to "ready" can land in that gap and see nothing — the row
+ * is there a second or two later.
+ */
+export async function waitForDraftFile(name: string, timeoutMs = 20_000): Promise<StagedDraftFile[]> {
+  const started = Date.now()
+  let rows: StagedDraftFile[] = []
+  while (Date.now() - started < timeoutMs) {
+    rows = await draftFileRows(name)
+    if (rows.length > 0) return rows
+    await new Promise((resolve) => setTimeout(resolve, 250))
+  }
+  return rows
+}
+
+/**
+ * Remove the staged rows a test created, then the draft itself if — and only if — its title still
+ * starts with "E2E", so a real draft can never be deleted by a test cleanup.
+ *
+ * The S3 objects are left behind: deleting them needs the storage credentials the demo suite runs
+ * without. They are orphaned draft objects in the dev bucket, which is what an abandoned draft
+ * leaves anyway.
+ */
+export async function cleanupDraftByFileName(name: string): Promise<void> {
+  const rows = await q<{ draft_id: string }>(
+    `DELETE FROM property_draft_files WHERE name = $1 RETURNING draft_id`,
+    [name],
+  )
+  for (const { draft_id } of rows) {
+    await q(`DELETE FROM property_drafts WHERE id = $1 AND title LIKE 'E2E%'`, [draft_id])
+  }
+}

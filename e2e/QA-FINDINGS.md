@@ -207,6 +207,28 @@ The specs were authored from a feature-map before running against the live DOM; 
             because driving the select-mode flow is brittle — the select toggle has no
             stable selector. Un-fixme once it gets a stable hook (e.g. an aria-label).
 
+## Section D — Add-property intake (Step 4 file actions)
+
+Covered now by `e2e/intake.spec.ts` (D1 photo, D2 document). Both green against the DEMO server:
+the wizard walk reaches Step 4, `setInputFiles` on the real hidden inputs stages the file, and the
+server records a `property_draft_files` row with a `storage_id` under `ORG-0001/DOC-NNNN/` — which
+`uploadDraftFileAction` only writes after the S3 upload returned OK. The photo is re-encoded
+client-side before upload (stored size ≠ fixture size); the document is uploaded as-is.
+
+1. **Test-side: `e2e/fixtures/test-photo.jpg` was a corrupt JPEG.** 216 bytes, no EOI marker;
+   `sips` and the browser could not decode it — but `file` reported a valid 1×1 baseline JPEG, so
+   nothing flagged it. The wizard's client-side compression rejected it by throwing an `Event`.
+   Replaced with a real 64×48 JPEG (from `public/property-hero.jpg`); `generate.mjs` no longer
+   fabricates an image.
+2. **App-side: a failed photo intake can lose its reason.** `Step4PhotosDocs`'s catch does
+   `err instanceof Error ? err.message : "Unknown error"`, and an image decode failure rejects with
+   an `Event` (no `.message`) — so the toast read `Couldn't upload <name>.` with an empty reason,
+   and once `Unknown error`. A user with a truncated or mis-named image gets no explanation.
+   Worth mapping a non-Error rejection to a real sentence ("That image couldn't be read").
+3. **Affordance: the photo intake is `accept="image/*"` with no `capture` attribute.** On a phone
+   that opens the Photo-Library/Camera chooser rather than the camera; a "Take photo" action that
+   goes straight to the camera needs `capture="environment"`. No effect on desktop.
+
 ## Next steps (when resumed)
 
 1. Re-run under Node 25; confirm run-4 numbers; update the table.
