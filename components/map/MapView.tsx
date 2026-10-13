@@ -10,6 +10,8 @@ import { env } from "@/lib/env";
 import { useShellContext } from "@/components/layout/shell-context";
 import type { Property } from "@/lib/data/types/property";
 import { addBoundaryLayer, BOUNDARY_SOURCE_ID } from "@/components/map/boundary-layer";
+import { boundarySides, formatMeters, ringSpanM, type ParcelMeasurement, type ParcelSide } from "@/lib/data/derivations/boundary-sides";
+import type { BoundaryGeometry } from "@/lib/data/types/land-parcel";
 import {
   googleSession,
   basemapStyle,
@@ -37,8 +39,21 @@ export function mapboxStyle(isDark: boolean): string {
   return isDark ? "mapbox://styles/mapbox/dark-v11" : "mapbox://styles/mapbox/light-v11";
 }
 
-/** The marker class for whichever renderer is mounted. Both implement the {@link AnyMarker} surface. */
-function MarkerFor(map: AnyMap): new (opts: { element: HTMLElement; anchor: string }) => AnyMarker {
+/**
+ * The marker class for whichever renderer is mounted. Both implement the {@link AnyMarker} surface.
+ *
+ * The rotation options are part of that shared surface too — the same knobs came from the same
+ * lineage — and the side-length labels need them: a label floats upright above its edge rather than
+ * being written into the map's tilted plane, which is what `rotationAlignment`/`pitchAlignment`
+ * control. {@link LngLatFor} is the other half of the same seam.
+ */
+function MarkerFor(map: AnyMap): new (opts: {
+  element: HTMLElement;
+  anchor: string;
+  rotation?: number;
+  rotationAlignment?: "map" | "viewport" | "auto";
+  pitchAlignment?: "map" | "viewport" | "auto";
+}) => AnyMarker {
   return (map instanceof mapboxgl.Map ? mapboxgl.Marker : MapLibreMarker) as never;
 }
 
@@ -65,6 +80,31 @@ const MAP_MAX_ZOOM = 20;
 // has zoomed to a single building, matching the 3D-buildings reveal at zoom 15.
 const BOUNDARY_MIN_ZOOM = 16;
 
+/**
+ * A ring is labelled once it covers this much of the screen. Close enough per parcel, not per zoom:
+ * a 300 m parcel is readable when a 40 m one is still a smudge.
+ */
+const LABEL_MIN_SPAN_PX = 80;
+
+/** Metres per pixel at zoom 0 on the equator, for a 512-px tile — the standard Web Mercator scale. */
+const METRES_PER_PIXEL_Z0 = 78271.516964;
+
+/**
+ * Zoom a pin tap eases to. 17 is one step past the boundary layer's minzoom, so the parcel's ring is
+ * on screen after the tap and the pin keeps its surroundings — the cluster path eases to a similar
+ * range via Supercluster's expansion zoom, so a tap behaves the same way whether it hit a badge or a
+ * single pin.
+ */
+const PIN_FOCUS_ZOOM = 17;
+
+/** The camera HomePage carries across a terrain toggle. */
+export interface MapCamera {
+  center: [number, number];
+  zoom: number;
+  bearing: number;
+  pitch: number;
+}
+
 interface MapViewProps {
   properties: (Property & { boundary?: unknown })[];
   selectedId: string | null;
@@ -76,6 +116,28 @@ interface MapViewProps {
    */
   onMapReady?: (map: AnyMap) => void;
   isSatellite?: boolean;
+  /**
+   * Camera to open at. The satellite toggle REMOUNTS this component (a style swap cannot cross
+   * renderers), so without this the mount default would snap the viewport back to the whole country
+   * on every toggle. HomePage passes the outgoing map's camera.
+   */
+  initialCamera?: MapCamera;
+  /**
+   * The live camera, on every move. HomePage keeps it in a ref so the satellite toggle can hand the
+   * outgoing viewport to the incoming renderer. Deliberately NOT `onMapReady`: that one fires from
+   * the `load` handler, and a toggle must not be able to lose the viewport just because the basemap
+   * has not finished loading yet (or never does).
+   */
+  onCameraChange?: (camera: MapCamera) => void;
+  /**
+   * Draw the length of each side of a parcel ring.
+   *
+   * A selected parcel shows its own ring only: the portfolio map carries 41 rings and 471 sides, and
+   * a number on every edge buries the parcel whose card is open. With nothing selected it labels
+   * every ring inside the viewport instead, so the control is not dead before a parcel is picked and
+   * what you see is what is on screen. Off by default — the caller owns that state.
+   */
+  showMeasurements?: boolean;
   className?: string;
 }
 
@@ -86,6 +148,9 @@ export function MapView({
   onMapLoaded,
   onMapReady,
   isSatellite = false,
+  initialCamera,
+  onCameraChange,
+  showMeasurements = false,
   className,
 }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -121,8 +186,20 @@ export function MapView({
   const { isDark } = useShellContext();
   const isDarkRef = useRef(isDark);
   isDarkRef.current = isDark;
+  const initialCameraRef = useRef(initialCamera);
+  initialCameraRef.current = initialCamera;
+  const onCameraChangeRef = useRef(onCameraChange);
+  onCameraChangeRef.current = onCameraChange;
   const isSatelliteRef = useRef(isSatellite);
   isSatelliteRef.current = isSatellite;
+
+  // Side-length labels live only on the selected ring, and the pin-focus effect can change that
+  // selection from a plain render — so these are read through refs by handlers bound once at mount.
+  const selectedIdRef = useRef(selectedId);
+  selectedIdRef.current = selectedId;
+  const showMeasurementsRef = useRef(showMeasurements);
+  showMeasurementsRef.current = showMeasurements;
+  const sideMarkersRef = useRef<AnyMarker[]>([]);
 
   // Initialize map
   useEffect(() => {
@@ -156,14 +233,17 @@ export function MapView({
       );
       clusterIndex.current = index;
 
-      // Both renderers take the same camera options; only the style differs.
+      // Both renderers take the same camera options; only the style differs. `initialCamera` is what
+      // keeps a terrain toggle seamless: this component is remounted on the toggle, and the default
+      // below would otherwise rewind the viewport to the whole country.
+      const opening = initialCameraRef.current;
       const camera = {
         container: containerRef.current,
-        center: CAMBODIA_CENTER,
-        zoom: CAMBODIA_ZOOM,
+        center: opening?.center ?? CAMBODIA_CENTER,
+        zoom: opening?.zoom ?? CAMBODIA_ZOOM,
         maxZoom: MAP_MAX_ZOOM,
-        pitch: 45,
-        bearing: -17.6,
+        pitch: opening?.pitch ?? 45,
+        bearing: opening?.bearing ?? -17.6,
       };
 
       const map: AnyMap = useMapbox
@@ -187,6 +267,18 @@ export function MapView({
       mapRef.current = map;
       let destroyed = false;
 
+      // Hand the shell the map (HomePage keeps it as `mapRef`, which the zoom and recentre controls
+      // drive) from whichever signal happens first: `load` usually, the first `styledata` otherwise.
+      // A `load`-only handoff is a trap — a style that never finishes loading (an unloadable worker,
+      // a session swap that stalls) still renders raster tiles and still looks fine, while those
+      // controls go dead and the only way left to move the camera is a pinch. Runs once.
+      let reported = false;
+      const reportReady = () => {
+        if (destroyed || reported) return;
+        reported = true;
+        onMapReady?.(map);
+      };
+
       // Satellite only: Google's session token is an async round trip, so the basemap is swapped in
       // after the map exists. The `style.load` handler below is what makes that swap safe: it re-adds
       // the boundary layer and the pins, which is the same path a theme switch already used.
@@ -208,13 +300,28 @@ export function MapView({
         if (destroyed) return;
         addBoundaries(m);
         onMapLoaded?.();
-        onMapReady?.(map);
+        reportReady();
         updateClusters(m);
+        updateMeasurements(m);
       });
 
       m.on("move", () => {
         if (destroyed) return;
+        const centre = m.getCenter();
+        onCameraChangeRef.current?.({
+          center: [centre.lng, centre.lat],
+          zoom: m.getZoom(),
+          bearing: m.getBearing(),
+          pitch: m.getPitch(),
+        });
         updateClusters(m);
+      });
+
+      // Labels cover what is on screen, so the set has to be rebuilt when the camera settles — not
+      // on `move`, where every frame would rebuild the same 40 markers.
+      m.on("moveend", () => {
+        if (destroyed) return;
+        updateMeasurements(m);
       });
 
       m.on("style.load", () => {
@@ -222,11 +329,16 @@ export function MapView({
         addBoundaries(m);
         clearMarkers();
         updateClusters(m);
+        updateMeasurements(m);
+        reportReady();
       });
+
+      m.on("styledata", reportReady);
 
       dispose = () => {
         destroyed = true;
         clearMarkers();
+        clearSideMarkers();
         mapRef.current = null;
         map.remove();
       };
@@ -288,6 +400,14 @@ export function MapView({
       }
     });
   }, [selectedId]);
+
+  // Selection or toggle changed: the labels belong to one ring, so they are rebuilt rather than
+  // patched. `mapRef` can be null here — the mount effect has not handed the map over yet.
+  useEffect(() => {
+    const live = mapRef.current;
+    if (live) updateMeasurements(live);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId, showMeasurements]);
 
   function createClusterElement(count: number): HTMLElement {
     const wrapper = document.createElement("div");
@@ -386,6 +506,19 @@ export function MapView({
     pin.addEventListener("click", (e) => {
       e.stopPropagation();
       onSelectProperty(p.id);
+      // Selecting from the map is also a navigation. Tapping a cluster eases to its expansion zoom;
+      // tapping one of its members used to move nothing, so the pin you chose stayed wherever it
+      // happened to sit while the card opened over it. Ease to the same kind of range instead.
+      // `Math.max` with the current zoom means this only ever zooms IN — a tap while already closer
+      // than 17 keeps the user's own zoom rather than pulling back.
+      const live = mapRef.current;
+      if (live) {
+        live.easeTo({
+          center: [p.lng, p.lat],
+          zoom: Math.max(live.getZoom(), PIN_FOCUS_ZOOM),
+          duration: 500,
+        });
+      }
     });
 
     return { wrapper };
@@ -405,6 +538,122 @@ export function MapView({
     activeMarkersRef.current.forEach((m) => m.remove());
     activeMarkersRef.current.clear();
     pinMarkersRef.current.clear();
+  }
+
+  function clearSideMarkers() {
+    sideMarkersRef.current.forEach((marker) => marker.remove());
+    sideMarkersRef.current = [];
+  }
+
+  /**
+   * A length label. Deliberately a DOM marker rather than a symbol layer: the Google basemap is
+   * raster-only, its style carries no `glyphs`, and a text layer against a missing glyph URL renders
+   * nothing at all (see basemap.ts). DOM also means the label inherits the app's own type — the same
+   * metrics as the cluster count — instead of a font stack served by someone else.
+   */
+  function createSideLabelElement(side: ParcelSide): HTMLElement {
+    const el = document.createElement("div");
+    el.setAttribute("data-side-label", "true");
+    el.textContent = formatMeters(side.meters);
+    el.style.cssText = `
+      padding: 2.4px 5.6px;
+      border-radius: 4px;
+      background: var(--color-surface-base, #fff);
+      border: 1px solid var(--color-border-default, rgba(0,0,0,0.12));
+      color: var(--color-foreground, #121c28);
+      font-size: 9.6px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      line-height: 1.2;
+      white-space: nowrap;
+      pointer-events: none;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    `;
+    return el;
+  }
+
+  /**
+   * Lengths along parcel edges. Rebuilt when the selection, the toggle, the style or the settled
+   * camera changes — a marker is anchored to a coordinate, so it follows the camera for free and
+   * rebuilding on every `move` frame would be the same numbers at 60 fps for nothing.
+   *
+   * A selected parcel shows its own ring only; with nothing selected every ring inside the viewport
+   * is labelled, so the ruler covers what is on screen instead of one ring you had to guess at. The
+   * labels float above their edge and stay upright — see the marker options below.
+   */
+  function updateMeasurements(map: AnyMap) {
+    clearSideMarkers();
+    if (!showMeasurementsRef.current) return;
+
+    const selectedId = selectedIdRef.current;
+    const ml = map as MapLibreMap;
+    const zoom = ml.getZoom();
+    const bounds = selectedId ? null : ml.getBounds();
+    // How close is close enough, as screen size rather than a zoom number: the ring is labelled once
+    // it covers this much of the glass, so a large parcel gets its numbers sooner than a small one.
+    // Below BOUNDARY_MIN_ZOOM nothing is labelled at all — the ring itself is not drawn there, and
+    // numbers over a missing outline are worse than no numbers.
+    const metresPerPixel =
+      (METRES_PER_PIXEL_Z0 * Math.cos((ml.getCenter().lat * Math.PI) / 180)) / 2 ** (zoom + 1);
+    const Mk = MarkerFor(map);
+
+    for (const property of propertiesRef.current) {
+      if (selectedId && property.id !== selectedId) continue;
+      const measurement = boundarySides(property.boundary as BoundaryGeometry | null | undefined);
+      if (!measurement) continue;
+      if (
+        !selectedId &&
+        (zoom < BOUNDARY_MIN_ZOOM || ringSpanM(measurement) / metresPerPixel < LABEL_MIN_SPAN_PX)
+      ) {
+        continue;
+      }
+      if (
+        bounds &&
+        !measurementInView(
+          measurement,
+          bounds.getWest(),
+          bounds.getSouth(),
+          bounds.getEast(),
+          bounds.getNorth(),
+        )
+      ) {
+        continue;
+      }
+      for (const side of measurement.sides) {
+        const marker = new Mk({
+          element: createSideLabelElement(side),
+          // Anchored at its own bottom, so the chip floats above the edge rather than sitting on it.
+          anchor: "bottom",
+          // Floating and upright, not written on the ground: at 45° pitch the number stays readable
+          // instead of lying in a tilted plane. That is why the edge bearing is no longer applied —
+          // rotating the text along the edge and pinning it upright are the same knob.
+          rotationAlignment: "viewport",
+          pitchAlignment: "viewport",
+        })
+          .setLngLat([(side.a[0] + side.b[0]) / 2, (side.a[1] + side.b[1]) / 2])
+          .addTo(map);
+        sideMarkersRef.current.push(marker);
+      }
+    }
+  }
+
+  /**
+   * Is any corner of the ring inside the current bounds? Corner-wise rather than a true
+   * polygon-over-rectangle overlap: a parcel is far smaller than the screen at every zoom this map
+   * reaches, so a ring that clips the edge still has a corner in view.
+   */
+  function measurementInView(
+    measurement: ParcelMeasurement,
+    west: number,
+    south: number,
+    east: number,
+    north: number,
+  ): boolean {
+    return measurement.sides.some(
+      ({ a, b }) =>
+        (a[0] >= west && a[0] <= east && a[1] >= south && a[1] <= north) ||
+        (b[0] >= west && b[0] <= east && b[1] >= south && b[1] <= north),
+    );
   }
 
   function updateClusters(map: AnyMap) {
