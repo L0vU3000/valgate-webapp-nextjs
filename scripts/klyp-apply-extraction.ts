@@ -23,6 +23,12 @@ import { listDocuments, saveDocumentSummary, setDocumentCategory } from "@/lib/s
 import { updateProperty } from "@/lib/services/properties";
 import { codeFromName } from "@/lib/services/property-boundary";
 import { printedArea } from "@/lib/data/derivations/printed-area";
+import {
+  adjudicate,
+  docClass,
+  isEvidence,
+  type Candidate,
+} from "@/lib/data/derivations/doc-precedence";
 import { env } from "@/lib/env";
 import { assertSafeDatabaseUrl } from "@/lib/db/assert-safe-database-url";
 import type { Ctx } from "@/lib/services/_mapping";
@@ -140,6 +146,10 @@ async function main() {
 
   let ai = 0, promoted = 0, proposalRows = 0;
   const proposals: string[] = ["property_id,code,file,owners,confidence"];
+
+  // Every area this property's documents state, so the disagreements can be adjudicated as a set
+  // rather than one document at a time. Read-only: nothing here writes a property field.
+  const candidatesByProp = new Map<string, { code: string; list: Candidate[] }>();
   for (const e of extracts) {
     const code = codeForRel(e.rel, overrides);
     const prop = code ? byCode.get(code) : undefined;
@@ -205,8 +215,28 @@ async function main() {
       promoted += Object.keys(patch).length;
       if (WRITE) await updateProperty(ctx, prop.id, patch as never);
     }
-    if (declared && prop.totalArea && declared !== prop.totalArea.replace(/[^\d]/g, "")) {
-      console.log(`    ! declared ${declared} vs stored totalArea ${prop.totalArea} (left as stored)`);
+    // Collect the areas this property's documents state, next to the value already declared. The set
+    // is what a human needs to answer "which do we follow?"; the run itself never changes totalArea.
+    if (declared || prop.totalArea) {
+      const entry = candidatesByProp.get(prop.id) ?? { code: code ?? "", list: [] as Candidate[] };
+      if (prop.totalArea && !entry.list.some((x) => x.declared)) {
+        entry.list.push({
+          value: Number(String(prop.totalArea).replace(/[^\d.]/g, "")),
+          file: "",
+          docClass: "unrelated",
+          date: "",
+          declared: true,
+        });
+      }
+      if (declared) {
+        entry.list.push({
+          value: Number(declared),
+          file: e.file,
+          docClass: docClass(e.file, e.doc_type),
+          date: e.date_signed,
+        });
+      }
+      candidatesByProp.set(prop.id, entry);
     }
     if (e.owners.length) {
       proposals.push(`${prop.id},${code},${e.file},"${e.owners.join("; ")}",${e.confidence}`);
@@ -214,11 +244,51 @@ async function main() {
     }
   }
 
+  // The conflict list. Written next to the extraction cache, not into the repo: it names client
+  // properties, areas and documents, and this repository is shared.
+  const conflictsPath = join(OUT, "..", "klyp-conflicts.csv");
+  const lines = [
+    "property_id,code,field,source,value,doc_class,evidence,date,file,verdict,note",
+  ];
+  let disagreeing = 0, auto = 0, human = 0;
+  for (const [id, { code: propCode, list }] of candidatesByProp) {
+    const verdict = adjudicate(list);
+    if (new Set(list.filter(isEvidence).map((c) => c.value)).size > 1) {
+      disagreeing++;
+      if (verdict.kind === "auto") auto++;
+      if (verdict.kind === "human") human++;
+    }
+    const winner = verdict.kind === "auto" ? verdict.winner.file : "";
+    for (const c of list) {
+      lines.push(
+        [
+          id,
+          propCode,
+          "totalArea",
+          c.declared ? "declared" : "document",
+          c.value,
+          c.docClass,
+          isEvidence(c) ? "yes" : "no",
+          c.date,
+          `"${c.file}"`,
+          verdict.kind,
+          c.file && c.file === winner
+            ? "follow this document"
+            : c.declared && verdict.kind === "auto"
+              ? "declared value disagrees with the strongest document"
+              : "",
+        ].join(","),
+      );
+    }
+  }
+  writeFileSync(conflictsPath, lines.join("\n") + "\n");
+
   writeFileSync(PROPOSALS, proposals.join("\n") + "\n");
   console.log(
     `\n${WRITE ? "applied" : "dry run"} — ${ai} document(s) ${WRITE ? "annotated" : "to annotate"} · ` +
       `${promoted} property field(s) ${WRITE ? "filled" : "to fill"} · ` +
-      `${proposalRows} owner name(s) proposed in ${PROPOSALS}`,
+      `${proposalRows} owner name(s) proposed in ${PROPOSALS} · ` +
+      `${disagreeing} propert(y/ies) whose documents disagree (${auto} ranked by class, ${human} need a human) in ${conflictsPath}`,
   );
   if (!WRITE) console.log("Re-run with --write to apply.");
 }
