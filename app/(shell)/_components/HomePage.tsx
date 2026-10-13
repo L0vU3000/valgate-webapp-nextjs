@@ -48,6 +48,7 @@ import { syncCadastreLayer } from "@/components/map/cadastre-layer";
 import { QuickAddSearch } from "./QuickAddSearch";
 import { useQuickAdd } from "./use-quick-add";
 import type * as mapboxgl from "maplibre-gl";
+import type { MapCamera } from "@/components/map/MapView";
 
 const MapView = dynamic(
   () => import("@/components/map/MapView").then((m) => m.MapView),
@@ -108,6 +109,17 @@ export function HomePage({
   const [placeholderVisible, setPlaceholderVisible] = useState(true);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [isSatellite, setIsSatellite] = useState(false);
+  // Side lengths along parcel rings. Off by default: the ring is already saying the parcel exists,
+  // and only the user knows when the numbers are the thing they want. The map control turns it on;
+  // nothing else reads it.
+  const [showMeasurements, setShowMeasurements] = useState(false);
+  // Camera captured immediately before the terrain toggle remounts MapView, so the Google basemap
+  // opens exactly where Mapbox was instead of rewinding to the whole country. See MapView's
+  // `initialCamera`.
+  const [mapCamera, setMapCamera] = useState<MapCamera | null>(null);
+  // Fed by MapView on every move, so the toggle always has the live viewport to hand over. A ref, not
+  // state: this updates per frame during a drag and must not re-render the shell.
+  const cameraRef = useRef<MapCamera | null>(null);
   // The property quick-add just created, held until the refreshed list contains it (see the handoff
   // effect below). Non-null means "creation succeeded, waiting for the server data".
   const [handoffId, setHandoffId] = useState<string | null>(null);
@@ -367,6 +379,13 @@ export function HomePage({
     command();
   }, []);
 
+  // Snapshot the camera before the terrain toggle swaps renderers. MapView is keyed on
+  // `isSatellite`, so the toggle unmounts the Mapbox map and mounts a MapLibre one; without the
+  // snapshot the new map would open at the country default and the switch would feel like a reload.
+  const toggleSatellite = useCallback(() => {
+    if (cameraRef.current) setMapCamera(cameraRef.current);
+    setIsSatellite((s) => !s);
+  }, []);
   const selectedProperty = selectedPin
     ? initialProperties.find((p) => p.id === selectedPin)
     : null;
@@ -473,6 +492,11 @@ export function HomePage({
             mapRef.current = map;
           }}
           isSatellite={isSatellite}
+          showMeasurements={showMeasurements}
+          initialCamera={mapCamera ?? undefined}
+          onCameraChange={(camera) => {
+            cameraRef.current = camera;
+          }}
           className="absolute inset-0"
         />
 
@@ -655,7 +679,9 @@ export function HomePage({
           mapRef={mapRef}
           drawerOpen={!!selectedProperty || !!quickAddCardPin}
           isSatellite={isSatellite}
-          onToggleSatellite={() => setIsSatellite((s) => !s)}
+          onToggleSatellite={toggleSatellite}
+          showMeasurements={showMeasurements}
+          onToggleMeasurements={() => setShowMeasurements((s) => !s)}
         />
 
         {/* Quick-add pin. Owned by its own layer because MapView's markers are a Supercluster view of

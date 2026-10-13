@@ -35,10 +35,13 @@ export type BasemapTheme = "satellite" | "roadmap";
  * Both files are copied into `public/` (same approach as the existing `pdf.worker.min.mjs`), and
  * the worker's own `./maplibre-gl-shared.mjs` import resolves next to it. MapLibre's v5→v6 migration
  * guide names this as a required one-time call for every bundler, not a Next-specific workaround.
+ *
+ * This runs at MODULE SCOPE, deliberately. It shipped once as an exported `configureWorker()` that
+ * nobody called: the URL stayed empty, every GeoJSON source (the KMZ boundary) failed to tile, and
+ * the raster imagery kept drawing so the map looked healthy. Module scope cannot be forgotten, and
+ * this module is imported by MapView before any `new Map()` runs.
  */
-export function configureWorker() {
-  setWorkerUrl("/maplibre-gl-worker.mjs");
-}
+setWorkerUrl("/maplibre-gl-worker.mjs");
 
 const CREATE_SESSION = "https://tile.googleapis.com/v1/createSession";
 const TILE_ROOT = "https://tile.googleapis.com/v1/2dtiles";
