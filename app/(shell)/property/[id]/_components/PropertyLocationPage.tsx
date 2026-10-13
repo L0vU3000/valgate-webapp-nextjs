@@ -38,8 +38,6 @@ import {
 import { cn } from "@/components/ui/utils";
 import { PropertyMapExpandModal } from "@/components/map/PropertyMapExpandModal";
 import { DrawBoundaryTool, type DrawMode } from "@/components/map/DrawBoundaryTool";
-import type { PropertyComparable } from "@/lib/data/types/property-comparable";
-import type { MarketSnapshot } from "@/lib/data/types/market-snapshot";
 import {
   buildParcelFacts,
   countFactsOnFile,
@@ -85,13 +83,9 @@ function ToolButton({
 export function PropertyLocationPage({
   property,
   landParcels,
-  comparables,
-  marketSnapshot,
 }: {
   property: Property;
   landParcels: LandParcel[];
-  comparables: PropertyComparable[];
-  marketSnapshot: MarketSnapshot;
 }) {
   const activeTab = "location";
   const [wizardOpen, setWizardOpen] = useState(false);
@@ -117,8 +111,6 @@ export function PropertyLocationPage({
             landParcels={landParcels}
             unlockState={unlockState}
             openWizard={openWizard}
-            comparables={comparables}
-            marketSnapshot={marketSnapshot}
           />
         </div>
       </div>
@@ -165,15 +157,11 @@ function LocationContent({
   landParcels,
   unlockState,
   openWizard,
-  comparables,
-  marketSnapshot,
 }: {
   property: Property;
   landParcels: LandParcel[];
   unlockState: UnlockState;
   openWizard: () => void;
-  comparables: PropertyComparable[];
-  marketSnapshot: MarketSnapshot;
 }) {
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const [mapMounted, setMapMounted] = useState(false);
@@ -367,32 +355,6 @@ function LocationContent({
     navigator.clipboard.writeText(`${property.lat}, ${property.lng}`).then(() => {
       toast.success("Coordinates copied");
     });
-  }
-
-  function exportComparables() {
-    if (!comparables.length) {
-      toast.error("No comparables to export");
-      return;
-    }
-    const rows = [
-      ["Property", "Distance (km)", "Type", "Area (m2)", "Price/m2"],
-      ...comparables.map((c) => [
-        c.name,
-        c.distanceKm.toFixed(2),
-        c.type,
-        String(c.totalAreaM2),
-        String(c.pricePerM2),
-      ]),
-    ];
-    const csv = rows
-      .map((r) => r.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(","))
-      .join("\n");
-    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${property.code}-comparables.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
   }
 
   return (
@@ -719,106 +681,6 @@ function LocationContent({
           />
         </div>
 
-        {/* Comparables — one table. The old metrics card beside it repeated this table's
-            first three rows and its footer already carried both headline figures, so the
-            card is gone rather than promoted. */}
-        <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.05)] animate-[fade-slide-up_0.45s_cubic-bezier(0.22,1,0.36,1)_both]" style={{ animationDelay: "180ms" }}>
-          <div className="px-5 py-4 flex items-start justify-between gap-4 border-b border-slate-100">
-            <div>
-              <h2 className="text-base font-bold text-val-heading">Comparable properties</h2>
-              <p className="text-xs text-slate-400 mt-0.5">
-                {comparables.length > 0
-                  ? `${comparables.length} nearby propert${comparables.length === 1 ? "y" : "ies"} in your area`
-                  : "No nearby properties found"}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={exportComparables}
-              disabled={comparables.length === 0}
-              className="flex shrink-0 items-center gap-1.5 text-[13px] font-medium text-[--val-primary-dark] hover:opacity-80 disabled:opacity-40 disabled:hover:opacity-40 transition-opacity"
-            >
-              <Download className="w-3.5 h-3.5" />
-              Export
-            </button>
-          </div>
-
-          {comparables.length === 0 ? (
-            <p className="px-5 py-8 text-center text-[13px] text-slate-400">
-              No nearby properties have a market value on file yet, so there is nothing to
-              compare. Add a valuation to a nearby property to populate this list.
-            </p>
-          ) : (
-            <>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="bg-slate-50/80 border-b border-slate-200">
-                      {["Property", "Distance", "Type", "Area", "Price/m²"].map((h) => (
-                        <th
-                          key={h}
-                          className="px-2 sm:px-4 py-3 text-left text-[10px] sm:text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em] whitespace-nowrap"
-                        >
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {comparables.slice(0, 4).map((row, i) => (
-                      <tr
-                        key={row.id}
-                        className="border-t border-slate-100 hover:bg-blue-50/30 transition-colors"
-                        style={{ animationDelay: `${i * 25}ms` }}
-                      >
-                        <td className="px-2 sm:px-4 py-3 text-[12px] sm:text-[14px] text-val-heading font-medium">
-                          {row.name}
-                        </td>
-                        <td className="px-2 sm:px-4 py-3 text-[12px] sm:text-[14px] text-val-heading tabular-nums whitespace-nowrap">
-                          {row.distanceKm.toFixed(1)} km
-                        </td>
-                        <td className="px-2 sm:px-4 py-3 text-[12px] sm:text-[14px] text-val-heading capitalize">
-                          {row.type}
-                        </td>
-                        <td className="px-2 sm:px-4 py-3 text-[12px] sm:text-[14px] text-val-heading tabular-nums whitespace-nowrap">
-                          {row.totalAreaM2.toLocaleString()} m²
-                        </td>
-                        <td className="px-2 sm:px-4 py-3 text-[12px] sm:text-[14px] text-val-heading tabular-nums whitespace-nowrap">
-                          ${row.pricePerM2.toLocaleString()}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="bg-slate-50/60 border-t border-slate-200 px-4 py-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-slate-500">
-                <span>
-                  Avg comp price:{" "}
-                  <span className="font-semibold text-val-heading tabular-nums">
-                    {marketSnapshot.comparableCount > 0
-                      ? `$${marketSnapshot.avgComparableValue.toLocaleString()}`
-                      : "—"}
-                  </span>
-                </span>
-                <span className="text-slate-300">·</span>
-                <span>
-                  Estimated value:{" "}
-                  <span className="font-semibold text-val-heading tabular-nums">
-                    {marketSnapshot.estimatedValue != null
-                      ? `$${marketSnapshot.estimatedValue.toLocaleString()}`
-                      : "—"}
-                  </span>
-                </span>
-                {comparables.length > 4 && (
-                  <span className="ml-auto text-slate-400">
-                    Showing 4 of {comparables.length}
-                  </span>
-                )}
-              </div>
-            </>
-          )}
-        </div>
       </div>
     </div>
   );
