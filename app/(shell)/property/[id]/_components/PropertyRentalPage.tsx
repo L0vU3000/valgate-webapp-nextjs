@@ -7,7 +7,6 @@ import type { Lease } from "@/lib/data/types/lease";
 import type { Tenant } from "@/lib/data/types/tenant";
 import type { Payment, PaymentStatus } from "@/lib/data/types/payment";
 import type { Expense } from "@/lib/data/types/expense";
-import type { Document as DbDocument } from "@/lib/data/types/document";
 import type { MaintenanceItem, MaintenanceSeverity } from "@/lib/data/types/maintenance-item";
 import { formatCurrencyFull } from "@/lib/format";
 import { PropertyLayout } from "@/components/property/PropertyLayout";
@@ -15,7 +14,7 @@ import { MobileCardTable } from "@/components/property/MobileCardTable";
 import { UnlockButton } from "@/components/feature-unlock/UnlockButton";
 import { RentalUnlockMount } from "@/components/feature-unlock/pillars/RentalUnlock";
 import type { UnlockState } from "@/components/feature-unlock/types";
-import { updateProperty, revokeRentalVerification } from "@/app/actions/properties";
+import { updateProperty } from "@/app/actions/properties";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -32,9 +31,9 @@ const RentalBarChart = dynamic(
   { ssr: false, loading: () => <div className="h-[200px] w-full animate-pulse rounded-lg bg-slate-50" /> },
 );
 import {
-  Mail, Phone, FileText, ChevronLeft, ChevronRight,
+  Mail, Phone, ChevronLeft, ChevronRight,
   Circle, ChevronDown, AlertTriangle, Download,
-  Home, ShieldCheck, BadgeCheck, MoreHorizontal, ShieldOff,
+  Home,
 } from "lucide-react";
 
 type PaymentVariant = "success" | "warning" | "danger" | "neutral";
@@ -60,14 +59,6 @@ function monthsSince(ts: number): number {
   return Math.max(0, (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth()));
 }
 
-function getDocStatusInfo(doc: DbDocument): { statusLabel: string; statusClass: string; dateLabel: string } {
-  const dateStr = new Date(doc.uploadedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-  if (doc.category === "Rental") {
-    return { statusLabel: "Active", statusClass: "text-emerald-700", dateLabel: `Signed ${dateStr}` };
-  }
-  return { statusLabel: "", statusClass: "", dateLabel: dateStr };
-}
-
 export function PropertyRentalPage({
   property,
   progress,
@@ -75,7 +66,6 @@ export function PropertyRentalPage({
   tenants = [],
   payments = [],
   expenses = [],
-  documents = [],
   maintenanceItems = [],
 }: {
   property: Property;
@@ -84,17 +74,11 @@ export function PropertyRentalPage({
   tenants: Tenant[];
   payments: Payment[];
   expenses: Expense[];
-  documents: DbDocument[];
   maintenanceItems: MaintenanceItem[];
 }) {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
-  const [wizardStartAt, setWizardStartAt] = useState<"data" | "verification">("data");
-  const [revokeOpen, setRevokeOpen] = useState(false);
-  const [revoking, setRevoking] = useState(false);
-  // Tier-3 (typed) gate: the user must type REVOKE before the button enables.
-  const [revokeTyped, setRevokeTyped] = useState("");
   const [markingInvestment, setMarkingInvestment] = useState(false);
   const [investmentConfirmOpen, setInvestmentConfirmOpen] = useState(false);
 
@@ -106,21 +90,11 @@ export function PropertyRentalPage({
   const isInvestment = (property.propertyUse ?? "investment") === "investment";
   const propertyUseLabel = property.propertyUse === "holiday" ? "holiday residence" : "personal residence";
 
-  // Compute unlock state for investment properties
-  const activeLeaseForUnlock = leases.find(
-    (l) => l.stage === "Signed" && l.propertyId === property.id,
-  ) ?? null;
-  const primaryTenantForUnlock = tenants.find(
-    (t) => t.propertyId === property.id,
-  ) ?? null;
-  const unlockState: UnlockState = property.rentalVerified
-    ? { kind: "edit", entityId: property.id }
-    : activeLeaseForUnlock || primaryTenantForUnlock
-      ? { kind: "verify", entityId: property.id }
-      : { kind: "unlock" };
+  // Verification is gone (2026-10 simplification), so the wizard is purely the rental-data
+  // editor: it always opens on the data step and the affordance is always "Edit rental".
+  const unlockState: UnlockState = { kind: "edit", entityId: property.id };
 
   function openWizard() {
-    setWizardStartAt(unlockState.kind === "verify" ? "verification" : "data");
     setWizardOpen(true);
   }
 
@@ -392,34 +366,6 @@ export function PropertyRentalPage({
               <div>
                 <div className="flex items-center gap-3 flex-wrap">
                   <h1 className="text-[28px] sm:text-[40px] font-extrabold tracking-tight leading-tight sm:leading-10 text-[--val-heading]">Rental</h1>
-                  {property.rentalVerified ? (
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[12px] font-semibold">
-                        <BadgeCheck className="w-3.5 h-3.5" />
-                        Valgate Verified
-                      </span>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors">
-                            <MoreHorizontal className="w-4 h-4" />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start" className="w-52">
-                          <DropdownMenuItem
-                            className="text-rose-600 focus:text-rose-600 focus:bg-rose-50 cursor-pointer"
-                            onSelect={() => setRevokeOpen(true)}
-                          >
-                            <ShieldOff className="w-4 h-4 mr-2 shrink-0" />
-                            Revoke verification
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  ) : (
-                    <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-500 text-[12px] font-semibold mb-1">
-                      Not verified
-                    </span>
-                  )}
                 </div>
                 <p className="text-slate-500 text-base mt-2">{pageSubtitle}</p>
               </div>
@@ -522,36 +468,12 @@ export function PropertyRentalPage({
               <div className="flex items-start justify-between mb-4 gap-2">
                 <div className="flex flex-col gap-1.5 min-w-0">
                   <h3 className="text-base font-bold text-val-heading leading-none">Lease</h3>
-                  {property.rentalVerified && (
-                    <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 text-[10px] font-semibold tracking-[0.05em] uppercase px-2 py-0.5 rounded-full w-fit">
-                      <ShieldCheck className="w-3 h-3 shrink-0" />
-                      Valgate Verified
-                    </span>
-                  )}
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
                   {termLabel && (
                     <span className="bg-blue-50 text-blue-700 text-[10px] font-semibold tracking-[1px] uppercase px-2 py-0.5 rounded">
                       {termLabel}
                     </span>
-                  )}
-                  {property.rentalVerified && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button className="p-1.5 rounded-md hover:bg-slate-100 transition-colors duration-150 text-slate-400 hover:text-slate-600">
-                          <MoreHorizontal className="w-4 h-4" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-52">
-                        <DropdownMenuItem
-                          className="text-rose-600 focus:text-rose-600 focus:bg-rose-50 cursor-pointer"
-                          onSelect={() => setRevokeOpen(true)}
-                        >
-                          <ShieldOff className="w-4 h-4 mr-2 shrink-0" />
-                          Revoke verification
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
                   )}
                 </div>
               </div>
@@ -619,11 +541,12 @@ export function PropertyRentalPage({
 
           </div>
 
-          {/* ── Tenant + Maintenance (8) | Documents (4) ── */}
+          {/* ── Tenant + Maintenance ── */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5" style={fade(180)}>
 
-            {/* Left column: Tenant + Maintenance stacked */}
-            <div className="lg:col-span-8 flex flex-col gap-4 sm:gap-5">
+            {/* Left column: Tenant + Maintenance stacked. Full width now that the
+                Documents card that shared this row is gone (there is a Documents tab). */}
+            <div className="lg:col-span-12 flex flex-col gap-4 sm:gap-5">
 
               {/* Tenant Profile */}
               <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
@@ -751,54 +674,6 @@ export function PropertyRentalPage({
                 </div>
               </div>
 
-            </div>
-
-            {/* Right column: Documents */}
-            <div className="lg:col-span-4 bg-white border border-slate-200 rounded-lg p-5 sm:p-6">
-              <h3 className="text-base font-bold text-val-heading mb-4">Documents</h3>
-
-              {documents.length === 0 ? (
-                <p className="text-[13px] text-slate-400">No documents uploaded.</p>
-              ) : (
-                <div className="flex flex-col divide-y divide-slate-100">
-                  {documents
-                    .slice()
-                    .sort((a, b) => b.uploadedAt - a.uploadedAt)
-                    .slice(0, 5)
-                    .map((doc) => {
-                      const { statusLabel, statusClass, dateLabel } = getDocStatusInfo(doc);
-                      return (
-                        <div key={doc.id} className="flex items-start gap-2.5 py-3 first:pt-0 last:pb-0">
-                          <div className="w-7 h-7 bg-slate-50 border border-slate-100 rounded flex items-center justify-center shrink-0 mt-0.5">
-                            <FileText className="w-3.5 h-3.5 text-slate-400" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[13px] font-medium text-val-heading truncate">
-                              {doc.name}
-                            </p>
-                            <p className="text-[11px] mt-0.5">
-                              {statusLabel && (
-                                <span className={`${statusClass} font-medium`}>
-                                  {statusLabel} ·{" "}
-                                </span>
-                              )}
-                              <span className="text-slate-400">{dateLabel}</span>
-                            </p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                </div>
-              )}
-
-              <div className="flex gap-2 mt-4 pt-3 border-t border-slate-100">
-                <button className="border border-slate-200 rounded-md px-3 py-1.5 text-[12px] font-medium text-val-heading hover:bg-slate-50 transition-colors">
-                  Upload
-                </button>
-                <button className="text-[12px] font-medium text-[--val-primary-dark] hover:underline">
-                  View All Docs →
-                </button>
-              </div>
             </div>
 
           </div>
@@ -983,81 +858,9 @@ export function PropertyRentalPage({
       open={wizardOpen}
       onOpenChange={setWizardOpen}
       propertyId={property.id}
-      startAt={wizardStartAt}
+      startAt="data"
       onSuccess={() => router.refresh()}
     />
-
-    {/* Revoke verification dialog — Tier 3 (typed). Lists what the verification covers
-        and requires typing REVOKE before the button enables. */}
-    <Dialog
-      open={revokeOpen}
-      onOpenChange={(next) => {
-        if (revoking) return; // don't let the user close mid-action
-        setRevokeOpen(next);
-        if (!next) setRevokeTyped(""); // reset the typed gate on close
-      }}
-    >
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <div className="w-10 h-10 rounded-full bg-rose-50 flex items-center justify-center mb-1">
-            <ShieldOff className="w-5 h-5 text-rose-500" />
-          </div>
-          <DialogTitle>Revoke rental verification?</DialogTitle>
-          <DialogDescription>
-            Revoking removes the Valgate Verified badge from this property&apos;s rental data. The linked document remains in your files but will no longer count as rental evidence.
-          </DialogDescription>
-        </DialogHeader>
-
-        {/* Scope: what this verification covers / what revoking touches. */}
-        <ul className="text-[13px] text-slate-600 list-disc pl-5 space-y-1">
-          <li>The Valgate Verified badge on this property&apos;s rental data</li>
-          <li>The link between the rental pillar and its evidence document</li>
-        </ul>
-
-        <div className="flex flex-col gap-2 mt-1">
-          <label htmlFor="revoke-rental-typed" className="text-[13px] text-slate-600">
-            Type <span className="font-semibold">REVOKE</span> to confirm
-          </label>
-          <Input
-            id="revoke-rental-typed"
-            value={revokeTyped}
-            onChange={(e) => setRevokeTyped(e.target.value)}
-            autoComplete="off"
-            disabled={revoking}
-          />
-        </div>
-
-        <DialogFooter>
-          <button
-            onClick={() => { setRevokeOpen(false); setRevokeTyped(""); }}
-            disabled={revoking}
-            className="px-4 py-2 text-sm font-semibold text-val-heading border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 transition-colors duration-150"
-          >
-            Cancel
-          </button>
-          <button
-            disabled={revoking || revokeTyped !== "REVOKE"}
-            onClick={async () => {
-              if (revokeTyped !== "REVOKE") return;
-              setRevoking(true);
-              const result = await revokeRentalVerification(property.id);
-              setRevoking(false);
-              setRevokeOpen(false);
-              setRevokeTyped("");
-              if (result.ok) {
-                toast.success("Rental verification revoked");
-                router.refresh();
-              } else {
-                toast.error(result.error);
-              }
-            }}
-            className="px-4 py-2 text-sm font-semibold text-white rounded-lg bg-rose-500 hover:bg-rose-600 disabled:opacity-50 transition-colors duration-150"
-          >
-            {revoking ? "Revoking…" : "Revoke"}
-          </button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
     </>
   );
 }
