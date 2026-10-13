@@ -54,10 +54,14 @@ function toListItem(property: Property, progressDetails: ProgressDetails): Prope
 export function PropertyShellProvider({
   property,
   progressDetails,
+  canDelete = false,
   children,
 }: {
   property: Property;
   progressDetails: ProgressDetails;
+  // Server-computed (roleAtLeast(orgRole, "admin"), never for a cross-org preview). Threaded
+  // to the profile wizard so its Delete-property action is hidden from lower roles.
+  canDelete?: boolean;
   children: React.ReactNode;
 }) {
   const [progressModalOpen, setProgressModalOpen] = useState(false);
@@ -89,6 +93,7 @@ export function PropertyShellProvider({
       />
       <PropertyProfileWizard
         property={property}
+        canDelete={canDelete}
         open={profileWizardOpen}
         onOpenChange={setProfileWizardOpen}
       />

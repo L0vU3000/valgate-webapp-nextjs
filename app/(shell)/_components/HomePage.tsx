@@ -34,7 +34,7 @@ import type {
   PortfolioStats,
 } from "@/app/(shell)/queries";
 import type { Document } from "@/lib/data/types/document";
-import { formatCurrency, formatDate } from "@/lib/format";
+import { formatCurrency, formatDate, formatPricePerArea } from "@/lib/format";
 import { CommandPalette } from "@/components/home/CommandPalette";
 import { PropertyTable } from "@/components/portfolio/PropertyTable";
 import type { TableAnimationConfig } from "@/components/portfolio/PropertyTable";
@@ -392,6 +392,10 @@ export function HomePage({
       ? drawerCover.url
       : null;
   const drawerHero = pickHeroImage(drawerCoverUrl, drawerMapUrl);
+  // Price-first sub line: rate (buyNumeric ÷ totalArea) + the area it came from.
+  const pricePerArea = drawerProperty
+    ? formatPricePerArea(drawerProperty.buyNumeric, drawerProperty.totalArea)
+    : null;
 
   const closeDrawer = useCallback(() => {
     const pin = selectedPin;
@@ -791,6 +795,20 @@ export function HomePage({
               </div>
             </div>
 
+            {/* Price hero — price-first ordering: the headline number leads the panel,
+                with the derived rate and the area it came from right beneath it. */}
+            <div className="px-4 pt-3.5 pb-3.5 border-b border-border-default shrink-0 [animation:card-row-in_0.35s_cubic-bezier(0.16,1,0.3,1)_0.2s_both]">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">
+                Purchase Price
+              </p>
+              <p className="text-[26px] sm:text-[30px] font-bold font-display text-foreground leading-none tabular-nums">
+                {drawerProperty.buy}
+              </p>
+              <p className="text-xs font-medium text-secondary mt-1.5 tabular-nums">
+                {pricePerArea ?? "—"}
+              </p>
+            </div>
+
             {/* Progress strip */}
             <div className="px-4 py-3 border-b border-border-default shrink-0 [animation:card-row-in_0.35s_cubic-bezier(0.16,1,0.3,1)_0.2s_both]">
               <div className="flex items-center justify-between mb-1.5">
@@ -987,14 +1005,6 @@ export function HomePage({
                     <div className="flex-1 h-px bg-border-subtle" />
                   </div>
                   <div className="space-y-3">
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">
-                        Purchase Price
-                      </p>
-                      <p className="text-[22px] sm:text-[26px] font-bold font-display text-foreground leading-none tabular-nums">
-                        {drawerProperty.buy}
-                      </p>
-                    </div>
                     <div className="grid grid-cols-2 gap-x-3 gap-y-3">
                       <div>
                         <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">
