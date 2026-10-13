@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/phone-sheet";
 import { WizardProgress } from "@/components/feature-unlock/WizardProgress";
 import type { WizardProgressStep } from "@/components/feature-unlock/WizardProgress";
-import { editPropertyAction } from "@/app/(shell)/property/actions";
+import { editPropertyAction, deletePropertyAction } from "@/app/(shell)/property/actions";
 import { getPropertyCoverUrl } from "@/app/actions/property-photos";
 import { CoverPhotoPicker } from "@/components/property/CoverPhotoPicker";
 import type { Property } from "@/lib/data/types/property";
@@ -29,6 +29,7 @@ import {
   type EditPropertyFormData,
 } from "@/lib/property-form";
 import { toast } from "sonner";
+import { ConfirmAction } from "@/components/ui/confirm-action";
 import { OptionalLabel } from "@/components/ui/required-mark";
 
 const INPUT =
@@ -62,6 +63,8 @@ const STEP_ICONS: Record<string, typeof Home> = {
 
 interface PropertyProfileWizardProps {
   property: Property;
+  // Admin/owner only, computed on the server. The action re-checks the role + typed name.
+  canDelete?: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -467,6 +470,7 @@ function FinancialStep({
 
 export function PropertyProfileWizard({
   property,
+  canDelete = false,
   open,
   onOpenChange,
 }: PropertyProfileWizardProps) {
@@ -693,14 +697,47 @@ export function PropertyProfileWizard({
 
             {/* Free navigation → a single Save is always available (no Back/Continue). */}
             <div className="px-5 sm:px-10 py-4 sm:py-5 pb-safe sm:pb-5 border-t border-slate-100 flex items-center justify-between shrink-0 bg-white">
-              <button
-                type="button"
-                onClick={handleClose}
-                disabled={submitting}
-                className="px-4 py-2 text-[13px] font-semibold text-slate-500 hover:text-val-heading disabled:opacity-30 disabled:pointer-events-none transition-colors duration-150"
-              >
-                Cancel
-              </button>
+              <div className="flex items-center gap-4">
+                {/* Permanent cascade delete, parked opposite the primary Save — same placement
+                    as HoneyBook's "Edit question" modal (Mobbin). Admin/owner only; the action
+                    re-checks the role and the typed name server-side. */}
+                {canDelete && (
+                  <ConfirmAction
+                    tier="typed"
+                    title={`Delete ${property.name}?`}
+                    description="This permanently deletes the property and everything attached to it — leases, payments and documents included. This can't be undone."
+                    typedConfirmValue={property.name}
+                    confirmLabel="Delete property"
+                    successMessage="Property deleted"
+                    failureMessage="Could not delete property"
+                    onConfirm={async () => {
+                      const result = await deletePropertyAction(property.id, property.name);
+                      if (!result.ok) {
+                        return { ok: false as const, error: result.error ?? "Could not delete property" };
+                      }
+                      // The property is gone — leave the shell for the portfolio.
+                      router.push("/portfolio");
+                      return { ok: true as const, data: undefined };
+                    }}
+                  >
+                    <button
+                      type="button"
+                      disabled={submitting}
+                      className="px-4 py-2 text-[13px] font-semibold text-rose-600 hover:text-rose-700 disabled:opacity-30 disabled:pointer-events-none transition-colors duration-150"
+                    >
+                      Delete property
+                    </button>
+                  </ConfirmAction>
+                )}
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  disabled={submitting}
+                  className="px-4 py-2 text-[13px] font-semibold text-slate-500 hover:text-val-heading disabled:opacity-30 disabled:pointer-events-none transition-colors duration-150"
+                >
+                  Cancel
+                </button>
+              </div>
               <button
                 type="button"
                 onClick={handleSave}
