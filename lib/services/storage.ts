@@ -62,6 +62,26 @@ export async function putKmz(
   return { storageId };
 }
 
+// Server-side put of an already-validated document. Same reasoning as putKmz: an operator-side
+// backfill (or any path where the server already holds the bytes) does not need a presigned POST,
+// a second trust boundary, or a round trip. Enforces the same MIME/size policy as the presign path
+// so a document's provenance and limits are the same however it arrived.
+export async function putDocumentBytes(
+  ctx: Ctx,
+  buffer: Buffer,
+  fileName: string,
+  mimeType: string,
+): Promise<{ storageId: string }> {
+  if (!ALLOWED_MIME.has(mimeType)) throw new Error(`MIME type not allowed: ${mimeType}`);
+  if (buffer.length > MAX_BYTES) throw new Error(`File too large: max ${MAX_BYTES} bytes`);
+  const { client, bucket } = getS3();
+  const storageId = `${ctx.orgId}/${await nextId("DOC")}/${fileName}`;
+  await client.send(
+    new PutObjectCommand({ Bucket: bucket, Key: storageId, Body: buffer, ContentType: mimeType }),
+  );
+  return { storageId };
+}
+
 const MAX_LOGGED_BODY_LENGTH = 2000;
 
 // Tags an S3 error XML body can carry that let you reconstruct/replay a signed request.
