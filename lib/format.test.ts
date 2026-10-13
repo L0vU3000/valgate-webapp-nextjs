@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { addUtcMonths } from "./format";
+import { addUtcMonths, formatPricePerArea } from "./format";
 
 // ---------------------------------------------------------------------------
 // Self-check for the timezone-safe month arithmetic used by lease renewals.
@@ -54,5 +54,29 @@ describe("addUtcMonths", () => {
     expect(result.getUTCMinutes()).toBe(30);
     expect(result.getUTCDate()).toBe(15);
     expect(result.getUTCMonth()).toBe(1); // February
+  });
+});
+
+// The panel's price-per-area sub line. The rate is a *derivation* (price ÷ area), so the
+// thing worth pinning down is that it never invents a number: a missing area takes the
+// rate (and itself) away, and an unusable pair yields null for the caller's "—".
+describe("formatPricePerArea", () => {
+  it("splits the stored price by the stored area and repeats the area", () => {
+    // PROP-0001: $280,000 over 94 m² => 2978.7... rounds to 2,979.
+    expect(formatPricePerArea(280000, "94")).toBe("USD 2,979/m² · 94 m²");
+  });
+
+  it("drops the rate when the area is missing and offers the area alone", () => {
+    expect(formatPricePerArea(280000, "")).toBeNull();
+    expect(formatPricePerArea(0, "94")).toBe("94 m²");
+  });
+
+  it("treats an unparseable or zero area as missing", () => {
+    expect(formatPricePerArea(280000, "abc")).toBeNull();
+    expect(formatPricePerArea(280000, "0")).toBeNull();
+  });
+
+  it("returns null when there is nothing honest to show", () => {
+    expect(formatPricePerArea(0, "")).toBeNull();
   });
 });
