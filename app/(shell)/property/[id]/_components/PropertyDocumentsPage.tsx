@@ -432,9 +432,10 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
 
   // Upload progress panel state
   const [uploadQueue, setUploadQueue] = useState<UploadItem[]>([]);
-  // The File objects behind the current upload batch, keyed by queue item id, so the panel's Retry
-  // button can re-run the real upload. Held in a ref: the files are large and never rendered.
-  const uploadFilesRef = useRef<Map<string, File>>(new Map());
+  // The File objects behind the queued uploads, keyed by queue item id, so the panel's Retry button
+  // can re-run the real upload. The destination folder is captured here too: retrying a file after
+  // navigating elsewhere must not silently re-file it. Held in a ref — large, never rendered.
+  const uploadFilesRef = useRef<Map<string, { file: File; folderId: string | null }>>(new Map());
   const [showUploadPanel, setShowUploadPanel] = useState(false);
   const [uploadTab, setUploadTab] = useState<UploadTab>("all");
   const [panelMinimized, setPanelMinimized] = useState(false);
@@ -714,6 +715,8 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
   const uploadOne = useCallback(async (file: File, itemId: string) => {
     const setItem = (patch: Partial<UploadItem>) =>
       setUploadQueue((prev) => prev.map((i) => (i.id === itemId ? { ...i, ...patch } : i)));
+    // The destination is the one captured when the file was queued, not the folder on screen now.
+    const folderId = uploadFilesRef.current.get(itemId)?.folderId ?? null;
 
     // MAX_ACTION_BYTES, not MAX_BYTES: a bigger file is rejected by the Server Action body limit
     // before uploadDocument ever runs, so checking the storage ceiling here would let the user pick
@@ -722,16 +725,16 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
     // arrive — is passed through for the server to judge.
     if (file.size > MAX_ACTION_BYTES) {
       setItem({ status: "failed", error: `Too large — ${MAX_ACTION_BYTES / (1024 * 1024)} MB max` });
-      return;
+      return false;
     }
     if (file.type && !ALLOWED_MIME.has(file.type)) {
       setItem({ status: "failed", error: "Unsupported file type" });
-      return;
+      return false;
     }
 
     const body = new FormData();
     body.set("file", file);
-    if (activeFolderId) body.set("folderId", activeFolderId);
+    if (folderId) body.set("folderId", folderId);
 
     // A rejected action (body limit exceeded, offline, server fault) must not strand the batch:
     // catch it and mark this file failed so the queue keeps going and Retry stays usable.
@@ -740,11 +743,11 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
       created = await uploadDocument(property.id, body);
     } catch {
       setItem({ status: "failed", error: "Upload failed" });
-      return;
+      return false;
     }
     if (!created.ok) {
       setItem({ status: "failed", error: created.error });
-      return;
+      return false;
     }
 
     setItem({ status: "done", progress: 100 });
@@ -754,7 +757,8 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
     // ponytail: one paid call per file, paced by aiLimiter (10/min); add a batch cap if a big
     // drop ever matters more than the per-file scan.
     void fetch(`/api/documents/${created.data.id}/summarize`, { method: "POST" });
-  }, [activeFolderId, property.id]);
+    return true;
+  }, [property.id]);
 
   function handleAddDummyDoc() {
     setPendingFiles((prev) => [...prev, createDummyPdf()]);
@@ -764,10 +768,10 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
     const files = pendingFiles;
     if (files.length === 0) return;
     const items: UploadItem[] = [];
-    uploadFilesRef.current = new Map();
+    const folderId = activeFolderId ?? null;
     for (const file of files) {
       const id = `${Date.now()}-${items.length}`;
-      uploadFilesRef.current.set(id, file);
+      uploadFilesRef.current.set(id, { file, folderId });
       items.push({
         id,
         name: file.name,
@@ -776,7 +780,9 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
         progress: 0,
       });
     }
-    setUploadQueue(items);
+    // APPEND, don't replace: picking more files while a batch is still running used to drop the
+    // first batch's entries (and its retry targets) while its uploads kept going, invisibly.
+    setUploadQueue((prev) => [...prev, ...items]);
     setShowUploadPanel(true);
     setUploadTab("all");
     setPanelMinimized(false);
@@ -796,7 +802,7 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
       // The file list is server-rendered — refetch so the new documents appear without a reload.
       router.refresh();
     })();
-  }, [pendingFiles, router, uploadOne]);
+  }, [activeFolderId, pendingFiles, router, uploadOne]);
 
   // ─── Sort & Filter pipeline ─────────────────────────────────────────────────
 
@@ -2335,9 +2341,11 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
                         {item.status === "failed" && (
                           <button
                             onClick={() => {
-                              const file = uploadFilesRef.current.get(item.id);
+                              const entry = uploadFilesRef.current.get(item.id);
                               setUploadQueue((prev) => prev.map((i) => i.id === item.id ? { ...i, status: "uploading" as UploadStatus, progress: 0, error: undefined } : i));
-                              if (file) void uploadOne(file, item.id);
+                              // Refresh on success: the file list is server-rendered, so a retry that
+                              // works would otherwise stay invisible until a manual reload.
+                              if (entry) void uploadOne(entry.file, item.id).then((ok) => { if (ok) router.refresh(); });
                             }}
                             className="w-7 h-7 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors duration-150 shrink-0"
                             aria-label="Retry"
