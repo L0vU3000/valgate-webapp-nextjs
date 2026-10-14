@@ -3,6 +3,7 @@ import { z } from "zod";
 import { generateObject } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { resolveRouteCtx } from "@/lib/auth/ctx";
+import { env } from "@/lib/env";
 import { getDocument, setDocumentAiStatus, setDocumentCategory, saveDocumentSummary } from "@/lib/services/documents";
 import { classifyDocument } from "@/lib/services/document-classify";
 import { resolveDocumentUrl } from "@/lib/services/storage";
@@ -88,6 +89,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const doc = await getDocument(ctx, id);
   if (!doc) {
     return Response.json({ ok: false, error: "Not found" }, { status: 404 });
+  }
+
+  // OPENAI_API_KEY is optional (lib/env.ts) and the other AI callers degrade gracefully when it is
+  // absent. An upload fires this route automatically, so a missing key is a config state, not a
+  // failure: answer 503 and leave ai_status alone rather than marking the row failed and logging
+  // an error the user can do nothing about.
+  if (!env.OPENAI_API_KEY) {
+    return Response.json(
+      { ok: false, error: "AI summaries are not configured." },
+      { status: 503 },
+    );
   }
 
   // Flip to "generating" first so a reload during the model call shows the spinner, not the
