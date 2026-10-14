@@ -634,7 +634,10 @@ export function HomePage({
             // field is desktop-only (QuickAddSearch hides itself under `sm`), so the cancel button
             // stays behind it for the phone, where the bottom sheet covers the legend anyway.
             quickAdd.active ? (
-              <div className="flex items-center gap-2">
+              // `items-start`, not `items-center`: the bar can now be taller than its pill (the
+              // document card and any message sit under the field), and centring the row against
+              // that taller box lifted the pill ~16px above the Cancel chip beside it.
+              <div className="flex items-start gap-2">
                 <QuickAddSearch
                   query={quickAdd.query}
                   suggestions={quickAdd.suggestions}
