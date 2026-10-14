@@ -45,6 +45,7 @@ import {
   parseAreaM2,
   ringPoints,
 } from "@/lib/data/derivations/parcel-facts";
+import { boundarySides, formatMeters } from "@/lib/data/derivations/boundary-sides";
 import { PropertyBoundaryCard } from "./PropertyBoundaryCard";
 
 /** One square icon button in the vector toolbar. Kept local — it exists for this bar only. */
@@ -228,6 +229,10 @@ function LocationContent({
   // No ring, no measurement.
   const measuredParcel = landParcels.find((p) => p.boundary != null) ?? null;
   const boundary = measuredParcel?.boundary ?? null;
+  // Sides of the same ring the map draws. Derived on render from the boundary that is already here —
+  // no column, no migration, and a re-uploaded KMZ measures itself.
+  const measurement = useMemo(() => boundarySides(boundary), [boundary]);
+  const [showSides, setShowSides] = useState(true);
   /** The stored ring's corners, without the repeated closing position. */
   const storedRing = useMemo(() => ringPoints(boundary), [boundary]);
 
@@ -672,6 +677,65 @@ function LocationContent({
 
           {/* The upload is the input that fills the panel above, so it is the panel's footer
               action rather than a card of its own. */}
+          {/* Sides. On by default — a parcel's ring says how big it is, not how long each edge is,
+              and an owner checking a deed walks the boundary one side at a time. The toggle is the
+              same shape as the one on Comparables, and the caveat is stated where the numbers are
+              rather than in a footnote nobody reaches.
+
+              The header prints even when there is nothing to measure. A property with no ring has
+              to say so — an absent row is indistinguishable from an absent feature, which is exactly
+              how this shipped once. */}
+          <div className="mt-5 border-t border-slate-100 pt-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                  Sides
+                </p>
+                <p className="mt-1 text-[13px] text-slate-500">
+                  {measurement
+                    ? `${measurement.sides.length} sides · ${formatMeters(measurement.perimeterM)} perimeter · longest ${formatMeters(measurement.longest.meters)}`
+                    : "No sides to measure until a boundary is on file."}
+                </p>
+              </div>
+              {measurement && (
+                <button
+                  type="button"
+                  onClick={() => setShowSides((s) => !s)}
+                  aria-expanded={showSides}
+                  aria-controls="parcel-sides"
+                  className="shrink-0 text-[13px] font-medium text-[--val-primary-dark] hover:opacity-80 transition-opacity"
+                >
+                  {showSides ? "Hide sides" : "Show sides"}
+                </button>
+              )}
+            </div>
+
+            {measurement && showSides && (
+              <dl
+                id="parcel-sides"
+                className="mt-3 grid grid-cols-2 gap-x-8 gap-y-1 sm:grid-cols-4"
+              >
+                {measurement.sides.map((side) => (
+                  <div
+                    key={side.index}
+                    className="flex items-baseline justify-between gap-3 border-b border-slate-100 pb-1"
+                  >
+                    <dt className="text-[11px] text-slate-400 tabular-nums">Side {side.index}</dt>
+                    <dd className="text-[13px] font-semibold text-val-heading tabular-nums">
+                      {formatMeters(side.meters)}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+
+            {measurement && (
+              <p className="mt-2 text-[11px] text-slate-400">
+                Measured edge to edge around the stored boundary. Approximate — not a survey.
+              </p>
+            )}
+          </div>
+
           <PropertyBoundaryCard
             propertyId={property.id}
             propertyName={property.name || property.code}
