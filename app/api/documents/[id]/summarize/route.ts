@@ -1,17 +1,24 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { generateObject } from "ai";
-import { openai } from "@ai-sdk/openai";
+import { documentAiConfigured, documentModel, summaryModelSlug } from "@/lib/services/ai-model";
 import { resolveRouteCtx } from "@/lib/auth/ctx";
-import { env } from "@/lib/env";
 import { scanDocument } from "@/lib/services/document-scan";
 import { getProperty } from "@/lib/services/properties";
 import { suggestPropertyUpdates } from "@/lib/services/property-suggestions";
-import { getDocument, setDocumentAiStatus, setDocumentCategory, saveDocumentSummary } from "@/lib/services/documents";
+import {
+  getDocument,
+  setDocumentAiStatus,
+  setDocumentCategory,
+  saveDocumentSummary,
+  setDocumentSuggestions,
+} from "@/lib/services/documents";
 import { classifyDocument } from "@/lib/services/document-classify";
 import { resolveDocumentUrl } from "@/lib/services/storage";
-import { aiLimiter, allowed } from "@/lib/ratelimit";
+import { documentAiLimiter, allowed } from "@/lib/ratelimit";
 import { log } from "@/lib/log";
+import { revalidateFeTag } from "@/app/actions/_result";
+import { bustCache } from "@/lib/cache/bust";
 
 export const runtime = "nodejs"; // S3 + Neon need the Node runtime (not Edge)
 export const maxDuration = 60;   // give the model time to read the whole file
@@ -31,7 +38,12 @@ const TranslationSchema = z.object({
 });
 
 // Optional body. Absent = summarize, which is what the Summary tab sends today.
-const BodySchema = z.object({ mode: z.enum(["summary", "translate", "suggest"]).optional() });
+// `refresh` re-reads a document whose suggestions are already stored. Without it, a suggest request
+// answers from the row, so viewing a document never bills twice for the same answer.
+const BodySchema = z.object({
+  mode: z.enum(["summary", "translate", "suggest"]).optional(),
+  refresh: z.boolean().optional(),
+});
 
 /**
  * Checks that the path document id is a non-empty string after trimming.
@@ -74,10 +86,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // `suggest` reads the same file with the property's own schema and reports where the two
   // disagree. It is a comparison, not a summary: it writes NOTHING, so it must not touch ai_status.
   const suggesting = parsedBody.success && parsedBody.data.mode === "suggest";
+  // "Read it again" — the only way to spend a model call on a list that has already been read.
+  const refresh = parsedBody.success && parsedBody.data.refresh === true;
 
-  // TM1-64: paid-model edge — same 10/min budget as document scan. Gated after auth so
-  // unauthenticated callers never consume quota, and before the file download / model call.
-  if (!(await allowed(aiLimiter, ctx.userId))) {
+  // TM1-64: paid-model edge — its own 20/min budget, separate from document INGEST (which is the
+  // costlier, multi-pass edge). Gated after auth so unauthenticated callers never consume quota, and
+  // before the file download / model call.
+  if (!(await allowed(documentAiLimiter, ctx.userId))) {
     log.warn("ratelimit.block", { edge: "documentSummarize", userId: ctx.userId });
     return Response.json(
       { ok: false, error: "Too many requests. Please try again in a moment." },
@@ -97,11 +112,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return Response.json({ ok: false, error: "Not found" }, { status: 404 });
   }
 
-  // OPENAI_API_KEY is optional (lib/env.ts) and the other AI callers degrade gracefully when it is
-  // absent. An upload fires this route automatically, so a missing key is a config state, not a
-  // failure: answer 503 and leave ai_status alone rather than marking the row failed and logging
-  // an error the user can do nothing about.
-  if (!env.OPENAI_API_KEY) {
+  // Is a document model configured at all? Asked of the same rule that picks the provider, so a
+  // deployment running on OpenRouter alone is not mistaken for an unconfigured one. An upload fires
+  // this route automatically, so a missing key is a config state, not a failure: answer 503 and leave
+  // ai_status alone (see lib/services/ai-model.ts).
+  if (!documentAiConfigured()) {
     return Response.json(
       { ok: false, error: "AI summaries are not configured." },
       { status: 503 },
@@ -122,24 +137,33 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const fileBytes = new Uint8Array(await response.arrayBuffer());
 
     if (suggesting) {
+      // Already read: recall it. The list is stored on the row when it is first produced, because
+      // reading a document is the expensive part and the answer does not change by being asked for
+      // again — and because the user's decisions live in that same list. An absent list means "never
+      // read against the property"; an EMPTY list is a real answer ("it agrees") and is recalled too.
+      if (doc.aiSuggestions && !refresh) {
+        return Response.json({ ok: true, mode: "suggest", suggestions: doc.aiSuggestions, cached: true });
+      }
       // Same file, the scan schema instead of the summary schema: what a NEW property would be
       // created from. The comparison against the existing property is the pure, unit-tested part
       // (lib/services/property-suggestions.ts) — the model's job ends at reading the document.
-      // Nothing is written. An empty list is a real answer: this document agrees with the property.
       const { extracted } = await scanDocument(fileBytes, doc.mimeType ?? "application/pdf");
       const property = await getProperty(ctx, doc.propertyId);
-      return Response.json({
-        ok: true,
-        mode: "suggest",
-        suggestions: property ? suggestPropertyUpdates(property, extracted) : [],
-      });
+      const suggestions = property ? suggestPropertyUpdates(property, extracted) : [];
+      await setDocumentSuggestions(ctx, id, suggestions);
+      // The list is a read-through cache (lib/data/cached-reads.ts, tag "documents"). Writing the row
+      // without dropping it means the page keeps serving the document as it was BEFORE the read —
+      // which is exactly how a saved summary looks like it was never generated.
+      revalidateFeTag("documents");
+      await bustCache("documents");
+      return Response.json({ ok: true, mode: "suggest", suggestions, cached: false });
     }
 
     if (translating) {
       // Numbers, names and land references are what a title document is FOR, so they are pinned
       // rather than left to the model's judgement about how a figure should read in English.
       const { object } = await generateObject({
-        model: openai("gpt-4o-mini"),
+        model: documentModel(summaryModelSlug()),
         schema: TranslationSchema,
         messages: [
           {
@@ -168,7 +192,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // One model call. The file part carries the document bytes; generateObject returns `object`
     // already validated against SummarySchema.
     const { object } = await generateObject({
-      model: openai("gpt-4o-mini"), // cheap OpenAI mini, file input + structured output
+      model: documentModel(summaryModelSlug()), // cheap mini-class reader; file input + structured output
       schema: SummarySchema,
       messages: [
         {
@@ -183,6 +207,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     // Store the result and mark it ready in a single write.
     await saveDocumentSummary(ctx, id, { ...object, status: "ready" });
+    revalidateFeTag("documents");
+    await bustCache("documents");
 
     // Fill `documents.category`, which nothing has ever populated. Advisory: a null return (no
     // key, Jev outage, unrecognised choice) writes nothing — the category simply stays null, as

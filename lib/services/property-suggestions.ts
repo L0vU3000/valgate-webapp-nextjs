@@ -18,7 +18,27 @@ export type SuggestedUpdate = {
   suggested: string;
   /** The value to write when the user accepts. */
   next: string | number;
+  /** Where the user stands on this one. A fresh read starts every entry at "pending". */
+  status: SuggestionStatus;
 };
+
+export type SuggestionStatus = "pending" | "accepted" | "dismissed";
+
+/**
+ * The same list with one entry answered, ready to be stored back on the document.
+ *
+ * A decision is remembered rather than re-derived, which is the whole reason these are persisted:
+ * a suggestion that reappears after being declined is worse than no suggestion. An unknown field is
+ * left alone — the list can be replaced under the UI's feet by a re-read, and a stale decision must
+ * not resurrect or invent an entry.
+ */
+export function decideSuggestion(
+  entries: SuggestedUpdate[],
+  field: string,
+  status: SuggestionStatus,
+): SuggestedUpdate[] {
+  return entries.map((entry) => (entry.field === field ? { ...entry, status } : entry));
+}
 
 // Extraction names one of these differently: it returns the name it READ, the property stores `name`.
 // `numeric` marks the fields the property stores as numbers, so a suggestion can be coerced back.
@@ -103,6 +123,9 @@ export function suggestPropertyUpdates(
       // Only coerce when the digits actually parse; otherwise send the text and let the update
       // action's own schema have the final word.
       next: digits ? Number(digits) : suggested,
+      // A fresh read starts unanswered. Earlier decisions are deliberately not carried over: the
+      // document may have been replaced, and a new claim deserves a new look.
+      status: "pending",
     });
   }
 

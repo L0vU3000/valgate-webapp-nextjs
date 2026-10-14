@@ -6,6 +6,7 @@ import { ArrowLeft, Download, ExternalLink, Loader2, Sparkles, AlertCircle, Rota
 import type { Document as DbDocument } from "@/lib/data/types/document";
 import type { SuggestedUpdate } from "@/lib/services/property-suggestions";
 import { updateProperty } from "@/app/actions/properties";
+import { decideDocumentSuggestion } from "@/app/actions/documents";
 import { DocumentPreviewPane, isPdfPreview } from "./DocumentPreviewPane";
 import { formatBytes } from "@/lib/format";
 
@@ -571,13 +572,13 @@ function SummaryTab({ doc }: { doc: DbDocument }) {
 // Suggested updates: the same file read again, this time with the property's own schema, and the
 // differences between the two reported — "the deed says 4 bedrooms, the property says 3".
 //
-// The comparison itself is server-side and pure (lib/services/property-suggestions.ts): the only
-// thing the model does is read the document, which is why what it suggests can be unit-tested.
+// Read ONCE and stored on the document row, because reading a document is the expensive part and the
+// answer does not change by being asked again. So this renders whatever the row already holds and
+// spends a model call only on an explicit "Check again". Each entry carries its own decision in that
+// same list, which is what stops a declined suggestion from coming back on the next visit.
 //
-// On demand, and nothing is stored. This is a QUESTION, not state: the user asked to see the
-// differences, decides each one, and the card is gone on the next visit. Storing the suggestions
-// would mean storing their dismissal too, and a prompt that comes back after being declined is
-// worse than no prompt.
+// The comparison itself is server-side and pure (lib/services/property-suggestions.ts): the model's
+// job ends at reading the document, which is why what it suggests can be unit-tested.
 //
 // Accepting writes through the property update action, so ownership, authorization and field
 // validation are the ones that already exist — there is no second way to change a property.
@@ -585,12 +586,14 @@ function SuggestUpdates({ doc }: { doc: DbDocument }) {
   const router = useRouter();
   const [checking, setChecking] = useState(false);
   const [failed, setFailed] = useState(false);
-  const [suggestions, setSuggestions] = useState<SuggestedUpdate[] | null>(null);
-  const [applying, setApplying] = useState<string | null>(null);
-  const [applied, setApplied] = useState<string[]>([]);
+  // Seeded from the row: a document already read against this property lists its differences with
+  // no model call at all.
+  const [entries, setEntries] = useState<SuggestedUpdate[] | null>(doc.aiSuggestions ?? null);
+  const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function check() {
+  // `again` re-reads a document that has already been read — the only path here that bills.
+  async function check(again: boolean) {
     setChecking(true);
     setFailed(false);
     setError(null);
@@ -598,14 +601,14 @@ function SuggestUpdates({ doc }: { doc: DbDocument }) {
       const response = await fetch(`/api/documents/${doc.id}/summarize`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "suggest" }),
+        body: JSON.stringify({ mode: "suggest", refresh: again }),
       });
       if (!response.ok) {
         setFailed(true);
         return;
       }
       const data = (await response.json()) as { suggestions?: SuggestedUpdate[] };
-      setSuggestions(data.suggestions ?? []);
+      setEntries(data.suggestions ?? []);
     } catch (err) {
       console.error("[SuggestUpdates] suggest request failed:", err);
       setFailed(true);
@@ -614,23 +617,34 @@ function SuggestUpdates({ doc }: { doc: DbDocument }) {
     }
   }
 
-  async function accept(suggestion: SuggestedUpdate) {
-    setApplying(suggestion.field);
+  async function decide(entry: SuggestedUpdate, decision: "accepted" | "dismissed") {
+    setBusy(entry.field);
     setError(null);
-    // One field, one patch: the action validates and authorizes it exactly as it does for a manual
-    // edit, so a suggestion can never write something the user could not have typed themselves.
-    const result = await updateProperty(doc.propertyId, { [suggestion.field]: suggestion.next });
-    setApplying(null);
-    if (!result.ok) {
-      setError(result.error ?? "Couldn't save that change.");
-      return;
+    try {
+      if (decision === "accepted") {
+        // Property first: recording a decision for a change that failed to save would bury the
+        // suggestion for good while the value never landed.
+        const applied = await updateProperty(doc.propertyId, { [entry.field]: entry.next });
+        if (!applied.ok) {
+          setError(applied.error ?? "Couldn't save that change.");
+          return;
+        }
+      }
+      const decided = await decideDocumentSuggestion(doc.id, entry.field, decision);
+      if (!decided.ok) {
+        setError(decided.error ?? "Couldn't save that.");
+        return;
+      }
+      setEntries(decided.data.aiSuggestions ?? []);
+      // The property's own panels are server-rendered from the row we just changed.
+      router.refresh();
+    } finally {
+      setBusy(null);
     }
-    setApplied((prev) => [...prev, suggestion.field]);
-    // The property's own panels are server-rendered from the row we just changed.
-    router.refresh();
   }
 
-  const idle = suggestions === null && !checking && !failed;
+  const idle = entries === null && !checking && !failed;
+  const unanswered = (entries ?? []).filter((entry) => entry.status === "pending").length;
 
   return (
     <div className="pt-5 border-t border-slate-100">
@@ -640,10 +654,10 @@ function SuggestUpdates({ doc }: { doc: DbDocument }) {
         </p>
         {!checking && (
           <button
-            onClick={check}
+            onClick={() => check(entries !== null)}
             className="text-[12px] font-semibold text-[--val-primary-dark] underline-offset-2 hover:underline"
           >
-            {suggestions === null ? "Check this document" : "Check again"}
+            {entries === null ? "Check this document" : "Check again"}
           </button>
         )}
       </div>
@@ -674,49 +688,58 @@ function SuggestUpdates({ doc }: { doc: DbDocument }) {
         </p>
       )}
 
-      {suggestions?.length === 0 && !checking && (
+      {entries?.length === 0 && !checking && (
         <p className="text-[12px] text-slate-400 leading-relaxed">
           Nothing to change — this document agrees with the property.
         </p>
       )}
 
-      {suggestions?.map((suggestion) => (
+      {entries?.map((entry) => (
         <div
-          key={suggestion.field}
+          key={entry.field}
           className="flex items-start justify-between gap-3 py-2.5 border-b border-slate-100 last:border-0"
         >
           <div className="min-w-0">
-            <p className="text-[12px] text-slate-400">{suggestion.label}</p>
+            <p className="text-[12px] text-slate-400">{entry.label}</p>
             <p className="text-[13px] text-[--val-heading] break-words">
               {/* The old value stays visible, struck through: the user is choosing between two
                   specific things, not approving a surprise. */}
-              {suggestion.current && (
-                <span className="text-slate-400 line-through mr-1.5">{suggestion.current}</span>
+              {entry.current && (
+                <span className="text-slate-400 line-through mr-1.5">{entry.current}</span>
               )}
-              <span className="font-medium">{suggestion.suggested}</span>
+              <span className="font-medium">{entry.suggested}</span>
             </p>
           </div>
-          <button
-            onClick={() => accept(suggestion)}
-            disabled={applying !== null || applied.includes(suggestion.field)}
-            className="shrink-0 px-3 py-1.5 rounded-md text-[12px] font-semibold text-white
-              hover:opacity-90 active:scale-[0.97] transition-all duration-150
-              disabled:opacity-50 disabled:active:scale-100"
-            style={{ background: "var(--val-primary-dark)" }}
-          >
-            {applied.includes(suggestion.field)
-              ? "Saved"
-              : applying === suggestion.field
-                ? "Saving…"
-                : "Use this"}
-          </button>
+          {entry.status === "pending" ? (
+            <div className="shrink-0 flex items-center gap-2.5">
+              <button
+                onClick={() => decide(entry, "dismissed")}
+                disabled={busy !== null}
+                className="text-[12px] text-slate-400 hover:text-[--val-heading] disabled:opacity-50"
+              >
+                Keep mine
+              </button>
+              <button
+                onClick={() => decide(entry, "accepted")}
+                disabled={busy !== null}
+                className="shrink-0 px-3 py-1.5 rounded-md text-[12px] font-semibold text-white
+                  hover:opacity-90 active:scale-[0.97] transition-all duration-150
+                  disabled:opacity-50 disabled:active:scale-100"
+                style={{ background: "var(--val-primary-dark)" }}
+              >
+                {busy === entry.field ? "Saving…" : "Use this"}
+              </button>
+            </div>
+          ) : (
+            <span className="shrink-0 text-[12px] text-slate-400">
+              {entry.status === "accepted" ? "Updated" : "Kept yours"}
+            </span>
+          )}
         </div>
       ))}
 
-      {applied.length > 0 && (
-        <p className="mt-2 text-[12px] text-slate-400">
-          Saved {applied.length} {applied.length === 1 ? "change" : "changes"} to the property.
-        </p>
+      {entries !== null && entries.length > 0 && unanswered === 0 && !checking && (
+        <p className="mt-2 text-[12px] text-slate-400">All answered.</p>
       )}
     </div>
   );
