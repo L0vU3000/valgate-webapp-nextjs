@@ -757,6 +757,14 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
     // ponytail: one paid call per file, paced by aiLimiter (10/min); add a batch cap if a big
     // drop ever matters more than the per-file scan.
     void fetch(`/api/documents/${created.data.id}/summarize`, { method: "POST" });
+    // ...and the property comparison, once. Both are stored on the row, so opening this document
+    // later recalls them instead of paying for the same read again. `aiLimiter`-style pacing comes
+    // from the route's own budget; a failure here just leaves the tab on its own Check state.
+    void fetch(`/api/documents/${created.data.id}/summarize`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "suggest" }),
+    });
     return true;
   }, [property.id]);
 
