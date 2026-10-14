@@ -94,9 +94,31 @@ export async function scanDocument(fileBytes: Uint8Array, mimeType: string): Pro
   // fan out an absurd number of calls. NaN/0 fall back to the default via ||.
   const samples = Math.min(5, Math.max(1, Number(process.env.SCAN_SAMPLES) || DEFAULT_SCAN_SAMPLES));
 
-  const runs = await Promise.all(
+  // The N runs are independent paid calls. The AI SDK raises "AI_APICallError: Invalid JSON response"
+  // when the provider's HTTP body isn't JSON at all — seen on staging on an ordinary document while
+  // the other two runs returned fine — so it is a transport flake, not a schema mismatch, and JSON
+  // repair would not help. Promise.all turned that single flake into a failed scan by discarding the
+  // two good extractions with it. Vote on whatever came back instead; only a ballot with no valid
+  // runs is a failure, and it surfaces the provider's own error.
+  const settled = await Promise.allSettled(
     Array.from({ length: samples }, () => extractOnce(model, fileBytes, mimeType)),
   );
+  const runs = settled
+    .filter((outcome): outcome is PromiseFulfilledResult<ExtractedProperty> => outcome.status === "fulfilled")
+    .map((outcome) => outcome.value);
 
+  if (runs.length === 0) {
+    throw (settled[0] as PromiseRejectedResult).reason;
+  }
+  // A single surviving run cannot be voted on, so nothing would look uncertain and the draft would
+  // present as verified when it never was. Flag every field for review in that case.
+  // ponytail: whole-record flag, not per-field confidence; split it if a one-run scan turns out to be common.
+  if (runs.length === 1) {
+    const reconciled = reconcileExtractions(runs);
+    return {
+      extracted: reconciled.extracted,
+      lowConfidence: Object.keys(reconciled.extracted) as (keyof ExtractedProperty)[],
+    };
+  }
   return reconcileExtractions(runs);
 }

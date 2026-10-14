@@ -437,6 +437,9 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
   // navigating elsewhere must not silently re-file it. Held in a ref — large, never rendered.
   const uploadFilesRef = useRef<Map<string, { file: File; folderId: string | null }>>(new Map());
   const [showUploadPanel, setShowUploadPanel] = useState(false);
+  // Armed state of the page's Quick add pill (see the header). Not persisted anywhere on purpose:
+  // it is a moment in the flow, not a mode the page should come back to.
+  const [addOpen, setAddOpen] = useState(false);
   const [uploadTab, setUploadTab] = useState<UploadTab>("all");
   const [panelMinimized, setPanelMinimized] = useState(false);
 
@@ -685,6 +688,18 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
     const t = setTimeout(() => setMounted(true), 50);
     return () => clearTimeout(t);
   }, []);
+
+  // A batch that finished with nothing wrong is news, not furniture: it used to sit at the bottom
+  // right over the file list until the user closed it, reporting a success the file list already
+  // shows. Close it once the queue drains. A single failed item keeps it open — the panel is the
+  // only place that holds the per-file reason and its Retry.
+  useEffect(() => {
+    if (!showUploadPanel) return;
+    if (uploadQueue.length === 0) return;
+    if (uploadQueue.some((item) => item.status !== "done")) return;
+    const t = setTimeout(() => setShowUploadPanel(false), 2500);
+    return () => clearTimeout(t);
+  }, [showUploadPanel, uploadQueue]);
 
   useEffect(() => {
     if (!locationOpen) return;
@@ -956,17 +971,18 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
     );
   }
 
-  // The one upload affordance, rendered in the page header and reused by the empty state. Two copies
-  // of this markup would drift; one element descriptor can render in both places.
+  // The revealed option when Quick add is armed. Same pill shape as the map's Quick Add button, so the
+  // two entry points read as one pattern rather than two. Reused by the empty state, where the file
+  // list already IS the middle of the page and arming a button first would be a step for nothing.
   const uploadAction = (
     <button
       onClick={() => { setPendingFiles([]); setShowUploadModal(true); }}
-      className="shrink-0 px-5 py-2.5 text-white text-[14px] font-semibold rounded flex items-center gap-2
-        hover:opacity-90 active:scale-[0.97] transition-all duration-150"
+      className="shrink-0 justify-center px-5 py-2.5 text-sm font-semibold text-white rounded-full flex items-center gap-2
+        shadow-lg hover:opacity-90 active:scale-[0.98] transition-all duration-200"
       style={{ background: "var(--val-primary-dark)" }}
     >
-      <Upload className="w-4 h-4" />
-      Upload Document
+      <Upload className="size-4" />
+      Upload a document
     </button>
   );
 
@@ -986,20 +1002,41 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
               <span className="text-xs font-semibold tracking-widest uppercase text-slate-400">Documents</span>
             </div>
 
-            {/* The page's primary action, on the title row. It used to sit in the control strip at
-                the bottom of this section next to Sort/Filter and the list-grid toggle, where it
-                read as one more filter control — the only way to add a document was to notice a
-                button that looked like chrome. Same element is reused by the empty state below. */}
-            <div className="mb-4 flex items-start justify-between gap-4">
-              <div>
-                <h1 className="text-[28px] sm:text-[40px] font-extrabold tracking-tight leading-tight sm:leading-10 text-[--val-heading]">
-                  Documents
-                </h1>
-                <p className="text-slate-500 text-base mt-2">
-                  {files.length} files · {property.code} {property.type}
-                </p>
-              </div>
-              {uploadAction}
+            <h1 className="text-[28px] sm:text-[40px] font-extrabold tracking-tight leading-tight sm:leading-10 text-[--val-heading]">
+              Documents
+            </h1>
+            <p className="text-slate-500 text-base mt-2">
+              {files.length} files · {property.code} {property.type}
+            </p>
+
+            {/* The page's one add affordance: a centred Quick add pill that arms into the options in
+                the same slot, exactly like the map's Quick Add. Before this it was a permanent filled
+                button — first on the title row, then in the file toolbar — and either way it was a
+                standing CTA for an act performed once in a while. Nothing on this page is one click
+                from a document any more; the button that is always there is the one you press once. */}
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+              {addOpen ? (
+                <>
+                  {uploadAction}
+                  <button
+                    onClick={() => setAddOpen(false)}
+                    className="shrink-0 flex items-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-600 shadow-sm transition-all duration-200 hover:bg-slate-50 active:scale-[0.98]"
+                  >
+                    <X className="size-4" />
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => setAddOpen(true)}
+                  aria-expanded={addOpen}
+                  className="flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white shadow-lg transition-all duration-200 hover:opacity-90 active:scale-[0.98]"
+                  style={{ background: "var(--val-primary-dark)" }}
+                >
+                  <Plus className="size-4" />
+                  Quick add
+                </button>
+              )}
             </div>
           </div>
 
@@ -1147,8 +1184,8 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
 
           {/* Files section */}
           <div className="flex flex-col gap-4 border-t border-slate-100 pt-5" style={fade(80)}>
-              {/* Toolbar — flex-wraps on mobile so all controls remain
-                  reachable. The Upload CTA pushes to its own row at 484px. */}
+              {/* Toolbar — flex-wraps on mobile so all controls remain reachable. The upload action
+                  is NOT in this row: it lives on the Quick add pill in the page header. */}
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div className="flex items-center gap-3">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500">
@@ -1179,7 +1216,7 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
                     {selectMode ? "Done" : "Select"}
                   </button>
                 </div>
-                <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
 
                   {/* ── Sort dropdown ──────────────────────────────────────────
                       Shows the current sort order and lets the user change it.

@@ -4,6 +4,7 @@ import { scanDocument } from "@/lib/services/document-scan";
 import { geocodeAddress } from "@/lib/services/property-import";
 import { ALLOWED_MIME, MAX_BYTES } from "@/lib/upload-constants";
 import { docIngestLimiter, allowed } from "@/lib/ratelimit";
+import { documentAiConfigured } from "@/lib/services/ai-model";
 import { log } from "@/lib/log";
 
 export const runtime = "nodejs"; // AI SDK + file bytes need the Node runtime (not Edge)
@@ -38,6 +39,19 @@ export async function POST(req: NextRequest) {
       { status: 429 },
     );
   }
+  // Is a document model configured at all? Asked of the same rule that picks the provider, so a
+  // deployment running on OpenRouter alone is not mistaken for an unconfigured one. Checked before
+  // the body is read, so a misconfigured deployment answers a plain 503 instead of spending a
+  // request to fail inside the model SDK with "OpenAI API key is missing" (the fallback slug when
+  // no provider key is set at all). Mirrors the same guard on the summarize route.
+  if (!documentAiConfigured()) {
+    log.error("add-property.scan.unconfigured", undefined, { edge: "documentScan" });
+    return Response.json(
+      { ok: false, error: "Document reading is not configured." },
+      { status: 503 },
+    );
+  }
+
   try {
     const formData = await req.formData();
     const file = formData.get("file");
