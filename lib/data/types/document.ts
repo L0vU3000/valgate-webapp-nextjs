@@ -30,6 +30,8 @@ export const DocumentSchema = z.object({
   aiSummary: z.string().optional(),
   aiKeyFields: z.array(z.object({ label: z.string(), value: z.string() })).optional(),
   pageCount: z.number().int().nonnegative().optional(),
+  // When the document (insurance, gas safety cert, …) lapses. Absent = no expiry.
+  expiresAt: timestampSchema.optional(),
 });
 
 export type Document = z.infer<typeof DocumentSchema>;

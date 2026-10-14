@@ -136,6 +136,41 @@ function riskRow(risk: SafetyRisk, names: Map<string, string>, now: number): Com
 
 const STATE_ORDER: Record<ComplianceState, number> = { overdue: 0, attention: 1, ok: 2 };
 
+export type AttentionItem = {
+  kind: "certificate" | "risk";
+  title: string;
+  propertyName: string;
+  dueAt: number | null;
+  status: "Expiring" | "Overdue";
+};
+
+// Dashboard "Needs attention" peek for GET /api/v1/rental: certifications and safety risks only,
+// using the register's overdue/attention states. Overdue first, then soonest dueAt (risks have no
+// due date, so they sort last within their state). Entity ids are dropped here.
+export function computeAttention(
+  certifications: Certification[],
+  risks: SafetyRisk[],
+  propertyNames: Map<string, string>,
+  limit = 5,
+  now: number = Date.now(),
+): AttentionItem[] {
+  const { rows } = buildComplianceSummary({ certifications, inspections: [], risks, propertyNames, now });
+  return rows
+    .filter((r) => r.state !== "ok")
+    .map((r): AttentionItem => ({
+      kind: r.kind === "Certification" ? "certificate" : "risk",
+      title: r.title,
+      propertyName: r.propertyName,
+      dueAt: r.kind === "Certification" ? r.dateAt : null,
+      status: r.state === "overdue" ? "Overdue" : "Expiring",
+    }))
+    .sort((a, b) => {
+      if (a.status !== b.status) return a.status === "Overdue" ? -1 : 1;
+      return (a.dueAt ?? Infinity) - (b.dueAt ?? Infinity);
+    })
+    .slice(0, limit);
+}
+
 export function buildComplianceSummary(input: Input): ComplianceSummary {
   const now = input.now ?? Date.now();
   const { certifications, inspections, risks, propertyNames } = input;

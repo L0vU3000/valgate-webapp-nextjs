@@ -196,6 +196,8 @@ describe("GET /api/v1/properties/[id]/documents", () => {
           category: "Title",
           description: "Hard title deed",
           uploadedAt: 1743897600000,
+          expiresAt: null,
+          status: null,
         },
       ],
       nextCursor: "opaque-cursor-abc",

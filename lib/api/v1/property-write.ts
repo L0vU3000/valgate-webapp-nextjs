@@ -29,11 +29,30 @@ export const PropertyCreateBodySchema = z.object({
 
 export type PropertyCreateBody = z.infer<typeof PropertyCreateBodySchema>;
 
+// Optional text on PATCH: "" means "clear" (set null), null or absent means "no change".
+export const clearableText = z.string().nullish();
+
+// The clear rule as one function: "" → null (clear), null/undefined → undefined (no change).
+export function clearValue(value: string | null | undefined): string | null | undefined {
+  if (value === "") return null;
+  return value ?? undefined;
+}
+
 // PATCH is the same field set, but every field is optional. A body `id` is not
 // in this schema, so if iOS sends one it is dropped and the URL id wins.
-export const PropertyPatchBodySchema = PropertyCreateBodySchema.partial();
+// totalArea is not clearable — the column is NOT NULL.
+export const PropertyPatchBodySchema = PropertyCreateBodySchema.partial().extend({
+  city: clearableText,
+  province: clearableText,
+  addressLine: clearableText,
+  country: clearableText,
+  bedrooms: clearableText,
+  bathrooms: clearableText,
+  yearBuilt: clearableText,
+});
 
 export type PropertyPatchBody = z.infer<typeof PropertyPatchBodySchema>;
+export type PropertyPatchV1 = { [K in keyof PropertyPatch]?: PropertyPatch[K] | null };
 
 /**
  * Reads the request body as JSON.
@@ -119,8 +138,8 @@ export function toNewProperty(body: PropertyCreateBody): NewProperty {
  * What could go wrong: copying `undefined` through would let convertRowToDb
  * write NULLs over existing columns. We only copy keys that are present.
  */
-export function toPropertyPatch(body: PropertyPatchBody): PropertyPatch {
-  const patch: PropertyPatch = {};
+export function toPropertyPatch(body: PropertyPatchBody): PropertyPatchV1 {
+  const patch: PropertyPatchV1 = {};
 
   if (body.name !== undefined) {
     patch.name = body.name;
@@ -137,29 +156,15 @@ export function toPropertyPatch(body: PropertyPatchBody): PropertyPatch {
   if (body.lng !== undefined) {
     patch.lng = body.lng;
   }
-  if (body.city !== undefined) {
-    patch.city = body.city;
-  }
-  if (body.province !== undefined) {
-    patch.province = body.province;
-  }
-  if (body.addressLine !== undefined) {
-    patch.addressLine = body.addressLine;
-  }
-  if (body.country !== undefined) {
-    patch.country = body.country;
-  }
   if (body.totalArea !== undefined) {
     patch.totalArea = body.totalArea;
   }
-  if (body.bedrooms !== undefined) {
-    patch.bedrooms = body.bedrooms;
-  }
-  if (body.bathrooms !== undefined) {
-    patch.bathrooms = body.bathrooms;
-  }
-  if (body.yearBuilt !== undefined) {
-    patch.yearBuilt = body.yearBuilt;
+
+  // Optional text: "" clears (null), null/absent leaves the column alone.
+  const clearableKeys = ["city", "province", "addressLine", "country", "bedrooms", "bathrooms", "yearBuilt"] as const;
+  for (const key of clearableKeys) {
+    const value = clearValue(body[key]);
+    if (value !== undefined) patch[key] = value;
   }
 
   return patch;

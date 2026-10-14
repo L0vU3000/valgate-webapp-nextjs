@@ -2,6 +2,8 @@ import type { Document } from "@/lib/data/types/document";
 import type { Property } from "@/lib/data/types/property";
 import type { PropertyValuation } from "@/lib/data/types/property-valuation";
 import type { Ctx } from "@/lib/services/_mapping";
+import type { AttentionItem } from "@/lib/data/derivations/compliance";
+import type { PaymentActivity } from "@/lib/data/derivations/rental";
 
 // Intentionally small public DTOs for HTTP API v1. Every field here is deliberate — never
 // spread a full Property/Document/Ctx-derived object. Omitted on purpose: userId, orgId,
@@ -130,7 +132,24 @@ export type RentalSummaryDtoV1 = {
   nextPayoutAmountNumeric: number | null;
   nextPayoutAt: number | null;
   currency: "USD" | null;
+  // Dashboard rollup (additive). Raw numbers, never formatted; null = "not collected".
+  monthLabel: string;
+  collectedAmountNumeric: number | null;
+  expectedAmountNumeric: number | null;
+  paidCount: number;
+  dueCount: number;
+  overdueAmountNumeric: number | null;
+  overdueCount: number;
+  depositHeldNumeric: number | null;
+  documentCount: number;
+  attention: AttentionItemDtoV1[];
+  activity: ActivityItemDtoV1[];
 };
+
+// Display-only peek rows: a kind, strings, and a date. No entity ids, so a client holds no
+// handle to fetch the underlying certificate/risk/payment.
+export type AttentionItemDtoV1 = AttentionItem;
+export type ActivityItemDtoV1 = PaymentActivity & { kind: "payment" };
 
 export type RentalSummarySource = {
   occupancyPercent: number;
@@ -139,7 +158,24 @@ export type RentalSummarySource = {
   tenancyCount: number;
   nextPayoutAmountNumeric: number | null;
   nextPayoutAt: number | null;
+  monthLabel: string;
+  collectedAmountNumeric: number | null;
+  expectedAmountNumeric: number | null;
+  paidCount: number;
+  dueCount: number;
+  overdueAmountNumeric: number | null;
+  overdueCount: number;
+  depositHeldNumeric: number | null;
+  documentCount: number;
+  attention: AttentionItem[];
+  activity: PaymentActivity[];
 };
+
+// A non-negative finite amount, else null — the wire never carries NaN or a negative balance.
+function asAmount(value: number | null): number | null {
+  if (value === null || !Number.isFinite(value) || value < 0) return null;
+  return value;
+}
 
 // Turns a count from the rental rollup into a safe non-negative integer. Non-finite
 // or negative values become 0 so the wire never carries NaN or a fabricated "-1".
@@ -175,6 +211,29 @@ export function toRentalSummaryDto(summary: RentalSummarySource): RentalSummaryD
     nextPayoutAmountNumeric: hasPayout ? amount : null,
     nextPayoutAt: hasPayout ? at : null,
     currency: hasPayout ? "USD" : null,
+    monthLabel: summary.monthLabel,
+    collectedAmountNumeric: asAmount(summary.collectedAmountNumeric),
+    expectedAmountNumeric: asAmount(summary.expectedAmountNumeric),
+    paidCount: asCount(summary.paidCount),
+    dueCount: asCount(summary.dueCount),
+    overdueAmountNumeric: summary.overdueCount > 0 ? asAmount(summary.overdueAmountNumeric) : null,
+    overdueCount: asCount(summary.overdueCount),
+    depositHeldNumeric: asAmount(summary.depositHeldNumeric),
+    documentCount: asCount(summary.documentCount),
+    attention: summary.attention.slice(0, 5).map((a) => ({
+      kind: a.kind,
+      title: a.title,
+      propertyName: a.propertyName,
+      dueAt: a.dueAt,
+      status: a.status,
+    })),
+    activity: summary.activity.slice(0, 5).map((a) => ({
+      kind: "payment",
+      title: a.title,
+      propertyName: a.propertyName,
+      at: a.at,
+      amountNumeric: asAmount(a.amountNumeric),
+    })),
   };
 }
 
@@ -209,7 +268,22 @@ export type DocumentListItemDtoV1 = {
   category: Document["category"];
   description: string | undefined;
   uploadedAt: number;
+  expiresAt: number | null;
+  status: DocumentStatusV1 | null;
 };
+
+export type DocumentStatusV1 = "expired" | "expiring" | "valid";
+
+const DOCUMENT_EXPIRING_MS = 30 * 86_400_000;
+
+// Derived on every read from expiresAt — never stored, so it cannot drift. Null when the
+// document has no expiry. "expiring" = lapses within 30 days; at exactly expiresAt it is expired.
+export function documentStatus(expiresAt: number | undefined, nowMs: number = Date.now()): DocumentStatusV1 | null {
+  if (expiresAt === undefined) return null;
+  if (expiresAt <= nowMs) return "expired";
+  if (expiresAt - nowMs <= DOCUMENT_EXPIRING_MS) return "expiring";
+  return "valid";
+}
 
 // Maps a full Document row to the small public list DTO. Hand-written fields only —
 // storageId, thumbStorageId, uploadedBy, verifies, and AI-summary internals stay off
@@ -227,5 +301,7 @@ export function toDocumentListItemDto(document: Document): DocumentListItemDtoV1
     category: document.category,
     description: document.description,
     uploadedAt: document.uploadedAt,
+    expiresAt: document.expiresAt ?? null,
+    status: documentStatus(document.expiresAt),
   };
 }
