@@ -376,6 +376,22 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
   }
   const [mounted, setMounted] = useState(false);
   const [showAddFolder, setShowAddFolder] = useState(false);
+  // Folder tiles collapse. The folder section is the tallest block on the page and most visits
+  // are to read a file, so it can be minimised. The breadcrumb stays in the header row, so
+  // collapsing never strands you inside a folder.
+  const [foldersCollapsed, setFoldersCollapsed] = useState(false);
+  // Shared by the header button and the folder empty state — both open the same modal,
+  // defaulted to the current folder when the user is already inside one.
+  function openAddFolder() {
+    const defaultNode = activeFolderId
+      ? (findPath(folderTree, activeFolderId)?.at(-1) ?? folderTree[0])
+      : folderTree[0];
+    setNewFolderName("");
+    setCreateError(null);
+    setSelectedLocation(defaultNode);
+    setLocationOpen(false);
+    setShowAddFolder(true);
+  }
   const [newFolderName, setNewFolderName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -944,34 +960,53 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
                     </Fragment>
                   ))}
                 </div>
-                <button
-                  onClick={() => {
-                    // Default to the current folder when creating a subfolder
-                    const defaultNode = activeFolderId
-                      ? (findPath(folderTree, activeFolderId)?.at(-1) ?? folderTree[0])
-                      : folderTree[0];
-                    setNewFolderName("");
-                    setCreateError(null);
-                    setSelectedLocation(defaultNode);
-                    setLocationOpen(false);
-                    setShowAddFolder(true);
-                  }}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 rounded text-[14px] font-semibold text-[--val-heading] hover:bg-slate-50 active:scale-[0.97] transition-all duration-150"
-                >
-                  <FolderPlus className="w-4 h-4 text-[--val-primary-dark]" />
-                  Add Folder
-                </button>
+                <div className="flex items-center gap-2">
+                  {/* Minimise the folder section. aria-expanded reflects the real state; the label
+                      says what the click will do so screen readers do not read "expanded" twice. */}
+                  <button
+                    onClick={() => setFoldersCollapsed((v) => !v)}
+                    aria-expanded={!foldersCollapsed}
+                    aria-label={foldersCollapsed ? "Expand folders" : "Minimise folders"}
+                    className="w-[38px] h-[38px] flex items-center justify-center bg-white border border-slate-200 rounded text-slate-500 hover:bg-slate-50 active:scale-[0.97] transition-all duration-150"
+                  >
+                    <ChevronRight
+                      className={`w-4 h-4 transition-transform duration-200 ${foldersCollapsed ? "" : "rotate-90"}`}
+                    />
+                  </button>
+                  <button
+                    onClick={openAddFolder}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 rounded text-[14px] font-semibold text-[--val-heading] hover:bg-slate-50 active:scale-[0.97] transition-all duration-150"
+                  >
+                    <FolderPlus className="w-4 h-4 text-[--val-primary-dark]" />
+                    Add Folder
+                  </button>
+                </div>
               </div>
-              {visibleFolders.length === 0 ? (
+              {/* Collapsing hides the tiles only — the breadcrumb above stays, so a user inside a
+                  folder can still navigate out while the section is minimised. */}
+              {!foldersCollapsed && (visibleFolders.length === 0 ? (
                 // Only show the "no folders" empty state at root level.
                 // Inside a folder it's fine to have no subfolders — just hide the grid.
+                // This is what an unfiled property lands on, so it carries its own action
+                // instead of pointing at the Add Folder button in the header row.
                 activeFolderId === null ? (
-                  <EmptyState
-                    className="py-10"
-                    icon={<FolderOpen className="size-5" />}
-                    title="No folders yet"
-                    description="Create a folder to organize your documents."
-                  />
+                  <div className="rounded-xl border border-dashed border-slate-300 bg-white/70">
+                    <EmptyState
+                      className="py-10"
+                      icon={<FolderOpen className="size-6" />}
+                      title="No folders yet"
+                      description="Folders are optional. They keep a title deed, its tax receipts and its survey map together."
+                      action={
+                        <button
+                          onClick={openAddFolder}
+                          className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded text-[13px] font-semibold text-[--val-heading] hover:bg-slate-50 active:scale-[0.97] transition-all duration-150"
+                        >
+                          <FolderPlus className="w-4 h-4 text-[--val-primary-dark]" />
+                          Create a folder
+                        </button>
+                      }
+                    />
+                  </div>
                 ) : null
               ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
@@ -1037,7 +1072,7 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
                   );
                 })}
               </div>
-              )}
+              ))}
             </div>
 
           {/* Files section */}
@@ -2521,13 +2556,16 @@ function GridView({
             <button
               type="button"
               onClick={() => selectMode ? onToggleFile(f.id) : onOpen(f.id)}
-              className={`relative bg-white rounded-xl p-4 transition-all duration-200 cursor-pointer text-left w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[--val-primary-dark]/40 ${
+              className={`relative bg-white rounded-xl p-3 transition-all duration-200 cursor-pointer text-left w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[--val-primary-dark]/40 ${
                 isChecked && selectMode
                   ? "shadow-[0_0_0_2px_var(--val-primary-dark),0px_6px_20px_0px_rgba(18,28,40,0.10)] -translate-y-0.5"
                   : "shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)] hover:-translate-y-0.5 hover:shadow-[0px_6px_20px_0px_rgba(18,28,40,0.10)]"
               }`}
             >
-              <div className={`w-full aspect-[4/3] bg-slate-50 rounded-lg overflow-hidden mb-3 flex items-center justify-center border transition-colors duration-150 ${
+              {/* A short, fixed-height preview strip rather than a full-aspect tile: at four
+                  columns the 4:3 version was a ~250px picture per card and the grid became a wall
+                  of images. The height is the point, not the ratio. */}
+              <div className={`w-full h-24 bg-slate-50 rounded-lg overflow-hidden mb-2.5 flex items-center justify-center border transition-colors duration-150 ${
                 isChecked && selectMode ? "border-[--val-primary-dark]/20" : "border-slate-100"
               }`}>
                 {f.thumb ? (
@@ -2538,7 +2576,7 @@ function GridView({
                     loading="lazy"
                   />
                 ) : (
-                  <f.icon className={`w-10 h-10 ${f.iconClass}`} />
+                  <f.icon className={`w-8 h-8 ${f.iconClass}`} />
                 )}
               </div>
               <p className="text-[13px] font-medium truncate text-[--val-heading]">{f.name}</p>
