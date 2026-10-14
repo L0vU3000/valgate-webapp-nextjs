@@ -10,7 +10,6 @@ import {
   Map as MapIcon,
   Users,
   Search,
-  Plus,
   FileText,
   Command as CommandIcon,
   ArrowUpRight,
@@ -34,7 +33,7 @@ import type {
   PortfolioStats,
 } from "@/app/(shell)/queries";
 import type { Document } from "@/lib/data/types/document";
-import { formatCurrency, formatDate } from "@/lib/format";
+import { formatCurrency, formatDate, formatPricePerArea } from "@/lib/format";
 import { CommandPalette } from "@/components/home/CommandPalette";
 import { PropertyTable } from "@/components/portfolio/PropertyTable";
 import type { TableAnimationConfig } from "@/components/portfolio/PropertyTable";
@@ -48,6 +47,7 @@ import { syncCadastreLayer } from "@/components/map/cadastre-layer";
 import { QuickAddSearch } from "./QuickAddSearch";
 import { useQuickAdd } from "./use-quick-add";
 import type * as mapboxgl from "maplibre-gl";
+import type { MapCamera } from "@/components/map/MapView";
 
 const MapView = dynamic(
   () => import("@/components/map/MapView").then((m) => m.MapView),
@@ -108,6 +108,17 @@ export function HomePage({
   const [placeholderVisible, setPlaceholderVisible] = useState(true);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [isSatellite, setIsSatellite] = useState(false);
+  // Side lengths along parcel rings. Off by default: the ring is already saying the parcel exists,
+  // and only the user knows when the numbers are the thing they want. The map control turns it on;
+  // nothing else reads it.
+  const [showMeasurements, setShowMeasurements] = useState(false);
+  // Camera captured immediately before the terrain toggle remounts MapView, so the Google basemap
+  // opens exactly where Mapbox was instead of rewinding to the whole country. See MapView's
+  // `initialCamera`.
+  const [mapCamera, setMapCamera] = useState<MapCamera | null>(null);
+  // Fed by MapView on every move, so the toggle always has the live viewport to hand over. A ref, not
+  // state: this updates per frame during a drag and must not re-render the shell.
+  const cameraRef = useRef<MapCamera | null>(null);
   // The property quick-add just created, held until the refreshed list contains it (see the handoff
   // effect below). Non-null means "creation succeeded, waiting for the server data".
   const [handoffId, setHandoffId] = useState<string | null>(null);
@@ -367,6 +378,13 @@ export function HomePage({
     command();
   }, []);
 
+  // Snapshot the camera before the terrain toggle swaps renderers. MapView is keyed on
+  // `isSatellite`, so the toggle unmounts the Mapbox map and mounts a MapLibre one; without the
+  // snapshot the new map would open at the country default and the switch would feel like a reload.
+  const toggleSatellite = useCallback(() => {
+    if (cameraRef.current) setMapCamera(cameraRef.current);
+    setIsSatellite((s) => !s);
+  }, []);
   const selectedProperty = selectedPin
     ? initialProperties.find((p) => p.id === selectedPin)
     : null;
@@ -392,6 +410,10 @@ export function HomePage({
       ? drawerCover.url
       : null;
   const drawerHero = pickHeroImage(drawerCoverUrl, drawerMapUrl);
+  // Price-first sub line: rate (buyNumeric ÷ totalArea) + the area it came from.
+  const pricePerArea = drawerProperty
+    ? formatPricePerArea(drawerProperty.buyNumeric, drawerProperty.totalArea)
+    : null;
 
   const closeDrawer = useCallback(() => {
     const pin = selectedPin;
@@ -473,6 +495,11 @@ export function HomePage({
             mapRef.current = map;
           }}
           isSatellite={isSatellite}
+          showMeasurements={showMeasurements}
+          initialCamera={mapCamera ?? undefined}
+          onCameraChange={(camera) => {
+            cameraRef.current = camera;
+          }}
           className="absolute inset-0"
         />
 
@@ -536,14 +563,9 @@ export function HomePage({
             <div className="flex items-center gap-3 w-full sm:w-auto overflow-x-auto scrollbar-none -mx-4 sm:mx-0 px-4 sm:px-0 py-1">
               {[
                 // Quick Add is deliberately NOT in this row — it is the map's primary action, so it
-                // lives as its own blue button above the stats bar. These chips stay for the
-                // secondary destinations, and "New Property" remains for users who already know the
-                // address and would rather type it than point at it.
-                {
-                  label: "New Property",
-                  icon: Plus,
-                  action: () => router.push("/add-property"),
-                },
+                // lives as its own blue button above the stats bar. These chips are the secondary
+                // destinations only: the add-property wizard is retired, so there is no
+                // "New Property" chip pointing at it any more.
                 {
                   label: "Portfolio",
                   icon: BarChart2,
@@ -621,6 +643,12 @@ export function HomePage({
                   onChange={quickAdd.searchAddress}
                   onHighlight={quickAdd.highlightAddress}
                   onPick={quickAdd.pickAddress}
+                  onScanFile={quickAdd.scanFile}
+                  scanning={quickAdd.scanning}
+                  scanNote={quickAdd.scanNote}
+                  // Pre-pin only: once the card exists it owns the error (it sits closer to the button
+                  // that failed), so showing it twice would read as two separate problems.
+                  error={quickAddCardPin ? null : quickAdd.error}
                 />
                 <button
                   onClick={quickAdd.cancel}
@@ -655,7 +683,9 @@ export function HomePage({
           mapRef={mapRef}
           drawerOpen={!!selectedProperty || !!quickAddCardPin}
           isSatellite={isSatellite}
-          onToggleSatellite={() => setIsSatellite((s) => !s)}
+          onToggleSatellite={toggleSatellite}
+          showMeasurements={showMeasurements}
+          onToggleMeasurements={() => setShowMeasurements((s) => !s)}
         />
 
         {/* Quick-add pin. Owned by its own layer because MapView's markers are a Supercluster view of
@@ -789,6 +819,20 @@ export function HomePage({
                   Edit
                 </button>
               </div>
+            </div>
+
+            {/* Price hero — price-first ordering: the headline number leads the panel,
+                with the derived rate and the area it came from right beneath it. */}
+            <div className="px-4 pt-3.5 pb-3.5 border-b border-border-default shrink-0 [animation:card-row-in_0.35s_cubic-bezier(0.16,1,0.3,1)_0.2s_both]">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">
+                Purchase Price
+              </p>
+              <p className="text-[26px] sm:text-[30px] font-bold font-display text-foreground leading-none tabular-nums">
+                {drawerProperty.buy}
+              </p>
+              <p className="text-xs font-medium text-secondary mt-1.5 tabular-nums">
+                {pricePerArea ?? "—"}
+              </p>
             </div>
 
             {/* Progress strip */}
@@ -987,14 +1031,6 @@ export function HomePage({
                     <div className="flex-1 h-px bg-border-subtle" />
                   </div>
                   <div className="space-y-3">
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">
-                        Purchase Price
-                      </p>
-                      <p className="text-[22px] sm:text-[26px] font-bold font-display text-foreground leading-none tabular-nums">
-                        {drawerProperty.buy}
-                      </p>
-                    </div>
                     <div className="grid grid-cols-2 gap-x-3 gap-y-3">
                       <div>
                         <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">

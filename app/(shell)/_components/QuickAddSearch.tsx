@@ -1,7 +1,8 @@
 "use client";
 
 import { Fragment, useEffect, useRef, useState } from "react";
-import { Loader2, MapPin, MoveRight } from "lucide-react";
+import { FileText, Loader2, MapPin, MoveRight } from "lucide-react";
+import { ALLOWED_MIME } from "@/lib/upload-constants";
 import { cn } from "@/components/ui/utils";
 import { moveHighlight, suggestionRowsSignature } from "./quick-add";
 import type { GeocodeSuggestion } from "@/app/_shared/add-property/_lib/use-geocode";
@@ -32,6 +33,15 @@ interface QuickAddSearchProps {
   onHighlight: (suggestion: GeocodeSuggestion | null) => void;
   // A row was committed: clicked, or Enter on the highlighted one.
   onPick: (suggestion: GeocodeSuggestion) => void;
+  /** Read a picked document and take the details from it. The file the user chose. */
+  onScanFile: (file: File) => void;
+  /** True while that read is in flight. */
+  scanning: boolean;
+  /** What to say after a read: where the pin went, or that the document did not say where it is. */
+  scanNote: string | null;
+  /** A failure that belongs on the bar. The card shows the hook's `error` too, but the card does not
+   *  exist until a pin does, so a read that fails BEFORE one would otherwise fail silently. */
+  error?: string | null;
 }
 
 // The Quick Add button's armed state: the button becomes the address field. Typing searches the
@@ -49,10 +59,15 @@ export function QuickAddSearch({
   onChange,
   onHighlight,
   onPick,
+  onScanFile,
+  scanning,
+  scanNote,
+  error,
 }: QuickAddSearchProps) {
   const [open, setOpen] = useState(true);
   const [highlight, setHighlight] = useState(0);
   const listRef = useRef<HTMLDivElement | null>(null);
+  const fileRef = useRef<HTMLInputElement | null>(null);
   const listId = "quick-add-suggestions";
   const optionId = (i: number) => `${listId}-${i}`;
 
@@ -140,6 +155,70 @@ export function QuickAddSearch({
       />
       {loading && (
         <Loader2 className="pointer-events-none absolute right-11 top-1/2 size-4 -translate-y-1/2 animate-spin text-secondary" />
+      )}
+      {/* The other way a property arrives: a document that already knows its own details. It sits on
+          the ARMED BAR rather than in the card, because the card does not render until a pin exists —
+          so the read has to happen before one, and the pin it resolves is what opens the card. */}
+      {!scanning ? (
+        <div className="mt-2 flex items-center gap-1.5 text-xs">
+          <FileText className="size-3.5 shrink-0 text-secondary" aria-hidden="true" />
+          <span className="text-secondary">or</span>
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            className="font-semibold text-interactive-primary underline-offset-2 hover:underline"
+          >
+            upload a document
+          </button>
+          <span className="text-secondary">to fill it in for you</span>
+        </div>
+      ) : (
+        <div
+          className="mt-2 flex items-center gap-1.5 text-xs text-secondary"
+          role="status"
+          aria-live="polite"
+        >
+          <Loader2 className="size-3.5 shrink-0 animate-spin" aria-hidden="true" />
+          Reading the document…
+        </div>
+      )}
+      {/* One file per read: the read places the pin, and the pin is what the next step needs. `accept`
+          comes from the same allowlist the server enforces, so a type the action would refuse cannot
+          even be picked here. */}
+      <input
+        ref={fileRef}
+        type="file"
+        className="hidden"
+        accept={[...ALLOWED_MIME].join(",")}
+        aria-label="Upload a document to create a property from"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          // Cleared first: picking the SAME file twice must fire again, which it will not while the
+          // input still holds it.
+          e.target.value = "";
+          if (file) onScanFile(file);
+        }}
+      />
+      {scanNote && (
+        <p
+          className="mt-2 rounded-md border border-border-default bg-surface-base/95 px-3 py-2 text-xs leading-5 text-foreground shadow-lg backdrop-blur"
+          role="status"
+          aria-live="polite"
+        >
+          {scanNote}
+        </p>
+      )}
+      {/* A failed read says so HERE, on the bar, because there is no card yet to say it in. Same slot,
+          error colour. The card suppresses this one once it exists — see HomePage. */}
+      {error && (
+        <p
+          className={`mt-2 rounded-md border px-3 py-2 text-xs leading-5 shadow-lg backdrop-blur ${
+            scanNote ? "mt-1.5 " : ""
+          }border-rose-200 bg-rose-50/95 text-rose-700`}
+          role="alert"
+        >
+          {error}
+        </p>
       )}
       {/* Shows the mode is escapable without adding a second control. Dimmed while a lookup runs so the
           spinner owns the eye. */}

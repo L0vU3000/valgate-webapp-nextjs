@@ -4,7 +4,10 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Download, ExternalLink, Loader2, Sparkles, AlertCircle, RotateCw } from "lucide-react";
 import type { Document as DbDocument } from "@/lib/data/types/document";
-import { DocumentPreviewPane } from "./DocumentPreviewPane";
+import type { SuggestedUpdate } from "@/lib/services/property-suggestions";
+import { updateProperty } from "@/app/actions/properties";
+import { decideDocumentSuggestion } from "@/app/actions/documents";
+import { DocumentPreviewPane, isPdfPreview } from "./DocumentPreviewPane";
 import { formatBytes } from "@/lib/format";
 
 // Maps a document's verifies.entityType to a display label and chip classes.
@@ -32,7 +35,7 @@ interface DocumentDetailViewProps {
   onBack: () => void;
 }
 
-type Tab = "details" | "summary";
+type Tab = "details" | "summary" | "translate";
 
 /**
  * Two-pane document viewer.
@@ -132,8 +135,16 @@ export function DocumentDetailView({ document: doc, fileUrl, onBack }: DocumentD
       {/* Two-pane body: preview on the left, details rail on the right */}
       <div className="flex flex-1 min-h-0 overflow-hidden">
 
-        {/* Left pane: document preview */}
-        <div className="flex-1 min-w-0 p-6 overflow-y-auto">
+        {/* Left pane: document preview. A PDF viewer is handed the whole box — no padding and no
+            scroll — because a title document is unreadable inside a nested scroll area. Images
+            and the fallback keep the padded, scrollable treatment. */}
+        <div
+          className={
+            isPdfPreview(doc.extension, doc.mimeType)
+              ? "flex-1 min-w-0 min-h-0 flex"
+              : "flex-1 min-w-0 p-6 overflow-y-auto"
+          }
+        >
           <DocumentPreviewPane
             fileName={doc.name}
             extension={doc.extension}
@@ -167,6 +178,16 @@ export function DocumentDetailView({ document: doc, fileUrl, onBack }: DocumentD
             >
               Summary
             </button>
+            <button
+              onClick={() => setActiveTab("translate")}
+              className={`flex-1 py-3 text-[13px] font-semibold border-b-2 transition-colors duration-150 ${
+                activeTab === "translate"
+                  ? "border-[--val-primary-dark] text-[--val-primary-dark]"
+                  : "border-transparent text-slate-400 hover:text-slate-600"
+              }`}
+            >
+              Translate
+            </button>
           </div>
 
           {/* Tab content */}
@@ -179,10 +200,126 @@ export function DocumentDetailView({ document: doc, fileUrl, onBack }: DocumentD
                 verifiesChip={verifiesChip}
               />
             )}
-            {activeTab === "summary" && <SummaryTab doc={doc} />}
+            {/* The property check is its own job, not a summary feature: it renders BESIDE the
+                summary tab rather than inside it, so a document whose summary failed (or was never
+                run) can still be read against the property. Inside SummaryTab it would have been
+                unreachable in three of that component's four states. */}
+            {activeTab === "summary" && (
+              <div className="flex flex-col gap-6">
+                <SummaryTab doc={doc} />
+                <SuggestUpdates doc={doc} />
+              </div>
+            )}
+            {activeTab === "translate" && <TranslateTab doc={doc} />}
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// Translate tab: the document's own text in English, on demand.
+//
+// Nothing is stored — the row is unchanged after translating — so this is a per-click model call
+// on the same paid-model route and rate limit as the summary. The result lives in this component's
+// state until the tab unmounts. Storing it on the row (like aiSummary) is the upgrade path once the
+// column exists; until then a reload simply asks again.
+function TranslateTab({ doc }: { doc: DbDocument }) {
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [translation, setTranslation] = useState<{ text: string; language: string } | null>(null);
+
+  async function translate() {
+    setIsTranslating(true);
+    setFailed(false);
+    try {
+      const response = await fetch(`/api/documents/${doc.id}/summarize`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "translate" }),
+      });
+      if (!response.ok) {
+        setFailed(true);
+        return;
+      }
+      const data = await response.json();
+      if (data?.ok && typeof data.translation === "string") {
+        setTranslation({ text: data.translation, language: String(data.detectedLanguage ?? "") });
+      } else {
+        setFailed(true);
+      }
+    } catch (error) {
+      console.error("[TranslateTab] translate request failed:", error);
+      setFailed(true);
+    } finally {
+      setIsTranslating(false);
+    }
+  }
+
+  if (isTranslating) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full min-h-[200px] text-center gap-4 py-8">
+        <Loader2 className="w-6 h-6 text-[--val-primary-dark] animate-spin" />
+        <div>
+          <p className="text-[15px] font-semibold text-[--val-heading] mb-1">Translating…</p>
+          <p className="text-[13px] text-slate-400 leading-relaxed max-w-[180px] mx-auto">
+            Reading the document and translating it into English.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (translation) {
+    return (
+      <div className="flex flex-col gap-6">
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-400">
+              Translation
+            </p>
+            {translation.language && (
+              <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                {translation.language} → English
+              </span>
+            )}
+          </div>
+          <p className="text-[13px] text-[--val-heading] leading-relaxed whitespace-pre-line">
+            {translation.text}
+          </p>
+        </div>
+
+        {/* Said plainly because it matters here: a mistranslated figure or name in a land document
+            is a real-world error, and the original is one click away in the pane on the left. */}
+        <p className="text-[11px] text-slate-400 leading-relaxed border-t border-slate-100 pt-4">
+          Machine translation. Check names, numbers and land references against the original before
+          relying on them.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col items-center justify-center h-full min-h-[200px] text-center gap-4 py-8">
+      <Sparkles className="w-6 h-6 text-[--val-primary-dark]" />
+      <div>
+        <p className="text-[15px] font-semibold text-[--val-heading] mb-1">
+          {failed ? "Translation failed" : "Read it in English"}
+        </p>
+        <p className="text-[13px] text-slate-400 leading-relaxed max-w-[190px] mx-auto">
+          {failed
+            ? "The document could not be translated. Try again in a moment."
+            : "Translates the text of this document. Nothing is saved to the document."}
+        </p>
+      </div>
+      <button
+        onClick={translate}
+        className="flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] font-semibold text-white hover:opacity-90 active:scale-[0.97] transition-all duration-150"
+        style={{ background: "var(--val-primary-dark)" }}
+      >
+        {failed ? <RotateCw className="w-3.5 h-3.5" /> : <Sparkles className="w-3.5 h-3.5" />}
+        {failed ? "Try again" : "Translate to English"}
+      </button>
     </div>
   );
 }
@@ -428,6 +565,182 @@ function SummaryTab({ doc }: { doc: DbDocument }) {
         <Sparkles className="w-3.5 h-3.5" />
         Generate summary
       </button>
+    </div>
+  );
+}
+
+// Suggested updates: the same file read again, this time with the property's own schema, and the
+// differences between the two reported — "the deed says 4 bedrooms, the property says 3".
+//
+// Read ONCE and stored on the document row, because reading a document is the expensive part and the
+// answer does not change by being asked again. So this renders whatever the row already holds and
+// spends a model call only on an explicit "Check again". Each entry carries its own decision in that
+// same list, which is what stops a declined suggestion from coming back on the next visit.
+//
+// The comparison itself is server-side and pure (lib/services/property-suggestions.ts): the model's
+// job ends at reading the document, which is why what it suggests can be unit-tested.
+//
+// Accepting writes through the property update action, so ownership, authorization and field
+// validation are the ones that already exist — there is no second way to change a property.
+function SuggestUpdates({ doc }: { doc: DbDocument }) {
+  const router = useRouter();
+  const [checking, setChecking] = useState(false);
+  const [failed, setFailed] = useState(false);
+  // Seeded from the row: a document already read against this property lists its differences with
+  // no model call at all.
+  const [entries, setEntries] = useState<SuggestedUpdate[] | null>(doc.aiSuggestions ?? null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // `again` re-reads a document that has already been read — the only path here that bills.
+  async function check(again: boolean) {
+    setChecking(true);
+    setFailed(false);
+    setError(null);
+    try {
+      const response = await fetch(`/api/documents/${doc.id}/summarize`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "suggest", refresh: again }),
+      });
+      if (!response.ok) {
+        setFailed(true);
+        return;
+      }
+      const data = (await response.json()) as { suggestions?: SuggestedUpdate[] };
+      setEntries(data.suggestions ?? []);
+    } catch (err) {
+      console.error("[SuggestUpdates] suggest request failed:", err);
+      setFailed(true);
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  async function decide(entry: SuggestedUpdate, decision: "accepted" | "dismissed") {
+    setBusy(entry.field);
+    setError(null);
+    try {
+      if (decision === "accepted") {
+        // Property first: recording a decision for a change that failed to save would bury the
+        // suggestion for good while the value never landed.
+        const applied = await updateProperty(doc.propertyId, { [entry.field]: entry.next });
+        if (!applied.ok) {
+          setError(applied.error ?? "Couldn't save that change.");
+          return;
+        }
+      }
+      const decided = await decideDocumentSuggestion(doc.id, entry.field, decision);
+      if (!decided.ok) {
+        setError(decided.error ?? "Couldn't save that.");
+        return;
+      }
+      setEntries(decided.data.aiSuggestions ?? []);
+      // The property's own panels are server-rendered from the row we just changed.
+      router.refresh();
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const idle = entries === null && !checking && !failed;
+  const unanswered = (entries ?? []).filter((entry) => entry.status === "pending").length;
+
+  return (
+    <div className="pt-5 border-t border-slate-100">
+      <div className="flex items-center justify-between gap-3 mb-2">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-400">
+          Suggested updates
+        </p>
+        {!checking && (
+          <button
+            onClick={() => check(entries !== null)}
+            className="text-[12px] font-semibold text-[--val-primary-dark] underline-offset-2 hover:underline"
+          >
+            {entries === null ? "Check this document" : "Check again"}
+          </button>
+        )}
+      </div>
+
+      {idle && (
+        <p className="text-[12px] text-slate-400 leading-relaxed">
+          Read this document against the property and see where the two disagree. Nothing changes
+          until you accept it.
+        </p>
+      )}
+
+      {checking && (
+        <p className="flex items-center gap-2 text-[12px] text-slate-400" role="status" aria-live="polite">
+          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          Reading the document…
+        </p>
+      )}
+
+      {failed && (
+        <p className="text-[12px] text-rose-600" role="alert">
+          Couldn&apos;t read this document just now. Try again.
+        </p>
+      )}
+
+      {error && (
+        <p className="text-[12px] text-rose-600" role="alert">
+          {error}
+        </p>
+      )}
+
+      {entries?.length === 0 && !checking && (
+        <p className="text-[12px] text-slate-400 leading-relaxed">
+          Nothing to change — this document agrees with the property.
+        </p>
+      )}
+
+      {entries?.map((entry) => (
+        <div
+          key={entry.field}
+          className="flex items-start justify-between gap-3 py-2.5 border-b border-slate-100 last:border-0"
+        >
+          <div className="min-w-0">
+            <p className="text-[12px] text-slate-400">{entry.label}</p>
+            <p className="text-[13px] text-[--val-heading] break-words">
+              {/* The old value stays visible, struck through: the user is choosing between two
+                  specific things, not approving a surprise. */}
+              {entry.current && (
+                <span className="text-slate-400 line-through mr-1.5">{entry.current}</span>
+              )}
+              <span className="font-medium">{entry.suggested}</span>
+            </p>
+          </div>
+          {entry.status === "pending" ? (
+            <div className="shrink-0 flex items-center gap-2.5">
+              <button
+                onClick={() => decide(entry, "dismissed")}
+                disabled={busy !== null}
+                className="text-[12px] text-slate-400 hover:text-[--val-heading] disabled:opacity-50"
+              >
+                Keep mine
+              </button>
+              <button
+                onClick={() => decide(entry, "accepted")}
+                disabled={busy !== null}
+                className="shrink-0 px-3 py-1.5 rounded-md text-[12px] font-semibold text-white
+                  hover:opacity-90 active:scale-[0.97] transition-all duration-150
+                  disabled:opacity-50 disabled:active:scale-100"
+                style={{ background: "var(--val-primary-dark)" }}
+              >
+                {busy === entry.field ? "Saving…" : "Use this"}
+              </button>
+            </div>
+          ) : (
+            <span className="shrink-0 text-[12px] text-slate-400">
+              {entry.status === "accepted" ? "Updated" : "Kept yours"}
+            </span>
+          )}
+        </div>
+      ))}
+
+      {entries !== null && entries.length > 0 && unanswered === 0 && !checking && (
+        <p className="mt-2 text-[12px] text-slate-400">All answered.</p>
+      )}
     </div>
   );
 }

@@ -67,8 +67,20 @@ export const actionLimiter = makeLimiter("rl:action", 30, "1 m", 60_000);
 // TM1-64 — paid-model edges: 10 / minute / user. Deliberately far tighter than actionLimiter:
 // these call OpenAI/Anthropic and cost real money per invocation, so an authenticated user
 // looping them bills us directly. 10/min is still generous for a human uploading documents.
-// The document scan is the worst case — one request triggers several model runs (self-consistency).
+// Spreadsheet mapping: one request per sheet, one model call each.
 export const aiLimiter = makeLimiter("rl:ai", 10, "1 m", 60_000);
+
+// Document INGEST: 5 / minute / user. The most expensive edge in the app per request — one call runs
+// the extraction SCAN_SAMPLES times (3 by default) for the self-consistency vote, so a single upload
+// is three model passes. Its own budget and its own Redis prefix, so importing a spreadsheet cannot
+// eat the quota a document upload needs, and a scan loop can be capped without touching anything else.
+export const docIngestLimiter = makeLimiter("rl:doc-ingest", 5, "1 m", 60_000);
+
+// Document AI: summary, translation and the property comparison — 20 / minute / user. One model call
+// each, and all three are ON DEMAND or fired once at ingest, with the result stored on the row, so a
+// human never needs a burst. Looser than ingest because a page of twelve documents reads twelve times
+// cheaply; tighter than actionLimiter because each read still bills.
+export const documentAiLimiter = makeLimiter("rl:doc-ai", 20, "1 m", 60_000);
 
 // Fail-CLOSED for sensitive edges: a Redis/network error blocks rather than fails open.
 //

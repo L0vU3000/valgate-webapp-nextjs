@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef, Fragment, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createFolder, updateFolder, deleteFolder } from "@/app/actions/folders";
-import { deleteDocument, deleteDocuments } from "@/app/actions/documents";
+import { deleteDocument, deleteDocuments, uploadDocument } from "@/app/actions/documents";
+import { ALLOWED_MIME, MAX_ACTION_BYTES } from "@/lib/upload-constants";
 import { getDocumentFileUrl } from "../documents/actions";
 import { ConfirmAction } from "@/components/ui/confirm-action";
 import type { ActionResult } from "@/app/actions/_result";
@@ -376,6 +377,22 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
   }
   const [mounted, setMounted] = useState(false);
   const [showAddFolder, setShowAddFolder] = useState(false);
+  // Folder tiles collapse. The folder section is the tallest block on the page and most visits
+  // are to read a file, so it can be minimised. The breadcrumb stays in the header row, so
+  // collapsing never strands you inside a folder.
+  const [foldersCollapsed, setFoldersCollapsed] = useState(false);
+  // Shared by the header button and the folder empty state — both open the same modal,
+  // defaulted to the current folder when the user is already inside one.
+  function openAddFolder() {
+    const defaultNode = activeFolderId
+      ? (findPath(folderTree, activeFolderId)?.at(-1) ?? folderTree[0])
+      : folderTree[0];
+    setNewFolderName("");
+    setCreateError(null);
+    setSelectedLocation(defaultNode);
+    setLocationOpen(false);
+    setShowAddFolder(true);
+  }
   const [newFolderName, setNewFolderName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -415,6 +432,10 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
 
   // Upload progress panel state
   const [uploadQueue, setUploadQueue] = useState<UploadItem[]>([]);
+  // The File objects behind the queued uploads, keyed by queue item id, so the panel's Retry button
+  // can re-run the real upload. The destination folder is captured here too: retrying a file after
+  // navigating elsewhere must not silently re-file it. Held in a ref — large, never rendered.
+  const uploadFilesRef = useRef<Map<string, { file: File; folderId: string | null }>>(new Map());
   const [showUploadPanel, setShowUploadPanel] = useState(false);
   const [uploadTab, setUploadTab] = useState<UploadTab>("all");
   const [panelMinimized, setPanelMinimized] = useState(false);
@@ -687,65 +708,109 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
     return () => document.removeEventListener("mousedown", handleOutside);
   }, [moveLocationOpen]);
 
-  // Simulate upload progress
-  useEffect(() => {
-    if (!showUploadPanel) return;
-    const hasActive = uploadQueue.some((i) => i.status === "uploading");
-    if (!hasActive) return;
+  // Real upload, one file at a time, through the uploadDocument server action: it presigns, POSTs
+  // the bytes to object storage from the server, then records the row. The bytes deliberately do
+  // NOT go browser → S3 directly — that needs a CORS rule on the bucket, and without one the
+  // browser POST is blocked (verified: NoSuchCORSConfiguration on valgate-documents-dev).
+  const uploadOne = useCallback(async (file: File, itemId: string) => {
+    const setItem = (patch: Partial<UploadItem>) =>
+      setUploadQueue((prev) => prev.map((i) => (i.id === itemId ? { ...i, ...patch } : i)));
+    // The destination is the one captured when the file was queued, not the folder on screen now.
+    const folderId = uploadFilesRef.current.get(itemId)?.folderId ?? null;
 
-    const timer = setInterval(() => {
-      setUploadQueue((prev) => {
-        const uploadingItem = prev.find((i) => i.status === "uploading");
-        if (!uploadingItem) return prev;
+    // MAX_ACTION_BYTES, not MAX_BYTES: a bigger file is rejected by the Server Action body limit
+    // before uploadDocument ever runs, so checking the storage ceiling here would let the user pick
+    // a file that can only fail. The server re-checks type and storage ceiling (presignUpload); the
+    // checks here only spare a doomed round trip. An empty type — how some .doc and HEIC uploads
+    // arrive — is passed through for the server to judge.
+    if (file.size > MAX_ACTION_BYTES) {
+      setItem({ status: "failed", error: `Too large — ${MAX_ACTION_BYTES / (1024 * 1024)} MB max` });
+      return false;
+    }
+    if (file.type && !ALLOWED_MIME.has(file.type)) {
+      setItem({ status: "failed", error: "Unsupported file type" });
+      return false;
+    }
 
-        if (uploadingItem.progress >= 100) {
-          const nextQueued = prev.find((i) => i.status === "queued");
-          return prev.map((item) => {
-            if (item.id === uploadingItem.id) return { ...item, status: "done" as UploadStatus, progress: 100 };
-            if (nextQueued && item.id === nextQueued.id) return { ...item, status: "uploading" as UploadStatus };
-            return item;
-          });
-        }
+    const body = new FormData();
+    body.set("file", file);
+    if (folderId) body.set("folderId", folderId);
 
-        const increment = Math.random() * 6 + 2;
-        return prev.map((item) =>
-          item.id === uploadingItem.id
-            ? { ...item, progress: Math.min(100, item.progress + increment) }
-            : item
-        );
-      });
-    }, 180);
+    // A rejected action (body limit exceeded, offline, server fault) must not strand the batch:
+    // catch it and mark this file failed so the queue keeps going and Retry stays usable.
+    let created: Awaited<ReturnType<typeof uploadDocument>>;
+    try {
+      created = await uploadDocument(property.id, body);
+    } catch {
+      setItem({ status: "failed", error: "Upload failed" });
+      return false;
+    }
+    if (!created.ok) {
+      setItem({ status: "failed", error: created.error });
+      return false;
+    }
 
-    return () => clearInterval(timer);
-  }, [showUploadPanel, uploadQueue]);
+    setItem({ status: "done", progress: 100 });
+    // Ingest: the existing summarize route does one model pass and writes the summary, key fields
+    // and category onto the row. Fire-and-forget — the file is stored and listed either way, and a
+    // failure just leaves the Summary tab on its own Retry state.
+    // ponytail: one paid call per file, paced by aiLimiter (10/min); add a batch cap if a big
+    // drop ever matters more than the per-file scan.
+    void fetch(`/api/documents/${created.data.id}/summarize`, { method: "POST" });
+    // ...and the property comparison, once. Both are stored on the row, so opening this document
+    // later recalls them instead of paying for the same read again. `aiLimiter`-style pacing comes
+    // from the route's own budget; a failure here just leaves the tab on its own Check state.
+    void fetch(`/api/documents/${created.data.id}/summarize`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "suggest" }),
+    });
+    return true;
+  }, [property.id]);
 
   function handleAddDummyDoc() {
     setPendingFiles((prev) => [...prev, createDummyPdf()]);
   }
 
   const startUpload = useCallback(() => {
-    const demoFiles = [
-      { name: "Lease_Agreement_v3.pdf", size: "2.4 MB" },
-      { name: "Inspection_Photos.jpg",  size: "4.1 MB" },
-      { name: "Safety_Cert.pdf",        size: "1.2 MB" },
-    ];
-    const source = pendingFiles.length > 0
-      ? pendingFiles.map((f) => ({ name: f.name, size: formatFileSize(f.size) }))
-      : demoFiles;
-    const items: UploadItem[] = source.map((f, i) => ({
-      id: `${Date.now()}-${i}`,
-      name: f.name,
-      size: f.size,
-      status: i === 0 ? "uploading" : "queued",
-      progress: 0,
-    }));
-    setUploadQueue(items);
+    const files = pendingFiles;
+    if (files.length === 0) return;
+    const items: UploadItem[] = [];
+    const folderId = activeFolderId ?? null;
+    for (const file of files) {
+      const id = `${Date.now()}-${items.length}`;
+      uploadFilesRef.current.set(id, { file, folderId });
+      items.push({
+        id,
+        name: file.name,
+        size: formatFileSize(file.size),
+        status: "queued",
+        progress: 0,
+      });
+    }
+    // APPEND, don't replace: picking more files while a batch is still running used to drop the
+    // first batch's entries (and its retry targets) while its uploads kept going, invisibly.
+    setUploadQueue((prev) => [...prev, ...items]);
     setShowUploadPanel(true);
     setUploadTab("all");
     setPanelMinimized(false);
     setShowUploadModal(false);
     setPendingFiles([]);
-  }, [pendingFiles]);
+    // Sequential on purpose: the progress panel stays readable and the ingest calls stay inside
+    // the AI rate limit.
+    void (async () => {
+      for (const [i, file] of files.entries()) {
+        const item = items[i];
+        if (!item) continue;
+        setUploadQueue((prev) =>
+          prev.map((it) => (it.id === item.id ? { ...it, status: "uploading" } : it)),
+        );
+        await uploadOne(file, item.id);
+      }
+      // The file list is server-rendered — refetch so the new documents appear without a reload.
+      router.refresh();
+    })();
+  }, [activeFolderId, pendingFiles, router, uploadOne]);
 
   // ─── Sort & Filter pipeline ─────────────────────────────────────────────────
 
@@ -891,6 +956,20 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
     );
   }
 
+  // The one upload affordance, rendered in the page header and reused by the empty state. Two copies
+  // of this markup would drift; one element descriptor can render in both places.
+  const uploadAction = (
+    <button
+      onClick={() => { setPendingFiles([]); setShowUploadModal(true); }}
+      className="shrink-0 px-5 py-2.5 text-white text-[14px] font-semibold rounded flex items-center gap-2
+        hover:opacity-90 active:scale-[0.97] transition-all duration-150"
+      style={{ background: "var(--val-primary-dark)" }}
+    >
+      <Upload className="w-4 h-4" />
+      Upload Document
+    </button>
+  );
+
   // Main documents browse view
   return (
     <PropertyLayout activeTab="documents" property={property}>
@@ -907,13 +986,20 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
               <span className="text-xs font-semibold tracking-widest uppercase text-slate-400">Documents</span>
             </div>
 
-            <div className="mb-4">
-              <h1 className="text-[28px] sm:text-[40px] font-extrabold tracking-tight leading-tight sm:leading-10 text-[--val-heading]">
-                Documents
-              </h1>
-              <p className="text-slate-500 text-base mt-2">
-                {files.length} files · {property.code} {property.type}
-              </p>
+            {/* The page's primary action, on the title row. It used to sit in the control strip at
+                the bottom of this section next to Sort/Filter and the list-grid toggle, where it
+                read as one more filter control — the only way to add a document was to notice a
+                button that looked like chrome. Same element is reused by the empty state below. */}
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <h1 className="text-[28px] sm:text-[40px] font-extrabold tracking-tight leading-tight sm:leading-10 text-[--val-heading]">
+                  Documents
+                </h1>
+                <p className="text-slate-500 text-base mt-2">
+                  {files.length} files · {property.code} {property.type}
+                </p>
+              </div>
+              {uploadAction}
             </div>
           </div>
 
@@ -944,34 +1030,53 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
                     </Fragment>
                   ))}
                 </div>
-                <button
-                  onClick={() => {
-                    // Default to the current folder when creating a subfolder
-                    const defaultNode = activeFolderId
-                      ? (findPath(folderTree, activeFolderId)?.at(-1) ?? folderTree[0])
-                      : folderTree[0];
-                    setNewFolderName("");
-                    setCreateError(null);
-                    setSelectedLocation(defaultNode);
-                    setLocationOpen(false);
-                    setShowAddFolder(true);
-                  }}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 rounded text-[14px] font-semibold text-[--val-heading] hover:bg-slate-50 active:scale-[0.97] transition-all duration-150"
-                >
-                  <FolderPlus className="w-4 h-4 text-[--val-primary-dark]" />
-                  Add Folder
-                </button>
+                <div className="flex items-center gap-2">
+                  {/* Minimise the folder section. aria-expanded reflects the real state; the label
+                      says what the click will do so screen readers do not read "expanded" twice. */}
+                  <button
+                    onClick={() => setFoldersCollapsed((v) => !v)}
+                    aria-expanded={!foldersCollapsed}
+                    aria-label={foldersCollapsed ? "Expand folders" : "Minimise folders"}
+                    className="w-[38px] h-[38px] flex items-center justify-center bg-white border border-slate-200 rounded text-slate-500 hover:bg-slate-50 active:scale-[0.97] transition-all duration-150"
+                  >
+                    <ChevronRight
+                      className={`w-4 h-4 transition-transform duration-200 ${foldersCollapsed ? "" : "rotate-90"}`}
+                    />
+                  </button>
+                  <button
+                    onClick={openAddFolder}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 rounded text-[14px] font-semibold text-[--val-heading] hover:bg-slate-50 active:scale-[0.97] transition-all duration-150"
+                  >
+                    <FolderPlus className="w-4 h-4 text-[--val-primary-dark]" />
+                    Add Folder
+                  </button>
+                </div>
               </div>
-              {visibleFolders.length === 0 ? (
+              {/* Collapsing hides the tiles only — the breadcrumb above stays, so a user inside a
+                  folder can still navigate out while the section is minimised. */}
+              {!foldersCollapsed && (visibleFolders.length === 0 ? (
                 // Only show the "no folders" empty state at root level.
                 // Inside a folder it's fine to have no subfolders — just hide the grid.
+                // This is what an unfiled property lands on, so it carries its own action
+                // instead of pointing at the Add Folder button in the header row.
                 activeFolderId === null ? (
-                  <EmptyState
-                    className="py-10"
-                    icon={<FolderOpen className="size-5" />}
-                    title="No folders yet"
-                    description="Create a folder to organize your documents."
-                  />
+                  <div className="rounded-xl border border-dashed border-slate-300 bg-white/70">
+                    <EmptyState
+                      className="py-10"
+                      icon={<FolderOpen className="size-6" />}
+                      title="No folders yet"
+                      description="Folders are optional. They keep a title deed, its tax receipts and its survey map together."
+                      action={
+                        <button
+                          onClick={openAddFolder}
+                          className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded text-[13px] font-semibold text-[--val-heading] hover:bg-slate-50 active:scale-[0.97] transition-all duration-150"
+                        >
+                          <FolderPlus className="w-4 h-4 text-[--val-primary-dark]" />
+                          Create a folder
+                        </button>
+                      }
+                    />
+                  </div>
                 ) : null
               ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
@@ -1037,7 +1142,7 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
                   );
                 })}
               </div>
-              )}
+              ))}
             </div>
 
           {/* Files section */}
@@ -1275,15 +1380,6 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
                       Grid
                     </button>
                   </div>
-                  <button
-                    onClick={() => { setPendingFiles([]); setShowUploadModal(true); }}
-                    className="flex-1 sm:flex-none px-5 py-2.5 text-white text-[14px] font-semibold rounded flex items-center justify-center gap-2
-                      hover:opacity-90 active:scale-[0.97] transition-all duration-150"
-                    style={{ background: "var(--val-primary-dark)" }}
-                  >
-                    <Upload className="w-4 h-4" />
-                    Upload File
-                  </button>
                 </div>
               </div>
 
@@ -1377,6 +1473,10 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
                       ? "Try adjusting or clearing your filters."
                       : "Upload a document to get started."
                   }
+                  // The description already tells them to upload; give them the button instead of
+                  // making them hunt back up the page for it. Filtered-to-nothing is not a first run,
+                  // so no action there — just the advice to clear the filters.
+                  action={totalActiveFilters > 0 ? undefined : uploadAction}
                 />
               ) : viewMode === "list" ? (
                 <ListView
@@ -2016,7 +2116,7 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
                 type="file"
                 multiple
                 className="hidden"
-                accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.mp4,.mov"
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.webp"
                 onChange={(e) => {
                   if (e.target.files) setPendingFiles(Array.from(e.target.files));
                 }}
@@ -2044,7 +2144,7 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
                   <>
                     <p className="text-[15px] font-semibold text-[#121c28] mb-2.5 text-balance">Drag and drop files here</p>
                     <p className="text-[13px] text-slate-500 text-center leading-5 mb-6 max-w-[280px] text-pretty">
-                      Documents, images, and videos up to 50 MB each.
+                      Documents and images up to {MAX_ACTION_BYTES / (1024 * 1024)} MB each.
                     </p>
                   </>
                 ) : (
@@ -2098,14 +2198,13 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
               </button>
               <button
                 onClick={startUpload}
+                disabled={pendingFiles.length === 0}
                 className="h-9 px-5 rounded-lg text-[13.5px] font-semibold text-white flex items-center gap-2
-                  hover:opacity-90 active:scale-[0.96] transition-[opacity,transform] duration-150"
+                  enabled:hover:opacity-90 active:enabled:scale-[0.96] disabled:opacity-40 disabled:cursor-not-allowed transition-[opacity,transform] duration-150"
                 style={{ background: "var(--val-primary-dark)" }}
               >
                 <Upload className="w-3.5 h-3.5" />
-                {pendingFiles.length > 0
-                  ? `Upload ${pendingFiles.length} ${pendingFiles.length === 1 ? "File" : "Files"}`
-                  : "Upload File"}
+                Upload {pendingFiles.length} {pendingFiles.length === 1 ? "File" : "Files"}
               </button>
             </div>
           </DialogContent>
@@ -2243,9 +2342,7 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
                                 />
                               </div>
                               <span className="text-[11px] text-slate-400 tabular-nums">
-                                {item.progress < 20 ? "Starting…" :
-                                 item.progress < 80 ? `~${Math.ceil((100 - item.progress) / 8)} sec remaining` :
-                                 "Almost done…"}
+                                Uploading…
                               </span>
                             </>
                           )}
@@ -2267,7 +2364,13 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
                         )}
                         {item.status === "failed" && (
                           <button
-                            onClick={() => setUploadQueue((prev) => prev.map((i) => i.id === item.id ? { ...i, status: "uploading" as UploadStatus, progress: 0, error: undefined } : i))}
+                            onClick={() => {
+                              const entry = uploadFilesRef.current.get(item.id);
+                              setUploadQueue((prev) => prev.map((i) => i.id === item.id ? { ...i, status: "uploading" as UploadStatus, progress: 0, error: undefined } : i));
+                              // Refresh on success: the file list is server-rendered, so a retry that
+                              // works would otherwise stay invisible until a manual reload.
+                              if (entry) void uploadOne(entry.file, item.id).then((ok) => { if (ok) router.refresh(); });
+                            }}
                             className="w-7 h-7 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors duration-150 shrink-0"
                             aria-label="Retry"
                           >
@@ -2521,13 +2624,16 @@ function GridView({
             <button
               type="button"
               onClick={() => selectMode ? onToggleFile(f.id) : onOpen(f.id)}
-              className={`relative bg-white rounded-xl p-4 transition-all duration-200 cursor-pointer text-left w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[--val-primary-dark]/40 ${
+              className={`relative bg-white rounded-xl p-3 transition-all duration-200 cursor-pointer text-left w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[--val-primary-dark]/40 ${
                 isChecked && selectMode
                   ? "shadow-[0_0_0_2px_var(--val-primary-dark),0px_6px_20px_0px_rgba(18,28,40,0.10)] -translate-y-0.5"
                   : "shadow-[0px_1px_4px_0px_rgba(18,28,40,0.06)] hover:-translate-y-0.5 hover:shadow-[0px_6px_20px_0px_rgba(18,28,40,0.10)]"
               }`}
             >
-              <div className={`w-full aspect-[4/3] bg-slate-50 rounded-lg overflow-hidden mb-3 flex items-center justify-center border transition-colors duration-150 ${
+              {/* A short, fixed-height preview strip rather than a full-aspect tile: at four
+                  columns the 4:3 version was a ~250px picture per card and the grid became a wall
+                  of images. The height is the point, not the ratio. */}
+              <div className={`w-full h-24 bg-slate-50 rounded-lg overflow-hidden mb-2.5 flex items-center justify-center border transition-colors duration-150 ${
                 isChecked && selectMode ? "border-[--val-primary-dark]/20" : "border-slate-100"
               }`}>
                 {f.thumb ? (
@@ -2538,7 +2644,7 @@ function GridView({
                     loading="lazy"
                   />
                 ) : (
-                  <f.icon className={`w-10 h-10 ${f.iconClass}`} />
+                  <f.icon className={`w-8 h-8 ${f.iconClass}`} />
                 )}
               </div>
               <p className="text-[13px] font-medium truncate text-[--val-heading]">{f.name}</p>

@@ -1,8 +1,9 @@
 import type { NextRequest } from "next/server";
 import { resolveRouteCtx } from "@/lib/auth/ctx";
 import { scanDocument } from "@/lib/services/document-scan";
+import { geocodeAddress } from "@/lib/services/property-import";
 import { ALLOWED_MIME, MAX_BYTES } from "@/lib/upload-constants";
-import { aiLimiter, allowed } from "@/lib/ratelimit";
+import { docIngestLimiter, allowed } from "@/lib/ratelimit";
 import { log } from "@/lib/log";
 
 export const runtime = "nodejs"; // AI SDK + file bytes need the Node runtime (not Edge)
@@ -29,7 +30,8 @@ export async function POST(req: NextRequest) {
   // TM1-64: the costliest paid-model edge in the app — one request runs several model
   // passes (self-consistency) with a 60s budget, so an authenticated loop here bills us
   // hardest. Gated before the body is even read, so a blocked caller costs us nothing.
-  if (!(await allowed(aiLimiter, ctx.userId))) {
+  // Its own limiter, so the ingest budget is separate from summaries and spreadsheet mapping.
+  if (!(await allowed(docIngestLimiter, ctx.userId))) {
     log.warn("ratelimit.block", { edge: "documentScan", userId: ctx.userId });
     return Response.json(
       { ok: false, error: "Too many requests. Please try again in a moment." },
@@ -55,7 +57,22 @@ export async function POST(req: NextRequest) {
     // Self-consistency scan: `extracted` is the reconciled result; `lowConfidence` names the fields the
     // runs disagreed on, so the wizard can flag them for the user to review.
     const { extracted, lowConfidence } = await scanDocument(fileBytes, file.type || "application/pdf");
-    return Response.json({ ok: true, extracted, lowConfidence });
+    // A document names a place but never carries machine coordinates, so the address it gave us is
+    // resolved HERE — the caller would otherwise have to rebuild the same string from the same
+    // fields. `coords: null` means "we don't know where this is": the caller's cue to ask the user
+    // for a pin rather than guess one. geocodeAddress never throws (it returns null).
+    const address = [
+      extracted.addressLine,
+      extracted.addressLine2,
+      extracted.city,
+      extracted.province,
+      extracted.zip,
+      extracted.country,
+    ]
+      .filter(Boolean)
+      .join(", ");
+    const coords = address ? await geocodeAddress(address) : null;
+    return Response.json({ ok: true, extracted, lowConfidence, coords, address: address || null });
   } catch (err) {
     log.error("add-property.scan.failed", err);
     return Response.json(

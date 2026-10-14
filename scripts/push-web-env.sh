@@ -23,6 +23,11 @@
 #      look different and pushes a literal-quoted value over a good one.
 #      (Real near-miss: this file once reported UPSTASH_* as UPDATE and would
 #      have written `'"https://…"'` into production Redis.)
+#   3b. ...but a DESTINATION wearing two or more quote layers is a literal-quoted
+#      value and must be REPAIRED, not normalized away as SAME. Normalizing both
+#      sides without this check let `push && pull` converge on a poisoned value:
+#      Vercel held `"https://…"`, every later run saw SAME, and UPSTASH_* stayed
+#      broken in Preview AND Production until it was fixed by hand on 2026-09-30.
 #
 # Never prints a secret value — names and fingerprints only.
 
@@ -101,6 +106,19 @@ selftest() {
   plan "$tmp/cur" "$tmp/fresh" >"$tmp/plan"
   grep -q '^SAME A$' "$tmp/plan" || { echo "FAIL: quoting difference not collapsed" >&2; cat "$tmp/plan" >&2; return 1; }
 
+  # the LITERAL-quoted case must NOT collapse. A destination value wearing two
+  # quote layers is broken, even though it peels to the same canonical string —
+  # otherwise a poisoned key is reported SAME forever and never repaired.
+  printf 'A=""x""\n' >"$tmp/cur"; printf 'A=x\n' >"$tmp/fresh"
+  plan "$tmp/cur" "$tmp/fresh" >"$tmp/plan"
+  grep -q '^UPDATE A$' "$tmp/plan" \
+    || { echo "FAIL: literal-quoted destination not flagged for repair" >&2; cat "$tmp/plan" >&2; return 1; }
+  # ...and a healed (single-layer-free) value must settle back to SAME.
+  printf 'A=x\n' >"$tmp/cur"; printf 'A=x\n' >"$tmp/fresh"
+  plan "$tmp/cur" "$tmp/fresh" >"$tmp/plan"
+  grep -q '^SAME A$' "$tmp/plan" \
+    || { echo "FAIL: healed value not idempotent" >&2; cat "$tmp/plan" >&2; return 1; }
+
   # invariant 1: an empty fresh value must never be scheduled
   printf 'A=1\n' >"$tmp/cur"; printf 'A=\nB=2\n' >"$tmp/fresh"
   plan "$tmp/cur" "$tmp/fresh" >"$tmp/plan"
@@ -153,6 +171,18 @@ plan() {
       }
       return v
     }
+    # lay(v) -> how many complete outer quote layers v wears. MUST peel by the same
+    # rule as unq(); kept separate because awk scalars are not by-reference.
+    function lay(v,  q,n) {
+      n=0
+      while (length(v) >= 2) {
+        q=substr(v,1,1)
+        if (q != "\"" && q != "'"'"'") break
+        if (q != substr(v,length(v),1)) break
+        v=substr(v,2,length(v)-2); n++
+      }
+      return n
+    }
     function load(f,  line,eqk,eq,k,v) {
       while ((getline line < f) > 0) {
         if (line ~ /^[ \t]*(#|$)/) continue
@@ -160,7 +190,7 @@ plan() {
         eq=index(line,"="); if (eq==0) continue
         k=substr(line,1,eq-1); gsub(/^[ \t]+|[ \t]+$/,"",k)
         v=unq(substr(line,eq+1))
-        if (f==mainfile) { curval[k]=v; curorder[++nc]=k }
+        if (f==mainfile) { curval[k]=v; curraw[k]=substr(line,eq+1); curorder[++nc]=k }
         else             { frval[k]=v;  frorder[++nf]=k }
       }
       close(f)
@@ -172,7 +202,13 @@ plan() {
         if (k ~ skipre)          { print "SKIP_JUNK " k; continue }
         if (frval[k]=="")        { print "SKIP_EMPTY " k; continue }
         if (!(k in curval))      { print "ADD " k; continue }
-        if (curval[k]==frval[k]) { print "SAME " k; continue }
+        # A destination wearing TWO OR MORE quote layers is a literal-quoted value (a
+        # value written with its quotes included), NOT the single optional wrapper
+        # dotenv adds — so it is broken even when it peels to the same canonical
+        # string as the source. Without this, `push && pull` converges on a poisoned
+        # value and every later run reports SAME, so the corruption can never heal.
+        # One layer stays SAME: `vercel env pull` quoting `x y` as "x y" is normal.
+        if (curval[k]==frval[k] && lay(curraw[k]) <= 1) { print "SAME " k; continue }
         print "UPDATE " k
       }
       for (i=1;i<=nc;i++) {
