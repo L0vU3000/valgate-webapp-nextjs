@@ -11,10 +11,11 @@ import { MAX_BYTES } from "@/lib/upload-constants";
 
 const CTX: Ctx = { userId: "USR-0001", orgId: "ORG-0001", orgRole: "owner" };
 
-const { resolveRouteCtxMock, scanDocumentMock, allowedMock } = vi.hoisted(() => ({
+const { resolveRouteCtxMock, scanDocumentMock, allowedMock, documentAiConfiguredMock } = vi.hoisted(() => ({
   resolveRouteCtxMock: vi.fn(),
   scanDocumentMock: vi.fn(),
   allowedMock: vi.fn(),
+  documentAiConfiguredMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/ctx", () => ({
@@ -23,6 +24,13 @@ vi.mock("@/lib/auth/ctx", () => ({
 
 vi.mock("@/lib/services/document-scan", () => ({
   scanDocument: scanDocumentMock,
+}));
+
+// The provider check reads real env keys, which the test env does not have. Stub it true (the
+// deployment these cases describe IS configured) and turn it off in the one case that is about a
+// deployment that is not — otherwise every validation case would answer 503 before it validated.
+vi.mock("@/lib/services/ai-model", () => ({
+  documentAiConfigured: documentAiConfiguredMock,
 }));
 
 vi.mock("@/lib/ratelimit", () => ({
@@ -61,6 +69,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   resolveRouteCtxMock.mockResolvedValue({ ok: true, ctx: CTX });
   allowedMock.mockResolvedValue(true);
+  documentAiConfiguredMock.mockReturnValue(true);
 });
 
 describe("POST /api/add-property/scan", () => {
@@ -106,6 +115,20 @@ describe("POST /api/add-property/scan", () => {
     const res = await POST(scanRequest(big));
 
     expect(res.status).toBe(400);
+    expect(scanDocumentMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 503, and never reads the file, when no document model is configured", async () => {
+    // The state that shipped to staging: no provider key, so the model slug falls back to an
+    // OpenAI name and the SDK throws "OpenAI API key is missing" mid-request. It must be a plain
+    // 503 with no spend and nothing leaked from the SDK.
+    documentAiConfiguredMock.mockReturnValue(false);
+
+    const res = await POST(scanRequest(pdfFile()));
+
+    expect(res.status).toBe(503);
+    const body = await res.json();
+    expect(body.ok).toBe(false);
     expect(scanDocumentMock).not.toHaveBeenCalled();
   });
 
