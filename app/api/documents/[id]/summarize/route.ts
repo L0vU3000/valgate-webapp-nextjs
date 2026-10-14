@@ -4,6 +4,9 @@ import { generateObject } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { resolveRouteCtx } from "@/lib/auth/ctx";
 import { env } from "@/lib/env";
+import { scanDocument } from "@/lib/services/document-scan";
+import { getProperty } from "@/lib/services/properties";
+import { suggestPropertyUpdates } from "@/lib/services/property-suggestions";
 import { getDocument, setDocumentAiStatus, setDocumentCategory, saveDocumentSummary } from "@/lib/services/documents";
 import { classifyDocument } from "@/lib/services/document-classify";
 import { resolveDocumentUrl } from "@/lib/services/storage";
@@ -28,7 +31,7 @@ const TranslationSchema = z.object({
 });
 
 // Optional body. Absent = summarize, which is what the Summary tab sends today.
-const BodySchema = z.object({ mode: z.enum(["summary", "translate"]).optional() });
+const BodySchema = z.object({ mode: z.enum(["summary", "translate", "suggest"]).optional() });
 
 /**
  * Checks that the path document id is a non-empty string after trimming.
@@ -68,6 +71,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const body = await req.json().catch(() => ({}));
   const parsedBody = BodySchema.safeParse(body);
   const translating = parsedBody.success && parsedBody.data.mode === "translate";
+  // `suggest` reads the same file with the property's own schema and reports where the two
+  // disagree. It is a comparison, not a summary: it writes NOTHING, so it must not touch ai_status.
+  const suggesting = parsedBody.success && parsedBody.data.mode === "suggest";
 
   // TM1-64: paid-model edge — same 10/min budget as document scan. Gated after auth so
   // unauthenticated callers never consume quota, and before the file download / model call.
@@ -106,7 +112,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // idle button. The Summary tab reads ai_status to decide which of its four states to render.
   // Translation is not a summary: it has its own local state and must not touch ai_status, or a
   // translation would leave the Summary tab stuck on a spinner (or worse, on "failed").
-  if (!translating) await setDocumentAiStatus(ctx, id, "generating");
+  if (!translating && !suggesting) await setDocumentAiStatus(ctx, id, "generating");
 
   try {
     // Resolve a short-lived URL for the stored file, then download its bytes so we can hand the
@@ -114,6 +120,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const fileUrl = await resolveDocumentUrl(doc.storageId);
     const response = await fetch(fileUrl);
     const fileBytes = new Uint8Array(await response.arrayBuffer());
+
+    if (suggesting) {
+      // Same file, the scan schema instead of the summary schema: what a NEW property would be
+      // created from. The comparison against the existing property is the pure, unit-tested part
+      // (lib/services/property-suggestions.ts) — the model's job ends at reading the document.
+      // Nothing is written. An empty list is a real answer: this document agrees with the property.
+      const { extracted } = await scanDocument(fileBytes, doc.mimeType ?? "application/pdf");
+      const property = await getProperty(ctx, doc.propertyId);
+      return Response.json({
+        ok: true,
+        mode: "suggest",
+        suggestions: property ? suggestPropertyUpdates(property, extracted) : [],
+      });
+    }
 
     if (translating) {
       // Numbers, names and land references are what a title document is FOR, so they are pinned
@@ -177,11 +197,27 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   } catch (err) {
     // Never leak internals to the client: log the real error, return a generic message, and leave
     // the row in "failed" so the Summary tab shows the error state with a working Retry button.
-    // A failed translation writes nothing at all — the tab shows its own error and can retry.
-    log.error(translating ? "documents.translate.failed" : "documents.summarize.failed", err, { id });
-    if (!translating) await setDocumentAiStatus(ctx, id, "failed");
+    // A failed translation or comparison writes nothing at all — the tab shows its own error and can
+    // retry. Only a failed SUMMARY flips ai_status, because only the Summary tab reads it.
+    log.error(
+      translating
+        ? "documents.translate.failed"
+        : suggesting
+          ? "documents.suggest.failed"
+          : "documents.summarize.failed",
+      err,
+      { id },
+    );
+    if (!translating && !suggesting) await setDocumentAiStatus(ctx, id, "failed");
     return Response.json(
-      { ok: false, error: translating ? "Could not translate this document." : "Could not summarize this document." },
+      {
+        ok: false,
+        error: translating
+          ? "Could not translate this document."
+          : suggesting
+            ? "Could not read this document against the property."
+            : "Could not summarize this document.",
+      },
       { status: 500 },
     );
   }
