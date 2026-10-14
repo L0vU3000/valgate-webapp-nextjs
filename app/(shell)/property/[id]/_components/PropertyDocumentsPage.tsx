@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef, Fragment, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createFolder, updateFolder, deleteFolder } from "@/app/actions/folders";
-import { deleteDocument, deleteDocuments } from "@/app/actions/documents";
+import { deleteDocument, deleteDocuments, uploadDocument } from "@/app/actions/documents";
+import { ALLOWED_MIME, MAX_ACTION_BYTES } from "@/lib/upload-constants";
 import { getDocumentFileUrl } from "../documents/actions";
 import { ConfirmAction } from "@/components/ui/confirm-action";
 import type { ActionResult } from "@/app/actions/_result";
@@ -431,6 +432,10 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
 
   // Upload progress panel state
   const [uploadQueue, setUploadQueue] = useState<UploadItem[]>([]);
+  // The File objects behind the queued uploads, keyed by queue item id, so the panel's Retry button
+  // can re-run the real upload. The destination folder is captured here too: retrying a file after
+  // navigating elsewhere must not silently re-file it. Held in a ref — large, never rendered.
+  const uploadFilesRef = useRef<Map<string, { file: File; folderId: string | null }>>(new Map());
   const [showUploadPanel, setShowUploadPanel] = useState(false);
   const [uploadTab, setUploadTab] = useState<UploadTab>("all");
   const [panelMinimized, setPanelMinimized] = useState(false);
@@ -703,65 +708,101 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
     return () => document.removeEventListener("mousedown", handleOutside);
   }, [moveLocationOpen]);
 
-  // Simulate upload progress
-  useEffect(() => {
-    if (!showUploadPanel) return;
-    const hasActive = uploadQueue.some((i) => i.status === "uploading");
-    if (!hasActive) return;
+  // Real upload, one file at a time, through the uploadDocument server action: it presigns, POSTs
+  // the bytes to object storage from the server, then records the row. The bytes deliberately do
+  // NOT go browser → S3 directly — that needs a CORS rule on the bucket, and without one the
+  // browser POST is blocked (verified: NoSuchCORSConfiguration on valgate-documents-dev).
+  const uploadOne = useCallback(async (file: File, itemId: string) => {
+    const setItem = (patch: Partial<UploadItem>) =>
+      setUploadQueue((prev) => prev.map((i) => (i.id === itemId ? { ...i, ...patch } : i)));
+    // The destination is the one captured when the file was queued, not the folder on screen now.
+    const folderId = uploadFilesRef.current.get(itemId)?.folderId ?? null;
 
-    const timer = setInterval(() => {
-      setUploadQueue((prev) => {
-        const uploadingItem = prev.find((i) => i.status === "uploading");
-        if (!uploadingItem) return prev;
+    // MAX_ACTION_BYTES, not MAX_BYTES: a bigger file is rejected by the Server Action body limit
+    // before uploadDocument ever runs, so checking the storage ceiling here would let the user pick
+    // a file that can only fail. The server re-checks type and storage ceiling (presignUpload); the
+    // checks here only spare a doomed round trip. An empty type — how some .doc and HEIC uploads
+    // arrive — is passed through for the server to judge.
+    if (file.size > MAX_ACTION_BYTES) {
+      setItem({ status: "failed", error: `Too large — ${MAX_ACTION_BYTES / (1024 * 1024)} MB max` });
+      return false;
+    }
+    if (file.type && !ALLOWED_MIME.has(file.type)) {
+      setItem({ status: "failed", error: "Unsupported file type" });
+      return false;
+    }
 
-        if (uploadingItem.progress >= 100) {
-          const nextQueued = prev.find((i) => i.status === "queued");
-          return prev.map((item) => {
-            if (item.id === uploadingItem.id) return { ...item, status: "done" as UploadStatus, progress: 100 };
-            if (nextQueued && item.id === nextQueued.id) return { ...item, status: "uploading" as UploadStatus };
-            return item;
-          });
-        }
+    const body = new FormData();
+    body.set("file", file);
+    if (folderId) body.set("folderId", folderId);
 
-        const increment = Math.random() * 6 + 2;
-        return prev.map((item) =>
-          item.id === uploadingItem.id
-            ? { ...item, progress: Math.min(100, item.progress + increment) }
-            : item
-        );
-      });
-    }, 180);
+    // A rejected action (body limit exceeded, offline, server fault) must not strand the batch:
+    // catch it and mark this file failed so the queue keeps going and Retry stays usable.
+    let created: Awaited<ReturnType<typeof uploadDocument>>;
+    try {
+      created = await uploadDocument(property.id, body);
+    } catch {
+      setItem({ status: "failed", error: "Upload failed" });
+      return false;
+    }
+    if (!created.ok) {
+      setItem({ status: "failed", error: created.error });
+      return false;
+    }
 
-    return () => clearInterval(timer);
-  }, [showUploadPanel, uploadQueue]);
+    setItem({ status: "done", progress: 100 });
+    // Ingest: the existing summarize route does one model pass and writes the summary, key fields
+    // and category onto the row. Fire-and-forget — the file is stored and listed either way, and a
+    // failure just leaves the Summary tab on its own Retry state.
+    // ponytail: one paid call per file, paced by aiLimiter (10/min); add a batch cap if a big
+    // drop ever matters more than the per-file scan.
+    void fetch(`/api/documents/${created.data.id}/summarize`, { method: "POST" });
+    return true;
+  }, [property.id]);
 
   function handleAddDummyDoc() {
     setPendingFiles((prev) => [...prev, createDummyPdf()]);
   }
 
   const startUpload = useCallback(() => {
-    const demoFiles = [
-      { name: "Lease_Agreement_v3.pdf", size: "2.4 MB" },
-      { name: "Inspection_Photos.jpg",  size: "4.1 MB" },
-      { name: "Safety_Cert.pdf",        size: "1.2 MB" },
-    ];
-    const source = pendingFiles.length > 0
-      ? pendingFiles.map((f) => ({ name: f.name, size: formatFileSize(f.size) }))
-      : demoFiles;
-    const items: UploadItem[] = source.map((f, i) => ({
-      id: `${Date.now()}-${i}`,
-      name: f.name,
-      size: f.size,
-      status: i === 0 ? "uploading" : "queued",
-      progress: 0,
-    }));
-    setUploadQueue(items);
+    const files = pendingFiles;
+    if (files.length === 0) return;
+    const items: UploadItem[] = [];
+    const folderId = activeFolderId ?? null;
+    for (const file of files) {
+      const id = `${Date.now()}-${items.length}`;
+      uploadFilesRef.current.set(id, { file, folderId });
+      items.push({
+        id,
+        name: file.name,
+        size: formatFileSize(file.size),
+        status: "queued",
+        progress: 0,
+      });
+    }
+    // APPEND, don't replace: picking more files while a batch is still running used to drop the
+    // first batch's entries (and its retry targets) while its uploads kept going, invisibly.
+    setUploadQueue((prev) => [...prev, ...items]);
     setShowUploadPanel(true);
     setUploadTab("all");
     setPanelMinimized(false);
     setShowUploadModal(false);
     setPendingFiles([]);
-  }, [pendingFiles]);
+    // Sequential on purpose: the progress panel stays readable and the ingest calls stay inside
+    // the AI rate limit.
+    void (async () => {
+      for (const [i, file] of files.entries()) {
+        const item = items[i];
+        if (!item) continue;
+        setUploadQueue((prev) =>
+          prev.map((it) => (it.id === item.id ? { ...it, status: "uploading" } : it)),
+        );
+        await uploadOne(file, item.id);
+      }
+      // The file list is server-rendered — refetch so the new documents appear without a reload.
+      router.refresh();
+    })();
+  }, [activeFolderId, pendingFiles, router, uploadOne]);
 
   // ─── Sort & Filter pipeline ─────────────────────────────────────────────────
 
@@ -2051,7 +2092,7 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
                 type="file"
                 multiple
                 className="hidden"
-                accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.mp4,.mov"
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.webp"
                 onChange={(e) => {
                   if (e.target.files) setPendingFiles(Array.from(e.target.files));
                 }}
@@ -2079,7 +2120,7 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
                   <>
                     <p className="text-[15px] font-semibold text-[#121c28] mb-2.5 text-balance">Drag and drop files here</p>
                     <p className="text-[13px] text-slate-500 text-center leading-5 mb-6 max-w-[280px] text-pretty">
-                      Documents, images, and videos up to 50 MB each.
+                      Documents and images up to {MAX_ACTION_BYTES / (1024 * 1024)} MB each.
                     </p>
                   </>
                 ) : (
@@ -2133,14 +2174,13 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
               </button>
               <button
                 onClick={startUpload}
+                disabled={pendingFiles.length === 0}
                 className="h-9 px-5 rounded-lg text-[13.5px] font-semibold text-white flex items-center gap-2
-                  hover:opacity-90 active:scale-[0.96] transition-[opacity,transform] duration-150"
+                  enabled:hover:opacity-90 active:enabled:scale-[0.96] disabled:opacity-40 disabled:cursor-not-allowed transition-[opacity,transform] duration-150"
                 style={{ background: "var(--val-primary-dark)" }}
               >
                 <Upload className="w-3.5 h-3.5" />
-                {pendingFiles.length > 0
-                  ? `Upload ${pendingFiles.length} ${pendingFiles.length === 1 ? "File" : "Files"}`
-                  : "Upload File"}
+                Upload {pendingFiles.length} {pendingFiles.length === 1 ? "File" : "Files"}
               </button>
             </div>
           </DialogContent>
@@ -2278,9 +2318,7 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
                                 />
                               </div>
                               <span className="text-[11px] text-slate-400 tabular-nums">
-                                {item.progress < 20 ? "Starting…" :
-                                 item.progress < 80 ? `~${Math.ceil((100 - item.progress) / 8)} sec remaining` :
-                                 "Almost done…"}
+                                Uploading…
                               </span>
                             </>
                           )}
@@ -2302,7 +2340,13 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
                         )}
                         {item.status === "failed" && (
                           <button
-                            onClick={() => setUploadQueue((prev) => prev.map((i) => i.id === item.id ? { ...i, status: "uploading" as UploadStatus, progress: 0, error: undefined } : i))}
+                            onClick={() => {
+                              const entry = uploadFilesRef.current.get(item.id);
+                              setUploadQueue((prev) => prev.map((i) => i.id === item.id ? { ...i, status: "uploading" as UploadStatus, progress: 0, error: undefined } : i));
+                              // Refresh on success: the file list is server-rendered, so a retry that
+                              // works would otherwise stay invisible until a manual reload.
+                              if (entry) void uploadOne(entry.file, item.id).then((ok) => { if (ok) router.refresh(); });
+                            }}
                             className="w-7 h-7 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors duration-150 shrink-0"
                             aria-label="Retry"
                           >

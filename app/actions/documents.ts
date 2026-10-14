@@ -18,12 +18,6 @@ import { presignUpload, resolveDocumentUrl } from "@/lib/services/storage";
 import { logActivity } from "@/lib/services/activity";
 import { bustCache } from "@/lib/cache/bust";
 
-const UploadMetaSchema = z.object({
-  name: z.string().min(1),
-  mimeType: z.string().min(1),
-  sizeBytes: z.number().int().positive(),
-});
-
 export async function createDocument(data: unknown): Promise<ActionResult<Document>> {
   const parsed = NewDocumentSchema.safeParse(data);
   if (!parsed.success) return { ok: false, error: "Invalid document" };
@@ -111,22 +105,6 @@ export async function deleteDocuments(ids: unknown): Promise<ActionResult<{ dele
 }
 
 
-export async function presignDocumentUpload(
-  _propertyId: string,
-  meta: unknown,
-): Promise<ActionResult<{ url: string; fields: Record<string, string>; storageId: string }>> {
-  const parsed = UploadMetaSchema.safeParse(meta);
-  if (!parsed.success) return { ok: false, error: "Invalid upload metadata" };
-  const ctx = await requireCtx();
-  if (!(await allowed(actionLimiter, ctx.userId, "presignDocumentUpload"))) return TOO_MANY_REQUESTS;
-  try {
-    return { ok: true, data: await presignUpload(ctx, parsed.data) };
-  } catch (err) {
-    console.error("presignDocumentUpload", err);
-    return { ok: false, error: "Could not issue upload URL" };
-  }
-}
-
 export async function getDocumentUrl(id: string): Promise<ActionResult<string>> {
   const ctx = await requireCtx();
   try {
@@ -140,15 +118,18 @@ export async function getDocumentUrl(id: string): Promise<ActionResult<string>> 
 }
 
 // One-shot upload: takes the file from FormData (key "file"), pushes the bytes to object storage
-// via a presigned POST, then records the document row. The frontend callers (VerificationStep,
-// uploadMultipleDocuments) use this. In DEMO_MODE without S3 credentials, presignUpload throws and
-// this returns a graceful error — document upload simply isn't available until storage is configured.
+// via a presigned POST, then records the document row. Optional "folderId" files it in the folder
+// the user is looking at. The presign runs server-side and we POST the bytes from here, so the
+// browser never talks to S3 directly — that path needs bucket CORS, and a browser POST to S3 is
+// blocked without it. In DEMO_MODE without S3 credentials presignUpload throws and this returns a
+// graceful error — document upload simply isn't available until storage is configured.
 export async function uploadDocument(
   propertyId: string,
   formData: FormData,
 ): Promise<ActionResult<Document>> {
   const file = formData.get("file");
   if (!(file instanceof File)) return { ok: false, error: "No file provided" };
+  const folderId = formData.get("folderId");
   const ctx = await requireCtx();
   if (!(await allowed(actionLimiter, ctx.userId, "uploadDocument"))) return TOO_MANY_REQUESTS;
   try {
@@ -170,6 +151,7 @@ export async function uploadDocument(
     const kind: "photo" | "document" = file.type.startsWith("image/") ? "photo" : "document";
     const created = await svcCreateDocument(ctx, {
       propertyId,
+      folderId: typeof folderId === "string" && folderId ? folderId : undefined,
       name: file.name,
       kind,
       mimeType: file.type,
