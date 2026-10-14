@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Download, ExternalLink, Loader2, Sparkles, AlertCircle, RotateCw } from "lucide-react";
 import type { Document as DbDocument } from "@/lib/data/types/document";
+import type { SuggestedUpdate } from "@/lib/services/property-suggestions";
+import { updateProperty } from "@/app/actions/properties";
 import { DocumentPreviewPane, isPdfPreview } from "./DocumentPreviewPane";
 import { formatBytes } from "@/lib/format";
 
@@ -197,7 +199,16 @@ export function DocumentDetailView({ document: doc, fileUrl, onBack }: DocumentD
                 verifiesChip={verifiesChip}
               />
             )}
-            {activeTab === "summary" && <SummaryTab doc={doc} />}
+            {/* The property check is its own job, not a summary feature: it renders BESIDE the
+                summary tab rather than inside it, so a document whose summary failed (or was never
+                run) can still be read against the property. Inside SummaryTab it would have been
+                unreachable in three of that component's four states. */}
+            {activeTab === "summary" && (
+              <div className="flex flex-col gap-6">
+                <SummaryTab doc={doc} />
+                <SuggestUpdates doc={doc} />
+              </div>
+            )}
             {activeTab === "translate" && <TranslateTab doc={doc} />}
           </div>
         </div>
@@ -553,6 +564,160 @@ function SummaryTab({ doc }: { doc: DbDocument }) {
         <Sparkles className="w-3.5 h-3.5" />
         Generate summary
       </button>
+    </div>
+  );
+}
+
+// Suggested updates: the same file read again, this time with the property's own schema, and the
+// differences between the two reported — "the deed says 4 bedrooms, the property says 3".
+//
+// The comparison itself is server-side and pure (lib/services/property-suggestions.ts): the only
+// thing the model does is read the document, which is why what it suggests can be unit-tested.
+//
+// On demand, and nothing is stored. This is a QUESTION, not state: the user asked to see the
+// differences, decides each one, and the card is gone on the next visit. Storing the suggestions
+// would mean storing their dismissal too, and a prompt that comes back after being declined is
+// worse than no prompt.
+//
+// Accepting writes through the property update action, so ownership, authorization and field
+// validation are the ones that already exist — there is no second way to change a property.
+function SuggestUpdates({ doc }: { doc: DbDocument }) {
+  const router = useRouter();
+  const [checking, setChecking] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [suggestions, setSuggestions] = useState<SuggestedUpdate[] | null>(null);
+  const [applying, setApplying] = useState<string | null>(null);
+  const [applied, setApplied] = useState<string[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  async function check() {
+    setChecking(true);
+    setFailed(false);
+    setError(null);
+    try {
+      const response = await fetch(`/api/documents/${doc.id}/summarize`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "suggest" }),
+      });
+      if (!response.ok) {
+        setFailed(true);
+        return;
+      }
+      const data = (await response.json()) as { suggestions?: SuggestedUpdate[] };
+      setSuggestions(data.suggestions ?? []);
+    } catch (err) {
+      console.error("[SuggestUpdates] suggest request failed:", err);
+      setFailed(true);
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  async function accept(suggestion: SuggestedUpdate) {
+    setApplying(suggestion.field);
+    setError(null);
+    // One field, one patch: the action validates and authorizes it exactly as it does for a manual
+    // edit, so a suggestion can never write something the user could not have typed themselves.
+    const result = await updateProperty(doc.propertyId, { [suggestion.field]: suggestion.next });
+    setApplying(null);
+    if (!result.ok) {
+      setError(result.error ?? "Couldn't save that change.");
+      return;
+    }
+    setApplied((prev) => [...prev, suggestion.field]);
+    // The property's own panels are server-rendered from the row we just changed.
+    router.refresh();
+  }
+
+  const idle = suggestions === null && !checking && !failed;
+
+  return (
+    <div className="pt-5 border-t border-slate-100">
+      <div className="flex items-center justify-between gap-3 mb-2">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-400">
+          Suggested updates
+        </p>
+        {!checking && (
+          <button
+            onClick={check}
+            className="text-[12px] font-semibold text-[--val-primary-dark] underline-offset-2 hover:underline"
+          >
+            {suggestions === null ? "Check this document" : "Check again"}
+          </button>
+        )}
+      </div>
+
+      {idle && (
+        <p className="text-[12px] text-slate-400 leading-relaxed">
+          Read this document against the property and see where the two disagree. Nothing changes
+          until you accept it.
+        </p>
+      )}
+
+      {checking && (
+        <p className="flex items-center gap-2 text-[12px] text-slate-400" role="status" aria-live="polite">
+          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          Reading the document…
+        </p>
+      )}
+
+      {failed && (
+        <p className="text-[12px] text-rose-600" role="alert">
+          Couldn&apos;t read this document just now. Try again.
+        </p>
+      )}
+
+      {error && (
+        <p className="text-[12px] text-rose-600" role="alert">
+          {error}
+        </p>
+      )}
+
+      {suggestions?.length === 0 && !checking && (
+        <p className="text-[12px] text-slate-400 leading-relaxed">
+          Nothing to change — this document agrees with the property.
+        </p>
+      )}
+
+      {suggestions?.map((suggestion) => (
+        <div
+          key={suggestion.field}
+          className="flex items-start justify-between gap-3 py-2.5 border-b border-slate-100 last:border-0"
+        >
+          <div className="min-w-0">
+            <p className="text-[12px] text-slate-400">{suggestion.label}</p>
+            <p className="text-[13px] text-[--val-heading] break-words">
+              {/* The old value stays visible, struck through: the user is choosing between two
+                  specific things, not approving a surprise. */}
+              {suggestion.current && (
+                <span className="text-slate-400 line-through mr-1.5">{suggestion.current}</span>
+              )}
+              <span className="font-medium">{suggestion.suggested}</span>
+            </p>
+          </div>
+          <button
+            onClick={() => accept(suggestion)}
+            disabled={applying !== null || applied.includes(suggestion.field)}
+            className="shrink-0 px-3 py-1.5 rounded-md text-[12px] font-semibold text-white
+              hover:opacity-90 active:scale-[0.97] transition-all duration-150
+              disabled:opacity-50 disabled:active:scale-100"
+            style={{ background: "var(--val-primary-dark)" }}
+          >
+            {applied.includes(suggestion.field)
+              ? "Saved"
+              : applying === suggestion.field
+                ? "Saving…"
+                : "Use this"}
+          </button>
+        </div>
+      ))}
+
+      {applied.length > 0 && (
+        <p className="mt-2 text-[12px] text-slate-400">
+          Saved {applied.length} {applied.length === 1 ? "change" : "changes"} to the property.
+        </p>
+      )}
     </div>
   );
 }
