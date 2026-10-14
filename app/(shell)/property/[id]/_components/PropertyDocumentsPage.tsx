@@ -948,6 +948,20 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
     );
   }
 
+  // The one upload affordance, rendered in the page header and reused by the empty state. Two copies
+  // of this markup would drift; one element descriptor can render in both places.
+  const uploadAction = (
+    <button
+      onClick={() => { setPendingFiles([]); setShowUploadModal(true); }}
+      className="shrink-0 px-5 py-2.5 text-white text-[14px] font-semibold rounded flex items-center gap-2
+        hover:opacity-90 active:scale-[0.97] transition-all duration-150"
+      style={{ background: "var(--val-primary-dark)" }}
+    >
+      <Upload className="w-4 h-4" />
+      Upload Document
+    </button>
+  );
+
   // Main documents browse view
   return (
     <PropertyLayout activeTab="documents" property={property}>
@@ -964,13 +978,20 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
               <span className="text-xs font-semibold tracking-widest uppercase text-slate-400">Documents</span>
             </div>
 
-            <div className="mb-4">
-              <h1 className="text-[28px] sm:text-[40px] font-extrabold tracking-tight leading-tight sm:leading-10 text-[--val-heading]">
-                Documents
-              </h1>
-              <p className="text-slate-500 text-base mt-2">
-                {files.length} files · {property.code} {property.type}
-              </p>
+            {/* The page's primary action, on the title row. It used to sit in the control strip at
+                the bottom of this section next to Sort/Filter and the list-grid toggle, where it
+                read as one more filter control — the only way to add a document was to notice a
+                button that looked like chrome. Same element is reused by the empty state below. */}
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <h1 className="text-[28px] sm:text-[40px] font-extrabold tracking-tight leading-tight sm:leading-10 text-[--val-heading]">
+                  Documents
+                </h1>
+                <p className="text-slate-500 text-base mt-2">
+                  {files.length} files · {property.code} {property.type}
+                </p>
+              </div>
+              {uploadAction}
             </div>
           </div>
 
@@ -1351,15 +1372,6 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
                       Grid
                     </button>
                   </div>
-                  <button
-                    onClick={() => { setPendingFiles([]); setShowUploadModal(true); }}
-                    className="flex-1 sm:flex-none px-5 py-2.5 text-white text-[14px] font-semibold rounded flex items-center justify-center gap-2
-                      hover:opacity-90 active:scale-[0.97] transition-all duration-150"
-                    style={{ background: "var(--val-primary-dark)" }}
-                  >
-                    <Upload className="w-4 h-4" />
-                    Upload File
-                  </button>
                 </div>
               </div>
 
@@ -1453,6 +1465,10 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
                       ? "Try adjusting or clearing your filters."
                       : "Upload a document to get started."
                   }
+                  // The description already tells them to upload; give them the button instead of
+                  // making them hunt back up the page for it. Filtered-to-nothing is not a first run,
+                  // so no action there — just the advice to clear the filters.
+                  action={totalActiveFilters > 0 ? undefined : uploadAction}
                 />
               ) : viewMode === "list" ? (
                 <ListView
