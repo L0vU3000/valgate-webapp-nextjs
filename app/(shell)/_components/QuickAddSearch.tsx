@@ -93,10 +93,16 @@ export function QuickAddSearch({
   const showList = open && suggestions.length > 0;
 
   return (
+    <>
     <div
       data-no-drag
-      className="relative hidden w-[22rem] max-w-[calc(100vw-2rem)] sm:block"
+      className="hidden w-[22rem] max-w-[calc(100vw-2rem)] sm:block"
     >
+    {/* The pill and its fittings (icon, spinner, Esc, dropdown) get their own box. They are all
+        absolutely positioned, so with the messages in the same box as the input they anchored to the
+        MIDDLE OF THE COLUMN — once a read reported back, "Esc" slid down onto the message card and the
+        spinner sat between the two blocks. This box is only ever the pill's 44px. */}
+    <div className="relative">
       {/* Same slot, same pill, same dropdown as the ⌘K bar — only the icon differs, deliberately.
           The magnifier means "search the app"; this pin means "put a marker on the map". It is the one
           cue that survives typing, since a placeholder does not. */}
@@ -158,33 +164,11 @@ export function QuickAddSearch({
       )}
       {/* The other way a property arrives: a document that already knows its own details. It sits on
           the ARMED BAR rather than in the card, because the card does not render until a pin exists —
-          so the read has to happen before one, and the pin it resolves is what opens the card. */}
-      {!scanning ? (
-        <div className="mt-2 flex items-center gap-1.5 text-xs">
-          <FileText className="size-3.5 shrink-0 text-secondary" aria-hidden="true" />
-          <span className="text-secondary">or</span>
-          <button
-            type="button"
-            onClick={() => fileRef.current?.click()}
-            className="font-semibold text-interactive-primary underline-offset-2 hover:underline"
-          >
-            upload a document
-          </button>
-          <span className="text-secondary">to fill it in for you</span>
-        </div>
-      ) : (
-        <div
-          className="mt-2 flex items-center gap-1.5 text-xs text-secondary"
-          role="status"
-          aria-live="polite"
-        >
-          <Loader2 className="size-3.5 shrink-0 animate-spin" aria-hidden="true" />
-          Reading the document…
-        </div>
-      )}
-      {/* One file per read: the read places the pin, and the pin is what the next step needs. `accept`
-          comes from the same allowlist the server enforces, so a type the action would refuse cannot
-          even be picked here. */}
+          so the read has to happen before one, and the pin it resolves is what opens the card.
+
+          It leaves the field as a SIBLING chip, wearing the Cancel chip's exact treatment. Inside the
+          field it could only ever be a card or a line of prose — both read as bolted on, and both made
+          the bar taller than its own pill, which lifted the pill off the Cancel chip's line. */}
       <input
         ref={fileRef}
         type="file"
@@ -199,27 +183,6 @@ export function QuickAddSearch({
           if (file) onScanFile(file);
         }}
       />
-      {scanNote && (
-        <p
-          className="mt-2 rounded-md border border-border-default bg-surface-base/95 px-3 py-2 text-xs leading-5 text-foreground shadow-lg backdrop-blur"
-          role="status"
-          aria-live="polite"
-        >
-          {scanNote}
-        </p>
-      )}
-      {/* A failed read says so HERE, on the bar, because there is no card yet to say it in. Same slot,
-          error colour. The card suppresses this one once it exists — see HomePage. */}
-      {error && (
-        <p
-          className={`mt-2 rounded-md border px-3 py-2 text-xs leading-5 shadow-lg backdrop-blur ${
-            scanNote ? "mt-1.5 " : ""
-          }border-rose-200 bg-rose-50/95 text-rose-700`}
-          role="alert"
-        >
-          {error}
-        </p>
-      )}
       {/* Shows the mode is escapable without adding a second control. Dimmed while a lookup runs so the
           spinner owns the eye. */}
       <kbd className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 rounded border border-border-default bg-surface-sunken px-1.5 py-0.5 font-sans text-[10px] font-medium text-text-disabled">
@@ -306,5 +269,55 @@ export function QuickAddSearch({
         </div>
       )}
     </div>
+    {/* Messages sit under the FIELD, outside the pill's box, so they push the portfolio stats card
+        down instead of floating over it (the block is bottom-anchored). */}
+    {scanNote && (
+      <p
+        className="mt-2 rounded-xl border border-border-default bg-surface-base/95 px-3 py-2 text-[13px] leading-5 text-secondary shadow-lg backdrop-blur"
+        role="status"
+        aria-live="polite"
+      >
+        {scanNote}
+      </p>
+    )}
+    {/* A failed read says so HERE, on the bar, because there is no card yet to say it in. Same slot,
+        error colour. The card suppresses this one once it exists — see HomePage. */}
+    {error && (
+      <p
+        className={cn(
+          "mt-2 rounded-xl border border-destructive/40 bg-surface-base/95 px-3 py-2 text-[13px] leading-5 text-destructive shadow-lg backdrop-blur",
+          scanNote && "mt-1.5",
+        )}
+        role="alert"
+      >
+        {error}
+      </p>
+    )}
+    </div>
+    {/* The Cancel chip's twin: same border, fill, radius, weight and height, so the armed row reads as
+        field · read-a-document · escape rather than field + one odd object. `sm:flex` and `hidden` are
+        Cancel's too — the field is desktop-only, so this must vanish with it, not on its own schedule.
+
+        One file per read: the read places the pin, and the pin is what the next step needs. `accept`
+        comes from the same allowlist the server enforces, so a type the action would refuse cannot even
+        be picked here. */}
+    <button
+      type="button"
+      onClick={() => fileRef.current?.click()}
+      disabled={scanning}
+      // Only the glyph changes while reading: swapping the label too (to "Reading…") shortened the chip
+      // by 66px, which slid the Cancel chip sideways mid-read. The spinner says it; `aria-busy` says it
+      // to a screen reader; the width stays put.
+      aria-busy={scanning}
+      className="hidden shrink-0 items-center gap-2 rounded-full border border-border-default bg-surface-base px-5 py-2.5 text-sm font-semibold text-foreground shadow-lg transition-all duration-200 hover:bg-surface-tint active:scale-[0.98] disabled:opacity-60 sm:flex"
+    >
+      {scanning ? (
+        <Loader2 className="size-4 shrink-0 animate-spin text-interactive-primary" aria-hidden="true" />
+      ) : (
+        <FileText className="size-4 shrink-0 text-interactive-primary" aria-hidden="true" />
+      )}
+      Upload a document
+    </button>
+    </>
   );
 }
