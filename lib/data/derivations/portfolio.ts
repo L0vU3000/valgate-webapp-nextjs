@@ -41,6 +41,37 @@ export function computeStats(items: PropertyListItem[]): PortfolioStats {
   };
 }
 
+export type MonthRentTotals = {
+  monthStart: number;
+  expectedRaw: number;
+  collectedRaw: number;
+  // Paid Rent payments this month / Signed leases still running this month ("2 of 3 paid").
+  paidCount: number;
+  dueCount: number;
+};
+
+// Raw numbers behind the KPI "collected of expected" tile. computeKpis formats these for the
+// web; GET /api/v1/rental publishes them unformatted. One copy of the filters, not two.
+export function computeMonthRentTotals(
+  payments: Payment[],
+  leases: Lease[],
+  nowMs: number = Date.now(),
+): MonthRentTotals {
+  const now = new Date(nowMs);
+  const monthStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1);
+
+  const due = leases.filter((l) => l.stage === "Signed" && l.endDate >= monthStart);
+  const paid = payments.filter((p) => p.kind === "Rent" && p.status === "Paid" && p.date >= monthStart);
+
+  return {
+    monthStart,
+    expectedRaw: due.reduce((sum, l) => sum + l.monthlyRent, 0),
+    collectedRaw: paid.reduce((sum, p) => sum + (p.amount ?? 0), 0),
+    paidCount: paid.length,
+    dueCount: due.length,
+  };
+}
+
 export function computeKpis(
   properties: Property[],
   payments: Payment[],
@@ -51,16 +82,7 @@ export function computeKpis(
     (p) => !p.isArchived && !INACTIVE_STATUSES.includes(p.status),
   );
 
-  const now = new Date();
-  const monthStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1);
-
-  const expectedRaw = leases
-    .filter((l) => l.stage === "Signed" && l.endDate >= monthStart)
-    .reduce((sum, l) => sum + l.monthlyRent, 0);
-
-  const collectedRaw = payments
-    .filter((p) => p.kind === "Rent" && p.status === "Paid" && p.date >= monthStart)
-    .reduce((sum, p) => sum + (p.amount ?? 0), 0);
+  const { monthStart, expectedRaw, collectedRaw } = computeMonthRentTotals(payments, leases);
 
   const newThisMonth = active.filter(
     (p) => (p.createdAt ?? 0) >= monthStart,

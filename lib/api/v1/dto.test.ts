@@ -10,6 +10,7 @@ import {
   toListPrice,
   toRentalSummaryDto,
   toPropertyValuationDto,
+  documentStatus,
 } from "./dto";
 
 // ---------------------------------------------------------------------------
@@ -220,13 +221,37 @@ describe("toDocumentListItemDto", () => {
       category: "Title",
       description: "Hard title deed",
       uploadedAt: 1743897600000,
+      expiresAt: null,
+      status: null,
     });
   });
+
+  it("publishes expiresAt and a derived status when the document expires", () => {
+    const dto = toDocumentListItemDto({ ...FULL_DOCUMENT, expiresAt: 1 });
+    expect(dto.expiresAt).toBe(1);
+    expect(dto.status).toBe("expired");
+  });
 });
+
+// The dashboard-rollup fields, empty (an org with no data). Source and wire forms are identical.
+const EMPTY_ROLLUP = {
+  monthLabel: "October 2026 (UTC)",
+  collectedAmountNumeric: null,
+  expectedAmountNumeric: null,
+  paidCount: 0,
+  dueCount: 0,
+  overdueAmountNumeric: null,
+  overdueCount: 0,
+  depositHeldNumeric: null,
+  documentCount: 0,
+  attention: [],
+  activity: [],
+};
 
 describe("toRentalSummaryDto", () => {
   it("copies occupancy and tenancy counts and attaches USD when a payout exists", () => {
     const dto = toRentalSummaryDto({
+      ...EMPTY_ROLLUP,
       occupancyPercent: 50,
       occupiedCount: 1,
       totalCount: 2,
@@ -242,11 +267,13 @@ describe("toRentalSummaryDto", () => {
       nextPayoutAmountNumeric: 2850,
       nextPayoutAt: 1727740800000,
       currency: "USD",
+      ...EMPTY_ROLLUP,
     });
   });
 
   it("uses null payout fields when no upcoming rent exists (does not fabricate $0)", () => {
     const dto = toRentalSummaryDto({
+      ...EMPTY_ROLLUP,
       occupancyPercent: 0,
       occupiedCount: 0,
       totalCount: 0,
@@ -262,11 +289,13 @@ describe("toRentalSummaryDto", () => {
       nextPayoutAmountNumeric: null,
       nextPayoutAt: null,
       currency: null,
+      ...EMPTY_ROLLUP,
     });
   });
 
   it("never leaks lease, tenant, or payment row ids", () => {
     const dto = toRentalSummaryDto({
+      ...EMPTY_ROLLUP,
       occupancyPercent: 100,
       occupiedCount: 1,
       totalCount: 1,
@@ -282,8 +311,48 @@ describe("toRentalSummaryDto", () => {
     expect(serialized).not.toContain("ORG-");
   });
 
+  it("strips extra keys (ids) smuggled onto attention/activity rows", () => {
+    const dto = toRentalSummaryDto({
+      ...EMPTY_ROLLUP,
+      occupancyPercent: 0,
+      occupiedCount: 0,
+      totalCount: 0,
+      tenancyCount: 0,
+      nextPayoutAmountNumeric: null,
+      nextPayoutAt: null,
+      attention: [
+        { kind: "certificate", title: "Gas safety", propertyName: "77 Kestrel", dueAt: 1, status: "Overdue", id: "CERT-0001", propertyId: "PROP-0001" } as never,
+      ],
+      activity: [
+        { title: "Rent paid", propertyName: "77 Kestrel", at: 1, amountNumeric: 3200, paymentId: "PMT-0001", leaseId: "LEASE-0001" } as never,
+      ],
+    });
+    const serialized = JSON.stringify(dto);
+    for (const marker of ["leaseId", "tenantId", "paymentId", "documentId", "orgId", "storageId", "propertyId", "CERT-", "PMT-", "LEASE-", "PROP-"]) {
+      expect(serialized).not.toContain(marker);
+    }
+    expect(dto.activity[0]).toEqual({ kind: "payment", title: "Rent paid", propertyName: "77 Kestrel", at: 1, amountNumeric: 3200 });
+  });
+
+  it("publishes overdueAmountNumeric as null (not 0) when overdueCount is 0", () => {
+    const dto = toRentalSummaryDto({
+      ...EMPTY_ROLLUP,
+      occupancyPercent: 0,
+      occupiedCount: 0,
+      totalCount: 0,
+      tenancyCount: 0,
+      nextPayoutAmountNumeric: null,
+      nextPayoutAt: null,
+      overdueCount: 0,
+      overdueAmountNumeric: 0,
+    });
+    expect(dto.overdueCount).toBe(0);
+    expect(dto.overdueAmountNumeric).toBeNull();
+  });
+
   it("treats a zero or non-finite payout as missing (nulls, not $0)", () => {
     const dto = toRentalSummaryDto({
+      ...EMPTY_ROLLUP,
       occupancyPercent: 150,
       occupiedCount: -3,
       totalCount: 4,
@@ -299,7 +368,25 @@ describe("toRentalSummaryDto", () => {
       nextPayoutAmountNumeric: null,
       nextPayoutAt: null,
       currency: null,
+      ...EMPTY_ROLLUP,
     });
+  });
+});
+
+describe("documentStatus", () => {
+  const NOW = 1_800_000_000_000;
+  const DAY = 86_400_000;
+
+  it("is null when the document has no expiry", () => {
+    expect(documentStatus(undefined, NOW)).toBeNull();
+  });
+
+  it("expired at and before expiresAt, expiring within 30 days, valid beyond", () => {
+    expect(documentStatus(NOW - 1, NOW)).toBe("expired");
+    expect(documentStatus(NOW, NOW)).toBe("expired");
+    expect(documentStatus(NOW + 1, NOW)).toBe("expiring");
+    expect(documentStatus(NOW + 30 * DAY, NOW)).toBe("expiring");
+    expect(documentStatus(NOW + 30 * DAY + 1, NOW)).toBe("valid");
   });
 });
 

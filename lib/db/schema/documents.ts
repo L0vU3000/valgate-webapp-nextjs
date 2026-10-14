@@ -47,6 +47,8 @@ export const documents = pgTable("documents", {
   aiSummary: text("ai_summary"),                                // the generated summary text
   aiKeyFields: jsonb("ai_key_fields"),                          // [{ label, value }] | null
   pageCount: bigint("page_count", { mode: "number" }),         // real page count from the model
+  // Expiry only. The expired/expiring/valid status is derived from it on read — never stored.
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
 }, (t) => [
   index("ix_documents_org").on(t.orgId),
   index("ix_documents_property").on(t.propertyId),
