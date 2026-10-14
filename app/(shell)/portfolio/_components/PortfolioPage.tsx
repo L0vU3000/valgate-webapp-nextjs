@@ -6,7 +6,6 @@ import {
   Building2,
   DollarSign,
   TrendingUp,
-  Plus,
 } from "lucide-react";
 import type { PortfolioPageData } from "../queries";
 import type { PropertyStatus } from "@/lib/data/types/property";
@@ -153,18 +152,6 @@ export function PortfolioPage({
                 Oversee and manage every property record you own, all in one place.
               </p>
             </div>
-            {!readOnly && (
-            <div className="shrink-0">
-            <button
-              onClick={() => router.push("/add-property")}
-              className="flex items-center gap-2 px-4 py-2 text-white text-[14px] font-semibold rounded shadow-[0_4px_6px_-1px_rgba(0,74,198,0.25),0_2px_4px_-2px_rgba(0,74,198,0.15)] hover:opacity-90 active:scale-[0.97] transition-all duration-150 shrink-0"
-              style={{ background: "linear-gradient(168deg, var(--val-primary-dark) 0%, #2563eb 100%)" }}
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Add Property
-            </button>
-            </div>
-            )}
           </div>
 
           {/* KPI Cards — 2 cols on phone (4 cards = 2×2 grid, ~173px per card
