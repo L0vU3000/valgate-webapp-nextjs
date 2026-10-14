@@ -294,8 +294,8 @@ export function QuickAddSearch({
       </p>
     )}
     </div>
-    {/* The Cancel chip's twin: same border, fill, radius, weight and height, so the armed row reads as
-        field · read-a-document · escape rather than field + one odd object. `sm:flex` and `hidden` are
+    {/* A compact companion to Cancel: same border, fill, radius, weight and height, so the armed row
+        reads as field · document · escape rather than field + one oversized object. `sm:flex` and `hidden` are
         Cancel's too — the field is desktop-only, so this must vanish with it, not on its own schedule.
 
         One file per read: the read places the pin, and the pin is what the next step needs. `accept`
@@ -305,19 +305,23 @@ export function QuickAddSearch({
       type="button"
       onClick={() => fileRef.current?.click()}
       disabled={scanning}
-      // Only the glyph changes while reading: swapping the label too (to "Reading…") shortened the chip
-      // by 66px, which slid the Cancel chip sideways mid-read. The spinner says it; `aria-busy` says it
-      // to a screen reader; the width stays put.
+      aria-label={scanning ? "Reading document" : "Upload a document to create a property from"}
+      title={scanning ? "Reading document" : "Upload a document"}
       aria-busy={scanning}
-      className="hidden shrink-0 items-center gap-2 rounded-full border border-border-default bg-surface-base px-5 py-2.5 text-sm font-semibold text-foreground shadow-lg transition-all duration-200 hover:bg-surface-tint active:scale-[0.98] disabled:opacity-60 sm:flex"
+      className="hidden shrink-0 items-center gap-2 rounded-full border border-border-default bg-surface-base px-4 py-2.5 text-sm font-semibold text-foreground shadow-lg outline-none transition-all duration-200 hover:bg-surface-tint focus-visible:ring-[3px] focus-visible:ring-ring/50 active:scale-[0.98] disabled:opacity-60 sm:flex"
     >
       {scanning ? (
         <Loader2 className="size-4 shrink-0 animate-spin text-interactive-primary" aria-hidden="true" />
       ) : (
         <FileText className="size-4 shrink-0 text-interactive-primary" aria-hidden="true" />
       )}
-      Upload a document
+      Upload
     </button>
+    {scanning && (
+      <span className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        Reading document
+      </span>
+    )}
     </>
   );
 }
