@@ -121,7 +121,11 @@ export function QuickAddPanel({
         "absolute z-30 flex flex-col overflow-hidden bg-glass-panel-fill backdrop-blur-md border border-glass-panel-border shadow-sm",
         "inset-x-0 bottom-0 top-auto rounded-t-2xl pb-safe max-h-[70dvh]",
         "sm:inset-x-auto sm:right-4 sm:top-4 sm:bottom-4 sm:w-80 sm:rounded-xl sm:h-auto sm:max-h-none sm:pb-0",
-        "[animation:slide-in-up_0.3s_cubic-bezier(0.16,1,0.3,1)_both] sm:[animation:slide-in-right_0.3s_cubic-bezier(0.16,1,0.3,1)_both]",
+        // The card arrives with the pin, so it moves on the same house expo-out curve the pin's
+        // arrival uses (280ms) at 0.3s — a slide, not a fade, because it enters from off-panel.
+        // Unlike the pin it was not gated: `motion-reduce:animate-none` so Reduce Motion gets the
+        // card in place rather than sliding. Everything else here is unchanged.
+        "[animation:slide-in-up_0.3s_cubic-bezier(0.16,1,0.3,1)_both] sm:[animation:slide-in-right_0.3s_cubic-bezier(0.16,1,0.3,1)_both] motion-reduce:animate-none",
       )}
     >
       {/* Hover read-out. Anchored to the pointer while a parcel is under it, so the answer to "what

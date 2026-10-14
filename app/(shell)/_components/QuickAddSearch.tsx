@@ -270,10 +270,15 @@ export function QuickAddSearch({
       )}
     </div>
     {/* Messages sit under the FIELD, outside the pill's box, so they push the portfolio stats card
-        down instead of floating over it (the block is bottom-anchored). */}
+        down instead of floating over it (the block is bottom-anchored).
+
+        They fade in on the house expo-out curve — 180ms, the same shape the pin's arrival uses. Both
+        appear mid-flow on their own (after a read, or after one fails), and a card that just blinks
+        into existence under your cursor reads as a glitch. `motion-reduce:animate-none` because this
+        one MOVES (8px up); Reduce Motion gets it instantly instead. */}
     {scanNote && (
       <p
-        className="mt-2 rounded-xl border border-border-default bg-surface-base/95 px-3 py-2 text-[13px] leading-5 text-secondary shadow-lg backdrop-blur"
+        className="mt-2 rounded-xl border border-border-default bg-surface-base/95 px-3 py-2 text-[13px] leading-5 text-secondary shadow-lg backdrop-blur [animation:fade-slide-up_0.18s_cubic-bezier(0.16,1,0.3,1)_both] motion-reduce:animate-none"
         role="status"
         aria-live="polite"
       >
@@ -285,8 +290,8 @@ export function QuickAddSearch({
     {error && (
       <p
         className={cn(
-          "mt-2 rounded-xl border border-destructive/40 bg-surface-base/95 px-3 py-2 text-[13px] leading-5 text-destructive shadow-lg backdrop-blur",
-          scanNote && "mt-1.5",
+          "rounded-xl border border-destructive/40 bg-surface-base/95 px-3 py-2 text-[13px] leading-5 text-destructive shadow-lg backdrop-blur [animation:fade-slide-up_0.18s_cubic-bezier(0.16,1,0.3,1)_both] motion-reduce:animate-none",
+          scanNote ? "mt-1.5" : "mt-2",
         )}
         role="alert"
       >
@@ -308,7 +313,7 @@ export function QuickAddSearch({
       aria-label={scanning ? "Reading document" : "Upload a document to create a property from"}
       title={scanning ? "Reading document" : "Upload a document"}
       aria-busy={scanning}
-      className="hidden shrink-0 items-center gap-2 rounded-full border border-border-default bg-surface-base px-4 py-2.5 text-sm font-semibold text-foreground shadow-lg outline-none transition-all duration-200 hover:bg-surface-tint focus-visible:ring-[3px] focus-visible:ring-ring/50 active:scale-[0.98] disabled:opacity-60 sm:flex"
+      className="hidden shrink-0 items-center gap-2 rounded-full border border-border-default bg-surface-base px-4 py-2.5 text-sm font-semibold text-foreground shadow-lg outline-none transition-[background-color,transform] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] hover:bg-surface-tint focus-visible:ring-[3px] focus-visible:ring-ring/50 active:scale-[0.98] disabled:opacity-60 sm:flex"
     >
       {scanning ? (
         <Loader2 className="size-4 shrink-0 animate-spin text-interactive-primary" aria-hidden="true" />
