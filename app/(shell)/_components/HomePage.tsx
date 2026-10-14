@@ -10,7 +10,6 @@ import {
   Map as MapIcon,
   Users,
   Search,
-  Plus,
   FileText,
   Command as CommandIcon,
   ArrowUpRight,
@@ -564,14 +563,9 @@ export function HomePage({
             <div className="flex items-center gap-3 w-full sm:w-auto overflow-x-auto scrollbar-none -mx-4 sm:mx-0 px-4 sm:px-0 py-1">
               {[
                 // Quick Add is deliberately NOT in this row — it is the map's primary action, so it
-                // lives as its own blue button above the stats bar. These chips stay for the
-                // secondary destinations, and "New Property" remains for users who already know the
-                // address and would rather type it than point at it.
-                {
-                  label: "New Property",
-                  icon: Plus,
-                  action: () => router.push("/add-property"),
-                },
+                // lives as its own blue button above the stats bar. These chips are the secondary
+                // destinations only: the add-property wizard is retired, so there is no
+                // "New Property" chip pointing at it any more.
                 {
                   label: "Portfolio",
                   icon: BarChart2,

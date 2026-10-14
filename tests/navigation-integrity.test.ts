@@ -72,9 +72,10 @@ describe("navigation integrity — no dead destinations for cut MVP features", (
       expect(isCut, `${dest} is a cut destination and must not be offered`).toBe(false);
     }
 
-    // Exactly the MVP's real navigate targets: Add Property, All Properties, Settings, Profile.
+    // Exactly the MVP's real navigate targets: All Properties, Settings, Profile. The
+    // add-property wizard is retired, so it must not be offered here either.
     expect([...destinations].sort()).toEqual(
-      ["/add-property", "/portfolio", "/settings", "/settings?section=profile"].sort(),
+      ["/portfolio", "/settings", "/settings?section=profile"].sort(),
     );
   });
 

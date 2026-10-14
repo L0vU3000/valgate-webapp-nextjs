@@ -163,12 +163,12 @@ export function PropertyTable({
           </p>
           {!hideAddPropertyCta && (
             <button
-              onClick={() => navigate("/add-property")}
+              onClick={() => navigate("/")}
               className="mt-4 inline-flex items-center gap-2 px-4 py-2 text-white text-[14px] font-semibold rounded shadow-[0_4px_6px_-1px_rgba(0,74,198,0.25),0_2px_4px_-2px_rgba(0,74,198,0.15)] hover:opacity-90 active:scale-[0.97] transition-all duration-150"
               style={{ background: "linear-gradient(168deg, var(--val-primary-dark) 0%, #2563eb 100%)" }}
             >
               <Plus className="w-3.5 h-3.5" />
-              Add Property
+              Add property on the map
             </button>
           )}
         </>
