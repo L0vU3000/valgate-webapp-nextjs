@@ -643,6 +643,12 @@ export function HomePage({
                   onChange={quickAdd.searchAddress}
                   onHighlight={quickAdd.highlightAddress}
                   onPick={quickAdd.pickAddress}
+                  onScanFile={quickAdd.scanFile}
+                  scanning={quickAdd.scanning}
+                  scanNote={quickAdd.scanNote}
+                  // Pre-pin only: once the card exists it owns the error (it sits closer to the button
+                  // that failed), so showing it twice would read as two separate problems.
+                  error={quickAddCardPin ? null : quickAdd.error}
                 />
                 <button
                   onClick={quickAdd.cancel}

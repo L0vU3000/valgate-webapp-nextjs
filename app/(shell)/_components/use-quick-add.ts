@@ -7,6 +7,8 @@ import {
   type GeocodeSuggestion,
 } from "@/app/_shared/add-property/_lib/use-geocode";
 import { submitPropertyAction } from "@/app/(shell)/add-property/actions";
+import { uploadDocument } from "@/app/actions/documents";
+import { MAX_ACTION_BYTES } from "@/lib/upload-constants";
 import {
   mergeAddressFields,
   quickAddFormData,
@@ -73,6 +75,15 @@ export function useQuickAdd(getBias?: () => [number, number] | undefined) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fields, setFields] = useState<QuickAddFields>(EMPTY_FIELDS);
+  // A document the user asked us to read, so the pin can be placed from it instead of typed. `scan`
+  // is the read in flight; `scanNote` is the one thing the bar has to tell the user afterwards —
+  // either "here is what we found" or "we could not find its location, place the pin".
+  const [scanning, setScanning] = useState(false);
+  const [scanNote, setScanNote] = useState<string | null>(null);
+  // Held until the property exists: the server action that records a document needs a property id,
+  // and there is none until the user confirms. Dropping this file would leave the property without
+  // the very document it was created from.
+  const scannedFile = useRef<File | null>(null);
   // The address the suggestion list is currently pointing at — the pre-selected first row, or
   // wherever ↑/↓ landed. Drives both the map flight and a preview pin, so the user sees where the
   // provider thinks their words point BEFORE committing to it. The provider mis-ranks this corpus
@@ -200,6 +211,9 @@ export function useQuickAdd(getBias?: () => [number, number] | undefined) {
     setPreview(null);
     setCadastreChoice(null);
     clearGeocode();
+    setScanNote(null);
+    setScanning(false);
+    scannedFile.current = null;
   }, [clearGeocode]);
 
   // True once the USER edits an address field in the card. Until then every address value there was
@@ -371,6 +385,80 @@ export function useQuickAdd(getBias?: () => [number, number] | undefined) {
     });
   }, []);
 
+  // A document instead of a typed address — the other way a property arrives. The file already knows
+  // the details, so we read it and place the pin from what it says.
+  //
+  // This lives on the ARMED BAR, before a pin exists, because the card deliberately does not render
+  // until one does (see QuickAddPanel): there is nothing sensible to ask about a property with no
+  // location. One request does the whole job — authorize → model pass → geocode — and `coords: null`
+  // is the honest answer that the document does not say where it is. We say so and hand the pin back
+  // to the user rather than inventing a location for their record.
+  const scanFile = useCallback(
+    async (file: File) => {
+      setScanning(true);
+      setError(null);
+      setScanNote(null);
+      // MAX_ACTION_BYTES, not the route's own 10 MB cap: the document is ATTACHED to the property
+      // afterwards through a Server Action, whose body limit is 4 MB. Accepting a bigger file here
+      // would read it, create the property, and then fail to attach the very document it came from.
+      // Checked before the read so the expensive model pass is not spent either.
+      if (file.size > MAX_ACTION_BYTES) {
+        setScanning(false);
+        setError(`That document is too large — ${MAX_ACTION_BYTES / (1024 * 1024)} MB max.`);
+        return false;
+      }
+      try {
+        const body = new FormData();
+        body.set("file", file);
+        const res = await fetch("/api/add-property/scan", { method: "POST", body });
+        const data = (await res.json()) as {
+          ok?: boolean;
+          error?: string;
+          extracted?: Partial<
+            Record<"propertyName" | "propertyType" | "addressLine" | "city", string>
+          >;
+          coords?: [number, number] | null;
+          address?: string | null;
+        };
+        if (!res.ok || !data.ok) {
+          setError(data.error ?? "Couldn't read that document.");
+          return false;
+        }
+        const e = data.extracted ?? {};
+        // Pre-fill only what the document actually answered. The pin's own reverse lookup still fills
+        // city/address afterwards, and a user edit outranks both.
+        setFields((prev) => ({
+          ...prev,
+          name: e.propertyName || prev.name,
+          propertyType: e.propertyType || prev.propertyType,
+          addressLine: e.addressLine || prev.addressLine,
+          city: e.city || prev.city,
+        }));
+        if (data.coords) {
+          // applyLocation, not dropPin: the geocoder just told us where this is, so asking it again
+          // would only risk a different answer. No address object — the extracted fields above already
+          // carry it, and a reverse lookup would overwrite the document's own answer with a guess.
+          applyLocation(data.coords, null);
+          setQuery(data.address ?? "");
+          setScanNote("We read the document and placed the pin — check it, then add the property.");
+        } else {
+          setScanNote(
+            "We read the document but couldn't find its location — tap the map to place the pin where you think it is.",
+          );
+        }
+        // Held only after a successful read: a document we could not read is not worth attaching.
+        scannedFile.current = file;
+        return true;
+      } catch {
+        setError("Couldn't read that document.");
+        return false;
+      } finally {
+        setScanning(false);
+      }
+    },
+    [applyLocation],
+  );
+
   // Confirm: create the property. Returns its id so the caller can open its drawer and refresh the
   // map, or null if the write failed.
   const confirm = useCallback(async (): Promise<string | null> => {
@@ -406,6 +494,21 @@ export function useQuickAdd(getBias?: () => [number, number] | undefined) {
       return null;
     }
     createdIdRef.current = res.propertyId;
+    // The property exists now, so the document it was created from can finally be filed against it —
+    // the action needs an id, and there was none until this point. Best-effort and AFTER the write: a
+    // failed attachment must not turn a created property into an error, so it says so instead.
+    const pending = scannedFile.current;
+    if (pending) {
+      scannedFile.current = null;
+      const body = new FormData();
+      body.set("file", pending);
+      const attached = await uploadDocument(res.propertyId, body).catch(() => null);
+      if (!attached?.ok) {
+        setScanNote(
+          "Property added — but its document couldn't be attached. You can upload it from Documents.",
+        );
+      }
+    }
     return res.propertyId;
   }, [pin, saving, fields, cadastreChoice]);
 
@@ -422,6 +525,10 @@ export function useQuickAdd(getBias?: () => [number, number] | undefined) {
     saving,
     error,
     fields,
+    /** True while the document the user picked is being read. */
+    scanning,
+    /** What the bar says after a read: where we put the pin, or that we could not find it. */
+    scanNote,
     preview,
     cadastreParcel,
     cadastreChoice,
@@ -435,6 +542,8 @@ export function useQuickAdd(getBias?: () => [number, number] | undefined) {
     pickAddress,
     highlightAddress,
     setField,
+    /** Read a picked document and place the pin from it (or ask the user to). */
+    scanFile,
     // Display-only: the parcel under the cursor, reported by the map layer.
     setCadastreParcel,
     // The commit. This is the ONLY thing that makes a parcel part of the property.
