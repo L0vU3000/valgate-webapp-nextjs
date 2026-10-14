@@ -37,6 +37,7 @@ const PROPERTY = {
   province: "Metro Manila",
   createdAt: 1700000000000,
   buyNumeric: 5000000,
+  coverStorageId: "STORE-COVER-SECRET",
   outstandingMortgage: 1000000,
 };
 
@@ -133,6 +134,7 @@ describe("GET /api/v1/properties", () => {
           createdAt: 1700000000000,
           priceNumeric: 5000000,
           currency: "USD",
+          coverPhoto: { endpoint: "/api/v1/properties/PROP-0001/cover-photo" },
         },
       ],
       nextCursor: "opaque-cursor-abc",
@@ -157,6 +159,19 @@ describe("GET /api/v1/properties", () => {
     const body = await res.json();
     expect(body.items[0].priceNumeric).toBeNull();
     expect(body.items[0].currency).toBeNull();
+  });
+
+  it("returns a null coverPhoto when the property has no selected cover", async () => {
+    resolveApiV1CtxMock.mockResolvedValue({ ok: true, ctx: CTX });
+    listPropertiesPageMock.mockResolvedValue({
+      items: [{ ...PROPERTY, coverStorageId: undefined }],
+      nextCursor: null,
+    });
+
+    const res = await GET(req());
+
+    expect(res.status).toBe(200);
+    expect((await res.json()).items[0].coverPhoto).toBeNull();
   });
 
   it("fails closed with a generic 500 when the service throws unexpectedly (no message leak)", async () => {
