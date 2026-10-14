@@ -46,6 +46,7 @@ export const documents = pgTable("documents", {
   aiStatus: text("ai_status"),                                  // null | "generating" | "ready" | "failed"
   aiSummary: text("ai_summary"),                                // the generated summary text
   aiKeyFields: jsonb("ai_key_fields"),                          // [{ label, value }] | null
+  aiSuggestions: jsonb("ai_suggestions"),                        // [{ field, label, current, suggested, next, status }] | null
   pageCount: bigint("page_count", { mode: "number" }),         // real page count from the model
 }, (t) => [
   index("ix_documents_org").on(t.orgId),

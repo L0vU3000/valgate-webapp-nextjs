@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { suggestPropertyUpdates } from "@/lib/services/property-suggestions";
+import { decideSuggestion, suggestPropertyUpdates } from "@/lib/services/property-suggestions";
 import type { ExtractedProperty } from "@/lib/services/document-scan";
 import type { Property } from "@/lib/data/types/property";
 
@@ -51,14 +51,14 @@ describe("suggestPropertyUpdates", () => {
   it("proposes a value for a field the property does not have yet", () => {
     const s = suggestPropertyUpdates(property({ name: "Villa" }), extracted({ bedrooms: "4" }));
     expect(s).toEqual([
-      { field: "bedrooms", label: "Bedrooms", current: "", suggested: "4", next: 4 },
+      { field: "bedrooms", label: "Bedrooms", current: "", suggested: "4", next: 4, status: "pending" },
     ]);
   });
 
   it("proposes a replacement when the two disagree", () => {
     const s = suggestPropertyUpdates(property({ purchasePrice: "420000" }), extracted({ purchasePrice: "450000" }));
     expect(s).toEqual([
-      { field: "purchasePrice", label: "Purchase price", current: "420000", suggested: "450000", next: "450000" },
+      { field: "purchasePrice", label: "Purchase price", current: "420000", suggested: "450000", next: "450000", status: "pending" },
     ]);
   });
 
@@ -89,5 +89,28 @@ describe("suggestPropertyUpdates", () => {
       extracted({ purchaseDate: "2020-09-13" }),
     );
     expect(s).toEqual([]);
+  });
+});
+
+describe("decideSuggestion", () => {
+  const entries = [
+    { field: "bedrooms", label: "Bedrooms", current: "3", suggested: "4", next: 4, status: "pending" as const },
+    { field: "city", label: "City", current: "Kampot", suggested: "Kep", next: "Kep", status: "pending" as const },
+  ];
+
+  it("remembers the answer so the suggestion stops being offered", () => {
+    const decided = decideSuggestion(entries, "bedrooms", "accepted");
+    expect(decided[0].status).toBe("accepted");
+    expect(decided[1].status).toBe("pending"); // untouched sibling
+  });
+
+  it("leaves the list alone for a field it no longer contains", () => {
+    // A re-read can replace the list under the UI; a stale click must not invent an entry.
+    expect(decideSuggestion(entries, "purchasePrice", "accepted")).toEqual(entries);
+  });
+
+  it("does not mutate the input", () => {
+    decideSuggestion(entries, "bedrooms", "dismissed");
+    expect(entries[0].status).toBe("pending");
   });
 });

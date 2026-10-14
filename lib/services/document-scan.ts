@@ -1,8 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import { generateObject, type LanguageModel } from "ai";
-import { openai } from "@ai-sdk/openai";
-import { anthropic } from "@ai-sdk/anthropic";
+import { documentModel, scanModelSlug } from "./ai-model";
 import { reconcileExtractions, type ScanResult } from "./reconcile-extractions";
 
 // The property details we ask the model to pull out of a scanned document. Every field is nullable —
@@ -49,16 +48,11 @@ const EXTRACTION_PROMPT = [
 ].join(" ");
 
 // The scan model is swappable via the SCAN_MODEL env var so we can pick the best one empirically
-// without touching the extraction code. The provider is inferred from the slug: anything starting with
-// "claude" goes to Anthropic (needs ANTHROPIC_API_KEY), everything else to OpenAI. The default,
-// gpt-5.6-terra, won a bench on real handwritten Khmer consular samples (best address + name accuracy,
-// fastest, cleanest structured output). generateObject + the schema stay identical across models.
+// without touching the extraction code. Provider selection (Anthropic / OpenRouter / OpenAI) and the
+// default live in lib/services/ai-model.ts, shared with the summary and translation jobs so the three
+// document readers cannot drift apart. generateObject + the schema stay identical across models.
 function scanModel(): LanguageModel {
-  const slug = process.env.SCAN_MODEL?.trim() || "gpt-5.6-terra";
-  if (slug.startsWith("claude")) {
-    return anthropic(slug);
-  }
-  return openai(slug);
+  return documentModel(scanModelSlug());
 }
 
 // How many times we run the extraction and reconcile (see reconcile-extractions.ts). 3 gives a real

@@ -35,6 +35,8 @@ vi.mock("@/lib/services/storage", () => ({
 
 vi.mock("@/lib/ratelimit", () => ({
   aiLimiter: {},
+  docIngestLimiter: {},
+  documentAiLimiter: {},
   allowed: allowedMock,
 }));
 

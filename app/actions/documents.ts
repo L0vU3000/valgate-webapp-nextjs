@@ -13,7 +13,9 @@ import {
   deleteDocument as svcDeleteDocument,
   deleteDocuments as svcDeleteDocuments,
   getDocument as svcGetDocument,
+  setDocumentSuggestions as svcSetDocumentSuggestions,
 } from "@/lib/services/documents";
+import { decideSuggestion } from "@/lib/services/property-suggestions";
 import { presignUpload, resolveDocumentUrl } from "@/lib/services/storage";
 import { logActivity } from "@/lib/services/activity";
 import { bustCache } from "@/lib/cache/bust";
@@ -48,6 +50,54 @@ export async function updateDocument(id: string, patch: unknown): Promise<Action
   } catch (err) {
     console.error("updateDocument", err);
     return { ok: false, error: "Could not update document" };
+  }
+}
+
+/**
+ * Record the user's answer to one of a document's proposed property updates.
+ *
+ * The VALUE change is applied by updateProperty — the action that owns property writes, with its own
+ * validation and ownership check. This one only remembers the answer, so a declined suggestion stops
+ * being offered instead of returning on every visit.
+ */
+export async function decideDocumentSuggestion(
+  documentId: string,
+  field: string,
+  decision: "accepted" | "dismissed",
+): Promise<ActionResult<Document>> {
+  const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "decideDocumentSuggestion"))) {
+    return TOO_MANY_REQUESTS;
+  }
+  const parsed = z
+    .object({
+      documentId: z.string().min(1),
+      field: z.string().min(1),
+      decision: z.enum(["accepted", "dismissed"]),
+    })
+    .safeParse({ documentId, field, decision });
+  if (!parsed.success) return { ok: false, error: "Invalid suggestion" };
+  try {
+    const doc = await svcGetDocument(ctx, parsed.data.documentId);
+    if (!doc) return { ok: false, error: "Document not found" };
+    const entries = doc.aiSuggestions ?? [];
+    // The list can be replaced under us by a re-read; answering a suggestion that is no longer
+    // offered is a stale click, not a decision to invent.
+    if (!entries.some((entry) => entry.field === parsed.data.field)) {
+      return { ok: false, error: "That suggestion is no longer on this document" };
+    }
+    const updated = await svcSetDocumentSuggestions(
+      ctx,
+      parsed.data.documentId,
+      decideSuggestion(entries, parsed.data.field, parsed.data.decision),
+    );
+    if (!updated) return { ok: false, error: "Document not found" };
+    revalidateFeTag("documents");
+    await bustCache("documents");
+    return { ok: true, data: updated };
+  } catch (err) {
+    console.error("decideDocumentSuggestion", err);
+    return { ok: false, error: "Could not save that" };
   }
 }
 
