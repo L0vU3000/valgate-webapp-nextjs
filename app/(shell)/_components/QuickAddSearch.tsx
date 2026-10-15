@@ -34,7 +34,7 @@ interface QuickAddSearchProps {
   // A row was committed: clicked, or Enter on the highlighted one.
   onPick: (suggestion: GeocodeSuggestion) => void;
   /** Read a picked document and take the details from it. The file the user chose. */
-  onScanFile: (file: File) => void;
+  onScanFiles: (files: File[]) => void;
   /** True while that read is in flight. */
   scanning: boolean;
   /** What to say after a read: where the pin went, or that the document did not say where it is. */
@@ -59,7 +59,7 @@ export function QuickAddSearch({
   onChange,
   onHighlight,
   onPick,
-  onScanFile,
+  onScanFiles,
   scanning,
   scanNote,
   error,
@@ -172,15 +172,22 @@ export function QuickAddSearch({
       <input
         ref={fileRef}
         type="file"
+        // `multiple`: the card lists the files and reads them one at a time, so one pick can carry a
+        // whole folder of deeds instead of five trips through the picker.
+        multiple
+        // Disabled while a read is running, not just the chip: a second pick mid-batch would
+        // supersede the batch it lands in and strand that batch's remaining rows as "Waiting its
+        // turn" forever.
+        disabled={scanning}
         className="hidden"
         accept={[...ALLOWED_MIME].join(",")}
-        aria-label="Upload a document to create a property from"
+        aria-label="Upload documents to create a property from"
         onChange={(e) => {
-          const file = e.target.files?.[0];
+          const files = [...(e.target.files ?? [])];
           // Cleared first: picking the SAME file twice must fire again, which it will not while the
           // input still holds it.
           e.target.value = "";
-          if (file) onScanFile(file);
+          if (files.length) onScanFiles(files);
         }}
       />
       {/* Shows the mode is escapable without adding a second control. Dimmed while a lookup runs so the
@@ -310,7 +317,7 @@ export function QuickAddSearch({
       type="button"
       onClick={() => fileRef.current?.click()}
       disabled={scanning}
-      aria-label={scanning ? "Reading document" : "Upload a document to create a property from"}
+      aria-label={scanning ? "Reading documents" : "Upload documents to create a property from"}
       title={scanning ? "Reading document" : "Upload a document"}
       aria-busy={scanning}
       className="hidden shrink-0 items-center gap-2 rounded-full border border-border-default bg-surface-base px-4 py-2.5 text-sm font-semibold text-foreground shadow-lg outline-none transition-[background-color,transform] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] hover:bg-surface-tint focus-visible:ring-[3px] focus-visible:ring-ring/50 active:scale-[0.98] disabled:opacity-60 sm:flex"
