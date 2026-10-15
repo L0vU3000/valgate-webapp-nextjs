@@ -3,7 +3,7 @@ import { ShellPageFrame } from "../_components/skeletons";
 
 // Loading state for /documents, per design frame 03.14. It is not a whole-page skeleton:
 // the header, metric labels and tree group labels are static copy and render for real, so
-// only the parts that wait on data (metric values, property rows, the file list) are bones.
+// only the parts that wait on data (metric values, property rows, folder cards, file cards) are bones.
 // Every bone sits inside a box with the loaded state's padding and height, so nothing
 // reflows when the data arrives.
 
@@ -20,7 +20,7 @@ function MetricSkeleton({ label, sub }: { label: string; sub: string }) {
       <span className="flex h-5 items-center">
         <Bone className="h-4 w-16" />
       </span>
-      <span className="text-[12px] text-secondary">{sub}</span>
+      <span className="text-[12px] text-text-tertiary">{sub}</span>
     </div>
   );
 }
@@ -36,7 +36,8 @@ function TreeBar({ width }: { width: number }) {
   );
 }
 
-const ROW_COUNT = 7;
+const FOLDER_COUNT = 4;
+const CARD_COUNT = 4;
 
 export default function DocumentsLoading() {
   return (
@@ -93,32 +94,58 @@ export default function DocumentsLoading() {
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col gap-4">
-          <div className="overflow-hidden rounded-lg border border-border-default bg-surface-base">
-            {Array.from({ length: ROW_COUNT }).map((_, i) => (
-              <div
-                key={i}
-                className="flex h-[55px] items-center gap-3 border-b border-border-subtle px-4 py-2.5 last:border-b-0"
-              >
-                <div className="flex min-w-0 flex-1 items-center gap-3">
-                  <Bone className="h-7 w-7 shrink-0 rounded-lg" />
-                  <Bone className="h-3 w-48 max-w-full" />
+          <section className="flex flex-col gap-2">
+            <div className={TREE_LABEL}>Folders</div>
+            {/* Mirrors the loaded grid exactly: 2 / 3 / 6 columns, card padding py-3 px-3.5,
+                icon + name + count. Six, not four, because six is what fits at frame width. */}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+              {Array.from({ length: FOLDER_COUNT }).map((_, i) => (
+                <div key={i} className="flex flex-col gap-2 rounded-xl border border-border-default bg-surface-base px-3.5 py-3">
+                  <Bone className="h-[18px] w-[18px]" />
+                  <Bone className="h-3 w-3/4" />
+                  <Bone className="h-2.5 w-full" />
                 </div>
-                <Bone className="hidden h-3 w-[170px] sm:block" />
-                <Bone className="hidden h-3 w-[140px] sm:block" />
-                <Bone className="hidden h-3 w-16 sm:block" />
-                <Bone className="hidden h-3 w-[110px] sm:block" />
-                <Bone className="h-4 w-4 shrink-0" />
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          </section>
 
-          <div className="flex h-[76px] items-center justify-between rounded-lg border border-border-default bg-surface-tint p-4">
+          <section className="flex flex-col gap-2">
+            <div className={TREE_LABEL}>Files</div>
+            {/* Loaded toolbar: FILES count, 220px search (h-9), two h-7 filter chips, one
+                h-9 List/Grid toggle container. Heights copied from the real controls. */}
+            <div className="flex flex-wrap items-center gap-3">
+              <Bone className="h-3 w-16" />
+              <Bone className="h-9 w-full rounded-md sm:w-[220px]" />
+              <Bone className="h-7 w-28 rounded-md" />
+              <Bone className="h-7 w-28 rounded-md" />
+              <Bone className="h-9 w-[104px] rounded-md" />
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {Array.from({ length: CARD_COUNT }).map((_, i) => (
+                <div key={i} className="flex flex-col overflow-hidden rounded-[10px] border border-border-default bg-surface-base">
+                  <div className="grid h-[130px] place-items-center bg-surface-tint">
+                    <Bone className="h-[26px] w-[26px]" />
+                  </div>
+                  <div className="flex flex-col gap-[5px] p-3">
+                    <Bone className="h-3.5 w-3/4" />
+                    <Bone className="h-3 w-1/2" />
+                    <div className="flex items-center justify-between">
+                      <Bone className="h-5 w-16 rounded-full" />
+                      <Bone className="h-4 w-4" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <div className="flex items-center justify-between rounded-md border border-border-default bg-val-bg-page-alt p-4">
             <Bone className="h-3 w-[180px]" />
             <div className="flex gap-1">
-              <Bone className="h-7 w-11" />
-              <Bone className="h-7 w-11" />
+              <Bone className="h-11 w-11" />
               <Bone className="h-7 w-8" />
               <Bone className="h-7 w-8" />
+              <Bone className="h-11 w-11" />
             </div>
           </div>
         </div>
