@@ -315,6 +315,43 @@ Requires `member` or above (a viewer gets `403` after the org-scoped property lo
 id is still a plain `404`); demo mode refuses the write with `403`. Creating a rental **payment** in
 the same flow (the wizard's optional payment step) is deliberately not part of this endpoint.
 
+### `GET|POST /api/v1/properties/{id}/payments`
+
+A property's payment history and recording a new payment.
+
+`GET` returns `{ "payments": PaymentDto[] }`, newest first (`date` desc, then `id` desc). `?limit=`
+is an integer `1`–`200`, default `50`; anything else is a `400`. No cursor — only the newest `limit`
+rows are reachable. Read rate limiter.
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | `string` | |
+| `leaseId` | `string \| null` | |
+| `date` | `number` | Unix ms. |
+| `kind` | `"Rent" \| "Fee" \| "Deposit" \| "Refund"` | |
+| `amount` | `number` | `>= 0`. |
+| `method` | `"ABA Bank" \| "Wing" \| "Wire transfer" \| "Cash"` | |
+| `status` | `"Paid" \| "Pending" \| "Failed" \| "Overdue"` | |
+
+Withheld: `orgId`, `userId`, `tenantId`, `propertyId` (it is the URL), `dueDate`.
+
+`POST` body: `{ "date", "kind", "amount", "method", "status", "leaseId"? }` → `201` with the DTO.
+`propertyId` comes from the URL; a body `propertyId` and other unknown keys are stripped. A `leaseId`
+that is not a lease of this property is a `400`. Requires `member`+.
+
+Missing or cross-org property is a plain `404` for both verbs (checked before the role gate).
+
+### `PATCH|DELETE /api/v1/payments/{paymentId}`
+
+`PATCH` takes any non-empty subset of `date`, `kind`, `amount`, `method`, `status` and returns the
+DTO (`200`). An empty body — or one carrying only unknown keys or `leaseId`, which is not patchable —
+is a `400`. Requires `member`+.
+
+`DELETE` returns `204`. Requires `admin`+.
+
+Both look the payment up org-scoped first, so a cross-org id is a plain `404`, never a `403`. Demo
+mode refuses both with `403`.
+
 ## DTO omissions (by design)
 
 None of the v1 DTOs ever include: internal `userId`/`orgId`/`clientId`, any storage id

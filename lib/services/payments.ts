@@ -1,5 +1,5 @@
 import "server-only"; // C1
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { leases, payments } from "@/lib/db/schema";
 import { PaymentSchema, type Payment } from "@/lib/data/types/payment";
@@ -30,14 +30,30 @@ export async function getPayment(ctx: Ctx, id: string): Promise<Payment | null> 
   return row ? rowToPayment(row) : null;
 }
 
-export async function createPayment(ctx: Ctx, input: NewPayment): Promise<Payment> {
+// One property's payment history, newest first, capped at `limit` (HTTP API v1 history list).
+export async function listPropertyPaymentsNewestFirst(
+  ctx: Ctx, propertyId: string, limit: number,
+): Promise<Payment[]> {
+  const rows = await db.select().from(payments)
+    .where(and(eq(payments.orgId, ctx.orgId), eq(payments.propertyId, propertyId))) // C3
+    .orderBy(desc(payments.date), desc(payments.id))
+    .limit(limit);
+  return rows.map(rowToPayment);
+}
+
+// `scopePropertyId` (HTTP API v1): the payment belongs to this property regardless of the lease,
+// and a leaseId that is not a lease OF this property (missing, cross-org, or another property's)
+// throws "lease_not_in_property" instead of silently re-homing the payment.
+export async function createPayment(ctx: Ctx, input: NewPayment, scopePropertyId?: string): Promise<Payment> {
   requireMember(ctx);
   let propertyId: string | undefined;
   if (input.leaseId) {
     const [lease] = await db.select({ propertyId: leases.propertyId }).from(leases)
       .where(and(eq(leases.orgId, ctx.orgId), eq(leases.id, input.leaseId)));
     propertyId = lease?.propertyId;
+    if (scopePropertyId && propertyId !== scopePropertyId) throw new Error("lease_not_in_property");
   }
+  if (scopePropertyId) propertyId = scopePropertyId;
   return scopedInsert(ctx, payments, "PMT", input, rowToPayment, propertyId ? { propertyId } : undefined);
 }
 

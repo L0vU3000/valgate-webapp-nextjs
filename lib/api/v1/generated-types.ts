@@ -378,6 +378,64 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/properties/{id}/payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List a property's payment history
+         * @description The property's payments, newest first (`date` desc, then `id` desc), org-scoped.
+         *     `limit` is an integer 1-200, default 50; anything else is a 400. No cursor: only the
+         *     newest `limit` rows are reachable. A property that does not exist, or exists in another
+         *     org, is a plain 404 — never an empty list.
+         */
+        get: operations["listPropertyPayments"];
+        put?: never;
+        /**
+         * Record a payment
+         * @description `propertyId` comes from the URL (a body `propertyId` is ignored); `id` is
+         *     server-generated; unknown keys are stripped. An optional `leaseId` must be a lease of
+         *     this property, else 400. Requires role `member` or above; the org-scoped property
+         *     lookup runs first, so a cross-org property is a plain 404, not a 403.
+         */
+        post: operations["createPropertyPayment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/payments/{paymentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a payment
+         * @description Removes the payment. Requires role `admin` or above. Success is 204 with an empty
+         *     body. The org-scoped lookup runs first, so a payment in another org is a plain 404.
+         */
+        delete: operations["deletePayment"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a payment
+         * @description Partially updates `date`, `kind`, `amount`, `method`, `status`. At least one of them is
+         *     required — an empty object (or one with only unknown/non-patchable keys such as
+         *     `leaseId`) is a 400. Requires role `member` or above. The org-scoped lookup runs first,
+         *     so a payment in another org is a plain 404, not a 403.
+         */
+        patch: operations["updatePayment"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -697,6 +755,51 @@ export interface components {
                 message: string;
             };
         };
+        /**
+         * @description Public subset of a payment. `orgId`, `userId`, `tenantId`, `propertyId` (implied by the
+         *     route) and `dueDate` are withheld.
+         */
+        PaymentDtoV1: {
+            id: string;
+            leaseId: string | null;
+            /** @description Unix ms. */
+            date: number;
+            /** @enum {string} */
+            kind: "Rent" | "Fee" | "Deposit" | "Refund";
+            amount: number;
+            /** @enum {string} */
+            method: "ABA Bank" | "Wing" | "Wire transfer" | "Cash";
+            /** @enum {string} */
+            status: "Paid" | "Pending" | "Failed" | "Overdue";
+        };
+        PaymentListDtoV1: {
+            payments: components["schemas"]["PaymentDtoV1"][];
+        };
+        PaymentCreateBody: {
+            /** @description Optional; must be a lease of the URL's property. */
+            leaseId?: string;
+            /** @description Unix ms. */
+            date: number;
+            /** @enum {string} */
+            kind: "Rent" | "Fee" | "Deposit" | "Refund";
+            amount: number;
+            /** @enum {string} */
+            method: "ABA Bank" | "Wing" | "Wire transfer" | "Cash";
+            /** @enum {string} */
+            status: "Paid" | "Pending" | "Failed" | "Overdue";
+        };
+        /** @description At least one field. `leaseId` is not patchable. */
+        PaymentPatchBody: {
+            /** @description Unix ms. */
+            date?: number;
+            /** @enum {string} */
+            kind?: "Rent" | "Fee" | "Deposit" | "Refund";
+            amount?: number;
+            /** @enum {string} */
+            method?: "ABA Bank" | "Wing" | "Wire transfer" | "Cash";
+            /** @enum {string} */
+            status?: "Paid" | "Pending" | "Failed" | "Overdue";
+        };
     };
     responses: {
         /** @description Authentication required */
@@ -761,6 +864,8 @@ export interface components {
         DocumentIdPath: string;
         /** @description Valuation ID */
         ValuationIdPath: string;
+        /** @description Payment ID */
+        PaymentIdPath: string;
         /** @description Ownership record ID */
         OwnershipRecordIdPath: string;
         /** @description Free-text address query (3-200 characters). Anything else is a 400. */
@@ -1425,6 +1530,129 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listPropertyPayments: {
+        parameters: {
+            query?: {
+                /** @description Max rows, integer 1-200 (default 50). */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Property ID */
+                id: components["parameters"]["PropertyIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Payment history, newest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentListDtoV1"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    createPropertyPayment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Property ID */
+                id: components["parameters"]["PropertyIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PaymentCreateBody"];
+            };
+        };
+        responses: {
+            /** @description Payment created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentDtoV1"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    deletePayment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Payment ID */
+                paymentId: components["parameters"]["PaymentIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Payment deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    updatePayment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Payment ID */
+                paymentId: components["parameters"]["PaymentIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PaymentPatchBody"];
+            };
+        };
+        responses: {
+            /** @description Payment updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentDtoV1"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             429: components["responses"]["RateLimited"];
             500: components["responses"]["InternalError"];

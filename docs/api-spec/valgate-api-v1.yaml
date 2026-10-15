@@ -679,6 +679,137 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
+  /properties/{id}/payments:
+    get:
+      operationId: listPropertyPayments
+      summary: List a property's payment history
+      description: |
+        The property's payments, newest first (`date` desc, then `id` desc), org-scoped.
+        `limit` is an integer 1-200, default 50; anything else is a 400. No cursor: only the
+        newest `limit` rows are reachable. A property that does not exist, or exists in another
+        org, is a plain 404 — never an empty list.
+      parameters:
+        - $ref: "#/components/parameters/PropertyIdPath"
+        - name: limit
+          in: query
+          required: false
+          description: Max rows, integer 1-200 (default 50).
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        "200":
+          description: Payment history, newest first
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentListDtoV1"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    post:
+      operationId: createPropertyPayment
+      summary: Record a payment
+      description: |
+        `propertyId` comes from the URL (a body `propertyId` is ignored); `id` is
+        server-generated; unknown keys are stripped. An optional `leaseId` must be a lease of
+        this property, else 400. Requires role `member` or above; the org-scoped property
+        lookup runs first, so a cross-org property is a plain 404, not a 403.
+      parameters:
+        - $ref: "#/components/parameters/PropertyIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentCreateBody"
+      responses:
+        "201":
+          description: Payment created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentDtoV1"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /payments/{paymentId}:
+    patch:
+      operationId: updatePayment
+      summary: Update a payment
+      description: |
+        Partially updates `date`, `kind`, `amount`, `method`, `status`. At least one of them is
+        required — an empty object (or one with only unknown/non-patchable keys such as
+        `leaseId`) is a 400. Requires role `member` or above. The org-scoped lookup runs first,
+        so a payment in another org is a plain 404, not a 403.
+      parameters:
+        - $ref: "#/components/parameters/PaymentIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentPatchBody"
+      responses:
+        "200":
+          description: Payment updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentDtoV1"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    delete:
+      operationId: deletePayment
+      summary: Delete a payment
+      description: |
+        Removes the payment. Requires role `admin` or above. Success is 204 with an empty
+        body. The org-scoped lookup runs first, so a payment in another org is a plain 404.
+      parameters:
+        - $ref: "#/components/parameters/PaymentIdPath"
+      responses:
+        "204":
+          description: Payment deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
 components:
   securitySchemes:
     clerkSession:
@@ -709,6 +840,13 @@ components:
       in: path
       required: true
       description: Valuation ID
+      schema:
+        type: string
+    PaymentIdPath:
+      name: paymentId
+      in: path
+      required: true
+      description: Payment ID
       schema:
         type: string
     OwnershipRecordIdPath:
@@ -1349,6 +1487,96 @@ components:
               enum: [unauthorized, invalid_request, forbidden, not_found, rate_limited, internal_error]
             message:
               type: string
+
+    PaymentDtoV1:
+      type: object
+      required: [id, leaseId, date, kind, amount, method, status]
+      description: |
+        Public subset of a payment. `orgId`, `userId`, `tenantId`, `propertyId` (implied by the
+        route) and `dueDate` are withheld.
+      properties:
+        id:
+          type: string
+        leaseId:
+          type: [string, "null"]
+        date:
+          type: integer
+          minimum: 0
+          maximum: 4102444800000
+          description: Unix ms.
+        kind:
+          type: string
+          enum: [Rent, Fee, Deposit, Refund]
+        amount:
+          type: number
+          minimum: 0
+          maximum: 999999999999.99
+        method:
+          type: string
+          enum: [ABA Bank, Wing, Wire transfer, Cash]
+        status:
+          type: string
+          enum: [Paid, Pending, Failed, Overdue]
+
+    PaymentListDtoV1:
+      type: object
+      required: [payments]
+      properties:
+        payments:
+          type: array
+          items:
+            $ref: "#/components/schemas/PaymentDtoV1"
+
+    PaymentCreateBody:
+      type: object
+      required: [date, kind, amount, method, status]
+      properties:
+        leaseId:
+          type: string
+          minLength: 1
+          description: Optional; must be a lease of the URL's property.
+        date:
+          type: integer
+          minimum: 0
+          maximum: 4102444800000
+          description: Unix ms.
+        kind:
+          type: string
+          enum: [Rent, Fee, Deposit, Refund]
+        amount:
+          type: number
+          minimum: 0
+          maximum: 999999999999.99
+        method:
+          type: string
+          enum: [ABA Bank, Wing, Wire transfer, Cash]
+        status:
+          type: string
+          enum: [Paid, Pending, Failed, Overdue]
+
+    PaymentPatchBody:
+      type: object
+      minProperties: 1
+      description: At least one field. `leaseId` is not patchable.
+      properties:
+        date:
+          type: integer
+          minimum: 0
+          maximum: 4102444800000
+          description: Unix ms.
+        kind:
+          type: string
+          enum: [Rent, Fee, Deposit, Refund]
+        amount:
+          type: number
+          minimum: 0
+          maximum: 999999999999.99
+        method:
+          type: string
+          enum: [ABA Bank, Wing, Wire transfer, Cash]
+        status:
+          type: string
+          enum: [Paid, Pending, Failed, Overdue]
 
   responses:
     Unauthorized:
