@@ -104,6 +104,9 @@ export function HomePage({
   const [closingKey, setClosingKey] = useState<string | null>(null);
   const [tableOpen, setTableOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
+  // Quick Add holds the row on screen for one exit animation before committing the cancel, so
+  // Cancel is a transition rather than a swap. See the armed row below.
+  const [closingQuickAdd, setClosingQuickAdd] = useState(false);
   const [placeholderIdx, setPlaceholderIdx] = useState(0);
   const [placeholderVisible, setPlaceholderVisible] = useState(true);
   const [mapLoaded, setMapLoaded] = useState(false);
@@ -423,6 +426,18 @@ export function HomePage({
     setTimeout(() => setClosingKey(null), 220);
   }, [selectedPin]);
 
+  // Same hold-open trick as closeDrawer, for the same reason: let the row play its exit before the
+  // state flips it away. 140ms is the app's dismiss length (NotificationsPanel uses this exact
+  // curve and duration), and the commit is a timer rather than `animationend` on purpose — a timer
+  // still fires when Reduce Motion suppresses the animation, so the row can never be stranded open.
+  const closeQuickAdd = useCallback(() => {
+    setClosingQuickAdd(true);
+    setTimeout(() => {
+      setClosingQuickAdd(false);
+      quickAdd.cancel();
+    }, 140);
+  }, [quickAdd]);
+
   const handlePinClick = useCallback(
     (pinId: string | null) => {
       if (pinId === null) return;
@@ -637,7 +652,18 @@ export function HomePage({
               // `items-start`, not `items-center`: the bar can now be taller than its pill (the
               // document card and any message sit under the field), and centring the row against
               // that taller box lifted the pill ~16px above the Cancel chip beside it.
-              <div className="flex items-start gap-2">
+              //
+              // The row fades in as one piece: arming used to swap the pill for field + chips with
+              // no transition at all, while the column glided 600ms out from under it. 200ms on the
+              // house expo-out lands the content early in that glide, so the two read as one move.
+              <div
+                className={cn(
+                  "flex items-start gap-2",
+                  closingQuickAdd
+                    ? "[animation:fade-slide-up-out_0.14s_cubic-bezier(0.5,0,0.75,0)_both] pointer-events-none"
+                    : "[animation:fade-slide-up_0.2s_cubic-bezier(0.16,1,0.3,1)_both] motion-reduce:animate-none",
+                )}
+              >
                 <QuickAddSearch
                   query={quickAdd.query}
                   suggestions={quickAdd.suggestions}
@@ -654,7 +680,7 @@ export function HomePage({
                   error={quickAddCardPin ? null : quickAdd.error}
                 />
                 <button
-                  onClick={quickAdd.cancel}
+                  onClick={closeQuickAdd}
                   aria-label="Cancel quick add"
                   className="hidden items-center gap-2 rounded-full border border-border-default bg-surface-base px-5 py-2.5 text-sm font-semibold text-foreground shadow-lg transition-all duration-200 active:scale-[0.98] sm:flex"
                 >
