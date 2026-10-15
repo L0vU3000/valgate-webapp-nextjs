@@ -19,6 +19,10 @@ import {
   UNCATEGORISED_LABEL,
   UNKNOWN_SIZE_LABEL,
   UNKNOWN_PROPERTY_LABEL,
+  recentRows,
+  unfiledRows,
+  propertyDocumentCounts,
+  mapRowsToGridCards,
 } from "@/app/(shell)/documents/_lib/vault-rows";
 import type { Document } from "@/lib/data/types/document";
 
@@ -141,6 +145,66 @@ describe("computeMetrics", () => {
   it("pluralises the property span sub-line", () => {
     expect(propertySpanLabel(1)).toBe("Across 1 property");
     expect(propertySpanLabel(4)).toBe("Across 4 properties");
+  });
+});
+
+describe("vault tree and grid derivations", () => {
+  const rows = buildRows(
+    [
+      doc({
+        id: "old-unfiled",
+        propertyId: "p1",
+        name: "old.pdf",
+        uploadedAt: Date.UTC(2026, 0, 1),
+      }),
+      doc({
+        id: "new-filed",
+        propertyId: "p2",
+        name: "new.xlsx",
+        folderId: "folder-1",
+        uploadedAt: Date.UTC(2026, 2, 1),
+      }),
+      doc({
+        id: "middle-unfiled",
+        propertyId: "p1",
+        name: "middle.jpg",
+        uploadedAt: Date.UTC(2026, 1, 1),
+      }),
+    ],
+    { p1: "Riverside Villa", p2: "Airport Warehouse" },
+  );
+
+  it("orders Recent by the persisted upload time without mutating the source rows", () => {
+    const recent = recentRows(rows);
+
+    expect(recent.map((row) => row.id)).toEqual(["new-filed", "middle-unfiled", "old-unfiled"]);
+    expect(rows.map((row) => row.id)).toEqual(["old-unfiled", "new-filed", "middle-unfiled"]);
+  });
+
+  it("selects Unfiled strictly from the persisted folder id", () => {
+    expect(unfiledRows(rows).map((row) => row.id)).toEqual(["old-unfiled", "middle-unfiled"]);
+  });
+
+  it("counts documents per real property id, keeping similarly named properties distinct", () => {
+    expect(propertyDocumentCounts(rows)).toEqual([
+      { id: "p2", name: "Airport Warehouse", count: 1 },
+      { id: "p1", name: "Riverside Villa", count: 2 },
+    ]);
+  });
+
+  it("maps grid cards only from the list row values they render", () => {
+    expect(mapRowsToGridCards([rows[1]])).toEqual([
+      expect.objectContaining({
+        id: "new-filed",
+        name: "new.xlsx",
+        propertyId: "p2",
+        propertyName: "Airport Warehouse",
+        category: UNCATEGORISED_LABEL,
+        fileTypeLabel: "XLSX",
+        size: UNKNOWN_SIZE_LABEL,
+        uploaded: rows[1].uploaded,
+      }),
+    ]);
   });
 });
 

@@ -149,6 +149,12 @@ export type VaultRow = {
   name: string;
   propertyId: string;
   propertyName: string;
+  // This is kept raw for the Recent view. The rendered `uploaded` field remains
+  // the formatted value, so sorting never has to parse display copy.
+  uploadedAt: number;
+  // A missing folder is a real, first-class state in the document contract.
+  // It is what the vault's Unfiled view means; it is not inferred from a label.
+  folderId: string | null;
   category: string;
   // The persisted verifies entity type, or null when the document links to nothing.
   // Kept alongside the label so renderers ask "does this verify anything?" instead of
@@ -178,6 +184,8 @@ export function buildRows(
       name: doc.name,
       propertyId: doc.propertyId,
       propertyName: propertyNames[doc.propertyId] ?? UNKNOWN_PROPERTY_LABEL,
+      uploadedAt: doc.uploadedAt,
+      folderId: doc.folderId ?? null,
       category: categoryLabel(doc.category),
       verifiesEntityType: doc.verifies?.entityType ?? null,
       verifiesLabel: chip.label,
@@ -189,6 +197,71 @@ export function buildRows(
       uploaded: formatDate(doc.uploadedAt),
     };
   });
+}
+
+// Recent is a presentation order over the same rows, not a separate query. Copy before
+// sorting so callers holding the original rows never see their list unexpectedly mutated.
+export function recentRows(rows: VaultRow[]): VaultRow[] {
+  return [...rows].sort((a, b) => b.uploadedAt - a.uploadedAt);
+}
+
+// A document belongs in Unfiled only when its persisted folder id is absent. A blank
+// display label or a missing folder lookup must not change that classification.
+export function unfiledRows(rows: VaultRow[]): VaultRow[] {
+  return rows.filter((row) => row.folderId === null);
+}
+
+export type PropertyDocumentCount = {
+  id: string;
+  name: string;
+  count: number;
+};
+
+// The tree lists only properties represented by a document row. Counting by id avoids
+// collapsing separate properties that happen to have the same human-facing name.
+export function propertyDocumentCounts(rows: VaultRow[]): PropertyDocumentCount[] {
+  const counts = new Map<string, PropertyDocumentCount>();
+  for (const row of rows) {
+    const current = counts.get(row.propertyId);
+    if (current) current.count += 1;
+    else counts.set(row.propertyId, { id: row.propertyId, name: row.propertyName, count: 1 });
+  }
+  return [...counts.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+// Grid cards deliberately project the existing row shape. This keeps the two views in
+// lockstep: changing a value in the list cannot leave the grid showing invented metadata.
+export type VaultGridCard = Pick<
+  VaultRow,
+  | "id"
+  | "name"
+  | "propertyId"
+  | "propertyName"
+  | "category"
+  | "verifiesEntityType"
+  | "verifiesLabel"
+  | "verifiesClass"
+  | "fileTypeLabel"
+  | "tileClass"
+  | "size"
+  | "uploaded"
+>;
+
+export function mapRowsToGridCards(rows: VaultRow[]): VaultGridCard[] {
+  return rows.map(({ id, name, propertyId, propertyName, category, verifiesEntityType, verifiesLabel, verifiesClass, fileTypeLabel, tileClass, size, uploaded }) => ({
+    id,
+    name,
+    propertyId,
+    propertyName,
+    category,
+    verifiesEntityType,
+    verifiesLabel,
+    verifiesClass,
+    fileTypeLabel,
+    tileClass,
+    size,
+    uploaded,
+  }));
 }
 
 // A row belongs to its document's property, so the preview target must be built
