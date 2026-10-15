@@ -46,8 +46,13 @@ import { QuickAddPanel } from "./QuickAddPanel";
 import { syncCadastreLayer } from "@/components/map/cadastre-layer";
 import { QuickAddSearch } from "./QuickAddSearch";
 import { useQuickAdd } from "./use-quick-add";
+import type { QuickAddDoc } from "./use-quick-add";
 import type * as mapboxgl from "maplibre-gl";
 import type { MapCamera } from "@/components/map/MapView";
+
+// A stable empty list for the many renders where no document is in play. A fresh `[]` each render
+// would be a new prop identity every time for no reason.
+const EMPTY_DOCS: readonly QuickAddDoc[] = [];
 
 const MapView = dynamic(
   () => import("@/components/map/MapView").then((m) => m.MapView),
@@ -104,6 +109,9 @@ export function HomePage({
   const [closingKey, setClosingKey] = useState<string | null>(null);
   const [tableOpen, setTableOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
+  // Quick Add holds the row on screen for one exit animation before committing the cancel, so
+  // Cancel is a transition rather than a swap. See the armed row below.
+  const [closingQuickAdd, setClosingQuickAdd] = useState(false);
   const [placeholderIdx, setPlaceholderIdx] = useState(0);
   const [placeholderVisible, setPlaceholderVisible] = useState(true);
   const [mapLoaded, setMapLoaded] = useState(false);
@@ -279,6 +287,13 @@ export function HomePage({
   // that slot must not move before there is a card in it.
   const quickAddCardPin = quickAdd.active ? quickAdd.pin : null;
 
+  // The documents in play, when the user is adding a property BY picking them. Their presence is what
+  // lets the card exist before a pin does: the documents are the anchor, and the place is the question
+  // the card is still asking. Cleared with the mode, so a closed card never leaves one behind.
+  const quickAddDocs = quickAdd.active ? quickAdd.docs : EMPTY_DOCS;
+  // What opens the card — a pin, or documents being read.
+  const quickAddCardOpen = !!quickAddCardPin || quickAddDocs.length > 0;
+
   // Take the MAP to a searched place. Navigation only — this deliberately does NOT drop a pin or open
   // quick add. Search is "where is it / take me there"; choosing a property is a separate act on the
   // map (click a parcel, use quick add). Dropping a pin here meant a plain location search silently
@@ -422,6 +437,18 @@ export function HomePage({
     setSelectedPin(null);
     setTimeout(() => setClosingKey(null), 220);
   }, [selectedPin]);
+
+  // Same hold-open trick as closeDrawer, for the same reason: let the row play its exit before the
+  // state flips it away. 140ms is the app's dismiss length (NotificationsPanel uses this exact
+  // curve and duration), and the commit is a timer rather than `animationend` on purpose — a timer
+  // still fires when Reduce Motion suppresses the animation, so the row can never be stranded open.
+  const closeQuickAdd = useCallback(() => {
+    setClosingQuickAdd(true);
+    setTimeout(() => {
+      setClosingQuickAdd(false);
+      quickAdd.cancel();
+    }, 140);
+  }, [quickAdd]);
 
   const handlePinClick = useCallback(
     (pinId: string | null) => {
@@ -622,7 +649,7 @@ export function HomePage({
         <PortfolioLegend
           stats={portfolioStats}
           mapLoaded={mapLoaded}
-          drawerOpen={!!drawerProperty || !!quickAddCardPin}
+          drawerOpen={!!drawerProperty || quickAddCardOpen}
           quickAddOpen={quickAdd.active}
           action={
             // The map's primary action, so it gets the brand colour and reads as a button rather
@@ -634,7 +661,21 @@ export function HomePage({
             // field is desktop-only (QuickAddSearch hides itself under `sm`), so the cancel button
             // stays behind it for the phone, where the bottom sheet covers the legend anyway.
             quickAdd.active ? (
-              <div className="flex items-center gap-2">
+              // `items-start`, not `items-center`: the bar can now be taller than its pill (the
+              // document card and any message sit under the field), and centring the row against
+              // that taller box lifted the pill ~16px above the Cancel chip beside it.
+              //
+              // The row fades in as one piece: arming used to swap the pill for field + chips with
+              // no transition at all, while the column glided 600ms out from under it. 200ms on the
+              // house expo-out lands the content early in that glide, so the two read as one move.
+              <div
+                className={cn(
+                  "flex items-start gap-2",
+                  closingQuickAdd
+                    ? "[animation:fade-slide-up-out_0.14s_cubic-bezier(0.5,0,0.75,0)_both] pointer-events-none"
+                    : "[animation:fade-slide-up_0.2s_cubic-bezier(0.16,1,0.3,1)_both] motion-reduce:animate-none",
+                )}
+              >
                 <QuickAddSearch
                   query={quickAdd.query}
                   suggestions={quickAdd.suggestions}
@@ -643,15 +684,15 @@ export function HomePage({
                   onChange={quickAdd.searchAddress}
                   onHighlight={quickAdd.highlightAddress}
                   onPick={quickAdd.pickAddress}
-                  onScanFile={quickAdd.scanFile}
+                  onScanFiles={quickAdd.scanFiles}
                   scanning={quickAdd.scanning}
                   scanNote={quickAdd.scanNote}
                   // Pre-pin only: once the card exists it owns the error (it sits closer to the button
                   // that failed), so showing it twice would read as two separate problems.
-                  error={quickAddCardPin ? null : quickAdd.error}
+                  error={quickAddCardOpen ? null : quickAdd.error}
                 />
                 <button
-                  onClick={quickAdd.cancel}
+                  onClick={closeQuickAdd}
                   aria-label="Cancel quick add"
                   className="hidden items-center gap-2 rounded-full border border-border-default bg-surface-base px-5 py-2.5 text-sm font-semibold text-foreground shadow-lg transition-all duration-200 active:scale-[0.98] sm:flex"
                 >
@@ -681,7 +722,7 @@ export function HomePage({
         {/* Map controls */}
         <MapControls
           mapRef={mapRef}
-          drawerOpen={!!selectedProperty || !!quickAddCardPin}
+          drawerOpen={!!selectedProperty || quickAddCardOpen}
           isSatellite={isSatellite}
           onToggleSatellite={toggleSatellite}
           showMeasurements={showMeasurements}
@@ -703,12 +744,16 @@ export function HomePage({
           satellite={isSatellite}
         />
 
-        {/* Quick-add card. Gated on a real pin: a suggestion being previewed is not a dropped pin,
-            and the card is only ever the answer to "what is at this pin?" — it has nothing to say
-            before one exists. */}
-        {quickAddCardPin && (
+        {/* Quick-add card. Two things can open it: a dropped pin, or a document the user picked to
+            add a property FROM — the document path leads with the document and treats the place as
+            the question still being asked, so it must not wait for a pin the document may never
+            have given us. (A previewed suggestion still opens nothing: that is not a location yet.) */}
+        {quickAddCardOpen && (
           <QuickAddPanel
             pin={quickAddCardPin}
+            docs={quickAddDocs}
+            onRetryDoc={quickAdd.retryDoc}
+            onRemoveDoc={quickAdd.removeDoc}
             resolving={quickAdd.resolving}
             saving={quickAdd.saving}
             error={quickAdd.error}
