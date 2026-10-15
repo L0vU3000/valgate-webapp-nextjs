@@ -658,6 +658,11 @@ export interface components {
             bedrooms?: string;
             bathrooms?: string;
             yearBuilt?: string;
+            /**
+             * @description Stored purchase amount, read back as `priceNumeric`. Omit to leave the price
+             *     uncollected (create default) or unchanged (patch). Negative values, and values above the stored range, are a 400.
+             */
+            buyNumeric?: number;
         };
         /**
          * @description Partial update. Every field is optional — an empty object is valid and changes
@@ -679,6 +684,11 @@ export interface components {
             bedrooms?: string;
             bathrooms?: string;
             yearBuilt?: string;
+            /**
+             * @description Stored purchase amount, read back as `priceNumeric`. Omit to leave the price
+             *     unchanged. Negative values, and values above the stored range, are a 400.
+             */
+            buyNumeric?: number;
         };
         ErrorEnvelope: {
             error: {

@@ -7,7 +7,11 @@ import { z } from "zod";
 // Accepted fields are the GET PropertyDetailDto fields that a client may reasonably
 // send back, plus lat/lng (the map pin; the database requires them on create).
 // Unknown extra keys are stripped by Zod (not rejected) so iOS can keep sending
-// photoStorageIds, mortgages, buyNumeric, etc. without those values being stored.
+// photoStorageIds, mortgages, etc. without those values being stored.
+//
+// buyNumeric (the stored purchase amount iOS reads back as priceNumeric) IS accepted
+// and stored — it is the one money field the website's edit form can change too
+// (see app/(shell)/property/actions.ts: buyNumeric = parseCurrency(purchasePrice)).
 
 const optionalDetailString = z.string().optional();
 
@@ -25,6 +29,11 @@ export const PropertyCreateBodySchema = z.object({
   bedrooms: optionalDetailString,
   bathrooms: optionalDetailString,
   yearBuilt: optionalDetailString,
+  // Stored purchase amount (read back as priceNumeric). Non-negative: a negative
+  // price is a client bug, not data. 0 means "price not collected", same as create.
+  // Bounded to the column's range (numeric(14,2) = 12 integer digits) so an absurd
+  // value is a 400 here instead of a Postgres overflow surfacing as a 500.
+  buyNumeric: z.number().nonnegative().max(999_999_999_999.99).optional(),
 });
 
 export type PropertyCreateBody = z.infer<typeof PropertyCreateBodySchema>;
@@ -88,9 +97,9 @@ export function parsePatchBody(
 /**
  * Turns a validated create body into the website NewProperty shape.
  *
- * The iPhone simple form does not collect title or purchase value. The website
- * schema still requires them, so we fill the same leftovers the plan specifies:
- * totalArea defaults to "", title is "—", buyNumeric is 0.
+ * The iPhone simple form does not collect title or purchase value. totalArea
+ * defaults to "", title is "—", and buyNumeric defaults to 0 (the create default
+ * meaning "price not collected") — a caller that DOES send buyNumeric gets it stored.
  */
 export function toNewProperty(body: PropertyCreateBody): NewProperty {
   return {
@@ -108,7 +117,7 @@ export function toNewProperty(body: PropertyCreateBody): NewProperty {
     bathrooms: body.bathrooms,
     yearBuilt: body.yearBuilt,
     title: "—",
-    buyNumeric: 0,
+    buyNumeric: body.buyNumeric ?? 0,
   };
 }
 
@@ -160,6 +169,9 @@ export function toPropertyPatch(body: PropertyPatchBody): PropertyPatch {
   }
   if (body.yearBuilt !== undefined) {
     patch.yearBuilt = body.yearBuilt;
+  }
+  if (body.buyNumeric !== undefined) {
+    patch.buyNumeric = body.buyNumeric;
   }
 
   return patch;

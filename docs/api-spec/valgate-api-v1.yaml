@@ -1281,6 +1281,13 @@ components:
           type: string
         yearBuilt:
           type: string
+        buyNumeric:
+          type: number
+          minimum: 0
+          maximum: 999999999999.99
+          description: |
+            Stored purchase amount, read back as `priceNumeric`. Omit to leave the price
+            uncollected (create default) or unchanged (patch). Negative values, and values above the stored range, are a 400.
 
     PropertyPatchBody:
       type: object
@@ -1321,6 +1328,13 @@ components:
           type: string
         yearBuilt:
           type: string
+        buyNumeric:
+          type: number
+          minimum: 0
+          maximum: 999999999999.99
+          description: |
+            Stored purchase amount, read back as `priceNumeric`. Omit to leave the price
+            unchanged. Negative values, and values above the stored range, are a 400.
 
     ErrorEnvelope:
       type: object

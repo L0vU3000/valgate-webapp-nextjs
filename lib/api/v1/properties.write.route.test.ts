@@ -124,7 +124,6 @@ describe("parseCreateBody / toNewProperty", () => {
       id: "PROP-FORGED",
       photoStorageIds: ["STORE-SECRET"],
       documentStorageIds: ["DOC-SECRET"],
-      buyNumeric: 999999,
       title: "Hard title",
       outstandingMortgage: 12345,
       coverStorageId: "STORE-COVER-SECRET",
@@ -140,6 +139,26 @@ describe("parseCreateBody / toNewProperty", () => {
     expect(created).not.toHaveProperty("id");
     expect(created.buyNumeric).toBe(0);
     expect(created.title).toBe("—");
+  });
+
+  it("stores buyNumeric when a create body sends a purchase price", () => {
+    const parsed = parseCreateBody({ ...VALID_CREATE, buyNumeric: 250_000 });
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) throw new Error("expected success");
+    expect(parsed.body.buyNumeric).toBe(250_000);
+    expect(toNewProperty(parsed.body).buyNumeric).toBe(250_000);
+  });
+
+  it("rejects a negative buyNumeric", () => {
+    expect(parseCreateBody({ ...VALID_CREATE, buyNumeric: -1 }).ok).toBe(false);
+  });
+
+  // The column is numeric(14,2); above its range the insert would fail and surface as a 500.
+  // A 400 here is the difference between "your body is wrong" and "the server is down".
+  it("rejects a buyNumeric past the stored column range, and accepts one at the top of it", () => {
+    expect(parseCreateBody({ ...VALID_CREATE, buyNumeric: 1e13 }).ok).toBe(false);
+    expect(parseCreateBody({ ...VALID_CREATE, buyNumeric: 999_999_999_999.99 }).ok).toBe(true);
+    expect(parsePatchBody({ buyNumeric: 1e13 }).ok).toBe(false);
   });
 
   it("rejects a missing name, a bad type, and a lat outside the map range", () => {
@@ -160,7 +179,7 @@ describe("parsePatchBody / toPropertyPatch", () => {
     expect(patch).not.toHaveProperty("id");
   });
 
-  it("strips storage ids from a patch body", () => {
+  it("strips storage ids from a patch body and copies a sent buyNumeric", () => {
     const parsed = parsePatchBody({
       name: "Renamed villa",
       photoStorageIds: ["STORE-SECRET"],
@@ -171,6 +190,12 @@ describe("parsePatchBody / toPropertyPatch", () => {
 
     const patch = toPropertyPatch(parsed.body);
     expect(patch).toEqual({ name: "Renamed villa" });
+
+    // The one financial field a client may set is the purchase amount.
+    const withPrice = parsePatchBody({ buyNumeric: 0 });
+    expect(withPrice.ok).toBe(true);
+    if (!withPrice.ok) throw new Error("expected success");
+    expect(toPropertyPatch(withPrice.body)).toEqual({ buyNumeric: 0 });
   });
 });
 
@@ -290,7 +315,6 @@ describe("POST /api/v1/properties", () => {
         ...VALID_CREATE,
         photoStorageIds: ["STORE-PHOTO-SECRET-1"],
         documentStorageIds: ["STORE-DOC-SECRET-1"],
-        buyNumeric: 999999,
         title: "Hard title",
         outstandingMortgage: 12345,
         coverStorageId: "STORE-COVER-SECRET",
@@ -306,6 +330,43 @@ describe("POST /api/v1/properties", () => {
     expect(passed.buyNumeric).toBe(0);
     expect(passed.title).toBe("—");
     expect(JSON.stringify(await res.json())).not.toContain("SECRET");
+  });
+
+  it("passes a sent buyNumeric through to createProperty", async () => {
+    resolveApiV1CtxMock.mockResolvedValue({ ok: true, ctx: MEMBER });
+    createPropertyMock.mockResolvedValue({ ...CREATED_PROPERTY, buyNumeric: 250_000 });
+
+    const res = await POST(
+      jsonRequest("http://localhost/api/v1/properties", "POST", {
+        ...VALID_CREATE,
+        buyNumeric: 250_000,
+      }),
+    );
+
+    expect(res.status).toBe(201);
+    expect(createPropertyMock).toHaveBeenCalledWith(
+      MEMBER,
+      expect.objectContaining({ buyNumeric: 250_000 }),
+    );
+    const body = await res.json();
+    expect(body.priceNumeric).toBe(250_000);
+    expect(body.currency).toBe("USD");
+  });
+
+  it("returns 400 for a negative buyNumeric", async () => {
+    resolveApiV1CtxMock.mockResolvedValue({ ok: true, ctx: OWNER });
+
+    const res = await POST(
+      jsonRequest("http://localhost/api/v1/properties", "POST", {
+        ...VALID_CREATE,
+        buyNumeric: -5,
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error.code).toBe("invalid_request");
+    expect(createPropertyMock).not.toHaveBeenCalled();
   });
 
   it("fails closed with a generic 500 when the service throws unexpectedly (no message leak)", async () => {
@@ -416,7 +477,6 @@ describe("PATCH /api/v1/properties/[id]", () => {
         photoStorageIds: ["STORE-PHOTO-SECRET-1"],
         documentStorageIds: ["STORE-DOC-SECRET-1"],
         outstandingMortgage: 50,
-        buyNumeric: 888,
       }),
       ctxParams("PROP-0001"),
     );
@@ -424,6 +484,53 @@ describe("PATCH /api/v1/properties/[id]", () => {
     expect(res.status).toBe(200);
     expect(updatePropertyMock).toHaveBeenCalledWith(MEMBER, "PROP-0001", { name: "Renamed villa" });
     expect(JSON.stringify(await res.json())).not.toContain("SECRET");
+  });
+
+  it("updates only the purchase price when buyNumeric is the sole field sent", async () => {
+    resolveApiV1CtxMock.mockResolvedValue({ ok: true, ctx: MEMBER });
+    getPropertyMock.mockResolvedValue(CREATED_PROPERTY);
+    updatePropertyMock.mockResolvedValue({ ...CREATED_PROPERTY, buyNumeric: 412_500 });
+
+    const res = await PATCH(
+      jsonRequest("http://localhost/api/v1/properties/PROP-0001", "PATCH", { buyNumeric: 412_500 }),
+      ctxParams("PROP-0001"),
+    );
+
+    expect(res.status).toBe(200);
+    expect(updatePropertyMock).toHaveBeenCalledWith(MEMBER, "PROP-0001", { buyNumeric: 412_500 });
+    const body = await res.json();
+    expect(body.priceNumeric).toBe(412_500);
+    expect(body.currency).toBe("USD");
+  });
+
+  it("leaves the purchase price untouched when buyNumeric is omitted", async () => {
+    resolveApiV1CtxMock.mockResolvedValue({ ok: true, ctx: MEMBER });
+    getPropertyMock.mockResolvedValue({ ...CREATED_PROPERTY, buyNumeric: 100_000 });
+    updatePropertyMock.mockResolvedValue({ ...CREATED_PROPERTY, buyNumeric: 100_000 });
+
+    const res = await PATCH(
+      jsonRequest("http://localhost/api/v1/properties/PROP-0001", "PATCH", { name: "Renamed" }),
+      ctxParams("PROP-0001"),
+    );
+
+    expect(res.status).toBe(200);
+    // The patch carries no buyNumeric key, so the service never writes that column.
+    expect(updatePropertyMock).toHaveBeenCalledWith(MEMBER, "PROP-0001", { name: "Renamed" });
+  });
+
+  it("returns 400 for a negative buyNumeric", async () => {
+    resolveApiV1CtxMock.mockResolvedValue({ ok: true, ctx: OWNER });
+    getPropertyMock.mockResolvedValue(CREATED_PROPERTY);
+
+    const res = await PATCH(
+      jsonRequest("http://localhost/api/v1/properties/PROP-0001", "PATCH", { buyNumeric: -1 }),
+      ctxParams("PROP-0001"),
+    );
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error.code).toBe("invalid_request");
+    expect(updatePropertyMock).not.toHaveBeenCalled();
   });
 
   it("fails closed with a generic 500 when the service throws unexpectedly (no message leak)", async () => {

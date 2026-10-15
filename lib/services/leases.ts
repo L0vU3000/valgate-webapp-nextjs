@@ -7,7 +7,7 @@ import type { NewLease, LeasePatch } from "@/lib/data/types/lease";
 import { toDomain, type Ctx } from "@/lib/services/_mapping";
 import { scopedInsert, scopedUpdate, scopedDelete } from "@/lib/services/_crud";
 
-const rowToLease = (r: typeof leases.$inferSelect): Lease =>
+export const rowToLease = (r: typeof leases.$inferSelect): Lease =>
   LeaseSchema.parse(toDomain(leases, r)); // C6/C7
 
 export async function listLeases(ctx: Ctx, propertyId?: string): Promise<Lease[]> {
