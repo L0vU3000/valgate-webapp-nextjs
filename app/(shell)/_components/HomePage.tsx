@@ -282,6 +282,13 @@ export function HomePage({
   // that slot must not move before there is a card in it.
   const quickAddCardPin = quickAdd.active ? quickAdd.pin : null;
 
+  // The document in play, when the user is adding a property BY picking one. Its presence is what
+  // lets the card exist before a pin does: the document is the anchor, and the place is the question
+  // the card is still asking. Cleared with the mode, so a closed card never leaves one behind.
+  const quickAddDoc = quickAdd.active ? quickAdd.docFile : null;
+  // What opens the card — a pin, or a document being read.
+  const quickAddCardOpen = !!quickAddCardPin || !!quickAddDoc;
+
   // Take the MAP to a searched place. Navigation only — this deliberately does NOT drop a pin or open
   // quick add. Search is "where is it / take me there"; choosing a property is a separate act on the
   // map (click a parcel, use quick add). Dropping a pin here meant a plain location search silently
@@ -637,7 +644,7 @@ export function HomePage({
         <PortfolioLegend
           stats={portfolioStats}
           mapLoaded={mapLoaded}
-          drawerOpen={!!drawerProperty || !!quickAddCardPin}
+          drawerOpen={!!drawerProperty || quickAddCardOpen}
           quickAddOpen={quickAdd.active}
           action={
             // The map's primary action, so it gets the brand colour and reads as a button rather
@@ -710,7 +717,7 @@ export function HomePage({
         {/* Map controls */}
         <MapControls
           mapRef={mapRef}
-          drawerOpen={!!selectedProperty || !!quickAddCardPin}
+          drawerOpen={!!selectedProperty || quickAddCardOpen}
           isSatellite={isSatellite}
           onToggleSatellite={toggleSatellite}
           showMeasurements={showMeasurements}
@@ -732,12 +739,25 @@ export function HomePage({
           satellite={isSatellite}
         />
 
-        {/* Quick-add card. Gated on a real pin: a suggestion being previewed is not a dropped pin,
-            and the card is only ever the answer to "what is at this pin?" — it has nothing to say
-            before one exists. */}
-        {quickAddCardPin && (
+        {/* Quick-add card. Two things can open it: a dropped pin, or a document the user picked to
+            add a property FROM — the document path leads with the document and treats the place as
+            the question still being asked, so it must not wait for a pin the document may never
+            have given us. (A previewed suggestion still opens nothing: that is not a location yet.) */}
+        {quickAddCardOpen && (
           <QuickAddPanel
             pin={quickAddCardPin}
+            doc={
+              quickAddDoc
+                ? {
+                    file: quickAddDoc,
+                    url: quickAdd.docUrl,
+                    extracted: quickAdd.extracted,
+                    lowConfidence: quickAdd.lowConfidence,
+                    status: quickAdd.docStatus ?? "reading",
+                  }
+                : null
+            }
+            onRetryScan={quickAdd.retryScan}
             resolving={quickAdd.resolving}
             saving={quickAdd.saving}
             error={quickAdd.error}
