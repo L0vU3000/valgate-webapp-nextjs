@@ -14,13 +14,12 @@ import { cn } from "@/components/ui/utils";
 import { Input } from "@/components/ui/input";
 import { TYPE_LABEL } from "@/lib/property-helpers";
 import { propertyTypeChoiceSchema } from "@/lib/data/types/property";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { formatBytes } from "@/lib/format";
 import { DocumentPreviewPane } from "@/components/property/DocumentPreviewPane";
-import type { ExtractedProperty } from "@/lib/services/document-scan";
 import type { QuickAddPin } from "./quick-add";
 import { documentSummaryRows, quickAddAddressLine } from "./quick-add";
-import type { CadastreChoice, DocStatus } from "./use-quick-add";
+import type { CadastreChoice, DocStatus, QuickAddDoc } from "./use-quick-add";
 import type { HoveredParcel } from "@/components/map/cadastre-layer";
 
 // Fields the user can set in the card. Deliberately a small subset — financials and photos belong
@@ -34,24 +33,10 @@ export type QuickAddFields = {
   city: string;
 };
 
-/**
- * The document the card is built around, when the property was added BY picking one.
- *
- * This is the whole reason the card can exist before a pin does: the document is what the user
- * brought, and the location is the part they may have to supply afterwards. `url` is the LOCAL file
- * (it is their own document, already in memory) — nothing is uploaded to look at it.
- */
-export type QuickAddDocument = {
-  file: File;
-  url: string | null;
-  extracted: Partial<ExtractedProperty> | null;
-  lowConfidence: readonly (keyof ExtractedProperty)[];
-  status: DocStatus;
-};
-
 // The state's NAME. Colour reinforces it, never carries it — "Read" and "Couldn't read this document"
 // have to be readable in a screenshot, on a broken display, and to a screen reader.
 const DOC_STATUS_TEXT: Record<DocStatus, string> = {
+  queued: "Waiting its turn",
   reading: "Reading…",
   read: "Read",
   failed: "Couldn't read this document",
@@ -65,11 +50,14 @@ interface QuickAddPanelProps {
   // picked to add a property FROM — in which case the document is on screen and the pin is the
   // question the card is still asking. Everything that reads the pin is guarded accordingly.
   pin: QuickAddPin | null;
-  /** Set while a document is in play; the card then leads with the document, not the location. Named
-   *  `doc`, not `document`: `document` is the DOM global this file portals into. */
-  doc?: QuickAddDocument | null;
-  /** Read the held document again. Only offered when its read failed. */
-  onRetryScan?: () => void;
+  /** The documents in play, when the property is being added BY picking one — the card then leads
+   *  with the document, not the location. Named `docs`, not `documents`: `document` is the DOM global
+   *  this file portals into. */
+  docs?: readonly QuickAddDoc[];
+  /** Read one document again, after its own read failed. */
+  onRetryDoc?: (id: string) => void;
+  /** Drop one document from the card — the escape from having picked the wrong file in a batch. */
+  onRemoveDoc?: (id: string) => void;
   // True while the reverse lookup for the current coordinate is in flight.
   resolving: boolean;
   // True while the draft is being created on the server.
@@ -118,8 +106,9 @@ const SELECT =
 // already contains it.
 export function QuickAddPanel({
   pin,
-  doc,
-  onRetryScan,
+  docs,
+  onRetryDoc,
+  onRemoveDoc,
   resolving,
   saving,
   error,
@@ -138,14 +127,35 @@ export function QuickAddPanel({
     : null;
   // What the read found, minus the four fields the card edits below — the summary and the form are
   // the same text otherwise, and the user would read it twice to answer one question.
-  const summaryRows = documentSummaryRows(doc?.extracted, doc?.lowConfidence);
-  const fileName = doc?.file.name;
+  const docList = docs ?? [];
+  // Which document's preview and summary the card shows. Defaults to the FIRST picked — the one the
+  // read started with and the one the fields and the pin were taken from — and follows their click
+  // after that. Defaulting to the last instead showed a summary of a document that answered nothing
+  // while the fields above it were filled from another one. A removed document falls back to the first.
+  const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
+  const selectedDoc =
+    docList.find((d) => d.id === selectedDocId) ?? docList[0] ?? null;
+  // What the read found for the SELECTED document, minus the four fields the card edits below — the
+  // summary and the form are the same text otherwise, and the user would read it twice to answer one
+  // question.
+  const summaryRows = documentSummaryRows(
+    selectedDoc?.extracted,
+    selectedDoc?.lowConfidence,
+  );
+  const fileName = selectedDoc?.file.name;
   const extension = fileName?.includes(".")
     ? fileName.split(".").pop()?.toLowerCase()
     : undefined;
-  // The card asks ONE question at a time. With a document it is "did we read this right"; the
-  // location is either already answered from the document or the next thing it will ask.
-  const subtitle = doc
+  // Any document still waiting or being read. Confirm waits for them: the card's whole ask is "check
+  // what we read", so confirming before the read lands answers a question that has not been asked yet.
+  // ponytail: there is no client-side read timeout, so a hung request holds this shut — Cancel and the
+  // armed bar stay available. Add an AbortController if hung reads turn up in practice.
+  const reading = docList.some(
+    (d) => d.status === "queued" || d.status === "reading",
+  );
+  // The card asks ONE question at a time. With documents it is "did we read this right"; the location
+  // is either already answered from them or the next thing it will ask.
+  const subtitle = docList.length
     ? pin
       ? "Check what we read, then confirm."
       : "Check what we read, then tap the map to place the pin."
@@ -176,7 +186,11 @@ export function QuickAddPanel({
     <div
       data-no-drag
       role="region"
-      aria-label={doc ? "Add a property from this document" : "Add a property at this location"}
+      aria-label={
+        docList.length
+          ? "Add a property from these documents"
+          : "Add a property at this location"
+      }
       className={cn(
         "absolute z-30 flex flex-col overflow-hidden bg-glass-panel-fill backdrop-blur-md border border-glass-panel-border shadow-sm",
         "inset-x-0 bottom-0 top-auto rounded-t-2xl pb-safe max-h-[70dvh]",
@@ -267,7 +281,11 @@ export function QuickAddPanel({
       <div className="flex items-start justify-between gap-1 px-4 pt-3 pb-3 shrink-0">
         <div className="min-w-0">
           <h3 className="text-[15px] font-display font-semibold text-foreground leading-snug">
-            {doc ? "Add a property from this document" : "Add a property here?"}
+            {docList.length
+              ? docList.length === 1
+                ? "Add a property from this document"
+                : `Add a property from ${docList.length} documents`
+              : "Add a property here?"}
           </h3>
           <p className="text-xs text-secondary mt-0.5">{subtitle}</p>
         </div>
@@ -283,73 +301,133 @@ export function QuickAddPanel({
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-1">
-        {doc && (
+        {docList.length > 0 && (
           <>
-            {/* The file, and what is happening to it — Dropbox's mechanism: one row, a state GLYPH
-                and a state WORD, so the state never rests on colour alone. The long wait in this flow
-                is the READ, not the upload (a real deed takes ~20s through the model), so the row
-                names the step instead of drawing a percentage nothing can honestly compute. The real
-                upload happens on confirm, when there is finally a property to file it against. */}
-            <div className="flex items-start gap-2.5 rounded-lg border border-border-subtle bg-surface-base/60 p-2.5">
-              <FileText className="mt-0.5 size-4 shrink-0 text-secondary" aria-hidden="true" />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-[13px] font-semibold text-foreground" title={doc.file.name}>
-                  {doc.file.name}
-                </p>
-                <p
-                  role="status"
-                  className={cn(
-                    "mt-0.5 flex items-center gap-1.5 text-[11px] font-medium",
-                    doc.status === "read" || doc.status === "attached"
-                      ? "text-[color:var(--status-success-text)]"
-                      : doc.status === "failed" || doc.status === "attach-failed"
-                        ? "text-destructive"
-                        : "text-secondary",
-                  )}
-                >
-                  {doc.status === "reading" || doc.status === "attaching" ? (
-                    <Loader2 className="size-3 shrink-0 animate-spin" aria-hidden="true" />
-                  ) : doc.status === "read" || doc.status === "attached" ? (
-                    <Check className="size-3 shrink-0" aria-hidden="true" />
-                  ) : (
-                    <AlertTriangle className="size-3 shrink-0" aria-hidden="true" />
-                  )}
-                  {DOC_STATUS_TEXT[doc.status]}
-                  <span className="text-text-disabled">
-                    · {formatBytes(doc.file.size)}
-                  </span>
-                </p>
-              </div>
-              {doc.status === "failed" && onRetryScan && (
-                // 44px on touch, small again with a pointer — the drawer's own rule, so the hit area
-                // is real on a phone without a fat button in a dense row.
-                <button
-                  type="button"
-                  onClick={onRetryScan}
-                  className="min-h-11 shrink-0 rounded-md border border-border-default px-2.5 text-[11px] font-semibold text-secondary transition-colors hover:bg-surface-tint sm:min-h-0 sm:py-1"
-                >
-                  Retry
-                </button>
-              )}
-            </div>
+            {/* One row per document — Dropbox's mechanism, and how a batch stays legible: a state
+                GLYPH and a state WORD (never colour alone), each file with its OWN state instead of
+                one global spinner. The long wait here is the READ, not the upload (a real deed takes
+                ~20s through the model), so a row names its step rather than drawing a percentage
+                nothing can honestly compute. The real upload happens on confirm, when there is
+                finally a property to file the files against. */}
+            <p className={LABEL}>
+              {docList.length === 1 ? "Document" : `${docList.length} documents`}
+            </p>
+            <ul className="flex flex-col gap-1.5">
+              {docList.map((doc) => {
+                const isSelected = selectedDoc?.id === doc.id;
+                const failed = doc.status === "failed" || doc.status === "attach-failed";
+                const done = doc.status === "read" || doc.status === "attached";
+                const busy =
+                  doc.status === "queued" ||
+                  doc.status === "reading" ||
+                  doc.status === "attaching";
+                return (
+                  <li
+                    key={doc.id}
+                    className={cn(
+                      "flex items-start gap-1.5 rounded-lg border p-2 transition-colors",
+                      isSelected
+                        ? "border-border-strong bg-surface-tint"
+                        : "border-border-subtle bg-surface-base/60",
+                    )}
+                  >
+                    {/* The row IS the selector: picking a file shows its preview and its read below.
+                        A separate control for that would be one more thing to find in a 320px card. */}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDocId(doc.id)}
+                      aria-pressed={isSelected}
+                      className="flex min-w-0 flex-1 items-start gap-2 text-left"
+                    >
+                      <FileText
+                        className="mt-0.5 size-4 shrink-0 text-secondary"
+                        aria-hidden="true"
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span
+                          className="block truncate text-[13px] font-semibold text-foreground"
+                          title={doc.file.name}
+                        >
+                          {doc.file.name}
+                        </span>
+                        <span
+                          role="status"
+                          className={cn(
+                            "mt-0.5 flex items-center gap-1.5 text-[11px] font-medium",
+                            done
+                              ? "text-[color:var(--status-success-text)]"
+                              : failed
+                                ? "text-destructive"
+                                : "text-secondary",
+                          )}
+                        >
+                          {busy ? (
+                            <Loader2
+                              className="size-3 shrink-0 animate-spin"
+                              aria-hidden="true"
+                            />
+                          ) : done ? (
+                            <Check className="size-3 shrink-0" aria-hidden="true" />
+                          ) : (
+                            <AlertTriangle className="size-3 shrink-0" aria-hidden="true" />
+                          )}
+                          {doc.note ?? DOC_STATUS_TEXT[doc.status]}
+                          <span className="text-text-disabled">
+                            · {formatBytes(doc.file.size)}
+                          </span>
+                        </span>
+                      </span>
+                    </button>
+                    {failed && onRetryDoc && (
+                      // 44px on touch, small again with a pointer — the drawer's own rule, so the hit
+                      // area is real on a phone without a fat button in a dense row.
+                      <button
+                        type="button"
+                        onClick={() => onRetryDoc(doc.id)}
+                        className="min-h-11 shrink-0 rounded-md border border-border-default px-2.5 text-[11px] font-semibold text-secondary transition-colors hover:bg-surface-tint sm:min-h-0 sm:py-1"
+                      >
+                        Retry
+                      </button>
+                    )}
+                    {onRemoveDoc && (
+                      <button
+                        type="button"
+                        onClick={() => onRemoveDoc(doc.id)}
+                        aria-label={`Remove ${doc.file.name}`}
+                        className="flex min-h-11 w-6 shrink-0 items-start justify-center rounded-md pt-0.5 text-secondary transition-colors hover:bg-surface-tint hover:text-foreground sm:min-h-0"
+                      >
+                        <X className="size-3.5" aria-hidden="true" />
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
 
-            {/* The user's OWN file, straight from memory: nothing is uploaded to look at it, so the
-                preview is available the moment they pick it — including for a read that then fails.
-                The pane brings its own PDF/image/other handling, the same one the property page
-                uses, so a document behaves identically wherever it is opened. */}
-            {doc.url && (
+            {/* The SELECTED document's own file, straight from memory: nothing is uploaded to look at
+                it, so the preview is there the moment it is picked — including for a read that then
+                fails. The pane brings its own PDF/image/other handling, the same one the property
+                page uses, so a document behaves identically wherever it is opened. */}
+            {selectedDoc?.url && (
               <div className="mt-2.5">
                 <DocumentPreviewPane
-                  fileName={doc.file.name}
+                  fileName={selectedDoc.file.name}
                   extension={extension}
-                  mimeType={doc.file.type}
-                  fileUrl={doc.url}
+                  mimeType={selectedDoc.file.type}
+                  fileUrl={selectedDoc.url}
                 />
               </div>
             )}
 
-            <p className={cn(LABEL, "mt-4")}>Read from your document</p>
-            {doc.status === "reading" ? (
+            <p
+              className={cn(LABEL, "mt-4 truncate")}
+              title={docList.length > 1 ? selectedDoc?.file.name : undefined}
+            >
+              {docList.length === 1
+                ? "Read from your document"
+                : `Read from ${selectedDoc?.file.name ?? "this document"}`}
+            </p>
+            {selectedDoc?.status === "queued" || selectedDoc?.status === "reading" ? (
               // Skeleton at the rows' own height: the panel must not change size when the read lands,
               // or the fields below jump under the user's finger.
               <div className="flex flex-col gap-2" aria-hidden="true">
@@ -389,7 +467,9 @@ export function QuickAddPanel({
               </dl>
             ) : (
               <p className="text-[12px] text-secondary">
-                No extra details in this document — fill in what is missing below.
+                {selectedDoc?.status === "failed"
+                  ? "Nothing was read from this document — retry it, or fill the details in below."
+                  : "No extra details in this document — fill in what is missing below."}
               </p>
             )}
 
@@ -587,15 +667,21 @@ export function QuickAddPanel({
         </button>
         <button
           onClick={onConfirm}
-          disabled={saving || !pin}
+          disabled={saving || !pin || reading}
           className={cn(
             "flex-1 rounded-xl px-4 py-3 sm:py-2.5 text-sm font-semibold text-white transition-all duration-150",
-            !saving && pin
+            !saving && pin && !reading
               ? "bg-interactive-primary hover:brightness-110 active:scale-[0.98]"
               : "bg-interactive-primary/40 cursor-not-allowed",
           )}
         >
-          {saving ? "Saving…" : pin ? "Confirm location" : "Place the pin to continue"}
+          {saving
+            ? "Saving…"
+            : reading
+              ? "Reading your documents…"
+              : pin
+                ? "Confirm location"
+                : "Place the pin to continue"}
         </button>
       </div>
     </div>

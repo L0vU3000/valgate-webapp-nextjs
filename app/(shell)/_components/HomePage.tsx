@@ -46,8 +46,13 @@ import { QuickAddPanel } from "./QuickAddPanel";
 import { syncCadastreLayer } from "@/components/map/cadastre-layer";
 import { QuickAddSearch } from "./QuickAddSearch";
 import { useQuickAdd } from "./use-quick-add";
+import type { QuickAddDoc } from "./use-quick-add";
 import type * as mapboxgl from "maplibre-gl";
 import type { MapCamera } from "@/components/map/MapView";
+
+// A stable empty list for the many renders where no document is in play. A fresh `[]` each render
+// would be a new prop identity every time for no reason.
+const EMPTY_DOCS: readonly QuickAddDoc[] = [];
 
 const MapView = dynamic(
   () => import("@/components/map/MapView").then((m) => m.MapView),
@@ -282,12 +287,12 @@ export function HomePage({
   // that slot must not move before there is a card in it.
   const quickAddCardPin = quickAdd.active ? quickAdd.pin : null;
 
-  // The document in play, when the user is adding a property BY picking one. Its presence is what
-  // lets the card exist before a pin does: the document is the anchor, and the place is the question
+  // The documents in play, when the user is adding a property BY picking them. Their presence is what
+  // lets the card exist before a pin does: the documents are the anchor, and the place is the question
   // the card is still asking. Cleared with the mode, so a closed card never leaves one behind.
-  const quickAddDoc = quickAdd.active ? quickAdd.docFile : null;
-  // What opens the card — a pin, or a document being read.
-  const quickAddCardOpen = !!quickAddCardPin || !!quickAddDoc;
+  const quickAddDocs = quickAdd.active ? quickAdd.docs : EMPTY_DOCS;
+  // What opens the card — a pin, or documents being read.
+  const quickAddCardOpen = !!quickAddCardPin || quickAddDocs.length > 0;
 
   // Take the MAP to a searched place. Navigation only — this deliberately does NOT drop a pin or open
   // quick add. Search is "where is it / take me there"; choosing a property is a separate act on the
@@ -679,12 +684,12 @@ export function HomePage({
                   onChange={quickAdd.searchAddress}
                   onHighlight={quickAdd.highlightAddress}
                   onPick={quickAdd.pickAddress}
-                  onScanFile={quickAdd.scanFile}
+                  onScanFiles={quickAdd.scanFiles}
                   scanning={quickAdd.scanning}
                   scanNote={quickAdd.scanNote}
                   // Pre-pin only: once the card exists it owns the error (it sits closer to the button
                   // that failed), so showing it twice would read as two separate problems.
-                  error={quickAddCardPin ? null : quickAdd.error}
+                  error={quickAddCardOpen ? null : quickAdd.error}
                 />
                 <button
                   onClick={closeQuickAdd}
@@ -746,18 +751,9 @@ export function HomePage({
         {quickAddCardOpen && (
           <QuickAddPanel
             pin={quickAddCardPin}
-            doc={
-              quickAddDoc
-                ? {
-                    file: quickAddDoc,
-                    url: quickAdd.docUrl,
-                    extracted: quickAdd.extracted,
-                    lowConfidence: quickAdd.lowConfidence,
-                    status: quickAdd.docStatus ?? "reading",
-                  }
-                : null
-            }
-            onRetryScan={quickAdd.retryScan}
+            docs={quickAddDocs}
+            onRetryDoc={quickAdd.retryDoc}
+            onRemoveDoc={quickAdd.removeDoc}
             resolving={quickAdd.resolving}
             saving={quickAdd.saving}
             error={quickAdd.error}
