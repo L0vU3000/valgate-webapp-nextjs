@@ -23,6 +23,8 @@ import {
   unfiledRows,
   propertyDocumentCounts,
   mapRowsToGridCards,
+  folderNameGroups,
+  foldersForProperty,
 } from "@/app/(shell)/documents/_lib/vault-rows";
 import type { Document } from "@/lib/data/types/document";
 
@@ -244,5 +246,52 @@ describe("labels fall back safely", () => {
     expect(verifiesChip(undefined).label).toBe("Unlinked");
     expect(verifiesChip(null).label).toBe("Unlinked");
     expect(verifiesChip(null).cls).toMatch(/bg-/);
+  });
+});
+
+describe("folderNameGroups", () => {
+  it("sums same-named folders and orders by count desc then name", () => {
+    const groups = folderNameGroups([
+      { name: "Leases", count: 2 },
+      { name: "Audit", count: 3 },
+      { name: "Insurance", count: 3 },
+      { name: "Leases", count: 4 },
+    ]);
+    expect(groups).toEqual([
+      { name: "Leases", count: 6 },
+      { name: "Audit", count: 3 },
+      { name: "Insurance", count: 3 },
+    ]);
+  });
+
+  it("returns [] for no folders and does not mutate its input", () => {
+    expect(folderNameGroups([])).toEqual([]);
+    const input = [
+      { name: "B", count: 1 },
+      { name: "A", count: 1 },
+      { name: "B", count: 1 },
+    ];
+    const snapshot = structuredClone(input);
+    folderNameGroups(input);
+    expect(input).toEqual(snapshot);
+  });
+});
+
+describe("foldersForProperty", () => {
+  const folders = [
+    { id: "f1", name: "Leases", propertyId: "p1" },
+    { id: "f2", name: "Audit", propertyId: "p2" },
+    { id: "f3", name: "Insurance", propertyId: "p1" },
+  ];
+
+  it("returns only that property's folders, in order", () => {
+    expect(foldersForProperty(folders, "p1")).toEqual([
+      { id: "f1", name: "Leases" },
+      { id: "f3", name: "Insurance" },
+    ]);
+  });
+
+  it("returns [] for an unknown property", () => {
+    expect(foldersForProperty(folders, "nope")).toEqual([]);
   });
 });

@@ -14,6 +14,7 @@ export type VaultFolderCard = {
   name: string;
   // Folders are property-scoped, so a portfolio-wide list needs the property to tell
   // two same-named folders apart ("Title" exists on several properties).
+  propertyId: string;
   propertyName: string;
   count: number;
 };
@@ -23,8 +24,9 @@ export type DocumentsVaultPageData = {
   // propertyId -> property name. A plain object, not a Map, because this crosses the
   // server/client boundary into the client page component.
   propertyNames: Record<string, string>;
-  // The grid's Folders section. Derived, never invented: a folder is listed only when
-  // documents we already read actually point at it.
+  // The properties themselves, for the New folder dialog's location picker.
+  properties: { id: string; name: string }[];
+  // Every folder that holds at least one document, with its real document count.
   folders: VaultFolderCard[];
 };
 
@@ -44,14 +46,20 @@ export async function getDocumentsVaultPageData(ctxOverride?: Ctx): Promise<Docu
     if (!doc.folderId) continue;
     counts.set(doc.folderId, (counts.get(doc.folderId) ?? 0) + 1);
   }
-  const folderCards = folders
-    .map((folder) => ({
-      id: folder.id,
-      name: folder.name,
-      propertyName: propertyNames[folder.propertyId] ?? folder.propertyId,
-      count: counts.get(folder.id) ?? 0,
-    }))
-    .filter((folder) => folder.count > 0);
+  // Every folder, with its real document count. Not filtered to non-empty folders:
+  // a folder the user just created has no documents yet and must still be visible.
+  const folderCards = folders.map((folder) => ({
+    id: folder.id,
+    name: folder.name,
+    propertyId: folder.propertyId,
+    propertyName: propertyNames[folder.propertyId] ?? folder.propertyId,
+    count: counts.get(folder.id) ?? 0,
+  }));
 
-  return { documents, propertyNames, folders: folderCards };
+  return {
+    documents,
+    propertyNames,
+    properties: properties.map((p) => ({ id: p.id, name: p.name })),
+    folders: folderCards,
+  };
 }

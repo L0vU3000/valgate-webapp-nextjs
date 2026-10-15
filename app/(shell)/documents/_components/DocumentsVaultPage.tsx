@@ -2,6 +2,8 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { updateDocument } from "@/app/actions/documents";
 import {
   FileText,
   Search,
@@ -11,10 +13,10 @@ import {
   Files,
   Folder,
   FolderOpen,
-  HardDrive,
   LayoutGrid,
   List,
   MoreHorizontal,
+  Plus,
 } from "lucide-react";
 import type { DocumentsVaultPageData } from "../queries";
 import {
@@ -31,6 +33,13 @@ import {
 } from "../_lib/vault-rows";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { AppHeader } from "@/components/layout/AppHeader";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { NewFolderDialog } from "./NewFolderDialog";
 
 const PAGE_SIZE = 20;
 
@@ -42,6 +51,7 @@ type DisplayMode = "list" | "grid";
 
 export function DocumentsVaultPage({ data }: { data: DocumentsVaultPageData }) {
   const { documents, propertyNames, folders } = data;
+  const router = useRouter();
 
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState(ALL);
@@ -50,6 +60,11 @@ export function DocumentsVaultPage({ data }: { data: DocumentsVaultPageData }) {
   const [displayMode, setDisplayMode] = useState<DisplayMode>("list");
   const [page, setPage] = useState(1);
   const [showAllProperties, setShowAllProperties] = useState(false);
+  // The canvas caps the PROPERTIES group at 5 and offers a "more" row; FOLDERS gets the
+  // same treatment or the tree grows taller than the viewport.
+  const [showAllFolders, setShowAllFolders] = useState(false);
+  const [folderName, setFolderName] = useState<string | null>(null);
+  const [showNewFolder, setShowNewFolder] = useState(false);
 
   const rows = useMemo(
     () => buildRows(documents, propertyNames),
@@ -60,13 +75,32 @@ export function DocumentsVaultPage({ data }: { data: DocumentsVaultPageData }) {
   const properties = useMemo(() => propertyOptions(rows), [rows]);
   const treeProperties = useMemo(() => propertyDocumentCounts(rows), [rows]);
   const unfiled = useMemo(() => unfiledRows(rows), [rows]);
+  const folderNameById = useMemo(
+    () => new Map(folders.map((folder) => [folder.id, folder.name])),
+    [folders],
+  );
+  const folderIdByDocumentId = useMemo(
+    () => new Map(documents.map((document) => [document.id, document.folderId ?? null])),
+    [documents],
+  );
+  const portfolioFolders = useMemo(() => {
+    const byName = new Map<string, number>();
+    for (const folder of folders) {
+      byName.set(folder.name, (byName.get(folder.name) ?? 0) + folder.count);
+    }
+    return [...byName.entries()]
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  }, [folders]);
 
   const q = search.trim().toLowerCase();
   const filteredRows = rows.filter((row) => {
     const matchesSearch = !q || row.name.toLowerCase().includes(q);
     const matchesCategory = category === ALL || row.category === category;
     const matchesProperty = propertyId === ALL || row.propertyId === propertyId;
-    return matchesSearch && matchesCategory && matchesProperty;
+    const matchesFolder =
+      folderName === null || folderNameById.get(row.folderId ?? "") === folderName;
+    return matchesSearch && matchesCategory && matchesProperty && matchesFolder;
   });
   const filtered =
     vaultView === "unfiled" ? unfiledRows(filteredRows) : filteredRows;
@@ -91,6 +125,11 @@ export function DocumentsVaultPage({ data }: { data: DocumentsVaultPageData }) {
   function selectProperty(id: string) {
     setVaultView("property");
     setPropertyId(id);
+    resetToFirstPage();
+  }
+
+  function selectFolder(name: string) {
+    setFolderName((current) => (current === name ? null : name));
     resetToFirstPage();
   }
 
@@ -135,19 +174,27 @@ export function DocumentsVaultPage({ data }: { data: DocumentsVaultPageData }) {
 
           <div className="flex flex-col gap-5 lg:flex-row">
             <aside className="flex w-full shrink-0 flex-col gap-3 rounded-xl border border-border-default bg-surface-base p-3 lg:w-[264px]">
-              {/* A portfolio-level folder cannot be created: folders require a propertyId. */}
-              <div className="px-1 py-0.5 text-[13px] font-bold text-val-heading">
-                Vault
+              <div className="flex items-center gap-2 px-1 py-0.5">
+                <span className="text-[13px] font-bold text-val-heading">Vault</span>
+                <span className="flex-1" />
+                <button
+                  type="button"
+                  onClick={() => setShowNewFolder(true)}
+                  aria-label="New folder"
+                  className="flex h-7 w-7 items-center justify-center rounded text-secondary transition-colors hover:bg-surface-tint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                >
+                  <Plus className="h-4 w-4" aria-hidden="true" />
+                </button>
               </div>
 
               <nav
                 className="flex flex-col gap-3"
                 aria-label="Document vault views"
               >
-                <TreeGroupLabel>Views</TreeGroupLabel>
-                <div className="-mt-2 flex flex-col gap-1">
+                <div className="flex flex-col gap-1 px-1.5 pt-1">
+                  <TreeGroupLabel>Views</TreeGroupLabel>
                   <VaultTreeRow
-                    active={vaultView === "all"}
+                    active={vaultView === "all" && folderName === null}
                     count={rows.length}
                     icon={<Files className="h-3.5 w-3.5" aria-hidden="true" />}
                     onClick={() => selectView("all")}
@@ -155,7 +202,7 @@ export function DocumentsVaultPage({ data }: { data: DocumentsVaultPageData }) {
                     All documents
                   </VaultTreeRow>
                   <VaultTreeRow
-                    active={vaultView === "recent"}
+                    active={vaultView === "recent" && folderName === null}
                     count={rows.length}
                     icon={<Clock3 className="h-3.5 w-3.5" aria-hidden="true" />}
                     onClick={() => selectView("recent")}
@@ -163,7 +210,7 @@ export function DocumentsVaultPage({ data }: { data: DocumentsVaultPageData }) {
                     Recent
                   </VaultTreeRow>
                   <VaultTreeRow
-                    active={vaultView === "unfiled"}
+                    active={vaultView === "unfiled" && folderName === null}
                     count={unfiled.length}
                     icon={
                       <FolderOpen className="h-3.5 w-3.5" aria-hidden="true" />
@@ -175,51 +222,75 @@ export function DocumentsVaultPage({ data }: { data: DocumentsVaultPageData }) {
                 </div>
 
                 {treeProperties.length > 0 && (
-                  <>
+                  <div className="flex flex-col gap-1 px-1.5 pt-1">
                     <TreeGroupLabel>Properties</TreeGroupLabel>
-                    <div className="-mt-2 flex flex-col gap-1">
-                      {treeProperties
-                        .slice(0, showAllProperties ? undefined : 5)
-                        .map((property) => (
-                          <VaultTreeRow
-                            key={property.id}
-                            active={
-                              vaultView === "property" &&
-                              propertyId === property.id
-                            }
-                            count={property.count}
-                            icon={
-                              <FolderOpen
-                                className="h-3.5 w-3.5"
-                                aria-hidden="true"
-                              />
-                            }
-                            onClick={() => selectProperty(property.id)}
-                          >
-                            {property.name}
-                          </VaultTreeRow>
-                        ))}
-                      {treeProperties.length > 5 && !showAllProperties && (
-                        <button
-                          type="button"
-                          onClick={() => setShowAllProperties(true)}
-                          className="flex h-7 w-full items-center rounded-md px-2.5 text-left text-[12px] font-medium text-secondary transition-colors hover:bg-surface-tint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                    {treeProperties
+                      .slice(0, showAllProperties ? undefined : 5)
+                      .map((property) => (
+                        <VaultTreeRow
+                          key={property.id}
+                          active={
+                            folderName === null &&
+                            vaultView === "property" &&
+                            propertyId === property.id
+                          }
+                          count={property.count}
+                          icon={
+                            <FolderOpen
+                              className="h-3.5 w-3.5"
+                              aria-hidden="true"
+                            />
+                          }
+                          onClick={() => selectProperty(property.id)}
                         >
-                          +{treeProperties.length - 5} more
-                        </button>
-                      )}
-                    </div>
-                  </>
+                          {property.name}
+                        </VaultTreeRow>
+                      ))}
+                    {treeProperties.length > 5 && !showAllProperties && (
+                      <button
+                        type="button"
+                        onClick={() => setShowAllProperties(true)}
+                        className="w-full rounded-md px-2.5 py-1 text-left text-[11px] font-semibold text-interactive-primary transition-colors hover:bg-surface-tint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                      >
+                        + {treeProperties.length - 5} more properties
+                      </button>
+                    )}
+                  </div>
                 )}
 
                 {/* Documents have no expiry field, so the design's Expiring soon view cannot be truthful. */}
-                {/* Shared folders need a sharing model that this schema does not provide. */}
-                <div className="mt-1 border border-border-subtle px-1.5 pb-0.5 pt-3">
-                  <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.05em] text-text-tertiary">
-                    <HardDrive className="h-3.5 w-3.5" aria-hidden="true" />
-                    Storage
+                {portfolioFolders.length > 0 && (
+                  <div className="flex flex-col gap-1 px-1.5 pt-1">
+                    <TreeGroupLabel>Folders</TreeGroupLabel>
+                    {portfolioFolders
+                      .slice(0, showAllFolders ? undefined : 5)
+                      .map((folder) => (
+                        <VaultTreeRow
+                          key={folder.name}
+                          active={folderName === folder.name}
+                          count={folder.count}
+                          icon={<FolderOpen className="h-3.5 w-3.5" aria-hidden="true" />}
+                          onClick={() => selectFolder(folder.name)}
+                        >
+                          {folder.name}
+                        </VaultTreeRow>
+                      ))}
+                    {portfolioFolders.length > 5 && !showAllFolders && (
+                      <button
+                        type="button"
+                        onClick={() => setShowAllFolders(true)}
+                        className="w-full rounded-md px-2.5 py-1 text-left text-[11px] font-semibold text-interactive-primary transition-colors hover:bg-surface-tint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                      >
+                        + {portfolioFolders.length - 5} more folders
+                      </button>
+                    )}
                   </div>
-                  <p className="mt-2 text-[11px] text-secondary">
+                )}
+
+                {/* There is no storage quota in the schema, so the design's progress track and plan link cannot be truthful. */}
+                <div className="flex flex-col gap-1 px-1.5 pt-1">
+                  <TreeGroupLabel>Storage</TreeGroupLabel>
+                  <p className="text-[11px] text-text-tertiary">
                     {metrics.storageLabel} used · {metrics.count}{" "}
                     {metrics.count === 1 ? "file" : "files"}
                   </p>
@@ -241,10 +312,13 @@ export function DocumentsVaultPage({ data }: { data: DocumentsVaultPageData }) {
                   </h2>
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
                     {folders.map((folder) => (
-                      <div
+                      <button
+                        type="button"
                         key={folder.id}
                         title={`${folder.name} · ${folder.propertyName}`}
-                        className="flex min-w-0 flex-col gap-1.5 rounded-xl border border-border-default bg-surface-base px-3.5 py-3"
+                        aria-pressed={folderName === folder.name}
+                        onClick={() => selectFolder(folder.name)}
+                        className="flex min-w-0 flex-col gap-1.5 rounded-xl border border-border-default bg-surface-base px-3.5 py-3 text-left transition-colors hover:bg-surface-tint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
                       >
                         <Folder
                           className="h-[18px] w-[18px] text-status-warning"
@@ -260,7 +334,7 @@ export function DocumentsVaultPage({ data }: { data: DocumentsVaultPageData }) {
                         <span className="truncate text-[12px] text-text-tertiary">
                           {folder.count} {folder.count === 1 ? "file" : "files"} · {folder.propertyName}
                         </span>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 </section>
@@ -404,6 +478,15 @@ export function DocumentsVaultPage({ data }: { data: DocumentsVaultPageData }) {
                           : "Try a different search term or clear the filters."
                       }
                     />
+                    {folderName !== null && (
+                      <button
+                        type="button"
+                        onClick={() => selectFolder(folderName)}
+                        className="mx-4 mb-4 rounded-md px-2.5 py-1 text-[12px] font-semibold text-interactive-primary transition-colors hover:bg-surface-tint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
+                      >
+                        Clear folder filter
+                      </button>
+                    )}
                     <div className="flex flex-wrap gap-3 px-4 pb-4">
                       <span className="rounded-full border border-border-default px-3.5 py-1.5 text-[11px] text-secondary">
                         Supported: JPEG, PNG, WEBP, PDF, DOC, DOCX, XLS, XLSX
@@ -413,13 +496,18 @@ export function DocumentsVaultPage({ data }: { data: DocumentsVaultPageData }) {
                 ) : displayMode === "list" ? (
                   <div className="overflow-hidden rounded-lg border border-border-default bg-surface-base">
                     {pageRows.map((row) => (
-                      <DocumentRow key={row.id} row={row} />
+                      <DocumentRow key={row.id} row={row} folders={folders} />
                     ))}
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
                     {gridCards.map((card) => (
-                      <DocumentGridCard key={card.id} card={card} />
+                      <DocumentGridCard
+                        key={card.id}
+                        card={card}
+                        folderId={folderIdByDocumentId.get(card.id) ?? null}
+                        folders={folders}
+                      />
                     ))}
                   </div>
                 )}
@@ -478,6 +566,13 @@ export function DocumentsVaultPage({ data }: { data: DocumentsVaultPageData }) {
           </div>
         </div>
       </div>
+      <NewFolderDialog
+        open={showNewFolder}
+        onOpenChange={setShowNewFolder}
+        properties={data.properties}
+        defaultPropertyId={propertyId === ALL ? undefined : propertyId}
+        onCreated={() => router.refresh()}
+      />
     </main>
   );
 }
@@ -506,7 +601,7 @@ function Metric({
 
 function TreeGroupLabel({ children }: { children: ReactNode }) {
   return (
-    <span className="px-1.5 pt-1 text-[11px] font-semibold uppercase tracking-[0.05em] text-text-tertiary">
+    <span className="text-[11px] font-semibold uppercase tracking-[0.05em] text-text-tertiary">
       {children}
     </span>
   );
@@ -537,13 +632,25 @@ function VaultTreeRow({
       }`}
     >
       <span aria-hidden="true">{icon}</span>
-      <span className="min-w-0 flex-1 truncate">{children}</span>
+      <span
+        className={`min-w-0 flex-1 truncate ${
+          active ? "text-[12.5px] font-semibold text-val-primary-dark" : ""
+        }`}
+      >
+        {children}
+      </span>
       <span className="text-[11px] text-text-tertiary">{count}</span>
     </button>
   );
 }
 
-function DocumentRow({ row }: { row: VaultRow }) {
+function DocumentRow({
+  row,
+  folders,
+}: {
+  row: VaultRow;
+  folders: DocumentsVaultPageData["folders"];
+}) {
   const verifies = row.verifiesEntityType ? (
     <span
       className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${row.verifiesClass}`}
@@ -555,51 +662,64 @@ function DocumentRow({ row }: { row: VaultRow }) {
   );
 
   return (
-    <Link
-      href={documentPreviewHref(row)}
-      aria-label={`Open ${row.name}`}
-      className="grid w-full grid-cols-1 gap-3 border-b border-border-subtle px-4 py-2.5 text-left last:border-b-0 transition-colors hover:bg-surface-tint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-border-focus sm:grid-cols-[minmax(0,1fr)_170px_140px_64px_110px] sm:items-center"
-    >
-      <span className="flex min-w-0 items-start gap-3 sm:items-center">
-        <span
-          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[8px] font-bold ${row.tileClass}`}
-          aria-hidden="true"
-        >
-          {row.fileTypeLabel}
+    <div className="group grid w-full grid-cols-1 gap-3 border-b border-border-subtle px-4 py-2.5 text-left last:border-b-0 transition-colors hover:bg-surface-tint focus-within:ring-2 focus-within:ring-inset focus-within:ring-border-focus sm:grid-cols-[minmax(0,1fr)_170px_140px_64px_110px_28px] sm:items-center">
+      <Link
+        href={documentPreviewHref(row)}
+        aria-label={`Open ${row.name}`}
+        className="contents focus-visible:outline-none"
+      >
+        <span className="flex min-w-0 items-start gap-3 sm:items-center">
+          <span
+            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[8px] font-bold ${row.tileClass}`}
+            aria-hidden="true"
+          >
+            {row.fileTypeLabel}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[14px] font-medium text-val-heading">
+              {row.name}
+            </span>
+            <span className="mt-px block text-[12px] font-normal text-text-tertiary">
+              {row.category}
+            </span>
+            <span className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 sm:hidden">
+              <MobileDetail label="Property">{row.propertyName}</MobileDetail>
+              <MobileDetail label="Verifies">{verifies}</MobileDetail>
+              <MobileDetail label="Size">{row.size}</MobileDetail>
+              <MobileDetail label="Uploaded">{row.uploaded}</MobileDetail>
+            </span>
+          </span>
         </span>
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-[14px] font-medium text-val-heading">
-            {row.name}
-          </span>
-          <span className="mt-px block text-[12px] font-normal text-text-tertiary">
-            {row.category}
-          </span>
-          <span className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 sm:hidden">
-            <MobileDetail label="Property">{row.propertyName}</MobileDetail>
-            <MobileDetail label="Verifies">{verifies}</MobileDetail>
-            <MobileDetail label="Size">{row.size}</MobileDetail>
-            <MobileDetail label="Uploaded">{row.uploaded}</MobileDetail>
-          </span>
+        <span className="hidden w-[170px] truncate text-[12px] font-medium text-secondary sm:block">
+          {row.propertyName}
         </span>
-      </span>
-      <span className="hidden w-[170px] truncate text-[12px] font-medium text-secondary sm:block">
-        {row.propertyName}
-      </span>
-      <span className="hidden w-[140px] sm:block">{verifies}</span>
-      <span className="hidden w-16 text-[13px] tabular-nums text-secondary sm:block">
-        {row.size}
-      </span>
-      <span className="hidden w-[110px] text-[13px] text-secondary sm:block">
-        {row.uploaded}
-      </span>
-    </Link>
+        <span className="hidden w-[140px] sm:block">{verifies}</span>
+        <span className="hidden w-16 text-[13px] tabular-nums text-secondary sm:block">
+          {row.size}
+        </span>
+        <span className="hidden w-[110px] text-[13px] text-secondary sm:block">
+          {row.uploaded}
+        </span>
+      </Link>
+      <DocumentActions
+        documentId={row.id}
+        fileName={row.name}
+        propertyId={row.propertyId}
+        folderId={row.folderId}
+        folders={folders}
+      />
+    </div>
   );
 }
 
 function DocumentGridCard({
   card,
+  folderId,
+  folders,
 }: {
   card: ReturnType<typeof mapRowsToGridCards>[number];
+  folderId: string | null;
+  folders: DocumentsVaultPageData["folders"];
 }) {
   const verifies = card.verifiesEntityType ? (
     <span
@@ -612,35 +732,125 @@ function DocumentGridCard({
   );
 
   return (
-    <Link
-      href={documentPreviewHref(card)}
-      aria-label={`Open ${card.name}`}
-      className="flex flex-col overflow-hidden rounded-[10px] border border-border-default bg-surface-base text-left transition-colors hover:bg-surface-tint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-    >
-      <div className="grid h-[130px] place-items-center bg-surface-tint">
-        <span
-          className={`flex h-[26px] w-[26px] items-center justify-center rounded-lg text-[8px] font-bold ${card.tileClass}`}
-          aria-hidden="true"
-        >
-          {card.fileTypeLabel}
-        </span>
-      </div>
-      <div className="flex flex-col gap-[5px] p-3">
-        <span className="truncate text-[14px] font-medium text-val-heading">
-          {card.name}
-        </span>
-        <span className="truncate text-[12px] text-text-tertiary">
-          {card.propertyName} · {card.category}
-        </span>
-        <span className="flex items-center justify-between">
-          {verifies}
-          <MoreHorizontal
-            className="h-4 w-4 text-text-tertiary"
+    <div className="overflow-hidden rounded-[10px] border border-border-default bg-surface-base text-left transition-colors hover:bg-surface-tint focus-within:ring-2 focus-within:ring-border-focus">
+      <Link
+        href={documentPreviewHref(card)}
+        aria-label={`Open ${card.name}`}
+        className="flex flex-col focus-visible:outline-none"
+      >
+        <div className="grid h-[130px] place-items-center bg-surface-tint">
+          <span
+            className={`flex h-[26px] w-[26px] items-center justify-center rounded-lg text-[8px] font-bold ${card.tileClass}`}
             aria-hidden="true"
-          />
-        </span>
+          >
+            {card.fileTypeLabel}
+          </span>
+        </div>
+        <div className="flex flex-col gap-[5px] px-3 pt-3">
+          <span className="truncate text-[14px] font-medium text-val-heading">
+            {card.name}
+          </span>
+          <span className="truncate text-[12px] text-text-tertiary">
+            {card.propertyName} · {card.category}
+          </span>
+        </div>
+      </Link>
+      <div className="flex items-center justify-between p-3 pt-[5px]">
+        {verifies}
+        <DocumentActions
+          documentId={card.id}
+          fileName={card.name}
+          propertyId={card.propertyId}
+          folderId={folderId}
+          folders={folders}
+        />
       </div>
-    </Link>
+    </div>
+  );
+}
+
+function DocumentActions({
+  documentId,
+  fileName,
+  propertyId,
+  folderId,
+  folders,
+}: {
+  documentId: string;
+  fileName: string;
+  propertyId: string;
+  folderId: string | null;
+  folders: DocumentsVaultPageData["folders"];
+}) {
+  const router = useRouter();
+  const [isMoving, setIsMoving] = useState(false);
+  const [moveError, setMoveError] = useState<string | null>(null);
+  const propertyFolders = folders.filter((folder) => folder.propertyId === propertyId);
+
+  async function moveToFolder(nextFolderId: string | undefined) {
+    setIsMoving(true);
+    setMoveError(null);
+    const result = await updateDocument(documentId, { folderId: nextFolderId });
+    setIsMoving(false);
+    if (!result.ok) {
+      setMoveError(result.error);
+      return;
+    }
+    router.refresh();
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          disabled={isMoving}
+          aria-label={`More actions for ${fileName}`}
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-text-tertiary transition-colors hover:bg-surface-tint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        {propertyFolders.length === 0 ? (
+          <DropdownMenuItem disabled>No folders in this property</DropdownMenuItem>
+        ) : (
+          <>
+            <p className="px-2 py-1.5 text-[11px] font-semibold uppercase tracking-[0.05em] text-text-tertiary">
+              Move to folder
+            </p>
+            {propertyFolders.map((folder) => (
+              <DropdownMenuItem
+                key={folder.id}
+                disabled={isMoving}
+                onSelect={(event) => {
+                  event.preventDefault();
+                  void moveToFolder(folder.id);
+                }}
+              >
+                {folder.name}
+              </DropdownMenuItem>
+            ))}
+          </>
+        )}
+        {folderId !== null && (
+          <DropdownMenuItem
+            disabled={isMoving}
+            onSelect={(event) => {
+              event.preventDefault();
+              void moveToFolder(undefined);
+            }}
+          >
+            Remove from folder
+          </DropdownMenuItem>
+        )}
+        {moveError && (
+          <p className="px-2 py-1.5 text-[12px] text-status-danger" role="alert">
+            {moveError}
+          </p>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

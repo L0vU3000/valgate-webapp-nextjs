@@ -284,3 +284,26 @@ export function propertyOptions(rows: VaultRow[]): { id: string; name: string }[
     .map(([id, name]) => ({ id, name }))
     .sort((a, b) => a.name.localeCompare(b.name));
 }
+
+export type VaultFolderGroup = { name: string; count: number };
+
+// Folders are property-scoped, so the same name can exist on several properties. The
+// sidebar shows each distinct name once with the summed real document count. Highest
+// count first, then name, so the order is stable. Never mutates the input.
+export function folderNameGroups(folders: { name: string; count: number }[]): VaultFolderGroup[] {
+  const totals = new Map<string, number>();
+  for (const f of folders) totals.set(f.name, (totals.get(f.name) ?? 0) + f.count);
+  return [...totals.entries()]
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+}
+
+// The folders a given property owns, in the order supplied.
+export function foldersForProperty(
+  folders: { id: string; name: string; propertyId: string }[],
+  propertyId: string,
+): { id: string; name: string }[] {
+  return folders
+    .filter((f) => f.propertyId === propertyId)
+    .map(({ id, name }) => ({ id, name }));
+}
