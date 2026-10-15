@@ -13,6 +13,7 @@ import {
   Moon,
   Key,
   LogOut,
+  FileText,
 } from "lucide-react";
 import { cn } from "../ui/utils";
 
@@ -27,6 +28,7 @@ const sidebarNavItems = [
   { label: "Home", path: "/", icon: Home },
   { label: "Portfolio", path: "/portfolio", icon: LayoutGrid },
   { label: "Rental", path: "/rental", icon: Key },
+  { label: "Documents", path: "/documents", icon: FileText },
   { label: "Settings", path: "/settings", icon: Settings },
 ] as const;
 
