@@ -9,6 +9,8 @@ import {
 import { submitPropertyAction } from "@/app/(shell)/add-property/actions";
 import { uploadDocument } from "@/app/actions/documents";
 import { MAX_ACTION_BYTES } from "@/lib/upload-constants";
+// Type-only, so the server-only extraction module is never pulled into the client bundle.
+import type { ExtractedProperty } from "@/lib/services/document-scan";
 import {
   mergeAddressFields,
   quickAddFormData,
@@ -40,6 +42,22 @@ export type CadastreChoice = {
   /** Official area in m², kept so the card can still describe the parcel after the pointer leaves. */
   areaM2: number | null;
 };
+
+/**
+ * Where the document path has got to, as the card's status row reports it.
+ *
+ * `attaching`/`attached`/`attach-failed` are the real upload: the file is only sent to the server
+ * once the property exists to file it against. Before that the long wait is `reading` — the model
+ * pass, not the network — which is why the row names the step rather than showing a percentage
+ * nothing can honestly compute.
+ */
+export type DocStatus =
+  | "reading"
+  | "read"
+  | "failed"
+  | "attaching"
+  | "attached"
+  | "attach-failed";
 
 function prefersReducedMotion(): boolean {
   return (
@@ -80,10 +98,30 @@ export function useQuickAdd(getBias?: () => [number, number] | undefined) {
   // either "here is what we found" or "we could not find its location, place the pin".
   const [scanning, setScanning] = useState(false);
   const [scanNote, setScanNote] = useState<string | null>(null);
-  // Held until the property exists: the server action that records a document needs a property id,
-  // and there is none until the user confirms. Dropping this file would leave the property without
-  // the very document it was created from.
-  const scannedFile = useRef<File | null>(null);
+  // Held in STATE, not a ref, because the card paints it: the preview needs the file itself and the
+  // summary needs what the read returned. Held until the property exists either way — the action that
+  // records a document needs a property id, and there is none until the user confirms; dropping this
+  // file would leave the property without the very document it was created from.
+  const [docFile, setDocFile] = useState<File | null>(null);
+  const [docUrl, setDocUrl] = useState<string | null>(null);
+  const [extracted, setExtracted] = useState<Partial<ExtractedProperty> | null>(null);
+  const [lowConfidence, setLowConfidence] = useState<(keyof ExtractedProperty)[]>([]);
+  // Where the document path has got to. Null = no document. Drives the card's one status row, which
+  // is the ONLY place the user learns that a 20-second read is running, finished, or failed.
+  const [docStatus, setDocStatus] = useState<DocStatus | null>(null);
+
+  // The preview reads the LOCAL file: it is the user's own document, already in memory, so nothing is
+  // uploaded to look at it. One URL per file, revoked when the file is replaced or the mode is left —
+  // a leaked object URL pins the whole file in memory for the life of the page.
+  useEffect(() => {
+    if (!docFile) {
+      setDocUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(docFile);
+    setDocUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [docFile]);
   // The address the suggestion list is currently pointing at — the pre-selected first row, or
   // wherever ↑/↓ landed. Drives both the map flight and a preview pin, so the user sees where the
   // provider thinks their words point BEFORE committing to it. The provider mis-ranks this corpus
@@ -213,7 +251,10 @@ export function useQuickAdd(getBias?: () => [number, number] | undefined) {
     clearGeocode();
     setScanNote(null);
     setScanning(false);
-    scannedFile.current = null;
+    setDocFile(null);
+    setExtracted(null);
+    setLowConfidence([]);
+    setDocStatus(null);
   }, [clearGeocode]);
 
   // True once the USER edits an address field in the card. Until then every address value there was
@@ -407,6 +448,13 @@ export function useQuickAdd(getBias?: () => [number, number] | undefined) {
         setError(`That document is too large — ${MAX_ACTION_BYTES / (1024 * 1024)} MB max.`);
         return false;
       }
+      // The file is held BEFORE the read, so the card can show the document — its preview and a
+      // status row — while the model is still looking at it. Reading a real deed takes ~20s, and a
+      // bare spinner on a chip for that long does not say what is being read or whether it worked.
+      setDocFile(file);
+      setExtracted(null);
+      setLowConfidence([]);
+      setDocStatus("reading");
       try {
         const body = new FormData();
         body.set("file", file);
@@ -414,17 +462,22 @@ export function useQuickAdd(getBias?: () => [number, number] | undefined) {
         const data = (await res.json()) as {
           ok?: boolean;
           error?: string;
-          extracted?: Partial<
-            Record<"propertyName" | "propertyType" | "addressLine" | "city", string>
-          >;
+          extracted?: Partial<ExtractedProperty>;
+          lowConfidence?: (keyof ExtractedProperty)[];
           coords?: [number, number] | null;
           address?: string | null;
         };
         if (!res.ok || !data.ok) {
+          setDocStatus("failed");
           setError(data.error ?? "Couldn't read that document.");
           return false;
         }
         const e = data.extracted ?? {};
+        // Kept whole, not just the four fields the card edits: the summary the user reviews before
+        // saving is everything the document stated, including the values this card has no input for.
+        setExtracted(e);
+        setLowConfidence(data.lowConfidence ?? []);
+        setDocStatus("read");
         // Pre-fill only what the document actually answered. The pin's own reverse lookup still fills
         // city/address afterwards, and a user edit outranks both.
         setFields((prev) => ({
@@ -446,10 +499,9 @@ export function useQuickAdd(getBias?: () => [number, number] | undefined) {
             "We read the document but couldn't find its location — tap the map to place the pin where you think it is.",
           );
         }
-        // Held only after a successful read: a document we could not read is not worth attaching.
-        scannedFile.current = file;
         return true;
       } catch {
+        setDocStatus("failed");
         setError("Couldn't read that document.");
         return false;
       } finally {
@@ -458,6 +510,13 @@ export function useQuickAdd(getBias?: () => [number, number] | undefined) {
     },
     [applyLocation],
   );
+
+  // Read the held document again. The error state's only way out: the file is still in memory, so
+  // retrying costs one request and no second pick — and a transport flake (the provider returning a
+  // non-JSON body mid-scan) is the likeliest reason a read failed at all.
+  const retryScan = useCallback(() => {
+    if (docFile) void scanFile(docFile);
+  }, [docFile, scanFile]);
 
   // Confirm: create the property. Returns its id so the caller can open its drawer and refresh the
   // map, or null if the write failed.
@@ -497,12 +556,17 @@ export function useQuickAdd(getBias?: () => [number, number] | undefined) {
     // The property exists now, so the document it was created from can finally be filed against it —
     // the action needs an id, and there was none until this point. Best-effort and AFTER the write: a
     // failed attachment must not turn a created property into an error, so it says so instead.
-    const pending = scannedFile.current;
-    if (pending) {
-      scannedFile.current = null;
+    const pending = docFile;
+    // Only a document we actually READ is attached: one whose read failed may not be a document at
+    // all, and the property must not gain a file the user never saw summarised. `pending` used to be
+    // held only after a successful read; now the file is held from the moment it is picked (so the
+    // card can show it while it is read), which makes this the check that keeps that honest.
+    if (pending && docStatus === "read") {
+      setDocStatus("attaching");
       const body = new FormData();
       body.set("file", pending);
       const attached = await uploadDocument(res.propertyId, body).catch(() => null);
+      setDocStatus(attached?.ok ? "attached" : "attach-failed");
       if (!attached?.ok) {
         setScanNote(
           "Property added — but its document couldn't be attached. You can upload it from Documents.",
@@ -510,7 +574,7 @@ export function useQuickAdd(getBias?: () => [number, number] | undefined) {
       }
     }
     return res.propertyId;
-  }, [pin, saving, fields, cadastreChoice]);
+  }, [pin, saving, fields, cadastreChoice, docFile, docStatus]);
 
   return {
     active,
@@ -544,6 +608,16 @@ export function useQuickAdd(getBias?: () => [number, number] | undefined) {
     setField,
     /** Read a picked document and place the pin from it (or ask the user to). */
     scanFile,
+    /** Read the SAME document again, after a read that failed. */
+    retryScan,
+    // The document path, as the card paints it. `docFile` is the file itself (held from the moment it
+    // is picked, so the card can show it while it is read); `docUrl` is the local preview URL; the two
+    // `extracted`/`lowConfidence` values are what the read returned; `docStatus` is the one status row.
+    docFile,
+    docUrl,
+    extracted,
+    lowConfidence,
+    docStatus,
     // Display-only: the parcel under the cursor, reported by the map layer.
     setCadastreParcel,
     // The commit. This is the ONLY thing that makes a parcel part of the property.

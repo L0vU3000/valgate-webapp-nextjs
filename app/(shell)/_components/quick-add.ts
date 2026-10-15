@@ -8,6 +8,10 @@ import { defaultForm } from "@/app/_shared/add-property/types";
 import type { FormData } from "@/app/_shared/add-property/types";
 import type { GeocodeSuggestion } from "@/app/_shared/add-property/_lib/use-geocode";
 import { CAMBODIA_PROVINCES } from "@/lib/constants/cambodia-provinces";
+// Type-only, so the server-only extraction module is never pulled into the bundle: the read's result
+// shape is the one thing this client-side file needs from it, and a field list that cannot type-check
+// against the schema is a list that silently stops matching it.
+import type { ExtractedProperty } from "@/lib/services/document-scan";
 
 // Array identity changes when a caller merges results during render; only row content resets selection.
 export function suggestionRowsSignature(
@@ -129,4 +133,65 @@ export function moveHighlight(
 // provider, and it labels the map pin better than a placeholder would.
 export function quickAddPropertyName(pin: QuickAddPin, typed: string): string {
   return typed.trim() || quickAddAddressLine(pin) || "Untitled Property";
+}
+
+// ---------------------------------------------------------------------------------------------
+// The document path: the card the user sees when they added a property BY picking a document.
+// ---------------------------------------------------------------------------------------------
+
+/** A row of "Read from your document". */
+export type DocumentSummaryRow = {
+  key: keyof ExtractedProperty;
+  label: string;
+  value: string;
+  /** The scan's passes disagreed on this value, so the card asks the user to check it. */
+  uncertain: boolean;
+};
+
+// What the card lists above the confirm button, in the order a person checks it. The four fields the
+// card already shows as editable inputs (name, type, address, city) are deliberately absent: they are
+// the record we are about to save, and printing them twice in one panel makes the user read the same
+// text twice to find out whether we read their document correctly.
+const DOCUMENT_SUMMARY_FIELDS: readonly {
+  key: keyof ExtractedProperty;
+  label: string;
+}[] = [
+  { key: "status", label: "Status" },
+  { key: "addressLine2", label: "Address line 2" },
+  { key: "province", label: "Province" },
+  { key: "zip", label: "Postcode" },
+  { key: "country", label: "Country" },
+  { key: "ownershipStatus", label: "Ownership" },
+  { key: "yearBuilt", label: "Year built" },
+  { key: "totalArea", label: "Area (m²)" },
+  { key: "bedrooms", label: "Bedrooms" },
+  { key: "bathrooms", label: "Bathrooms" },
+  { key: "parkingSpaces", label: "Parking" },
+  { key: "purchasePrice", label: "Purchase price" },
+  { key: "currentMarketValue", label: "Market value" },
+  { key: "purchaseDate", label: "Purchase date" },
+];
+
+/**
+ * The rows the card lists for a document it has read.
+ *
+ * Only what the document actually stated gets a row: the scan returns null for anything it could not
+ * find, and "Bedrooms: —" would read as a fact rather than a gap. A field the scan's passes disagreed
+ * on is marked rather than hidden — catching exactly those values is the reason the read runs more
+ * than once, and the card is the last place the user can correct one before it is saved.
+ */
+export function documentSummaryRows(
+  extracted: Partial<ExtractedProperty> | null | undefined,
+  lowConfidence: readonly (keyof ExtractedProperty)[] = [],
+): DocumentSummaryRow[] {
+  if (!extracted) return [];
+  const uncertainKeys = new Set<keyof ExtractedProperty>(lowConfidence);
+  const rows: DocumentSummaryRow[] = [];
+  for (const { key, label } of DOCUMENT_SUMMARY_FIELDS) {
+    const raw = extracted[key];
+    const value = typeof raw === "string" ? raw.trim() : "";
+    if (!value) continue;
+    rows.push({ key, label, value, uncertain: uncertainKeys.has(key) });
+  }
+  return rows;
 }
