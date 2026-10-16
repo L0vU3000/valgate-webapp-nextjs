@@ -359,7 +359,15 @@ function AcceptInvitationContent() {
             />
           </div>
           <span className="text-xs text-[#434655] leading-[18px]">
-            I agree to the Terms of Service and Privacy Policy.
+            I agree to the{" "}
+            <a href="/terms" className="text-[--val-primary-dark] hover:underline transition-colors">
+              Terms of Service
+            </a>{" "}
+            and{" "}
+            <a href="/privacy" className="text-[--val-primary-dark] hover:underline transition-colors">
+              Privacy Policy
+            </a>
+            .
           </span>
         </label>
         {errors.agreed && <p className="-mt-2 text-xs text-red-500">{errors.agreed}</p>}

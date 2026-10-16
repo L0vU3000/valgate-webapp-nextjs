@@ -352,17 +352,13 @@ export function RegisterPage() {
                   </div>
                   <span className="text-xs text-[#434655] leading-[18px]">
                     I agree to the{" "}
-                    <a href="#" className="text-[--val-primary-dark] hover:underline transition-colors">
+                    <a href="/terms" className="text-[--val-primary-dark] hover:underline transition-colors">
                       Terms of Service
                     </a>{" "}
                     and{" "}
                     <a href="/privacy" className="text-[--val-primary-dark] hover:underline transition-colors">
                       Privacy Policy
                     </a>
-                    {/* "Terms of Service" above still points at "#": there is no terms page yet.
-                        Do not repoint it at a route that does not exist — a broken link on a
-                        consent statement is worse than an obvious gap. It ships with the terms
-                        document. */}
                     .
                   </span>
                 </label>
