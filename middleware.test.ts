@@ -46,6 +46,13 @@ describe("shouldSkipAuthProtect", () => {
     expect(shouldSkipAuthProtect(requestFor("/mcp"))).toBe(true);
   });
 
+  // Guideline 5.1.1(i): App Review opens the privacy policy from *outside* the app. If the
+  // route is not public, Clerk rewrites it to /login and the policy reads as missing — so this
+  // assertion is the thing standing between a working link and a silent rejection.
+  it("skips auth.protect() for /privacy so App Review can read the policy", () => {
+    expect(shouldSkipAuthProtect(requestFor("/privacy"))).toBe(true);
+  });
+
   it("still requires auth.protect() for a non-v1 protected app route", () => {
     expect(shouldSkipAuthProtect(requestFor("/app/dashboard"))).toBe(false);
   });
