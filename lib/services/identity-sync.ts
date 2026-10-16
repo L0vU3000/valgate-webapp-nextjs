@@ -159,6 +159,31 @@ export async function deactivateUser(clerkUserId: string): Promise<void> {
   await db.update(organizationMemberships)
     .set({ status: "removed", removedAt: new Date(), updatedAt: new Date() })
     .where(eq(organizationMemberships.userId, row.id));
+
+  // D1: the account is gone in Clerk, so the personal data held in the mirror goes with it.
+  // Without this an "account deletion" retains the user's email address indefinitely, which is
+  // the one thing a privacy-policy claim cannot survive — and it is what Apple 5.1.1(v) is
+  // actually about. `primary_email` is NOT NULL, so it is overwritten with a reserved
+  // (RFC 2606) placeholder rather than nulled; the USR-* id is kept so the membership rows
+  // above still have a valid FK and the audit trail stays intact (M2 retains tenant data
+  // deliberately, and this does not change that).
+  await db.update(users)
+    .set({
+      primaryEmail: `deleted+${row.id}@deleted.invalid`,
+      displayName: null,
+      avatarUrl: null,
+      updatedAt: new Date(),
+    })
+    .where(eq(users.id, row.id));
+}
+
+// Clerk external id -> our USR-* id is `ourUserId` above; this is its inverse, and it exists
+// because `Ctx` carries only the internal id. Returns null rather than throwing: the caller is
+// already authenticated by the time this runs, so a missing row is a mirror gap, not a 401.
+export async function clerkUserIdFor(ourUserIdValue: string): Promise<string | null> {
+  const [row] = await db.select({ clerkUserId: users.clerkUserId }).from(users)
+    .where(eq(users.id, ourUserIdValue)).limit(1);
+  return row?.clerkUserId ?? null;
 }
 
 // Resolve Clerk external id → our ORG-*/USR-* id.
