@@ -356,9 +356,13 @@ export function RegisterPage() {
                       Terms of Service
                     </a>{" "}
                     and{" "}
-                    <a href="#" className="text-[--val-primary-dark] hover:underline transition-colors">
+                    <a href="/privacy" className="text-[--val-primary-dark] hover:underline transition-colors">
                       Privacy Policy
                     </a>
+                    {/* "Terms of Service" above still points at "#": there is no terms page yet.
+                        Do not repoint it at a route that does not exist — a broken link on a
+                        consent statement is worse than an obvious gap. It ships with the terms
+                        document. */}
                     .
                   </span>
                 </label>
@@ -510,7 +514,7 @@ export function RegisterPage() {
                 style={{ "--auth-delay": "100ms" } as React.CSSProperties}
               >
                 Having trouble? Contact our{" "}
-                <a href="#" className="text-[--val-primary-dark] hover:underline transition-colors">
+                <a href="/contact" className="text-[--val-primary-dark] hover:underline transition-colors">
                   Support Team
                 </a>{" "}
                 for assistance.
