@@ -53,6 +53,12 @@ describe("shouldSkipAuthProtect", () => {
     expect(shouldSkipAuthProtect(requestFor("/privacy"))).toBe(true);
   });
 
+  // Same requirement from the other direction: the register checkbox asks people to accept the
+  // terms *before* they have an account, so the page cannot sit behind a sign-in wall.
+  it("skips auth.protect() for /terms so a signed-out visitor can read them", () => {
+    expect(shouldSkipAuthProtect(requestFor("/terms"))).toBe(true);
+  });
+
   it("still requires auth.protect() for a non-v1 protected app route", () => {
     expect(shouldSkipAuthProtect(requestFor("/app/dashboard"))).toBe(false);
   });

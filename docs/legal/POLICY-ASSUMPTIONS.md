@@ -47,7 +47,30 @@ The annotated draft (`PRIVACY-POLICY-draft.md`) carried working notes to the rea
 this file and for the cross-check transcripts beside it. **None of it belongs in published copy**,
 so none of it is in the page. The draft stays as the annotated working document.
 
-## 4. What the page does not claim
+## 5. Terms of Service — the same treatment, and what needs ratifying
+
+`app/(marketing)/terms/page.tsx` is now published at `/terms`, and both consent checkboxes
+(register and accept-invitation) link to it and to `/privacy`. Before this, the register page asked
+people to agree to a Terms of Service whose link went nowhere, and the invitation page named both
+documents without linking either.
+
+The terms are written from how the product actually behaves — that records belong to a workspace,
+that other people's data is entered by users, that uploaded documents are not deleted with an
+account, and that the map and address data are not authoritative. Three clauses are proposals rather
+than code facts:
+
+| Claim in the terms | Where | Ratify? |
+|---|---|---|
+| A liability cap of **the greater of 12 months' fees or USD 100** | §9 | A standard small-service figure. It is a commercial decision, and a lawyer should confirm it suits the jurisdictions you care about. |
+| Governed by **the law of the country where Valgate is established**, with its courts having exclusive jurisdiction | §11 | Deliberately not named, for the same reason the registered entity is not named. Name both together, in one edit, once you know what they are. |
+| Fees are only ever charged after being **shown and accepted** | §6 | Written to commit to nothing about current pricing, so it stays true whether Valgate is free or paid. Confirm it matches your intent. |
+
+Section 2 (the information you enter about other people) is the clause with real teeth: it places the
+lawful-basis and notice obligations for tenant and co-owner data on the user who enters it, and it is
+the reason the policy can honestly say we hold that data on the workspace's instructions. Read it as
+the risk allocation it is, not as boilerplate.
+
+## 6. What the page does not claim
 
 - It does not claim Mapbox telemetry is off. It cannot: `mapbox-common-ios` ships no telemetry
   source, so the default is unreadable, and the app never configures it. Treat collection as
