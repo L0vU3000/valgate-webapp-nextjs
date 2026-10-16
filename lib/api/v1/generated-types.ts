@@ -18,7 +18,20 @@ export interface paths {
         get: operations["getMe"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete the caller's own account
+         * @description Deletes the caller's Clerk account, which is the source of truth for identity.
+         *     The mirror is reconciled by the existing `user.deleted` webhook, which marks the
+         *     caller's memberships removed and anonymises the mirror row.
+         *
+         *     Tenant business records (properties, documents) are **retained** by design — an
+         *     account deletion removes the account and its access, not the org's records.
+         *
+         *     Idempotent from the caller's point of view: once the account is gone the request
+         *     is unauthenticated, so a repeat call is a 401, never a 500. No user id is accepted
+         *     in the request; a caller can only delete themselves.
+         */
+        delete: operations["deleteMe"];
         options?: never;
         head?: never;
         patch?: never;
@@ -859,6 +872,27 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    deleteMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Account deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             500: components["responses"]["InternalError"];
         };
     };

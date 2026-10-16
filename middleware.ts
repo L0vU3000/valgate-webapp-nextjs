@@ -146,6 +146,13 @@ const isPublicRoute = createRouteMatcher([
   // visitor to /404 instead of sign-in — 404'ing the page and breaking the MCP grant.
   "/oauth-consent(.*)",
   "/contact(.*)",
+  // The privacy policy has to be readable by anyone, signed in or not. App Review opens it
+  // from outside the app (guideline 5.1.1(i)) and a policy behind the auth wall just
+  // redirects them to /login, which reads as "no privacy policy". Same reasoning as /contact.
+  "/privacy(.*)",
+  // The terms are linked from the registration consent statement, so they have to be readable
+  // *before* anyone has an account — same reasoning as /privacy above.
+  "/terms(.*)",
   "/api/webhooks/clerk(.*)",
   // Resend bounce webhooks are Svix-signed, not Clerk-sessioned. auth.protect() would rewrite
   // Resend's POST to an HTML login/404 before the handler could verify the signature.
