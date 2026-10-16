@@ -39,6 +39,29 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "500":
           $ref: "#/components/responses/InternalError"
+    delete:
+      operationId: deleteMe
+      summary: Delete the caller's own account
+      description: |
+        Deletes the caller's Clerk account, which is the source of truth for identity.
+        The mirror is reconciled by the existing `user.deleted` webhook, which marks the
+        caller's memberships removed and anonymises the mirror row.
+
+        Tenant business records (properties, documents) are **retained** by design — an
+        account deletion removes the account and its access, not the org's records.
+
+        Idempotent from the caller's point of view: once the account is gone the request
+        is unauthenticated, so a repeat call is a 401, never a 500. No user id is accepted
+        in the request; a caller can only delete themselves.
+      responses:
+        "204":
+          description: Account deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   /address/suggest:
     get:
