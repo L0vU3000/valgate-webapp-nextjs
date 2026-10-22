@@ -35,12 +35,15 @@ export async function clickContinue(page: Page) {
   await page.getByRole('button', { name: CONTINUE }).filter({ visible: true }).first().click()
 }
 
-// From `/add-property` (Step 0 renders directly, no landing), click "Enter manually" and pass
-// through the first "How it works" gate to land on Step 1 (property type).
+// `/add-property` shows the StepIntro landing unless URL params pre-select a draft. StepIntro renders
+// "Get Started" twice — a desktop button (`hidden lg:inline-flex`) and a phone sticky CTA
+// (`lg:hidden`) — so `.first()` alone resolves to the hidden one and the click waits forever.
+// Filter to the visible one, then "Enter manually" passes through gate 1 to Step 1.
 export async function reachStep1(page: Page) {
   await page.goto('/add-property')
   await expect(page).not.toHaveURL(/\/login/)
 
+  await page.getByRole('button', { name: /get started/i }).filter({ visible: true }).first().click()
   await page.getByRole('button', { name: /enter manually/i }).click()
 
   // Gate 1 — "Step 1 of 3: Tell us about your property"
