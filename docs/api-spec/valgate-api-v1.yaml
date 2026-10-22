@@ -1366,7 +1366,11 @@ components:
         buyNumeric:
           type: number
           minimum: 0
-          description: Canonical purchase amount.
+          maximum: 999999999999.99
+          description: |
+            Stored purchase amount, read back as `priceNumeric`. Omit to leave the price
+            uncollected (create default) or unchanged (patch). Negative values, and values
+            above the stored range, are a 400.
         purchaseDate:
           type: integer
           minimum: 0
@@ -1453,7 +1457,11 @@ components:
         buyNumeric:
           type: number
           minimum: 0
-          description: Canonical purchase amount.
+          maximum: 999999999999.99
+          description: |
+            Stored purchase amount, read back as `priceNumeric`. Omit to leave the price
+            uncollected (create default) or unchanged (patch). Negative values, and values
+            above the stored range, are a 400.
         purchaseDate:
           type: integer
           minimum: 0
