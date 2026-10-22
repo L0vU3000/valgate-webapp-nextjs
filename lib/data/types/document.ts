@@ -45,6 +45,8 @@ export const DocumentSchema = z.object({
       }),
     )
     .optional(),
+  // When the document (insurance, gas safety cert, …) lapses. Absent = no expiry.
+  expiresAt: timestampSchema.optional(),
 });
 
 export type Document = z.infer<typeof DocumentSchema>;

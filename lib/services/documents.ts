@@ -1,5 +1,5 @@
 import "server-only"; // C1
-import { and, asc, eq, gt, or } from "drizzle-orm";
+import { and, asc, count, eq, gt, or } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { documents } from "@/lib/db/schema";
 import { encodeCursor, decodeCursor } from "@/lib/pagination/cursor";
@@ -22,6 +22,12 @@ export async function listDocuments(ctx: Ctx, propertyId?: string): Promise<Docu
     .orderBy(asc(documents.uploadedAt), asc(documents.id))
     .limit(500)
   return rows.map(rowToDocument);
+}
+
+// Org-wide document count (one integer, so a client never pages every property to get it).
+export async function countDocuments(ctx: Ctx): Promise<number> {
+  const [row] = await db.select({ n: count() }).from(documents).where(eq(documents.orgId, ctx.orgId)); // C3
+  return row?.n ?? 0;
 }
 
 // Cursor shape for listDocumentsPage — the same (uploadedAt, id) tuple listDocuments already
@@ -119,7 +125,12 @@ export async function createDocumentForOrg(
   return scopedInsert(ctx, documents, "DOC", input, rowToDocument, { orgId: targetOrgId });
 }
 
-export async function updateDocument(ctx: Ctx, id: string, patch: DocumentPatch): Promise<Document | null> {
+// A null value clears that (nullable) column — the API v1 "" → clear rule relies on it.
+export async function updateDocument(
+  ctx: Ctx,
+  id: string,
+  patch: { [K in keyof DocumentPatch]?: DocumentPatch[K] | null },
+): Promise<Document | null> {
   return scopedUpdate(ctx, documents, id, patch, rowToDocument, false);
 }
 

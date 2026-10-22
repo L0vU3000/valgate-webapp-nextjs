@@ -620,6 +620,67 @@ export function computeNextPayout(
   return { amountNumeric, at };
 }
 
+// Every Overdue payment, any age. Raw number for GET /api/v1/rental's Arrears tile; the web's
+// computeArrears view model buckets the same rows into 0–90d bars. Null when nothing is overdue.
+export function computeOverdue(payments: Payment[]): { amountNumeric: number | null; count: number } {
+  const overdue = payments.filter((p) => p.status === "Overdue");
+  if (overdue.length === 0) return { amountNumeric: null, count: 0 };
+  return { amountNumeric: overdue.reduce((sum, p) => sum + p.amount, 0), count: overdue.length };
+}
+
+// Deposit held = Paid Deposit − Paid Refund. Null when no deposit was ever paid.
+// ponytail: inferred from payment kinds; switch to a stored balance if a deposit ledger ever exists.
+export function computeDepositHeld(payments: Payment[]): number | null {
+  let deposits = 0;
+  let refunds = 0;
+  let sawDeposit = false;
+  for (const p of payments) {
+    if (p.status !== "Paid") continue;
+    if (p.kind === "Deposit") {
+      deposits += p.amount;
+      sawDeposit = true;
+    } else if (p.kind === "Refund") {
+      refunds += p.amount;
+    }
+  }
+  if (!sawDeposit) return null;
+  return Math.max(0, deposits - refunds);
+}
+
+export type PaymentActivity = {
+  title: string;
+  propertyName: string;
+  at: number;
+  amountNumeric: number | null;
+};
+
+// Newest payments that have already happened (date <= now), capped. Display strings only — the
+// payment/lease ids are used to resolve the property name and never leave this function.
+export function computeRecentPaymentActivity(
+  payments: Payment[],
+  leases: Lease[],
+  properties: Property[],
+  limit = 5,
+  nowMs: number = Date.now(),
+): PaymentActivity[] {
+  const leasePropertyId = new Map(leases.map((l) => [l.id, l.propertyId]));
+  const propertyName = new Map(properties.map((p) => [p.id, p.name]));
+
+  return payments
+    .filter((p) => Number.isFinite(p.date) && p.date <= nowMs)
+    .sort((a, b) => b.date - a.date)
+    .slice(0, limit)
+    .map((p) => {
+      const propertyId = p.leaseId ? leasePropertyId.get(p.leaseId) : undefined;
+      return {
+        title: `${p.kind} ${p.status.toLowerCase()}`,
+        propertyName: (propertyId && propertyName.get(propertyId)) || "",
+        at: p.date,
+        amountNumeric: p.amount > 0 ? p.amount : null,
+      };
+    });
+}
+
 // Per-property rental rollup behind GET /api/v1/properties/[id]/rental.
 //
 // Screen-shaped aggregate only: one occupancy percent, one active-lease count, one summed

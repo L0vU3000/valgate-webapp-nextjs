@@ -194,8 +194,15 @@
     {
       "idx": 27,
       "version": "7",
+      "when": 1791950000000,
+      "tag": "0027_document_expires_at",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
       "when": 1791965237226,
-      "tag": "0027_document_ai_suggestions",
+      "tag": "0028_document_ai_suggestions",
       "breakpoints": true
     }
   ]

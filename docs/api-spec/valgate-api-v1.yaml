@@ -659,8 +659,10 @@ paths:
       operationId: getRentalSummary
       summary: Get the portfolio rental summary
       description: |
-        Org-wide rental rollup: occupancy, tenancy count, and the next payout. There is no id
-        here, so this route never 404s — an org with no rentals still gets zeros and nulls.
+        Org-wide rollup for the dashboard: occupancy, tenancy count, next payout, this month's
+        collected/expected rent, arrears, deposits held, document count, and capped
+        display-only `attention` / `activity` rows. There is no id here, so this route never
+        404s — an org with no data still gets zeros, nulls, and empty arrays.
       responses:
         "200":
           description: Portfolio rental summary
@@ -946,7 +948,7 @@ components:
 
     DocumentListItemDtoV1:
       type: object
-      required: [id, propertyId, name, kind, category, uploadedAt]
+      required: [id, propertyId, name, kind, category, uploadedAt, expiresAt, status]
       description: |
         Public document metadata. Storage ids, uploader, verification, and AI-summary
         internals are never included.
@@ -977,6 +979,15 @@ components:
         uploadedAt:
           type: integer
           description: Unix timestamp (milliseconds)
+        expiresAt:
+          type: [integer, "null"]
+          description: Unix timestamp (milliseconds) when the document lapses. Null when it has no expiry.
+        status:
+          type: [string, "null"]
+          enum: [expired, expiring, valid, null]
+          description: |
+            Derived from `expiresAt` on every read (never stored). `expired` at or after
+            `expiresAt`, `expiring` within 30 days of it, else `valid`. Null when there is no expiry.
 
     DocumentPageDtoV1:
       type: object
@@ -1064,7 +1075,8 @@ components:
       type: object
       description: |
         Partial metadata update. All fields optional — an empty object is valid and changes
-        nothing. Unknown keys are stripped, not rejected.
+        nothing. Unknown keys are stripped, not rejected. `null` on any field means "no change";
+        `""` on `description` clears it.
       properties:
         name:
           type: string
@@ -1074,8 +1086,13 @@ components:
           type: string
           enum: [Title, Rental, Photos, Legal, Financial, Estate, Other]
         description:
-          type: string
+          type: [string, "null"]
           maxLength: 2000
+          description: '`""` clears the description; `null` or absent leaves it unchanged.'
+        expiresAt:
+          type: [integer, "null"]
+          minimum: 1
+          description: Unix timestamp (milliseconds) when the document lapses. `null` or absent leaves it unchanged.
 
     DocumentUploadTicketDtoV1:
       type: object
@@ -1243,8 +1260,67 @@ components:
         - nextPayoutAmountNumeric
         - nextPayoutAt
         - currency
-      description: Org-wide rental rollup. Counts are rounded, non-negative integers; `occupancyPercent` is capped at 100.
+        - monthLabel
+        - collectedAmountNumeric
+        - expectedAmountNumeric
+        - paidCount
+        - dueCount
+        - overdueAmountNumeric
+        - overdueCount
+        - depositHeldNumeric
+        - documentCount
+        - attention
+        - activity
+      description: |
+        Org-wide rental rollup. Counts are rounded, non-negative integers; `occupancyPercent` is
+        capped at 100. Amounts are raw numbers (never formatted); `null` means "not collected",
+        never a fabricated 0. No internal identifiers anywhere, including inside `attention` and
+        `activity`.
       properties:
+        monthLabel:
+          type: string
+          description: Display-only month the totals cover, e.g. `October 2026 (UTC)`.
+        collectedAmountNumeric:
+          type: [number, "null"]
+          description: Paid Rent this UTC month. Null when nothing is due and nothing was paid.
+        expectedAmountNumeric:
+          type: [number, "null"]
+          description: Sum of monthly rent over Signed leases running this month. Null when none.
+        paidCount:
+          type: integer
+          minimum: 0
+          description: Paid Rent payments this month (the "2" in "2 of 3 paid").
+        dueCount:
+          type: integer
+          minimum: 0
+          description: Signed leases running this month (the "3" in "2 of 3 paid").
+        overdueAmountNumeric:
+          type: [number, "null"]
+          description: Sum of every Overdue payment. Null when `overdueCount` is 0.
+        overdueCount:
+          type: integer
+          minimum: 0
+        depositHeldNumeric:
+          type: [number, "null"]
+          description: |
+            Paid Deposit minus Paid Refund payments — inferred from payment kinds, not a stored
+            balance. Null when no deposit was ever paid.
+        documentCount:
+          type: integer
+          minimum: 0
+          description: Org-wide document count.
+        attention:
+          type: array
+          maxItems: 5
+          description: Certifications and safety risks needing attention. Overdue first, then soonest `dueAt`.
+          items:
+            $ref: "#/components/schemas/AttentionItemDtoV1"
+        activity:
+          type: array
+          maxItems: 5
+          description: Most recent payments, newest first.
+          items:
+            $ref: "#/components/schemas/ActivityItemDtoV1"
         occupancyPercent:
           type: integer
           minimum: 0
@@ -1268,6 +1344,45 @@ components:
           type: [string, "null"]
           enum: [USD, null]
           description: "`USD` only when a real upcoming payout exists. v1 money is USD only."
+
+    AttentionItemDtoV1:
+      type: object
+      required: [kind, title, propertyName, dueAt, status]
+      description: Display-only row. Carries no entity id.
+      properties:
+        kind:
+          type: string
+          enum: [certificate, risk]
+        title:
+          type: string
+        propertyName:
+          type: string
+        dueAt:
+          type: [integer, "null"]
+          description: Unix timestamp (milliseconds) of the certificate expiry. Null for risks.
+        status:
+          type: string
+          enum: [Expiring, Overdue]
+
+    ActivityItemDtoV1:
+      type: object
+      required: [kind, title, propertyName, at, amountNumeric]
+      description: Display-only row. Carries no entity id.
+      properties:
+        kind:
+          type: string
+          enum: [payment]
+        title:
+          type: string
+          description: e.g. `Rent paid`, `Deposit paid`, `Rent overdue`.
+        propertyName:
+          type: string
+          description: Empty string when the payment has no lease/property.
+        at:
+          type: integer
+          description: Unix timestamp (milliseconds)
+        amountNumeric:
+          type: [number, "null"]
 
     PropertyRentalSummaryDtoV1:
       type: object
@@ -1403,6 +1518,10 @@ components:
       description: |
         Partial update. Every field is optional — an empty object is valid and changes
         nothing. A body `id` is not in this schema, so the URL id always wins.
+        Clear rule for the optional text fields (`city`, `province`, `addressLine`, `country`,
+        `bedrooms`, `bathrooms`, `yearBuilt`): `""` clears the field (stored as null); `null`
+        or an absent key leaves it unchanged. `totalArea` is required on the record and is not
+        clearable.
       properties:
         name:
           type: string
@@ -1422,25 +1541,25 @@ components:
           minimum: -180
           maximum: 180
         city:
-          type: string
+          type: [string, "null"]
         province:
-          type: string
+          type: [string, "null"]
         addressLine:
-          type: string
+          type: [string, "null"]
         addressLine2:
           type: string
         zip:
           type: string
         country:
-          type: string
+          type: [string, "null"]
         totalArea:
           type: string
         bedrooms:
-          type: string
+          type: [string, "null"]
         bathrooms:
-          type: string
+          type: [string, "null"]
         yearBuilt:
-          type: string
+          type: [string, "null"]
         parkingSpaces:
           type: string
         storageUnit:

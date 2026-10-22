@@ -142,7 +142,12 @@ export async function createPropertyForOrg(ctx: Ctx, targetOrgId: string, input:
   return rowToProperty(row!);
 }
 
-export async function updateProperty(ctx: Ctx, id: string, patch: PropertyPatch): Promise<Property | null> {
+// A null value clears that (nullable) column — the API v1 "" → clear rule relies on it.
+export async function updateProperty(
+  ctx: Ctx,
+  id: string,
+  patch: { [K in keyof PropertyPatch]?: PropertyPatch[K] | null },
+): Promise<Property | null> {
   return scopedUpdate(ctx, properties, id, { ...patch, updatedAt: Date.now() }, rowToProperty, true);
 }
 

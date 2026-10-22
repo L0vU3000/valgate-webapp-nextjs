@@ -37,6 +37,21 @@ import { GET } from "@/app/api/v1/rental/route";
 
 const CTX: Ctx = { userId: "USR-0001", orgId: "ORG-0001", orgRole: "viewer" };
 
+// Dashboard rollup fields for an org with nothing to report (same shape on source and wire).
+const EMPTY_ROLLUP = {
+  monthLabel: "October 2026 (UTC)",
+  collectedAmountNumeric: null,
+  expectedAmountNumeric: null,
+  paidCount: 0,
+  dueCount: 0,
+  overdueAmountNumeric: null,
+  overdueCount: 0,
+  depositHeldNumeric: null,
+  documentCount: 0,
+  attention: [],
+  activity: [],
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
 });
@@ -69,6 +84,7 @@ describe("GET /api/v1/rental", () => {
   it("returns the rental summary DTO on success — no lease/tenant/payment rows leaked", async () => {
     resolveApiV1CtxMock.mockResolvedValue({ ok: true, ctx: CTX });
     getRentalSummaryMock.mockResolvedValue({
+      ...EMPTY_ROLLUP,
       occupancyPercent: 50,
       occupiedCount: 1,
       totalCount: 2,
@@ -89,6 +105,7 @@ describe("GET /api/v1/rental", () => {
       nextPayoutAmountNumeric: 2850,
       nextPayoutAt: 1727740800000,
       currency: "USD",
+      ...EMPTY_ROLLUP,
     });
     const serialized = JSON.stringify(body);
     expect(serialized).not.toContain("USR-0001");
@@ -97,9 +114,48 @@ describe("GET /api/v1/rental", () => {
     expect(getRentalSummaryMock).toHaveBeenCalledWith(CTX);
   });
 
+  it("serves the dashboard rollup: counts, raw amounts, capped display rows, no identifiers", async () => {
+    resolveApiV1CtxMock.mockResolvedValue({ ok: true, ctx: CTX });
+    const activity = Array.from({ length: 7 }, (_, i) => ({
+      title: "Rent paid",
+      propertyName: "77 Kestrel",
+      at: 1_790_000_000_000 - i * 1000,
+      amountNumeric: 3200,
+    }));
+    getRentalSummaryMock.mockResolvedValue({
+      ...EMPTY_ROLLUP,
+      occupancyPercent: 75,
+      occupiedCount: 3,
+      totalCount: 4,
+      tenancyCount: 3,
+      nextPayoutAmountNumeric: 3200,
+      nextPayoutAt: 1_790_100_000_000,
+      collectedAmountNumeric: 6040,
+      expectedAmountNumeric: 9240,
+      paidCount: 2,
+      dueCount: 3,
+      depositHeldNumeric: 9570,
+      documentCount: 10,
+      activity,
+    });
+
+    const res = await GET();
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toMatchObject({ paidCount: 2, dueCount: 3, collectedAmountNumeric: 6040, expectedAmountNumeric: 9240, overdueAmountNumeric: null, depositHeldNumeric: 9570, documentCount: 10 });
+    expect(body.activity).toHaveLength(5);
+    expect(body.activity.map((a: { at: number }) => a.at)).toEqual(activity.slice(0, 5).map((a) => a.at));
+    const serialized = JSON.stringify(body);
+    for (const key of ["leaseId", "tenantId", "paymentId", "documentId", "orgId", "storageId"]) {
+      expect(serialized).not.toContain(key);
+    }
+  });
+
   it("returns zeros and null payout fields when the org has no rental data", async () => {
     resolveApiV1CtxMock.mockResolvedValue({ ok: true, ctx: CTX });
     getRentalSummaryMock.mockResolvedValue({
+      ...EMPTY_ROLLUP,
       occupancyPercent: 0,
       occupiedCount: 0,
       totalCount: 0,
@@ -120,6 +176,7 @@ describe("GET /api/v1/rental", () => {
       nextPayoutAmountNumeric: null,
       nextPayoutAt: null,
       currency: null,
+      ...EMPTY_ROLLUP,
     });
   });
 

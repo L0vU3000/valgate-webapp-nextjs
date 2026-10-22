@@ -356,8 +356,10 @@ export interface paths {
         };
         /**
          * Get the portfolio rental summary
-         * @description Org-wide rental rollup: occupancy, tenancy count, and the next payout. There is no id
-         *     here, so this route never 404s — an org with no rentals still gets zeros and nulls.
+         * @description Org-wide rollup for the dashboard: occupancy, tenancy count, next payout, this month's
+         *     collected/expected rent, arrears, deposits held, document count, and capped
+         *     display-only `attention` / `activity` rows. There is no id here, so this route never
+         *     404s — an org with no data still gets zeros, nulls, and empty arrays.
          */
         get: operations["getRentalSummary"];
         put?: never;
@@ -509,6 +511,14 @@ export interface components {
             description?: string | null;
             /** @description Unix timestamp (milliseconds) */
             uploadedAt: number;
+            /** @description Unix timestamp (milliseconds) when the document lapses. Null when it has no expiry. */
+            expiresAt: number | null;
+            /**
+             * @description Derived from `expiresAt` on every read (never stored). `expired` at or after
+             *     `expiresAt`, `expiring` within 30 days of it, else `valid`. Null when there is no expiry.
+             * @enum {string|null}
+             */
+            status: "expired" | "expiring" | "valid" | null;
         };
         DocumentPageDtoV1: {
             items: components["schemas"]["DocumentListItemDtoV1"][];
@@ -544,13 +554,17 @@ export interface components {
         };
         /**
          * @description Partial metadata update. All fields optional — an empty object is valid and changes
-         *     nothing. Unknown keys are stripped, not rejected.
+         *     nothing. Unknown keys are stripped, not rejected. `null` on any field means "no change";
+         *     `""` on `description` clears it.
          */
         DocumentPatchBody: {
             name?: string;
             /** @enum {string} */
             category?: "Title" | "Rental" | "Photos" | "Legal" | "Financial" | "Estate" | "Other";
-            description?: string;
+            /** @description `""` clears the description; `null` or absent leaves it unchanged. */
+            description?: string | null;
+            /** @description Unix timestamp (milliseconds) when the document lapses. `null` or absent leaves it unchanged. */
+            expiresAt?: number | null;
         };
         /** @description Presigned S3 POST. Send every entry of `fields` with the file; the object key is `storageId`. */
         DocumentUploadTicketDtoV1: {
@@ -633,8 +647,37 @@ export interface components {
             coOwners: components["schemas"]["CoOwnerDtoV1"][];
             ownershipHistory: components["schemas"]["OwnershipHistoryDtoV1"][];
         };
-        /** @description Org-wide rental rollup. Counts are rounded, non-negative integers; `occupancyPercent` is capped at 100. */
+        /**
+         * @description Org-wide rental rollup. Counts are rounded, non-negative integers; `occupancyPercent` is
+         *     capped at 100. Amounts are raw numbers (never formatted); `null` means "not collected",
+         *     never a fabricated 0. No internal identifiers anywhere, including inside `attention` and
+         *     `activity`.
+         */
         RentalSummaryDtoV1: {
+            /** @description Display-only month the totals cover, e.g. `October 2026 (UTC)`. */
+            monthLabel: string;
+            /** @description Paid Rent this UTC month. Null when nothing is due and nothing was paid. */
+            collectedAmountNumeric: number | null;
+            /** @description Sum of monthly rent over Signed leases running this month. Null when none. */
+            expectedAmountNumeric: number | null;
+            /** @description Paid Rent payments this month (the "2" in "2 of 3 paid"). */
+            paidCount: number;
+            /** @description Signed leases running this month (the "3" in "2 of 3 paid"). */
+            dueCount: number;
+            /** @description Sum of every Overdue payment. Null when `overdueCount` is 0. */
+            overdueAmountNumeric: number | null;
+            overdueCount: number;
+            /**
+             * @description Paid Deposit minus Paid Refund payments — inferred from payment kinds, not a stored
+             *     balance. Null when no deposit was ever paid.
+             */
+            depositHeldNumeric: number | null;
+            /** @description Org-wide document count. */
+            documentCount: number;
+            /** @description Certifications and safety risks needing attention. Overdue first, then soonest `dueAt`. */
+            attention: components["schemas"]["AttentionItemDtoV1"][];
+            /** @description Most recent payments, newest first. */
+            activity: components["schemas"]["ActivityItemDtoV1"][];
             occupancyPercent: number;
             occupiedCount: number;
             totalCount: number;
@@ -648,6 +691,29 @@ export interface components {
              * @enum {string|null}
              */
             currency: "USD" | null;
+        };
+        /** @description Display-only row. Carries no entity id. */
+        AttentionItemDtoV1: {
+            /** @enum {string} */
+            kind: "certificate" | "risk";
+            title: string;
+            propertyName: string;
+            /** @description Unix timestamp (milliseconds) of the certificate expiry. Null for risks. */
+            dueAt: number | null;
+            /** @enum {string} */
+            status: "Expiring" | "Overdue";
+        };
+        /** @description Display-only row. Carries no entity id. */
+        ActivityItemDtoV1: {
+            /** @enum {string} */
+            kind: "payment";
+            /** @description e.g. `Rent paid`, `Deposit paid`, `Rent overdue`. */
+            title: string;
+            /** @description Empty string when the payment has no lease/property. */
+            propertyName: string;
+            /** @description Unix timestamp (milliseconds) */
+            at: number;
+            amountNumeric: number | null;
         };
         /**
          * @description Screen-shaped aggregate for one property. Not a lease/tenant/payment list — no lease
@@ -720,6 +786,10 @@ export interface components {
         /**
          * @description Partial update. Every field is optional — an empty object is valid and changes
          *     nothing. A body `id` is not in this schema, so the URL id always wins.
+         *     Clear rule for the optional text fields (`city`, `province`, `addressLine`, `country`,
+         *     `bedrooms`, `bathrooms`, `yearBuilt`): `""` clears the field (stored as null); `null`
+         *     or an absent key leaves it unchanged. `totalArea` is required on the record and is not
+         *     clearable.
          */
         PropertyPatchBody: {
             name?: string;
@@ -729,16 +799,16 @@ export interface components {
             status?: "Rented" | "Vacant" | "For Sale" | "Sold" | "Archived" | "Owner-Occupied";
             lat?: number;
             lng?: number;
-            city?: string;
-            province?: string;
-            addressLine?: string;
+            city?: string | null;
+            province?: string | null;
+            addressLine?: string | null;
             addressLine2?: string;
             zip?: string;
-            country?: string;
+            country?: string | null;
             totalArea?: string;
-            bedrooms?: string;
-            bathrooms?: string;
-            yearBuilt?: string;
+            bedrooms?: string | null;
+            bathrooms?: string | null;
+            yearBuilt?: string | null;
             parkingSpaces?: string;
             storageUnit?: string;
             /** @enum {string} */

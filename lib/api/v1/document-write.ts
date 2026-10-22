@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { DocumentPatch, NewDocument } from "@/lib/data/types/document";
 import { ALLOWED_MIME, MAX_BYTES } from "@/lib/upload-constants";
+import { clearValue } from "@/lib/api/v1/property-write";
 
 const documentNameSchema = z.string().trim().min(1).max(255);
 const mimeTypeSchema = z.string().refine((value) => ALLOWED_MIME.has(value), "Unsupported MIME type.");
@@ -21,10 +22,13 @@ export const DocumentCompleteBodySchema = z.object({
   storageId: z.string().trim().min(1).max(512),
   ...uploadFields,
 });
+// description: "" clears, null/absent = no change (see clearValue). expiresAt: epoch ms;
+// null/absent = no change. Status is derived from expiresAt on read, never written.
 export const DocumentPatchBodySchema = z.object({
   name: documentNameSchema.optional(),
   category: categorySchema.optional(),
-  description: descriptionSchema,
+  description: z.string().max(2_000).nullish(),
+  expiresAt: z.number().int().positive().nullish(),
 });
 
 export type DocumentUploadBody = z.infer<typeof DocumentUploadBodySchema>;
@@ -52,11 +56,15 @@ export function parseDocumentPatchBody(raw: unknown):
   return result.success ? { ok: true, body: result.data } : { ok: false };
 }
 
-export function toDocumentPatch(body: DocumentPatchBody): DocumentPatch {
-  const patch: DocumentPatch = {};
+export function toDocumentPatch(
+  body: DocumentPatchBody,
+): { [K in keyof DocumentPatch]?: DocumentPatch[K] | null } {
+  const patch: { [K in keyof DocumentPatch]?: DocumentPatch[K] | null } = {};
   if (body.name !== undefined) patch.name = body.name;
   if (body.category !== undefined) patch.category = body.category;
-  if (body.description !== undefined) patch.description = body.description;
+  const description = clearValue(body.description);
+  if (description !== undefined) patch.description = description;
+  if (body.expiresAt != null) patch.expiresAt = body.expiresAt;
   return patch;
 }
 
