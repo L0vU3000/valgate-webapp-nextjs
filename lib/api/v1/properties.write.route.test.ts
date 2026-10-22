@@ -12,8 +12,8 @@ import {
 // POST /api/v1/properties, PATCH /api/v1/properties/[id], DELETE /api/v1/properties/[id]
 //
 // Auth seam and properties service fully mocked (no real Clerk/DB/network).
-// Proves: 401, 400, viewer 403, cross-org 404, happy path, and that storage ids
-// / financial internals in the body are stripped before they reach the service.
+// Proves: 401, 400, viewer 403, cross-org 404, happy path, and that transport-only
+// storage ids in the body are stripped before they reach the service.
 // ---------------------------------------------------------------------------
 
 const {
@@ -118,7 +118,42 @@ describe("parseCreateBody / toNewProperty", () => {
     expect(created.buyNumeric).toBe(0);
   });
 
-  it("strips storage ids, financial internals, and a body id", () => {
+  it("derives buyNumeric from a non-empty purchasePrice", () => {
+    const parsed = parseCreateBody({ ...VALID_CREATE, purchasePrice: "$1,234.50" });
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) throw new Error("expected success");
+
+    const created = toNewProperty(parsed.body);
+    expect(created.purchasePrice).toBe("$1,234.50");
+    expect(created.buyNumeric).toBe(1234.5);
+  });
+
+  it("keeps buyNumeric when no purchasePrice is sent", () => {
+    const parsed = parseCreateBody({ ...VALID_CREATE, buyNumeric: 1234.5 });
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) throw new Error("expected success");
+
+    expect(toNewProperty(parsed.body).buyNumeric).toBe(1234.5);
+  });
+
+  it("keeps purchaseDate as epoch milliseconds", () => {
+    const purchaseDate = 1727740800000;
+    const parsed = parseCreateBody({ ...VALID_CREATE, purchaseDate });
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) throw new Error("expected success");
+
+    expect(toNewProperty(parsed.body).purchaseDate).toBe(purchaseDate);
+  });
+
+  it("stores an empty purchasePrice with a zero canonical amount", () => {
+    const parsed = parseCreateBody({ ...VALID_CREATE, purchasePrice: "", buyNumeric: 1234.5 });
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) throw new Error("expected success");
+
+    expect(toNewProperty(parsed.body)).toMatchObject({ purchasePrice: "", buyNumeric: 0 });
+  });
+
+  it("strips storage ids and a body id", () => {
     const parsed = parseCreateBody({
       ...VALID_CREATE,
       id: "PROP-FORGED",
@@ -135,11 +170,11 @@ describe("parseCreateBody / toNewProperty", () => {
     const created = toNewProperty(parsed.body);
     expect(created).not.toHaveProperty("photoStorageIds");
     expect(created).not.toHaveProperty("documentStorageIds");
-    expect(created).not.toHaveProperty("outstandingMortgage");
     expect(created).not.toHaveProperty("coverStorageId");
     expect(created).not.toHaveProperty("id");
-    expect(created.buyNumeric).toBe(0);
-    expect(created.title).toBe("—");
+    expect(created.outstandingMortgage).toBe(12345);
+    expect(created.buyNumeric).toBe(999999);
+    expect(created.title).toBe("Hard title");
   });
 
   it("rejects a missing name, a bad type, and a lat outside the map range", () => {
@@ -170,7 +205,15 @@ describe("parsePatchBody / toPropertyPatch", () => {
     if (!parsed.ok) throw new Error("expected success");
 
     const patch = toPropertyPatch(parsed.body);
-    expect(patch).toEqual({ name: "Renamed villa" });
+    expect(patch).toEqual({ name: "Renamed villa", outstandingMortgage: 50 });
+  });
+
+  it("treats empty title and ownershipStatus as absent", () => {
+    const parsed = parsePatchBody({ title: "", ownershipStatus: "" });
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) throw new Error("expected success");
+
+    expect(toPropertyPatch(parsed.body)).toEqual({});
   });
 });
 
@@ -264,6 +307,8 @@ describe("POST /api/v1/properties", () => {
       addressLine: "42 Ocean Ave",
       country: "KH",
       totalArea: "",
+      title: "—",
+      outstandingMortgage: 999999,
     });
     expect(JSON.stringify(body)).not.toContain("SECRET");
     expect(createPropertyMock).toHaveBeenCalledWith(
@@ -281,7 +326,7 @@ describe("POST /api/v1/properties", () => {
     );
   });
 
-  it("strips storage ids and financial internals before calling createProperty", async () => {
+  it("strips storage ids before calling createProperty", async () => {
     resolveApiV1CtxMock.mockResolvedValue({ ok: true, ctx: OWNER });
     createPropertyMock.mockResolvedValue(CREATED_PROPERTY);
 
@@ -301,10 +346,10 @@ describe("POST /api/v1/properties", () => {
     const passed = createPropertyMock.mock.calls[0][1] as Record<string, unknown>;
     expect(passed.photoStorageIds).toBeUndefined();
     expect(passed.documentStorageIds).toBeUndefined();
-    expect(passed.outstandingMortgage).toBeUndefined();
     expect(passed.coverStorageId).toBeUndefined();
-    expect(passed.buyNumeric).toBe(0);
-    expect(passed.title).toBe("—");
+    expect(passed.outstandingMortgage).toBe(12345);
+    expect(passed.buyNumeric).toBe(999999);
+    expect(passed.title).toBe("Hard title");
     expect(JSON.stringify(await res.json())).not.toContain("SECRET");
   });
 
@@ -350,6 +395,22 @@ describe("PATCH /api/v1/properties/[id]", () => {
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.error.code).toBe("invalid_request");
+    expect(updatePropertyMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 for an invalid ownershipStatus", async () => {
+    resolveApiV1CtxMock.mockResolvedValue({ ok: true, ctx: OWNER });
+
+    const res = await PATCH(
+      jsonRequest(
+        "http://localhost/api/v1/properties/PROP-0001",
+        "PATCH",
+        { ownershipStatus: "owned" },
+      ),
+      ctxParams("PROP-0001"),
+    );
+
+    expect(res.status).toBe(400);
     expect(updatePropertyMock).not.toHaveBeenCalled();
   });
 
@@ -422,8 +483,51 @@ describe("PATCH /api/v1/properties/[id]", () => {
     );
 
     expect(res.status).toBe(200);
-    expect(updatePropertyMock).toHaveBeenCalledWith(MEMBER, "PROP-0001", { name: "Renamed villa" });
+    expect(updatePropertyMock).toHaveBeenCalledWith(MEMBER, "PROP-0001", {
+      name: "Renamed villa",
+      outstandingMortgage: 50,
+      buyNumeric: 888,
+    });
     expect(JSON.stringify(await res.json())).not.toContain("SECRET");
+  });
+
+  it("leaves omitted stored fields out of the patch", async () => {
+    resolveApiV1CtxMock.mockResolvedValue({ ok: true, ctx: MEMBER });
+    getPropertyMock.mockResolvedValue(CREATED_PROPERTY);
+    updatePropertyMock.mockResolvedValue({ ...CREATED_PROPERTY, name: "Renamed villa" });
+
+    const res = await PATCH(
+      jsonRequest(
+        "http://localhost/api/v1/properties/PROP-0001",
+        "PATCH",
+        { name: "Renamed villa" },
+      ),
+      ctxParams("PROP-0001"),
+    );
+
+    expect(res.status).toBe(200);
+    expect(updatePropertyMock).toHaveBeenCalledWith(MEMBER, "PROP-0001", { name: "Renamed villa" });
+  });
+
+  it("writes an empty purchasePrice with a zero canonical amount", async () => {
+    resolveApiV1CtxMock.mockResolvedValue({ ok: true, ctx: MEMBER });
+    getPropertyMock.mockResolvedValue(CREATED_PROPERTY);
+    updatePropertyMock.mockResolvedValue({ ...CREATED_PROPERTY, purchasePrice: "", buyNumeric: 0 });
+
+    const res = await PATCH(
+      jsonRequest(
+        "http://localhost/api/v1/properties/PROP-0001",
+        "PATCH",
+        { purchasePrice: "" },
+      ),
+      ctxParams("PROP-0001"),
+    );
+
+    expect(res.status).toBe(200);
+    expect(updatePropertyMock).toHaveBeenCalledWith(MEMBER, "PROP-0001", {
+      purchasePrice: "",
+      buyNumeric: 0,
+    });
   });
 
   it("fails closed with a generic 500 when the service throws unexpectedly (no message leak)", async () => {
