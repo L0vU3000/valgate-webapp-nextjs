@@ -887,9 +887,13 @@ components:
       allOf:
         - $ref: "#/components/schemas/PropertyListItemDtoV1"
       type: object
-      required: [addressLine, country, totalArea, bedrooms, bathrooms, yearBuilt]
+      required: [addressLine, addressLine2, zip, country, totalArea, bedrooms, bathrooms, yearBuilt, parkingSpaces, storageUnit, title, ownershipStatus, purchasePrice, purchaseDate, currentMarketValue, outstandingMortgage, monthlyPayment, interestRate, annualPropertyTax, taxAssessmentValue, annualInsurance]
       properties:
         addressLine:
+          type: [string, "null"]
+        addressLine2:
+          type: [string, "null"]
+        zip:
           type: [string, "null"]
         country:
           type: [string, "null"]
@@ -901,6 +905,44 @@ components:
           type: [string, "null"]
         yearBuilt:
           type: [string, "null"]
+        parkingSpaces:
+          type: [string, "null"]
+        storageUnit:
+          type: [string, "null"]
+        title:
+          type: string
+          enum: [Hard title, Soft title, "—"]
+        ownershipStatus:
+          type: [string, "null"]
+          description: Free text as stored. The write bodies accept the five OWNERSHIP_STATUSES values; older rows may hold other strings.
+        purchasePrice:
+          type: [string, "null"]
+        purchaseDate:
+          type: [integer, "null"]
+          minimum: 0
+          description: Unix timestamp (milliseconds)
+        currentMarketValue:
+          type: [number, "null"]
+          minimum: 0
+        outstandingMortgage:
+          type: [number, "null"]
+          minimum: 0
+        monthlyPayment:
+          type: [number, "null"]
+          minimum: 0
+        interestRate:
+          type: [number, "null"]
+          minimum: 0
+          description: Percent, for example 4.5.
+        annualPropertyTax:
+          type: [number, "null"]
+          minimum: 0
+        taxAssessmentValue:
+          type: [number, "null"]
+          minimum: 0
+        annualInsurance:
+          type: [number, "null"]
+          minimum: 0
 
     DocumentListItemDtoV1:
       type: object
@@ -1294,6 +1336,10 @@ components:
           type: string
         addressLine:
           type: string
+        addressLine2:
+          type: string
+        zip:
+          type: string
         country:
           type: string
         totalArea:
@@ -1304,6 +1350,49 @@ components:
           type: string
         yearBuilt:
           type: string
+        parkingSpaces:
+          type: string
+        storageUnit:
+          type: string
+        title:
+          type: string
+          enum: [Hard title, Soft title, "—"]
+        ownershipStatus:
+          type: string
+          enum: [Owned outright, Mortgaged, Leasehold, Co-owned, Other]
+        purchasePrice:
+          type: string
+          description: Display string; an empty string means not collected.
+        buyNumeric:
+          type: number
+          minimum: 0
+          description: Canonical purchase amount.
+        purchaseDate:
+          type: integer
+          minimum: 0
+          description: Unix timestamp (milliseconds)
+        currentMarketValue:
+          type: number
+          minimum: 0
+        outstandingMortgage:
+          type: number
+          minimum: 0
+        monthlyPayment:
+          type: number
+          minimum: 0
+        interestRate:
+          type: number
+          minimum: 0
+          description: Percent, for example 4.5.
+        annualPropertyTax:
+          type: number
+          minimum: 0
+        taxAssessmentValue:
+          type: number
+          minimum: 0
+        annualInsurance:
+          type: number
+          minimum: 0
 
     PropertyPatchBody:
       type: object
@@ -1334,6 +1423,10 @@ components:
           type: string
         addressLine:
           type: string
+        addressLine2:
+          type: string
+        zip:
+          type: string
         country:
           type: string
         totalArea:
@@ -1344,6 +1437,49 @@ components:
           type: string
         yearBuilt:
           type: string
+        parkingSpaces:
+          type: string
+        storageUnit:
+          type: string
+        title:
+          type: string
+          enum: [Hard title, Soft title, "—"]
+        ownershipStatus:
+          type: string
+          enum: [Owned outright, Mortgaged, Leasehold, Co-owned, Other]
+        purchasePrice:
+          type: string
+          description: Display string; an empty string means not collected.
+        buyNumeric:
+          type: number
+          minimum: 0
+          description: Canonical purchase amount.
+        purchaseDate:
+          type: integer
+          minimum: 0
+          description: Unix timestamp (milliseconds)
+        currentMarketValue:
+          type: number
+          minimum: 0
+        outstandingMortgage:
+          type: number
+          minimum: 0
+        monthlyPayment:
+          type: number
+          minimum: 0
+        interestRate:
+          type: number
+          minimum: 0
+          description: Percent, for example 4.5.
+        annualPropertyTax:
+          type: number
+          minimum: 0
+        taxAssessmentValue:
+          type: number
+          minimum: 0
+        annualInsurance:
+          type: number
+          minimum: 0
 
     ErrorEnvelope:
       type: object

@@ -462,11 +462,30 @@ export interface components {
         };
         PropertyDetailDtoV1: {
             addressLine: string | null;
+            addressLine2: string | null;
+            zip: string | null;
             country: string | null;
             totalArea: string;
             bedrooms: string | null;
             bathrooms: string | null;
             yearBuilt: string | null;
+            parkingSpaces: string | null;
+            storageUnit: string | null;
+            /** @enum {string} */
+            title: "Hard title" | "Soft title" | "—";
+            /** @description Free text as stored. The write bodies accept the five OWNERSHIP_STATUSES values; older rows may hold other strings. */
+            ownershipStatus: string | null;
+            purchasePrice: string | null;
+            /** @description Unix timestamp (milliseconds) */
+            purchaseDate: number | null;
+            currentMarketValue: number | null;
+            outstandingMortgage: number | null;
+            monthlyPayment: number | null;
+            /** @description Percent, for example 4.5. */
+            interestRate: number | null;
+            annualPropertyTax: number | null;
+            taxAssessmentValue: number | null;
+            annualInsurance: number | null;
         } & components["schemas"]["PropertyListItemDtoV1"];
         /**
          * @description Public document metadata. Storage ids, uploader, verification, and AI-summary
@@ -666,11 +685,33 @@ export interface components {
             city?: string;
             province?: string;
             addressLine?: string;
+            addressLine2?: string;
+            zip?: string;
             country?: string;
             totalArea?: string;
             bedrooms?: string;
             bathrooms?: string;
             yearBuilt?: string;
+            parkingSpaces?: string;
+            storageUnit?: string;
+            /** @enum {string} */
+            title?: "Hard title" | "Soft title" | "—";
+            /** @enum {string} */
+            ownershipStatus?: "Owned outright" | "Mortgaged" | "Leasehold" | "Co-owned" | "Other";
+            /** @description Display string; an empty string means not collected. */
+            purchasePrice?: string;
+            /** @description Canonical purchase amount. */
+            buyNumeric?: number;
+            /** @description Unix timestamp (milliseconds) */
+            purchaseDate?: number;
+            currentMarketValue?: number;
+            outstandingMortgage?: number;
+            monthlyPayment?: number;
+            /** @description Percent, for example 4.5. */
+            interestRate?: number;
+            annualPropertyTax?: number;
+            taxAssessmentValue?: number;
+            annualInsurance?: number;
         };
         /**
          * @description Partial update. Every field is optional — an empty object is valid and changes
@@ -687,11 +728,33 @@ export interface components {
             city?: string;
             province?: string;
             addressLine?: string;
+            addressLine2?: string;
+            zip?: string;
             country?: string;
             totalArea?: string;
             bedrooms?: string;
             bathrooms?: string;
             yearBuilt?: string;
+            parkingSpaces?: string;
+            storageUnit?: string;
+            /** @enum {string} */
+            title?: "Hard title" | "Soft title" | "—";
+            /** @enum {string} */
+            ownershipStatus?: "Owned outright" | "Mortgaged" | "Leasehold" | "Co-owned" | "Other";
+            /** @description Display string; an empty string means not collected. */
+            purchasePrice?: string;
+            /** @description Canonical purchase amount. */
+            buyNumeric?: number;
+            /** @description Unix timestamp (milliseconds) */
+            purchaseDate?: number;
+            currentMarketValue?: number;
+            outstandingMortgage?: number;
+            monthlyPayment?: number;
+            /** @description Percent, for example 4.5. */
+            interestRate?: number;
+            annualPropertyTax?: number;
+            taxAssessmentValue?: number;
+            annualInsurance?: number;
         };
         ErrorEnvelope: {
             error: {
