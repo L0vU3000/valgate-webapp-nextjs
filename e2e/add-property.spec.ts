@@ -3,8 +3,7 @@
  *
  * The real wizard at /add-property is a multi-stage flow, not a single form:
  *
- *   Landing (StepIntro)  → "Get Started"
- *   Step 0 (method)      → "Enter manually"
+ *   Step 0 (method)      → "Enter manually"   (/add-property renders this directly)
  *   Gate 1 (How it works)→ "Continue"
  *   Step 1 (type)        → click a type card, e.g. "Residential House" (auto-advances)
  *   Step 2 (location)    → Property Name (placeholder "e.g. Skyline Luxury Lofts") → footer "Continue"
@@ -30,13 +29,12 @@ import { clickContinue, fillAddress, reachStep2 } from './helpers/wizard'
 const DRAFT_NAME = `E2E Draft ${Date.now()}`
 
 test.describe.serial('C — Add property', () => {
-  test('C0: landing → Step 0 with no advisor dialog, "Enter manually" reaches the wizard', async ({ page }) => {
+  test('C0: /add-property renders Step 0 with no advisor dialog, "Enter manually" reaches the wizard', async ({ page }) => {
     test.info().annotations.push({ type: 'checklist', description: 'C0 — no advisor interstitial' })
 
-    await test.step('Landing "Get Started" reveals Step 0 directly — no dialog in between', async () => {
+    await test.step('Step 0 renders directly — no dialog in between', async () => {
       await page.goto('/add-property')
       await expect(page).not.toHaveURL(/\/login/)
-      await page.getByRole('button', { name: /get started/i }).first().click()
 
       // Step 0 is a plain method-choice screen, not gated behind an interstitial.
       await expect(page.getByRole('alertdialog').or(page.getByRole('dialog'))).toHaveCount(0)
@@ -144,8 +142,6 @@ test.describe.serial('C — Add property', () => {
 
     await test.step('Return to add-property → draft resume option shown on Step 0', async () => {
       await page.goto('/add-property')
-      // A fresh visit shows the landing screen first; "Get Started" reveals Step 0 directly.
-      await page.getByRole('button', { name: /get started/i }).first().click()
 
       // Step 0 always renders the "Resume a draft" section, and our saved draft
       // appears there by its name. Either confirms the resume affordance.
@@ -159,7 +155,6 @@ test.describe.serial('C — Add property', () => {
 
     await test.step('Reach Step 0 and confirm the C3 draft is listed', async () => {
       await page.goto('/add-property')
-      await page.getByRole('button', { name: /get started/i }).filter({ visible: true }).first().click()
       await expect(page.getByText(/resume a draft/i)).toBeVisible({ timeout: 8_000 })
       await expect(page.getByText(DRAFT_NAME).first()).toBeVisible({ timeout: 10_000 })
     })

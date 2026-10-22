@@ -5,7 +5,6 @@
  * DOM and are the same ones `add-property.spec.ts` and `intake.spec.ts` both depend on, so they live
  * here rather than being copied per spec:
  *
- *   Landing (StepIntro)  → "Get Started"
  *   Step 0 (method)      → "Enter manually"
  *   Gate 1 (How it works)→ "Continue"
  *   Step 1 (type)        → click a type card, e.g. "Residential House" (auto-advances)
@@ -16,6 +15,9 @@
  *   Gate 3 (How it works)→ "Start Review"
  *   Step 5 (review)      → footer "Submit"
  *   Step 6 (success)     → "Your property is on Valgate." + the new code (ID: PROP-NNNN)
+ *
+ * `/add-property` renders Step 0 directly. The StepIntro landing ("Get Started") only appears when
+ * `preFlowStage` is set, so it is not part of the default walk.
  *
  * The Step 2 "Property Name" <label> is not associated with its <input> (no htmlFor/id), so
  * getByLabel does not find it — target the input by its placeholder instead.
@@ -33,15 +35,12 @@ export async function clickContinue(page: Page) {
   await page.getByRole('button', { name: CONTINUE }).filter({ visible: true }).first().click()
 }
 
-// From the landing screen, "Get Started" reveals Step 0 directly (no interstitial),
-// then click "Enter manually" and pass through the first "How it works" gate to
-// land on Step 1 (property type).
+// From `/add-property` (Step 0 renders directly, no landing), click "Enter manually" and pass
+// through the first "How it works" gate to land on Step 1 (property type).
 export async function reachStep1(page: Page) {
   await page.goto('/add-property')
   await expect(page).not.toHaveURL(/\/login/)
 
-  // Landing → reveal Step 0 directly
-  await page.getByRole('button', { name: /get started/i }).first().click()
   await page.getByRole('button', { name: /enter manually/i }).click()
 
   // Gate 1 — "Step 1 of 3: Tell us about your property"
