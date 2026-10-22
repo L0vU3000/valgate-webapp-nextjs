@@ -38,6 +38,8 @@ identity/org resolution as MCP (`ctxFromMcpAuth`) rather than duplicating auth l
 | DELETE | `/api/v1/properties/{id}/documents/{documentId}` | Delete a document and its stored bytes |
 | GET | `/api/v1/rental` | Portfolio rental summary: occupancy, tenancy count, next payout |
 | GET | `/api/v1/properties/{id}/rental` | One property's rental summary: occupancy, active leases, monthly rent, next payment |
+| GET | `/api/v1/properties/{id}/rental/edit` | The active lease and primary tenant Edit Rental edits, with their ids |
+| PUT | `/api/v1/properties/{id}/rental/edit` | Upsert that lease and tenant, in one transaction |
 
 ### `GET /api/v1/me`
 
@@ -260,6 +262,96 @@ No lease, tenant, or payment identifier is ever serialized: no lease or payment 
 `tenantId`, `unit`, `method`, `renewalStatus`, and no row arrays under `leases`, `tenants`,
 `payments`, or `items`.
 
+### `GET|PUT /api/v1/properties/{id}/rental/edit`
+
+The rows behind the website's "Edit rental" wizard, so a client that cannot call Server Actions
+can edit a rental over HTTP. Still not a list: at most **one** lease and **one** tenant.
+
+The pair is chosen exactly as the wizard chooses it — `pickActiveLease` (the most recently started
+`Signed` lease for the property) and `pickPrimaryTenant` (the first tenant row) in
+`lib/data/derivations/rental.ts`, shared by both callers.
+
+`GET` returns the edit DTO. `PUT` upserts both rows and returns the refreshed same DTO (`200`).
+
+| Field | Type | Notes |
+|---|---|---|
+| `lease` | `object \| null` | `null` when the property has no signed lease yet (the PUT creates one). |
+| `lease.id` | `string` | Real id — this endpoint exists so a client can address an existing row. |
+| `lease.unit` | `string` | |
+| `lease.startDate` | `number` | Unix ms. |
+| `lease.endDate` | `number` | Unix ms. |
+| `lease.monthlyRent` | `number` | |
+| `lease.termMonths` | `number` | Positive integer. |
+| `lease.renewalStatus` | `string \| null` | |
+| `tenant` | `object \| null` | `null` when the property has no tenant row yet. |
+| `tenant.id` | `string` | Real id. |
+| `tenant.name` | `string` | |
+| `tenant.unit` | `string` | |
+| `tenant.rent` | `number` | |
+| `tenant.status` | `"Paid" \| "Overdue" \| "Pending"` | |
+| `tenant.email` | `string \| null` | |
+| `tenant.phone` | `string \| null` | |
+
+`PUT` body — the same editable fields, both halves required:
+
+```json
+{
+  "lease": { "unit": "A2", "startDate": 1700000000000, "endDate": 1730000000000,
+             "monthlyRent": 1200, "termMonths": 12, "renewalStatus": "Auto" },
+  "tenant": { "name": "Dara Sok", "unit": "A2", "rent": 1200, "status": "Paid",
+              "email": "dara@example.com", "phone": "+855 12 345 678" }
+}
+```
+
+Server-side, in **one transaction**: create-vs-update is decided against the lookup above (existing
+row patched, absent row created), `stage` is `"Signed"`, the lease's `tenantId` points at the tenant
+written in the same transaction, `propertyId` comes from the URL, and ids plus `userId`/`orgId` are
+server-assigned. None of `id`, `stage`, `tenantId`, `propertyId`, `userId`, `orgId` are accepted
+from the body (unknown keys are stripped, not rejected). Dates are epoch milliseconds, validated by
+`NewLeaseSchema`/`LeasePatchSchema` and `NewTenantSchema`/`TenantPatchSchema`. Empty `email`/`phone`
+are treated as absent rather than written as `""`.
+
+Requires `member` or above (a viewer gets `403` after the org-scoped property lookup, so a cross-org
+id is still a plain `404`); demo mode refuses the write with `403`. Creating a rental **payment** in
+the same flow (the wizard's optional payment step) is deliberately not part of this endpoint.
+
+### `GET|POST /api/v1/properties/{id}/payments`
+
+A property's payment history and recording a new payment.
+
+`GET` returns `{ "payments": PaymentDto[] }`, newest first (`date` desc, then `id` desc). `?limit=`
+is an integer `1`–`200`, default `50`; anything else is a `400`. No cursor — only the newest `limit`
+rows are reachable. Read rate limiter.
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | `string` | |
+| `leaseId` | `string \| null` | |
+| `date` | `number` | Unix ms. |
+| `kind` | `"Rent" \| "Fee" \| "Deposit" \| "Refund"` | |
+| `amount` | `number` | `>= 0`. |
+| `method` | `"ABA Bank" \| "Wing" \| "Wire transfer" \| "Cash"` | |
+| `status` | `"Paid" \| "Pending" \| "Failed" \| "Overdue"` | |
+
+Withheld: `orgId`, `userId`, `tenantId`, `propertyId` (it is the URL), `dueDate`.
+
+`POST` body: `{ "date", "kind", "amount", "method", "status", "leaseId"? }` → `201` with the DTO.
+`propertyId` comes from the URL; a body `propertyId` and other unknown keys are stripped. A `leaseId`
+that is not a lease of this property is a `400`. Requires `member`+.
+
+Missing or cross-org property is a plain `404` for both verbs (checked before the role gate).
+
+### `PATCH|DELETE /api/v1/payments/{paymentId}`
+
+`PATCH` takes any non-empty subset of `date`, `kind`, `amount`, `method`, `status` and returns the
+DTO (`200`). An empty body — or one carrying only unknown keys or `leaseId`, which is not patchable —
+is a `400`. Requires `member`+.
+
+`DELETE` returns `204`. Requires `admin`+.
+
+Both look the payment up org-scoped first, so a cross-org id is a plain `404`, never a `403`. Demo
+mode refuses both with `403`.
+
 ## DTO omissions (by design)
 
 None of the v1 DTOs ever include: internal `userId`/`orgId`/`clientId`, any storage id
@@ -273,7 +365,9 @@ and market-value columns stay off the wire.
 `toMeDto`/`toPropertyListItemDto`/`toPropertyDetailDto`/`toDocumentListItemDto`/`toRentalSummaryDto` in
 `lib/api/v1/dto.ts` are hand-written field lists, never a spread of the full row.
 `toPropertyRentalSummaryDto` in `lib/api/v1/rental-dto.ts` follows the same rule (it is a
-separate file only because `dto.ts` is edited concurrently on another branch).
+separate file only because `dto.ts` is edited concurrently on another branch), as does
+`toPropertyRentalEditDto` in the same file — which is the one DTO that returns row ids on purpose,
+and still returns no scope, owner, or lease-`stage` field.
 
 ## Errors
 
@@ -313,4 +407,8 @@ requests / minute / user (`apiWriteLimiter`). Both are keyed on the resolved int
   only (occupancy, tenancy count, next payout) and `GET /api/v1/properties/{id}/rental` is the
   same idea for one property (occupancy, active-lease count, monthly rent, next payment) —
   neither exposes those rows, nor any lease/tenant/payment identifier.
+  `GET|PUT /api/v1/properties/{id}/rental/edit` is the one exception, and it is not a list: it
+  carries the single active lease and primary tenant the Edit Rental form edits, ids included,
+  because a client cannot address an existing row without them. Payment rows are still never
+  exposed.
 - No document search/filtering.

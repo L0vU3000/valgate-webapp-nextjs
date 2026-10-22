@@ -700,7 +700,11 @@ export interface components {
             ownershipStatus?: "Owned outright" | "Mortgaged" | "Leasehold" | "Co-owned" | "Other";
             /** @description Display string; an empty string means not collected. */
             purchasePrice?: string;
-            /** @description Canonical purchase amount. */
+            /**
+             * @description Stored purchase amount, read back as `priceNumeric`. Omit to leave the price
+             *     uncollected (create default) or unchanged (patch). Negative values, and values
+             *     above the stored range, are a 400.
+             */
             buyNumeric?: number;
             /** @description Unix timestamp (milliseconds) */
             purchaseDate?: number;
@@ -743,7 +747,11 @@ export interface components {
             ownershipStatus?: "Owned outright" | "Mortgaged" | "Leasehold" | "Co-owned" | "Other";
             /** @description Display string; an empty string means not collected. */
             purchasePrice?: string;
-            /** @description Canonical purchase amount. */
+            /**
+             * @description Stored purchase amount, read back as `priceNumeric`. Omit to leave the price
+             *     uncollected (create default) or unchanged (patch). Negative values, and values
+             *     above the stored range, are a 400.
+             */
             buyNumeric?: number;
             /** @description Unix timestamp (milliseconds) */
             purchaseDate?: number;

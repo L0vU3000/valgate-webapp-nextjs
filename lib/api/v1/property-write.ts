@@ -44,7 +44,9 @@ export const PropertyCreateBodySchema = z.object({
   title: optionalPropertyTitle,
   ownershipStatus: optionalOwnershipStatus,
   purchasePrice: z.string().optional(),
-  buyNumeric: z.number().nonnegative().optional(),
+  // Bounded to the column's range (numeric(14,2) = 12 integer digits) so an absurd
+  // value is a 400 here instead of a Postgres overflow surfacing as a 500.
+  buyNumeric: z.number().nonnegative().max(999_999_999_999.99).optional(),
   purchaseDate: z.number().int().nonnegative().optional(),
   currentMarketValue: z.number().nonnegative().optional(),
   outstandingMortgage: z.number().nonnegative().optional(),

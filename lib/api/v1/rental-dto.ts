@@ -1,4 +1,6 @@
 import type { Ctx } from "@/lib/services/_mapping";
+import type { Lease } from "@/lib/data/types/lease";
+import type { Tenant } from "@/lib/data/types/tenant";
 import { toRentalSummaryDto, type RentalSummaryDtoV1 } from "@/lib/api/v1/dto";
 
 // DTOs for the rental slice.
@@ -79,3 +81,73 @@ export function toPropertyRentalSummaryDto(
 // Kept as a reference to the shared Ctx type so a future org-scoped field addition stays
 // type-checked against the same role union the rest of v1 uses.
 export type PropertyRentalRoleV1 = Ctx["orgRole"];
+
+// GET|PUT /api/v1/properties/{id}/rental/edit — the rows the iOS "Edit rental" form edits.
+//
+// Unlike the aggregate above this deliberately DOES carry ids: iOS has to address an existing
+// lease/tenant to edit it, and the wizard's edit targets are exactly one active lease and one
+// primary tenant. Editable fields only — no propertyId, userId or orgId. `lease`/`tenant` are
+// null when the property has no signed lease / no tenant row yet (the PUT creates them).
+export type RentalEditLeaseDtoV1 = {
+  id: string;
+  unit: string;
+  /** Unix ms. */
+  startDate: number;
+  /** Unix ms. */
+  endDate: number;
+  monthlyRent: number;
+  termMonths: number;
+  renewalStatus: string | null;
+};
+
+export type RentalEditTenantDtoV1 = {
+  id: string;
+  name: string;
+  unit: string;
+  rent: number;
+  status: "Paid" | "Overdue" | "Pending";
+  email: string | null;
+  phone: string | null;
+};
+
+export type PropertyRentalEditDtoV1 = {
+  lease: RentalEditLeaseDtoV1 | null;
+  tenant: RentalEditTenantDtoV1 | null;
+};
+
+export type RentalEditSnapshot = {
+  lease: Pick<
+    Lease,
+    "id" | "unit" | "startDate" | "endDate" | "monthlyRent" | "termMonths" | "renewalStatus"
+  > | null;
+  tenant: Pick<Tenant, "id" | "name" | "unit" | "rent" | "status" | "email" | "phone"> | null;
+};
+
+// Hand-written field list, never a spread: a column added to leases/tenants cannot reach the wire
+// by accident (see the DTO-omissions section in docs/api-v1.md).
+export function toPropertyRentalEditDto(snapshot: RentalEditSnapshot): PropertyRentalEditDtoV1 {
+  return {
+    lease: snapshot.lease
+      ? {
+          id: snapshot.lease.id,
+          unit: snapshot.lease.unit,
+          startDate: snapshot.lease.startDate,
+          endDate: snapshot.lease.endDate,
+          monthlyRent: snapshot.lease.monthlyRent,
+          termMonths: snapshot.lease.termMonths,
+          renewalStatus: snapshot.lease.renewalStatus ?? null,
+        }
+      : null,
+    tenant: snapshot.tenant
+      ? {
+          id: snapshot.tenant.id,
+          name: snapshot.tenant.name,
+          unit: snapshot.tenant.unit,
+          rent: snapshot.tenant.rent,
+          status: snapshot.tenant.status,
+          email: snapshot.tenant.email ?? null,
+          phone: snapshot.tenant.phone ?? null,
+        }
+      : null,
+  };
+}
