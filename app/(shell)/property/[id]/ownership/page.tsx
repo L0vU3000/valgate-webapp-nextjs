@@ -7,6 +7,7 @@ import { computeProgressDetails } from "@/lib/data/derivations/progress";
 import { getProgressContext } from "@/lib/data/progress-context";
 import { getOwnershipPageData } from "./queries";
 import { resolveCrossOrgCtx } from "@/lib/auth/cross-org";
+import { roleAtLeast } from "@/lib/services/_mapping";
 
 export default async function Page({
   params,
@@ -29,7 +30,11 @@ export default async function Page({
   const progressDetails = computeProgressDetails(property, progressCtx);
 
   return (
-    <PropertyShellProvider property={property} progressDetails={progressDetails}>
+    <PropertyShellProvider
+      property={property}
+      progressDetails={progressDetails}
+      canDelete={!isCrossOrg && roleAtLeast(ctx.orgRole, "admin")}
+    >
       <PropertyOwnershipPage property={property} {...ownershipData} />
     </PropertyShellProvider>
   );

@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { Layers, RefreshCw, ZoomIn, ZoomOut } from "lucide-react";
+import { Layers, RefreshCw, Ruler, ZoomIn, ZoomOut } from "lucide-react";
 import { MapIconButton } from "@/components/home/QuickStats";
 import { cn } from "@/components/ui/utils";
 
@@ -28,6 +28,12 @@ interface MapControlsProps {
   resetZoom?: number;
   isSatellite?: boolean;
   onToggleSatellite?: () => void;
+  /**
+   * Side lengths along parcel rings: the selected one, or every ring when nothing is selected.
+   * Off means off; the control is the only entry.
+   */
+  showMeasurements?: boolean;
+  onToggleMeasurements?: () => void;
 }
 
 export function MapControls({
@@ -37,6 +43,8 @@ export function MapControls({
   resetZoom = CAMBODIA_ZOOM,
   isSatellite = false,
   onToggleSatellite,
+  showMeasurements = false,
+  onToggleMeasurements,
 }: MapControlsProps) {
   return (
     <div
@@ -66,6 +74,18 @@ export function MapControls({
       >
         <Layers className="size-4" />
       </MapIconButton>
+      {onToggleMeasurements ? (
+        <MapIconButton
+          onClick={onToggleMeasurements}
+          pressed={showMeasurements}
+          label={showMeasurements ? "Hide side measurements" : "Show side measurements"}
+          className={cn(
+            showMeasurements && "bg-interactive-primary text-white hover:bg-interactive-primary/90",
+          )}
+        >
+          <Ruler className="size-4" />
+        </MapIconButton>
+      ) : null}
     </div>
   );
 }

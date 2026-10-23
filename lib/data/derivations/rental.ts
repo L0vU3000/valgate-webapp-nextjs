@@ -3,6 +3,7 @@ import type { Payment } from "@/lib/data/types/payment";
 import type { MaintenanceItem } from "@/lib/data/types/maintenance-item";
 import type { Property } from "@/lib/data/types/property";
 import type { Expense } from "@/lib/data/types/expense";
+import type { Tenant } from "@/lib/data/types/tenant";
 
 export type PipelineCard = {
   unit: string;
@@ -489,6 +490,22 @@ export function isActiveSignedLease(lease: Lease, nowMs: number): boolean {
   if (lease.startDate > nowMs) return false;
   if (lease.endDate < nowMs) return false;
   return true;
+}
+
+// The wizard's edit targets for one property: the most recently started Signed lease (the
+// wizard's "active lease" — it edits the signed lease regardless of its start/end window, unlike
+// isActiveSignedLease) and the first tenant row. Shared by the wizard's initial load and the
+// /api/v1 rental-edit upsert so both pick the same rows from the same list.
+export function pickActiveLease(propertyLeases: Lease[]): Lease | null {
+  return (
+    [...propertyLeases]
+      .sort((a, b) => b.startDate - a.startDate)
+      .find((l) => l.stage === "Signed") ?? null
+  );
+}
+
+export function pickPrimaryTenant(propertyTenants: Tenant[]): Tenant | null {
+  return propertyTenants[0] ?? null;
 }
 
 // UTC calendar day (YYYY-MM-DD) for grouping same-day rent payments into one payout.

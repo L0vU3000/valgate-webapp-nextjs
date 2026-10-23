@@ -4,6 +4,7 @@ import { getProperty } from "@/lib/services/properties";
 import { listPropertyValuations } from "@/lib/services/property-valuations";
 import { listLeases } from "@/lib/services/leases";
 import { listTenants } from "@/lib/services/tenants";
+import { pickActiveLease, pickPrimaryTenant } from "@/lib/data/derivations/rental";
 import { listPayments } from "@/lib/services/payments";
 import { listOwnershipRecords } from "@/lib/services/ownership-records";
 import { listCoOwners } from "@/lib/services/co-owners";
@@ -70,11 +71,9 @@ export async function getRentalWizardInitial(ctx: Ctx, propertyId: string): Prom
 }> {
   const property = await getProperty(ctx, propertyId);
   const propertyLeases = await listLeases(ctx, propertyId);
-  const activeLease = propertyLeases
-    .filter((l) => l.stage === "Signed")
-    .sort((a, b) => b.startDate - a.startDate)[0] ?? null;
+  const activeLease = pickActiveLease(propertyLeases);
   const tenants = await listTenants(ctx, propertyId);
-  const primaryTenant = tenants[0] ?? null;
+  const primaryTenant = pickPrimaryTenant(tenants);
   const leaseIds = new Set(propertyLeases.map((l) => l.id));
   const recentPayments = (await listPayments(ctx))
     .filter((p) => p.leaseId != null && leaseIds.has(p.leaseId))

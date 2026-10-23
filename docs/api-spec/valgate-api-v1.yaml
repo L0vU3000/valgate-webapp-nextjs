@@ -287,6 +287,33 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
+  /properties/{id}/cover-photo:
+    get:
+      operationId: getPropertyCoverPhotoUrl
+      summary: Resolve a property's selected cover photo
+      description: |
+        Resolves the property's selected cover photo to a short-lived signed object URL. The
+        property DTO exposes this stable, authenticated endpoint only when a cover is selected;
+        it never exposes a storage key or signed URL inline. A property with no selected cover
+        returns 404.
+      parameters:
+        - $ref: "#/components/parameters/PropertyIdPath"
+      responses:
+        "200":
+          description: Short-lived signed URL for the selected cover photo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentUrlDtoV1"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
   /properties/{id}/documents:
     get:
       operationId: listPropertyDocuments
@@ -846,7 +873,7 @@ components:
 
     PropertyListItemDtoV1:
       type: object
-      required: [id, name, type, status, lat, lng, city, province, createdAt, priceNumeric, currency]
+      required: [id, name, type, status, lat, lng, city, province, createdAt, priceNumeric, currency, coverPhoto]
       properties:
         id:
           type: string
@@ -884,14 +911,36 @@ components:
           type: [string, "null"]
           enum: [USD, null]
           description: "ISO 4217 code for `priceNumeric`. v1 money is USD only. Null when `priceNumeric` is null."
+        coverPhoto:
+          anyOf:
+            - $ref: "#/components/schemas/PropertyCoverPhotoReferenceDtoV1"
+            - type: "null"
+          description: Null when no cover is selected; otherwise a stable authenticated resolver endpoint.
+
+    PropertyCoverPhotoReferenceDtoV1:
+      type: object
+      required: [endpoint]
+      description: |
+        Stable authenticated endpoint for a property's selected cover photo. Fetch it with the
+        normal API authorization to receive a short-lived signed image URL. This is not an S3
+        storage key or a signed object URL.
+      properties:
+        endpoint:
+          type: string
+          format: uri-reference
+          example: /api/v1/properties/PROP-0001/cover-photo
 
     PropertyDetailDtoV1:
       allOf:
         - $ref: "#/components/schemas/PropertyListItemDtoV1"
       type: object
-      required: [addressLine, country, totalArea, bedrooms, bathrooms, yearBuilt]
+      required: [addressLine, addressLine2, zip, country, totalArea, bedrooms, bathrooms, yearBuilt, parkingSpaces, storageUnit, title, ownershipStatus, purchasePrice, purchaseDate, currentMarketValue, outstandingMortgage, monthlyPayment, interestRate, annualPropertyTax, taxAssessmentValue, annualInsurance]
       properties:
         addressLine:
+          type: [string, "null"]
+        addressLine2:
+          type: [string, "null"]
+        zip:
           type: [string, "null"]
         country:
           type: [string, "null"]
@@ -903,6 +952,44 @@ components:
           type: [string, "null"]
         yearBuilt:
           type: [string, "null"]
+        parkingSpaces:
+          type: [string, "null"]
+        storageUnit:
+          type: [string, "null"]
+        title:
+          type: string
+          enum: [Hard title, Soft title, "—"]
+        ownershipStatus:
+          type: [string, "null"]
+          description: Free text as stored. The write bodies accept the five OWNERSHIP_STATUSES values; older rows may hold other strings.
+        purchasePrice:
+          type: [string, "null"]
+        purchaseDate:
+          type: [integer, "null"]
+          minimum: 0
+          description: Unix timestamp (milliseconds)
+        currentMarketValue:
+          type: [number, "null"]
+          minimum: 0
+        outstandingMortgage:
+          type: [number, "null"]
+          minimum: 0
+        monthlyPayment:
+          type: [number, "null"]
+          minimum: 0
+        interestRate:
+          type: [number, "null"]
+          minimum: 0
+          description: Percent, for example 4.5.
+        annualPropertyTax:
+          type: [number, "null"]
+          minimum: 0
+        taxAssessmentValue:
+          type: [number, "null"]
+          minimum: 0
+        annualInsurance:
+          type: [number, "null"]
+          minimum: 0
 
     DocumentListItemDtoV1:
       type: object
@@ -1409,6 +1496,10 @@ components:
           type: string
         addressLine:
           type: string
+        addressLine2:
+          type: string
+        zip:
+          type: string
         country:
           type: string
         totalArea:
@@ -1419,6 +1510,53 @@ components:
           type: string
         yearBuilt:
           type: string
+        parkingSpaces:
+          type: string
+        storageUnit:
+          type: string
+        title:
+          type: string
+          enum: [Hard title, Soft title, "—"]
+        ownershipStatus:
+          type: string
+          enum: [Owned outright, Mortgaged, Leasehold, Co-owned, Other]
+        purchasePrice:
+          type: string
+          description: Display string; an empty string means not collected.
+        buyNumeric:
+          type: number
+          minimum: 0
+          maximum: 999999999999.99
+          description: |
+            Stored purchase amount, read back as `priceNumeric`. Omit to leave the price
+            uncollected (create default) or unchanged (patch). Negative values, and values
+            above the stored range, are a 400.
+        purchaseDate:
+          type: integer
+          minimum: 0
+          description: Unix timestamp (milliseconds)
+        currentMarketValue:
+          type: number
+          minimum: 0
+        outstandingMortgage:
+          type: number
+          minimum: 0
+        monthlyPayment:
+          type: number
+          minimum: 0
+        interestRate:
+          type: number
+          minimum: 0
+          description: Percent, for example 4.5.
+        annualPropertyTax:
+          type: number
+          minimum: 0
+        taxAssessmentValue:
+          type: number
+          minimum: 0
+        annualInsurance:
+          type: number
+          minimum: 0
 
     PropertyPatchBody:
       type: object
@@ -1453,6 +1591,10 @@ components:
           type: [string, "null"]
         addressLine:
           type: [string, "null"]
+        addressLine2:
+          type: string
+        zip:
+          type: string
         country:
           type: [string, "null"]
         totalArea:
@@ -1463,6 +1605,53 @@ components:
           type: [string, "null"]
         yearBuilt:
           type: [string, "null"]
+        parkingSpaces:
+          type: string
+        storageUnit:
+          type: string
+        title:
+          type: string
+          enum: [Hard title, Soft title, "—"]
+        ownershipStatus:
+          type: string
+          enum: [Owned outright, Mortgaged, Leasehold, Co-owned, Other]
+        purchasePrice:
+          type: string
+          description: Display string; an empty string means not collected.
+        buyNumeric:
+          type: number
+          minimum: 0
+          maximum: 999999999999.99
+          description: |
+            Stored purchase amount, read back as `priceNumeric`. Omit to leave the price
+            uncollected (create default) or unchanged (patch). Negative values, and values
+            above the stored range, are a 400.
+        purchaseDate:
+          type: integer
+          minimum: 0
+          description: Unix timestamp (milliseconds)
+        currentMarketValue:
+          type: number
+          minimum: 0
+        outstandingMortgage:
+          type: number
+          minimum: 0
+        monthlyPayment:
+          type: number
+          minimum: 0
+        interestRate:
+          type: number
+          minimum: 0
+          description: Percent, for example 4.5.
+        annualPropertyTax:
+          type: number
+          minimum: 0
+        taxAssessmentValue:
+          type: number
+          minimum: 0
+        annualInsurance:
+          type: number
+          minimum: 0
 
     ErrorEnvelope:
       type: object

@@ -155,6 +155,29 @@ export interface paths {
         patch: operations["updateProperty"];
         trace?: never;
     };
+    "/properties/{id}/cover-photo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Resolve a property's selected cover photo
+         * @description Resolves the property's selected cover photo to a short-lived signed object URL. The
+         *     property DTO exposes this stable, authenticated endpoint only when a cover is selected;
+         *     it never exposes a storage key or signed URL inline. A property with no selected cover
+         *     returns 404.
+         */
+        get: operations["getPropertyCoverPhotoUrl"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/properties/{id}/documents": {
         parameters: {
             query?: never;
@@ -461,14 +484,47 @@ export interface components {
              * @enum {string|null}
              */
             currency: "USD" | null;
+            /** @description Null when no cover is selected; otherwise a stable authenticated resolver endpoint. */
+            coverPhoto: components["schemas"]["PropertyCoverPhotoReferenceDtoV1"] | null;
+        };
+        /**
+         * @description Stable authenticated endpoint for a property's selected cover photo. Fetch it with the
+         *     normal API authorization to receive a short-lived signed image URL. This is not an S3
+         *     storage key or a signed object URL.
+         */
+        PropertyCoverPhotoReferenceDtoV1: {
+            /**
+             * Format: uri-reference
+             * @example /api/v1/properties/PROP-0001/cover-photo
+             */
+            endpoint: string;
         };
         PropertyDetailDtoV1: {
             addressLine: string | null;
+            addressLine2: string | null;
+            zip: string | null;
             country: string | null;
             totalArea: string;
             bedrooms: string | null;
             bathrooms: string | null;
             yearBuilt: string | null;
+            parkingSpaces: string | null;
+            storageUnit: string | null;
+            /** @enum {string} */
+            title: "Hard title" | "Soft title" | "—";
+            /** @description Free text as stored. The write bodies accept the five OWNERSHIP_STATUSES values; older rows may hold other strings. */
+            ownershipStatus: string | null;
+            purchasePrice: string | null;
+            /** @description Unix timestamp (milliseconds) */
+            purchaseDate: number | null;
+            currentMarketValue: number | null;
+            outstandingMortgage: number | null;
+            monthlyPayment: number | null;
+            /** @description Percent, for example 4.5. */
+            interestRate: number | null;
+            annualPropertyTax: number | null;
+            taxAssessmentValue: number | null;
+            annualInsurance: number | null;
         } & components["schemas"]["PropertyListItemDtoV1"];
         /**
          * @description Public document metadata. Storage ids, uploader, verification, and AI-summary
@@ -732,11 +788,37 @@ export interface components {
             city?: string;
             province?: string;
             addressLine?: string;
+            addressLine2?: string;
+            zip?: string;
             country?: string;
             totalArea?: string;
             bedrooms?: string;
             bathrooms?: string;
             yearBuilt?: string;
+            parkingSpaces?: string;
+            storageUnit?: string;
+            /** @enum {string} */
+            title?: "Hard title" | "Soft title" | "—";
+            /** @enum {string} */
+            ownershipStatus?: "Owned outright" | "Mortgaged" | "Leasehold" | "Co-owned" | "Other";
+            /** @description Display string; an empty string means not collected. */
+            purchasePrice?: string;
+            /**
+             * @description Stored purchase amount, read back as `priceNumeric`. Omit to leave the price
+             *     uncollected (create default) or unchanged (patch). Negative values, and values
+             *     above the stored range, are a 400.
+             */
+            buyNumeric?: number;
+            /** @description Unix timestamp (milliseconds) */
+            purchaseDate?: number;
+            currentMarketValue?: number;
+            outstandingMortgage?: number;
+            monthlyPayment?: number;
+            /** @description Percent, for example 4.5. */
+            interestRate?: number;
+            annualPropertyTax?: number;
+            taxAssessmentValue?: number;
+            annualInsurance?: number;
         };
         /**
          * @description Partial update. Every field is optional — an empty object is valid and changes
@@ -757,11 +839,37 @@ export interface components {
             city?: string | null;
             province?: string | null;
             addressLine?: string | null;
+            addressLine2?: string;
+            zip?: string;
             country?: string | null;
             totalArea?: string;
             bedrooms?: string | null;
             bathrooms?: string | null;
             yearBuilt?: string | null;
+            parkingSpaces?: string;
+            storageUnit?: string;
+            /** @enum {string} */
+            title?: "Hard title" | "Soft title" | "—";
+            /** @enum {string} */
+            ownershipStatus?: "Owned outright" | "Mortgaged" | "Leasehold" | "Co-owned" | "Other";
+            /** @description Display string; an empty string means not collected. */
+            purchasePrice?: string;
+            /**
+             * @description Stored purchase amount, read back as `priceNumeric`. Omit to leave the price
+             *     uncollected (create default) or unchanged (patch). Negative values, and values
+             *     above the stored range, are a 400.
+             */
+            buyNumeric?: number;
+            /** @description Unix timestamp (milliseconds) */
+            purchaseDate?: number;
+            currentMarketValue?: number;
+            outstandingMortgage?: number;
+            monthlyPayment?: number;
+            /** @description Percent, for example 4.5. */
+            interestRate?: number;
+            annualPropertyTax?: number;
+            taxAssessmentValue?: number;
+            annualInsurance?: number;
         };
         ErrorEnvelope: {
             error: {
@@ -1099,6 +1207,33 @@ export interface operations {
             400: components["responses"]["InvalidRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getPropertyCoverPhotoUrl: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Property ID */
+                id: components["parameters"]["PropertyIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Short-lived signed URL for the selected cover photo */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentUrlDtoV1"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
             429: components["responses"]["RateLimited"];
             500: components["responses"]["InternalError"];

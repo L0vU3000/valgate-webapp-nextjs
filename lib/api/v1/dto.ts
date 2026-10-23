@@ -9,8 +9,7 @@ import type { PaymentActivity } from "@/lib/data/derivations/rental";
 // spread a full Property/Document/Ctx-derived object. Omitted on purpose: userId, orgId,
 // clientId, every storage id (photoStorageIds/documentStorageIds/coverStorageId/storageId/
 // thumbStorageId), every evidence-doc id array, uploadedBy, verifies, AI-summary internals,
-// *Verified* flags, and financial internals other than the public purchase price
-// (priceNumeric + currency).
+// *Verified* flags, and raw canonical purchase value (buyNumeric).
 export type MeDto = {
   email: string;
   displayName: string | null;
@@ -37,6 +36,13 @@ export function toMeDto(profile: MeProfile): MeDto {
 
 export type PropertyListPriceCurrencyV1 = "USD";
 
+// A stable, authenticated pointer to the cover-photo resolver. The resolver returns a
+// short-lived object-storage URL when the client needs image bytes; a storage key or a
+// signed object URL must never be embedded in the property DTO itself.
+export type PropertyCoverPhotoReferenceDtoV1 = {
+  endpoint: string;
+};
+
 export type PropertyListItemDtoV1 = {
   id: string;
   name: string;
@@ -52,6 +58,9 @@ export type PropertyListItemDtoV1 = {
   priceNumeric: number | null;
   // ISO 4217 code for priceNumeric. v1 money is USD only. Null when there is no price.
   currency: PropertyListPriceCurrencyV1 | null;
+  // Null when the property has no selected cover. When present, call `endpoint` with the
+  // caller's normal API authentication to receive a short-lived image URL.
+  coverPhoto: PropertyCoverPhotoReferenceDtoV1 | null;
 };
 
 /**
@@ -99,16 +108,34 @@ export function toPropertyListItemDto(property: Property): PropertyListItemDtoV1
     createdAt: property.createdAt,
     priceNumeric: price.priceNumeric,
     currency: price.currency,
+    coverPhoto: property.coverStorageId
+      ? { endpoint: `/api/v1/properties/${encodeURIComponent(property.id)}/cover-photo` }
+      : null,
   };
 }
 
 export type PropertyDetailDtoV1 = PropertyListItemDtoV1 & {
   addressLine: string | undefined;
+  addressLine2: string | undefined;
+  zip: string | undefined;
   country: string | undefined;
   totalArea: string;
   bedrooms: string | undefined;
   bathrooms: string | undefined;
   yearBuilt: string | undefined;
+  parkingSpaces: string | undefined;
+  storageUnit: string | undefined;
+  title: Property["title"];
+  ownershipStatus: string | undefined;
+  purchasePrice: string | undefined;
+  purchaseDate: number | undefined;
+  currentMarketValue: number | undefined;
+  outstandingMortgage: number | undefined;
+  monthlyPayment: number | undefined;
+  interestRate: number | undefined;
+  annualPropertyTax: number | undefined;
+  taxAssessmentValue: number | undefined;
+  annualInsurance: number | undefined;
 };
 
 // Extends the list DTO with the extra detail fields the property-detail route exposes.
@@ -116,11 +143,26 @@ export function toPropertyDetailDto(property: Property): PropertyDetailDtoV1 {
   return {
     ...toPropertyListItemDto(property),
     addressLine: property.addressLine,
+    addressLine2: property.addressLine2,
+    zip: property.zip,
     country: property.country,
     totalArea: property.totalArea,
     bedrooms: property.bedrooms,
     bathrooms: property.bathrooms,
     yearBuilt: property.yearBuilt,
+    parkingSpaces: property.parkingSpaces,
+    storageUnit: property.storageUnit,
+    title: property.title,
+    ownershipStatus: property.ownershipStatus,
+    purchasePrice: property.purchasePrice,
+    purchaseDate: property.purchaseDate,
+    currentMarketValue: property.currentMarketValue,
+    outstandingMortgage: property.outstandingMortgage,
+    monthlyPayment: property.monthlyPayment,
+    interestRate: property.interestRate,
+    annualPropertyTax: property.annualPropertyTax,
+    taxAssessmentValue: property.taxAssessmentValue,
+    annualInsurance: property.annualInsurance,
   };
 }
 

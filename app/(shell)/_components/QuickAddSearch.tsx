@@ -1,7 +1,8 @@
 "use client";
 
 import { Fragment, useEffect, useRef, useState } from "react";
-import { Loader2, MapPin, MoveRight } from "lucide-react";
+import { FileText, Loader2, MapPin, MoveRight } from "lucide-react";
+import { ALLOWED_MIME } from "@/lib/upload-constants";
 import { cn } from "@/components/ui/utils";
 import { moveHighlight, suggestionRowsSignature } from "./quick-add";
 import type { GeocodeSuggestion } from "@/app/_shared/add-property/_lib/use-geocode";
@@ -32,6 +33,15 @@ interface QuickAddSearchProps {
   onHighlight: (suggestion: GeocodeSuggestion | null) => void;
   // A row was committed: clicked, or Enter on the highlighted one.
   onPick: (suggestion: GeocodeSuggestion) => void;
+  /** Read a picked document and take the details from it. The file the user chose. */
+  onScanFiles: (files: File[]) => void;
+  /** True while that read is in flight. */
+  scanning: boolean;
+  /** What to say after a read: where the pin went, or that the document did not say where it is. */
+  scanNote: string | null;
+  /** A failure that belongs on the bar. The card shows the hook's `error` too, but the card does not
+   *  exist until a pin does, so a read that fails BEFORE one would otherwise fail silently. */
+  error?: string | null;
 }
 
 // The Quick Add button's armed state: the button becomes the address field. Typing searches the
@@ -49,10 +59,15 @@ export function QuickAddSearch({
   onChange,
   onHighlight,
   onPick,
+  onScanFiles,
+  scanning,
+  scanNote,
+  error,
 }: QuickAddSearchProps) {
   const [open, setOpen] = useState(true);
   const [highlight, setHighlight] = useState(0);
   const listRef = useRef<HTMLDivElement | null>(null);
+  const fileRef = useRef<HTMLInputElement | null>(null);
   const listId = "quick-add-suggestions";
   const optionId = (i: number) => `${listId}-${i}`;
 
@@ -78,10 +93,16 @@ export function QuickAddSearch({
   const showList = open && suggestions.length > 0;
 
   return (
+    <>
     <div
       data-no-drag
-      className="relative hidden w-[22rem] max-w-[calc(100vw-2rem)] sm:block"
+      className="hidden w-[22rem] max-w-[calc(100vw-2rem)] sm:block"
     >
+    {/* The pill and its fittings (icon, spinner, Esc, dropdown) get their own box. They are all
+        absolutely positioned, so with the messages in the same box as the input they anchored to the
+        MIDDLE OF THE COLUMN — once a read reported back, "Esc" slid down onto the message card and the
+        spinner sat between the two blocks. This box is only ever the pill's 44px. */}
+    <div className="relative">
       {/* Same slot, same pill, same dropdown as the ⌘K bar — only the icon differs, deliberately.
           The magnifier means "search the app"; this pin means "put a marker on the map". It is the one
           cue that survives typing, since a placeholder does not. */}
@@ -141,6 +162,34 @@ export function QuickAddSearch({
       {loading && (
         <Loader2 className="pointer-events-none absolute right-11 top-1/2 size-4 -translate-y-1/2 animate-spin text-secondary" />
       )}
+      {/* The other way a property arrives: a document that already knows its own details. It sits on
+          the ARMED BAR rather than in the card, because the card does not render until a pin exists —
+          so the read has to happen before one, and the pin it resolves is what opens the card.
+
+          It leaves the field as a SIBLING chip, wearing the Cancel chip's exact treatment. Inside the
+          field it could only ever be a card or a line of prose — both read as bolted on, and both made
+          the bar taller than its own pill, which lifted the pill off the Cancel chip's line. */}
+      <input
+        ref={fileRef}
+        type="file"
+        // `multiple`: the card lists the files and reads them one at a time, so one pick can carry a
+        // whole folder of deeds instead of five trips through the picker.
+        multiple
+        // Disabled while a read is running, not just the chip: a second pick mid-batch would
+        // supersede the batch it lands in and strand that batch's remaining rows as "Waiting its
+        // turn" forever.
+        disabled={scanning}
+        className="hidden"
+        accept={[...ALLOWED_MIME].join(",")}
+        aria-label="Upload documents to create a property from"
+        onChange={(e) => {
+          const files = [...(e.target.files ?? [])];
+          // Cleared first: picking the SAME file twice must fire again, which it will not while the
+          // input still holds it.
+          e.target.value = "";
+          if (files.length) onScanFiles(files);
+        }}
+      />
       {/* Shows the mode is escapable without adding a second control. Dimmed while a lookup runs so the
           spinner owns the eye. */}
       <kbd className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 rounded border border-border-default bg-surface-sunken px-1.5 py-0.5 font-sans text-[10px] font-medium text-text-disabled">
@@ -227,5 +276,64 @@ export function QuickAddSearch({
         </div>
       )}
     </div>
+    {/* Messages sit under the FIELD, outside the pill's box, so they push the portfolio stats card
+        down instead of floating over it (the block is bottom-anchored).
+
+        They fade in on the house expo-out curve — 180ms, the same shape the pin's arrival uses. Both
+        appear mid-flow on their own (after a read, or after one fails), and a card that just blinks
+        into existence under your cursor reads as a glitch. `motion-reduce:animate-none` because this
+        one MOVES (8px up); Reduce Motion gets it instantly instead. */}
+    {scanNote && (
+      <p
+        className="mt-2 rounded-xl border border-border-default bg-surface-base/95 px-3 py-2 text-[13px] leading-5 text-secondary shadow-lg backdrop-blur [animation:fade-slide-up_0.18s_cubic-bezier(0.16,1,0.3,1)_both] motion-reduce:animate-none"
+        role="status"
+        aria-live="polite"
+      >
+        {scanNote}
+      </p>
+    )}
+    {/* A failed read says so HERE, on the bar, because there is no card yet to say it in. Same slot,
+        error colour. The card suppresses this one once it exists — see HomePage. */}
+    {error && (
+      <p
+        className={cn(
+          "rounded-xl border border-destructive/40 bg-surface-base/95 px-3 py-2 text-[13px] leading-5 text-destructive shadow-lg backdrop-blur [animation:fade-slide-up_0.18s_cubic-bezier(0.16,1,0.3,1)_both] motion-reduce:animate-none",
+          scanNote ? "mt-1.5" : "mt-2",
+        )}
+        role="alert"
+      >
+        {error}
+      </p>
+    )}
+    </div>
+    {/* A compact companion to Cancel: same border, fill, radius, weight and height, so the armed row
+        reads as field · document · escape rather than field + one oversized object. `sm:flex` and `hidden` are
+        Cancel's too — the field is desktop-only, so this must vanish with it, not on its own schedule.
+
+        One file per read: the read places the pin, and the pin is what the next step needs. `accept`
+        comes from the same allowlist the server enforces, so a type the action would refuse cannot even
+        be picked here. */}
+    <button
+      type="button"
+      onClick={() => fileRef.current?.click()}
+      disabled={scanning}
+      aria-label={scanning ? "Reading documents" : "Upload documents to create a property from"}
+      title={scanning ? "Reading document" : "Upload a document"}
+      aria-busy={scanning}
+      className="hidden shrink-0 items-center gap-2 rounded-full border border-border-default bg-surface-base px-4 py-2.5 text-sm font-semibold text-foreground shadow-lg outline-none transition-[background-color,transform] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] hover:bg-surface-tint focus-visible:ring-[3px] focus-visible:ring-ring/50 active:scale-[0.98] disabled:opacity-60 sm:flex"
+    >
+      {scanning ? (
+        <Loader2 className="size-4 shrink-0 animate-spin text-interactive-primary" aria-hidden="true" />
+      ) : (
+        <FileText className="size-4 shrink-0 text-interactive-primary" aria-hidden="true" />
+      )}
+      Upload
+    </button>
+    {scanning && (
+      <span className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        Reading document
+      </span>
+    )}
+    </>
   );
 }

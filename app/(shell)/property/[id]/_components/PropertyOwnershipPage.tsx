@@ -15,16 +15,8 @@ import { MobileCardTable } from "@/components/property/MobileCardTable";
 import { UnlockButton } from "@/components/feature-unlock/UnlockButton";
 import { OwnershipUnlockMount } from "@/components/feature-unlock/pillars/OwnershipUnlock";
 import type { UnlockState } from "@/components/feature-unlock/types";
-import { revokeOwnershipVerification } from "@/app/actions/ownership-records";
 import { removeCoOwner } from "@/app/actions/co-owners";
 import { ConfirmAction } from "@/components/ui/confirm-action";
-import { Input } from "@/components/ui/input";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -33,7 +25,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { toast } from "sonner";
 import {
   Check,
   CheckCircle2,
@@ -47,9 +38,6 @@ import {
   Clock,
   Scale,
   History,
-  ShieldCheck,
-  MoreHorizontal,
-  AlertTriangle,
 } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { formatCurrencyFull, formatDate } from "@/lib/format";
@@ -140,13 +128,6 @@ export function PropertyOwnershipPage({
   const [mounted, setMounted] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
-  const [wizardStartAt, setWizardStartAt] = useState<"data" | "verification">(
-    "data",
-  );
-  const [revokeOpen, setRevokeOpen] = useState(false);
-  const [revoking, setRevoking] = useState(false);
-  // Tier-3 (typed) gate: the user must type REVOKE before the button enables.
-  const [revokeTyped, setRevokeTyped] = useState("");
   const [demoUploadOpen, setDemoUploadOpen] = useState(false);
   const [demoUploadedDocs, setDemoUploadedDocs] = useState<OwnershipDocument[]>([]);
 
@@ -170,37 +151,15 @@ export function PropertyOwnershipPage({
     ownershipRecord ? [[ownershipRecord.id, ownershipRecord]] : [],
   );
 
-  // Compute unlock state
-  const unlockState: UnlockState = !ownershipRecord
-    ? { kind: "unlock" }
-    : ownershipRecord.verified
-      ? { kind: "edit", entityId: ownershipRecord.id }
-      : { kind: "verify", entityId: ownershipRecord.id };
+  // Verification is gone (2026-10 simplification): the wizard is the ownership-data
+  // editor, so it always opens on the data step. "unlock" here just means "no ownership
+  // record yet" — still the entry point for adding one.
+  const unlockState: UnlockState = ownershipRecord
+    ? { kind: "edit", entityId: ownershipRecord.id }
+    : { kind: "unlock" };
 
   function openWizard() {
-    if (unlockState.kind === "verify") {
-      setWizardStartAt("verification");
-    } else {
-      setWizardStartAt("data");
-    }
     setWizardOpen(true);
-  }
-
-  async function handleRevoke() {
-    if (!ownershipRecord) return;
-    // Defence in depth: don't proceed unless the typed gate is satisfied.
-    if (revokeTyped !== "REVOKE") return;
-    setRevoking(true);
-    const result = await revokeOwnershipVerification(ownershipRecord.id);
-    setRevoking(false);
-    setRevokeOpen(false);
-    setRevokeTyped("");
-    if (result.ok) {
-      toast.success("Verification revoked");
-      router.refresh();
-    } else {
-      toast.error(result.error ?? "Failed to revoke verification");
-    }
   }
 
   return (
@@ -239,12 +198,6 @@ export function PropertyOwnershipPage({
                     <h1 className="text-[28px] sm:text-[40px] font-extrabold text-val-heading tracking-tight leading-tight sm:leading-10">
                       Ownership
                     </h1>
-                    {ownershipRecord?.verified && (
-                      <span className="flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 text-[12px] font-semibold rounded-full border border-emerald-200 select-none mb-1">
-                        <ShieldCheck className="w-3.5 h-3.5" />
-                        Verified
-                      </span>
-                    )}
                   </div>
                   <p className="text-slate-500 text-base mt-2">
                     Co-owners, equity position, and legal structure for{" "}
@@ -651,30 +604,6 @@ export function PropertyOwnershipPage({
                     <h3 className="text-val-heading text-[15px] font-semibold">
                       Ownership Documents
                     </h3>
-                    {ownershipRecord?.verified && (
-                      <div className="flex items-center gap-1.5">
-                        <span className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[11px] font-semibold rounded-full border border-emerald-200">
-                          <ShieldCheck className="w-3 h-3" />
-                          Valgate Verified
-                        </span>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors">
-                              <MoreHorizontal className="w-4 h-4" />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="start" className="w-52">
-                            <DropdownMenuItem
-                              className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer"
-                              onSelect={() => setRevokeOpen(true)}
-                            >
-                              <AlertTriangle className="w-4 h-4 mr-2" />
-                              Revoke verification
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    )}
                   </div>
                   <button
                     onClick={() => setDemoUploadOpen(true)}
@@ -758,31 +687,25 @@ export function PropertyOwnershipPage({
                               {verificationDocs.map((doc, i) => (
                                 <tr
                                   key={doc.id}
-                                  className="border-t border-slate-100 hover:bg-emerald-50/30 cursor-pointer transition-colors"
+                                  className="border-t border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors"
                                   style={{
                                     animationDelay: `${(ownershipDocuments.length + i) * 25}ms`,
                                   }}
                                 >
                                   <td className="data-sticky-col px-4 py-3.5 text-[14px] text-val-heading">
                                     <div className="flex items-center gap-2">
-                                      <FileText className="w-4 h-4 text-emerald-500 shrink-0" />
+                                      <FileText className="w-4 h-4 text-slate-400 shrink-0" />
                                       {doc.name}
                                     </div>
                                   </td>
                                   <td className="px-4 py-3.5 text-[14px] text-slate-500">
-                                    Title Deed (Verified)
+                                    Title Deed
                                   </td>
                                   <td className="px-4 py-3.5 text-[14px] text-slate-500">
                                     {formatDate(doc.uploadedAt)}
                                   </td>
                                   <td className="px-4 py-3.5 text-[14px] text-slate-500">
                                     {ownershipRecord?.holdingType ?? "—"}
-                                  </td>
-                                  <td className="px-4 py-3.5">
-                                    <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-semibold tracking-[1px] uppercase px-2.5 py-0.5 rounded-full flex items-center gap-1 w-fit">
-                                      <ShieldCheck className="w-3 h-3" />
-                                      Verified
-                                    </span>
                                   </td>
                                 </tr>
                               ))}
@@ -831,22 +754,18 @@ export function PropertyOwnershipPage({
                         {verificationDocs.map((doc) => (
                           <div
                             key={doc.id}
-                            className="px-4 py-3.5 flex flex-col gap-2 hover:bg-emerald-50/30 active:bg-emerald-50/60 transition-colors cursor-pointer"
+                            className="px-4 py-3.5 flex flex-col gap-2 hover:bg-slate-50 active:bg-slate-100 transition-colors cursor-pointer"
                           >
                             <div className="flex items-start justify-between gap-3">
                               <div className="flex items-center gap-2 min-w-0 flex-1">
-                                <FileText className="w-4 h-4 text-emerald-500 shrink-0" />
+                                <FileText className="w-4 h-4 text-slate-400 shrink-0" />
                                 <span className="text-[14px] text-val-heading font-semibold truncate">
                                   {doc.name}
                                 </span>
                               </div>
-                              <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-semibold tracking-[1px] uppercase px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0">
-                                <ShieldCheck className="w-3 h-3" />
-                                Verified
-                              </span>
                             </div>
                             <div className="flex items-center gap-2 text-[12px] text-slate-500 flex-wrap">
-                              <span>Title Deed (Verified)</span>
+                              <span>Title Deed</span>
                               <span className="text-slate-300">·</span>
                               <span>{formatDate(doc.uploadedAt)}</span>
                               <span className="text-slate-300">·</span>
@@ -916,69 +835,9 @@ export function PropertyOwnershipPage({
         propertyId={property.id}
         open={wizardOpen}
         onOpenChange={setWizardOpen}
-        startAt={wizardStartAt}
+        startAt="data"
         onSuccess={() => router.refresh()}
       />
-
-      {/* Revoke verification confirmation dialog — Tier 3 (typed). Lists what the
-          verification covers and requires typing REVOKE before the button enables. */}
-      <Dialog
-        open={revokeOpen}
-        onOpenChange={(next) => {
-          if (revoking) return; // don't let the user close mid-action
-          setRevokeOpen(next);
-          if (!next) setRevokeTyped(""); // reset the typed gate on close
-        }}
-      >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center mb-1">
-              <AlertTriangle className="w-5 h-5 text-red-500" />
-            </div>
-            <DialogTitle>Revoke verification?</DialogTitle>
-            <DialogDescription>
-              Revoking removes the Verified status from this ownership record. Your
-              uploaded documents will not be deleted — you can re-verify at any time.
-            </DialogDescription>
-          </DialogHeader>
-
-          {/* Scope: what this verification covers / what revoking touches. */}
-          <ul className="text-[13px] text-slate-600 list-disc pl-5 space-y-1">
-            <li>The Verified status on this property&apos;s ownership record</li>
-            <li>The ownership pillar&apos;s contribution to the property&apos;s progress score</li>
-          </ul>
-
-          <div className="flex flex-col gap-2 mt-1">
-            <label htmlFor="revoke-ownership-typed" className="text-[13px] text-slate-600">
-              Type <span className="font-semibold">REVOKE</span> to confirm
-            </label>
-            <Input
-              id="revoke-ownership-typed"
-              value={revokeTyped}
-              onChange={(e) => setRevokeTyped(e.target.value)}
-              autoComplete="off"
-              disabled={revoking}
-            />
-          </div>
-
-          <DialogFooter>
-            <button
-              onClick={() => { setRevokeOpen(false); setRevokeTyped(""); }}
-              disabled={revoking}
-              className="px-4 py-2 text-sm font-semibold text-val-heading border border-slate-200 rounded hover:bg-slate-50 disabled:opacity-50 transition-colors duration-150"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleRevoke}
-              disabled={revoking || revokeTyped !== "REVOKE"}
-              className="px-4 py-2 text-sm font-semibold text-white rounded bg-red-500 hover:bg-red-600 disabled:opacity-50 transition-colors duration-150"
-            >
-              {revoking ? "Revoking…" : "Revoke verification"}
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }

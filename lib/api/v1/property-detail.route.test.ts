@@ -45,6 +45,7 @@ const PROPERTY = {
   bathrooms: "2",
   yearBuilt: "2015",
   photoStorageIds: ["STORE-PHOTO-SECRET-1"],
+  coverStorageId: "STORE-COVER-SECRET",
   buyNumeric: 5000000,
   outstandingMortgage: 1000000,
 };
@@ -82,7 +83,7 @@ describe("GET /api/v1/properties/[id]", () => {
     expect(getPropertyMock).toHaveBeenCalledWith(CTX, "PROP-9999");
   });
 
-  it("returns PropertyDetailDto on success — no internal/storage ids leaked", async () => {
+  it("returns PropertyDetailDto on success — no internal or storage ids leaked", async () => {
     resolveApiV1CtxMock.mockResolvedValue({ ok: true, ctx: CTX });
     getPropertyMock.mockResolvedValue(PROPERTY);
 
@@ -100,16 +101,18 @@ describe("GET /api/v1/properties/[id]", () => {
       createdAt: 1700000000000,
       priceNumeric: 5000000,
       currency: "USD",
+      coverPhoto: { endpoint: "/api/v1/properties/PROP-0001/cover-photo" },
       addressLine: "42 Ocean Ave",
       country: "PH",
       totalArea: "120 sqm",
       bedrooms: "3",
       bathrooms: "2",
       yearBuilt: "2015",
+      outstandingMortgage: 1000000,
     });
     const serialized = JSON.stringify(body);
     expect(serialized).not.toContain("SECRET");
-    expect(serialized).not.toContain("1000000");
+    expect(body).not.toHaveProperty("buyNumeric");
   });
 
   it("fails closed with a generic 500 when the service throws unexpectedly (no message leak)", async () => {

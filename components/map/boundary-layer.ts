@@ -19,7 +19,15 @@ type AnyMap = MapLibreMap | MapboxMap;
 
 export const BOUNDARY_SOURCE_ID = "valgate-boundary";
 export const BOUNDARY_FILL_ID = "valgate-boundary-fill";
+export const BOUNDARY_CASING_ID = "valgate-boundary-casing";
 export const BOUNDARY_LINE_ID = "valgate-boundary-line";
+
+/**
+ * Valgate action blue. Mirrors `--interactive-primary` (styles/theme.css) — canvas paint takes a
+ * literal, not a CSS custom property, so this is the one place the two can drift apart.
+ */
+const BRAND_BLUE = "#2563eb";
+
 
 const EMPTY: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
 
@@ -69,7 +77,20 @@ export function addBoundaryLayer(
     type: "fill",
     source: BOUNDARY_SOURCE_ID,
     ...(opts.minZoom != null ? { minzoom: opts.minZoom } : {}),
-    paint: { "fill-color": "#2563eb", "fill-opacity": 0.18 },
+    paint: { "fill-color": BRAND_BLUE, "fill-opacity": 0.18 },
+  });
+  // The casing is what makes brand blue survivable on imagery. Over forest, shadow or water a
+  // #2563eb line sits at the same luminance as its background and disappears; a white halo under it
+  // reads against every dark tile, and over pale sand or a white roof the blue core still carries.
+  // Same device the pins already use — blue fill, white ring — so the ring and the markers that sit
+  // inside it stay one visual language. Wider than the line by construction: narrower would hide.
+  map.addLayer({
+    id: BOUNDARY_CASING_ID,
+    type: "line",
+    source: BOUNDARY_SOURCE_ID,
+    ...(opts.minZoom != null ? { minzoom: opts.minZoom } : {}),
+    layout: { "line-join": "round", "line-cap": "round" },
+    paint: { "line-color": "#ffffff", "line-width": 6, "line-opacity": 0.9 },
   });
   map.addLayer({
     id: BOUNDARY_LINE_ID,
@@ -81,7 +102,7 @@ export function addBoundaryLayer(
     // default miter join projects that vertex OUTWARD to build the corner, which draws a spike that
     // does not exist in the data — reproduced in isolation. Round joins cannot overshoot a vertex.
     layout: { "line-join": "round", "line-cap": "round" },
-    paint: { "line-color": "#2563eb", "line-width": 2 },
+    paint: { "line-color": BRAND_BLUE, "line-width": 2.5 },
   });
 }
 

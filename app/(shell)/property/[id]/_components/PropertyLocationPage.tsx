@@ -38,8 +38,6 @@ import {
 import { cn } from "@/components/ui/utils";
 import { PropertyMapExpandModal } from "@/components/map/PropertyMapExpandModal";
 import { DrawBoundaryTool, type DrawMode } from "@/components/map/DrawBoundaryTool";
-import type { PropertyComparable } from "@/lib/data/types/property-comparable";
-import type { MarketSnapshot } from "@/lib/data/types/market-snapshot";
 import {
   buildParcelFacts,
   countFactsOnFile,
@@ -47,6 +45,7 @@ import {
   parseAreaM2,
   ringPoints,
 } from "@/lib/data/derivations/parcel-facts";
+import { boundarySides, formatMeters } from "@/lib/data/derivations/boundary-sides";
 import { PropertyBoundaryCard } from "./PropertyBoundaryCard";
 
 /** One square icon button in the vector toolbar. Kept local — it exists for this bar only. */
@@ -85,13 +84,9 @@ function ToolButton({
 export function PropertyLocationPage({
   property,
   landParcels,
-  comparables,
-  marketSnapshot,
 }: {
   property: Property;
   landParcels: LandParcel[];
-  comparables: PropertyComparable[];
-  marketSnapshot: MarketSnapshot;
 }) {
   const activeTab = "location";
   const [wizardOpen, setWizardOpen] = useState(false);
@@ -117,8 +112,6 @@ export function PropertyLocationPage({
             landParcels={landParcels}
             unlockState={unlockState}
             openWizard={openWizard}
-            comparables={comparables}
-            marketSnapshot={marketSnapshot}
           />
         </div>
       </div>
@@ -165,15 +158,11 @@ function LocationContent({
   landParcels,
   unlockState,
   openWizard,
-  comparables,
-  marketSnapshot,
 }: {
   property: Property;
   landParcels: LandParcel[];
   unlockState: UnlockState;
   openWizard: () => void;
-  comparables: PropertyComparable[];
-  marketSnapshot: MarketSnapshot;
 }) {
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const [mapMounted, setMapMounted] = useState(false);
@@ -240,6 +229,10 @@ function LocationContent({
   // No ring, no measurement.
   const measuredParcel = landParcels.find((p) => p.boundary != null) ?? null;
   const boundary = measuredParcel?.boundary ?? null;
+  // Sides of the same ring the map draws. Derived on render from the boundary that is already here —
+  // no column, no migration, and a re-uploaded KMZ measures itself.
+  const measurement = useMemo(() => boundarySides(boundary), [boundary]);
+  const [showSides, setShowSides] = useState(true);
   /** The stored ring's corners, without the repeated closing position. */
   const storedRing = useMemo(() => ringPoints(boundary), [boundary]);
 
@@ -367,32 +360,6 @@ function LocationContent({
     navigator.clipboard.writeText(`${property.lat}, ${property.lng}`).then(() => {
       toast.success("Coordinates copied");
     });
-  }
-
-  function exportComparables() {
-    if (!comparables.length) {
-      toast.error("No comparables to export");
-      return;
-    }
-    const rows = [
-      ["Property", "Distance (km)", "Type", "Area (m2)", "Price/m2"],
-      ...comparables.map((c) => [
-        c.name,
-        c.distanceKm.toFixed(2),
-        c.type,
-        String(c.totalAreaM2),
-        String(c.pricePerM2),
-      ]),
-    ];
-    const csv = rows
-      .map((r) => r.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(","))
-      .join("\n");
-    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${property.code}-comparables.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
   }
 
   return (
@@ -710,6 +677,65 @@ function LocationContent({
 
           {/* The upload is the input that fills the panel above, so it is the panel's footer
               action rather than a card of its own. */}
+          {/* Sides. On by default — a parcel's ring says how big it is, not how long each edge is,
+              and an owner checking a deed walks the boundary one side at a time. The toggle is the
+              same shape as the one on Comparables, and the caveat is stated where the numbers are
+              rather than in a footnote nobody reaches.
+
+              The header prints even when there is nothing to measure. A property with no ring has
+              to say so — an absent row is indistinguishable from an absent feature, which is exactly
+              how this shipped once. */}
+          <div className="mt-5 border-t border-slate-100 pt-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
+                  Sides
+                </p>
+                <p className="mt-1 text-[13px] text-slate-500">
+                  {measurement
+                    ? `${measurement.sides.length} sides · ${formatMeters(measurement.perimeterM)} perimeter · longest ${formatMeters(measurement.longest.meters)}`
+                    : "No sides to measure until a boundary is on file."}
+                </p>
+              </div>
+              {measurement && (
+                <button
+                  type="button"
+                  onClick={() => setShowSides((s) => !s)}
+                  aria-expanded={showSides}
+                  aria-controls="parcel-sides"
+                  className="shrink-0 text-[13px] font-medium text-[--val-primary-dark] hover:opacity-80 transition-opacity"
+                >
+                  {showSides ? "Hide sides" : "Show sides"}
+                </button>
+              )}
+            </div>
+
+            {measurement && showSides && (
+              <dl
+                id="parcel-sides"
+                className="mt-3 grid grid-cols-2 gap-x-8 gap-y-1 sm:grid-cols-4"
+              >
+                {measurement.sides.map((side) => (
+                  <div
+                    key={side.index}
+                    className="flex items-baseline justify-between gap-3 border-b border-slate-100 pb-1"
+                  >
+                    <dt className="text-[11px] text-slate-400 tabular-nums">Side {side.index}</dt>
+                    <dd className="text-[13px] font-semibold text-val-heading tabular-nums">
+                      {formatMeters(side.meters)}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+
+            {measurement && (
+              <p className="mt-2 text-[11px] text-slate-400">
+                Measured edge to edge around the stored boundary. Approximate — not a survey.
+              </p>
+            )}
+          </div>
+
           <PropertyBoundaryCard
             propertyId={property.id}
             propertyName={property.name || property.code}
@@ -719,106 +745,6 @@ function LocationContent({
           />
         </div>
 
-        {/* Comparables — one table. The old metrics card beside it repeated this table's
-            first three rows and its footer already carried both headline figures, so the
-            card is gone rather than promoted. */}
-        <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.05)] animate-[fade-slide-up_0.45s_cubic-bezier(0.22,1,0.36,1)_both]" style={{ animationDelay: "180ms" }}>
-          <div className="px-5 py-4 flex items-start justify-between gap-4 border-b border-slate-100">
-            <div>
-              <h2 className="text-base font-bold text-val-heading">Comparable properties</h2>
-              <p className="text-xs text-slate-400 mt-0.5">
-                {comparables.length > 0
-                  ? `${comparables.length} nearby propert${comparables.length === 1 ? "y" : "ies"} in your area`
-                  : "No nearby properties found"}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={exportComparables}
-              disabled={comparables.length === 0}
-              className="flex shrink-0 items-center gap-1.5 text-[13px] font-medium text-[--val-primary-dark] hover:opacity-80 disabled:opacity-40 disabled:hover:opacity-40 transition-opacity"
-            >
-              <Download className="w-3.5 h-3.5" />
-              Export
-            </button>
-          </div>
-
-          {comparables.length === 0 ? (
-            <p className="px-5 py-8 text-center text-[13px] text-slate-400">
-              No nearby properties have a market value on file yet, so there is nothing to
-              compare. Add a valuation to a nearby property to populate this list.
-            </p>
-          ) : (
-            <>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="bg-slate-50/80 border-b border-slate-200">
-                      {["Property", "Distance", "Type", "Area", "Price/m²"].map((h) => (
-                        <th
-                          key={h}
-                          className="px-2 sm:px-4 py-3 text-left text-[10px] sm:text-[11px] font-semibold text-slate-500 uppercase tracking-[0.05em] whitespace-nowrap"
-                        >
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {comparables.slice(0, 4).map((row, i) => (
-                      <tr
-                        key={row.id}
-                        className="border-t border-slate-100 hover:bg-blue-50/30 transition-colors"
-                        style={{ animationDelay: `${i * 25}ms` }}
-                      >
-                        <td className="px-2 sm:px-4 py-3 text-[12px] sm:text-[14px] text-val-heading font-medium">
-                          {row.name}
-                        </td>
-                        <td className="px-2 sm:px-4 py-3 text-[12px] sm:text-[14px] text-val-heading tabular-nums whitespace-nowrap">
-                          {row.distanceKm.toFixed(1)} km
-                        </td>
-                        <td className="px-2 sm:px-4 py-3 text-[12px] sm:text-[14px] text-val-heading capitalize">
-                          {row.type}
-                        </td>
-                        <td className="px-2 sm:px-4 py-3 text-[12px] sm:text-[14px] text-val-heading tabular-nums whitespace-nowrap">
-                          {row.totalAreaM2.toLocaleString()} m²
-                        </td>
-                        <td className="px-2 sm:px-4 py-3 text-[12px] sm:text-[14px] text-val-heading tabular-nums whitespace-nowrap">
-                          ${row.pricePerM2.toLocaleString()}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="bg-slate-50/60 border-t border-slate-200 px-4 py-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-slate-500">
-                <span>
-                  Avg comp price:{" "}
-                  <span className="font-semibold text-val-heading tabular-nums">
-                    {marketSnapshot.comparableCount > 0
-                      ? `$${marketSnapshot.avgComparableValue.toLocaleString()}`
-                      : "—"}
-                  </span>
-                </span>
-                <span className="text-slate-300">·</span>
-                <span>
-                  Estimated value:{" "}
-                  <span className="font-semibold text-val-heading tabular-nums">
-                    {marketSnapshot.estimatedValue != null
-                      ? `$${marketSnapshot.estimatedValue.toLocaleString()}`
-                      : "—"}
-                  </span>
-                </span>
-                {comparables.length > 4 && (
-                  <span className="ml-auto text-slate-400">
-                    Showing 4 of {comparables.length}
-                  </span>
-                )}
-              </div>
-            </>
-          )}
-        </div>
       </div>
     </div>
   );

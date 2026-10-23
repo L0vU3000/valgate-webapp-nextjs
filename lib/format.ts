@@ -15,6 +15,26 @@ export function formatCurrencyFull(n: number): string {
 }
 
 /**
+ * Price per area sub line for the property panel: "USD 1,200/m² · 375 m²".
+ *
+ * Both parts trace to stored fields — the rate is buyNumeric ÷ totalArea, and
+ * the area is repeated so the reader can see what the rate was derived from.
+ * Each part is omitted when its source is missing (totalArea is a free-text
+ * string, so unparseable/zero counts as missing), and null comes back when
+ * there is nothing honest to show — the caller renders "—".
+ */
+export function formatPricePerArea(buyNumeric: number, totalArea: string): string | null {
+  const area = Number(totalArea);
+  const hasArea = Number.isFinite(area) && area > 0;
+  const parts: string[] = [];
+  if (hasArea && buyNumeric > 0) {
+    parts.push(`USD ${Math.round(buyNumeric / area).toLocaleString()}/m²`);
+  }
+  if (hasArea) parts.push(`${area.toLocaleString()} m²`);
+  return parts.length ? parts.join(" · ") : null;
+}
+
+/**
  * Byte count: "512 B", "1.4 KB", "3.8 MB"
  */
 export function formatBytes(n: number): string {

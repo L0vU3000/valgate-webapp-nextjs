@@ -5,6 +5,7 @@ import { documents } from "@/lib/db/schema";
 import { encodeCursor, decodeCursor } from "@/lib/pagination/cursor";
 import { DocumentSchema, type Document } from "@/lib/data/types/document";
 import type { NewDocument, DocumentPatch } from "@/lib/data/types/document";
+import type { SuggestedUpdate } from "@/lib/services/property-suggestions";
 import type { DocumentCategory } from "@/lib/services/document-classify";
 import { toDomain, type Ctx } from "@/lib/services/_mapping";
 import { scopedInsert, scopedUpdate, scopedDelete, assertOrgAdmin } from "@/lib/services/_crud";
@@ -195,6 +196,19 @@ export async function setDocumentAiStatus(
 // What can go wrong: same as above — demo mode and insufficient role throw; a missing / cross-org
 // id returns null. The caller (the summarize route) wraps this in a try/catch that flips ai_status
 // back to "failed" on any error.
+/**
+ * Store the property fields a document disagrees with. Written when the document is read — at ingest
+ * and on an explicit re-read — so revisiting the page recalls the answer instead of paying for the
+ * same read again, and so a decision the user already made is still there next time.
+ */
+export async function setDocumentSuggestions(
+  ctx: Ctx,
+  id: string,
+  suggestions: SuggestedUpdate[],
+): Promise<Document | null> {
+  return scopedUpdate(ctx, documents, id, { aiSuggestions: suggestions }, rowToDocument, false);
+}
+
 export async function saveDocumentSummary(
   ctx: Ctx,
   id: string,
