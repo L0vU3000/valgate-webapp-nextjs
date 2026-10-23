@@ -47,10 +47,11 @@ test.describe('Preview public smoke', () => {
     expect(response?.status() ?? 0, 'expected HTTP 2xx from /').toBeLessThan(400)
     await expect(page).toHaveTitle(/Valgate/i)
 
-    // Required public controls: sign-in entry point and the primary CTA into
-    // registration, both present without navigating away.
-    await expect(page.getByRole('link', { name: /sign in/i }).first()).toBeVisible()
-    await expect(page.getByRole('link', { name: /get started/i }).first()).toBeVisible()
+    // Required public controls: log-in entry point and the primary CTA into
+    // registration, both present without navigating away. Labels follow
+    // MARKETING_SPEC §3.3 (`Log in` / `Create your portfolio`).
+    await expect(page.getByRole('link', { name: /log in/i }).first()).toBeVisible()
+    await expect(page.getByRole('link', { name: /create your portfolio/i }).first()).toBeVisible()
 
     const bodyText = await page.locator('body').innerText()
     const matches = findForbiddenCopy(bodyText, FORBIDDEN_LANDING_COPY)
