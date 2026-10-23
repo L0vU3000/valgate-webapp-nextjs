@@ -1,8 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import { generateObject, type LanguageModel } from "ai";
-import { openai } from "@ai-sdk/openai";
-import { anthropic } from "@ai-sdk/anthropic";
+import { documentModel, scanModelSlug } from "./ai-model";
 import { reconcileExtractions, type ScanResult } from "./reconcile-extractions";
 
 // The property details we ask the model to pull out of a scanned document. Every field is nullable —
@@ -49,16 +48,11 @@ const EXTRACTION_PROMPT = [
 ].join(" ");
 
 // The scan model is swappable via the SCAN_MODEL env var so we can pick the best one empirically
-// without touching the extraction code. The provider is inferred from the slug: anything starting with
-// "claude" goes to Anthropic (needs ANTHROPIC_API_KEY), everything else to OpenAI. The default,
-// gpt-5.6-terra, won a bench on real handwritten Khmer consular samples (best address + name accuracy,
-// fastest, cleanest structured output). generateObject + the schema stay identical across models.
+// without touching the extraction code. Provider selection (Anthropic / OpenRouter / OpenAI) and the
+// default live in lib/services/ai-model.ts, shared with the summary and translation jobs so the three
+// document readers cannot drift apart. generateObject + the schema stay identical across models.
 function scanModel(): LanguageModel {
-  const slug = process.env.SCAN_MODEL?.trim() || "gpt-5.6-terra";
-  if (slug.startsWith("claude")) {
-    return anthropic(slug);
-  }
-  return openai(slug);
+  return documentModel(scanModelSlug());
 }
 
 // How many times we run the extraction and reconcile (see reconcile-extractions.ts). 3 gives a real
@@ -100,9 +94,31 @@ export async function scanDocument(fileBytes: Uint8Array, mimeType: string): Pro
   // fan out an absurd number of calls. NaN/0 fall back to the default via ||.
   const samples = Math.min(5, Math.max(1, Number(process.env.SCAN_SAMPLES) || DEFAULT_SCAN_SAMPLES));
 
-  const runs = await Promise.all(
+  // The N runs are independent paid calls. The AI SDK raises "AI_APICallError: Invalid JSON response"
+  // when the provider's HTTP body isn't JSON at all — seen on staging on an ordinary document while
+  // the other two runs returned fine — so it is a transport flake, not a schema mismatch, and JSON
+  // repair would not help. Promise.all turned that single flake into a failed scan by discarding the
+  // two good extractions with it. Vote on whatever came back instead; only a ballot with no valid
+  // runs is a failure, and it surfaces the provider's own error.
+  const settled = await Promise.allSettled(
     Array.from({ length: samples }, () => extractOnce(model, fileBytes, mimeType)),
   );
+  const runs = settled
+    .filter((outcome): outcome is PromiseFulfilledResult<ExtractedProperty> => outcome.status === "fulfilled")
+    .map((outcome) => outcome.value);
 
+  if (runs.length === 0) {
+    throw (settled[0] as PromiseRejectedResult).reason;
+  }
+  // A single surviving run cannot be voted on, so nothing would look uncertain and the draft would
+  // present as verified when it never was. Flag every field for review in that case.
+  // ponytail: whole-record flag, not per-field confidence; split it if a one-run scan turns out to be common.
+  if (runs.length === 1) {
+    const reconciled = reconcileExtractions(runs);
+    return {
+      extracted: reconciled.extracted,
+      lowConfidence: Object.keys(reconciled.extracted) as (keyof ExtractedProperty)[],
+    };
+  }
   return reconcileExtractions(runs);
 }

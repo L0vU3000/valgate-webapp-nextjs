@@ -1,0 +1,101 @@
+**1. OVER-CLAIMING**
+- "the iPhone app contains no analytics or advertising software of any kind": False. The Mapbox SDK ships with telemetry on by default, and its manifest declares Analytics as a purpose.
+- "They differ in exactly one material way": False. The Mapbox SDK and its telemetry are iOS-only, and session handling also differs (keychain token vs Clerk cookies).
+- "the web app uses product analytics" / "The web app uses PostHog": PostHog is uncommitted work-in-progress and not live. Present tense describes processing that doesn't happen yet.
+- "Because the iPhone app contains no analytics and does no tracking, there is nothing to opt out of there": False. Mapbox analytics telemetry runs by default and nothing in the facts shows it disabled.
+- "Anonymous visitors are not given a profile": Misleading. `identified_only` stops person profiles from being created but does not stop event capture or replay for anonymous visitors.
+- "so property addresses, tenant names and lease figures are not captured in replays": Absolute claim the facts don't support. Text and attribute masking says nothing about images, canvas or map tiles, displayed photos, URLs or page titles.
+- "so we can connect feedback to the account that gave it": UNVERIFIABLE FROM FACTS. The purpose of identification is not stated anywhere.
+- "request timestamps, IP address, and rate-limiting counters … diagnose faults": UNVERIFIABLE FROM FACTS. No logging or rate limiting is established.
+- "Mapbox | Map rendering and search": UNVERIFIABLE FROM FACTS. Search or geocoding is not established. If it exists, property addresses go to Mapbox.
+- "the maps are centred on the properties you have entered": UNVERIFIABLE FROM FACTS.
+- "Documents and photographs … deeds, leases, insurance certificates": UNVERIFIABLE FROM FACTS. The facts only say "documents".
+- "short-lived, single-purpose upload ticket": The expiry of the presigned POST is UNVERIFIABLE FROM FACTS. Only the download URLs are stated to be short-lived.
+- "Each is bound by contract to process data only on our instructions": UNVERIFIABLE FROM FACTS. It is also contradicted for Mapbox, which collects data for its own Analytics purpose, so it acts at least partly as a controller.
+- "including in the United States, the European Union and Australia": UNVERIFIABLE FROM FACTS. No region is verified for S3, Neon, Vercel, Clerk or PostHog.
+- "Your account … is deleted when you delete it": Deletion is not deployed. Also, the mirror row is anonymised and kept, not deleted.
+- "remove the personal data held about you": Overstated. The user id is kept, membership rows are kept, and any personal data inside workspace records and S3 files stays.
+- "kept in a de-identified form": Wrong term. A kept, linkable user id is pseudonymised and is still personal data under GDPR. "De-identified" is also a defined CCPA term with conditions that aren't shown to be met.
+- "go to Account → Delete Account. This is immediate": The feature is not deployed and the UI path is UNVERIFIABLE FROM FACTS. Clean-up runs through an asynchronous webhook, so "immediate" is not established.
+- "contact us and we will delete it" (Children): This conflicts with the stated policy "never hard-delete tenant data".
+- "All traffic … uses HTTPS": UNVERIFIABLE FROM FACTS.
+- "authentication and organisation boundaries are enforced by the API on every request": UNVERIFIABLE FROM FACTS.
+- "We do not ask for your phone number, date of birth…": UNVERIFIABLE FROM FACTS. Clerk's configured sign-in fields are not established.
+- "a property-management tool for property owners": UNVERIFIABLE FROM FACTS.
+
+**2. UNDER-DISCLOSURE**
+- Section 5 / section 6 bullets: The draft never says plainly that Mapbox telemetry in the iOS app is on by default and sends a user ID and precise location for Analytics. Section 5 mentions it, but other sections then contradict it.
+- "Records you enter about your properties": Doesn't disclose that tenancy and ownership records contain personal data about third parties (tenants, co-owners) who are not users. It also doesn't say who the controller is for that data.
+- (absent) Invitations: The accept-invitation flow means a workspace member submits an invitee's email before that person has any relationship with Valgate. This processing and its source are not disclosed.
+- "If you delete your account, you lose your access": Doesn't disclose that a sole owner can delete their account and leave the workspace with no owner. It doesn't say who then controls those records or handles rights requests for them.
+- (absent) Cookies: Clerk session cookies on the web are not mentioned at all. Neither is PostHog's cookie/localStorage use once it goes live.
+- "Only signed-in users are identified": Doesn't say clearly that session replays and events are linked to the identified account (email and user id).
+- "`[EU OR US REGION — CONFIRM]`": Doesn't disclose that the code switches region by token, so a US transfer depends on configuration.
+- (absent) Mapbox's Analytics purpose is processing for Mapbox's own ends. The draft doesn't disclose it as such or offer any way to turn it off.
+
+**3. LEGAL RISK**
+- "contains no analytics or advertising software of any kind": Conflicts with the App Store privacy label. Apple requires third-party SDK collection to be declared, so the label must list User ID and Precise Location (not linked, App Functionality + Analytics). The policy and label would then contradict each other, and a "Data Not Collected" label would be a misrepresentation.
+- "The app never asks for your device location": Users will see "Precise Location" on the label. The policy has to reconcile this explicitly instead of implying no location is collected.
+- Precise geolocation (via Mapbox) is "sensitive personal information" under CPRA. It isn't identified as such, and limit-use rights are not addressed.
+- "contact us and we will `[suppress analytics…]`": Opt-out by email is not valid for non-essential cookies and session replay under PECR / ePrivacy, which require prior consent. No consent banner exists.
+- "This is deliberate: they are property and tenancy records…": "Deliberate" is not a lawful basis for keeping data after an erasure request (GDPR Art. 17(3)). A legal-obligation or legitimate-interest basis and a retention period are needed.
+- "Delete your account … in the iPhone app": Apple guideline 5.1.1(v) requires the feature to be live at submission, and it isn't deployed.
+- "We will respond within `[e.g. 30 days]`": GDPR allows one month, extendable by two; CCPA allows 45 days. A single fixed promise risks being wrong for one regime.
+- "tell you in the product or by email before it takes effect": An unenforceable promise. No email provider is verified, and there's no defined notice period.
+- "In the UK/EEA that is `[YOUR SUPERVISORY AUTHORITY]`": Singular is wrong. EEA residents can complain to the authority in their own member state.
+- "No system is perfectly secure. If a breach affects you, we will notify you…": Vague. Regulators expect the 72-hour authority-notification commitment and the "high risk" threshold for notifying individuals.
+- (absent) The register and accept-invitation pages reference a privacy policy and terms, but every policy URL returns 404 in production. Users are agreeing to documents that don't exist, and the App Store requires a working privacy policy URL.
+- "Identifiers … kept in a de-identified form": Misuses a regulated CCPA term (see section 1).
+
+**4. MISSING**
+- Lawful basis for each purpose: contract (account, records), legitimate interests (security, Mapbox telemetry), consent (PostHog, replay).
+- Controller vs processor role for workspace data and for the third-party tenants and owners in it.
+- Transfer mechanism (placeholder only). Needs to name EU SCCs, the UK IDTA/Addendum, or the EU-US Data Privacy Framework for each US provider.
+- DPO: no statement on whether one is required or appointed.
+- Art. 27 EU representative and UK representative: not addressed, even though the operator is likely single-jurisdiction and serving foreign users.
+- Retention specifics:
+  - workspace records (indefinite?)
+  - S3 objects
+  - the anonymised user row
+  - Neon backups / point-in-time recovery
+  - Clerk's retention after deletion
+  - PostHog event and replay retention
+  - logs
+- Rights mechanics:
+  - right to erasure is not listed as a right
+  - withdrawal of consent
+  - right to object to legitimate interests
+  - identity verification
+  - free of charge
+  - extension rules
+  - authorised agents (CCPA)
+  - non-discrimination (CCPA)
+- Automated decision-making / profiling statement (Art. 13(2)(f)).
+- Whether giving the data is a contractual requirement (Art. 13(2)(e)).
+- Sources of data not collected from the user (other workspace members, invitations, Clerk).
+- Cookies and similar technologies section.
+- CCPA notice: categories collected in the last 12 months, sources, purposes, recipient categories, sensitive PI, "no sale/share" statement, and whether the CCPA applies at all (thresholds).
+- Breach process: internal procedure and the 72-hour regulator timeline.
+- A verified privacy contact address. Only feedback@valgate.co exists.
+
+NOT PUBLISHABLE
+
+- [EFFECTIVE DATE]
+- [DATE] (Last updated)
+- [LEGAL ENTITY NAME]
+- [REGISTERED ADDRESS]
+- [privacy@valgate.co] (×4; mailbox must be created, as only feedback@valgate.co exists)
+- [EU OR US REGION — CONFIRM] (PostHog)
+- [REGION — CONFIRM] (AWS S3 STORAGE_REGION)
+- [ANY EMAIL/SMS PROVIDER — CONFIRM]
+- [CONFIRM WHETHER THIS APPLIES] (email provider)
+- [TRANSFER MECHANISM — CONFIRM]
+- [RETENTION PERIOD — CONFIRM] (security/operational logs)
+- [CONFIRM ANY LEGAL RETENTION REQUIREMENTS]
+- [CONFIRM LOCATION OR ADD] (web account deletion)
+- [TIMEFRAME]
+- [YOUR SUPERVISORY AUTHORITY — CONFIRM]
+- [CONFIRM APPLICABILITY AND ADD REQUIRED DISCLOSURES] (California / US states)
+- [CONFIRM: suppress analytics / actual opt-out] (web analytics)
+- [AGE — CONFIRM]
+- [DESCRIBE ACCESS CONTROLS — CONFIRM]

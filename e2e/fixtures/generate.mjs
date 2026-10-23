@@ -11,14 +11,14 @@ import { fileURLToPath } from 'url'
 const dir = dirname(fileURLToPath(import.meta.url))
 mkdirSync(dir, { recursive: true })
 
-// Minimal valid 1×1 white JPEG (base64-encoded)
-const jpegB64 =
-  '/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDB' +
-  'kSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAAR' +
-  'CAABAAEDASIAAhEBAxEB/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAA' +
-  'AAAAAAAAAAAAAD/xAAUAQEAAAAAAAAAAAAAAAAAAAAA/8QAFBEBAAAAAAAAAAAAAAAA' +
-  'AAAAAAP/aAAwDAQACEQMRAD8AJQAB/9k='
-writeFileSync(resolve(dir, 'test-photo.jpg'), Buffer.from(jpegB64, 'base64'))
+// The photo fixture is a real JPEG committed at e2e/fixtures/test-photo.jpg and is NOT generated
+// here. It used to be built from a hand-pasted 1×1 base64 blob, which was silently truncated: the
+// header parsed as a JPEG (so `file` called it valid) but no decoder could read it, and the
+// add-property wizard's client-side compression step then failed with an Event that carries no
+// message — surfacing to the user as "Couldn't upload photo.jpg." with the reason missing. A
+// generated file that no decoder accepts is worse than a committed one that every decoder accepts.
+// Regenerate it from a real image if it needs to change:
+//   sips -Z 64 -s format jpeg public/property-hero.jpg --out e2e/fixtures/test-photo.jpg
 
 // Minimal valid PDF (text-based, passes basic PDF validators)
 const pdf = `%PDF-1.0

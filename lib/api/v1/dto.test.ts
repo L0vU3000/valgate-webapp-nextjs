@@ -74,7 +74,7 @@ const FULL_PROPERTY: Property = {
   annualPropertyTax: 12000,
   taxAssessmentValue: 4800000,
   annualInsurance: 8000,
-  ownershipStatus: "owned",
+  ownershipStatus: "Owned outright",
   buyNumeric: 5000000,
   financialsVerified: true,
   financialsVerifiedAt: 1700000005000,
@@ -139,8 +139,6 @@ describe("toPropertyListItemDto", () => {
       expect(serialized).not.toContain(marker);
     }
     expect(dto).not.toHaveProperty("buyNumeric");
-    expect(dto).not.toHaveProperty("outstandingMortgage");
-    expect(dto).not.toHaveProperty("currentMarketValue");
   });
 
   it("exposes only the intentionally small public list fields, including purchase price", () => {
@@ -190,12 +188,14 @@ describe("toPropertyDetailDto", () => {
     }
   });
 
-  it("extends the list DTO with concise detail-only fields", () => {
+  it("extends the list DTO with property profile and financial fields", () => {
     const dto = toPropertyDetailDto(FULL_PROPERTY);
     expect(dto).toMatchObject({
       id: "PROP-0001",
       name: "42 Ocean Ave",
       addressLine: "42 Ocean Ave",
+      addressLine2: "Unit 3",
+      zip: "1000",
       lat: 14.5995,
       lng: 120.9842,
       country: "PH",
@@ -203,9 +203,23 @@ describe("toPropertyDetailDto", () => {
       bedrooms: "3",
       bathrooms: "2",
       yearBuilt: "2015",
+      parkingSpaces: "1",
+      storageUnit: "SU-1",
+      title: "Hard title",
+      ownershipStatus: "Owned outright",
+      purchasePrice: "5,000,000",
+      purchaseDate: 1690000000000,
+      currentMarketValue: 5500000,
+      outstandingMortgage: 1000000,
+      monthlyPayment: 15000,
+      interestRate: 5.5,
+      annualPropertyTax: 12000,
+      taxAssessmentValue: 4800000,
+      annualInsurance: 8000,
       priceNumeric: 5000000,
       currency: "USD",
     });
+    expect(dto).not.toHaveProperty("buyNumeric");
   });
 });
 

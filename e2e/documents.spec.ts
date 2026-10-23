@@ -55,7 +55,7 @@ test.describe('F — Documents & folders', () => {
     try {
       await test.step('Open upload dialog and set file', async () => {
         await page.goto(DOCS(ids.propertyId))
-        await page.getByRole('button', { name: /upload file|add file/i }).click()
+        await page.getByRole('button', { name: /upload (a )?(document|file)|add (file|files)/i }).first().click()
         const dialog = page.getByRole('dialog')
         await expect(dialog).toContainText(/add files|upload/i)
         const fileInput = dialog.locator('input[type="file"]')

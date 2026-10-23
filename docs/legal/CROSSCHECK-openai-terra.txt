@@ -1,0 +1,397 @@
+Reading additional input from stdin...
+OpenAI Codex v0.152.0
+--------
+workdir: /private/tmp
+model: gpt-5.6-terra
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: high
+reasoning summaries: none
+session id: 01a142e5-f363-7b80-ae28-eeffb19b4b38
+--------
+user
+You are auditing a DRAFT privacy policy against verified facts about the product it describes.
+
+Do not rewrite it. Do not praise it. Do not comment on style or tone.
+
+The facts below were established by reading the actual source code of both products. Treat them as ground truth. The draft was written by a different model family, so assume nothing about it.
+
+Find, in this order:
+1. OVER-CLAIMING — any statement in the draft that the facts do not support.
+2. UNDER-DISCLOSURE — any material data flow in the facts that the draft fails to disclose.
+3. LEGAL RISK — statements that are vague in a way a regulator would reject, unenforceable promises, or that would CONFLICT with an App Store privacy label.
+4. MISSING — what a GDPR / UK GDPR / CCPA reviewer would flag as required but absent (transfer mechanism, DPO/representative, retention specifics, lawful basis, rights mechanics, breach process).
+
+Rules:
+- One line per finding: quote the draft fragment, then the problem. No paragraphs.
+- If a category is clean, write "none" and move on.
+- Mark anything you cannot judge from the facts as "UNVERIFIABLE FROM FACTS" rather than guessing.
+- End with exactly one verdict line: PUBLISHABLE AFTER FIXES or NOT PUBLISHABLE.
+- Then list, as a plain list, the placeholders a human must fill before publication.
+
+=== VERIFIED FACTS ===
+
+PRODUCT: Valgate. Two surfaces sharing one account and one dataset: a Next.js web app at https://www.valgate.co (owns the /api/v1 backend) and a native SwiftUI iPhone app (iOS 17+).
+
+IDENTITY: Clerk is the identity provider and the source of truth for users and organisations. Our Postgres mirrors Clerk. Clerk holds: email, display name, avatar URL, Clerk user id, organisation (workspace) name, membership role (owner/admin/member/viewer). No passwords stored by us. iOS stores the session token in the keychain. Web uses Clerk session cookies (strictly necessary).
+
+RECORDS: user-entered property data — name, address, lat/lng, type, status, floor area, bedrooms, bathrooms, year built, valuations, ownership records, rental/tenancy data. Stored in Postgres (Neon).
+
+DOCUMENTS: uploads go direct from device to Amazon S3 via a presigned POST ticket issued by our API (/documents then /complete); retrieval via short-lived signed download URLs. The file does not transit our app servers. STORAGE_BUCKET and STORAGE_REGION come from env (region value not verified in this audit).
+
+MAPS: Mapbox Maps SDK in the iOS app. Mapbox's OWN shipped privacy manifest declares NSPrivacyCollectedDataTypeUserID and NSPrivacyCollectedDataTypePreciseLocation, each with linked=false and purposes AppFunctionality AND Analytics. Its manifest sets tracking=false. Mapbox telemetry is on by default. The iOS app has NO CLLocationManager usage anywhere and no NSLocation*UsageDescription — it never requests device location.
+
+IOS APP ANALYTICS: none. Verified by grep across the app source: no Sentry, PostHog, Firebase, Amplitude, Mixpanel or any analytics/telemetry SDK. iOS entitlements are only keychain-access-groups (no push, no iCloud, no health, no location).
+
+WEB APP ANALYTICS: PostHog IS being integrated (posthog-js dependency; instrumentation-client.ts; components/analytics/PostHogIdentity.tsx). Configuration: person_profiles "identified_only"; mask_all_text true; mask_all_element_attributes true (session replay with text and element attributes masked); api_host/ui_host switches on whether the host contains "eu." — i.e. EU or US region depending on token. NOTE: this PostHog work is UNCOMMITTED work-in-progress on a local branch, so it is NOT yet live in production.
+
+NO COOKIE CONSENT BANNER: verified absent from the web app source.
+
+TRACKING: no advertising SDKs anywhere, no data brokers, no cross-app/website tracking, no ATT prompt (nothing to request it for).
+
+ACCOUNT DELETION (implemented this week, not yet deployed): DELETE /api/v1/me deletes the Clerk user; the existing Clerk webhook then marks the user's workspace memberships removed and ANONYMISES the mirror row (email replaced with a reserved .invalid placeholder, display name and avatar nulled). The mirror user id is kept so membership rows keep valid foreign keys. TENANT BUSINESS RECORDS ARE RETAINED DELIBERATELY — the web repo's stated policy is "never hard-delete tenant data". S3 document objects are NOT purged. A user who is the sole owner of a workspace may delete their account, leaving that workspace without an owner.
+
+OTHER PROCESSORS: Neon (managed Postgres), Amazon Web Services (S3), Vercel (hosting), Clerk, Mapbox, PostHog. A transactional email provider may exist (sign-in codes) — NOT verified.
+
+CONTACT EMAIL FOUND IN SOURCE: feedback@valgate.co exists. No privacy@ or support@ address verified.
+
+EXISTING LEGAL COPY: the web app's register and accept-invitation pages reference a privacy policy and terms. No privacy or terms PAGE exists; /privacy, /privacy-policy, /legal/privacy, /terms, /support, /help, /contact all returned HTTP 404 on production.
+
+USER CONTEXT: the operator is a small company, likely single-jurisdiction, first App Store release. No DPO known. No EU representative known.
+
+=== DRAFT ===
+
+# Valgate Privacy Policy
+
+**DRAFT — not legal advice. Needs review by a qualified lawyer before publication.**
+Placeholders are marked `[LIKE THIS]`.
+
+**Effective date:** `[EFFECTIVE DATE]`
+**Last updated:** `[DATE]`
+
+## Who we are
+
+Valgate is operated by `[LEGAL ENTITY NAME]`, `[REGISTERED ADDRESS]` ("Valgate", "we",
+"us"). For privacy questions, or to exercise any right described below, contact
+`[privacy@valgate.co]`.
+
+This policy covers two products that share one account and one set of records:
+
+- the **Valgate web app** at `https://www.valgate.co`, and
+- the **Valgate iPhone app** (the "app").
+
+Where the two differ, this policy says so explicitly. They differ in exactly one
+material way, and it is worth reading: **the web app uses product analytics; the iPhone
+app contains no analytics or advertising software of any kind.**
+
+## What we collect, why, and where it goes
+
+### 1. Account and identity
+
+| Data | Purpose | Processed by |
+|---|---|---|
+| Email address, display name, profile photo URL, user ID | Sign-in, account management, showing you who you are | Clerk (identity provider) |
+| Workspace (organisation) name, your role in it (owner / admin / member / viewer) | Deciding what you may see and change | Clerk; our database |
+
+We do not ask for your phone number, date of birth, government identifiers, or payment
+details, and we do not store your password — authentication is handled by Clerk.
+
+### 2. Records you enter about your properties
+
+Property names, addresses and map coordinates, type and status, floor area, bedroom and
+bathroom counts, year built, valuations, ownership records, and rental and tenancy
+details. These are stored in our database (Neon, PostgreSQL) and are the substance of
+the product.
+
+### 3. Files you upload
+
+Documents and photographs you attach to a property — deeds, leases, insurance
+certificates and similar. Uploads go **directly from your device to object storage**
+(Amazon Web Services S3) using a short-lived, single-purpose upload ticket issued by our
+API; the file itself does not pass through, or sit on, our application servers. Files are
+retrieved through short-lived signed URLs.
+
+### 4. Security and service operation
+
+Session tokens (stored in the iOS **keychain**, not in ordinary app storage), request
+timestamps, IP address, and rate-limiting counters. We keep these to keep sessions valid,
+prevent abuse, and diagnose faults.
+
+### 5. Maps
+
+The maps are provided by Mapbox. To render a map, Mapbox receives your device's request
+and, per its own published privacy manifest, may collect a user ID and precise location,
+for both app functionality and analytics. Mapbox declares that this data is **not used to
+track you across other companies' apps or websites** (see "Tracking", below).
+
+**The app never asks for your device location.** There is no location permission request
+in the iPhone app; the maps are centred on the properties you have entered, not on where
+you are.
+
+### 6. Web analytics — web app only
+
+The **web app** uses PostHog for product analytics and session replay, so that we can see
+which parts of the product work and where people get stuck.
+
+- Session replay is configured to **mask all on-screen text and all element attributes**,
+  so property addresses, tenant names and lease figures are not captured in replays.
+- Anonymous visitors are not given a profile. Only signed-in users are identified, so we
+  can connect feedback to the account that gave it.
+- This happens on the **web app only**. The iPhone app contains **no** analytics SDK, no
+  crash-reporting SDK and no advertising SDK. Nothing you do in the app is sent to
+  PostHog.
+
+### 7. What we do not do
+
+- We do not show advertising, and we have no advertising or data-broker SDK in either
+  product.
+- We do not sell your personal information.
+- We do not track you across other companies' apps or websites, and we do not use your
+  data to build advertising profiles. Because we do not track, the iPhone app does not ask
+  for App Tracking Transparency permission — there is nothing to permit.
+
+## Who else processes your data
+
+We use the following service providers. Each is bound by contract to process data only on
+our instructions.
+
+| Provider | What it does | Notes |
+|---|---|---|
+| Clerk | Sign-in, sessions, workspace membership | Identity provider of record |
+| Mapbox | Map rendering and search | May collect a user ID and precise location for app functionality and analytics |
+| PostHog | Product analytics and session replay | **Web app only**; text masked; `[EU OR US REGION — CONFIRM]` |
+| Neon | Managed PostgreSQL | Stores your records |
+| Amazon Web Services | Object storage for your uploads | `[REGION — CONFIRM, e.g. Asia Pacific (Sydney)]` |
+| Vercel | Application hosting and delivery | Serves the web app and the API |
+| `[ANY EMAIL/SMS PROVIDER — CONFIRM, e.g. for sign-in codes]` | Delivering sign-in codes and notifications | `[CONFIRM WHETHER THIS APPLIES]` |
+
+Some of these providers process data outside your country, including in the United States,
+the European Union and Australia. Where personal data leaves the UK/EEA, transfers rely on
+`[TRANSFER MECHANISM — CONFIRM, e.g. the UK Addendum and EU Standard Contractual Clauses]`.
+
+## How long we keep it
+
+- **Your account** is kept while it exists, and is deleted when you delete it.
+- **Workspace records are retained after your account is deleted.** Properties,
+  valuations, ownership records, tenancy details and uploaded documents belong to the
+  *workspace*, not to an individual account. If you delete your account, you lose your
+  access to them; you do not delete the workspace's records, and they are not removed from
+  storage. This is deliberate: they are property and tenancy records that may be shared
+  with, or needed by, other people in the workspace.
+- **On account deletion**, we delete your account in Clerk, remove your workspace
+  memberships, and **remove the personal data held about you** (your email address,
+  display name and profile photo) from our own records. Identifiers that other records
+  point to are kept in a de-identified form so those records remain internally consistent.
+- **Security and operational logs** are kept for `[RETENTION PERIOD — CONFIRM]`.
+
+If you want a workspace's *business records* deleted, that is a separate request — write
+to `[privacy@valgate.co]` and we will tell you what can be removed and what must be kept
+`[CONFIRM ANY LEGAL RETENTION REQUIREMENTS, e.g. tenancy or tax record-keeping]`.
+
+## Your choices and rights
+
+- **Delete your account:** in the iPhone app, go to **Account → Delete Account**. This is
+  immediate and does not require asking us. (In the web app: `[CONFIRM LOCATION OR
+  ADD]`.)
+- **Access, correction, portability, objection, restriction:** write to
+  `[privacy@valgate.co]`. We will respond within `[TIMEFRAME — e.g. 30 days]`.
+- **Complaints:** you may complain to your local data protection authority. In the UK/EEA
+  that is `[YOUR SUPERVISORY AUTHORITY — CONFIRM]`.
+- **California and similar US state laws:** `[CONFIRM APPLICABILITY AND ADD REQUIRED
+  DISCLOSURES — e.g. categories collected, no sale/share, opt-out not required]`.
+
+Because the iPhone app contains no analytics and does no tracking, there is nothing to opt
+out of there. For the web app's analytics, contact us and we will `[CONFIRM: suppress
+analytics for your account / describe the actual opt-out available]`.
+
+## Children
+
+Valgate is a property-management tool for property owners and is not directed at children.
+We do not knowingly collect personal information from anyone under `[AGE — CONFIRM,
+typically 13 or 16 depending on jurisdiction]`. If you believe a child has provided us with
+personal information, contact us and we will delete it.
+
+## How we protect it
+
+All traffic between the app, the web app and our API uses HTTPS. Uploads are made directly
+to storage with short-lived, single-purpose tickets and retrieved through short-lived
+signed URLs. Session tokens are kept in the iOS keychain. Access to production data is
+restricted to `[DESCRIBE ACCESS CONTROLS — CONFIRM]`, and authentication and organisation
+boundaries are enforced by the API on every request, not by the app.
+
+No system is perfectly secure. If a breach affects you, we will notify you and the
+relevant regulator as required by law.
+
+## Changes to this policy
+
+If we make a material change, we will update the "Last updated" date above and, where the
+change is significant, tell you in the product or by email before it takes effect.
+warning: Skill descriptions were shortened to fit the skills context budget. Codex can still see every skill, but some descriptions are shorter. Disable unused skills or plugins to leave more room for the rest.
+hook: SessionStart
+hook: SessionStart Completed
+hook: UserPromptSubmit
+hook: UserPromptSubmit Completed
+codex
+I’ll compare the draft strictly to the verified implementation facts, and check the required GDPR/UK GDPR/CCPA notice elements against current official guidance.
+hook: PreToolUse
+hook: PreToolUse Completed
+web search: 
+web search: site:ico.org.uk privacy information must provide GDPR lawful basis retention transfers data subject rights privacy notice ...
+hook: PostToolUse
+hook: PostToolUse Completed
+hook: PreToolUse
+hook: PreToolUse Completed
+web search: 
+web search: site:ico.org.uk privacy information must provide GDPR lawful basis retention transfers data subject rights privacy notice ...
+hook: PostToolUse
+hook: PostToolUse Completed
+hook: PreToolUse
+hook: PreToolUse Completed
+web search: 
+web search: site:developer.apple.com App Store privacy details third party partners data collection precise location user ID analytics
+hook: PostToolUse
+hook: PostToolUse Completed
+codex
+## OVER-CLAIMING
+
+- “the web app uses product analytics” — False in current production: PostHog is uncommitted work-in-progress and is not live.
+- “the iPhone app contains no analytics … of any kind” — Conflicts with Mapbox telemetry being enabled by default and Mapbox declaring an Analytics purpose.
+- “Session replay is configured…” / “Only signed-in users are identified” — The configuration exists only in non-live PostHog work; this is not a current processing activity.
+- “Each is bound by contract to process data only on our instructions.” — UNVERIFIABLE FROM FACTS; contracts and processor/controller roles were not verified.
+- “Map rendering and search” — UNVERIFIABLE FROM FACTS; Mapbox Maps SDK use is verified, but search use is not.
+- “We do not ask for your phone number, date of birth, government identifiers, or payment details” — UNVERIFIABLE FROM FACTS.
+- “We do not show advertising” / “We do not sell your personal information” / “we do not use your data to build advertising profiles” — UNVERIFIABLE FROM FACTS; absence of advertising SDKs and brokers does not establish these broader legal assertions.
+- “request timestamps, IP address, and rate-limiting counters” — UNVERIFIABLE FROM FACTS.
+- “short-lived, single-purpose upload ticket” — Direct upload and short-lived presigned POST are verified; “single-purpose” is UNVERIFIABLE FROM FACTS.
+- “Delete Account … This is immediate” — False in current production: deletion is implemented but not deployed, and the stated iPhone UI location is UNVERIFIABLE FROM FACTS.
+- “remove the personal data held about you” / “kept in a de-identified form” — Overstates the verified behavior: the mirror user ID remains, while email is replaced and display name/avatar are removed.
+- “All traffic … uses HTTPS” / “organisation boundaries are enforced by the API on every request” — UNVERIFIABLE FROM FACTS.
+- “tell you in the product or by email before it takes effect” — UNVERIFIABLE FROM FACTS; no operational process supporting this promise was verified.
+
+## UNDER-DISCLOSURE
+
+- “may collect a user ID and precise location” — Omits that Mapbox telemetry is enabled by default; the phrasing makes a default third-party collection flow appear discretionary.
+- “Session tokens (stored in the iOS keychain…)” — Omits Clerk session cookies used by the web app, including their strictly necessary authentication purpose.
+- “If you delete your account, you lose your access to them” — Omits that a sole workspace owner can delete their account and leave the workspace without an owner.
+- “The web app uses PostHog…” — Omits the material current status that PostHog is not yet live in production.
+- “Web analytics — web app only” — Omits that no web cookie-consent banner exists despite the planned analytics/session-replay deployment.
+
+## LEGAL RISK
+
+- “the iPhone app contains no analytics” — Would conflict with an accurate App Store privacy label: Apple requires disclosure of data collected by integrated third-party SDKs, including analytics SDKs. [Apple App Privacy guidance](https://developer.apple.com/app-store/user-privacy-and-data-use/)
+- “Each is bound by contract to process data only on our instructions.” — Treats all providers as processors without establishing their roles; Mapbox’s independent collection and analytics purposes require role-specific analysis.
+- “remove the personal data held about you” — Risks misleading users about erasure because a persistent user identifier and retained workspace records/documents remain.
+- “we will tell you what can be removed and what must be kept” — Too indefinite for an erasure-right response; it provides neither retention criteria nor a decision process.
+- “The web app uses PostHog…” — If deployed as described, the absence of a consent mechanism creates an ePrivacy/cookie-compliance risk; whether PostHog uses consent-requiring storage is UNVERIFIABLE FROM FACTS.
+- “Valgate Privacy Policy” — Publication is presently defective: production pages referenced by registration and invitation flows return 404, and no privacy-policy URL is live.
+- “If a breach affects you, we will notify you and the relevant regulator as required by law.” — Vague and potentially misleading; data-subject notification is not required for every breach.
+
+## MISSING
+
+- “Who we are” — Final controller identity, registered address, and usable privacy contact are absent; `[privacy@valgate.co]` is not verified, while only `feedback@valgate.co` is verified.
+- “What we collect, why, and where it goes” — GDPR/UK GDPR lawful basis for each purpose is absent, including any legitimate interests relied upon. [ICO privacy-notice requirements](https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/individual-rights/the-right-to-be-informed/what-privacy-information-should-we-provide/)
+- “Some of these providers process data outside your country…” — Actual transfer destinations, provider-specific safeguards, and how users obtain safeguards are absent; the transfer-mechanism field is only a placeholder. [ICO guidance](https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/individual-rights/the-right-to-be-informed/what-privacy-information-should-we-provide/)
+- “How long we keep it” — Specific retention periods or objective criteria are missing for records, documents, Clerk data, analytics data, and logs; retained workspace data has no endpoint or review criterion.
+- “Access, correction, portability, objection, restriction: write to…” — Rights mechanics are incomplete: no verified request channel, identity-verification process, one-month GDPR timetable/extensions, refusal rationale, or portability format.
+- “Complaints…” — The applicable supervisory authority is unresolved, and no final controller jurisdiction is stated.
+- “California and similar US state laws…” — If CCPA/CPRA applies, required notice-at-collection and privacy-policy disclosures are absent: categories collected/disclosed, purposes, retention, sale/share determinations, authorized-agent process, and applicable rights; applicability is UNVERIFIABLE FROM FACTS. [CPPA statute](https://cppa.ca.gov/regulations/pdf/ccpa_statute_eff_20260101.pdf)
+- “For privacy questions…” — DPO and EU/UK representative details are absent; whether either appointment is legally required is UNVERIFIABLE FROM FACTS.
+- “If a breach affects you…” — A breach-response process, reporting route, and applicable notification thresholds/timing are absent.
+- “What we collect…” — Whether information is obtained indirectly from Clerk, and any required source disclosure, is UNVERIFIABLE FROM FACTS.
+- “Your choices and rights” — Whether automated decision-making or profiling occurs is UNVERIFIABLE FROM FACTS; if it does, the required notice is absent.
+- “Children” — The age threshold and child-data handling rule remain unresolved.
+
+NOT PUBLISHABLE
+
+- Legal entity name and registered address
+- Verified privacy contact email
+- Effective date and last-updated date
+- Whether/when PostHog will go live
+- PostHog hosting region and user opt-out method
+- AWS S3 region
+- Any transactional email/SMS provider
+- Actual international-transfer destinations and transfer mechanism
+- Retention schedule and deletion criteria for every data category
+- Legal-retention obligations for workspace records
+- Web account-deletion location or implementation
+- Rights-request process, identity verification, and response timeframe
+- Applicable supervisory authority
+- CCPA/CPRA applicability and required disclosures
+- Children’s age threshold
+- DPO and EU/UK representative determination and contacts
+- Verified access-control description
+- Live, publicly accessible privacy-policy URL
+hook: Stop
+hook: Stop Completed
+tokens used
+47,061
+## OVER-CLAIMING
+
+- “the web app uses product analytics” — False in current production: PostHog is uncommitted work-in-progress and is not live.
+- “the iPhone app contains no analytics … of any kind” — Conflicts with Mapbox telemetry being enabled by default and Mapbox declaring an Analytics purpose.
+- “Session replay is configured…” / “Only signed-in users are identified” — The configuration exists only in non-live PostHog work; this is not a current processing activity.
+- “Each is bound by contract to process data only on our instructions.” — UNVERIFIABLE FROM FACTS; contracts and processor/controller roles were not verified.
+- “Map rendering and search” — UNVERIFIABLE FROM FACTS; Mapbox Maps SDK use is verified, but search use is not.
+- “We do not ask for your phone number, date of birth, government identifiers, or payment details” — UNVERIFIABLE FROM FACTS.
+- “We do not show advertising” / “We do not sell your personal information” / “we do not use your data to build advertising profiles” — UNVERIFIABLE FROM FACTS; absence of advertising SDKs and brokers does not establish these broader legal assertions.
+- “request timestamps, IP address, and rate-limiting counters” — UNVERIFIABLE FROM FACTS.
+- “short-lived, single-purpose upload ticket” — Direct upload and short-lived presigned POST are verified; “single-purpose” is UNVERIFIABLE FROM FACTS.
+- “Delete Account … This is immediate” — False in current production: deletion is implemented but not deployed, and the stated iPhone UI location is UNVERIFIABLE FROM FACTS.
+- “remove the personal data held about you” / “kept in a de-identified form” — Overstates the verified behavior: the mirror user ID remains, while email is replaced and display name/avatar are removed.
+- “All traffic … uses HTTPS” / “organisation boundaries are enforced by the API on every request” — UNVERIFIABLE FROM FACTS.
+- “tell you in the product or by email before it takes effect” — UNVERIFIABLE FROM FACTS; no operational process supporting this promise was verified.
+
+## UNDER-DISCLOSURE
+
+- “may collect a user ID and precise location” — Omits that Mapbox telemetry is enabled by default; the phrasing makes a default third-party collection flow appear discretionary.
+- “Session tokens (stored in the iOS keychain…)” — Omits Clerk session cookies used by the web app, including their strictly necessary authentication purpose.
+- “If you delete your account, you lose your access to them” — Omits that a sole workspace owner can delete their account and leave the workspace without an owner.
+- “The web app uses PostHog…” — Omits the material current status that PostHog is not yet live in production.
+- “Web analytics — web app only” — Omits that no web cookie-consent banner exists despite the planned analytics/session-replay deployment.
+
+## LEGAL RISK
+
+- “the iPhone app contains no analytics” — Would conflict with an accurate App Store privacy label: Apple requires disclosure of data collected by integrated third-party SDKs, including analytics SDKs. [Apple App Privacy guidance](https://developer.apple.com/app-store/user-privacy-and-data-use/)
+- “Each is bound by contract to process data only on our instructions.” — Treats all providers as processors without establishing their roles; Mapbox’s independent collection and analytics purposes require role-specific analysis.
+- “remove the personal data held about you” — Risks misleading users about erasure because a persistent user identifier and retained workspace records/documents remain.
+- “we will tell you what can be removed and what must be kept” — Too indefinite for an erasure-right response; it provides neither retention criteria nor a decision process.
+- “The web app uses PostHog…” — If deployed as described, the absence of a consent mechanism creates an ePrivacy/cookie-compliance risk; whether PostHog uses consent-requiring storage is UNVERIFIABLE FROM FACTS.
+- “Valgate Privacy Policy” — Publication is presently defective: production pages referenced by registration and invitation flows return 404, and no privacy-policy URL is live.
+- “If a breach affects you, we will notify you and the relevant regulator as required by law.” — Vague and potentially misleading; data-subject notification is not required for every breach.
+
+## MISSING
+
+- “Who we are” — Final controller identity, registered address, and usable privacy contact are absent; `[privacy@valgate.co]` is not verified, while only `feedback@valgate.co` is verified.
+- “What we collect, why, and where it goes” — GDPR/UK GDPR lawful basis for each purpose is absent, including any legitimate interests relied upon. [ICO privacy-notice requirements](https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/individual-rights/the-right-to-be-informed/what-privacy-information-should-we-provide/)
+- “Some of these providers process data outside your country…” — Actual transfer destinations, provider-specific safeguards, and how users obtain safeguards are absent; the transfer-mechanism field is only a placeholder. [ICO guidance](https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/individual-rights/the-right-to-be-informed/what-privacy-information-should-we-provide/)
+- “How long we keep it” — Specific retention periods or objective criteria are missing for records, documents, Clerk data, analytics data, and logs; retained workspace data has no endpoint or review criterion.
+- “Access, correction, portability, objection, restriction: write to…” — Rights mechanics are incomplete: no verified request channel, identity-verification process, one-month GDPR timetable/extensions, refusal rationale, or portability format.
+- “Complaints…” — The applicable supervisory authority is unresolved, and no final controller jurisdiction is stated.
+- “California and similar US state laws…” — If CCPA/CPRA applies, required notice-at-collection and privacy-policy disclosures are absent: categories collected/disclosed, purposes, retention, sale/share determinations, authorized-agent process, and applicable rights; applicability is UNVERIFIABLE FROM FACTS. [CPPA statute](https://cppa.ca.gov/regulations/pdf/ccpa_statute_eff_20260101.pdf)
+- “For privacy questions…” — DPO and EU/UK representative details are absent; whether either appointment is legally required is UNVERIFIABLE FROM FACTS.
+- “If a breach affects you…” — A breach-response process, reporting route, and applicable notification thresholds/timing are absent.
+- “What we collect…” — Whether information is obtained indirectly from Clerk, and any required source disclosure, is UNVERIFIABLE FROM FACTS.
+- “Your choices and rights” — Whether automated decision-making or profiling occurs is UNVERIFIABLE FROM FACTS; if it does, the required notice is absent.
+- “Children” — The age threshold and child-data handling rule remain unresolved.
+
+NOT PUBLISHABLE
+
+- Legal entity name and registered address
+- Verified privacy contact email
+- Effective date and last-updated date
+- Whether/when PostHog will go live
+- PostHog hosting region and user opt-out method
+- AWS S3 region
+- Any transactional email/SMS provider
+- Actual international-transfer destinations and transfer mechanism
+- Retention schedule and deletion criteria for every data category
+- Legal-retention obligations for workspace records
+- Web account-deletion location or implementation
+- Rights-request process, identity verification, and response timeframe
+- Applicable supervisory authority
+- CCPA/CPRA applicability and required disclosures
+- Children’s age threshold
+- DPO and EU/UK representative determination and contacts
+- Verified access-control description
+- Live, publicly accessible privacy-policy URL

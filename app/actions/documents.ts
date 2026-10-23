@@ -13,16 +13,12 @@ import {
   deleteDocument as svcDeleteDocument,
   deleteDocuments as svcDeleteDocuments,
   getDocument as svcGetDocument,
+  setDocumentSuggestions as svcSetDocumentSuggestions,
 } from "@/lib/services/documents";
+import { decideSuggestion } from "@/lib/services/property-suggestions";
 import { presignUpload, resolveDocumentUrl } from "@/lib/services/storage";
 import { logActivity } from "@/lib/services/activity";
 import { bustCache } from "@/lib/cache/bust";
-
-const UploadMetaSchema = z.object({
-  name: z.string().min(1),
-  mimeType: z.string().min(1),
-  sizeBytes: z.number().int().positive(),
-});
 
 export async function createDocument(data: unknown): Promise<ActionResult<Document>> {
   const parsed = NewDocumentSchema.safeParse(data);
@@ -54,6 +50,54 @@ export async function updateDocument(id: string, patch: unknown): Promise<Action
   } catch (err) {
     console.error("updateDocument", err);
     return { ok: false, error: "Could not update document" };
+  }
+}
+
+/**
+ * Record the user's answer to one of a document's proposed property updates.
+ *
+ * The VALUE change is applied by updateProperty — the action that owns property writes, with its own
+ * validation and ownership check. This one only remembers the answer, so a declined suggestion stops
+ * being offered instead of returning on every visit.
+ */
+export async function decideDocumentSuggestion(
+  documentId: string,
+  field: string,
+  decision: "accepted" | "dismissed",
+): Promise<ActionResult<Document>> {
+  const ctx = await requireCtx();
+  if (!(await allowed(actionLimiter, ctx.userId, "decideDocumentSuggestion"))) {
+    return TOO_MANY_REQUESTS;
+  }
+  const parsed = z
+    .object({
+      documentId: z.string().min(1),
+      field: z.string().min(1),
+      decision: z.enum(["accepted", "dismissed"]),
+    })
+    .safeParse({ documentId, field, decision });
+  if (!parsed.success) return { ok: false, error: "Invalid suggestion" };
+  try {
+    const doc = await svcGetDocument(ctx, parsed.data.documentId);
+    if (!doc) return { ok: false, error: "Document not found" };
+    const entries = doc.aiSuggestions ?? [];
+    // The list can be replaced under us by a re-read; answering a suggestion that is no longer
+    // offered is a stale click, not a decision to invent.
+    if (!entries.some((entry) => entry.field === parsed.data.field)) {
+      return { ok: false, error: "That suggestion is no longer on this document" };
+    }
+    const updated = await svcSetDocumentSuggestions(
+      ctx,
+      parsed.data.documentId,
+      decideSuggestion(entries, parsed.data.field, parsed.data.decision),
+    );
+    if (!updated) return { ok: false, error: "Document not found" };
+    revalidateFeTag("documents");
+    await bustCache("documents");
+    return { ok: true, data: updated };
+  } catch (err) {
+    console.error("decideDocumentSuggestion", err);
+    return { ok: false, error: "Could not save that" };
   }
 }
 
@@ -111,22 +155,6 @@ export async function deleteDocuments(ids: unknown): Promise<ActionResult<{ dele
 }
 
 
-export async function presignDocumentUpload(
-  _propertyId: string,
-  meta: unknown,
-): Promise<ActionResult<{ url: string; fields: Record<string, string>; storageId: string }>> {
-  const parsed = UploadMetaSchema.safeParse(meta);
-  if (!parsed.success) return { ok: false, error: "Invalid upload metadata" };
-  const ctx = await requireCtx();
-  if (!(await allowed(actionLimiter, ctx.userId, "presignDocumentUpload"))) return TOO_MANY_REQUESTS;
-  try {
-    return { ok: true, data: await presignUpload(ctx, parsed.data) };
-  } catch (err) {
-    console.error("presignDocumentUpload", err);
-    return { ok: false, error: "Could not issue upload URL" };
-  }
-}
-
 export async function getDocumentUrl(id: string): Promise<ActionResult<string>> {
   const ctx = await requireCtx();
   try {
@@ -140,15 +168,18 @@ export async function getDocumentUrl(id: string): Promise<ActionResult<string>> 
 }
 
 // One-shot upload: takes the file from FormData (key "file"), pushes the bytes to object storage
-// via a presigned POST, then records the document row. The frontend callers (VerificationStep,
-// uploadMultipleDocuments) use this. In DEMO_MODE without S3 credentials, presignUpload throws and
-// this returns a graceful error — document upload simply isn't available until storage is configured.
+// via a presigned POST, then records the document row. Optional "folderId" files it in the folder
+// the user is looking at. The presign runs server-side and we POST the bytes from here, so the
+// browser never talks to S3 directly — that path needs bucket CORS, and a browser POST to S3 is
+// blocked without it. In DEMO_MODE without S3 credentials presignUpload throws and this returns a
+// graceful error — document upload simply isn't available until storage is configured.
 export async function uploadDocument(
   propertyId: string,
   formData: FormData,
 ): Promise<ActionResult<Document>> {
   const file = formData.get("file");
   if (!(file instanceof File)) return { ok: false, error: "No file provided" };
+  const folderId = formData.get("folderId");
   const ctx = await requireCtx();
   if (!(await allowed(actionLimiter, ctx.userId, "uploadDocument"))) return TOO_MANY_REQUESTS;
   try {
@@ -170,6 +201,7 @@ export async function uploadDocument(
     const kind: "photo" | "document" = file.type.startsWith("image/") ? "photo" : "document";
     const created = await svcCreateDocument(ctx, {
       propertyId,
+      folderId: typeof folderId === "string" && folderId ? folderId : undefined,
       name: file.name,
       kind,
       mimeType: file.type,

@@ -18,7 +18,20 @@ export interface paths {
         get: operations["getMe"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete the caller's own account
+         * @description Deletes the caller's Clerk account, which is the source of truth for identity.
+         *     The mirror is reconciled by the existing `user.deleted` webhook, which marks the
+         *     caller's memberships removed and anonymises the mirror row.
+         *
+         *     Tenant business records (properties, documents) are **retained** by design — an
+         *     account deletion removes the account and its access, not the org's records.
+         *
+         *     Idempotent from the caller's point of view: once the account is gone the request
+         *     is unauthenticated, so a repeat call is a 401, never a 500. No user id is accepted
+         *     in the request; a caller can only delete themselves.
+         */
+        delete: operations["deleteMe"];
         options?: never;
         head?: never;
         patch?: never;
@@ -488,11 +501,30 @@ export interface components {
         };
         PropertyDetailDtoV1: {
             addressLine: string | null;
+            addressLine2: string | null;
+            zip: string | null;
             country: string | null;
             totalArea: string;
             bedrooms: string | null;
             bathrooms: string | null;
             yearBuilt: string | null;
+            parkingSpaces: string | null;
+            storageUnit: string | null;
+            /** @enum {string} */
+            title: "Hard title" | "Soft title" | "—";
+            /** @description Free text as stored. The write bodies accept the five OWNERSHIP_STATUSES values; older rows may hold other strings. */
+            ownershipStatus: string | null;
+            purchasePrice: string | null;
+            /** @description Unix timestamp (milliseconds) */
+            purchaseDate: number | null;
+            currentMarketValue: number | null;
+            outstandingMortgage: number | null;
+            monthlyPayment: number | null;
+            /** @description Percent, for example 4.5. */
+            interestRate: number | null;
+            annualPropertyTax: number | null;
+            taxAssessmentValue: number | null;
+            annualInsurance: number | null;
         } & components["schemas"]["PropertyListItemDtoV1"];
         /**
          * @description Public document metadata. Storage ids, uploader, verification, and AI-summary
@@ -756,11 +788,37 @@ export interface components {
             city?: string;
             province?: string;
             addressLine?: string;
+            addressLine2?: string;
+            zip?: string;
             country?: string;
             totalArea?: string;
             bedrooms?: string;
             bathrooms?: string;
             yearBuilt?: string;
+            parkingSpaces?: string;
+            storageUnit?: string;
+            /** @enum {string} */
+            title?: "Hard title" | "Soft title" | "—";
+            /** @enum {string} */
+            ownershipStatus?: "Owned outright" | "Mortgaged" | "Leasehold" | "Co-owned" | "Other";
+            /** @description Display string; an empty string means not collected. */
+            purchasePrice?: string;
+            /**
+             * @description Stored purchase amount, read back as `priceNumeric`. Omit to leave the price
+             *     uncollected (create default) or unchanged (patch). Negative values, and values
+             *     above the stored range, are a 400.
+             */
+            buyNumeric?: number;
+            /** @description Unix timestamp (milliseconds) */
+            purchaseDate?: number;
+            currentMarketValue?: number;
+            outstandingMortgage?: number;
+            monthlyPayment?: number;
+            /** @description Percent, for example 4.5. */
+            interestRate?: number;
+            annualPropertyTax?: number;
+            taxAssessmentValue?: number;
+            annualInsurance?: number;
         };
         /**
          * @description Partial update. Every field is optional — an empty object is valid and changes
@@ -781,11 +839,37 @@ export interface components {
             city?: string | null;
             province?: string | null;
             addressLine?: string | null;
+            addressLine2?: string;
+            zip?: string;
             country?: string | null;
             totalArea?: string;
             bedrooms?: string | null;
             bathrooms?: string | null;
             yearBuilt?: string | null;
+            parkingSpaces?: string;
+            storageUnit?: string;
+            /** @enum {string} */
+            title?: "Hard title" | "Soft title" | "—";
+            /** @enum {string} */
+            ownershipStatus?: "Owned outright" | "Mortgaged" | "Leasehold" | "Co-owned" | "Other";
+            /** @description Display string; an empty string means not collected. */
+            purchasePrice?: string;
+            /**
+             * @description Stored purchase amount, read back as `priceNumeric`. Omit to leave the price
+             *     uncollected (create default) or unchanged (patch). Negative values, and values
+             *     above the stored range, are a 400.
+             */
+            buyNumeric?: number;
+            /** @description Unix timestamp (milliseconds) */
+            purchaseDate?: number;
+            currentMarketValue?: number;
+            outstandingMortgage?: number;
+            monthlyPayment?: number;
+            /** @description Percent, for example 4.5. */
+            interestRate?: number;
+            annualPropertyTax?: number;
+            taxAssessmentValue?: number;
+            annualInsurance?: number;
         };
         ErrorEnvelope: {
             error: {
@@ -896,6 +980,27 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    deleteMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Account deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             500: components["responses"]["InternalError"];
         };
     };

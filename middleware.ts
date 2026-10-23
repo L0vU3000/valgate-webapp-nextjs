@@ -146,6 +146,13 @@ const isPublicRoute = createRouteMatcher([
   // visitor to /404 instead of sign-in — 404'ing the page and breaking the MCP grant.
   "/oauth-consent(.*)",
   "/contact(.*)",
+  // The privacy policy has to be readable by anyone, signed in or not. App Review opens it
+  // from outside the app (guideline 5.1.1(i)) and a policy behind the auth wall just
+  // redirects them to /login, which reads as "no privacy policy". Same reasoning as /contact.
+  "/privacy(.*)",
+  // The terms are linked from the registration consent statement, so they have to be readable
+  // *before* anyone has an account — same reasoning as /privacy above.
+  "/terms(.*)",
   "/api/webhooks/clerk(.*)",
   // Resend bounce webhooks are Svix-signed, not Clerk-sessioned. auth.protect() would rewrite
   // Resend's POST to an HTML login/404 before the handler could verify the signature.
@@ -221,7 +228,12 @@ export default middleware;
 
 export const config = {
   matcher: [
-    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
+    // `mjs` is listed alongside `js` on purpose: MapLibre's map worker and pdf.js's worker live in
+    // public/ as .mjs, and `js(?!on)` does not match them. Left in, every worker fetch went through
+    // Clerk, and any protect() rewrite (e.g. a dev-instance handshake) turns a static asset request
+    // into an HTML 404 — which surfaces as "Worker failed to load" and silently kills every GeoJSON
+    // source (the KMZ boundary), while raster tiles keep drawing and the map still looks healthy.
+    "/((?!_next|[^?]*\\.(?:html?|css|m?js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
     "/(api|trpc)(.*)",
     "/__clerk/(.*)", // v7: always run for Clerk frontend API routes
   ],

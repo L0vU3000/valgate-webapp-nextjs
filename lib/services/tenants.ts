@@ -7,7 +7,7 @@ import type { NewTenant, TenantPatch } from "@/lib/data/types/tenant";
 import { toDomain, type Ctx } from "@/lib/services/_mapping";
 import { scopedInsert, scopedUpdate, scopedDelete } from "@/lib/services/_crud";
 
-const rowToTenant = (r: typeof tenants.$inferSelect): Tenant =>
+export const rowToTenant = (r: typeof tenants.$inferSelect): Tenant =>
   TenantSchema.parse(toDomain(tenants, r)); // C6/C7
 
 export async function listTenants(ctx: Ctx, propertyId?: string): Promise<Tenant[]> {

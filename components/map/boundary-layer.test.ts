@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { boundaryBounds, fitBoundary, addBoundaryLayer, BOUNDARY_LINE_ID } from "./boundary-layer";
+import { boundaryBounds, fitBoundary, addBoundaryLayer, BOUNDARY_CASING_ID, BOUNDARY_LINE_ID } from "./boundary-layer";
 import type { BoundaryGeometry } from "@/lib/data/types/land-parcel";
 
 // The bug this guards: the detail map opened at a fixed zoom 15, where the smallest parcel in the
@@ -87,5 +87,19 @@ describe("boundary line style", () => {
   it("keeps line-join out of paint, where Mapbox would reject it", () => {
     const line = captureLayers(square).find((l) => l.id === BOUNDARY_LINE_ID)!;
     expect(line.paint).not.toHaveProperty("line-join");
+  });
+
+  it("draws a casing wider than the line, under it, so brand blue survives imagery", () => {
+    const layers = captureLayers(square);
+    const order = (id: string) => layers.findIndex((l) => l.id === id);
+    const casing = layers.find((l) => l.id === BOUNDARY_CASING_ID)!.paint as {
+      "line-color": string;
+      "line-width": number;
+    };
+    const line = layers.find((l) => l.id === BOUNDARY_LINE_ID)!.paint as { "line-width": number };
+    expect(casing["line-color"]).toBe("#ffffff");
+    expect(casing["line-width"]).toBeGreaterThan(line["line-width"]);
+    // Added before the line, so the blue core paints on top of the halo.
+    expect(order(BOUNDARY_CASING_ID)).toBeLessThan(order(BOUNDARY_LINE_ID));
   });
 });

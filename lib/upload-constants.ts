@@ -4,6 +4,13 @@
 
 export const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
 
+// Ceiling for a file that travels THROUGH a Server Action. The request body is capped by
+// experimental.serverActions.bodySizeLimit in next.config.ts (4 MB — itself under the ~4.5 MB
+// serverless request-body limit), and that cap is enforced by the framework BEFORE the action
+// runs, so a bigger file fails with an opaque error and never reaches uploadDocument. Files on a
+// direct-to-S3 path (the iOS presign route, KMZ) are not bound by it and may use MAX_BYTES.
+export const MAX_ACTION_BYTES = 4 * 1024 * 1024; // 4 MB
+
 export const ALLOWED_MIME = new Set([
   // photos
   "image/jpeg", "image/png", "image/webp",

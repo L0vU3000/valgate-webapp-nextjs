@@ -9,8 +9,11 @@ import { reverseGeocode } from "@/lib/services/address";
 // Calls a third-party API per request and reads request auth — never statically prerender.
 export const dynamic = "force-dynamic";
 
-export const MAX_LAT = 90;
-export const MAX_LNG = 180;
+// Not `export`: Next type-checks a route file's extra exports against `never`, so an exported
+// constant here fails `tsc --noEmit` as soon as this route has been compiled into .next/types.
+// The sibling cadastre/parcel route declares the same two bounds unexported.
+const MAX_LAT = 90;
+const MAX_LNG = 180;
 
 // GET /api/v1/address/reverse?lng=...&lat=... — the address at a coordinate.
 //

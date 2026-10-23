@@ -63,6 +63,11 @@ const MATCHER_MUST_SKIP = [
   "/logo.png",
   "/assets/photo.jpg",
   "/_next/static/chunks/main.js",
+  // MapLibre's map worker and pdf.js's worker. `js(?!on)` does not match `.mjs`, so these used to run
+  // through Clerk; a protect() rewrite then hands the worker an HTML 404 and every GeoJSON source
+  // (the KMZ boundary) silently stops tiling while the raster imagery keeps drawing.
+  "/maplibre-gl-worker.mjs",
+  "/pdf.worker.min.mjs",
 ];
 
 describe("requestForPath", () => {
@@ -81,7 +86,7 @@ describe("requestForPath", () => {
 describe("middleware config.matcher coverage", () => {
   it("uses the Clerk catch-all plus API and /__clerk matchers", () => {
     expect(config.matcher).toEqual([
-      "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
+      "/((?!_next|[^?]*\\.(?:html?|css|m?js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
       "/(api|trpc)(.*)",
       "/__clerk/(.*)",
     ]);

@@ -30,6 +30,21 @@ export const DocumentSchema = z.object({
   aiSummary: z.string().optional(),
   aiKeyFields: z.array(z.object({ label: z.string(), value: z.string() })).optional(),
   pageCount: z.number().int().nonnegative().optional(),
+  // The property fields this document disagrees with, read once and remembered. Each entry carries
+  // its own decision, so an answered suggestion stops being a suggestion. Absent = never read
+  // against the property; an empty array = read, and the two agree.
+  aiSuggestions: z
+    .array(
+      z.object({
+        field: z.string().min(1),
+        label: z.string(),
+        current: z.string(),
+        suggested: z.string(),
+        next: z.union([z.string(), z.number()]),
+        status: z.enum(["pending", "accepted", "dismissed"]),
+      }),
+    )
+    .optional(),
   // When the document (insurance, gas safety cert, …) lapses. Absent = no expiry.
   expiresAt: timestampSchema.optional(),
 });

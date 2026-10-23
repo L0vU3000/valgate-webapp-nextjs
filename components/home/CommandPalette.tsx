@@ -3,7 +3,6 @@
 import { useEffect } from "react";
 import {
   Search,
-  Plus,
   FileText,
   LayoutGrid,
   Settings,
@@ -302,9 +301,7 @@ export function CommandPalette({
             {/* Navigate */}
             <CommandGroup heading="Navigate">
               {[
-                { label: "Add Property", icon: Plus, path: "/add-property" },
-                {
-                  label: "All Properties",
+                { label: "All Properties",
                   icon: LayoutGrid,
                   path: "/portfolio",
                 },

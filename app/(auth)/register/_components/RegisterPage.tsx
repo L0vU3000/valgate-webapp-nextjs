@@ -352,11 +352,11 @@ export function RegisterPage() {
                   </div>
                   <span className="text-xs text-[#434655] leading-[18px]">
                     I agree to the{" "}
-                    <a href="#" className="text-[--val-primary-dark] hover:underline transition-colors">
+                    <a href="/terms" className="text-[--val-primary-dark] hover:underline transition-colors">
                       Terms of Service
                     </a>{" "}
                     and{" "}
-                    <a href="#" className="text-[--val-primary-dark] hover:underline transition-colors">
+                    <a href="/privacy" className="text-[--val-primary-dark] hover:underline transition-colors">
                       Privacy Policy
                     </a>
                     .
@@ -510,7 +510,7 @@ export function RegisterPage() {
                 style={{ "--auth-delay": "100ms" } as React.CSSProperties}
               >
                 Having trouble? Contact our{" "}
-                <a href="#" className="text-[--val-primary-dark] hover:underline transition-colors">
+                <a href="/contact" className="text-[--val-primary-dark] hover:underline transition-colors">
                   Support Team
                 </a>{" "}
                 for assistance.
