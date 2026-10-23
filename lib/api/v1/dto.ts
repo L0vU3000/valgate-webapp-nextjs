@@ -36,6 +36,13 @@ export function toMeDto(profile: MeProfile): MeDto {
 
 export type PropertyListPriceCurrencyV1 = "USD";
 
+// A stable, authenticated pointer to the cover-photo resolver. The resolver returns a
+// short-lived object-storage URL when the client needs image bytes; a storage key or a
+// signed object URL must never be embedded in the property DTO itself.
+export type PropertyCoverPhotoReferenceDtoV1 = {
+  endpoint: string;
+};
+
 export type PropertyListItemDtoV1 = {
   id: string;
   name: string;
@@ -51,6 +58,9 @@ export type PropertyListItemDtoV1 = {
   priceNumeric: number | null;
   // ISO 4217 code for priceNumeric. v1 money is USD only. Null when there is no price.
   currency: PropertyListPriceCurrencyV1 | null;
+  // Null when the property has no selected cover. When present, call `endpoint` with the
+  // caller's normal API authentication to receive a short-lived image URL.
+  coverPhoto: PropertyCoverPhotoReferenceDtoV1 | null;
 };
 
 /**
@@ -98,6 +108,9 @@ export function toPropertyListItemDto(property: Property): PropertyListItemDtoV1
     createdAt: property.createdAt,
     priceNumeric: price.priceNumeric,
     currency: price.currency,
+    coverPhoto: property.coverStorageId
+      ? { endpoint: `/api/v1/properties/${encodeURIComponent(property.id)}/cover-photo` }
+      : null,
   };
 }
 

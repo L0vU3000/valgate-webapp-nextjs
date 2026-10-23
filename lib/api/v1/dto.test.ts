@@ -155,7 +155,21 @@ describe("toPropertyListItemDto", () => {
       createdAt: 1700000000000,
       priceNumeric: 5000000,
       currency: "USD",
+      coverPhoto: { endpoint: "/api/v1/properties/PROP-0001/cover-photo" },
     });
+  });
+
+  it("publishes a stable cover-photo resolver when a cover storage id is present", () => {
+    const dto = toPropertyListItemDto(FULL_PROPERTY);
+
+    expect(dto.coverPhoto).toEqual({ endpoint: "/api/v1/properties/PROP-0001/cover-photo" });
+    expect(JSON.stringify(dto.coverPhoto)).not.toContain("STORE-COVER-SECRET");
+  });
+
+  it("publishes null when no cover storage id is selected", () => {
+    const dto = toPropertyListItemDto({ ...FULL_PROPERTY, coverStorageId: undefined });
+
+    expect(dto.coverPhoto).toBeNull();
   });
 
   it("does not fabricate a price when buyNumeric is the create-endpoint default of 0", () => {

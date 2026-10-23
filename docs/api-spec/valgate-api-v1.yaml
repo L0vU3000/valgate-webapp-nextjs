@@ -287,6 +287,33 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
+  /properties/{id}/cover-photo:
+    get:
+      operationId: getPropertyCoverPhotoUrl
+      summary: Resolve a property's selected cover photo
+      description: |
+        Resolves the property's selected cover photo to a short-lived signed object URL. The
+        property DTO exposes this stable, authenticated endpoint only when a cover is selected;
+        it never exposes a storage key or signed URL inline. A property with no selected cover
+        returns 404.
+      parameters:
+        - $ref: "#/components/parameters/PropertyIdPath"
+      responses:
+        "200":
+          description: Short-lived signed URL for the selected cover photo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentUrlDtoV1"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
   /properties/{id}/documents:
     get:
       operationId: listPropertyDocuments
@@ -846,7 +873,7 @@ components:
 
     PropertyListItemDtoV1:
       type: object
-      required: [id, name, type, status, lat, lng, city, province, createdAt, priceNumeric, currency]
+      required: [id, name, type, status, lat, lng, city, province, createdAt, priceNumeric, currency, coverPhoto]
       properties:
         id:
           type: string
@@ -884,6 +911,24 @@ components:
           type: [string, "null"]
           enum: [USD, null]
           description: "ISO 4217 code for `priceNumeric`. v1 money is USD only. Null when `priceNumeric` is null."
+        coverPhoto:
+          anyOf:
+            - $ref: "#/components/schemas/PropertyCoverPhotoReferenceDtoV1"
+            - type: "null"
+          description: Null when no cover is selected; otherwise a stable authenticated resolver endpoint.
+
+    PropertyCoverPhotoReferenceDtoV1:
+      type: object
+      required: [endpoint]
+      description: |
+        Stable authenticated endpoint for a property's selected cover photo. Fetch it with the
+        normal API authorization to receive a short-lived signed image URL. This is not an S3
+        storage key or a signed object URL.
+      properties:
+        endpoint:
+          type: string
+          format: uri-reference
+          example: /api/v1/properties/PROP-0001/cover-photo
 
     PropertyDetailDtoV1:
       allOf:

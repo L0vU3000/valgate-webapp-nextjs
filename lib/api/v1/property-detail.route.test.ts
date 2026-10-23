@@ -45,6 +45,7 @@ const PROPERTY = {
   bathrooms: "2",
   yearBuilt: "2015",
   photoStorageIds: ["STORE-PHOTO-SECRET-1"],
+  coverStorageId: "STORE-COVER-SECRET",
   buyNumeric: 5000000,
   outstandingMortgage: 1000000,
 };
@@ -100,6 +101,7 @@ describe("GET /api/v1/properties/[id]", () => {
       createdAt: 1700000000000,
       priceNumeric: 5000000,
       currency: "USD",
+      coverPhoto: { endpoint: "/api/v1/properties/PROP-0001/cover-photo" },
       addressLine: "42 Ocean Ave",
       country: "PH",
       totalArea: "120 sqm",
