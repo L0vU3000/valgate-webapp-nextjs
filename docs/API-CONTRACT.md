@@ -1,6 +1,6 @@
 # API v1 rental contract
 
-This is the additive R525 contract for the Rental main page. Other API endpoints are documented in [api-v1.md](api-v1.md).
+This is the additive R526 contract for the Rental main page. Other API endpoints are documented in [api-v1.md](api-v1.md).
 
 | Method | Route | Response |
 | --- | --- | --- |
