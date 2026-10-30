@@ -687,10 +687,17 @@ export interface components {
         /**
          * @description Org-wide rental rollup. Counts are rounded, non-negative integers; `occupancyPercent` is
          *     capped at 100. Amounts are raw numbers (never formatted); `null` means "not collected",
-         *     never a fabricated 0. No internal identifiers anywhere, including inside `attention` and
-         *     `activity`.
+         *     never a fabricated 0. The tenancy and upcoming previews expose only their documented
+         *     property/payment ids. Lease, tenant, user and org ids remain withheld. See
+         *     docs/API-CONTRACT.md for date/status semantics.
          */
         RentalSummaryDtoV1: {
+            /** @description One preview per currently active Signed lease, joined to its property and optional tenant. */
+            tenancies: components["schemas"]["RentalTenancyDtoV1"][];
+            /** @description Five UTC months ending at monthLabel, oldest first. Empty when there is no rental data. */
+            history: components["schemas"]["RentalHistoryMonthDtoV1"][];
+            /** @description Unpaid payments with resolvable properties, oldest due date first, then payment id. */
+            upcoming: components["schemas"]["RentalUpcomingPaymentDtoV1"][];
             /** @description Display-only month the totals cover, e.g. `October 2026 (UTC)`. */
             monthLabel: string;
             /** @description Paid Rent this UTC month. Null when nothing is due and nothing was paid. */
@@ -728,6 +735,48 @@ export interface components {
              * @enum {string|null}
              */
             currency: "USD" | null;
+        };
+        RentalTenancyDtoV1: {
+            propertyId: string;
+            propertyName: string;
+            tenantName: string | null;
+            monthlyRentNumeric: number;
+            /** @enum {string} */
+            currency: "USD";
+            /**
+             * @description Current-month Rent status. Missing payment rows are due/upcoming using the lease-start day, never overdue.
+             * @enum {string}
+             */
+            status: "paid" | "due" | "overdue" | "upcoming";
+        };
+        RentalHistoryMonthDtoV1: {
+            /** @description Same UTC month/year label format as the summary. */
+            monthLabel: string;
+            /** @description Sum of Paid Rent amounts in this UTC month. */
+            amountNumeric: number;
+            paidCount: number;
+            /** @description Total number of Rent payment rows in this UTC month, including paid rows. */
+            dueCount: number;
+            /**
+             * @description Paid for closed months with all recorded Rent paid; not_due for future months; otherwise in_progress.
+             * @enum {string}
+             */
+            state: "paid" | "in_progress" | "not_due";
+        };
+        RentalUpcomingPaymentDtoV1: {
+            paymentId: string;
+            propertyId: string;
+            propertyName: string;
+            /** @description Unix seconds from the domain Payment.date due-date convention. Existing summary dates remain milliseconds. */
+            dueAt: number;
+            amountNumeric: number;
+            /** @enum {string} */
+            currency: "USD";
+            /**
+             * @description Overdue before now; due_soon on or after now, regardless of the unpaid status label.
+             * @enum {string}
+             */
+            state: "due_soon" | "overdue";
         };
         /** @description Display-only row. Carries no entity id. */
         AttentionItemDtoV1: {

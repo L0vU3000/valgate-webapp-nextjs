@@ -274,6 +274,9 @@ const EMPTY_ROLLUP = {
   documentCount: 0,
   attention: [],
   activity: [],
+  tenancies: [],
+  history: [],
+  upcoming: [],
 };
 
 describe("toRentalSummaryDto", () => {

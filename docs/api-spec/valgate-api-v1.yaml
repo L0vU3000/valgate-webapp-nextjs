@@ -1316,12 +1316,33 @@ components:
         - documentCount
         - attention
         - activity
+        - tenancies
+        - history
+        - upcoming
       description: |
         Org-wide rental rollup. Counts are rounded, non-negative integers; `occupancyPercent` is
         capped at 100. Amounts are raw numbers (never formatted); `null` means "not collected",
-        never a fabricated 0. No internal identifiers anywhere, including inside `attention` and
-        `activity`.
+        never a fabricated 0. The tenancy and upcoming previews expose only their documented
+        property/payment ids. Lease, tenant, user and org ids remain withheld. See
+        docs/API-CONTRACT.md for date/status semantics.
       properties:
+        tenancies:
+          type: array
+          description: One preview per currently active Signed lease, joined to its property and optional tenant.
+          items:
+            $ref: "#/components/schemas/RentalTenancyDtoV1"
+        history:
+          type: array
+          maxItems: 5
+          description: Five UTC months ending at monthLabel, oldest first. Empty when there is no rental data.
+          items:
+            $ref: "#/components/schemas/RentalHistoryMonthDtoV1"
+        upcoming:
+          type: array
+          maxItems: 5
+          description: Unpaid payments with resolvable properties, oldest due date first, then payment id.
+          items:
+            $ref: "#/components/schemas/RentalUpcomingPaymentDtoV1"
         monthLabel:
           type: string
           description: Display-only month the totals cover, e.g. `October 2026 (UTC)`.
@@ -1389,6 +1410,74 @@ components:
           type: [string, "null"]
           enum: [USD, null]
           description: "`USD` only when a real upcoming payout exists. v1 money is USD only."
+
+    RentalTenancyDtoV1:
+      type: object
+      required: [propertyId, propertyName, tenantName, monthlyRentNumeric, currency, status]
+      properties:
+        propertyId:
+          type: string
+        propertyName:
+          type: string
+        tenantName:
+          type: [string, "null"]
+        monthlyRentNumeric:
+          type: number
+          minimum: 0
+        currency:
+          type: string
+          enum: [USD]
+        status:
+          type: string
+          enum: [paid, due, overdue, upcoming]
+          description: Current-month Rent status. Missing payment rows are due/upcoming using the lease-start day, never overdue.
+
+    RentalHistoryMonthDtoV1:
+      type: object
+      required: [monthLabel, amountNumeric, paidCount, dueCount, state]
+      properties:
+        monthLabel:
+          type: string
+          description: Same UTC month/year label format as the summary.
+        amountNumeric:
+          type: number
+          minimum: 0
+          description: Sum of Paid Rent amounts in this UTC month.
+        paidCount:
+          type: integer
+          minimum: 0
+        dueCount:
+          type: integer
+          minimum: 0
+          description: Total number of Rent payment rows in this UTC month, including paid rows.
+        state:
+          type: string
+          enum: [paid, in_progress, not_due]
+          description: Paid for closed months with all recorded Rent paid; not_due for future months; otherwise in_progress.
+
+    RentalUpcomingPaymentDtoV1:
+      type: object
+      required: [paymentId, propertyId, propertyName, dueAt, amountNumeric, currency, state]
+      properties:
+        paymentId:
+          type: string
+        propertyId:
+          type: string
+        propertyName:
+          type: string
+        dueAt:
+          type: integer
+          description: Unix seconds from the domain Payment.date due-date convention. Existing summary dates remain milliseconds.
+        amountNumeric:
+          type: number
+          minimum: 0
+        currency:
+          type: string
+          enum: [USD]
+        state:
+          type: string
+          enum: [due_soon, overdue]
+          description: Overdue before now; due_soon on or after now, regardless of the unpaid status label.
 
     AttentionItemDtoV1:
       type: object

@@ -1,3 +1,4 @@
+import type { RentalTenancy, RentalHistoryMonth, RentalUpcomingPayment } from "@/lib/services/rental-summary";
 import type { Document } from "@/lib/data/types/document";
 import type { Property } from "@/lib/data/types/property";
 import type { PropertyValuation } from "@/lib/data/types/property-valuation";
@@ -186,6 +187,9 @@ export type RentalSummaryDtoV1 = {
   documentCount: number;
   attention: AttentionItemDtoV1[];
   activity: ActivityItemDtoV1[];
+  tenancies: RentalTenancy[];
+  history: RentalHistoryMonth[];
+  upcoming: RentalUpcomingPayment[];
 };
 
 // Display-only peek rows: a kind, strings, and a date. No entity ids, so a client holds no
@@ -211,6 +215,9 @@ export type RentalSummarySource = {
   documentCount: number;
   attention: AttentionItem[];
   activity: PaymentActivity[];
+  tenancies: RentalTenancy[];
+  history: RentalHistoryMonth[];
+  upcoming: RentalUpcomingPayment[];
 };
 
 // A non-negative finite amount, else null — the wire never carries NaN or a negative balance.
@@ -268,6 +275,30 @@ export function toRentalSummaryDto(summary: RentalSummarySource): RentalSummaryD
       propertyName: a.propertyName,
       dueAt: a.dueAt,
       status: a.status,
+    })),
+    tenancies: summary.tenancies.map((t) => ({
+      propertyId: t.propertyId,
+      propertyName: t.propertyName,
+      tenantName: t.tenantName,
+      monthlyRentNumeric: t.monthlyRentNumeric,
+      currency: t.currency,
+      status: t.status,
+    })),
+    history: summary.history.map((m) => ({
+      monthLabel: m.monthLabel,
+      amountNumeric: m.amountNumeric,
+      paidCount: m.paidCount,
+      dueCount: m.dueCount,
+      state: m.state,
+    })),
+    upcoming: summary.upcoming.map((p) => ({
+      paymentId: p.paymentId,
+      propertyId: p.propertyId,
+      propertyName: p.propertyName,
+      dueAt: p.dueAt,
+      amountNumeric: p.amountNumeric,
+      currency: p.currency,
+      state: p.state,
     })),
     activity: summary.activity.slice(0, 5).map((a) => ({
       kind: "payment",
