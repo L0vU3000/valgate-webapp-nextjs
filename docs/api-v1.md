@@ -36,7 +36,7 @@ identity/org resolution as MCP (`ctxFromMcpAuth`) rather than duplicating auth l
 | GET | `/api/v1/properties/{id}/documents/{documentId}` | Resolve a short-lived document URL |
 | PATCH | `/api/v1/properties/{id}/documents/{documentId}` | Rename or edit public document metadata |
 | DELETE | `/api/v1/properties/{id}/documents/{documentId}` | Delete a document and its stored bytes |
-| GET | `/api/v1/rental` | Portfolio rental summary: occupancy, tenancy count, next payout |
+| GET | `/api/v1/rental` | Portfolio rental summary, active tenancies, five-month history and upcoming payments ([contract](API-CONTRACT.md)) |
 | GET | `/api/v1/properties/{id}/rental` | One property's rental summary: occupancy, active leases, monthly rent, next payment |
 | GET | `/api/v1/properties/{id}/rental/edit` | The active lease and primary tenant Edit Rental edits, with their ids |
 | PUT | `/api/v1/properties/{id}/rental/edit` | Upsert that lease and tenant, in one transaction |
@@ -210,7 +210,7 @@ Deletes the org-scoped document row and performs best-effort object-storage clea
 `admin` or `owner`. A successful deletion returns `204` with an empty body.
 ### `GET /api/v1/rental`
 
-Portfolio rental rollup for the iOS Rental screen (pen NEXT PAYOUT group + occupancy).
+Portfolio rental rollup for the iOS Rental screen, including active tenancies, five-month history and upcoming payments. See [the additive Rental contract](API-CONTRACT.md) for the complete field list and date/status semantics.
 This is a new summary endpoint rather than extra fields on property detail: occupancy
 percent, tenancy count, and next payout are org-wide, not per property.
 
@@ -231,9 +231,9 @@ Missing payout is `{ nextPayoutAmountNumeric: null, nextPayoutAt: null, currency
 non-Rent, past-dated, and zero-amount payments are skipped. Same-day Pending Rent
 amounts are summed so the screen can render one NEXT PAYOUT row.
 
-This endpoint never returns lease, tenant, or payment rows, storage ids, or
-`*Verified*` internals. An org with no rentals is still a 200 (zeros + nulls), not a
-404. Every org role (`viewer`, `member`, `admin`, `owner`) may read.
+This endpoint returns selected tenancy and payment previews, including public property and
+payment ids. Lease/tenant ids, raw rows, storage ids and `*Verified*` internals remain withheld.
+An org with no rentals is still a 200 (zeros, nulls and empty arrays), not a 404. Every org role (`viewer`, `member`, `admin`, `owner`) may read.
 
 ### `GET /api/v1/properties/{id}/rental`
 
@@ -403,12 +403,10 @@ requests / minute / user (`apiWriteLimiter`). Both are keyed on the resolved int
 - No JIT user/org/membership provisioning on an unknown caller (see Auth above).
 - No raw file-byte proxying through the API; uploads and downloads go directly through the
   short-lived object-storage URLs.
-- No lease, payment, or tenant **list** endpoints. `GET /api/v1/rental` is a portfolio rollup
-  only (occupancy, tenancy count, next payout) and `GET /api/v1/properties/{id}/rental` is the
-  same idea for one property (occupancy, active-lease count, monthly rent, next payment) —
-  neither exposes those rows, nor any lease/tenant/payment identifier.
-  `GET|PUT /api/v1/properties/{id}/rental/edit` is the one exception, and it is not a list: it
-  carries the single active lease and primary tenant the Edit Rental form edits, ids included,
-  because a client cannot address an existing row without them. Payment rows are still never
-  exposed.
+- No standalone lease, payment or tenant list endpoints. `GET /api/v1/rental` provides a
+  screen-shaped portfolio summary with active tenancy previews, monthly history and up to five
+  upcoming payment previews; only property/payment ids are included in those previews.
+  `GET /api/v1/properties/{id}/rental` remains an aggregate for one property.
+  `GET|PUT /api/v1/properties/{id}/rental/edit` carries the single active lease and primary
+  tenant the Edit Rental form edits, including their ids so the client can address those rows.
 - No document search/filtering.

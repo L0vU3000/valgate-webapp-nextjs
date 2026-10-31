@@ -16,6 +16,7 @@ import { toRentalSummaryDto } from "@/lib/api/v1/dto";
 // ---------------------------------------------------------------------------
 
 const mocks = vi.hoisted(() => ({
+  listTenants: vi.fn(),
   listProperties: vi.fn(),
   listLeases: vi.fn(),
   listPayments: vi.fn(),
@@ -24,6 +25,7 @@ const mocks = vi.hoisted(() => ({
   countDocuments: vi.fn(),
 }));
 
+vi.mock("@/lib/services/tenants", () => ({ listTenants: mocks.listTenants }));
 vi.mock("@/lib/services/properties", () => ({ listProperties: mocks.listProperties }));
 vi.mock("@/lib/services/leases", () => ({ listLeases: mocks.listLeases }));
 vi.mock("@/lib/services/payments", () => ({ listPayments: mocks.listPayments }));
@@ -87,6 +89,7 @@ const RISKS: SafetyRisk[] = [
 ];
 
 function load(data: { properties?: Property[]; leases?: Lease[]; payments?: Payment[]; certs?: Certification[]; risks?: SafetyRisk[]; docs?: number }) {
+  mocks.listTenants.mockResolvedValue([]);
   mocks.listProperties.mockResolvedValue(data.properties ?? []);
   mocks.listLeases.mockResolvedValue(data.leases ?? []);
   mocks.listPayments.mockResolvedValue(data.payments ?? []);
@@ -171,18 +174,21 @@ describe("getRentalSummary — portfolio rollup", () => {
       documentCount: 0,
       attention: [],
       activity: [],
+      tenancies: [],
+      history: [],
+      upcoming: [],
     });
   });
 
-  it("the serialised DTO carries no internal identifiers", async () => {
+  it("the serialised DTO carries only the newly allowed property/payment identifiers", async () => {
     load({ properties: PROPERTIES, leases: LEASES, payments: PAYMENTS, certs: CERTS, risks: RISKS, docs: 3 });
 
     const json = JSON.stringify(toRentalSummaryDto(await getRentalSummary(CTX)));
 
-    for (const key of ["leaseId", "tenantId", "paymentId", "documentId", "orgId", "storageId", "propertyId"]) {
+    for (const key of ["leaseId", "tenantId", "documentId", "orgId", "storageId"]) {
       expect(json).not.toContain(key);
     }
-    for (const id of ["PROP-", "LEASE-", "TEN-", "PMT-", "CERT-", "RISK-", "INS-", "USR-", "ORG-"]) {
+    for (const id of ["LEASE-", "TEN-", "CERT-", "RISK-", "INS-", "USR-", "ORG-"]) {
       expect(json).not.toContain(id);
     }
   });
