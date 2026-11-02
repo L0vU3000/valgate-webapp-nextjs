@@ -3,14 +3,12 @@
 // "Market" section of the map drawer: realestate.com.kh stats and recent listings around the
 // selected pin. Loads lazily when the drawer opens, like the drawer's cover photo.
 
-import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { ExternalLink } from "lucide-react";
-import { getPropertyMarketLandscape } from "@/app/actions/market-landscape";
 import { formatCurrency } from "@/lib/format";
-import { PORTAL_ORIGIN, type MarketLandscapeDTO, type TabStats } from "@/lib/market-landscape";
-
-type State = { status: "loading" } | { status: "error" } | { status: "done"; data: MarketLandscapeDTO };
+import { PORTAL_ORIGIN, type TabStats } from "@/lib/market-landscape";
+import type { MarketLandscapeState } from "@/components/map/useMarketLandscape";
 
 const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus";
@@ -66,27 +64,16 @@ function StatBlock({ title, stats }: { title: string; stats: TabStats | null }) 
   );
 }
 
-export function MarketLandscapePanel({ propertyId }: { propertyId: string }) {
-  const [state, setState] = useState<State>({ status: "loading" });
-  const [attempt, setAttempt] = useState(0);
-
-  useEffect(() => {
-    let cancelled = false;
-    setState({ status: "loading" });
-    getPropertyMarketLandscape(propertyId)
-      .then((result) => {
-        if (cancelled) return;
-        setState(result.ok ? { status: "done", data: result.data } : { status: "error" });
-      })
-      // A rejected action (network drop, expired session) must land on the retry state, not spin.
-      .catch(() => {
-        if (!cancelled) setState({ status: "error" });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [propertyId, attempt]);
-
+export function MarketLandscapePanel({
+  propertyId,
+  state,
+  onRetry,
+}: {
+  propertyId: string;
+  state: MarketLandscapeState;
+  // Lifted state still retries: HomePage owns the fetch, the panel keeps the button.
+  onRetry: () => void;
+}) {
   if (state.status === "loading") {
     return (
       <section aria-busy="true" aria-label="Market data loading">
@@ -106,7 +93,7 @@ export function MarketLandscapePanel({ propertyId }: { propertyId: string }) {
         <Empty
           message="Couldn't load market data right now."
           cta={
-            <button type="button" onClick={() => setAttempt((n) => n + 1)} className={ctaClass}>
+            <button type="button" onClick={onRetry} className={ctaClass}>
               Try again
             </button>
           }
