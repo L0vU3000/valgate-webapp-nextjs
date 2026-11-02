@@ -1,0 +1,318 @@
+
+<main>
+
+<!-- ============ HERO ============ -->
+<section className="s-hero">
+  <img className="hero-bg" src="/vg-pitch/xRVKl0Nj2yZPn2bKkOi4lIxJ8RE.png" alt=""/>
+  <div className="frame">
+    <h1 className="hero-h abs"  style={{left: '271px', top: '100px', width: '482px'}}>The private space<br/>for property control</h1>
+    <p className="hero-sub abs"  style={{left: '272px', top: '210px', width: '480px'}}>For property owners and families in Cambodia and Singapore — one private home for documents, boundaries and risks.</p>
+    <!-- OWNER FILL AT LAUNCH: https://app.getvalgate.com and https://apps.apple.com/app/valgate are
+         placeholders; the owner fills the real web-app URL and the real App Store listing. The App Store
+         badge is a text link because Apple's artwork host does not resolve from this machine (the badge
+         cannot be fetched; hand-drawing it is forbidden). No QR tile: there is no live listing to encode. -->
+    <div className="cta-pair abs"  style={{left: '0', top: '276px', width: '1024px', justifyContent: 'center'}}>
+      <a className="btn" href="https://app.getvalgate.com" data-owner-fill="webapp-url">Open the web app</a>
+      <a className="btn btn-2" href="https://apps.apple.com/app/valgate" data-owner-fill="app-store-url"><svg width="13" height="15" viewBox="0 0 13 15" fill="none" aria-hidden="true"><path d="M8.90527 3.56543C9.42048 3.56597 10.7939 3.72119 11.6445 5.0293C11.5738 5.07318 10.0177 5.94028 10.0176 7.8584C10.0909 10.041 11.9731 10.8121 12.0205 10.8184C11.9876 10.8611 11.7338 11.8664 10.9824 12.9199C10.3857 13.8281 9.72346 14.744 8.71777 14.7441C7.76104 14.7441 7.41729 14.1388 6.31348 14.1387C5.12802 14.1387 4.79226 14.744 3.88477 14.7441C2.8789 14.7441 2.16742 13.7786 1.53809 12.8789C0.720532 11.7013 0.0255088 9.85343 0.000976562 8.0791C-0.0155219 7.13892 0.164509 6.21469 0.62207 5.42969C1.26794 4.33372 2.42149 3.58996 3.68066 3.56543C4.64527 3.53314 5.50407 4.22754 6.09277 4.22754C6.65712 4.22728 7.71191 3.56543 8.90527 3.56543ZM8.97852 0C9.02758 0.858667 8.71687 1.70112 8.16113 2.31445C7.66247 2.97685 6.80381 3.47606 6.01074 3.37793C5.83901 2.51926 6.31328 1.66004 6.75488 1.1123C7.31907 0.450044 8.21009 0.000127795 8.97852 0Z" fill="currentColor"/></svg>Get the iOS app</a>
+    </div>
+
+    <div className="win abs"  style={{left: '0', top: '360px', width: '824px', height: '565px'}}>
+      <span className="win-dot"  style={{left: '20px', top: '20px'}}></span>
+      <span className="win-dot"  style={{left: '40px', top: '20px'}}></span>
+      <span className="win-dot"  style={{left: '60px', top: '20px'}}></span>
+      <div className="urlbar abs" data-owner-fill="webapp-url"  style={{left: '287px', top: '10px', width: '250px', height: '32px'}}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+        app.getvalgate.com
+      </div>
+      <img className="shot abs" src="/vg-pitch/webapp-map-1440.png" alt="The Valgate web app showing a portfolio map of Cambodia with property clusters and portfolio totals"  style={{left: '8px', top: '52px', width: '808px', height: '505px', objectFit: 'cover', objectPosition: 'center'}}/>
+    </div>
+    <div className="phone-frame abs"  style={{left: '844px', top: '545px', width: '180px', height: '380px'}}>
+      <img src="/vg-pitch/ios-map.png" alt="The Valgate iOS app showing properties as pins on a map of Phnom Penh"/>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 6 WAYS ============ -->
+<section className="s-ways">
+  <div className="frame">
+    <h2 className="h-lg abs"  style={{left: '0', top: '60px', width: '1024px', textAlign: 'center'}}>6 ways we make property<br/>management easy.</h2>
+
+    <div className="cell blue abs"  style={{left: '0', top: '194px', width: '496px', height: '299px'}}>
+      <img className="deco abs" src="/vg-pitch/ensg0uk6AwWDKOqkfIg3Td90ZSg.png" alt=""  style={{left: '0', top: '-71px', width: '528px', height: '273px'}} loading="lazy" decoding="async"/>
+      <p className="cell-t light">Access any property data instantly</p>
+      <p className="cell-d light">Titles go missing, records fall out of date, and the originals live in ten places at once.</p>
+    </div>
+
+    <div className="cell ring abs"  style={{left: '524px', top: '198px', width: '496px', height: '291px'}}>
+      <p className="cell-t">See risks before they become problems</p>
+      <p className="cell-d">Missing titles, expired records and boundary disputes get flagged before they cost you.</p>
+      <div className="mock oc abs" aria-hidden="true"  style={{left: '-233px', top: '102px', width: '500px', height: '275px'}}>
+        <div className="oc-head"><i className="bullet"></i>Security log<i className="chev"></i></div>
+        <div className="oc-body"><i className="ic-log"></i><span className="empty">Empty log</span></div>
+      </div>
+      <div className="mock oc abs" aria-hidden="true"  style={{left: '293px', top: '102px', width: '405px', height: '275px'}}>
+        <div className="oc-head"><i className="bullet"></i>Risk board</div>
+        <div className="oc-body top">
+          <div className="alert-row"><span>1 sea zone detected</span></div>
+          <div className="alert-row"><span>No road access detected</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div className="cell ring shot-cell abs"  style={{left: '4px', top: '521px', width: '492px', height: '206px'}}>
+      <img src="/vg-pitch/izZOIlLcHoXoEWMU96flWXGsCY.png" alt=""  style={{left: '182px', top: '0', width: '310px', height: '206px'}} loading="lazy" decoding="async"/>
+      <p className="cell-t">Know exactly what and where you own.</p>
+      <p className="cell-d">Each property is mapped with precise boundaries and coordinates for instant clarity.</p>
+    </div>
+
+    <div className="cell ring abs"  style={{left: '528px', top: '521px', width: '492px', height: '214px'}}>
+      <svg className="chart abs" aria-hidden="true" viewBox="0 0 492 214" preserveAspectRatio="none"  style={{left: '0', top: '0', width: '492px', height: '214px'}}>
+        <path d="M0 122C40 110 80 106 120 116S200 175 250 186S320 194 350 176S420 138 492 139V214H0Z" fill="#dbeafe"/>
+        <path d="M0 122C40 110 80 106 120 116S200 175 250 186S320 194 350 176S420 138 492 139" fill="none" stroke="#3b82f6"/>
+      </svg>
+      <p className="cell-t">Take smart financial decisions</p>
+      <p className="cell-d"  style={{maxWidth: '320px'}}>Get market trends, valuation shifts, and performance so you can grow strategically.</p>
+      <p className="w-big abs" aria-hidden="true"  style={{left: '364px', top: '76px'}}>$2.4m</p>
+      <p className="w-up abs" aria-hidden="true"  style={{left: '364px', top: '112px'}}>+4.5%</p>
+    </div>
+
+    <div className="cell ring abs"  style={{left: '4px', top: '767px', width: '492px', height: '214px'}}>
+      <p className="cell-t"  style={{maxWidth: '262px'}}>Pass down property without the chaos</p>
+      <p className="cell-d"  style={{maxWidth: '260px'}}>Built-in succession tools organize heirs, ownership structures, and legal files for a smooth transfer.</p>
+      <div className="mock panel abs" aria-hidden="true"  style={{left: '304px', top: '-44px', width: '500px', height: '264px'}}>
+        <div className="toggle-row"><i className="tg on"></i><div><b>Tax reminders</b><small>Be reminded of the taxes dates</small></div></div>
+        <div className="toggle-row"><i className="tg on"></i><div><b>Valuation update</b><small>Be reminded of the taxes dates</small></div></div>
+        <div className="toggle-row"><i className="tg"></i><div><b>Succession</b><small>Is the property part of a succession will</small></div></div>
+      </div>
+      <svg className="cursor abs" aria-hidden="true" viewBox="0 0 24 24"  style={{left: '288px', top: '162px', width: '28px', height: '28px'}}><path d="M22 3 3 10l8 3 3 8z" fill="#fb9a5b" stroke="#f97316" stroke-width="1.5" stroke-linejoin="round"/></svg>
+      <svg className="cursor abs" aria-hidden="true" viewBox="0 0 24 24"  style={{left: '458px', top: '134px', width: '28px', height: '28px'}}><path d="M2 3l19 7-8 3-3 8z" fill="#60a5fa" stroke="#2563eb" stroke-width="1.5" stroke-linejoin="round"/></svg>
+    </div>
+
+    <div className="cell ring abs"  style={{left: '528px', top: '767px', width: '492px', height: '206px'}}>
+      <img className="abs" src="/vg-pitch/5O9pFyIJdu3lcyZZstIaO5c4RM.png" alt=""  style={{left: '48px', top: '-4px', width: '485px', height: '272px', objectFit: 'contain'}} loading="lazy" decoding="async"/>
+      <p className="cell-t">Protect what is yours</p>
+      <p className="cell-d">Valgate guards your assets with geofencing, alerts, and digital oversight—keeping every property secure, inside and out.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 3 STEPS ============ -->
+<section className="s-steps">
+  <div className="frame">
+    <h2 className="h-lg abs"  style={{left: '0', top: '80px', width: '1024px', textAlign: 'center'}}>Get peace of mind in 3 steps</h2>
+    <p className="kicker abs"  style={{left: '222px', top: '142px', width: '580px', textAlign: 'center'}}>Free onboarding: our concierge handles the full portfolio intake for you.</p>
+
+    <!-- step 1 mock -->
+    <div className="panel-s abs"  style={{left: '0', top: '219px', width: '280px', height: '220px'}}>
+      <div className="mock doc-card abs" aria-hidden="true"  style={{left: '19px', top: '98px', width: '241px', height: '342px'}}>
+        <img src="/vg-pitch/79ICGIUHDKglWjJJyG9v4Uu4TQ.jpg" alt="" loading="lazy" decoding="async"/>
+      </div>
+      <div className="tagrow abs" aria-hidden="true"  style={{left: '47px', top: '82px', width: '209px', height: '30px'}}><span>From documents.</span><i>×</i></div>
+      <div className="tagstack abs" aria-hidden="true"  style={{left: '50px', top: '87px', width: '98px', height: '50px'}}>
+        <span className="t-kh">🇰🇭 រថកាមនដយឹ</span><span className="t-en">🇬🇧 rf-596g</span>
+      </div>
+      <div className="mock pill abs" aria-hidden="true"  style={{left: '71px', top: '25px', width: '138px', height: '36px'}}><svg viewBox="0 0 24 24" width="14" height="14"><path fill="#171717" d="M16.4 12.6c0-2.6 2.1-3.8 2.2-3.9-1.2-1.8-3.1-2-3.7-2-1.6-.2-3.1.9-3.9.9-.8 0-2-.9-3.4-.9-1.7 0-3.3 1-4.2 2.6-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.2 2.6 1.3-.1 1.8-.8 3.3-.8s2 .8 3.4.8c1.4 0 2.3-1.3 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9-.1 0-2.7-1-2.7-4.1zM13.9 5c.7-.9 1.2-2 1.1-3.2-1 0-2.3.7-3 1.6-.7.8-1.2 2-1.1 3.1 1.1.1 2.3-.6 3-1.5z"/></svg>Take a photo</div>
+      <svg className="cursor abs" aria-hidden="true" viewBox="0 0 24 24"  style={{left: '196px', top: '52px', width: '28px', height: '28px'}}><path d="M2 3l19 7-8 3-3 8z" fill="#60a5fa" stroke="#2563eb" stroke-width="1.5" stroke-linejoin="round"/></svg>
+    </div>
+
+    <!-- step 2 mock -->
+    <div className="panel-s abs"  style={{left: '372px', top: '219px', width: '280px', height: '220px'}}>
+      <div className="mock status abs" aria-hidden="true"  style={{left: '22px', top: '24px', width: '481px', height: '171px', paddingTop: '13px'}}>
+        <b className="st-h">Documentation status</b>
+        <div className="st-row"><span className="pct">81%</span><span className="muted">88/109 documentation completed.</span></div>
+        <div className="st-bar"><i  style={{width: '81%'}}></i></div>
+        <div className="st-warn"><span>21 documents missing</span><u>Add more</u></div>
+      </div>
+      <div className="mock status abs" aria-hidden="true"  style={{left: '46px', top: '66px', width: '280px', height: '171px'}}>
+        <b className="st-h">Location status</b>
+        <div className="st-row"><span className="pct">49%</span><span className="muted">60 location in progress.</span></div>
+        <div className="st-bar"><i className="lite"  style={{width: '73%'}}></i><i  style={{width: '31%'}}></i></div>
+        <div className="st-warn blue"><span>24 location missing</span><u>Add more</u></div>
+      </div>
+    </div>
+
+    <!-- step 3 mock -->
+    <div className="panel-s abs"  style={{left: '744px', top: '219px', width: '280px', height: '220px'}}>
+      <img className="phone abs" aria-hidden="true" src="/vg-pitch/yoCaQ10rRM4jUZ8BU4HtNOYBuNA.png" alt=""  style={{left: '44px', top: '-36px', width: '276px', height: '276px'}} loading="lazy" decoding="async"/>
+      <div className="mock doc-card phone2 abs" aria-hidden="true"  style={{left: '36px', top: '34px', width: '207px', height: '340px'}}>
+        <img src="/vg-pitch/IMIfjy8T1D1I5LCVX8upMwVduEE.png" alt="" loading="lazy" decoding="async"/>
+      </div>
+    </div>
+
+    <p className="num abs"  style={{left: '0', top: '454px'}}>1</p>
+    <p className="step-t abs"  style={{left: '33.5px', top: '454px', width: '245px'}}>Add your properties</p>
+    <p className="step-d abs"  style={{left: '33.5px', top: '479px', width: '245px'}}>Input all your properties at light speed with AI vision or manually.</p>
+
+    <p className="num abs"  style={{left: '372px', top: '454px'}}>2</p>
+    <p className="step-t abs"  style={{left: '416.5px', top: '454px', width: '234px'}}>Assessment and completion</p>
+    <p className="step-d abs"  style={{left: '416.5px', top: '479px', width: '234px'}}>Valgate finds your missing locations, flags risks and missing titles.</p>
+
+    <p className="num abs"  style={{left: '744px', top: '454px'}}>3</p>
+    <p className="step-t abs"  style={{left: '788px', top: '454px', width: '235px'}}>Access your protected portfolio</p>
+    <p className="step-d abs"  style={{left: '788px', top: '479px', width: '235px'}}>Access your space and track your risk resolution progress.</p>
+  </div>
+</section>
+
+<!-- ============ DUAL SURFACE ============ -->
+<section className="s-dual">
+  <div className="frame">
+    <h2 className="h-lg abs"  style={{left: '0', top: '80px', width: '1024px', textAlign: 'center'}}>Web app and iOS app. One portfolio.</h2>
+    <p className="step-d abs"  style={{left: '259px', top: '142px', width: '503px', textAlign: 'center'}}>The web app is the full workspace. The iOS app carries documents, access and alerts in your pocket.</p>
+
+    <div className="win abs"  style={{left: '87px', top: '219px', width: '630px', height: '380px'}}>
+      <span className="win-dot"  style={{left: '20px', top: '20px'}}></span>
+      <span className="win-dot"  style={{left: '40px', top: '20px'}}></span>
+      <span className="win-dot"  style={{left: '60px', top: '20px'}}></span>
+      <div className="urlbar abs" data-owner-fill="webapp-url"  style={{left: '190px', top: '10px', width: '250px', height: '32px'}}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+        app.getvalgate.com
+      </div>
+      <img className="shot abs" src="/vg-pitch/webapp-map-1440.png" alt="The Valgate web app showing a map of Cambodia with property clusters, portfolio totals and a properties list"  style={{left: '8px', top: '52px', width: '614px', height: '320px', objectFit: 'cover'}} loading="lazy" decoding="async"/>
+    </div>
+    <div className="phone-frame abs"  style={{left: '757px', top: '219px', width: '180px', height: '380px'}}>
+      <img src="/vg-pitch/ios-map.png" alt="The Valgate iOS app showing property pins on a map of Phnom Penh" loading="lazy" decoding="async"/>
+    </div>
+  </div>
+</section>
+
+<!-- ============ COMPARISON ============ -->
+<section className="s-compare">
+  <div className="frame">
+    <h2 className="h-lg abs"  style={{left: '0', top: '80px', width: '1024px', textAlign: 'center'}}>One access for all property needs.</h2>
+
+    <div className="cmp left abs"  style={{left: '91px', top: '184px', width: '421px', height: '577px'}}>
+      <p className="cmp-t">You can do it alone</p>
+      <ul className="cmp-list">
+        <li>Lawyers, agents and spreadsheets everywhere</li>
+        <li>Boundaries hidden in paper maps and notes</li>
+        <li>Documents in drawers, phones and WhatsApp</li>
+        <li>You don’t know what’s missing until it’s gone</li>
+        <li>Succession that depends on memory and lawyers</li>
+      </ul>
+      <img src="/vg-pitch/EZwf3GSvRS7JZJcpD1uP9k0An2Q.png" alt="" loading="lazy" decoding="async"/>
+    </div>
+    <div className="cmp right abs"  style={{left: '512px', top: '184px', width: '421px', height: '577px'}}>
+      <p className="cmp-t">Or Valgate does it for you</p>
+      <ul className="cmp-list">
+        <li>All your assets and people in one platform</li>
+        <li>Boundaries and properties mapped with precision</li>
+        <li>Encrypted vault that never loses a file</li>
+        <li>Risk intelligence that protects before loss</li>
+        <li>Succession and ownership built for the next generation</li>
+      </ul>
+      <img src="/vg-pitch/iq6XTGNnB2YIcezzAEwGAIyxeA.png" alt="" loading="lazy" decoding="async"/>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SECURITY ============ -->
+<section className="s-security">
+  <div className="frame">
+    <h2 className="h-lg abs"  style={{left: '87px', top: '80px', width: '850px', fontWeight: '500', color: 'rgba(255,255,255,.65)'}}>Secure like a bank.</h2>
+    <h2 className="h-lg abs"  style={{left: '87px', top: '132px', width: '850px', fontWeight: '700', color: '#fff'}}>Secret like a vault.</h2>
+    <!-- OWNER FILL AT LAUNCH: the security page URL is a placeholder like the CTA URLs above. -->
+    <a className="linkline abs"  style={{left: '87px', top: '215px', width: '520px'}} href="https://security.getvalgate.com" data-owner-fill="security-url"><i className="dot"></i>Check out Valgate security layers and bug bounties.</a>
+
+    <div className="sec-visual abs"  style={{left: '87px', top: '292px', width: '850px', height: '432px'}}>
+      <img src="/vg-pitch/oMyUbd9DHAFuFI4FGpg0sNfn5o4.png" alt="Valgate security layers" loading="lazy" decoding="async"/>
+      <ul className="sec-list">
+        <li><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M20 13C20 18 16.5 20.5 12 21.8C7.5 20.5 4 18 4 13V5L12 2L20 5V13Z" stroke="#1A5BFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 12L11 14L15 10" stroke="#1A5BFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Private organisation</li>
+        <li><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="3" y="11" width="18" height="10" rx="2" stroke="#1A5BFF" stroke-width="2"/><path d="M7 11V7C7 4.23858 9.23858 2 12 2C14.7614 2 17 4.23858 17 7V11" stroke="#1A5BFF" stroke-width="2" stroke-linecap="round"/></svg>Bank level Encryption</li>
+        <li><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="2" stroke="#1A5BFF" stroke-width="2"/><path d="M3 9H21M3 15H21M9 3V21M15 3V21" stroke="#1A5BFF" stroke-width="2" stroke-linecap="round"/></svg>Firewall and private hosting</li>
+        <li><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M3 7V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H7" stroke="#1A5BFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M17 3H19C19.5304 3 20.0391 3.21071 20.4142 3.58579C20.7893 3.96086 21 4.46957 21 5V7" stroke="#1A5BFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 17V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H17" stroke="#1A5BFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M7 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V17" stroke="#1A5BFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 14C8 14 9.5 16 12 16C14.5 16 16 14 16 14" stroke="#1A5BFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 9H9.01M15 9H15.01" stroke="#1A5BFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>2FA, passkey and biometric</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============ COMPLEXITY ============ -->
+<section className="s-complexity">
+  <div className="frame">
+    <div className="stack abs"  style={{left: '87px', top: '80px', width: '410px', height: '473px'}}>
+      <img src="/vg-pitch/j3bMdwcGuwVdyXuKX6rlDmcQ.jpg" alt="A Khmer-language property document"  style={{left: '37px', top: '37px', width: '315px', height: '357px'}} loading="lazy" decoding="async"/>
+      <img src="/vg-pitch/79ICGIUHDKglWjJJyG9v4Uu4TQ.jpg" alt="A scanned property title deed"  style={{left: '123px', top: '100px', width: '261px', height: '372px'}} loading="lazy" decoding="async"/>
+      <img src="/vg-pitch/HiQQZdknnQxIsrwP6RXSH9Fwq9Y.png" alt="An English-language property record"  style={{left: '189px', top: '160px', width: '257px', height: '359px'}} loading="lazy" decoding="async"/>
+    </div>
+    <h2 className="h-md abs"  style={{left: '521px', top: '80px', width: '416px'}}>Handle portfolio complexity by design.</h2>
+
+    <p className="num abs"  style={{left: '521px', top: '257px'}}>1</p>
+    <p className="step-t abs"  style={{left: '566px', top: '257px', width: '371px'}}>AI vision that understands every document</p>
+    <p className="step-d abs"  style={{left: '566px', top: '282px', width: '371px'}}>Valgate’s AI reads, translates, and structures property documents in any language turning complex legal papers into clear, searchable data.</p>
+
+    <p className="num abs"  style={{left: '521px', top: '355px'}}>2</p>
+    <p className="step-t abs"  style={{left: '565px', top: '355px', width: '372px'}}>Data that adapts to every ownership structure</p>
+    <p className="step-d abs"  style={{left: '565px', top: '380px', width: '372px'}}>From individuals to multi-entity portfolios, Valgate molds around your data, keeping every title, company, and asset linked and up to date.</p>
+
+    <p className="num abs"  style={{left: '521px', top: '453px'}}>3</p>
+    <p className="step-t abs"  style={{left: '565px', top: '453px', width: '372px'}}>Global legal network at your side</p>
+    <p className="step-d abs"  style={{left: '565px', top: '478px', width: '372px'}}>Our network of vetted lawyers across 180+ jurisdictions ensures every property, title, and transfer aligns with local and international law.</p>
+  </div>
+</section>
+
+<!-- ============ WHITE GLOVE ============ -->
+<section className="s-glove">
+  <img className="glove-bg" src="/vg-pitch/zNYQa9ydPyZtZYJZ82BylvyJrAw.png" alt="" loading="lazy" decoding="async"/>
+  <div className="frame">
+    <ul className="glove-list">
+      <li  style={{left: '566px', top: '32px'}}><img src="/vg-pitch/rHndCZD8kA5RkLpeq8WdV1TJZw.png" alt="" loading="lazy" decoding="async"/><b>White glove</b><span>24/7 concierge service</span></li>
+      <li  style={{left: '736px', top: '32px'}}><img src="/vg-pitch/48N6hAMzyMyQWynXLkrOQH9I.png" alt="" loading="lazy" decoding="async"/><b>GDPR compliant</b><span>You control the data.</span></li>
+      <li  style={{left: '906px', top: '32px'}}><img src="/vg-pitch/LZvGYm7OArb01PV9Es3JbWbgvag.png" alt="" loading="lazy" decoding="async"/><b>Singapore office</b><span>Local office, Singapore-based team.</span></li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============ FAQ ============ -->
+<section className="s-faq">
+  <div className="frame">
+    <h2 className="h-lg abs"  style={{left: '0', top: '80px', width: '1024px', textAlign: 'center'}}>Frequently asked questions</h2>
+    <div className="faq abs"  style={{left: '207px', top: '184px', width: '610px'}}>
+      <details open>
+        <summary>Is my land and document data secure?</summary>
+        <p>Valgate uses bank-grade encryption and private servers. Only authorized users can access your data, ensuring total confidentiality and ownership.</p>
+      </details>
+      <details>
+        <summary>What area are you based in?</summary>
+        <p>We primarily serve Singapore and Cambodia, but depending on the portfolio needs, we may be able to go further. Get in touch to discuss your location and properties needs.</p>
+      </details>
+      <details>
+        <summary>What happens if Valgate shuts down?</summary>
+        <p>Your portfolio remains yours. All documents and data can be exported anytime in universal formats, ensuring long-term independence and continuity.</p>
+      </details>
+      <details>
+        <summary>Can my staff or family use it easily?</summary>
+        <p>The interface is designed for all levels of technical experience, with role-based access so each member sees only what’s relevant to them.</p>
+      </details>
+      <details>
+        <summary>Why do I need software if I already have assistants?</summary>
+        <p>Assistants handle operations, Valgate ensures nothing is lost, duplicated, or forgotten. It centralizes information, verifies accuracy, and keeps your assets under control.</p>
+      </details>
+      <details>
+        <summary>What direct benefit do I get from using Valgate?</summary>
+        <p>You gain full visibility over your entire property portfolio, documents, risks, and performance, all unified in one platform for better decisions and lasting security.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CTA ============ -->
+<section className="s-cta">
+  <div className="frame">
+    <h2 className="h-lg abs"  style={{left: '0', top: '110px', width: '1024px', textAlign: 'center', fontWeight: '700'}}>Legacy deserves order.</h2>
+    <h2 className="h-lg abs"  style={{left: '0', top: '162px', width: '1024px', textAlign: 'center', fontWeight: '500', color: 'var(--muted)'}}>Get peace of mind.</h2>
+    <!-- OWNER FILL AT LAUNCH: https://app.getvalgate.com and https://apps.apple.com/app/valgate are
+         placeholders; the owner fills the real web-app URL and the real App Store listing. The App Store
+         badge is a text link because Apple's artwork host does not resolve from this machine (the badge
+         cannot be fetched; hand-drawing it is forbidden). No QR tile: there is no live listing to encode. -->
+    <div className="cta-pair abs"  style={{left: '0', top: '238px', width: '1024px', justifyContent: 'center'}}>
+      <a className="btn" href="https://app.getvalgate.com" data-owner-fill="webapp-url">Open the web app</a>
+      <a className="btn btn-2" href="https://apps.apple.com/app/valgate" data-owner-fill="app-store-url"><svg className="apple-mark" width="13" height="15" viewBox="0 0 13 15" fill="none" aria-hidden="true"><path d="M8.90527 3.56543C9.42048 3.56597 10.7939 3.72119 11.6445 5.0293C11.5738 5.07318 10.0177 5.94028 10.0176 7.8584C10.0909 10.041 11.9731 10.8121 12.0205 10.8184C11.9876 10.8611 11.7338 11.8664 10.9824 12.9199C10.3857 13.8281 9.72346 14.744 8.71777 14.7441C7.76104 14.7441 7.41729 14.1388 6.31348 14.1387C5.12802 14.1387 4.79226 14.744 3.88477 14.7441C2.8789 14.7441 2.16742 13.7786 1.53809 12.8789C0.720532 11.7013 0.0255088 9.85343 0.000976562 8.0791C-0.0155219 7.13892 0.164509 6.21469 0.62207 5.42969C1.26794 4.33372 2.42149 3.58996 3.68066 3.56543C4.64527 3.53314 5.50407 4.22754 6.09277 4.22754C6.65712 4.22728 7.71191 3.56543 8.90527 3.56543ZM8.97852 0C9.02758 0.858667 8.71687 1.70112 8.16113 2.31445C7.66247 2.97685 6.80381 3.47606 6.01074 3.37793C5.83901 2.51926 6.31328 1.66004 6.75488 1.1123C7.31907 0.450044 8.21009 0.000127795 8.97852 0Z" fill="currentColor"/></svg>Download on the App Store</a>
+    </div>
+  </div>
+</section>
+
+</main>
+<!-- FAQ answers are absolute-positioned inside a fixed-height section; without this the open
+     answer paints over the CTA band below. Grows only while an answer is open. -->
+
+    <!-- Dev-only annotation toolbar (agentation-vanilla, vendored, no network calls) — localhost gate, never ships -->
+    
