@@ -24,7 +24,18 @@
 import { test as base, expect } from '@playwright/test'
 
 export const test = base.extend({
-  page: async ({ page }, use) => {
+  page: async ({ page }, providePage, testInfo) => {
+    // Smoke exercises the real map UI with a local style, without provider keys or live tiles.
+    if (testInfo.tags.includes('@smoke')) {
+      await page.route('https://api.mapbox.com/styles/v1/**', (route) => route.fulfill({
+        json: {
+          version: 8,
+          sources: {},
+          layers: [{ id: 'background', type: 'background', paint: { 'background-color': '#eef2f6' } }],
+        },
+      }))
+    }
+
     // Layer 1 — block Clerk's hosted dev script so its modal/keyless prompt never load.
     await page.route('**clerk.accounts.dev/**', (route) => route.abort())
 
@@ -51,7 +62,7 @@ export const test = base.extend({
       document.documentElement.appendChild(style)
     })
 
-    await use(page)
+    await providePage(page)
   },
 })
 

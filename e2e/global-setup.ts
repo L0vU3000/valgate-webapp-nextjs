@@ -7,6 +7,13 @@ config({ path: resolve(process.cwd(), '.env.local') })
 config({ path: resolve(process.cwd(), '.env.e2e'), override: true })
 
 export default async function globalSetup(): Promise<void> {
+  // Only the smoke script opts out of runner-side DB preflight and cleanup.
+  // Full E2E keeps both, including when its server runs in DEMO_MODE.
+  if (process.env.E2E_SMOKE === '1') {
+    console.log('✓ Smoke E2E — skipping runner-side DB preflight and cleanup')
+    return
+  }
+
   const dbUrl = process.env.DATABASE_URL
   if (!dbUrl) {
     throw new Error(

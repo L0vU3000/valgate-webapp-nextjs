@@ -5,6 +5,28 @@
 import { test, expect } from './fixtures'
 
 test.describe('I — Dashboard & misc', () => {
+  test('I0: app dashboard renders portfolio summary', { tag: '@smoke' }, async ({ page }) => {
+    const response = await page.goto('/app')
+    expect(response?.ok()).toBe(true)
+    await expect(page).toHaveURL(/\/app$/)
+    await expect(page.getByText('Loading map…', { exact: true })).toBeHidden()
+    // PortfolioLegend is the map overlay containing the unique progress summary.
+    const legend = page.locator('[data-no-drag]').filter({
+      has: page.getByText('Avg Progress', { exact: true }),
+    })
+    await expect(legend).toHaveCount(1)
+    // Its column stays opacity-0 until mapLoaded; toBeVisible alone allows opacity-0.
+    await expect(legend.locator(':scope > div')).toHaveCSS('opacity', '1')
+
+    const properties = legend.getByText('Properties', { exact: true }).locator('..')
+    const pill = properties.locator('..')
+    await expect(pill).toBeVisible()
+    await expect(properties).toHaveText(/^\s*[1-9]\d*\s*Properties\s*$/)
+    await expect(pill.getByText('Avg Progress', { exact: true })).toBeVisible()
+    await expect(pill.getByText('Rented', { exact: true })).toBeVisible()
+    await expect(pill.getByText('Vacant', { exact: true })).toBeVisible()
+  })
+
   test.skip('I1: alerts — dismiss one → Undo toast restores it', async () => {
     // ponytail: unbuilt at time of audit
   })
