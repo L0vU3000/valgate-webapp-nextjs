@@ -169,6 +169,8 @@ export const COMMUNE_ALIASES: Record<string, string> = {
   tuoltumpoung2: "Toul Tum Poung 2",
 };
 
+const PROVINCE_KEYS = new Set(Object.keys(DISTRICTS).map(normalizeArea));
+
 const DISTRICT_INDEX = new Map<string, { district: string; province: string }>();
 for (const [province, names] of Object.entries(DISTRICTS)) {
   for (const district of names) DISTRICT_INDEX.set(normalizeArea(district), { district, province });
@@ -198,6 +200,10 @@ const STREETISH = /^(no\.?\s|#)|\b(street|st\.?|road|rd\.?|blvd|boulevard|buildi
  *
  * Cambodian addresses run small → large ("No. 12, Street 106, Phsar Kandal 2, Daun Penh"), so the
  * district is the part that matches the vocabulary and the commune is the part just before it.
+ *
+ * "Siem Reap" and "Kampot" name both a province and its capital district, so such a part is read
+ * as the PROVINCE when a smaller part to its left is a district of that province ("Banteay Srei,
+ * Siem Reap" → district Banteay Srei), and as the district only when nothing smaller matches.
  */
 export function resolveAreaFromText(fields: (string | null | undefined)[]): ResolvedArea | null {
   for (const field of fields) {
@@ -207,13 +213,23 @@ export function resolveAreaFromText(fields: (string | null | undefined)[]): Reso
       .split(",")
       .map((p) => p.trim())
       .filter(Boolean);
-    for (let i = parts.length - 1; i >= 0; i--) {
+    type Match = { i: number; hit: { district: string; province: string } };
+    let provinceNamed: Match | null = null;
+    let chosen: Match | null = null;
+    for (let i = parts.length - 1; i >= 0 && !chosen; i--) {
       const hit = matchDistrict(parts[i]);
       if (!hit) continue;
-      const before = parts[i - 1];
-      const commune = before && !STREETISH.test(before) ? portalCommune(before) : null;
-      return { ...hit, commune };
+      if (!provinceNamed && PROVINCE_KEYS.has(normalizeArea(parts[i]))) {
+        provinceNamed = { i, hit };
+      } else if (!provinceNamed || hit.province === provinceNamed.hit.province) {
+        chosen = { i, hit };
+      }
     }
+    chosen ??= provinceNamed;
+    if (!chosen) continue;
+    const before = parts[chosen.i - 1];
+    const commune = before && !STREETISH.test(before) ? portalCommune(before) : null;
+    return { ...chosen.hit, commune };
   }
   return null;
 }
@@ -234,6 +250,18 @@ export function resolveAreaFromGeocode(g: {
 type Raw = Record<string, unknown>;
 const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
 const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
+
+/**
+ * True for a real results payload: a `results` array (empty is a legitimate empty area) and a
+ * `market` block with a numeric `total`. Anything else — `{"detail":"busy"}`, an HTML error page
+ * parsed by luck, a changed schema — must be an error, never shown as "no listings here".
+ */
+export function isPortalPayload(body: unknown): body is Raw {
+  if (!body || typeof body !== "object") return false;
+  const b = body as Raw;
+  const market = b.market as Raw | undefined;
+  return Array.isArray(b.results) && !!market && typeof market === "object" && num(market.total) !== null;
+}
 
 /** The portal's `market` block as TabStats, or null when the area has no listings. */
 export function toTabStats(body: Raw): TabStats | null {

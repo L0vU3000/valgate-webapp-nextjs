@@ -7,6 +7,7 @@ import {
   haversineM,
   isApproximateCoordinate,
   isInCambodia,
+  isPortalPayload,
   matchDistrict,
   nearestListings,
   resolveAreaFromGeocode,
@@ -50,6 +51,29 @@ describe("area from stored address text", () => {
       district: "Meanchey", province: "Phnom Penh", commune: "Chak Angrae Leu",
     });
     expect(resolveAreaFromText(["No. 158, Street 71, Boeung Keng Kang 1, Chamkar Mon"])?.commune).toBe("BKK 1");
+  });
+
+  // "Siem Reap" / "Kampot" name both a province and its capital district (review finding 1).
+  it("reads a province-named part as the province when a district of it sits to its left", () => {
+    expect(resolveAreaFromText(["Banteay Srei, Siem Reap"])).toEqual({
+      district: "Banteay Srei", province: "Siem Reap", commune: null,
+    });
+    expect(resolveAreaFromText(["Run Ta Aek, Banteay Srei, Siem Reap"])).toEqual({
+      district: "Banteay Srei", province: "Siem Reap", commune: "Run Ta Aek",
+    });
+    expect(resolveAreaFromText(["Tuek Chhou, Kampot"])).toEqual({
+      district: "Tuek Chhou", province: "Kampot", commune: null,
+    });
+  });
+
+  it("falls back to the capital district when nothing smaller matches", () => {
+    expect(resolveAreaFromText(["Sala Kamreuk, Siem Reap"])).toEqual({
+      district: "Siem Reap", province: "Siem Reap", commune: "Sala Kamreuk",
+    });
+    expect(resolveAreaFromText(["Siem Reap, Siem Reap"])).toEqual({
+      district: "Siem Reap", province: "Siem Reap", commune: null,
+    });
+    expect(resolveAreaFromText(["Kampot"])).toEqual({ district: "Kampot", province: "Kampot", commune: null });
   });
 
   it("never uses a street as the commune", () => {
@@ -101,6 +125,16 @@ describe("portal response mapping", () => {
     });
     expect(toTabStats(districtRent)?.median).toBe(600);
     expect(toTabStats(empty)).toBeNull();
+  });
+
+  it("accepts real payloads, including an empty area, and rejects anything else", () => {
+    expect(isPortalPayload(districtSale)).toBe(true);
+    expect(isPortalPayload(empty)).toBe(true);
+    expect(isPortalPayload({ detail: "busy" })).toBe(false);
+    expect(isPortalPayload({ results: [] })).toBe(false);
+    expect(isPortalPayload({ market: { total: 3 } })).toBe(false);
+    expect(isPortalPayload({ results: [], market: { total: "3" } })).toBe(false);
+    expect(isPortalPayload(null)).toBe(false);
   });
 
   it("reads province district medians", () => {

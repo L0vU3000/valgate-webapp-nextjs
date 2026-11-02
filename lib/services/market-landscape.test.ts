@@ -25,9 +25,9 @@ const json = (body: unknown, status = 200) =>
 function portalAnswers(overrides: { commune?: unknown } = {}) {
   fetchMock.mockImplementation((url: string) => {
     const q = new URL(url).searchParams;
-    if (q.get("address_subdivision")) return json(provinceSale);
     if (q.get("address_line_2")) return json(overrides.commune ?? communeSale);
-    return json(q.get("search_type") === "rent" ? districtRent : districtSale);
+    if (q.get("address_locality")) return json(q.get("search_type") === "rent" ? districtRent : districtSale);
+    return json(provinceSale);
   });
 }
 
@@ -87,6 +87,16 @@ describe("getMarketLandscape", () => {
 
     const urls = fetchMock.mock.calls.map(([u]) => new URL(u as string).searchParams);
     expect(urls.map((q) => q.get("search_type")).sort()).toEqual(["rent", "rent", "sale", "sale", "sale"]);
+    // Every area query carries its parents, so a commune name repeated elsewhere can't leak in.
+    const scoped = (q: URLSearchParams) => Object.fromEntries([...q].filter(([k]) => k.startsWith("address_")));
+    const communeQs = urls.filter((q) => q.has("address_line_2")).map(scoped);
+    const districtQs = urls.filter((q) => q.has("address_locality") && !q.has("address_line_2")).map(scoped);
+    const provinceQs = urls.filter((q) => !q.has("address_locality")).map(scoped);
+    expect(communeQs).toEqual(Array(2).fill({
+      address_subdivision: "Phnom Penh", address_locality: "Meanchey", address_line_2: "Chak Angrae Leu",
+    }));
+    expect(districtQs).toEqual(Array(2).fill({ address_subdivision: "Phnom Penh", address_locality: "Meanchey" }));
+    expect(provinceQs).toEqual([{ address_subdivision: "Phnom Penh" }]);
     for (const [, init] of fetchMock.mock.calls) {
       expect((init as { next?: { revalidate?: number } }).next?.revalidate).toBeGreaterThan(0);
       expect((init as RequestInit).signal).toBeInstanceOf(AbortSignal);
@@ -98,6 +108,11 @@ describe("getMarketLandscape", () => {
     const out = await getMarketLandscape(MEANCHEY);
     expect(out.area).toMatchObject({ commune: null, listingsArea: "Meanchey" });
     expect(out.listings.length).toBeGreaterThan(0);
+  });
+
+  it("throws on a malformed 200 instead of reporting an empty area", async () => {
+    fetchMock.mockImplementation(() => json({ detail: "busy" }));
+    await expect(getMarketLandscape(MEANCHEY)).rejects.toThrow("unexpected payload");
   });
 
   it("throws on an upstream failure instead of reporting an empty area", async () => {

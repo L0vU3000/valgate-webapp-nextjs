@@ -73,10 +73,15 @@ export function MarketLandscapePanel({ propertyId }: { propertyId: string }) {
   useEffect(() => {
     let cancelled = false;
     setState({ status: "loading" });
-    getPropertyMarketLandscape(propertyId).then((result) => {
-      if (cancelled) return;
-      setState(result.ok ? { status: "done", data: result.data } : { status: "error" });
-    });
+    getPropertyMarketLandscape(propertyId)
+      .then((result) => {
+        if (cancelled) return;
+        setState(result.ok ? { status: "done", data: result.data } : { status: "error" });
+      })
+      // A rejected action (network drop, expired session) must land on the retry state, not spin.
+      .catch(() => {
+        if (!cancelled) setState({ status: "error" });
+      });
     return () => {
       cancelled = true;
     };
