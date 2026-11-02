@@ -20,6 +20,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { getPropertyCoverUrl } from "@/app/actions/property-photos";
+import { MarketLandscapePanel } from "@/components/map/MarketLandscapePanel";
 import { pickHeroImage } from "@/lib/property-hero";
 import { cn } from "@/components/ui/utils";
 import {
@@ -1066,6 +1067,9 @@ export function HomePage({
                     </div>
                   </div>
                 </section>
+
+                {/* Section: Market — realestate.com.kh around this pin */}
+                <MarketLandscapePanel propertyId={drawerProperty.id} />
 
                 {/* Section: Financials */}
                 <section>
