@@ -15,6 +15,7 @@ import { reverseGeocode } from "@/lib/services/address";
 import {
   emptyLandscape,
   isInCambodia,
+  isPortalPayload,
   nearestListings,
   PORTAL_ORIGIN,
   resolveAreaFromGeocode,
@@ -41,7 +42,9 @@ async function portal(params: Record<string, string>, revalidate: number): Promi
     next: { revalidate },
   });
   if (!res.ok) throw new Error(`realestate.com.kh responded ${res.status}`);
-  return (await res.json()) as Body;
+  const body: unknown = await res.json();
+  if (!isPortalPayload(body)) throw new Error("realestate.com.kh returned an unexpected payload");
+  return body;
 }
 
 export type LandscapeProperty = {
@@ -70,8 +73,10 @@ export async function getMarketLandscape(property: LandscapeProperty): Promise<M
   }
   if (!area) return emptyLandscape("unmatched");
 
-  const district = { address_locality: area.district, order_by: "date-desc" };
-  const commune = area.commune ? { address_line_2: area.commune, order_by: "date-desc" } : null;
+  // Filters AND together on the portal (verified: a commune under the wrong district returns 0), so
+  // every area query carries its parents — a commune name that repeats elsewhere can't leak in.
+  const district = { address_subdivision: area.province, address_locality: area.district, order_by: "date-desc" };
+  const commune = area.commune ? { ...district, address_line_2: area.commune } : null;
 
   const [dSale, dRent, province, cSale, cRent] = await Promise.all([
     portal({ search_type: "sale", ...district }, AREA_TTL_S),
