@@ -1,0 +1,118 @@
+{
+ "count": 7023,
+ "market": {
+  "total": 7023,
+  "median": 199979,
+  "p20": 85000,
+  "p80": 605002,
+  "sqm_median": 1637,
+  "currency": {
+   "code": "usd",
+   "sign": "$",
+   "rate": 1
+  },
+  "districts": [
+   {
+    "value": "Sen Sok",
+    "name": "Sen Sok",
+    "count": 949,
+    "median": 249812
+   },
+   {
+    "value": "Chbar Ampov",
+    "name": "Chbar Ampov",
+    "count": 849,
+    "median": 283500
+   },
+   {
+    "value": "Chroy Changvar",
+    "name": "Chroy Changvar",
+    "count": 701,
+    "median": 200000
+   },
+   {
+    "value": "Meanchey",
+    "name": "Meanchey",
+    "count": 696,
+    "median": 135000
+   },
+   {
+    "value": "Boeng Keng Kang",
+    "name": "Boeng Keng Kang",
+    "count": 651,
+    "median": 229531
+   },
+   {
+    "value": "Chamkarmon",
+    "name": "Chamkarmon",
+    "count": 576,
+    "median": 240000
+   },
+   {
+    "value": "Toul Kork",
+    "name": "Toul Kork",
+    "count": 505,
+    "median": 231609
+   },
+   {
+    "value": "Dangkao",
+    "name": "Dangkao",
+    "count": 452,
+    "median": 175444
+   }
+  ]
+ },
+ "results": [
+  {
+   "id": 268793,
+   "headline": "LE CONDÉ RESALE – $157,000 (Fixed) | Fully Furnished Unit",
+   "address": "BKK 1, Boeng Keng Kang, Phnom Penh",
+   "address_latitude": 11.549230136030701,
+   "address_longitude": 104.92319588884385,
+   "url": "/new-developments/le-conde-bkk1/1-bed-1-bath-condo-268793/",
+   "display_price": "$157,000",
+   "display_rent": "POA",
+   "display_price_per_sqm_with_unit": "$1,500/m²",
+   "display_rent_per_sqm_with_unit": "POA",
+   "images": [
+    {
+     "url": "https://images.realestate.com.kh/__sized__/listings/2026-09/photo_2026-09-21_14-12-40-thumbnail-1040x780-70.jpeg"
+    }
+   ]
+  },
+  {
+   "id": 268590,
+   "headline": "🏡 Twin Villa (Type B) For Sale Below Cost Price | Borey Peng Huoth Boeung Snor - Eco Poli 2",
+   "address": "Veal Sbov, Chbar Ampov, Phnom Penh",
+   "address_latitude": 11.515954484562613,
+   "address_longitude": 104.97064752358597,
+   "url": "/boreys/borey-peng-huoth-the-star-platinum-eco-poli-2/4-bed-5-bath-twin-villa-268590/",
+   "display_price": "$375,000",
+   "display_rent": "POA",
+   "display_price_per_sqm_with_unit": "$1,586/m²",
+   "display_rent_per_sqm_with_unit": "POA",
+   "images": [
+    {
+     "url": "https://images.realestate.com.kh/__sized__/listings/2026-09/file_00000000765c81f58b638070bb178eaf-thumbnail-1040x780-70.jpeg"
+    }
+   ]
+  },
+  {
+   "id": 268110,
+   "headline": "2-Bedroom Condo for Sale/Rent | J Tower 2, BKK1 | 91SQM | 20th Floor",
+   "address": "BKK 1, Boeng Keng Kang, Phnom Penh",
+   "address_latitude": 11.55345,
+   "address_longitude": 104.92487,
+   "url": "/new-developments/j-tower-2-condominium/2-bed-2-bath-condo-268110/",
+   "display_price": "$240,000",
+   "display_rent": "$1,300",
+   "display_price_per_sqm_with_unit": "$2,638/m²",
+   "display_rent_per_sqm_with_unit": "$1/m²",
+   "images": [
+    {
+     "url": "https://images.realestate.com.kh/__sized__/listings/2026-08/photo_3_2026-08-26_16-19-04-thumbnail-1040x780-70.jpeg"
+    }
+   ]
+  }
+ ]
+}
