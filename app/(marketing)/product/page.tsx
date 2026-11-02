@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, DM_Serif_Display } from "next/font/google";
 import { VgFaqGrow } from "./VgFaqGrow";
+import { VgLenis } from "./VgLenis";
 import "./product-landing.css";
 
 const geist = Geist({
@@ -348,6 +349,8 @@ export default function ProductPage() {
 
 
       <VgFaqGrow />
+
+      <VgLenis />
     </div>
   );
 }
