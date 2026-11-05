@@ -1,0 +1,16 @@
+{
+  "city": "Phnom Penh",
+  "coverPhoto": {
+    "endpoint": "/api/v1/properties/PROP-0001/cover-photo"
+  },
+  "createdAt": 1699913600000,
+  "currency": "USD",
+  "id": "PROP-0001",
+  "lat": 11.5564,
+  "lng": 104.9282,
+  "name": "Phnom Penh home",
+  "priceNumeric": 280000,
+  "province": "Phnom Penh",
+  "status": "Rented",
+  "type": "residential"
+}

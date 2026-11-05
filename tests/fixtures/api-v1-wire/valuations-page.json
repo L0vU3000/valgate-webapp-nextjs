@@ -1,0 +1,11 @@
+{
+  "items": [
+    {
+      "id": "VAL-0001",
+      "month": "Nov 2023",
+      "price": 300000.5,
+      "propertyId": "PROP-0001"
+    }
+  ],
+  "nextCursor": "eyJyZWNvcmRlZEF0IjoxNzAwMDAwMDAwMDAwLCJpZCI6IlZBTC0wMDAxIn0"
+}

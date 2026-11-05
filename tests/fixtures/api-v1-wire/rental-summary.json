@@ -1,0 +1,66 @@
+{
+  "activity": [
+    {
+      "amountNumeric": 1200.5,
+      "at": 1699913600000,
+      "kind": "payment",
+      "propertyName": "Phnom Penh home",
+      "title": "Rent received"
+    }
+  ],
+  "attention": [
+    {
+      "dueAt": 1700864000000,
+      "kind": "certificate",
+      "propertyName": "Phnom Penh home",
+      "status": "Expiring",
+      "title": "Home insurance"
+    }
+  ],
+  "collectedAmountNumeric": 1200.5,
+  "currency": "USD",
+  "depositHeldNumeric": 2401,
+  "documentCount": 2,
+  "dueCount": 2,
+  "expectedAmountNumeric": 2401,
+  "history": [
+    {
+      "amountNumeric": 1200.5,
+      "dueCount": 2,
+      "monthLabel": "Nov 2023",
+      "paidCount": 1,
+      "state": "in_progress"
+    }
+  ],
+  "monthLabel": "Nov 2023",
+  "nextPayoutAmountNumeric": 1200.5,
+  "nextPayoutAt": 1700086400000,
+  "occupancyPercent": 50,
+  "occupiedCount": 1,
+  "overdueAmountNumeric": 1200.5,
+  "overdueCount": 1,
+  "paidCount": 1,
+  "tenancies": [
+    {
+      "currency": "USD",
+      "monthlyRentNumeric": 1200.5,
+      "propertyId": "PROP-0001",
+      "propertyName": "Phnom Penh home",
+      "status": "paid",
+      "tenantName": "Dara"
+    }
+  ],
+  "tenancyCount": 1,
+  "totalCount": 2,
+  "upcoming": [
+    {
+      "amountNumeric": 1200.5,
+      "currency": "USD",
+      "dueAt": 1700086400,
+      "paymentId": "PAY-0001",
+      "propertyId": "PROP-0001",
+      "propertyName": "Phnom Penh home",
+      "state": "due_soon"
+    }
+  ]
+}

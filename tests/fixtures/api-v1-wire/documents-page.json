@@ -1,0 +1,29 @@
+{
+  "items": [
+    {
+      "category": "Legal",
+      "description": "Home insurance certificate",
+      "expiresAt": 1700864000000,
+      "extension": "pdf",
+      "folderId": "FOLDER-0001",
+      "id": "DOC-0001",
+      "kind": "document",
+      "mimeType": "application/pdf",
+      "name": "Home insurance.pdf",
+      "propertyId": "PROP-0001",
+      "sizeBytes": 4096,
+      "status": "expiring",
+      "uploadedAt": 1699913600000
+    },
+    {
+      "expiresAt": null,
+      "id": "DOC-0002",
+      "kind": "document",
+      "name": "Property notes",
+      "propertyId": "PROP-0001",
+      "status": null,
+      "uploadedAt": 1699913600000
+    }
+  ],
+  "nextCursor": "eyJ1cGxvYWRlZEF0IjoxNjk5OTEzNjAwMDAwLCJpZCI6IkRPQy0wMDAyIn0"
+}
