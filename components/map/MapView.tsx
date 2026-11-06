@@ -143,8 +143,8 @@ interface MapViewProps {
   className?: string;
   /**
    * Portal listings (realestate.com.kh) around the selected property, drawn as Airbnb-style white
-   * price pills in the SAME cluster index as the property pins. Approximate rows (null coordinates)
-   * are dropped by `marketFeatures` before the index ever sees them. The drawer panel keeps the
+   * price pills, never clustered — each pill is its own marker and overlap is fine (Airbnb does the
+   * same). Approximate rows (null coordinates) are dropped by `marketFeatures`. The drawer panel keeps the
    * full list — pills are only the map-facing half.
    */
   marketListings?: LandscapeListing[];
@@ -268,10 +268,7 @@ export function MapView({
 
       // Build cluster index once. `maxZoom` matches the map's own ceiling — see MAP_MAX_ZOOM.
       const index = new Supercluster({ radius: 60, maxZoom: MAP_MAX_ZOOM });
-      index.load([
-        ...propertiesRef.current.map(toPropertyFeature),
-        ...marketFeatures(marketListingsRef.current),
-      ]);
+      index.load(propertiesRef.current.map(toPropertyFeature));
       clusterIndex.current = index;
 
       // Both renderers take the same camera options; only the style differs. `initialCamera` is what
@@ -402,17 +399,14 @@ export function MapView({
 
   // Rebuild the cluster index when the inputs change — a property created by Quick Add lands
   // in the list but not in the index built on mount, so it would be in the sidebar and invisible on
-  // the map; the market pills land the same way (the drawer fetch resolves after mount).
+  // the map. Market pills bypass the Supercluster index and are added as individual markers.
   // updateClusters then diffs the new cluster set against the visible markers, which adds
   // the new pin and animates the removed ones out.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !clusterIndex.current) return;
     closeMarketCard();
-    clusterIndex.current.load([
-      ...properties.map(toPropertyFeature),
-      ...marketFeatures(marketListings),
-    ]);
+    clusterIndex.current.load(properties.map(toPropertyFeature));
     updateClusters(map);
     // updateClusters is redeclared every render; depending on it would loop. The property list and
     // the listing set are the only real inputs.
@@ -841,7 +835,12 @@ export function MapView({
       bounds.getNorth(),
     ];
     const zoom = Math.floor(ml.getZoom());
-    const clusters = clusterIndex.current.getClusters(bbox, zoom);
+    // Market pills bypass the index: every pill is always its own marker, so they never fold into
+    // a property badge. Property pins keep clustering.
+    const clusters: ReturnType<Supercluster["getClusters"]> = [
+      ...clusterIndex.current.getClusters(bbox, zoom),
+      ...marketFeatures(marketListingsRef.current),
+    ];
 
     // Determine which keys should be visible
     const nextKeys = new Set<string>();
@@ -999,12 +998,9 @@ export function MapView({
           // be a no-op, leaving those properties unreachable on the map. Select the first member
           // instead, so the badge still opens the drawer.
           // ponytail: opens the first member only; the co-located swipe cards are the real design.
-          // Market pills loaded after the properties sit later in the leaves, so a property wins
-          // the tie; a market-first stack stays a badge (the pill for it isn't visible yet, so no
-          // card could open — an accepted gap while the swipe cards are the aspirational fix).
           if (expansion > MAP_MAX_ZOOM) {
             const first = clusterIndex.current!.getLeaves(f.properties.cluster_id, 1)[0];
-            if (first && (first.properties as { kind?: string }).kind !== "market") {
+            if (first) {
               onSelectProperty((first.properties as { id: string }).id);
               return;
             }
@@ -1019,8 +1015,8 @@ export function MapView({
         const { wrapper } = createMarketElement(listing);
         const pill = wrapper.querySelector<HTMLElement>("[data-market-pill]");
         if (pill) {
-          // Same entrance as the property pins: emerge from the cluster being replaced, random
-          // stagger so twins don't pop in lockstep.
+          // Pills bypass the Supercluster index; reuse the pin entrance animation from a nearby
+          // exiting cluster when available, with a random stagger so twins don't pop in lockstep.
           const origin = nearestExitingCluster(new LL(lng, lat));
           const delay = Math.floor(Math.random() * 80);
           if (origin) {

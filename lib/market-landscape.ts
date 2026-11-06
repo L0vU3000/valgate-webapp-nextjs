@@ -41,13 +41,14 @@ export type LandscapeListing = {
 };
 
 /**
- * GET /api/v1/properties/{id}/market-landscape — the contract iOS consumes unchanged.
+ * Market landscape data, also served by GET /api/v1/properties/{id}/market-landscape.
  *
  * `coverage` other than "ok" means every data field is empty: "disabled" (feature switched off),
- * "unsupported" (pin outside Cambodia), "unmatched" (in Cambodia, district not recognised).
+ * "unsupported" (pin outside Cambodia), "unmatched" (no pin or known district).
+ * "unavailable" (coordinate lookup failed) is internal-only and mapped to 502 at the v1 boundary.
  */
 export type MarketLandscapeDTO = {
-  coverage: "ok" | "unmatched" | "unsupported" | "disabled";
+  coverage: "ok" | "unmatched" | "unsupported" | "disabled" | "unavailable";
   area: {
     district: string;
     commune: string | null;
@@ -78,7 +79,8 @@ export function emptyLandscape(coverage: MarketLandscapeDTO["coverage"]): Market
 
 /**
  * ponytail: a coarse bounding box, like lib/geo/france.ts. A border-adjacent Thai/Lao point costs
- * one district lookup that comes back "unmatched" — harmless, and far less code than the border.
+ * one district lookup: a successful lookup with no known district is "unmatched"; a lookup
+ * failure is "unavailable" — far less code than the border.
  */
 export function isInCambodia(lng: number, lat: number): boolean {
   return lng >= 102.3 && lng <= 107.7 && lat >= 9.9 && lat <= 14.7;
@@ -116,7 +118,8 @@ export function normalizeArea(s: string): string {
     .replace(/[^a-z0-9]/g, "");
 }
 
-// The portal's district values (each verified to return listings on 2026-11-02), by province.
+// Portal district values verified on 2026-11-02 with scoped results queries.
+// Preah Netr Preah is in the portal's Banteay Meanchey sitemap but currently has zero listings.
 const DISTRICTS: Record<string, string[]> = {
   "Phnom Penh": [
     "Chamkarmon", "Daun Penh", "7 Makara", "Toul Kork", "Dangkao", "Meanchey", "Russey Keo",
@@ -125,12 +128,38 @@ const DISTRICTS: Record<string, string[]> = {
   ],
   "Siem Reap": ["Siem Reap", "Prasat Bakong", "Sout Nikom", "Banteay Srei", "Puok", "Chi Kraeng", "Angkor Thum"],
   Kandal: ["Ta Khmau", "Angk Snuol", "Khsach Kandal", "Lvea Aem", "S'ang", "Kien Svay", "Kandal Stueng", "Mukh Kampul"],
+  "Banteay Meanchey": ["Preah Netr Preah"],
+  Pursat: ["Bakan", "Phnum Kravanh"],
+  "Kampong Thom": ["Stoung"],
+  "Kampong Speu": ["Samraong Tong", "Odongk", "Aoral", "Chbar Mon", "Thpong", "Phnum Sruoch"],
+  "Kampong Cham": ["Batheay"],
+  "Kampong Chhnang": ["Sameakki Mean Chey"],
+  "Preah Vihear": ["Kuleaen"],
+  Mondulkiri: ["Saen Monourom"],
+  "Prey Veng": ["Kanhchriech"],
+  "Koh Kong": ["Srae Ambel"],
+  Kep: ["Damnak Chang'aeur"],
   Kampot: ["Kampot", "Tuek Chhou", "Chhuk", "Kampong Trach", "Angkor Chey", "Dang Tong"],
 };
 
 // Other romanisations of the same district (geocoders, deeds and the seed data all differ from
 // the portal). Keys are normalizeArea() output; values are the portal's spelling.
 export const DISTRICT_ALIASES: Record<string, string> = {
+  preahnetpreah: "Preah Netr Preah",
+  lveaem: "Lvea Aem",
+  chamkamorn: "Chamkarmon",
+  roesseykeo: "Russey Keo",
+  roesseikeo: "Russey Keo",
+  saang: "S'ang",
+  dongkor: "Dangkao",
+  stong: "Stoung",
+  samraongtorng: "Samraong Tong",
+  samkymeanchey: "Sameakki Mean Chey",
+  uddong: "Odongk",
+  senmonorom: "Saen Monourom",
+  phnomsruoch: "Phnum Sruoch",
+  sreambel: "Srae Ambel",
+  phnomkravanh: "Phnum Kravanh",
   dounpenh: "Daun Penh",
   prampirmakara: "7 Makara",
   tuolkouk: "Toul Kork",
@@ -290,7 +319,7 @@ export function toDistrictMedians(body: Raw): MarketLandscapeDTO["districtMedian
   });
 }
 
-export function toListings(body: Raw, tab: "sale" | "rent", pin: { lat: number; lng: number }): LandscapeListing[] {
+export function toListings(body: Raw, tab: "sale" | "rent", pin: { lat: number; lng: number } | null): LandscapeListing[] {
   const results = (Array.isArray(body.results) ? body.results : []) as Raw[];
   return results.flatMap((r) => {
     const id = num(r.id);
@@ -308,7 +337,7 @@ export function toListings(body: Raw, tab: "sale" | "rent", pin: { lat: number; 
       address: str(r.address) ?? "",
       lat: precise?.lat ?? null,
       lng: precise?.lng ?? null,
-      distanceM: precise ? Math.round(haversineM(pin, precise)) : null,
+      distanceM: precise && pin ? Math.round(haversineM(pin, precise)) : null,
       priceLabel: tab === "sale" ? str(r.display_price) : str(r.display_rent),
       pricePerSqmLabel:
         tab === "sale" ? str(r.display_price_per_sqm_with_unit) : str(r.display_rent_per_sqm_with_unit),

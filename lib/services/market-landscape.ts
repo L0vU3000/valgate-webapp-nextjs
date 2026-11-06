@@ -48,31 +48,39 @@ async function portal(params: Record<string, string>, revalidate: number): Promi
 }
 
 export type LandscapeProperty = {
-  lat: number;
-  lng: number;
+  id?: string;
+  lat?: number | null;
+  lng?: number | null;
   addressLine?: string | null;
   addressLine2?: string | null;
   city?: string | null;
 };
 
 /**
- * The landscape around a stored property. Non-"ok" coverage is a normal answer; an upstream
- * failure THROWS, so an outage is never shown to the user as "no listings here".
+ * The landscape around a stored property. Non-"ok" coverage is a normal answer.
+ * A portal failure throws; coordinate lookup failures return "unavailable".
  */
 export async function getMarketLandscape(property: LandscapeProperty): Promise<MarketLandscapeDTO> {
   if (!env.MARKET_LANDSCAPE_ENABLED) return emptyLandscape("disabled");
 
-  const pin = { lat: property.lat, lng: property.lng };
-  if (!isInCambodia(pin.lng, pin.lat)) return emptyLandscape("unsupported");
+  const hasPin = typeof property.lat === "number" && Number.isFinite(property.lat)
+    && typeof property.lng === "number" && Number.isFinite(property.lng);
+  const pin = hasPin ? { lat: property.lat as number, lng: property.lng as number } : null;
+  if (pin && !isInCambodia(pin.lng, pin.lat)) return emptyLandscape("unsupported");
 
-  // Stored address first (free); the geocoder only when the text names no known district.
+  // Stored district first; province-only or unnamed addresses resolve from the pin.
   let area = resolveAreaFromText([property.addressLine, property.addressLine2, property.city]);
-  if (!area) {
-    const g = await reverseGeocode([pin.lng, pin.lat]);
-    area = g ? resolveAreaFromGeocode(g) : null;
+  if (!area && pin) {
+    try {
+      const g = await reverseGeocode([pin.lng, pin.lat]);
+      area = g ? resolveAreaFromGeocode(g) : null;
+    } catch (error) {
+      console.error("getMarketLandscape coordinate lookup failed", { propertyId: property.id, error });
+      return emptyLandscape("unavailable");
+    }
   }
   if (!area) return emptyLandscape("unmatched");
-
+  // Without a pin, area stats remain useful; listings cannot claim a distance.
   // Filters AND together on the portal (verified: a commune under the wrong district returns 0), so
   // every area query carries its parents — a commune name that repeats elsewhere can't leak in.
   const district = { address_subdivision: area.province, address_locality: area.district, order_by: "date-desc" };

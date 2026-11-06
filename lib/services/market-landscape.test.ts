@@ -53,11 +53,37 @@ describe("getMarketLandscape", () => {
     expect(reverseMock).not.toHaveBeenCalled();
   });
 
-  it("answers 'unmatched' when neither the address nor the geocoder names a district", async () => {
+  it("answers unmatched when a successful pin lookup cannot name a district", async () => {
     reverseMock.mockResolvedValue({ district: null, locality: "Phnom Penh", subDistrict: null });
     const out = await getMarketLandscape({ lat: 11.55, lng: 104.92, city: "Phnom Penh" });
     expect(out.coverage).toBe("unmatched");
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("answers unmatched for an unknown address without coordinates", async () => {
+    expect((await getMarketLandscape({ city: "Phnom Penh" })).coverage).toBe("unmatched");
+    expect(reverseMock).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("handles rejected coordinate lookups without throwing", async () => {
+    const error = new Error("geocoder unavailable");
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      reverseMock.mockRejectedValueOnce(error);
+      expect((await getMarketLandscape({ id: "PROP-0001", lat: 11.55, lng: 104.92 })).coverage).toBe("unavailable");
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(log).toHaveBeenCalledWith("getMarketLandscape coordinate lookup failed", { propertyId: "PROP-0001", error });
+    } finally {
+      log.mockRestore();
+    }
+  });
+
+  it("can use a known district without a pin, without inventing distances", async () => {
+    portalAnswers();
+    const out = await getMarketLandscape({ city: "Kien Svay" });
+    expect(out.coverage).toBe("ok");
+    expect(out.listings.every((listing) => listing.distanceM === null)).toBe(true);
   });
 
   it("uses the stored address first and only geocodes when it can't", async () => {
@@ -69,6 +95,14 @@ describe("getMarketLandscape", () => {
     const out = await getMarketLandscape({ lat: 11.5262, lng: 104.9146, city: "Phnom Penh" });
     expect(reverseMock).toHaveBeenCalledWith([104.9146, 11.5262]);
     expect(out.area).toMatchObject({ district: "Meanchey", commune: null, listingsArea: "Meanchey" });
+  });
+
+  it("alias-matches the district returned for an unnamed pin", async () => {
+    portalAnswers();
+    reverseMock.mockResolvedValueOnce({ district: "Lvea Em", locality: null, subDistrict: null });
+    const out = await getMarketLandscape({ lat: 11.57, lng: 104.9522, city: "Phnom Penh" });
+    expect(out.area).toMatchObject({ district: "Lvea Aem", province: "Kandal" });
+    expect(reverseMock).toHaveBeenCalledWith([104.9522, 11.57]);
   });
 
   it("returns district stats, province medians and commune listings, all cached", async () => {
