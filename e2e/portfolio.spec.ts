@@ -11,7 +11,7 @@ import {
 import { assertCascadeGone, assertSetNullSurvivors, assertActivityRow, assertS3ObjectGone } from './helpers/verify'
 
 test.describe('B — Portfolio', () => {
-  test('B1: portfolio loads in DEMO_MODE — no login redirect', async ({ page }) => {
+  test('B1: portfolio loads in DEMO_MODE — no login redirect', { tag: '@smoke' }, async ({ page }) => {
     test.info().annotations.push({ type: 'checklist', description: 'B1 — portfolio table loads' })
 
     await test.step('Navigate and confirm no login redirect', async () => {

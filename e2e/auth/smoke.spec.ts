@@ -23,7 +23,7 @@ import { test, expect } from '@playwright/test'
 // no login flow needed.
 test.use({ storageState: 'playwright/.clerk/owner-a.json' })
 
-test('owner-a reaches /portfolio without being redirected to login', async ({ page }) => {
+test('owner-a reaches /portfolio without being redirected to login', { tag: '@smoke' }, async ({ page }) => {
   // Navigate to the portfolio page (a protected route).
   // An unauthenticated user would be redirected to /login or /sign-in.
   const response = await page.goto('/portfolio')

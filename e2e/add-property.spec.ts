@@ -105,7 +105,7 @@ test.describe.serial('C — Add property', () => {
     }
   })
 
-  test('C2: per-step validation blocks empty name', async ({ page }) => {
+  test('C2: per-step validation blocks empty name', { tag: '@smoke' }, async ({ page }) => {
     test.info().annotations.push({ type: 'checklist', description: 'C2 — step validation' })
 
     await test.step('Reach Step 2 (Property Name field visible)', async () => {

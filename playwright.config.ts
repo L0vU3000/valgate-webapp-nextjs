@@ -54,6 +54,20 @@ export default defineConfig({
   },
 
   projects: [
+    // CI should gate PRs on --project smoke; PLAYWRIGHT_AUTH=1 selects the real-auth smoke.
+    {
+      name: 'smoke',
+      testMatch: RUN_AUTH
+        ? '**/auth/smoke.spec.ts'
+        : ['**/homepage.spec.ts', '**/portfolio.spec.ts', '**/add-property.spec.ts'],
+      grep: /@smoke/,
+      use: {
+        ...devices['Desktop Chrome'],
+        baseURL: RUN_AUTH ? 'http://localhost:3002' : 'http://localhost:3001',
+      },
+      dependencies: RUN_AUTH ? ['auth-setup'] : [],
+    },
+
     // ── DEMO suite (existing, untouched) ──────────────────────────────────────
     // DEMO_MODE=true, no real Clerk key, port 3001.
     {

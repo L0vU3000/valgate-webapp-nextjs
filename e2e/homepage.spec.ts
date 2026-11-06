@@ -8,7 +8,7 @@ import { test, expect } from './fixtures'
  * To run: npm run test:e2e
  */
 
-test('homepage loads and has a title', async ({ page }) => {
+test('homepage loads and has a title', { tag: '@smoke' }, async ({ page }) => {
   // Go to the homepage
   await page.goto('/')
 
