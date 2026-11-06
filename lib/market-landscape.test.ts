@@ -35,6 +35,37 @@ describe("district matching", () => {
     expect(matchDistrict("Ta Khmao")).toEqual({ district: "Ta Khmau", province: "Kandal" });
   });
 
+  it.each([
+    ["PreahNet Preah", "Preah Netr Preah", "Banteay Meanchey"],
+    ["Lvea Em", "Lvea Aem", "Kandal"],
+    ["Chamkamorn", "Chamkarmon", "Phnom Penh"],
+    ["Roessey Keo", "Russey Keo", "Phnom Penh"],
+    ["Roessei Keo", "Russey Keo", "Phnom Penh"],
+    ["Saang", "S'ang", "Kandal"],
+    ["Dongkor", "Dangkao", "Phnom Penh"],
+    ["Stong", "Stoung", "Kampong Thom"],
+    ["Samraong Torng", "Samraong Tong", "Kampong Speu"],
+    ["Samky Meanchey", "Sameakki Mean Chey", "Kampong Chhnang"],
+    ["Uddong", "Odongk", "Kampong Speu"],
+    ["Sen Monorom", "Saen Monourom", "Mondulkiri"],
+    ["Phnom Sruoch", "Phnum Sruoch", "Kampong Speu"],
+    ["Sre Ambel", "Srae Ambel", "Koh Kong"],
+    ["Phnom Kravanh", "Phnum Kravanh", "Pursat"],
+    ["Kien Svay", "Kien Svay", "Kandal"],
+    ["Bakan", "Bakan", "Pursat"],
+    ["Batheay", "Batheay", "Kampong Cham"],
+    ["Kuleaen", "Kuleaen", "Preah Vihear"],
+    ["Aoral", "Aoral", "Kampong Speu"],
+    ["Chbar Mon", "Chbar Mon", "Kampong Speu"],
+    ["Kanh Chriech", "Kanhchriech", "Prey Veng"],
+    ["Thpong", "Thpong", "Kampong Speu"],
+    ["Damnak Chang'aeur", "Damnak Chang'aeur", "Kep"],
+  ])("resolves dev spelling %s in text and geocoder results", (name, district, province) => {
+    expect(resolveAreaFromText(["Village Somewhere", null, name])).toEqual({ district, province, commune: null });
+    expect(resolveAreaFromGeocode({ district: name, locality: null, subDistrict: null }))
+      .toEqual({ district, province, commune: null });
+  });
+
   it("does not treat a province or an unknown name as a district", () => {
     expect(matchDistrict("Phnom Penh")).toBeNull();
     expect(matchDistrict("Atlantis")).toBeNull();

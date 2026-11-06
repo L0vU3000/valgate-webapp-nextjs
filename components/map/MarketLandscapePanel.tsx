@@ -119,6 +119,16 @@ export function MarketLandscapePanel({
       </section>
     );
   }
+  if (data.coverage === "unavailable" || (data.coverage === "ok" && !data.area)) {
+    return (
+      <section>
+        <SectionHeader />
+        <Empty message="Market data is unavailable for this location right now." cta={
+          <button type="button" onClick={onRetry} className={ctaClass}>Try again</button>
+        } />
+      </section>
+    );
+  }
   if (data.coverage === "unmatched" || !data.area) {
     return (
       <section>

@@ -52,6 +52,16 @@ describe("GET /api/v1/properties/{id}/market-landscape", () => {
     expect((await res.json()).coverage).toBe("disabled");
   });
 
+  it("502s internal-only unavailable coverage with a generic error", async () => {
+    getPropertyMock.mockResolvedValue(PROPERTY);
+    landscapeMock.mockResolvedValue(emptyLandscape("unavailable"));
+    const res = await get();
+    expect(res.status).toBe(502);
+    expect(await res.json()).toEqual({
+      error: { code: "internal_error", message: "Could not load market data. Please try again." },
+    });
+  });
+
   it("502s an upstream failure with a generic message", async () => {
     getPropertyMock.mockResolvedValue(PROPERTY);
     landscapeMock.mockRejectedValue(new Error("realestate.com.kh responded 503"));

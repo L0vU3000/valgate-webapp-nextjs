@@ -14,7 +14,8 @@ export const dynamic = "force-dynamic";
 // property's pin (MarketLandscapeDTO in lib/market-landscape.ts).
 //
 // The coordinates come from the STORED property, never the query string, so this cannot be used
-// as an open proxy onto the portal for arbitrary points. Non-"ok" `coverage` is a 200.
+// as an open proxy onto the portal for arbitrary points. Non-"ok" `coverage` is a 200 except
+// internal-only "unavailable", which maps to 502.
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const authResult = await resolveApiV1Ctx();
   if (!authResult.ok) return authResult.response;
@@ -25,7 +26,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     const property = await getProperty(authResult.ctx, id);
     if (!property) return apiError(404, "not_found", "Property not found.");
 
-    return NextResponse.json(await getMarketLandscape(property));
+    const landscape = await getMarketLandscape(property);
+    if (landscape.coverage === "unavailable") {
+      return apiError(502, "internal_error", "Could not load market data. Please try again.");
+    }
+    return NextResponse.json(landscape);
   } catch (err) {
     // Fail closed: an upstream outage is an operator problem. Distinct from "no listings", so the
     // client can offer a retry instead of telling the user the area is empty.
