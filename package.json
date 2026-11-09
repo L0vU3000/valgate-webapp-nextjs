@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev --turbopack -H 0.0.0.0 -p 3001",
     "dev:branch": "node scripts/dev-branch.mjs",
-    "dev:e2e": "DEMO_MODE=true DEMO_ALLOW_WRITES=true NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY= next dev --turbopack -H 0.0.0.0 -p 3001",
+    "dev:e2e": "DEMO_MODE=true DEMO_ALLOW_WRITES=true NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY= CLERK_SECRET_KEY= next dev --turbopack -H 0.0.0.0 -p 3001",
     "dev:tunnel": "npx --yes cloudflared@latest tunnel --url http://127.0.0.1:3001",
     "env:sync": "./scripts/sync-web-env.sh",
     "env:push": "./scripts/push-web-env.sh",
@@ -121,6 +121,7 @@
     "openai": "^6.34.0",
     "papaparse": "^5.5.4",
     "pg": "^8.21.0",
+    "posthog-js": "^1.438.9",
     "react": "^19.2.0",
     "react-day-picker": "9.14.0",
     "react-dom": "^19.2.0",

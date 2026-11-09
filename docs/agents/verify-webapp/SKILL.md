@@ -10,8 +10,10 @@ harness; this skill tells an agent how to launch, drive, and produce evidence
 the same way every round.
 
 ## Launch
-`npm run dev:e2e` (repo root) — DEMO_MODE=true, DEMO_ALLOW_WRITES=true, no Clerk
-key needed, port **3001**. Ready = `curl -s -o /dev/null -w '%{http_code}'
+`npm run dev:e2e` (repo root) — DEMO_MODE=true, DEMO_ALLOW_WRITES=true, Clerk keys
+blanked (publishable AND `CLERK_SECRET_KEY=` — the secret leaks from .env.local and
+middleware.ts would otherwise run real-Clerk and bounce users to /login), port
+**3001**. Ready = `curl -s -o /dev/null -w '%{http_code}'
 http://localhost:3001` returns 200. A server may already be running on 3001
 (check `lsof -i :3001`): driving a live server is fine, starting a second is not.
 The Playwright global setup pings the dev DB and requires seed data (PROP-0001
@@ -20,6 +22,8 @@ and neighbors), so the dev DB must be seeded (`npm run seed:neon` when fresh).
 ## Doctor
 One read-only check: `/` answers 200 and `npm run db:ping` passes. If either
 fails, report the launcher state before attempting any proof.
+If the bounce persists, your server has a Clerk secret loaded: relaunch with
+`CLERK_SECRET_KEY= npm run dev:e2e` and check the sign-in-redirect disappears.
 
 ## Drive
 The harness is the repo's own Playwright suite (`e2e/*.spec.ts`,

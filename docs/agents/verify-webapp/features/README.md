@@ -29,9 +29,25 @@ Each feature file: H1 title + one paragraph of user-visible behavior, then
 exactly four H2s: `Sub-features`, `How to get to it (user POV)`, `Driving it
 with Playwright`, `Gotchas`. Implementation details stay out of the map.
 
+## Status after first maintain round (2026-11-09)
+All mapped specs driven from a clean worktree (main 1d15876) in DEMO mode:
+**15/15 passed** (dashboard I, property-tabs D, pro-clients K, documents F,
+add-property C). Launcher bug found+fixed same round: `dev:e2e` leaked
+`CLERK_SECRET_KEY` from .env.local → real-Clerk middleware bounced e2e users to
+/login (fixed: secret blanked in the script; proof: visual evidence in
+`docs/evidence/agent-ops/2026-11-09/`). Gotcha: run maintain rounds against a
+clean worktree when the canonical tree is mid-rework — uncommitted UI/auth
+changes make the map lie.
+
 ## Features (seeded top 5 — extend as features ship)
 - [Quick Add property](./quick-add.md) — address search, card-before-pin, building-name matching.
 - [Home map](./home-map.md) — pins, price labels, clusters, selected state.
 - [Property detail](./property-detail.md) — tabs, valuation, documents listing.
 - [Documents vault](./documents.md) — scan/intake to stored documents.
 - [Dashboard](./dashboard.md) — portfolio stats from live seed data.
+- [Pro manager surfaces](./pro-manager.md) — client book (onboard/archive/reactivate) + /pro/*.
+
+## Source of truth for surfaces
+`vault/resources/user-journeys.md` is the product-side journey map (Owner /
+Manager / Client). This verification map must mirror it: a journey in that
+file without a feature entry here (or vice versa) is a maintain-round item.
