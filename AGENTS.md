@@ -264,7 +264,14 @@ Not configured (Linear statuses used instead; skip Section B of setup-matt-pococ
 Single-context: root `CONTEXT.md` (placeholder until written); decisions live in `vault/decisions/`. See `docs/agents/domain.md`.
 
 ### Verification
+Map currency + error-encoding rules (from Lauren Tan's pstack methodology):
+- Any round that changes a mapped feature (see `docs/agents/verify-webapp/features/`) updates its feature file **in the same round**; the verification map mirrors `vault/resources/user-journeys.md` — a journey without a feature entry is a maintained gap, not an accident.
+- A recurring agent error becomes a **gate or script** (lint/report assert), never a second instruction. Proposal goes in the round brief; the gate lands with the fix.
+
 Drive the app and prove behavior with `docs/agents/verify-webapp/SKILL.md` + its `features/` map (Playwright DEMO suite, port 3001).
 
 ### Workflow switching
 `~/.workflows/bin/workflow-switch <repo> <stack...>` — pointer + symlink swap; coordination is Hermes-side. See `~/.workflows/collisions.md`.
+
+## Task-size routing
+Every ask runs the quick-edit line or the feature line (bug/design/release lines exist too): see `../docs/WORKFLOW-LINES.md` and the curated picks in `../docs/SKILL-PIPELINE.md`. When in doubt, feature line.
