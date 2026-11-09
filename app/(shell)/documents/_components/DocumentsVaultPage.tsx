@@ -787,7 +787,7 @@ function DocumentActions({
   const [moveError, setMoveError] = useState<string | null>(null);
   const propertyFolders = folders.filter((folder) => folder.propertyId === propertyId);
 
-  async function moveToFolder(nextFolderId: string | undefined) {
+  async function moveToFolder(nextFolderId: string | null) {
     setIsMoving(true);
     setMoveError(null);
     const result = await updateDocument(documentId, { folderId: nextFolderId });
@@ -838,7 +838,7 @@ function DocumentActions({
             disabled={isMoving}
             onSelect={(event) => {
               event.preventDefault();
-              void moveToFolder(undefined);
+              void moveToFolder(null);
             }}
           >
             Remove from folder
