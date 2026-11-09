@@ -154,7 +154,7 @@ export async function attachBoundary(
     drawn?: boolean;
   } = {},
 ): Promise<BoundaryAttach> {
-  assertCanMutate(); // D9 — demo mode refuses all writes
+  assertCanMutate(ctx); // D9 — demo mode refuses all writes
 
   // Confirm the property belongs to the caller's org BEFORE writing anything (IDOR). The FK would
   // catch a cross-org id at insert time, but only as a 500 — this returns cleanly.

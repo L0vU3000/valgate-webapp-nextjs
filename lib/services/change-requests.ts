@@ -6,7 +6,7 @@ import "server-only";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { changeRequests, organizationMemberships } from "@/lib/db/schema";
-import { nextId, assertCanMutate, type Ctx } from "@/lib/services/_mapping";
+import { nextId, assertCanMutate, MutationDeniedError, type Ctx } from "@/lib/services/_mapping";
 import { requireAdmin } from "@/lib/services/_crud";
 import { insertAccessNotification } from "@/lib/services/client-onboarding";
 import { applyChangeRequest } from "@/lib/services/_change-request-dispatcher";
@@ -73,7 +73,12 @@ export async function createChangeRequest(
     proposedPatch: Record<string, unknown>;
   },
 ): Promise<ChangeRequest> {
+  // Proposals are the only viewer write: require an active grant to the target org.
   assertCanMutate();
+  const [membership] = await db.select({ id: organizationMemberships.id }).from(organizationMemberships)
+    .where(and(eq(organizationMemberships.orgId, input.ownerOrgId),
+      eq(organizationMemberships.userId, ctx.userId), eq(organizationMemberships.status, "active"))).limit(1);
+  if (!membership) throw new MutationDeniedError();
   const id = await nextId("CRQ", changeRequests);
   const [row] = await db
     .insert(changeRequests)
@@ -98,8 +103,8 @@ export async function createChangeRequest(
 // is always audited, and deletes leave a durable tombstone), but it is auto-approved and
 // applied instantly instead of waiting for the client.
 //
-// requireAdmin is the gate: a viewer-grant ctx is rejected here, so this path can only be
-// reached with a real full grant (which the action re-derives server-side, never trusts).
+// Owner-only mutation enforcement keeps non-owner grants on the pending-request path.
+// The older admin/member write paths remain dormant.
 export async function recordAndApplyManagerChange(
   ctx: Ctx,
   input: {
@@ -110,8 +115,8 @@ export async function recordAndApplyManagerChange(
     proposedPatch: Record<string, unknown>;
   },
 ): Promise<ChangeRequest> {
-  assertCanMutate();
-  requireAdmin(ctx); // full grant == admin/owner; viewer ctx throws "forbidden"
+  assertCanMutate(ctx);
+  requireAdmin(ctx); // rank helper retained behind the owner-only mutation guard
 
   const id = await nextId("CRQ", changeRequests);
   const now = new Date();
@@ -173,7 +178,7 @@ export async function recordAndApplyManagerChange(
 // This blocks non-admin client members from approving destructive deletes.
 // Applies the patch via the dispatcher, marks approved, notifies the manager.
 export async function approveChangeRequest(ctx: Ctx, id: string): Promise<void> {
-  assertCanMutate();
+  assertCanMutate(ctx);
 
   // Only org:admin (the client who accepted the handoff) may approve changes.
   requireAdmin(ctx);
@@ -227,7 +232,7 @@ export async function approveChangeRequest(ctx: Ctx, id: string): Promise<void> 
 // Reject a pending change request.
 // ctx must be the OWNER's ctx. Data is left untouched; manager is notified.
 export async function rejectChangeRequest(ctx: Ctx, id: string): Promise<void> {
-  assertCanMutate();
+  assertCanMutate(ctx);
 
   const [row] = await db
     .select()

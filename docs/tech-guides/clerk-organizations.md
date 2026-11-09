@@ -305,3 +305,25 @@ db.select().from(<table>).where(eq(<table>.orgId, ctx.orgId));   // + extra filt
 - `<OrganizationSwitcher/>` / `useOrganization()` (frontend, out of this repo) — https://clerk.com/docs/reference/components/organization/organization-switcher
 - Auth core (`auth()`, middleware, session) — [`clerk.md`](./clerk.md)
 - Drizzle table/query idioms reused here — [`drizzle.md`](./drizzle.md); cross-cutting scoping rule — [C3](./_conventions.md#c3).
+
+### Settings Sharing
+
+`lib/services/org-members.ts` sends invitations and membership changes to Clerk
+first, then mirrors successful changes. Settings is owner-only and always invites
+viewers; role changes are dormant. `org:admin` remains Valgate `owner`;
+configure custom Clerk roles `org:valgate_admin` (Valgate `admin`) and
+`org:viewer` (`viewer`) before assigning them. Unsupported roles fail closed.
+
+Invites for existing users can create an `invited` membership with inviter/time
+provenance, keyed by `(org_id, user_id)`. Unknown emails stay in Clerk only until
+signup/acceptance supplies the user FK; no synthetic user is created. Membership
+webhooks activate these rows, preserve invitation provenance, stamp `joined_at`,
+and clear `removed_at`. The settings list deliberately includes active rows only.
+New-user invitations therefore have no local invitation provenance before acceptance.
+Clerk and Postgres writes are not atomic; if mirroring fails after a successful
+Clerk change, membership webhooks reconcile it.
+
+Ordinary service mutations pass their context to `assertCanMutate(ctx)`, which
+rejects viewer/member/admin roles with `MutationDeniedError` (`READ_ONLY`). Only
+pending `change_requests` may be created by non-owners with an active target-org
+grant; applying, approving, and rejecting requests require owner access.

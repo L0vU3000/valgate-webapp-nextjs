@@ -11,6 +11,8 @@ export default defineConfig({
   // tsconfigPaths reads the `@/* -> ./*` alias straight from tsconfig.json so
   // the query code's `@/lib/...` imports resolve without restating them here.
   plugins: [tsconfigPaths()],
+  // Next preserves JSX for its own compiler; component markup tests need it transformed.
+  oxc: { jsx: { runtime: "automatic" } },
   resolve: {
     alias: {
       // The data layer imports `server-only`, which throws on import outside a

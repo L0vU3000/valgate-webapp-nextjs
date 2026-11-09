@@ -4,7 +4,7 @@ import { db } from "@/lib/db/client";
 import { leases, payments } from "@/lib/db/schema";
 import { PaymentSchema, type Payment } from "@/lib/data/types/payment";
 import type { NewPayment, PaymentPatch } from "@/lib/data/types/payment";
-import { toDomain, type Ctx } from "@/lib/services/_mapping";
+import { assertCanMutate, toDomain, type Ctx } from "@/lib/services/_mapping";
 import { scopedInsert, scopedUpdate, scopedDelete, requireMember } from "@/lib/services/_crud";
 
 const rowToPayment = (r: typeof payments.$inferSelect): Payment =>
@@ -45,6 +45,7 @@ export async function listPropertyPaymentsNewestFirst(
 // and a leaseId that is not a lease OF this property (missing, cross-org, or another property's)
 // throws "lease_not_in_property" instead of silently re-homing the payment.
 export async function createPayment(ctx: Ctx, input: NewPayment, scopePropertyId?: string): Promise<Payment> {
+  assertCanMutate(ctx);
   requireMember(ctx);
   let propertyId: string | undefined;
   if (input.leaseId) {

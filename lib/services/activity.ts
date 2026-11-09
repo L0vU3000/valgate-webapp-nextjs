@@ -81,7 +81,7 @@ function rowToEstateActivityEvent(
 // AFTER the real change has succeeded, wrapped in try/catch.
 export async function logActivity(ctx: Ctx, input: LogActivityInput): Promise<void> {
   // Same guards as scopedInsert: refuse in demo mode (D9) and require member role.
-  assertCanMutate();
+  assertCanMutate(ctx);
   requireMember(ctx);
 
   // Build a short title for the feed, e.g. "payment.created — LEASE-0003".

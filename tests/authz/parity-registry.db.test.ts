@@ -59,11 +59,11 @@ async function crStatus(id: string): Promise<{ status: string; operation: string
   return rows[0] ?? null;
 }
 
-// ── Synthetic ctxs — same manager, different grant levels, scoped to the client org ──
+// ── Synthetic ctxs — same user, different organization roles, scoped to the client org ──
 
 const ORG = "ORG-0001";
 const MANAGER = "USR-0001";
-const fullGrantCtx: Ctx = { userId: MANAGER, orgId: ORG, orgRole: "admin" };
+const ownerCtx: Ctx = { userId: MANAGER, orgId: ORG, orgRole: "owner" };
 const viewerGrantCtx: Ctx = { userId: MANAGER, orgId: ORG, orgRole: "viewer" };
 
 const createdCrIds: string[] = [];
@@ -87,12 +87,12 @@ afterAll(async () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 1. Full grant CREATES the newly-registered entities through the ledger
+// 1. Owner CREATES the newly-registered entities through the ledger
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("registry coverage — maintenance-item create via the audited path", () => {
   it("writes an approved CR AND lands the work order in the client's org", async () => {
-    const cr = await recordAndApplyManagerChange(fullGrantCtx, {
+    const cr = await recordAndApplyManagerChange(ownerCtx, {
       ownerOrgId: ORG,
       entityType: "maintenance-item",
       operation: "create",
@@ -113,7 +113,7 @@ describe("registry coverage — maintenance-item create via the audited path", (
 
 describe("registry coverage — safety-risk create via the audited path", () => {
   it("writes an approved CR AND lands the risk in the client's org", async () => {
-    const cr = await recordAndApplyManagerChange(fullGrantCtx, {
+    const cr = await recordAndApplyManagerChange(ownerCtx, {
       ownerOrgId: ORG,
       entityType: "safety-risk",
       operation: "create",
@@ -144,7 +144,7 @@ describe("registry coverage — safety-risk create via the audited path", () => 
 
 describe("registry coverage — Phase 3 co-owner create + delete via the audited path", () => {
   it("lands a co-owner, then a delete removes it and leaves the tombstone", async () => {
-    const cr = await recordAndApplyManagerChange(fullGrantCtx, {
+    const cr = await recordAndApplyManagerChange(ownerCtx, {
       ownerOrgId: ORG,
       entityType: "co-owner",
       operation: "create",
@@ -159,7 +159,7 @@ describe("registry coverage — Phase 3 co-owner create + delete via the audited
     expect(rows.length).toBe(1);
     coOwnerId = rows[0].id;
 
-    const del = await recordAndApplyManagerChange(fullGrantCtx, {
+    const del = await recordAndApplyManagerChange(ownerCtx, {
       ownerOrgId: ORG,
       entityType: "co-owner",
       entityId: coOwnerId,
@@ -175,7 +175,7 @@ describe("registry coverage — Phase 3 co-owner create + delete via the audited
 
 describe("registry coverage — Phase 3 emergency-contact create via the audited path", () => {
   it("lands an emergency contact in the client's org", async () => {
-    const cr = await recordAndApplyManagerChange(fullGrantCtx, {
+    const cr = await recordAndApplyManagerChange(ownerCtx, {
       ownerOrgId: ORG,
       entityType: "emergency-contact",
       operation: "create",
@@ -224,7 +224,7 @@ describe("registry coverage — viewer grant cannot apply", () => {
 
 describe("registry coverage — maintenance-item update via the audited path", () => {
   it("flips the work order status and records the CR", async () => {
-    const cr = await recordAndApplyManagerChange(fullGrantCtx, {
+    const cr = await recordAndApplyManagerChange(ownerCtx, {
       ownerOrgId: ORG,
       entityType: "maintenance-item",
       entityId: workOrderId,
@@ -248,7 +248,7 @@ describe("registry coverage — maintenance-item update via the audited path", (
 
 describe("registry coverage — safety-risk delete leaves a tombstone", () => {
   it("removes the risk but keeps the change_requests row", async () => {
-    const cr = await recordAndApplyManagerChange(fullGrantCtx, {
+    const cr = await recordAndApplyManagerChange(ownerCtx, {
       ownerOrgId: ORG,
       entityType: "safety-risk",
       entityId: riskId,

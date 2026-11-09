@@ -1,7 +1,7 @@
 import "server-only";
 import { getProperties } from "@/lib/data/properties";
 import { requireCtx } from "@/lib/auth/ctx";
-import { roleAtLeast, type Ctx } from "@/lib/services/_mapping";
+import type { Ctx } from "@/lib/services/_mapping";
 // Cut 3: read through the cross-request cache layer (unstable_cache) instead of
 // hitting the services directly. Same org-wide queries, now cached + tag-invalidated.
 import {
@@ -19,6 +19,7 @@ import {
   cachedListEstateAssignments,
   cachedListDocuments,
 } from "@/lib/data/cached-reads";
+import { getOrgOwnerEmail } from "@/lib/services/org-members";
 import { formatCurrency } from "@/lib/format";
 import {
   computeStats,
@@ -39,10 +40,12 @@ export type PortfolioPageData = {
   archivedCount: number;
   soldCount: number;
   showArchived: boolean;
-  // Whether the current user may hard-delete a property (admin/owner only). The server
+  // Whether the current user owns the organization. The server
   // enforces this independently in deletePropertyAction; this flag just lets the UI hide
   // the Delete menu item for lower roles so they never see a dead-end action.
   canDelete: boolean;
+  canMutate: boolean;
+  ownerEmail: string | null;
 };
 
 function toListItem(p: Property, ctx: ProgressContext): PropertyListItem {
@@ -138,6 +141,8 @@ export async function getPortfolioPageData(
     archivedCount,
     soldCount,
     showArchived,
-    canDelete: roleAtLeast(authCtx.orgRole, "admin"),
+    canDelete: authCtx.orgRole === "owner",
+    canMutate: authCtx.orgRole === "owner",
+    ownerEmail: authCtx.orgRole !== "owner" && properties.length === 0 ? await getOrgOwnerEmail(authCtx) : null,
   };
 }

@@ -53,7 +53,7 @@ export async function upsertPropertyRental(
   propertyId: string,
   body: RentalEditBody,
 ): Promise<RentalEditSnapshot | null> {
-  assertCanMutate(); // D9 — demo mode refuses all writes
+  assertCanMutate(ctx); // D9 — demo mode refuses all writes
   requireMember(ctx);
 
   return db.transaction(async (tx) => {

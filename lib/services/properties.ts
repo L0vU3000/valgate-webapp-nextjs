@@ -102,6 +102,7 @@ export async function getPropertyForOrg(orgId: string, id: string): Promise<Prop
 }
 
 export async function createProperty(ctx: Ctx, input: NewProperty): Promise<Property> {
+  assertCanMutate(ctx);
   requireMember(ctx);
   const id = await nextId("PROP", properties);
   const now = Date.now();
@@ -122,7 +123,7 @@ export async function createProperty(ctx: Ctx, input: NewProperty): Promise<Prop
 }
 
 export async function createPropertyForOrg(ctx: Ctx, targetOrgId: string, input: NewProperty): Promise<Property> {
-  assertCanMutate();
+  assertCanMutate(ctx);
   await assertOrgAdmin(ctx, targetOrgId);
   const id = await nextId("PROP", properties);
   const now = Date.now();
@@ -162,7 +163,7 @@ export async function updatePropertyForOrg(
   id: string,
   patch: PropertyPatch,
 ): Promise<Property | null> {
-  assertCanMutate();
+  assertCanMutate(ctx);
   await assertOrgAdmin(ctx, targetOrgId);
   const dbPatch = convertRowToDb(properties, { ...patch, updatedAt: Date.now() });
   const [row] = await db.update(properties)
@@ -203,6 +204,7 @@ export async function setCoverPhoto(
 // scopedDelete inside enforces org-scope (WHERE orgId = ctx.orgId) AND requires admin role,
 // so a viewer/member reaching this function is rejected at the service layer as well.
 export async function deleteProperty(ctx: Ctx, id: string): Promise<void> {
+  assertCanMutate(ctx);
   // Step 1: collect all S3 keys we will need to clean up after the DB delete.
   // We read the property row for its photoStorageIds, and list all document rows for their
   // storageId / thumbStorageId. All reads are org-scoped.
@@ -244,7 +246,7 @@ export async function bulkAssignProperties(
   targetOrgId: string,
   propertyIds: string[],
 ): Promise<{ assigned: number; conflicts: string[] }> {
-  assertCanMutate();
+  assertCanMutate(ctx);
   requireMember(ctx);
   const conflicts: string[] = [];
   const toAssign: string[] = [];

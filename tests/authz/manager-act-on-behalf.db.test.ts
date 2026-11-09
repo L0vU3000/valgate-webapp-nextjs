@@ -3,10 +3,10 @@
 // Proves the security contract of the hybrid write path:
 //   1. getMembershipRole floors an absent grant to null → the ctx can never be write-capable
 //      from a missing row (the action turns null into "viewer").
-//   2. recordAndApplyManagerChange REJECTS a viewer-grant ctx (requireAdmin) before any write.
-//   3. A full-grant (admin) ctx records an "approved" change_requests row stamped with the
+//   2. recordAndApplyManagerChange REJECTS a viewer-grant ctx (assertCanMutate) before any write.
+//   3. An owner ctx records an "approved" change_requests row stamped with the
 //      MANAGER as decidedByUserId AND actually applies it to the entity.
-//   4. A full-grant delete leaves a durable tombstone: the change_requests row survives after
+//   4. An owner delete leaves a durable tombstone: the change_requests row survives after
 //      the entity row is gone.
 //
 // Strategy mirrors org-scoping-idor.test.ts: throwaway property rows under ORG-0001, plus a
@@ -72,7 +72,7 @@ async function deleteCr(id: string): Promise<void> {
 
 const ORG = "ORG-0001";
 const MANAGER = "USR-0001";
-const fullGrantCtx: Ctx = { userId: MANAGER, orgId: ORG, orgRole: "admin" };
+const ownerCtx: Ctx = { userId: MANAGER, orgId: ORG, orgRole: "owner" };
 const viewerGrantCtx: Ctx = { userId: MANAGER, orgId: ORG, orgRole: "viewer" };
 
 // Track CR ids to clean up so we never leave test rows behind.
@@ -122,18 +122,18 @@ describe("recordAndApplyManagerChange — viewer grant cannot act", () => {
   });
 
   it("did NOT change the property (the write never happened)", async () => {
-    const prop = await getProperty(fullGrantCtx, updatePropId);
+    const prop = await getProperty(ownerCtx, updatePropId);
     expect(prop?.name).not.toBe("should-never-apply");
   });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 3. Full grant records an approved row AND applies it
+// 3. Owner records an approved row AND applies it
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe("recordAndApplyManagerChange — full grant applies instantly", () => {
+describe("recordAndApplyManagerChange — owner applies instantly", () => {
   it("writes an approved change_requests row stamped with the manager, and applies the change", async () => {
-    const cr = await recordAndApplyManagerChange(fullGrantCtx, {
+    const cr = await recordAndApplyManagerChange(ownerCtx, {
       ownerOrgId: ORG,
       entityType: "property",
       entityId: updatePropId,
@@ -152,7 +152,7 @@ describe("recordAndApplyManagerChange — full grant applies instantly", () => {
     expect(row?.decided_by_user_id).toBe(MANAGER);
 
     // And the entity was actually mutated in the same call.
-    const prop = await getProperty(fullGrantCtx, updatePropId);
+    const prop = await getProperty(ownerCtx, updatePropId);
     expect(prop?.name).toBe("acted-by-manager");
   });
 });
@@ -163,7 +163,7 @@ describe("recordAndApplyManagerChange — full grant applies instantly", () => {
 
 describe("recordAndApplyManagerChange — delete leaves a tombstone", () => {
   it("removes the entity but keeps the change_requests row recording who deleted what", async () => {
-    const cr = await recordAndApplyManagerChange(fullGrantCtx, {
+    const cr = await recordAndApplyManagerChange(ownerCtx, {
       ownerOrgId: ORG,
       entityType: "property",
       entityId: deletePropId,
