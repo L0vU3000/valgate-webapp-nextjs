@@ -5,7 +5,7 @@ import { successorPropertyAssignments } from "@/lib/db/schema";
 import { EstateAssignmentSchema, type EstateAssignment } from "@/lib/data/types/successor-property-assignment";
 import type { NewEstateAssignment } from "@/lib/data/types/successor-property-assignment";
 import { getSuccessor } from "@/lib/services/successors";
-import { toDomain, type Ctx } from "@/lib/services/_mapping";
+import { assertCanMutate, toDomain, type Ctx } from "@/lib/services/_mapping";
 import { scopedInsert, scopedDelete, requireMember } from "@/lib/services/_crud";
 
 const rowToEstateAssignment = (r: typeof successorPropertyAssignments.$inferSelect): EstateAssignment =>
@@ -41,6 +41,7 @@ export async function assignSuccessorToProperty(
   successorId: string,
   propertyId: string,
 ): Promise<EstateAssignment> {
+  assertCanMutate(ctx);
   requireMember(ctx);
   const successor = await getSuccessor(ctx, successorId);
   if (!successor) throw new Error("Beneficiary not found");

@@ -2,12 +2,11 @@
 //
 // No real DB connection is needed here:
 //   - For rejection cases (viewer/member), the role check throws BEFORE any DB call.
-//   - For admin/owner success cases on scopedDelete, the DB is fully mocked.
+//   - For owner success cases on scopedDelete, the DB is fully mocked.
 // No Clerk, no login. Ctx is constructed by hand.
 //
 // RANK = { viewer: 0, member: 1, admin: 2, owner: 3 }   (lib/services/_crud.ts)
-// scopedInsert / scopedUpdate require ≥ member (rank 1).
-// scopedDelete requires ≥ admin (rank 2).
+// Ordinary writes require owner; rank helpers remain for dormant role-aware reads.
 
 import { describe, it, expect, vi } from "vitest";
 
@@ -25,7 +24,7 @@ vi.mock("@/lib/env", () => ({
 }));
 
 // Mock the Drizzle DB client entirely.
-// Rejection tests never reach the DB, so the mock exists only for admin/owner
+// Rejection tests never reach the DB, so the mock exists only for owner
 // success cases on scopedDelete (which calls db.delete(table).where(condition)).
 // Drizzle's query builder is chainable; this mirrors the chain that scopedDelete uses.
 vi.mock("@/lib/db/client", () => ({
@@ -130,7 +129,7 @@ describe("requireAdmin — rank ≥ 2 required", () => {
 // ─────────────────────────────────────────────────────────────────────────────
 // assertCanMutate() runs first (env mocked — DEMO_MODE=false → passes).
 // requireAdmin(ctx) runs second — viewer/member throw here, before the DB.
-// admin/owner pass requireAdmin and reach db.delete (which is mocked to resolve).
+// Only owners pass assertCanMutate(ctx) and reach the DB.
 
 describe("scopedDelete — role boundary via full function call", () => {
   it("rejects viewer — requireAdmin fires before the DB mock is ever called", async () => {
@@ -148,13 +147,11 @@ describe("scopedDelete — role boundary via full function call", () => {
     ).rejects.toThrow("forbidden");
   });
 
-  it("succeeds for admin — role gate opens, mocked DB delete resolves", async () => {
-    // Boundary: admin (rank 2) >= admin threshold.
-    // The mocked db.delete().where() resolves — scopedDelete returns void.
-    // Proves the gate opens; actual row deletion is confirmed in org-scoping-idor.db.test.ts.
+  it("rejects admin — only owners may mutate a shared organization", async () => {
+    // The owner-only mutation guard runs before the dormant rank helper.
     await expect(
       scopedDelete(adminCtx, properties, "PROP-FAKE-ADMIN")
-    ).resolves.toBeUndefined();
+    ).rejects.toThrow("forbidden");
   });
 
   it("succeeds for owner — role gate opens, mocked DB delete resolves", async () => {

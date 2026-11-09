@@ -18,6 +18,7 @@ const PropertyFilters = dynamic(
 );
 import type { TableAnimationConfig, SortKey } from "@/components/portfolio/PropertyTable";
 import { AppHeader } from "@/components/layout/AppHeader";
+import { SharedPortfolioEmptyState } from "./SharedPortfolioEmptyState";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { CAMBODIA_PROVINCES } from "@/lib/constants/cambodia-provinces";
 
@@ -37,15 +38,15 @@ const provinces = ["All", ...CAMBODIA_PROVINCES];
 
 export function PortfolioPage({
   data,
-  // readOnly hides controls that escape the "View as client" preview into the
-  // manager's own org (e.g. "Add Property" → /add-property). Defaults false so
-  // the real owner route is unchanged.
-  readOnly = false,
+  // Previews and non-owner organization members share the read-only controls.
+  readOnly: previewReadOnly = false,
 }: {
   data: PortfolioPageData;
   readOnly?: boolean;
 }) {
   const { properties: activeProperties, archivedProperties, stats, kpis, archivedCount, soldCount, showArchived, canDelete } = data;
+
+  const readOnly = previewReadOnly || !data.canMutate;
 
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("Property Type");
@@ -218,7 +219,7 @@ export function PortfolioPage({
               do. The KPIs and page header stay: the empty frame keeps both.
               The filters stay hidden until there is something to filter. */}
           {source.length === 0 ? (
-            <EmptyState
+            readOnly && !archivedFilter ? <SharedPortfolioEmptyState ownerEmail={data.ownerEmail} /> : <EmptyState
               className="py-16"
               icon={<Building2 className="size-5" />}
               title="No properties yet"
@@ -273,6 +274,7 @@ export function PortfolioPage({
                 sortDir={sortDir}
                 onSort={handleSort}
                 hideAddPropertyCta={readOnly}
+                readOnly={readOnly}
               />
             </>
           )}

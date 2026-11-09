@@ -5,7 +5,7 @@ import { db } from "@/lib/db/client";
 import { userProfiles } from "@/lib/db/schema";
 import { UserProfileSchema, type UserProfile } from "@/lib/data/types/user-profile";
 import type { UserProfilePatch } from "@/lib/data/types/user-profile";
-import { toDomain, nextId, type Ctx } from "@/lib/services/_mapping";
+import { assertCanMutate, toDomain, nextId, type Ctx } from "@/lib/services/_mapping";
 import { convertRowToDb } from "@/lib/db/column-classifier";
 import { scopedUpdate, requireMember } from "@/lib/services/_crud";
 
@@ -36,6 +36,7 @@ export async function getMyUserProfile(ctx: Ctx): Promise<UserProfile | null> {
 }
 
 export async function upsertUserProfile(ctx: Ctx, patch: UserProfilePatch): Promise<UserProfile> {
+  assertCanMutate(ctx);
   requireMember(ctx);
   const [existingRow] = await db.select().from(userProfiles)
     .where(and(eq(userProfiles.orgId, ctx.orgId), eq(userProfiles.userId, ctx.userId)));

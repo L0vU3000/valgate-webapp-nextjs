@@ -129,7 +129,7 @@ export async function updatePropertyDraft(
   patch: { title?: string; step?: number; form?: Record<string, unknown> },
   targetOrgId?: string,
 ): Promise<PropertyDraft | null> {
-  assertCanMutate();     // D9 — demo mode is read-only
+  assertCanMutate(ctx);     // D9 — demo mode is read-only
   requireMember(ctx);    // role gate
   const dbPatch = convertRowToDb(propertyDrafts, patch);
   // Stamp updated_at with the DB clock (now()), the SAME source create uses (column defaultNow()).
@@ -157,7 +157,7 @@ export async function updatePropertyDraft(
 // the 30-day cleanup job could get stuck on one bad object. Worst case: an orphaned S3 object,
 // which the cleanup pass will retry. The DB rows are always removed.
 export async function deletePropertyDraft(ctx: Ctx, id: string): Promise<void> {
-  assertCanMutate();
+  assertCanMutate(ctx);
   requireMember(ctx);
   // Look up the child files (scoped to this user's draft) so we have their S3 keys.
   const files = await listDraftFiles(ctx, id);
@@ -223,7 +223,7 @@ export async function getDraftFile(ctx: Ctx, fileId: string): Promise<PropertyDr
 // deletePropertyDraft) then deletes the row. Returns false if no row matched the caller's
 // (org_id, user_id, id) filter — nothing was theirs to remove (IDOR guard).
 export async function removeDraftFile(ctx: Ctx, fileId: string): Promise<boolean> {
-  assertCanMutate();
+  assertCanMutate(ctx);
   requireMember(ctx);
   const file = await getDraftFile(ctx, fileId);
   if (!file) return false;
@@ -245,7 +245,7 @@ export async function removeDraftFile(ctx: Ctx, fileId: string): Promise<boolean
 // handed to the new documents rows, so deleting them would orphan the property's files. Kept
 // strictly separate from deletePropertyDraft (the discard path), which DOES delete the S3 objects.
 export async function deleteDraftRowsOnly(ctx: Ctx, draftId: string): Promise<void> {
-  assertCanMutate();
+  assertCanMutate(ctx);
   requireMember(ctx);
   await db.delete(propertyDrafts).where(and(
     eq(propertyDrafts.orgId, ctx.orgId),
@@ -270,7 +270,7 @@ export async function convertDraftToDocuments(
   draftId: string,
   propertyId: string,
 ): Promise<number> {
-  assertCanMutate();
+  assertCanMutate(ctx);
   requireMember(ctx);
 
   const files = await listDraftFiles(ctx, draftId);
@@ -317,7 +317,7 @@ export async function convertDraftToDocumentsForOrg(
   propertyId: string,
   targetOrgId: string,
 ): Promise<number> {
-  assertCanMutate();
+  assertCanMutate(ctx);
   requireMember(ctx);
 
   const files = await listDraftFiles(ctx, draftId);

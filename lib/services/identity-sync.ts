@@ -1,5 +1,5 @@
 import "server-only";
-import { eq, and, or, isNull, lt } from "drizzle-orm";
+import { eq, and, or, isNull, lt, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { organizations, users, organizationMemberships } from "@/lib/db/schema";
 import { nextId } from "@/lib/services/_mapping";
@@ -11,7 +11,7 @@ import type { Ctx } from "@/lib/services/_mapping";
 export function normaliseRole(r: string | null | undefined): Ctx["orgRole"] {
   if (r === "org:admin") return "owner";
   if (r === "org:member") return "member";
-  if (r === "admin") return "admin";
+  if (r === "admin" || r === "org:valgate_admin") return "admin";
   if (r === "viewer") return "viewer";
   // Clerk custom roles conventionally use the "org:" prefix (e.g. "org:viewer").
   // Handle both naming styles so the dashboard role key and the app role name
@@ -125,10 +125,11 @@ export async function upsertMembership(data: {
   const orgId = await ourOrgId(data.clerkOrgId);
   const userId = await ourUserId(data.clerkUserId);
   await db.insert(organizationMemberships)
-    .values({ id: await nextId("MEM", organizationMemberships), orgId, userId, role: normaliseRole(data.role), status: "active" })
+    .values({ id: await nextId("MEM", organizationMemberships), orgId, userId, role: normaliseRole(data.role), status: "active", joinedAt: new Date() })
     .onConflictDoUpdate({
       target: [organizationMemberships.orgId, organizationMemberships.userId],
-      set: { role: normaliseRole(data.role), status: "active", updatedAt: new Date() },
+      set: { role: normaliseRole(data.role), status: "active", removedAt: null,
+        joinedAt: sql`coalesce(${organizationMemberships.joinedAt}, now())`, updatedAt: new Date() },
     });
 }
 
