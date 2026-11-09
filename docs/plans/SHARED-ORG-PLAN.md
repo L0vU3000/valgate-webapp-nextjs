@@ -43,6 +43,10 @@ paths stay dormant), client_handoffs Phase 6 rework beyond what viewer needs.
 ## Rounds
 - R-A (codex maker): Sharing UI + service glue + enforcement. Visual proof both
   sides (owner settings; member's read-only shell).
+  Substrate (verified 2026-11-09): the Nov-6 org-management round in the
+  `feat-org-management` worktree — back end already gated 934/934; Settings WIP
+  (OrganizationSection.tsx, org-members.ts + tests, 9 files) IS the Sharing UI.
+  R-A = finish that substrate: viewer-preset + read-only enforcement. No rebuild.
 - R-B (two rounds, contract first): api/v1 membership ctx in web; iOS
   consumer round: existing family-account test user sees shared portfolio.
 - R-C: map entries + maintain drive; AGENT-OPS ledger lines.
