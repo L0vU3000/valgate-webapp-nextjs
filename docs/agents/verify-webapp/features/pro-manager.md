@@ -1,25 +1,20 @@
-# Pro manager (clients / portfolios)
+# Shared organisation (family members view one portfolio)
 
-Manager (Pro) surfaces under `/pro/*`: client book (invite, archive,
-reactivate), owner-grouped property bands, cockpit dashboard, manager-led
-onboarding, view-as-client. Product map of these journeys:
-`vault/resources/user-journeys.md` (Manager section).
+Product decision 2026-11-09: the Manager (Pro) cockpit is disabled. The wanted
+feature is **multi-user sharing of one organisation** — family members VIEW the
+same portfolio (read-only). Plan: `docs/plans/SHARED-ORG-PLAN.md` (rides the
+Phase-6 viewer role + Clerk org membership; no cockpit).
 
 ## Sub-features
-- PM-1: onboard a client → appears in active book (pro-clients.spec K1).
-- PM-2: archive client → leaves active book, DB activity row (K2).
-- PM-3: reactivate client → back in active book (K3).
-- PM-4: `/pro/properties`, `/pro/clients/[id]`, view-as-client — map from
-  user-journeys.md; specs pending (see Gotchas).
+- SO-1: Owner invites a member by email (role preset viewer) in Settings → Sharing.
+- SO-2: Member signs in and sees the same portfolio, read-only.
+- SO-3: Mutations outside `change_requests` are denied server-side for non-owners.
+- SO-4: Owner approves/denies a member's proposed change.
 
-## How to get to it (user POV)
-Pro shell → Clients (`/pro/clients`), Properties (`/pro/properties`),
-Dashboard.
-
-## Driving it with Playwright
-`npx playwright test e2e/pro-clients.spec.ts`
+Status: NOT BUILT YET — spec specs pending. When round R-A lands this file
+becomes the driving recipe (each sub-feature maps to a new Playwright spec).
 
 ## Gotchas
-Creates E2E-named clients in the dev DB; teardown removes them. The wider Pro
-surfaces (properties bands, view-as-client) have no dedicated spec yet — if a
-round extends this feature, add the spec first, the map entry second.
+`/pro/*` routes are absent from the shell; do not map journeys there. The
+api/v1 contract must gain membership-aware ctx (two-round rule: web first,
+then the iOS consumer) before an iOS family member can view a shared portfolio.

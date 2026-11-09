@@ -45,7 +45,7 @@ changes make the map lie.
 - [Property detail](./property-detail.md) — tabs, valuation, documents listing.
 - [Documents vault](./documents.md) — scan/intake to stored documents.
 - [Dashboard](./dashboard.md) — portfolio stats from live seed data.
-- [Pro manager surfaces](./pro-manager.md) — client book (onboard/archive/reactivate) + /pro/*.
+- [Shared organisation](./pro-manager.md) — family members share one portfolio (viewer); replaces disabled Pro cockpit (plan: docs/plans/SHARED-ORG-PLAN.md).
 
 ## Source of truth for surfaces
 `vault/resources/user-journeys.md` is the product-side journey map (Owner /
