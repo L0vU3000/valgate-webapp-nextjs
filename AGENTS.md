@@ -263,5 +263,8 @@ Not configured (Linear statuses used instead; skip Section B of setup-matt-pococ
 ### Domain docs
 Single-context: root `CONTEXT.md` (placeholder until written); decisions live in `vault/decisions/`. See `docs/agents/domain.md`.
 
+### Verification
+Drive the app and prove behavior with `docs/agents/verify-webapp/SKILL.md` + its `features/` map (Playwright DEMO suite, port 3001).
+
 ### Workflow switching
 `~/.workflows/bin/workflow-switch <repo> <stack...>` — pointer + symlink swap; coordination is Hermes-side. See `~/.workflows/collisions.md`.
