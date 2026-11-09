@@ -155,6 +155,9 @@ Valgate is split across separate repositories — not a monorepo.
 
 API shape changes land in this repo first; iOS `docs/API-CONTRACT.md` only mirrors them.
 
+- **API-contract-changing rounds must list iOS consumers.** Any round touching `app/api/v1/**` or a shared DTO module must name the affected iOS consumers and whether iOS ships before, with, or after the contract lands -- web can ship a contract change in minutes, iOS waits on its build cycle, so an unlisted consumer is a broken app.
+- **A deploy push is a database change.** Vercel builds auto-run `db:migrate`, so pushing to staging/prod is approval to mutate a live database -- treat deploy pushes like the iOS push gate: explicit owner approval, staging first.
+
 ## Commands
 
 Node **20** (matches CI). Package manager: **npm** + `package-lock.json`.
@@ -246,3 +249,19 @@ all four sibling repos into one workspace under `/agent/repos/`: `valgate-webapp
 This repo uses `conductor-logs/` to track work done by Conductor on the Mac. At the end of every
 Conductor session, create a log entry from `conductor-logs/template.md`, commit it, and push it so
 Hermes can read it on the VPS. See `CONDUCTOR.md` for the full rule.
+
+## Agent skills
+
+Workflow profile: layers `[mp]` (Matt Pocock engineering skills), base `valgate-contract`. Every agent reads `WORKFLOW.md` at session start.
+
+### Issue tracker
+Issues live in Linear (project "Valgate Webapp", VAL-* IDs); coordinator owns Linear access. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+Not configured (Linear statuses used instead; skip Section B of setup-matt-pocock-skills).
+
+### Domain docs
+Single-context: root `CONTEXT.md` (placeholder until written); decisions live in `vault/decisions/`. See `docs/agents/domain.md`.
+
+### Workflow switching
+`~/.workflows/bin/workflow-switch <repo> <stack...>` — pointer + symlink swap; coordination is Hermes-side. See `~/.workflows/collisions.md`.
