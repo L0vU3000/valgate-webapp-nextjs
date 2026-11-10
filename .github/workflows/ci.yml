@@ -2,8 +2,18 @@ name: CI
 
 on:
   push:
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - 'vault/**'
+      - 'conductor-logs/**'
     branches-ignore: [main]
   pull_request:
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - 'vault/**'
+      - 'conductor-logs/**'
     branches: [main, staging]
 
 # A new push to the same branch cancels the older run. Matters more than
