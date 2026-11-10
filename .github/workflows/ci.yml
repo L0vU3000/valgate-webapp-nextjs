@@ -43,6 +43,7 @@ jobs:
   web:
     name: Web (typecheck, lint, unit, preview)
     runs-on: ubuntu-latest
+    timeout-minutes: 14
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -55,6 +56,45 @@ jobs:
       # Pure helper tests for the preview-smoke suite (e2e/preview/lib/*.test.ts).
       # No database, no Playwright, no preview URL — just vitest.
       - run: npm run test:preview
+
+  # T3 runs alongside T1 on every PR, with demo auth and a disposable DB.
+  smoke:
+    name: Web smoke (@smoke, demo)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: app_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/app_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        # Both Playwright jobs use Node 24 (vault/resources/runbook.md).
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Migrate and seed disposable database
+        run: npm run db:migrate && npm run seed:neon
+      - name: Run demo smoke (dev:e2e starts on port 3001)
+        run: npm run test:e2e:smoke -- --reporter=line --retries=0 --timeout=60000 --global-timeout=420000 --trace=retain-on-failure
+      - uses: actions/upload-artifact@v4
+        if: failure() || cancelled()
+        with:
+          name: playwright-smoke-results
+          path: test-results/
+          retention-days: 7
 
   # ---------------------------------------------------------------
   # API contract: docs/api-spec/valgate-api-v1.yaml is the single source
@@ -154,6 +194,8 @@ jobs:
 
   e2e:
     name: E2E + visual regression
+    # T4 stays after integration into staging; PRs use the blocking smoke job.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/staging'
     runs-on: ubuntu-latest
     needs: web
     # TEMPORARY (TM1-62): this job has never actually run — it was always skipped
@@ -191,7 +233,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: npm }
+        # Match the smoke job's Playwright runtime.
+        with: { node-version: 24, cache: npm }
 
       - run: npm ci
 

@@ -19,6 +19,7 @@
     "test:db": "vitest run --config vitest.config.db.ts",
     "test:preview": "vitest run --config vitest.config.preview.ts",
     "test:e2e": "playwright test",
+    "test:e2e:smoke": "E2E_SMOKE=1 DEMO_MODE=true PLAYWRIGHT_AUTH= CLERK_SECRET_KEY= NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY= playwright test --grep @smoke",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:auth": "PLAYWRIGHT_AUTH=1 playwright test --project auth-setup --project auth",
     "dev:e2e-auth": "node scripts/dev-e2e-auth.mjs",
