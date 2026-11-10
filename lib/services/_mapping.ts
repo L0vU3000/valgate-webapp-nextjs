@@ -14,7 +14,19 @@ export const roleAtLeast = (r: Ctx["orgRole"], min: keyof typeof RANK): boolean 
 // D9: writes refuse in DEMO_MODE so a hosted/shared demo stays read-only. The local-dev escape
 // hatch (DEMO_ALLOW_WRITES=true) re-enables writes against your own dev DB. Lives here (not ctx.ts)
 // so the service layer never pulls Clerk's server SDK into its dependency graph (C2).
-export function assertCanMutate(): void {
+export class MutationDeniedError extends Error {
+  readonly code = "READ_ONLY";
+
+  constructor() {
+    super("forbidden: Only organization owners can make changes. Ask the owner to update the portfolio.");
+    this.name = "MutationDeniedError";
+  }
+}
+
+// User-initiated service writes must pass ctx. Omit it only for trusted system
+// work, transport demo checks, and pending change requests (which verify a grant).
+export function assertCanMutate(ctx?: Ctx): void {
+  if (ctx && ctx.orgRole !== "owner") throw new MutationDeniedError();
   if (env.DEMO_MODE && !env.DEMO_ALLOW_WRITES) throw new Error("Demo is read-only");
 }
 

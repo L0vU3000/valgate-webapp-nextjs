@@ -18,6 +18,10 @@ import {
 } from "@/lib/services/managers";
 import { logger } from "@/lib/logger";
 
+import { inviteOrgMember, removeMember, orgMembershipIdSchema } from "@/lib/services/org-members";
+import { actionLimiter, allowed } from "@/lib/ratelimit";
+import type { Ctx } from "@/lib/services/_mapping";
+
 const VALID_NOTIF_KEYS = ["valuationUpdates", "teamComments", "marketInsights"] as const;
 
 export async function saveNotificationPreference(
@@ -27,23 +31,39 @@ export async function saveNotificationPreference(
   if (!VALID_NOTIF_KEYS.includes(eventType as typeof VALID_NOTIF_KEYS[number])) {
     return { ok: false, error: "Invalid event type" };
   }
-  const ctx = await requireCtx();
-  const all = await listNotificationPreferences(ctx);
-  const existing = all.find(p => p.eventType === eventType);
-  if (existing) {
-    await updateNotificationPreference(ctx, existing.id, { ...channels });
-  } else {
-    await createNotificationPreference(ctx, { eventType: eventType as NotificationEventType, ...channels });
+  try {
+    const ctx = await requireCtx();
+    if (ctx.orgRole !== "owner") return { ok: false, error: "Only organization owners can make changes." };
+    const parsed = z.object({ email: z.boolean(), slack: z.boolean(), sms: z.boolean() }).safeParse(channels);
+    if (!parsed.success) return { ok: false, error: "Invalid channels." };
+    const all = await listNotificationPreferences(ctx);
+    const existing = all.find(p => p.eventType === eventType);
+    if (existing) {
+      await updateNotificationPreference(ctx, existing.id, parsed.data);
+    } else {
+      await createNotificationPreference(ctx, { eventType: eventType as NotificationEventType, ...parsed.data });
+    }
+    return { ok: true };
+  } catch (err) {
+    logger.error("saveNotificationPreference failed", { error: String(err) });
+    return { ok: false, error: "Could not save notification preferences." };
   }
-  return { ok: true };
 }
 
 export async function saveUserPreferences(
   patch: { dashboardView?: string; language?: string; timezone?: string }
 ) {
-  const ctx = await requireCtx();
-  await upsertUserProfile(ctx, patch);
-  return { ok: true };
+  const parsed = z.object({ dashboardView: z.string().max(64).optional(), language: z.string().max(32).optional(), timezone: z.string().max(64).optional() }).safeParse(patch);
+  if (!parsed.success) return { ok: false, error: "Invalid preferences." };
+  try {
+    const ctx = await requireCtx();
+    if (ctx.orgRole !== "owner") return { ok: false, error: "Only organization owners can make changes." };
+    await upsertUserProfile(ctx, parsed.data);
+    return { ok: true };
+  } catch (err) {
+    logger.error("saveUserPreferences failed", { error: String(err) });
+    return { ok: false, error: "Could not save preferences." };
+  }
 }
 
 // ─── Manager actions (owner-side) ────────────────────────────────────────────
@@ -112,4 +132,34 @@ export async function denyRequestAction(requestId: string): Promise<{ ok: boolea
     logger.error("denyRequestAction failed", { requestId, error: String(err) });
     return { ok: false, error: "Could not deny request." };
   }
+}
+
+// Organization membership actions. Services re-check the active owner mirror.
+
+async function orgMemberAction(operation: (ctx: Ctx) => Promise<void>): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const ctx = await requireCtx();
+    if (ctx.orgRole !== "owner") return { ok: false, error: "Only organization owners can manage members." };
+    if (!await allowed(actionLimiter, ctx.userId, "settings.orgMembers")) {
+      return { ok: false, error: "Too many requests. Try again shortly." };
+    }
+    await operation(ctx);
+    revalidatePath("/settings");
+    return { ok: true };
+  } catch (err) {
+    logger.error("Organization member action failed", { error: String(err) });
+    return { ok: false, error: "Could not update organization members." };
+  }
+}
+
+export async function inviteOrgMemberAction(email: string): Promise<{ ok: boolean; error?: string }> {
+  const parsed = z.string().trim().email().max(254).safeParse(email);
+  if (!parsed.success) return { ok: false, error: "Invalid email." };
+  return orgMemberAction(ctx => inviteOrgMember(ctx, parsed.data, "viewer"));
+}
+
+export async function removeMemberAction(membershipId: string): Promise<{ ok: boolean; error?: string }> {
+  const parsed = orgMembershipIdSchema.safeParse(membershipId);
+  if (!parsed.success) return { ok: false, error: "Invalid membership." };
+  return orgMemberAction(ctx => removeMember(ctx, parsed.data));
 }

@@ -101,6 +101,7 @@ interface PropertyTableProps {
   // Whether the current user may hard-delete (admin/owner). When false, the Delete row-action
   // is hidden. The server enforces the same rule independently — this is UI affordance only.
   canDelete?: boolean;
+  readOnly?: boolean;
   // Re-fetch the page's server data after a mutation (archive/restore/delete) so the table
   // reflects the new state without a full reload. Wired to router.refresh() by the parent.
   refresh?: () => void;
@@ -127,6 +128,7 @@ export function PropertyTable({
   showArchived = false,
   showProgressExplainer = true,
   canDelete = false,
+  readOnly = false,
   refresh,
   sortKey,
   sortDir,
@@ -487,7 +489,8 @@ export function PropertyTable({
                       <RowActionsMenu
                         property={p}
                         isArchived={rowIsArchived}
-                        canDelete={canDelete}
+                        canDelete={canDelete && !readOnly}
+                        readOnly={readOnly}
                         navigate={navigate}
                         refresh={refresh}
                       />
@@ -519,12 +522,14 @@ function RowActionsMenu({
   property,
   isArchived,
   canDelete,
+  readOnly,
   navigate,
   refresh,
 }: {
   property: PropertyListItem;
   isArchived: boolean;
   canDelete: boolean;
+  readOnly: boolean;
   navigate: (path: string) => void;
   refresh?: () => void;
 }) {
@@ -619,23 +624,27 @@ function RowActionsMenu({
             <Eye className="w-4 h-4" />
             View
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => navigate(`/property/${property.id}/edit`)}>
-            <Pencil className="w-4 h-4" />
-            Edit
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => setArchiveOpen(true)}>
-            {isArchived ? (
-              <>
-                <ArchiveRestore className="w-4 h-4" />
-                Restore
-              </>
-            ) : (
-              <>
-                <Archive className="w-4 h-4" />
-                Archive
-              </>
-            )}
-          </DropdownMenuItem>
+          {!readOnly && (
+            <>
+              <DropdownMenuItem onSelect={() => navigate(`/property/${property.id}/edit`)}>
+                <Pencil className="w-4 h-4" />
+                Edit
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setArchiveOpen(true)}>
+                {isArchived ? (
+                  <>
+                    <ArchiveRestore className="w-4 h-4" />
+                    Restore
+                  </>
+                ) : (
+                  <>
+                    <Archive className="w-4 h-4" />
+                    Archive
+                  </>
+                )}
+              </DropdownMenuItem>
+            </>
+          )}
           {canDelete && (
             <>
               <DropdownMenuSeparator />

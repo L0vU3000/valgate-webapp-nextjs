@@ -12,6 +12,9 @@ import {
   type GrantedManager,
 } from "@/lib/services/managers";
 
+import { getOrgMembersData, type OrgMembersData } from "@/lib/services/org-members";
+export type { OrgMember, OrgMemberRole, OrgMembersData } from "@/lib/services/org-members";
+
 export type { PendingRequest, GrantedManager };
 
 export type NotificationRow = {
@@ -44,6 +47,7 @@ export type SettingsPageData = {
   };
   // Only present for org owners/admins. Null for viewers/members.
   managersData: ManagersData | null;
+  orgMembersData: OrgMembersData | null;
 };
 
 const NOTIFICATION_ROWS: NotificationRow[] = [
@@ -91,6 +95,7 @@ export async function getSettingsPageData(): Promise<SettingsPageData> {
     notificationRows: NOTIFICATION_ROWS,
     defaultNotifications,
     managersData,
+    orgMembersData: authCtx.orgRole === "owner" ? await getOrgMembersData(authCtx) : null,
     dashboardViewOptions: [
       { value: "portfolio-overview", label: "Portfolio Overview" },
       { value: "analytics", label: "Analytics" },

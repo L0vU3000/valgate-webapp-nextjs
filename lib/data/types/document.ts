@@ -55,5 +55,7 @@ export type DocumentCategory = NonNullable<Document["category"]>;
 
 export const NewDocumentSchema = DocumentSchema.omit({ id: true });
 export type NewDocument = z.infer<typeof NewDocumentSchema>;
-export const DocumentPatchSchema = NewDocumentSchema.partial();
+export const DocumentPatchSchema = NewDocumentSchema.partial().extend({
+  folderId: z.string().nullable().optional(),
+});
 export type DocumentPatch = z.infer<typeof DocumentPatchSchema>;

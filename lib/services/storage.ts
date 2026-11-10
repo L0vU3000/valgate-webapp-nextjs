@@ -3,7 +3,7 @@ import { S3Client, GetObjectCommand, DeleteObjectCommand, PutObjectCommand } fro
 import { createPresignedPost } from "@aws-sdk/s3-presigned-post";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { env } from "@/lib/env";
-import { nextId, type Ctx } from "@/lib/services/_mapping";
+import { assertCanMutate, nextId, type Ctx } from "@/lib/services/_mapping";
 import { MAX_BYTES, ALLOWED_MIME, KMZ_MIME, KMZ_MAX_BYTES } from "@/lib/upload-constants";
 
 export { MAX_BYTES, ALLOWED_MIME };
@@ -27,6 +27,7 @@ export async function presignUpload(
   ctx: Ctx,
   { name, mimeType, sizeBytes }: { name: string; mimeType: string; sizeBytes: number },
 ): Promise<{ url: string; fields: Record<string, string>; storageId: string }> {
+  assertCanMutate(ctx);
   if (!ALLOWED_MIME.has(mimeType)) throw new Error(`MIME type not allowed: ${mimeType}`);
   if (sizeBytes > MAX_BYTES) throw new Error(`File too large: max ${MAX_BYTES} bytes`);
   const { client, bucket } = getS3();
@@ -53,6 +54,7 @@ export async function putKmz(
   buffer: Buffer,
   fileName: string,
 ): Promise<{ storageId: string }> {
+  assertCanMutate(ctx);
   if (buffer.length > KMZ_MAX_BYTES) throw new Error("KMZ is too large to store");
   const { client, bucket } = getS3();
   const storageId = `${ctx.orgId}/BOUNDARY/${await nextId("DOC")}/${fileName}`;
@@ -72,6 +74,7 @@ export async function putDocumentBytes(
   fileName: string,
   mimeType: string,
 ): Promise<{ storageId: string }> {
+  assertCanMutate(ctx);
   if (!ALLOWED_MIME.has(mimeType)) throw new Error(`MIME type not allowed: ${mimeType}`);
   if (buffer.length > MAX_BYTES) throw new Error(`File too large: max ${MAX_BYTES} bytes`);
   const { client, bucket } = getS3();

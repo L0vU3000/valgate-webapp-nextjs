@@ -19,7 +19,13 @@ const SaveProfileInfoSchema = z.object({
 export async function saveProfileInfo(patch: unknown) {
   const result = SaveProfileInfoSchema.safeParse(patch);
   if (!result.success) return { ok: false, error: "Invalid input" };
-  const ctx = await requireCtx();
-  await upsertUserProfile(ctx, result.data);
-  return { ok: true };
+  try {
+    const ctx = await requireCtx();
+    if (ctx.orgRole !== "owner") return { ok: false, error: "Only organization owners can make changes." };
+    await upsertUserProfile(ctx, result.data);
+    return { ok: true };
+  } catch (err) {
+    console.error("saveProfileInfo", err);
+    return { ok: false, error: "Could not save profile." };
+  }
 }

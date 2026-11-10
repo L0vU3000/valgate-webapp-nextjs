@@ -16,6 +16,7 @@ import {
   setDocumentSuggestions as svcSetDocumentSuggestions,
 } from "@/lib/services/documents";
 import { decideSuggestion } from "@/lib/services/property-suggestions";
+import { getFolder as svcGetFolder } from "@/lib/services/folders";
 import { presignUpload, resolveDocumentUrl } from "@/lib/services/storage";
 import { logActivity } from "@/lib/services/activity";
 import { bustCache } from "@/lib/cache/bust";
@@ -42,6 +43,15 @@ export async function updateDocument(id: string, patch: unknown): Promise<Action
   const ctx = await requireCtx();
   if (!(await allowed(actionLimiter, ctx.userId, "updateDocument"))) return TOO_MANY_REQUESTS;
   try {
+    if (typeof parsed.data.folderId === "string") {
+      const document = await svcGetDocument(ctx, id);
+      if (!document) return { ok: false, error: "Document not found" };
+      // Both reads are org-scoped; moves must also stay within the document's property.
+      const folder = await svcGetFolder(ctx, parsed.data.folderId);
+      if (!folder || folder.propertyId !== document.propertyId) {
+        return { ok: false, error: "Invalid document folder" };
+      }
+    }
     const result = await svcUpdateDocument(ctx, id, parsed.data);
     if (!result) return { ok: false, error: "Document not found" };
     revalidateFeTag("documents");

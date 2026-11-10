@@ -4,7 +4,7 @@ import { db } from "@/lib/db/client";
 import { folders, documents } from "@/lib/db/schema";
 import { FolderSchema, type Folder } from "@/lib/data/types/folder";
 import type { NewFolder, FolderPatch } from "@/lib/data/types/folder";
-import { toDomain, type Ctx } from "@/lib/services/_mapping";
+import { assertCanMutate, toDomain, type Ctx } from "@/lib/services/_mapping";
 import { scopedInsert, scopedUpdate, scopedDelete } from "@/lib/services/_crud";
 
 const rowToFolder = (r: typeof folders.$inferSelect): Folder =>
@@ -59,6 +59,7 @@ export async function countFolderContents(
 // "block-delete" so a user can always remove an empty-looking folder without first
 // having to manually relocate everything inside it. We do NOT delete the documents.
 export async function deleteFolder(ctx: Ctx, id: string): Promise<void> {
+  assertCanMutate(ctx);
   // Confirm the folder belongs to this org before touching anything (IDOR protection).
   const existing = await getFolder(ctx, id);
   if (!existing) return;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, Fragment, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createFolder, updateFolder, deleteFolder } from "@/app/actions/folders";
 import { deleteDocument, deleteDocuments, uploadDocument } from "@/app/actions/documents";
 import { ALLOWED_MIME, MAX_ACTION_BYTES } from "@/lib/upload-constants";
@@ -375,6 +375,21 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
       console.error("[openDocument] unexpected error:", error);
     }
   }
+
+  // The vault page links here with ?doc=<id>. Open that document once on load, through the same
+  // path as a row click. The ref stops React strict mode (and any re-run) from fetching the
+  // signed URL twice. An empty param, or an id that isn't one of this property's documents, is
+  // skipped so we never ask for a signed URL for a file this page doesn't own — the page just
+  // stays in the browse view.
+  const docParam = useSearchParams().get("doc");
+  const openedFromParam = useRef(false);
+  useEffect(() => {
+    if (openedFromParam.current || !docParam) return;
+    if (!dbDocuments.some((d) => d.id === docParam)) return;
+    openedFromParam.current = true;
+    void openDocument(docParam);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot on load, see above
+  }, [docParam]);
   const [mounted, setMounted] = useState(false);
   const [showAddFolder, setShowAddFolder] = useState(false);
   // Folder tiles collapse. The folder section is the tallest block on the page and most visits

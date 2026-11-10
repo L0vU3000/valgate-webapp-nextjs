@@ -178,7 +178,7 @@ export async function onboardClientPortfolio(
     intent?: "keep" | "leave";
   },
 ): Promise<OnboardResult> {
-  assertCanMutate();
+  assertCanMutate(ctx);
 
   // Cap guard: block before doing any Clerk work.
   const unconfirmed = await countUnconfirmedClients(ctx.userId);
@@ -304,7 +304,7 @@ export async function onboardClientPortfolio(
  * Revokes a pending Clerk invitation and marks the handoff as revoked.
  */
 export async function revokeClientInvitation(ctx: Ctx, handoffId: string): Promise<void> {
-  assertCanMutate();
+  assertCanMutate(ctx);
   const handoff = await getOwnHandoff(ctx, handoffId);
   if (handoff.status !== "pending" && handoff.status !== "bounced") {
     throw new AccessError("Can only revoke a pending or bounced invitation.");
@@ -349,7 +349,7 @@ export async function resendClientInvitation(
   ctx: Ctx,
   handoffId: string,
 ): Promise<{ invitationUrl: string | null }> {
-  assertCanMutate();
+  assertCanMutate(ctx);
   const handoff = await getOwnHandoff(ctx, handoffId);
   if (handoff.status !== "pending" && handoff.status !== "bounced") {
     throw new AccessError("Can only resend a pending or bounced invitation.");
@@ -419,6 +419,7 @@ export async function resendClientInvitation(
  * invitation link.
  */
 export async function recordInvitationLinkCopy(ctx: Ctx, handoffId: string): Promise<{ invitationUrl: string | null }> {
+  assertCanMutate(ctx);
   const [handoff] = await db
     .select({
       id: clientHandoffs.id,
@@ -446,6 +447,7 @@ export async function recordInvitationLinkCopy(ctx: Ctx, handoffId: string): Pro
 // Dismisses the client's one-time welcome banner. Scoped by ctx.orgId (not managerUserId) —
 // this is a client-initiated action, not a manager one.
 export async function markWelcomeSeen(ctx: Ctx, handoffId: string): Promise<void> {
+  assertCanMutate(ctx);
   await db
     .update(clientHandoffs)
     .set({ welcomeSeenAt: new Date(), updatedAt: new Date() })
@@ -456,7 +458,7 @@ export async function markWelcomeSeen(ctx: Ctx, handoffId: string): Promise<void
  * Removes the manager from the client's Clerk org after the handoff is accepted.
  */
 export async function removeManagerAccess(ctx: Ctx, handoffId: string): Promise<void> {
-  assertCanMutate();
+  assertCanMutate(ctx);
   const handoff = await getOwnHandoff(ctx, handoffId);
 
   if (handoff.status !== "accepted") {
