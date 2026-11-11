@@ -1,0 +1,17 @@
+#!/bin/sh
+# One cron tick. Python supplies flock(2), bounded transport and strict intake.
+# Owner configuration: GROKWEB_BOT (dedicated bot name/id), GROKWEB_REFS,
+# GROKWEB_STAGING_URL, GROKWEB_STATE_DIR, GROKWEB_MAX_PER_DAY (at most 6).
+# No cron installation, secret provisioning, app builds or ledger writes here.
+set -u
+umask 077
+GROKWEB_SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd) || exit 0
+export GROKWEB_SCRIPT_DIR
+if [ "${1-}" != "--locked" ]; then
+    exec python3 "$GROKWEB_SCRIPT_DIR/grokweb-parse.py" --lock "$0"
+fi
+set -f
+for grokweb_ref in ${GROKWEB_REFS-main staging}; do
+    python3 "$GROKWEB_SCRIPT_DIR/grokweb-parse.py" --watch-ref "$grokweb_ref" || :
+done
+exit 0
