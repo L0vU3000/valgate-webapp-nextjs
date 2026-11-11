@@ -46,7 +46,7 @@ def redact(value):
 
 def allowed_url(value, final=False):
     try:
-        if not isinstance(value, str) or re.search(r"[\s\\\x00-\x1f\x7f]", value):
+        if not isinstance(value, str) or not value.isascii() or re.search(r"[\s\\\x00-\x1f\x7f]", value):
             return False
         u = urlsplit(value)
         host = u.hostname or ""
@@ -100,10 +100,12 @@ def suite_artifact(reply, stats):
         counts = tuple(native_stats[k] for k in keys[:3])
         # Playwright's native JSON does not carry process exit. Require the
         # captured shell exit line alongside it, outside bot-authored JSON.
-        exits = re.findall(r"^PLAYWRIGHT_EXIT_CODE=(\d+)\s*$", reply, re.M)
+        # A terminal artifact and a native report may repeat the same captured
+        # exit. Count matching values once; conflicting exits still fail closed.
+        exits = set(re.findall(r"^PLAYWRIGHT_EXIT_CODE=(\d+)\s*$", reply, re.M))
         if len(exits) != 1:
             raise ValueError("missing process exit")
-        observed.append(counts + (int(exits[0]),))
+        observed.append(counts + (int(next(iter(exits))),))
     expected = tuple(stats[k] for k in ("passed", "failed", "skipped", "exit_status"))
     if not observed or any(item != expected for item in observed):
         raise ValueError("missing or contradictory suite artifact")
@@ -194,7 +196,7 @@ def result(run_id, verdict, phase_a, count, duration, bot):
 def command(argv, timeout=30, on_started=None):
     """Bound every external call; kill the whole fresh transport on timeout."""
     p = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-                         start_new_session=True, text=True, errors="replace", close_fds=False)
+                         start_new_session=True, text=True, errors="replace", close_fds=True)
     try:
         if on_started:
             on_started()
@@ -248,6 +250,8 @@ def deploy_url(sha, branch):
             if isinstance(value, str) and value:
                 return value, False
     if branch == "staging":
+        # The staging alias needs an explicit deployment SHA marker; without
+        # one guard() keeps the run BLOCKED-retry until the marker exists.
         return os.environ.get("GROKWEB_STAGING_URL", STAGING), True
     raise RuntimeError("deploy-not-ready")
 
@@ -258,8 +262,11 @@ def guard(url, sha=None):
     # Deliberately no -L: a redirect must never fetch an unguarded host.
     response, status = command(["curl", "--silent", "--show-error", "--include", "--suppress-connect-headers", "--max-time", "30",
                             "--max-redirs", "0", "--proto", "=https", "--write-out", "\n%{http_code}", url], 35).rsplit("\n", 1)
-    headers, separator, body = response.partition("\n\n")
-    if (not separator or status.strip() != "200" or "pk_test_" not in body
+    parts = re.split(r'\r?\n\r?\n', response, maxsplit=1)
+    if len(parts) != 2:
+        raise ValueError("target-guard")
+    headers, body = parts
+    if (status.strip() != "200" or "pk_test_" not in body
             or "pk_live_" in body or "whole-civet-89" in body):
         raise ValueError("target-guard")
     if sha:
@@ -288,6 +295,7 @@ contains no pk_live_, and uses no whole-civet-89 production Clerk instance.
 For a staging alias, require an x-vercel-git-commit-sha or
 x-vercel-deployment-sha response header (or vercel-git-commit-sha HTML meta)
 equal to {sha}; a request ID is not proof. Otherwise BLOCKED-not-ready.
+staging-alias resolves only if the page exposes a deployment sha marker; otherwise the run stays BLOCKED-retry until the marker exists.
 Never follow a redirect or link to a different host. Never visit production.
 No secrets in replies. Do not request, read or provision any secrets.
 
@@ -323,7 +331,8 @@ Zero to ten kind="RED-CANDIDATE", phase="B" blocks: assertion and steps.
 Optional kind="screenshots" block with screenshots (list of PNG filenames).
 Attach at most 5 PNGs, name the rest in prose. No paths in screenshot filenames.
 REQUIRED: a free-text summary of what actually ran, plus independent raw
-Playwright evidence: copy the terminal summary into a fenced playwright-output
+Playwright evidence: include EXACTLY ONE artifact — either the raw playwright terminal summary OR results.json content.
+Copy the terminal summary into a fenced playwright-output
 block (one count per line, e.g. "3 passed", "5 skipped"), followed inside it by
 PLAYWRIGHT_EXIT_CODE=<actual exit code>; OR paste the unmodified content of
 preview-artifacts/results.json in a fenced results.json block and include
@@ -519,7 +528,7 @@ def inherited_lock():
         return False
 
 
-def locked_tick(script):
+def locked_tick(script=None, branch=None):
     root = state_dir()
     root.mkdir(parents=True, exist_ok=True, mode=0o700)
     with (root / "watcher.lock").open("a") as lock:
@@ -527,10 +536,12 @@ def locked_tick(script):
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             return
-        os.set_inheritable(lock.fileno(), True)
+        if branch is not None:
+            watch_ref(branch)
+            return
         env = dict(os.environ, GROKWEB_LOCK_FD=str(lock.fileno()))
         subprocess.run(["sh", str(Path(script).resolve()), "--locked"],
-                       check=False, close_fds=False, env=env)
+                       check=False, close_fds=True, pass_fds=(lock.fileno(),), env=env)
 
 
 def main():
@@ -553,7 +564,10 @@ def main():
         else:
             locked_tick(args.tick)
     elif args.watch_ref:
-        watch_ref(args.watch_ref)
+        if inherited_lock():
+            watch_ref(args.watch_ref)
+        else:
+            locked_tick(branch=args.watch_ref)
     else:
         try:
             reply = Path(args.reply).read_text() if args.reply else sys.stdin.read()

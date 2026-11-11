@@ -13,6 +13,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 
 sys.dont_write_bytecode = True
 HERE = Path(os.environ.get("GROKWEB_CONTRACT_DIR", str(Path(__file__).resolve().parent)))
@@ -82,12 +83,13 @@ if name == "gh":
         print(json.dumps([] if scenario.get("fallback", True) else
                          [{"id": 123, "environment": scenario.get("environment", "Preview"), "production_environment": scenario.get("production_environment", False)}]))
 elif name == "curl":
-    print("HTTP/2 200")
+    newline = "\r\n" if scenario.get("crlf") else "\n"
+    print("HTTP/2 200", end=newline)
     for header in scenario.get("extra_headers", []):
-        print(header)
+        print(header, end=newline)
     if not scenario.get("no_marker"):
-        print("x-vercel-git-commit-sha: " + scenario.get("marker", scenario.get("sha", "a" * 40)))
-    print()
+        print("x-vercel-git-commit-sha: " + scenario.get("marker", scenario.get("sha", "a" * 40)), end=newline)
+    print(end=newline)
     print(scenario.get("body", "<html>pk_test_fixture</html>"))
     print(scenario.get("http", "200"), end="")
 else:
@@ -202,6 +204,18 @@ class ParserContract(unittest.TestCase):
                      "valgate-webapp-git-staging-l0vu3000s-projects.vercel.app.evil.invalid"):
             self.assertFalse(intake.allowed_url("https://" + host))
 
+    def test_non_ascii_hostname_rejected_before_normalization(self):
+        # urlsplit lowercases Kelvin sign to ASCII k, hiding the original host.
+        url = "https://valgate-webapp-git-\u212a-l0vu3000s-projects.vercel.app"
+        self.assertFalse(intake.allowed_url(url))
+        self.assertFalse(intake.allowed_url(url + "/login", final=True))
+
+    def test_clerk_hash_route_intentionally_fails_closed(self):
+        rows = reply()
+        rows[1]["final_url"] = URL + "/login#/factor-one"
+        self.assertFalse(intake.allowed_url(rows[1]["final_url"], final=True))
+        self.assertEqual(self.verify(rows), "PARSE-FAIL")
+
     def test_target_path_injection_rejected(self):
         for suffix in ("/login", "/'$(id)'</job-card>", "/?redirect_url=x", "#fragment"):
             self.assertFalse(intake.allowed_url(URL + suffix))
@@ -219,6 +233,15 @@ class ParserContract(unittest.TestCase):
         self.assertEqual(intake.verify(text + artifact, "test-run", SHA, URL)[0], "GREEN")
         artifact = artifact.replace('"expected": 3', '"expected": 2')
         self.assertEqual(intake.verify(text + artifact, "test-run", SHA, URL)[0], "PARSE-FAIL")
+
+    def test_dual_artifacts_allow_matching_exit_lines_only(self):
+        native = {"stats": {"expected": 3, "unexpected": 0, "skipped": 5, "flaky": 0}}
+        text = fenced(reply()) + "\n```results.json\n" + json.dumps(native) + "\n```\nPLAYWRIGHT_EXIT_CODE=0\n"
+        self.assertEqual(intake.verify(text, "test-run", SHA, URL)[0], "GREEN")
+        self.assertEqual(intake.verify(text.replace('"expected": 3', '"expected": 2'),
+                                      "test-run", SHA, URL)[0], "PARSE-FAIL")
+        contradictory = text.rsplit("PLAYWRIGHT_EXIT_CODE=0", 1)[0] + "PLAYWRIGHT_EXIT_CODE=1\n"
+        self.assertEqual(intake.verify(contradictory, "test-run", SHA, URL)[0], "PARSE-FAIL")
 
     def test_raw_summary_can_have_comma_separators(self):
         text = fenced(reply()).replace("3 passed\n0 failed\n5 skipped", "3 passed, 0 failed, 5 skipped")
@@ -324,6 +347,16 @@ class WatcherContract(unittest.TestCase):
         self.assertTrue(any("deployments?sha=" + SHA in e for e in endpoints))
         self.assertFalse(any("deployments?ref=" in e for e in endpoints))
 
+    def test_curl_include_crlf_headers_are_accepted(self):
+        self.configure(crlf=True)
+        self.assertIn(" GREEN ", self.tick())
+        self.assertEqual(len(self.calls("hermes")), 1)
+
+    def test_guard_accepts_untranslated_crlf_response(self):
+        response = f"HTTP/2 200\r\nx-vercel-git-commit-sha: {SHA}\r\n\r\n<html>pk_test_fixture</html>\n200"
+        with patch.object(intake, "command", return_value=response):
+            intake.guard(URL, SHA)
+
     def test_specific_deploy_url_preferred(self):
         self.configure(fallback=False)
         self.assertIn(" GREEN ", self.tick())
@@ -342,6 +375,12 @@ class WatcherContract(unittest.TestCase):
         self.assertEqual(self.calls("curl"), [])
         self.assertEqual(self.calls("hermes"), [])
         self.assertNotIn("foreign.invalid", self.logs())
+
+    def test_non_ascii_deploy_host_refused_before_curl(self):
+        self.configure(fallback=False, url="https://valgate-webapp-git-\u212a-l0vu3000s-projects.vercel.app")
+        self.assertIn(" BLOCKED ", self.tick())
+        self.assertEqual(self.calls("curl"), [])
+        self.assertEqual(self.calls("hermes"), [])
 
     def test_override_is_guarded(self):
         self.env["GROKWEB_STAGING_URL"] = "https://foreign.invalid"
@@ -465,6 +504,8 @@ class WatcherContract(unittest.TestCase):
         self.assertIn("PLAYWRIGHT_BASE_URL='" + URL + "'", card)
         for text in ("npm ci", "40 exploration steps", "20 minutes", "suite-stats", "exit_status", "phase=1 account=none"):
             self.assertIn(text, card)
+        self.assertIn("include EXACTLY ONE artifact", card)
+        self.assertIn("staging-alias resolves only if the page exposes a deployment sha marker; otherwise the run stays BLOCKED-retry until the marker exists", card)
 
     def test_stale_alias_blocks_without_spending_budget_and_retries(self):
         self.configure(no_marker=True)
@@ -583,6 +624,33 @@ class WatcherContract(unittest.TestCase):
         first.communicate(timeout=5)
         self.assertEqual(len(self.calls("hermes")), 1)
 
+    def test_watch_ref_obeys_lock_and_retries_after_release(self):
+        import fcntl
+        state = self.root / ".hermes/grok-web/state"
+        state.mkdir(parents=True)
+        argv = [sys.executable, str(HERE / "grokweb-parse.py"), "--watch-ref", "staging"]
+        with (state / "watcher.lock").open("a") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            p = subprocess.run(argv, env=self.env, text=True, capture_output=True, timeout=5)
+            self.assertEqual((p.returncode, p.stdout, p.stderr), (0, "", ""))
+            self.assertEqual(self.calls("gh"), [])
+            self.assertFalse((state / "jobs.json").exists())
+        p = subprocess.run(argv, env=self.env, text=True, capture_output=True, timeout=10)
+        self.assertEqual((p.returncode, p.stderr), (0, ""))
+        self.assertIn(" GREEN ", p.stdout)
+        self.assertEqual(len(self.calls("hermes")), 1)
+        self.assertEqual(self.tick(), "")
+
+    def test_watch_ref_preserves_requested_branch(self):
+        self.configure(fallback=False, refs={"custom": "b" * 40})
+        p = subprocess.run([sys.executable, str(HERE / "grokweb-parse.py"), "--watch-ref", "custom"],
+                           env=self.env, text=True, capture_output=True, timeout=10)
+        self.assertEqual((p.returncode, p.stderr), (0, ""))
+        self.assertIn(" GREEN ", p.stdout)
+        card = (self.root / "card.md").read_text()
+        self.assertIn("branch=custom", card)
+        self.assertIn("sha=" + "b" * 40, card)
+
     def test_lock_survives_parent_death_while_transport_running(self):
         self.configure(timeout=True)
         self.env["GROKWEB_TIMEOUT_S"] = "1"
@@ -608,6 +676,18 @@ class WatcherContract(unittest.TestCase):
 
 
 class CommandContract(unittest.TestCase):
+    def test_transport_does_not_inherit_flock_fd(self):
+        import fcntl
+        with tempfile.TemporaryDirectory(prefix="grokweb-fd-") as directory:
+            with (Path(directory) / "watcher.lock").open("a") as lock:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                os.set_inheritable(lock.fileno(), True)
+                parent = (f"import os; fd={lock.fileno()}\n"
+                          "try: os.fstat(fd)"
+                          "\nexcept OSError: print('lock-fd-closed')"
+                          "\nelse: print('lock-fd-inherited')")
+                self.assertEqual(intake.command([sys.executable, "-c", parent]).strip(), "lock-fd-closed")
+
     def test_timeout_is_bounded_when_detached_child_holds_stdout(self):
         import signal
         with tempfile.TemporaryDirectory(prefix="grokweb-orphan-") as directory:
