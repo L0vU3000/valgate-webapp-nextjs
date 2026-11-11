@@ -410,7 +410,7 @@ class WatcherContract(unittest.TestCase):
         for scenario, verdict in ((dict(hermes_error=True), "BLOCKED"),
                                   (dict(empty=True), "BLOCKED"),
                                   (dict(missing_stats=True), "PARSE-FAIL")):
-            self.scenario = dict(scenario, sha=f"{len(self.calls("hermes")) + 1:040x}")
+            self.scenario = dict(scenario, sha=f"{len(self.calls('hermes')) + 1:040x}")
             self.configure()
             self.assertIn(" " + verdict + " ", self.tick())
         self.scenario = {}
