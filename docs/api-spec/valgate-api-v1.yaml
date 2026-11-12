@@ -731,6 +731,45 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
+  /properties/{id}/market-landscape:
+    get:
+      operationId: getPropertyMarketLandscape
+      summary: Get realestate.com.kh market data around one property's pin
+      description: |
+        Area sale/rent statistics (median, p20-p80) for the property's district, the province's
+        top-district medians, and up to 12 of the newest listings in the property's commune
+        (district fallback), sorted by distance from the pin. Fetched live from realestate.com.kh,
+        cached 1 h per area and 6 h per province.
+
+        FLAG-GATED: off unless the server env var `MARKET_LANDSCAPE_ENABLED=true`. Off means a 200
+        with `coverage: "disabled"`, empty data fields, and no outbound call. Prod stays off until
+        written permission from realestate.com.kh is on file (vault/decisions/market-landscape-legal.md).
+
+        Coordinates come from the stored, org-scoped property, never the query string. A
+        property that does not exist, or exists in another org, is a plain 404. An upstream or
+        lookup failure is a 502 (retry), never an empty area.
+      parameters:
+        - $ref: "#/components/parameters/PropertyIdPath"
+      responses:
+        "200":
+          description: Market landscape (check `coverage` before reading data fields)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketLandscapeDtoV1"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "502":
+          description: Market data could not be loaded (upstream outage or lookup failure); retry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
 components:
   securitySchemes:
     clerkSession:
@@ -1741,6 +1780,125 @@ components:
         annualInsurance:
           type: number
           minimum: 0
+
+    MarketTabStatsV1:
+      type: object
+      required: [total, median, p20, p80, sqmMedian, currency]
+      description: One tab's (sale or rent) area statistics as the portal reports them.
+      properties:
+        total:
+          type: number
+        median:
+          type: number
+        p20:
+          type: number
+        p80:
+          type: number
+        sqmMedian:
+          type: [number, "null"]
+        currency:
+          type: string
+
+    MarketLandscapeListingV1:
+      type: object
+      required: [id, tab, headline, address, lat, lng, distanceM, priceLabel, pricePerSqmLabel, imageUrl, url]
+      properties:
+        id:
+          type: integer
+        tab:
+          type: string
+          enum: [sale, rent]
+        headline:
+          type: string
+        address:
+          type: string
+        lat:
+          type: [number, "null"]
+          description: Null when the portal only has an approximate (placeholder) location.
+        lng:
+          type: [number, "null"]
+        distanceM:
+          type: [number, "null"]
+          description: Metres from the property's pin. Null whenever lat/lng are null.
+        priceLabel:
+          type: [string, "null"]
+        pricePerSqmLabel:
+          type: [string, "null"]
+        imageUrl:
+          type: [string, "null"]
+        url:
+          type: string
+          description: Absolute realestate.com.kh listing link.
+
+    MarketLandscapeDtoV1:
+      type: object
+      required: [coverage, area, stats, districtMedians, listings, source]
+      description: |
+        `coverage` other than "ok" means every data field is empty (area null, stats null,
+        lists empty): "disabled" (flag off), "unsupported" (pin outside Cambodia), "unmatched"
+        (no pin or no known district).
+      properties:
+        coverage:
+          type: string
+          enum: [ok, unmatched, unsupported, disabled]
+        area:
+          oneOf:
+            - type: "null"
+            - type: object
+              required: [district, commune, province, listingsArea]
+              properties:
+                district:
+                  type: string
+                commune:
+                  type: [string, "null"]
+                province:
+                  type: string
+                listingsArea:
+                  type: string
+                  description: The area the listings came from (the commune, or the district as a fallback).
+        stats:
+          type: object
+          required: [sale, rent]
+          properties:
+            sale:
+              oneOf:
+                - type: "null"
+                - $ref: "#/components/schemas/MarketTabStatsV1"
+            rent:
+              oneOf:
+                - type: "null"
+                - $ref: "#/components/schemas/MarketTabStatsV1"
+        districtMedians:
+          type: array
+          description: The province's top districts by sale-listing count (at most 8).
+          items:
+            type: object
+            required: [name, count, median]
+            properties:
+              name:
+                type: string
+              count:
+                type: integer
+              median:
+                type: number
+        listings:
+          type: array
+          maxItems: 12
+          items:
+            $ref: "#/components/schemas/MarketLandscapeListingV1"
+        source:
+          type: object
+          required: [name, url, fetchedAt]
+          description: Attribution. Clients must show "Data © realestate.com.kh" with the data.
+          properties:
+            name:
+              type: string
+              enum: [realestate.com.kh]
+            url:
+              type: string
+            fetchedAt:
+              type: string
+              format: date-time
 
     ErrorEnvelope:
       type: object
