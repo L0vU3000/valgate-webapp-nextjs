@@ -1,21 +1,16 @@
 import "server-only"; // C1
 import { and, desc, eq, lt, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { propertyDrafts, propertyDraftFiles } from "@/lib/db/schema";
+import { documents, properties, propertyDrafts, propertyDraftFiles } from "@/lib/db/schema";
 import { convertRowToDb } from "@/lib/db/column-classifier";
-import { toDomain, type Ctx } from "@/lib/services/_mapping";
+import { toDomain, nextId, type Ctx } from "@/lib/services/_mapping";
 import { scopedInsert, requireMember, assertOrgAdmin, type DbExec } from "@/lib/services/_crud";
 import { assertCanMutate } from "@/lib/services/_mapping";
 // storage.ts exports this as `deleteStorageObject`; aliased to keep the
 // call sites below short and unchanged after the v1.0.2 merge renamed it.
 import { assertOwnStorageId, deleteStorageObject as deleteObject } from "@/lib/services/storage";
 import { createDocument as svcCreateDocument, createDocumentForOrg as svcCreateDocumentForOrg } from "@/lib/services/documents";
-import {
-  getProperty as svcGetProperty,
-  updateProperty as svcUpdateProperty,
-  getPropertyForOrg as svcGetPropertyForOrg,
-  updatePropertyForOrg as svcUpdatePropertyForOrg,
-} from "@/lib/services/properties";
+import { updateProperty as svcUpdateProperty, updatePropertyForOrg as svcUpdatePropertyForOrg } from "@/lib/services/properties";
 import { computePhotoMergePatch } from "@/lib/services/property-photo-merge";
 import { log } from "@/lib/log";
 
@@ -280,6 +275,24 @@ function draftFileToDocument(file: PropertyDraftFile, propertyId: string) {
   };
 }
 
+// O6: the gallery is read INSIDE the conversion tx under a row lock. Read outside, a gallery write
+// committing between the read and the patch was overwritten by a merge built from a stale copy.
+async function lockedPhotoMergePatch(tx: DbExec, orgId: string, propertyId: string, photos: PropertyDraftFile[]) {
+  if (photos.length === 0) return null;
+  const [prop] = await tx.select({ photoStorageIds: properties.photoStorageIds, coverStorageId: properties.coverStorageId })
+    .from(properties)
+    .where(and(eq(properties.orgId, orgId), eq(properties.id, propertyId)))
+    .for("update");
+  return prop ? computePhotoMergePatch(prop.photoStorageIds ?? [], prop.coverStorageId, photos.map((f) => f.storageId)) : null;
+}
+
+// O5: document ids are minted BEFORE the tx opens (verification.ts does the same). nextId runs on the
+// global pool, so minting inside would hold the tx's connection while asking for a second one; enough
+// concurrent conversions exhaust the pool and deadlock. A rolled-back tx just leaves id gaps.
+function mintDocumentIds(files: PropertyDraftFile[]): Promise<string[]> {
+  return Promise.all(files.map(() => nextId("DOC", documents)));
+}
+
 export async function convertDraftToDocuments(
   ctx: Ctx,
   draftId: string,
@@ -290,15 +303,13 @@ export async function convertDraftToDocuments(
 
   const files = await listDraftFiles(ctx, draftId);
   const photos = files.filter((f) => f.kind === "photo");
+  const docIds = await mintDocumentIds(files);
 
-  const prop = photos.length > 0 ? await svcGetProperty(ctx, propertyId) : null;
   await db.transaction(async (tx) => {
-    if (prop) {
-      const patch = computePhotoMergePatch(prop.photoStorageIds ?? [], prop.coverStorageId, photos.map((f) => f.storageId));
-      if (patch) await svcUpdateProperty(ctx, propertyId, patch, tx);
-    }
-    for (const file of files) {
-      await svcCreateDocument(ctx, draftFileToDocument(file, propertyId), tx);
+    const patch = await lockedPhotoMergePatch(tx, ctx.orgId, propertyId, photos);
+    if (patch) await svcUpdateProperty(ctx, propertyId, patch, tx);
+    for (const [i, file] of files.entries()) {
+      await svcCreateDocument(ctx, draftFileToDocument(file, propertyId), tx, docIds[i]);
     }
     await deleteDraftRowsOnly(ctx, draftId, tx);
   });
@@ -326,15 +337,14 @@ export async function convertDraftToDocumentsForOrg(
 
   const files = await listDraftFiles(ctx, draftId);
   const photos = files.filter((f) => f.kind === "photo");
+  const docIds = await mintDocumentIds(files);
 
-  const prop = photos.length > 0 ? await svcGetPropertyForOrg(targetOrgId, propertyId) : null;
+  // The ForOrg services run assertOrgAdmin on tx too (O5), so nothing in here leaves the tx connection.
   await db.transaction(async (tx) => {
-    if (prop) {
-      const patch = computePhotoMergePatch(prop.photoStorageIds ?? [], prop.coverStorageId, photos.map((f) => f.storageId));
-      if (patch) await svcUpdatePropertyForOrg(ctx, targetOrgId, propertyId, patch, tx);
-    }
-    for (const file of files) {
-      await svcCreateDocumentForOrg(ctx, targetOrgId, draftFileToDocument(file, propertyId), tx);
+    const patch = await lockedPhotoMergePatch(tx, targetOrgId, propertyId, photos);
+    if (patch) await svcUpdatePropertyForOrg(ctx, targetOrgId, propertyId, patch, tx);
+    for (const [i, file] of files.entries()) {
+      await svcCreateDocumentForOrg(ctx, targetOrgId, draftFileToDocument(file, propertyId), tx, docIds[i]);
     }
     await deleteDraftRowsOnly(ctx, draftId, tx);
   });

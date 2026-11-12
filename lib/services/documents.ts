@@ -108,10 +108,11 @@ export async function getDocumentByStorageId(ctx: Ctx, storageId: string): Promi
   return row ? rowToDocument(row) : null;
 }
 
-export async function createDocument(ctx: Ctx, input: NewDocument, exec?: DbExec): Promise<Document> {
+// id: an id pre-minted before a transaction opened (see convertDraftToDocuments); default mints one.
+export async function createDocument(ctx: Ctx, input: NewDocument, exec?: DbExec, id?: string): Promise<Document> {
   if (input.storageId != null) assertOwnStorageId(ctx, input.storageId);
   if (input.thumbStorageId != null) assertOwnStorageId(ctx, input.thumbStorageId);
-  return scopedInsert(ctx, documents, "DOC", input, rowToDocument, undefined, exec);
+  return scopedInsert(ctx, documents, "DOC", input, rowToDocument, id ? { id } : undefined, exec);
 }
 
 // Creates a document in a DIFFERENT org than the caller's active one — used when a
@@ -130,11 +131,12 @@ export async function createDocumentForOrg(
   targetOrgId: string,
   input: NewDocument,
   exec?: DbExec,
+  id?: string,
 ): Promise<Document> {
-  await assertOrgAdmin(ctx, targetOrgId);
+  await assertOrgAdmin(ctx, targetOrgId, exec);
   if (input.storageId != null) assertOwnStorageId({ orgId: targetOrgId }, input.storageId);
   if (input.thumbStorageId != null) assertOwnStorageId({ orgId: targetOrgId }, input.thumbStorageId);
-  return scopedInsert(ctx, documents, "DOC", input, rowToDocument, { orgId: targetOrgId }, exec);
+  return scopedInsert(ctx, documents, "DOC", input, rowToDocument, { orgId: targetOrgId, ...(id ? { id } : {}) }, exec);
 }
 
 // A null value clears that (nullable) column — the API v1 "" → clear rule relies on it.

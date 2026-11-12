@@ -14,7 +14,7 @@ import type { NewProperty, PropertyPatch } from "@/lib/data/types/property";
 import { toDomain, nextId, assertCanMutate, type Ctx } from "@/lib/services/_mapping";
 import { scopedUpdate, scopedDelete, requireMember, assertOrgAdmin, type DbExec } from "@/lib/services/_crud";
 import { convertRowToDb } from "@/lib/db/column-classifier";
-import { assertOwnStorageId, deleteStorageObject } from "@/lib/services/storage";
+import { assertOwnStorageId, deleteStorageObjects } from "@/lib/services/storage";
 
 function assertPropertyStorage(ctx: Pick<Ctx, "orgId">, media: {
   photoStorageIds?: string[] | null;
@@ -178,7 +178,7 @@ export async function updatePropertyForOrg(
   exec: DbExec = db,
 ): Promise<Property | null> {
   assertCanMutate(ctx);
-  await assertOrgAdmin(ctx, targetOrgId);
+  await assertOrgAdmin(ctx, targetOrgId, exec);
   assertPropertyStorage({ orgId: targetOrgId }, patch);
   const dbPatch = convertRowToDb(properties, { ...patch, updatedAt: Date.now() });
   const [row] = await exec.update(properties)
@@ -255,9 +255,7 @@ export async function deleteProperty(ctx: Ctx, id: string): Promise<void> {
 
   // Step 3: clean up S3 objects. Best-effort: a failed S3 delete is logged but never throws,
   // so it cannot make a completed DB delete look like it failed.
-  for (const sid of storageIdsToDelete) {
-    await deleteStorageObject(sid); // already never-throws — see storage.ts
-  }
+  await deleteStorageObjects(storageIdsToDelete); // batched DeleteObjects (O7), never throws
 }
 
 export async function bulkAssignProperties(

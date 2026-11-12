@@ -1,0 +1,3176 @@
+The plugin "vite-tsconfig-paths" is detected. Vite now supports tsconfig paths resolution natively via the resolve.tsconfigPaths option. You can remove the plugin and set resolve.tsconfigPaths: true in your Vite config instead.
+
+ RUN  v4.1.8 /Users/mintrose/Dev/Projects/work/Valgate/active/valgate/valgate-webapp-nextjs/.worktrees/r628-webapp-bugs-wave1
+
+stdout | app/actions/documents.test.ts
+◇ injected env (22) from .env.local // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+
+ ❯ app/actions/documents.test.ts (9 tests | 1 failed) 20ms
+   × keeps the stored object when a post-commit step throws 3ms
+stdout | lib/auth/unauthenticated.test.ts
+◇ injected env (22) from .env.local // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+
+ ❯ lib/auth/unauthenticated.test.ts (6 tests | 1 failed) 7ms
+     × requireCtx backfills a missing membership when user and org rows exist 3ms
+stdout | lib/services/properties.delete.test.ts
+◇ injected env (22) from .env.local // tip: ⌘ suppress logs { quiet: true }
+
+ ❯ lib/services/properties.delete.test.ts (1 test | 1 failed) 7ms
+   × deleteProperty cleans up storage for every document, not the first 500, in one batched call 7ms
+stdout | lib/services/storage-delete.test.ts
+◇ injected env (22) from .env.local // tip: ⌁ auth for agents [www.vestauth.com]
+
+ ❯ lib/services/storage-delete.test.ts (3 tests | 3 failed) 4ms
+   × deleteStorageObjects batches into DeleteObjects of 1000 and skips legacy ids 3ms
+   × deleteStorageObjects never throws: a failed batch is logged and the rest still run 1ms
+   × deleteStorageObjects with nothing to delete makes no S3 call 0ms
+stdout | app/actions/property-drafts.upload.test.ts
+◇ injected env (22) from .env.local // tip: ◈ encrypted .env [www.dotenvx.com]
+
+ ❯ app/actions/property-drafts.upload.test.ts (5 tests | 1 failed) 36ms
+   × uploadDraftFileAction keeps the stored object when a post-commit step throws 8ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  app/actions/documents.test.ts > keeps the stored object when a post-commit step throws
+AssertionError: expected "vi.fn()" to not be called at all, but actually been called 1 times
+
+Received:
+
+  1st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-0001/deed.pdf",
+    ]
+
+
+Number of calls: 1
+
+ ❯ app/actions/documents.test.ts:163:43
+    161|   try {
+    162|     await uploadDocument(document.propertyId, data);
+    163|     expect(mocks.deleteStorageObject).not.toHaveBeenCalled();
+       |                                           ^
+    164|   } finally {
+    165|     uploadFetch.mockRestore();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯
+
+ FAIL  app/actions/property-drafts.upload.test.ts > uploadDraftFileAction keeps the stored object when a post-commit step throws
+AssertionError: expected "vi.fn()" to not be called at all, but actually been called 1 times
+
+Received:
+
+  1st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-0001/photo.jpg",
+    ]
+
+
+Number of calls: 1
+
+ ❯ app/actions/property-drafts.upload.test.ts:155:37
+    153|     formData.set("file", fakeFile());
+    154|     await uploadDraftFileAction("DRAFT-1", "document", formData);
+    155|     expect(deleteStorageObject).not.toHaveBeenCalled();
+       |                                     ^
+    156|   } finally {
+    157|     vi.restoreAllMocks();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/7]⎯
+
+ FAIL  lib/auth/unauthenticated.test.ts > requireCtx membership backfill > requireCtx backfills a missing membership when user and org rows exist
+AssertionError: expected "vi.fn()" to not be called at all, but actually been called 1 times
+
+Received:
+
+  1st vi.fn() call:
+
+    Array [
+      Object {
+        "clerkOrgId": "org_1",
+        "clerkUserId": "user_1",
+        "role": "org:admin",
+      },
+    ]
+
+
+Number of calls: 1
+
+ ❯ lib/auth/unauthenticated.test.ts:86:40
+     84|     await requireCtx();
+     85|     // O1: insert-or-nothing, so a row that appears in the select→writ…
+     86|     expect(mocks.upsertMembership).not.toHaveBeenCalled();
+       |                                        ^
+     87|     expect(mocks.insertMembershipIfMissing).toHaveBeenCalledTimes(1);
+     88|     expect(mocks.insertMembershipIfMissing).toHaveBeenCalledWith({ cle…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/7]⎯
+
+ FAIL  lib/services/properties.delete.test.ts > deleteProperty cleans up storage for every document, not the first 500, in one batched call
+AssertionError: expected "vi.fn()" to not be called at all, but actually been called 501 times
+
+Received:
+
+  1st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-0/f.pdf",
+    ]
+
+  2nd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-1/f.pdf",
+    ]
+
+  3rd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-2/f.pdf",
+    ]
+
+  4th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-3/f.pdf",
+    ]
+
+  5th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-4/f.pdf",
+    ]
+
+  6th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-5/f.pdf",
+    ]
+
+  7th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-6/f.pdf",
+    ]
+
+  8th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-7/f.pdf",
+    ]
+
+  9th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-8/f.pdf",
+    ]
+
+  10th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-9/f.pdf",
+    ]
+
+  11th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-10/f.pdf",
+    ]
+
+  12th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-11/f.pdf",
+    ]
+
+  13th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-12/f.pdf",
+    ]
+
+  14th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-13/f.pdf",
+    ]
+
+  15th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-14/f.pdf",
+    ]
+
+  16th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-15/f.pdf",
+    ]
+
+  17th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-16/f.pdf",
+    ]
+
+  18th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-17/f.pdf",
+    ]
+
+  19th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-18/f.pdf",
+    ]
+
+  20th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-19/f.pdf",
+    ]
+
+  21st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-20/f.pdf",
+    ]
+
+  22nd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-21/f.pdf",
+    ]
+
+  23rd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-22/f.pdf",
+    ]
+
+  24th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-23/f.pdf",
+    ]
+
+  25th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-24/f.pdf",
+    ]
+
+  26th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-25/f.pdf",
+    ]
+
+  27th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-26/f.pdf",
+    ]
+
+  28th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-27/f.pdf",
+    ]
+
+  29th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-28/f.pdf",
+    ]
+
+  30th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-29/f.pdf",
+    ]
+
+  31st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-30/f.pdf",
+    ]
+
+  32nd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-31/f.pdf",
+    ]
+
+  33rd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-32/f.pdf",
+    ]
+
+  34th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-33/f.pdf",
+    ]
+
+  35th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-34/f.pdf",
+    ]
+
+  36th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-35/f.pdf",
+    ]
+
+  37th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-36/f.pdf",
+    ]
+
+  38th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-37/f.pdf",
+    ]
+
+  39th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-38/f.pdf",
+    ]
+
+  40th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-39/f.pdf",
+    ]
+
+  41st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-40/f.pdf",
+    ]
+
+  42nd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-41/f.pdf",
+    ]
+
+  43rd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-42/f.pdf",
+    ]
+
+  44th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-43/f.pdf",
+    ]
+
+  45th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-44/f.pdf",
+    ]
+
+  46th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-45/f.pdf",
+    ]
+
+  47th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-46/f.pdf",
+    ]
+
+  48th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-47/f.pdf",
+    ]
+
+  49th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-48/f.pdf",
+    ]
+
+  50th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-49/f.pdf",
+    ]
+
+  51st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-50/f.pdf",
+    ]
+
+  52nd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-51/f.pdf",
+    ]
+
+  53rd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-52/f.pdf",
+    ]
+
+  54th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-53/f.pdf",
+    ]
+
+  55th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-54/f.pdf",
+    ]
+
+  56th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-55/f.pdf",
+    ]
+
+  57th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-56/f.pdf",
+    ]
+
+  58th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-57/f.pdf",
+    ]
+
+  59th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-58/f.pdf",
+    ]
+
+  60th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-59/f.pdf",
+    ]
+
+  61st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-60/f.pdf",
+    ]
+
+  62nd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-61/f.pdf",
+    ]
+
+  63rd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-62/f.pdf",
+    ]
+
+  64th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-63/f.pdf",
+    ]
+
+  65th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-64/f.pdf",
+    ]
+
+  66th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-65/f.pdf",
+    ]
+
+  67th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-66/f.pdf",
+    ]
+
+  68th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-67/f.pdf",
+    ]
+
+  69th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-68/f.pdf",
+    ]
+
+  70th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-69/f.pdf",
+    ]
+
+  71st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-70/f.pdf",
+    ]
+
+  72nd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-71/f.pdf",
+    ]
+
+  73rd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-72/f.pdf",
+    ]
+
+  74th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-73/f.pdf",
+    ]
+
+  75th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-74/f.pdf",
+    ]
+
+  76th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-75/f.pdf",
+    ]
+
+  77th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-76/f.pdf",
+    ]
+
+  78th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-77/f.pdf",
+    ]
+
+  79th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-78/f.pdf",
+    ]
+
+  80th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-79/f.pdf",
+    ]
+
+  81st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-80/f.pdf",
+    ]
+
+  82nd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-81/f.pdf",
+    ]
+
+  83rd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-82/f.pdf",
+    ]
+
+  84th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-83/f.pdf",
+    ]
+
+  85th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-84/f.pdf",
+    ]
+
+  86th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-85/f.pdf",
+    ]
+
+  87th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-86/f.pdf",
+    ]
+
+  88th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-87/f.pdf",
+    ]
+
+  89th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-88/f.pdf",
+    ]
+
+  90th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-89/f.pdf",
+    ]
+
+  91st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-90/f.pdf",
+    ]
+
+  92nd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-91/f.pdf",
+    ]
+
+  93rd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-92/f.pdf",
+    ]
+
+  94th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-93/f.pdf",
+    ]
+
+  95th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-94/f.pdf",
+    ]
+
+  96th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-95/f.pdf",
+    ]
+
+  97th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-96/f.pdf",
+    ]
+
+  98th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-97/f.pdf",
+    ]
+
+  99th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-98/f.pdf",
+    ]
+
+  100th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-99/f.pdf",
+    ]
+
+  101st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-100/f.pdf",
+    ]
+
+  102nd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-101/f.pdf",
+    ]
+
+  103rd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-102/f.pdf",
+    ]
+
+  104th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-103/f.pdf",
+    ]
+
+  105th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-104/f.pdf",
+    ]
+
+  106th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-105/f.pdf",
+    ]
+
+  107th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-106/f.pdf",
+    ]
+
+  108th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-107/f.pdf",
+    ]
+
+  109th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-108/f.pdf",
+    ]
+
+  110th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-109/f.pdf",
+    ]
+
+  111th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-110/f.pdf",
+    ]
+
+  112th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-111/f.pdf",
+    ]
+
+  113th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-112/f.pdf",
+    ]
+
+  114th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-113/f.pdf",
+    ]
+
+  115th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-114/f.pdf",
+    ]
+
+  116th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-115/f.pdf",
+    ]
+
+  117th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-116/f.pdf",
+    ]
+
+  118th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-117/f.pdf",
+    ]
+
+  119th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-118/f.pdf",
+    ]
+
+  120th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-119/f.pdf",
+    ]
+
+  121st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-120/f.pdf",
+    ]
+
+  122nd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-121/f.pdf",
+    ]
+
+  123rd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-122/f.pdf",
+    ]
+
+  124th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-123/f.pdf",
+    ]
+
+  125th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-124/f.pdf",
+    ]
+
+  126th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-125/f.pdf",
+    ]
+
+  127th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-126/f.pdf",
+    ]
+
+  128th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-127/f.pdf",
+    ]
+
+  129th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-128/f.pdf",
+    ]
+
+  130th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-129/f.pdf",
+    ]
+
+  131st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-130/f.pdf",
+    ]
+
+  132nd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-131/f.pdf",
+    ]
+
+  133rd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-132/f.pdf",
+    ]
+
+  134th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-133/f.pdf",
+    ]
+
+  135th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-134/f.pdf",
+    ]
+
+  136th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-135/f.pdf",
+    ]
+
+  137th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-136/f.pdf",
+    ]
+
+  138th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-137/f.pdf",
+    ]
+
+  139th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-138/f.pdf",
+    ]
+
+  140th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-139/f.pdf",
+    ]
+
+  141st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-140/f.pdf",
+    ]
+
+  142nd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-141/f.pdf",
+    ]
+
+  143rd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-142/f.pdf",
+    ]
+
+  144th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-143/f.pdf",
+    ]
+
+  145th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-144/f.pdf",
+    ]
+
+  146th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-145/f.pdf",
+    ]
+
+  147th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-146/f.pdf",
+    ]
+
+  148th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-147/f.pdf",
+    ]
+
+  149th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-148/f.pdf",
+    ]
+
+  150th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-149/f.pdf",
+    ]
+
+  151st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-150/f.pdf",
+    ]
+
+  152nd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-151/f.pdf",
+    ]
+
+  153rd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-152/f.pdf",
+    ]
+
+  154th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-153/f.pdf",
+    ]
+
+  155th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-154/f.pdf",
+    ]
+
+  156th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-155/f.pdf",
+    ]
+
+  157th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-156/f.pdf",
+    ]
+
+  158th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-157/f.pdf",
+    ]
+
+  159th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-158/f.pdf",
+    ]
+
+  160th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-159/f.pdf",
+    ]
+
+  161st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-160/f.pdf",
+    ]
+
+  162nd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-161/f.pdf",
+    ]
+
+  163rd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-162/f.pdf",
+    ]
+
+  164th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-163/f.pdf",
+    ]
+
+  165th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-164/f.pdf",
+    ]
+
+  166th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-165/f.pdf",
+    ]
+
+  167th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-166/f.pdf",
+    ]
+
+  168th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-167/f.pdf",
+    ]
+
+  169th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-168/f.pdf",
+    ]
+
+  170th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-169/f.pdf",
+    ]
+
+  171st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-170/f.pdf",
+    ]
+
+  172nd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-171/f.pdf",
+    ]
+
+  173rd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-172/f.pdf",
+    ]
+
+  174th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-173/f.pdf",
+    ]
+
+  175th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-174/f.pdf",
+    ]
+
+  176th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-175/f.pdf",
+    ]
+
+  177th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-176/f.pdf",
+    ]
+
+  178th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-177/f.pdf",
+    ]
+
+  179th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-178/f.pdf",
+    ]
+
+  180th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-179/f.pdf",
+    ]
+
+  181st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-180/f.pdf",
+    ]
+
+  182nd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-181/f.pdf",
+    ]
+
+  183rd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-182/f.pdf",
+    ]
+
+  184th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-183/f.pdf",
+    ]
+
+  185th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-184/f.pdf",
+    ]
+
+  186th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-185/f.pdf",
+    ]
+
+  187th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-186/f.pdf",
+    ]
+
+  188th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-187/f.pdf",
+    ]
+
+  189th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-188/f.pdf",
+    ]
+
+  190th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-189/f.pdf",
+    ]
+
+  191st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-190/f.pdf",
+    ]
+
+  192nd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-191/f.pdf",
+    ]
+
+  193rd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-192/f.pdf",
+    ]
+
+  194th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-193/f.pdf",
+    ]
+
+  195th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-194/f.pdf",
+    ]
+
+  196th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-195/f.pdf",
+    ]
+
+  197th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-196/f.pdf",
+    ]
+
+  198th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-197/f.pdf",
+    ]
+
+  199th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-198/f.pdf",
+    ]
+
+  200th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-199/f.pdf",
+    ]
+
+  201st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-200/f.pdf",
+    ]
+
+  202nd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-201/f.pdf",
+    ]
+
+  203rd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-202/f.pdf",
+    ]
+
+  204th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-203/f.pdf",
+    ]
+
+  205th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-204/f.pdf",
+    ]
+
+  206th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-205/f.pdf",
+    ]
+
+  207th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-206/f.pdf",
+    ]
+
+  208th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-207/f.pdf",
+    ]
+
+  209th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-208/f.pdf",
+    ]
+
+  210th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-209/f.pdf",
+    ]
+
+  211th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-210/f.pdf",
+    ]
+
+  212th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-211/f.pdf",
+    ]
+
+  213th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-212/f.pdf",
+    ]
+
+  214th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-213/f.pdf",
+    ]
+
+  215th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-214/f.pdf",
+    ]
+
+  216th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-215/f.pdf",
+    ]
+
+  217th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-216/f.pdf",
+    ]
+
+  218th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-217/f.pdf",
+    ]
+
+  219th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-218/f.pdf",
+    ]
+
+  220th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-219/f.pdf",
+    ]
+
+  221st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-220/f.pdf",
+    ]
+
+  222nd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-221/f.pdf",
+    ]
+
+  223rd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-222/f.pdf",
+    ]
+
+  224th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-223/f.pdf",
+    ]
+
+  225th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-224/f.pdf",
+    ]
+
+  226th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-225/f.pdf",
+    ]
+
+  227th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-226/f.pdf",
+    ]
+
+  228th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-227/f.pdf",
+    ]
+
+  229th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-228/f.pdf",
+    ]
+
+  230th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-229/f.pdf",
+    ]
+
+  231st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-230/f.pdf",
+    ]
+
+  232nd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-231/f.pdf",
+    ]
+
+  233rd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-232/f.pdf",
+    ]
+
+  234th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-233/f.pdf",
+    ]
+
+  235th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-234/f.pdf",
+    ]
+
+  236th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-235/f.pdf",
+    ]
+
+  237th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-236/f.pdf",
+    ]
+
+  238th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-237/f.pdf",
+    ]
+
+  239th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-238/f.pdf",
+    ]
+
+  240th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-239/f.pdf",
+    ]
+
+  241st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-240/f.pdf",
+    ]
+
+  242nd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-241/f.pdf",
+    ]
+
+  243rd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-242/f.pdf",
+    ]
+
+  244th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-243/f.pdf",
+    ]
+
+  245th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-244/f.pdf",
+    ]
+
+  246th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-245/f.pdf",
+    ]
+
+  247th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-246/f.pdf",
+    ]
+
+  248th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-247/f.pdf",
+    ]
+
+  249th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-248/f.pdf",
+    ]
+
+  250th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-249/f.pdf",
+    ]
+
+  251st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-250/f.pdf",
+    ]
+
+  252nd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-251/f.pdf",
+    ]
+
+  253rd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-252/f.pdf",
+    ]
+
+  254th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-253/f.pdf",
+    ]
+
+  255th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-254/f.pdf",
+    ]
+
+  256th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-255/f.pdf",
+    ]
+
+  257th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-256/f.pdf",
+    ]
+
+  258th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-257/f.pdf",
+    ]
+
+  259th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-258/f.pdf",
+    ]
+
+  260th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-259/f.pdf",
+    ]
+
+  261st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-260/f.pdf",
+    ]
+
+  262nd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-261/f.pdf",
+    ]
+
+  263rd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-262/f.pdf",
+    ]
+
+  264th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-263/f.pdf",
+    ]
+
+  265th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-264/f.pdf",
+    ]
+
+  266th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-265/f.pdf",
+    ]
+
+  267th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-266/f.pdf",
+    ]
+
+  268th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-267/f.pdf",
+    ]
+
+  269th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-268/f.pdf",
+    ]
+
+  270th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-269/f.pdf",
+    ]
+
+  271st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-270/f.pdf",
+    ]
+
+  272nd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-271/f.pdf",
+    ]
+
+  273rd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-272/f.pdf",
+    ]
+
+  274th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-273/f.pdf",
+    ]
+
+  275th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-274/f.pdf",
+    ]
+
+  276th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-275/f.pdf",
+    ]
+
+  277th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-276/f.pdf",
+    ]
+
+  278th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-277/f.pdf",
+    ]
+
+  279th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-278/f.pdf",
+    ]
+
+  280th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-279/f.pdf",
+    ]
+
+  281st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-280/f.pdf",
+    ]
+
+  282nd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-281/f.pdf",
+    ]
+
+  283rd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-282/f.pdf",
+    ]
+
+  284th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-283/f.pdf",
+    ]
+
+  285th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-284/f.pdf",
+    ]
+
+  286th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-285/f.pdf",
+    ]
+
+  287th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-286/f.pdf",
+    ]
+
+  288th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-287/f.pdf",
+    ]
+
+  289th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-288/f.pdf",
+    ]
+
+  290th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-289/f.pdf",
+    ]
+
+  291st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-290/f.pdf",
+    ]
+
+  292nd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-291/f.pdf",
+    ]
+
+  293rd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-292/f.pdf",
+    ]
+
+  294th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-293/f.pdf",
+    ]
+
+  295th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-294/f.pdf",
+    ]
+
+  296th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-295/f.pdf",
+    ]
+
+  297th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-296/f.pdf",
+    ]
+
+  298th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-297/f.pdf",
+    ]
+
+  299th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-298/f.pdf",
+    ]
+
+  300th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-299/f.pdf",
+    ]
+
+  301st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-300/f.pdf",
+    ]
+
+  302nd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-301/f.pdf",
+    ]
+
+  303rd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-302/f.pdf",
+    ]
+
+  304th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-303/f.pdf",
+    ]
+
+  305th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-304/f.pdf",
+    ]
+
+  306th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-305/f.pdf",
+    ]
+
+  307th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-306/f.pdf",
+    ]
+
+  308th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-307/f.pdf",
+    ]
+
+  309th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-308/f.pdf",
+    ]
+
+  310th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-309/f.pdf",
+    ]
+
+  311th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-310/f.pdf",
+    ]
+
+  312th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-311/f.pdf",
+    ]
+
+  313th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-312/f.pdf",
+    ]
+
+  314th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-313/f.pdf",
+    ]
+
+  315th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-314/f.pdf",
+    ]
+
+  316th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-315/f.pdf",
+    ]
+
+  317th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-316/f.pdf",
+    ]
+
+  318th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-317/f.pdf",
+    ]
+
+  319th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-318/f.pdf",
+    ]
+
+  320th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-319/f.pdf",
+    ]
+
+  321st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-320/f.pdf",
+    ]
+
+  322nd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-321/f.pdf",
+    ]
+
+  323rd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-322/f.pdf",
+    ]
+
+  324th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-323/f.pdf",
+    ]
+
+  325th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-324/f.pdf",
+    ]
+
+  326th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-325/f.pdf",
+    ]
+
+  327th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-326/f.pdf",
+    ]
+
+  328th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-327/f.pdf",
+    ]
+
+  329th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-328/f.pdf",
+    ]
+
+  330th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-329/f.pdf",
+    ]
+
+  331st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-330/f.pdf",
+    ]
+
+  332nd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-331/f.pdf",
+    ]
+
+  333rd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-332/f.pdf",
+    ]
+
+  334th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-333/f.pdf",
+    ]
+
+  335th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-334/f.pdf",
+    ]
+
+  336th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-335/f.pdf",
+    ]
+
+  337th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-336/f.pdf",
+    ]
+
+  338th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-337/f.pdf",
+    ]
+
+  339th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-338/f.pdf",
+    ]
+
+  340th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-339/f.pdf",
+    ]
+
+  341st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-340/f.pdf",
+    ]
+
+  342nd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-341/f.pdf",
+    ]
+
+  343rd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-342/f.pdf",
+    ]
+
+  344th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-343/f.pdf",
+    ]
+
+  345th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-344/f.pdf",
+    ]
+
+  346th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-345/f.pdf",
+    ]
+
+  347th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-346/f.pdf",
+    ]
+
+  348th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-347/f.pdf",
+    ]
+
+  349th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-348/f.pdf",
+    ]
+
+  350th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-349/f.pdf",
+    ]
+
+  351st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-350/f.pdf",
+    ]
+
+  352nd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-351/f.pdf",
+    ]
+
+  353rd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-352/f.pdf",
+    ]
+
+  354th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-353/f.pdf",
+    ]
+
+  355th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-354/f.pdf",
+    ]
+
+  356th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-355/f.pdf",
+    ]
+
+  357th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-356/f.pdf",
+    ]
+
+  358th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-357/f.pdf",
+    ]
+
+  359th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-358/f.pdf",
+    ]
+
+  360th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-359/f.pdf",
+    ]
+
+  361st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-360/f.pdf",
+    ]
+
+  362nd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-361/f.pdf",
+    ]
+
+  363rd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-362/f.pdf",
+    ]
+
+  364th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-363/f.pdf",
+    ]
+
+  365th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-364/f.pdf",
+    ]
+
+  366th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-365/f.pdf",
+    ]
+
+  367th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-366/f.pdf",
+    ]
+
+  368th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-367/f.pdf",
+    ]
+
+  369th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-368/f.pdf",
+    ]
+
+  370th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-369/f.pdf",
+    ]
+
+  371st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-370/f.pdf",
+    ]
+
+  372nd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-371/f.pdf",
+    ]
+
+  373rd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-372/f.pdf",
+    ]
+
+  374th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-373/f.pdf",
+    ]
+
+  375th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-374/f.pdf",
+    ]
+
+  376th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-375/f.pdf",
+    ]
+
+  377th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-376/f.pdf",
+    ]
+
+  378th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-377/f.pdf",
+    ]
+
+  379th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-378/f.pdf",
+    ]
+
+  380th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-379/f.pdf",
+    ]
+
+  381st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-380/f.pdf",
+    ]
+
+  382nd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-381/f.pdf",
+    ]
+
+  383rd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-382/f.pdf",
+    ]
+
+  384th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-383/f.pdf",
+    ]
+
+  385th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-384/f.pdf",
+    ]
+
+  386th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-385/f.pdf",
+    ]
+
+  387th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-386/f.pdf",
+    ]
+
+  388th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-387/f.pdf",
+    ]
+
+  389th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-388/f.pdf",
+    ]
+
+  390th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-389/f.pdf",
+    ]
+
+  391st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-390/f.pdf",
+    ]
+
+  392nd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-391/f.pdf",
+    ]
+
+  393rd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-392/f.pdf",
+    ]
+
+  394th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-393/f.pdf",
+    ]
+
+  395th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-394/f.pdf",
+    ]
+
+  396th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-395/f.pdf",
+    ]
+
+  397th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-396/f.pdf",
+    ]
+
+  398th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-397/f.pdf",
+    ]
+
+  399th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-398/f.pdf",
+    ]
+
+  400th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-399/f.pdf",
+    ]
+
+  401st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-400/f.pdf",
+    ]
+
+  402nd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-401/f.pdf",
+    ]
+
+  403rd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-402/f.pdf",
+    ]
+
+  404th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-403/f.pdf",
+    ]
+
+  405th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-404/f.pdf",
+    ]
+
+  406th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-405/f.pdf",
+    ]
+
+  407th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-406/f.pdf",
+    ]
+
+  408th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-407/f.pdf",
+    ]
+
+  409th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-408/f.pdf",
+    ]
+
+  410th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-409/f.pdf",
+    ]
+
+  411th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-410/f.pdf",
+    ]
+
+  412th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-411/f.pdf",
+    ]
+
+  413th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-412/f.pdf",
+    ]
+
+  414th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-413/f.pdf",
+    ]
+
+  415th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-414/f.pdf",
+    ]
+
+  416th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-415/f.pdf",
+    ]
+
+  417th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-416/f.pdf",
+    ]
+
+  418th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-417/f.pdf",
+    ]
+
+  419th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-418/f.pdf",
+    ]
+
+  420th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-419/f.pdf",
+    ]
+
+  421st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-420/f.pdf",
+    ]
+
+  422nd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-421/f.pdf",
+    ]
+
+  423rd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-422/f.pdf",
+    ]
+
+  424th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-423/f.pdf",
+    ]
+
+  425th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-424/f.pdf",
+    ]
+
+  426th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-425/f.pdf",
+    ]
+
+  427th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-426/f.pdf",
+    ]
+
+  428th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-427/f.pdf",
+    ]
+
+  429th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-428/f.pdf",
+    ]
+
+  430th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-429/f.pdf",
+    ]
+
+  431st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-430/f.pdf",
+    ]
+
+  432nd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-431/f.pdf",
+    ]
+
+  433rd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-432/f.pdf",
+    ]
+
+  434th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-433/f.pdf",
+    ]
+
+  435th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-434/f.pdf",
+    ]
+
+  436th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-435/f.pdf",
+    ]
+
+  437th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-436/f.pdf",
+    ]
+
+  438th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-437/f.pdf",
+    ]
+
+  439th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-438/f.pdf",
+    ]
+
+  440th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-439/f.pdf",
+    ]
+
+  441st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-440/f.pdf",
+    ]
+
+  442nd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-441/f.pdf",
+    ]
+
+  443rd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-442/f.pdf",
+    ]
+
+  444th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-443/f.pdf",
+    ]
+
+  445th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-444/f.pdf",
+    ]
+
+  446th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-445/f.pdf",
+    ]
+
+  447th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-446/f.pdf",
+    ]
+
+  448th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-447/f.pdf",
+    ]
+
+  449th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-448/f.pdf",
+    ]
+
+  450th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-449/f.pdf",
+    ]
+
+  451st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-450/f.pdf",
+    ]
+
+  452nd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-451/f.pdf",
+    ]
+
+  453rd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-452/f.pdf",
+    ]
+
+  454th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-453/f.pdf",
+    ]
+
+  455th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-454/f.pdf",
+    ]
+
+  456th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-455/f.pdf",
+    ]
+
+  457th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-456/f.pdf",
+    ]
+
+  458th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-457/f.pdf",
+    ]
+
+  459th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-458/f.pdf",
+    ]
+
+  460th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-459/f.pdf",
+    ]
+
+  461st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-460/f.pdf",
+    ]
+
+  462nd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-461/f.pdf",
+    ]
+
+  463rd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-462/f.pdf",
+    ]
+
+  464th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-463/f.pdf",
+    ]
+
+  465th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-464/f.pdf",
+    ]
+
+  466th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-465/f.pdf",
+    ]
+
+  467th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-466/f.pdf",
+    ]
+
+  468th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-467/f.pdf",
+    ]
+
+  469th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-468/f.pdf",
+    ]
+
+  470th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-469/f.pdf",
+    ]
+
+  471st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-470/f.pdf",
+    ]
+
+  472nd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-471/f.pdf",
+    ]
+
+  473rd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-472/f.pdf",
+    ]
+
+  474th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-473/f.pdf",
+    ]
+
+  475th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-474/f.pdf",
+    ]
+
+  476th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-475/f.pdf",
+    ]
+
+  477th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-476/f.pdf",
+    ]
+
+  478th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-477/f.pdf",
+    ]
+
+  479th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-478/f.pdf",
+    ]
+
+  480th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-479/f.pdf",
+    ]
+
+  481st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-480/f.pdf",
+    ]
+
+  482nd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-481/f.pdf",
+    ]
+
+  483rd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-482/f.pdf",
+    ]
+
+  484th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-483/f.pdf",
+    ]
+
+  485th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-484/f.pdf",
+    ]
+
+  486th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-485/f.pdf",
+    ]
+
+  487th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-486/f.pdf",
+    ]
+
+  488th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-487/f.pdf",
+    ]
+
+  489th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-488/f.pdf",
+    ]
+
+  490th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-489/f.pdf",
+    ]
+
+  491st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-490/f.pdf",
+    ]
+
+  492nd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-491/f.pdf",
+    ]
+
+  493rd vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-492/f.pdf",
+    ]
+
+  494th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-493/f.pdf",
+    ]
+
+  495th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-494/f.pdf",
+    ]
+
+  496th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-495/f.pdf",
+    ]
+
+  497th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-496/f.pdf",
+    ]
+
+  498th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-497/f.pdf",
+    ]
+
+  499th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-498/f.pdf",
+    ]
+
+  500th vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-499/f.pdf",
+    ]
+
+  501st vi.fn() call:
+
+    Array [
+      "ORG-0001/DOC-500/f.pdf",
+    ]
+
+
+Number of calls: 501
+
+ ❯ lib/services/properties.delete.test.ts:32:41
+     30| it("deleteProperty cleans up storage for every document, not the first…
+     31|   await deleteProperty({ userId: "USR-0001", orgId: "ORG-0001", orgRol…
+     32|   expect(mocks.deleteStorageObject).not.toHaveBeenCalled();
+       |                                         ^
+     33|   expect(mocks.deleteStorageObjects).toHaveBeenCalledTimes(1);
+     34|   expect(mocks.deleteStorageObjects).toHaveBeenCalledWith(DOCS.map((d)…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/7]⎯
+
+ FAIL  lib/services/storage-delete.test.ts > deleteStorageObjects batches into DeleteObjects of 1000 and skips legacy ids
+TypeError: deleteStorageObjects is not a function
+ ❯ lib/services/storage-delete.test.ts:20:9
+     18|   sendMock.mockResolvedValue({});
+     19|   const keys = Array.from({ length: 2001 }, (_, i) => `ORG-A/DOC-${i}/…
+     20|   await deleteStorageObjects([...keys, "_storage/legacy.pdf"]);
+       |         ^
+     21|   expect(sendMock).toHaveBeenCalledTimes(3);
+     22|   const batches = sendMock.mock.calls.map(([cmd]) => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/7]⎯
+
+ FAIL  lib/services/storage-delete.test.ts > deleteStorageObjects never throws: a failed batch is logged and the rest still run
+TypeError: deleteStorageObjects is not a function
+ ❯ lib/services/storage-delete.test.ts:35:16
+     33|   sendMock.mockRejectedValueOnce(new Error("s3 down")).mockResolvedVal…
+     34|   const keys = Array.from({ length: 1001 }, (_, i) => `ORG-A/DOC-${i}/…
+     35|   await expect(deleteStorageObjects(keys)).resolves.toBeUndefined();
+       |                ^
+     36|   expect(sendMock).toHaveBeenCalledTimes(2);
+     37|   expect(quiet).toHaveBeenCalledTimes(2);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/7]⎯
+
+ FAIL  lib/services/storage-delete.test.ts > deleteStorageObjects with nothing to delete makes no S3 call
+TypeError: deleteStorageObjects is not a function
+ ❯ lib/services/storage-delete.test.ts:42:9
+     40|
+     41| it("deleteStorageObjects with nothing to delete makes no S3 call", asy…
+     42|   await deleteStorageObjects(["_storage/a"]);
+       |         ^
+     43|   await deleteStorageObjects([]);
+     44|   expect(sendMock).not.toHaveBeenCalled();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/7]⎯
+
+
+ Test Files  5 failed (5)
+      Tests  7 failed | 17 passed (24)
+   Start at  15:41:49
+   Duration  682ms (transform 503ms, setup 147ms, import 2.02s, tests 75ms, environment 0ms)
+

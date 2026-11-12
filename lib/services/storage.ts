@@ -1,5 +1,5 @@
 import "server-only"; // C1
-import { S3Client, S3ServiceException, HeadObjectCommand, GetObjectCommand, DeleteObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, S3ServiceException, HeadObjectCommand, GetObjectCommand, DeleteObjectCommand, DeleteObjectsCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { createPresignedPost } from "@aws-sdk/s3-presigned-post";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { env } from "@/lib/env";
@@ -170,4 +170,31 @@ export async function deleteStorageObject(storageId: string): Promise<boolean> {
     return false;
   }
 
+}
+
+// Batched deleteStorageObject (O7): one S3 DeleteObjects request per 1000 keys (the API maximum)
+// instead of one round trip per key, so a large property delete fits a serverless timeout. Same
+// best-effort contract: never throws, logs a failed batch or a per-key error, and skips legacy ids.
+export async function deleteStorageObjects(storageIds: string[]): Promise<void> {
+  const keys = storageIds.filter((id) => !id.startsWith("_storage/"));
+  if (keys.length === 0) return;
+  let s3: ReturnType<typeof getS3>;
+  try {
+    s3 = getS3();
+  } catch (err) {
+    console.error("deleteStorageObjects: storage not configured", keys.length, err);
+    return;
+  }
+  for (let i = 0; i < keys.length; i += 1000) {
+    const batch = keys.slice(i, i + 1000);
+    try {
+      const res = await s3.client.send(new DeleteObjectsCommand({
+        Bucket: s3.bucket,
+        Delete: { Objects: batch.map((Key) => ({ Key })), Quiet: true },
+      }));
+      if (res.Errors?.length) console.error("deleteStorageObjects: S3 refused some keys", res.Errors);
+    } catch (err) {
+      console.error("deleteStorageObjects: failed to remove S3 batch", batch.length, err);
+    }
+  }
 }

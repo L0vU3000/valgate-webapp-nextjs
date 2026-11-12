@@ -20,8 +20,10 @@ export function requireAdmin(ctx: Ctx): void {
   if (!roleAtLeast(ctx.orgRole, "admin")) throw new Error("forbidden");
 }
 
-export async function assertOrgAdmin(ctx: Ctx, targetOrgId: string): Promise<void> {
-  const [row] = await db
+// exec lets a caller inside a transaction run the check on its own connection (O5: no second pool
+// connection while the tx holds one).
+export async function assertOrgAdmin(ctx: Ctx, targetOrgId: string, exec: DbExec = db): Promise<void> {
+  const [row] = await exec
     .select({ role: organizationMemberships.role })
     .from(organizationMemberships)
     .where(
@@ -48,7 +50,9 @@ export async function scopedInsert<T, R = unknown>(
 ): Promise<T> {
   assertCanMutate(ctx); // D9 — demo mode refuses all writes
   requireMember(ctx);
-  const id = await nextId(prefix, table);
+  // A caller in a transaction passes a pre-minted extra.id (O5), so nextId's own pool connection is
+  // not taken while the tx holds one.
+  const id = typeof extra?.id === "string" ? extra.id : await nextId(prefix, table);
   const dbValues = convertRowToDb(table, input);
   const values: Record<string, unknown> = {
     ...dbValues,

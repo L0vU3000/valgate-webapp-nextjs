@@ -198,6 +198,7 @@ export async function uploadDraftFileAction(
       sizeBytes: file.size,
       storageId: presigned.storageId,
     });
+    storedId = undefined; // O2: the committed row owns the bytes now; a later throw must not delete them
     revalidateFeTag(DRAFTS_TAG);
     return { ok: true, data: toFileView(staged) };
   } catch (err) {

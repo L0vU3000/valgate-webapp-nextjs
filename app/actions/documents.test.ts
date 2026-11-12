@@ -147,3 +147,22 @@ it("deletes the stored object when the row insert fails", async () => {
     quiet.mockRestore();
   }
 });
+
+// O2: once the row commits it owns the bytes; a later throw (cache bust) must not delete them.
+it("keeps the stored object when a post-commit step throws", async () => {
+  mocks.getProperty.mockResolvedValue({ id: document.propertyId });
+  mocks.presignUpload.mockResolvedValue({ url: "http://uploads.invalid", fields: {}, storageId: document.storageId });
+  mocks.createDocument.mockResolvedValue(document);
+  mocks.bustCache.mockRejectedValue(new Error("cache bust failed"));
+  const data = new FormData();
+  data.append("file", new File(["pdf"], "test.pdf", { type: "application/pdf" }));
+  const uploadFetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("", { status: 200 }));
+  const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
+  try {
+    await uploadDocument(document.propertyId, data);
+    expect(mocks.deleteStorageObject).not.toHaveBeenCalled();
+  } finally {
+    uploadFetch.mockRestore();
+    quiet.mockRestore();
+  }
+});

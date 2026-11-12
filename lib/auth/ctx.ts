@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { users, organizations, organizationMemberships } from "@/lib/db/schema";
-import { upsertOrg, upsertUser, upsertMembership, ourOrgId, ourUserId, normaliseRole } from "@/lib/services/identity-sync";
+import { upsertOrg, upsertUser, insertMembershipIfMissing, ourOrgId, ourUserId, normaliseRole } from "@/lib/services/identity-sync";
 import { isManagerFromAccountType } from "@/lib/auth/account-type";
 import type { Ctx } from "@/lib/services/_mapping";
 
@@ -42,18 +42,19 @@ async function resolveCtx(): Promise<Ctx> {
     });
     // ponytail: org name = Clerk id as placeholder; webhook fills in real name/slug
     await upsertOrg({ id: orgId, name: orgId, slug: null });
-    await upsertMembership({ clerkOrgId: orgId, clerkUserId: userId, role: orgRole ?? "org:member" });
+    await insertMembershipIfMissing({ clerkOrgId: orgId, clerkUserId: userId, role: orgRole ?? "org:member" });
   } else {
     // Both mirrors exist but the membership row may not (missed organizationMembership.created):
     // web would work off the Clerk claim while /api/v1 and /mcp, which trust the mirror, 401.
     // Only a MISSING row is backfilled; a removed/suspended row is the webhook's verdict and a
-    // stale session token must not resurrect it.
+    // stale session token must not resurrect it. The write is insert-or-nothing (O1), so a row the
+    // webhook lands between this select and the insert is left alone too.
     const [membership] = await db.select({ status: organizationMemberships.status })
       .from(organizationMemberships)
       .where(and(eq(organizationMemberships.userId, existingUser.id), eq(organizationMemberships.orgId, existingOrg.id)))
       .limit(1);
     if (!membership) {
-      await upsertMembership({ clerkOrgId: orgId, clerkUserId: userId, role: orgRole ?? "org:member" });
+      await insertMembershipIfMissing({ clerkOrgId: orgId, clerkUserId: userId, role: orgRole ?? "org:member" });
     }
   }
 

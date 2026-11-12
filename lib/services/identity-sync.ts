@@ -133,6 +133,21 @@ export async function upsertMembership(data: {
     });
 }
 
+// requireCtx's backfill (O1): insert the missing row, never touch an existing one. The caller's
+// "no row" select can race the webhook, and a removed/suspended row is the webhook's verdict, so an
+// upsert here could resurrect it from a stale session token. ON CONFLICT DO NOTHING closes that.
+export async function insertMembershipIfMissing(data: {
+  clerkOrgId: string;
+  clerkUserId: string;
+  role: string;
+}): Promise<void> {
+  const orgId = await ourOrgId(data.clerkOrgId);
+  const userId = await ourUserId(data.clerkUserId);
+  await db.insert(organizationMemberships)
+    .values({ id: await nextId("MEM", organizationMemberships), orgId, userId, role: normaliseRole(data.role), status: "active", joinedAt: new Date() })
+    .onConflictDoNothing({ target: [organizationMemberships.orgId, organizationMemberships.userId] });
+}
+
 export async function removeMembership(data: { clerkOrgId: string; clerkUserId: string }): Promise<void> {
   const [org] = await db.select({ id: organizations.id }).from(organizations)
     .where(eq(organizations.clerkOrgId, data.clerkOrgId)).limit(1);

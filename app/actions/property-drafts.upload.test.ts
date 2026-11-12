@@ -38,7 +38,8 @@ const stageDraftFile = vi.fn(async () => {
 });
 vi.mock("@/lib/services/property-drafts", () => ({ stageDraftFile }));
 
-vi.mock("next/cache", () => ({ revalidateTag: vi.fn() }));
+const revalidateTag = vi.fn();
+vi.mock("next/cache", () => ({ revalidateTag }));
 
 const { uploadDraftFileAction } = await import("@/app/actions/property-drafts");
 
@@ -136,4 +137,25 @@ describe("uploadDraftFileAction — stored object cleanup", () => {
     expect(deleteStorageObject).toHaveBeenCalledTimes(1);
     expect(deleteStorageObject).toHaveBeenCalledWith("ORG-0001/DOC-0001/photo.jpg");
   });
+});
+
+// O2: once the staged row commits it owns the bytes; a later throw (cache revalidate) must not delete them.
+it("uploadDraftFileAction keeps the stored object when a post-commit step throws", async () => {
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  vi.stubGlobal("fetch", vi.fn(async () => new Response("", { status: 200 })));
+  try {
+    stageDraftFile.mockResolvedValueOnce({
+      id: "DRFF-1", draftId: "DRAFT-1", kind: "document", name: "photo.jpg", mimeType: "image/jpeg", sizeBytes: 10,
+      storageId: "ORG-0001/DOC-0001/photo.jpg",
+    } as never);
+    revalidateTag.mockImplementationOnce(() => { throw new Error("revalidate failed"); });
+    const formData = new FormData();
+    formData.set("file", fakeFile());
+    await uploadDraftFileAction("DRAFT-1", "document", formData);
+    expect(deleteStorageObject).not.toHaveBeenCalled();
+  } finally {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+    deleteStorageObject.mockClear();
+  }
 });

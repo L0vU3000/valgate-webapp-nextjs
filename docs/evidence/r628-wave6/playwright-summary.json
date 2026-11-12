@@ -1,0 +1,13 @@
+{
+  "gate": "DEMO playwright (canonical env, playwright-config from r628-wave1)",
+  "collected": 79,
+  "passed": 31, "failed": 4, "skipped": 36, "didNotRun": 8, "duration": "5.1m",
+  "baseline": "docs/evidence/r628-wave5/playwright-demo.log (31P/4F/36S/8DNR)",
+  "failures": [
+    {"test": "add-property.spec.ts:72 C0", "error": "Test timeout of 30000ms", "at": "add-property.spec.ts:75:5, :78:98", "identityMatch": "wave5"},
+    {"test": "intake.spec.ts:43 D1", "error": "Test timeout of 120000ms (walk to Step 4)", "identityMatch": "wave5"},
+    {"test": "photos.spec.ts:37 E1", "error": "expect(locator).toBeVisible() failed", "at": "photos.spec.ts:60:5, :73:9", "identityMatch": "wave5"},
+    {"test": "portfolio.spec.ts:141 B8-B10", "error": "assertS3ObjectGone", "at": "helpers/verify.ts:51:5 (portfolio.spec.ts:169-170)", "identityMatch": "wave5", "note": "changed path (deleteProperty -> deleteStorageObjects); same HeadObject line as wave4/5"}
+  ],
+  "newFailures": 0
+}

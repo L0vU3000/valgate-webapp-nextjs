@@ -224,6 +224,7 @@ export async function uploadDocument(
       storageId: presigned.storageId,
       uploadedAt: Date.now(),
     });
+    storedId = undefined; // O2: the committed row owns the bytes now; a later throw must not delete them
     revalidateFeTag("documents");
     await bustCache("documents");
     return { ok: true, data: created };

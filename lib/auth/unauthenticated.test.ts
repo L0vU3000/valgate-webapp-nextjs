@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   upsertUser: vi.fn(),
   upsertOrg: vi.fn(),
   upsertMembership: vi.fn(),
+  insertMembershipIfMissing: vi.fn(),
 }));
 
 vi.mock("@clerk/nextjs/server", () => ({ auth: mocks.auth, currentUser: mocks.currentUser }));
@@ -26,6 +27,7 @@ vi.mock("@/lib/services/identity-sync", () => ({
   upsertUser: mocks.upsertUser,
   upsertOrg: mocks.upsertOrg,
   upsertMembership: mocks.upsertMembership,
+  insertMembershipIfMissing: mocks.insertMembershipIfMissing,
   ourUserId: async () => "USR-0001",
   ourOrgId: async () => "ORG-0001",
   normaliseRole: () => "member",
@@ -80,8 +82,10 @@ describe("requireCtx membership backfill", () => {
     mocks.auth.mockResolvedValue(session);
     mocks.rows.push([{ id: "USR-0001" }], [{ id: "ORG-0001" }], []);
     await requireCtx();
-    expect(mocks.upsertMembership).toHaveBeenCalledTimes(1);
-    expect(mocks.upsertMembership).toHaveBeenCalledWith({ clerkOrgId: "org_1", clerkUserId: "user_1", role: "org:admin" });
+    // O1: insert-or-nothing, so a row that appears in the select→write window is never overwritten.
+    expect(mocks.upsertMembership).not.toHaveBeenCalled();
+    expect(mocks.insertMembershipIfMissing).toHaveBeenCalledTimes(1);
+    expect(mocks.insertMembershipIfMissing).toHaveBeenCalledWith({ clerkOrgId: "org_1", clerkUserId: "user_1", role: "org:admin" });
     expect(mocks.upsertUser).not.toHaveBeenCalled();
   });
 
@@ -90,5 +94,6 @@ describe("requireCtx membership backfill", () => {
     mocks.rows.push([{ id: "USR-0001" }], [{ id: "ORG-0001" }], [{ status: "removed" }]);
     await requireCtx();
     expect(mocks.upsertMembership).not.toHaveBeenCalled();
+    expect(mocks.insertMembershipIfMissing).not.toHaveBeenCalled();
   });
 });
