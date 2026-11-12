@@ -1,8 +1,9 @@
 import { afterAll, describe, expect, it } from "vitest";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import type { Ctx } from "@/lib/services/_mapping";
 import { db } from "@/lib/db/client";
-import { propertyDrafts } from "@/lib/db/schema";
+import { documents, organizations, properties, propertyDrafts, propertyDraftFiles } from "@/lib/db/schema";
+import { createThrowawayProperty, cleanup } from "../../e2e/helpers/db";
 import {
   listPropertyDrafts,
   getPropertyDraft,
@@ -14,6 +15,8 @@ import {
   getDraftFile,
   removeDraftFile,
   sweepExpiredDrafts,
+  convertDraftToDocuments,
+  convertDraftToDocumentsForOrg,
 } from "@/lib/services/property-drafts";
 
 // ---------------------------------------------------------------------------
@@ -194,5 +197,62 @@ describe.skipIf(!HAS_DB)("property-drafts service (live DB)", () => {
 
     expect(await getPropertyDraft(ctxA, oldDraft.id)).toBeNull();        // swept
     expect(await getPropertyDraft(ctxA, recentDraft.id)).not.toBeNull(); // survived
+  });
+
+  // B2.8: a conversion that fails mid-loop must leave no document rows (and no merged photo keys)
+  // behind, or the surviving draft still "owns" keys that live documents now use, and discard/sweep
+  // would delete those bytes. File 2 has sizeBytes -1: its row inserts, then DocumentSchema.parse throws.
+  for (const variant of ["single-org", "for-org"] as const) {
+    it(`B2.8 (${variant}): a failed conversion leaves no document rows or photo keys behind`, async () => {
+      const { propertyId } = await createThrowawayProperty();
+      try {
+        const draft = await createPropertyDraft(ctxA, { title: `B2.8 ${variant}`, step: 4, form: {} });
+        createdDraftIds.push(draft.id);
+        const photoKey = fakeStorageId(`b28-photo-${variant}`);
+        await stageDraftFile(ctxA, draft.id, {
+          kind: "photo", name: "front.jpg", mimeType: "image/jpeg", sizeBytes: 10, storageId: photoKey,
+        });
+        await db.insert(propertyDraftFiles).values({
+          id: `DRFF-TEST-${crypto.randomUUID()}`, orgId: ctxA.orgId, userId: ctxA.userId, draftId: draft.id,
+          kind: "document", name: "bad.pdf", mimeType: "application/pdf", sizeBytes: -1,
+          storageId: fakeStorageId(`b28-bad-${variant}`),
+        });
+
+        const run = variant === "single-org"
+          ? convertDraftToDocuments(ctxA, draft.id, propertyId)
+          : convertDraftToDocumentsForOrg(ctxA, draft.id, propertyId, ctxA.orgId);
+        await expect(run).rejects.toThrow();
+
+        const docs = await db.select({ id: documents.id }).from(documents).where(eq(documents.propertyId, propertyId));
+        expect(docs).toHaveLength(0);
+        const [prop] = await db.select({ photos: properties.photoStorageIds }).from(properties).where(eq(properties.id, propertyId));
+        expect(prop?.photos ?? []).not.toContain(photoKey);
+        expect(await listDraftFiles(ctxA, draft.id)).toHaveLength(2); // draft intact for a retry
+      } finally {
+        await cleanup(propertyId);
+      }
+    });
+  }
+
+  // B3.11: targetOrgId is a client string; it must not let a caller write a draft into an org they
+  // do not administer. The org row exists, so a missing FK cannot be what stops the insert.
+  it("B3.11: cannot create a draft in an org the caller does not own", async () => {
+    const foreignOrg = `ORG-E2E-${crypto.randomUUID()}`;
+    await db.insert(organizations).values({ id: foreignOrg, clerkOrgId: `org_e2e_${crypto.randomUUID()}`, name: "B3.11 foreign" });
+    try {
+      await expect(createPropertyDraft(ctxA, { title: "foreign", step: 0, form: {} }, foreignOrg)).rejects.toThrow();
+      const rows = await db.select({ id: propertyDrafts.id }).from(propertyDrafts)
+        .where(and(eq(propertyDrafts.orgId, foreignOrg), eq(propertyDrafts.userId, ctxA.userId)));
+      expect(rows).toHaveLength(0);
+    } finally {
+      await db.delete(propertyDrafts).where(eq(propertyDrafts.orgId, foreignOrg));
+      await db.delete(organizations).where(eq(organizations.id, foreignOrg));
+    }
+  });
+
+  it("B3.11 control: an explicit targetOrgId equal to the caller's own org still works", async () => {
+    const draft = await createPropertyDraft(ctxA, { title: "own-target", step: 0, form: {} }, ctxA.orgId);
+    createdDraftIds.push(draft.id);
+    expect(draft.id).toMatch(/^DRFT-/);
   });
 });

@@ -3,7 +3,7 @@
  */
 import { test, expect } from './fixtures'
 import { createThrowawayProperty, cleanup } from './helpers/db'
-import { existsSync } from 'fs'
+import { existsSync, readFileSync } from 'fs'
 import path from 'path'
 
 const DOC_FIXTURE = path.resolve(process.cwd(), 'e2e', 'fixtures', 'test-doc.pdf')
@@ -158,6 +158,61 @@ test.describe('F — Documents & folders', () => {
       await test.step('Folder is gone, no orphan error', async () => {
         await expect(page.getByText('E2E Folder')).not.toBeVisible({ timeout: 5_000 })
         await expect(page.getByText(/error|crash|something went wrong/i)).not.toBeVisible()
+      })
+    } finally {
+      await cleanup(ids.propertyId)
+    }
+  })
+
+  test('F6: cancelling a queued upload → file never appears (B2.11)', async ({ page }) => {
+    test.info().annotations.push({ type: 'checklist', description: 'F6 — cancel a queued upload' })
+    if (!existsSync(DOC_FIXTURE)) test.skip(true, 'Run: node e2e/fixtures/generate.mjs to create test-doc.pdf')
+    const pdf = readFileSync(DOC_FIXTURE)
+    const ids = await createThrowawayProperty()
+    try {
+      // Hold the FIRST upload (a server-action POST) so the second file sits in "queued".
+      let release!: () => void
+      const held = new Promise<void>((r) => { release = r })
+      let holding = false
+      await page.route(`**/property/${ids.propertyId}/documents*`, async (route) => {
+        const req = route.request()
+        if (req.method() === 'POST' && req.headers()['next-action'] && !holding) {
+          holding = true
+          await held
+        }
+        await route.continue()
+      })
+
+      await test.step('Queue two files, first one held', async () => {
+        await page.goto(DOCS(ids.propertyId))
+        await page.getByRole('button', { name: /upload (a )?(document|file)|add (file|files)/i }).first().click()
+        const dialog = page.getByRole('dialog')
+        await dialog.evaluate(() => {
+          const el = document.querySelector<HTMLInputElement>('input[type="file"]')
+          if (el) el.style.display = 'block'
+        })
+        await dialog.locator('input[type="file"]').setInputFiles([
+          { name: 'f6-first.pdf', mimeType: 'application/pdf', buffer: pdf },
+          { name: 'f6-second.pdf', mimeType: 'application/pdf', buffer: pdf },
+        ])
+        await dialog.getByRole('button', { name: /upload|send/i }).click()
+        await expect.poll(() => holding, { timeout: 10_000 }).toBe(true)
+      })
+
+      await test.step('Cancel the queued row, then let the batch finish', async () => {
+        const row = page.getByText('f6-second.pdf', { exact: true }).locator('xpath=ancestor::div[button][1]')
+        await row.getByRole('button', { name: 'Cancel', exact: true }).click()
+        await expect(page.getByText('f6-second.pdf', { exact: true })).toHaveCount(0)
+        // The batch ends with router.refresh() (an RSC request); wait for it so the loop is done.
+        const refreshed = page.waitForRequest((r) => r.headers()['rsc'] === '1', { timeout: 30_000 })
+        release()
+        await refreshed
+      })
+
+      await test.step('After reload only the first file exists', async () => {
+        await page.reload()
+        await expect(page.getByText('f6-first.pdf').first()).toBeVisible({ timeout: 15_000 })
+        await expect(page.getByText('f6-second.pdf')).toHaveCount(0)
       })
     } finally {
       await cleanup(ids.propertyId)

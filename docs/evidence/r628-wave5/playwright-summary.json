@@ -1,0 +1,14 @@
+{
+  "config": "playwright.r628.local.config.ts (copied from docs/evidence/r628-wave1/playwright-config.txt, removed after run)",
+  "env": "DEMO_MODE=true PLAYWRIGHT_AUTH= PLAYWRIGHT_HTML_OPEN=never CLERK_SECRET_KEY=demo-no-clerk NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=",
+  "collected": 79, "passed": 31, "failed": 4, "skipped": 36, "didNotRun": 8, "durationMin": 5.0,
+  "new_tests": ["F6 (B2.11) passed"],
+  "failed_tests": [
+    {"id": "C0", "identity": "retired wizard: 'Get Started' step", "baseline": "known red since b54589e"},
+    {"id": "D1", "identity": "fails in step 'Walk the wizard to Step 4' (retired wizard), before any upload", "baseline": "known red since b54589e"},
+    {"id": "E1", "identity": "photo upload: Cover/Property photo img not found (PropertyPhotoManager path, not changed)", "baseline": "known red since b54589e"},
+    {"id": "B8-B10", "identity": "S3 HeadObjectCommand UnknownError at e2e/helpers/verify.ts:51, same as wave 4 line for line", "baseline": "known red since b54589e"}
+  ],
+  "new_failures": 0,
+  "matches_wave4": true
+}

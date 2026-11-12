@@ -46,10 +46,11 @@ import {
 import { getProperty } from "@/lib/services/properties";
 import { getDocument, listDocuments, updateDocument, createDocument, getDocumentByStorageId } from "@/lib/services/documents";
 import { listProfessionals } from "@/lib/services/professionals";
+import { createLease } from "@/lib/services/leases";
 import { scopedDelete, scopedUpdate } from "@/lib/services/_crud";
 import { db } from "@/lib/db/client";
-import { eq } from "drizzle-orm";
-import { properties, organizations } from "@/lib/db/schema";
+import { and, eq } from "drizzle-orm";
+import { properties, organizations, leases } from "@/lib/db/schema";
 import type { Ctx } from "@/lib/services/_mapping";
 
 // ── Synthetic Ctx objects ─────────────────────────────────────────────────────
@@ -246,4 +247,16 @@ it("can still create a document on its own property", async () => {
   expect(created.name).toBe("own.pdf");
   expect((await getDocumentByStorageId(orgAOwnerCtx, created.storageId))?.id).toBe(created.id);
   expect(await getDocumentByStorageId({ ...orgAOwnerCtx, orgId: writableOrgB }, created.storageId)).toBeNull();
+});
+
+// B3.4 (lease level): scopedInsert's property check covers every child table, not just documents.
+it("ORG-B cannot create a lease on an ORG-A property", async () => {
+  const ctxB: Ctx = { userId: "USR-0001", orgId: writableOrgB, orgRole: "owner" };
+  await expect(createLease(ctxB, {
+    propertyId: propId, unit: "1A", stage: "Offered", startDate: Date.now(), endDate: Date.now() + 86_400_000,
+    monthlyRent: 1000, termMonths: 12,
+  })).rejects.toThrow("forbidden");
+  const rows = await db.select({ id: leases.id }).from(leases)
+    .where(and(eq(leases.propertyId, propId), eq(leases.orgId, writableOrgB)));
+  expect(rows).toHaveLength(0);
 });

@@ -12,9 +12,8 @@ import {
 import { PropertySchema, type Property } from "@/lib/data/types/property";
 import type { NewProperty, PropertyPatch } from "@/lib/data/types/property";
 import { toDomain, nextId, assertCanMutate, type Ctx } from "@/lib/services/_mapping";
-import { scopedUpdate, scopedDelete, requireMember, assertOrgAdmin } from "@/lib/services/_crud";
+import { scopedUpdate, scopedDelete, requireMember, assertOrgAdmin, type DbExec } from "@/lib/services/_crud";
 import { convertRowToDb } from "@/lib/db/column-classifier";
-import { listDocuments } from "@/lib/services/documents";
 import { assertOwnStorageId, deleteStorageObject } from "@/lib/services/storage";
 
 function assertPropertyStorage(ctx: Pick<Ctx, "orgId">, media: {
@@ -160,9 +159,10 @@ export async function updateProperty(
   ctx: Ctx,
   id: string,
   patch: { [K in keyof PropertyPatch]?: PropertyPatch[K] | null },
+  exec?: DbExec,
 ): Promise<Property | null> {
   assertPropertyStorage(ctx, patch);
-  return scopedUpdate(ctx, properties, id, { ...patch, updatedAt: Date.now() }, rowToProperty, true);
+  return scopedUpdate(ctx, properties, id, { ...patch, updatedAt: Date.now() }, rowToProperty, true, exec);
 }
 
 // Cross-org variant of updateProperty, used by the Pro add-property wizard to update a
@@ -175,12 +175,13 @@ export async function updatePropertyForOrg(
   targetOrgId: string,
   id: string,
   patch: PropertyPatch,
+  exec: DbExec = db,
 ): Promise<Property | null> {
   assertCanMutate(ctx);
   await assertOrgAdmin(ctx, targetOrgId);
   assertPropertyStorage({ orgId: targetOrgId }, patch);
   const dbPatch = convertRowToDb(properties, { ...patch, updatedAt: Date.now() });
-  const [row] = await db.update(properties)
+  const [row] = await exec.update(properties)
     .set(dbPatch as never)
     .where(and(eq(properties.orgId, targetOrgId), eq(properties.id, id)))
     .returning();
@@ -237,8 +238,12 @@ export async function deleteProperty(ctx: Ctx, id: string): Promise<void> {
     }
   }
 
-  // Document storage ids (main file + optional thumbnail).
-  const docList = await listDocuments(ctx, id);
+  // Document storage ids (main file + optional thumbnail). Unbounded on purpose (B2.10):
+  // listDocuments caps at 500, and the cascade below removes every row, so a capped read leaks bytes.
+  const docList = await db
+    .select({ storageId: documents.storageId, thumbStorageId: documents.thumbStorageId })
+    .from(documents)
+    .where(and(eq(documents.orgId, ctx.orgId), eq(documents.propertyId, id)));
   for (const doc of docList) {
     if (doc.storageId) storageIdsToDelete.push(doc.storageId);
     if (doc.thumbStorageId) storageIdsToDelete.push(doc.thumbStorageId);

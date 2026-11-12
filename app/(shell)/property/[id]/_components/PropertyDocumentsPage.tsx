@@ -831,7 +831,8 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
     void (async () => {
       for (const [i, file] of files.entries()) {
         const item = items[i];
-        if (!item) continue;
+        // Cancel drops the file's entry (B2.11); a cancelled file must not upload or bill AI calls.
+        if (!item || !uploadFilesRef.current.has(item.id)) continue;
         setUploadQueue((prev) =>
           prev.map((it) => (it.id === item.id ? { ...it, status: "uploading" } : it)),
         );
@@ -2429,13 +2430,17 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
                             <RefreshCw className="w-3 h-3" />
                           </button>
                         )}
-                        {(item.status === "uploading" || item.status === "queued") && (
+                        {/* Queued only: an in-flight server action cannot be aborted, so Cancel there would lie. */}
+                        {item.status === "queued" && (
                           <button
-                            onClick={() => setUploadQueue((prev) => prev.filter((i) => i.id !== item.id))}
+                            onClick={() => {
+                              uploadFilesRef.current.delete(item.id);
+                              setUploadQueue((prev) => prev.filter((i) => i.id !== item.id));
+                            }}
                             className="w-7 h-7 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors duration-150 shrink-0"
                             aria-label="Cancel"
                           >
-                            {item.status === "uploading" ? <X className="w-3 h-3" /> : <Trash2 className="w-3 h-3" />}
+                            <Trash2 className="w-3 h-3" />
                           </button>
                         )}
                       </div>

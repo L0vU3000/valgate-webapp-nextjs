@@ -8,7 +8,7 @@ import type { NewDocument, DocumentPatch } from "@/lib/data/types/document";
 import type { SuggestedUpdate } from "@/lib/services/property-suggestions";
 import type { DocumentCategory } from "@/lib/services/document-classify";
 import { toDomain, type Ctx } from "@/lib/services/_mapping";
-import { scopedInsert, scopedUpdate, scopedDelete, assertOrgAdmin } from "@/lib/services/_crud";
+import { scopedInsert, scopedUpdate, scopedDelete, assertOrgAdmin, type DbExec } from "@/lib/services/_crud";
 import { assertOwnStorageId, deleteStorageObject } from "@/lib/services/storage";
 
 const rowToDocument = (r: typeof documents.$inferSelect): Document =>
@@ -108,10 +108,10 @@ export async function getDocumentByStorageId(ctx: Ctx, storageId: string): Promi
   return row ? rowToDocument(row) : null;
 }
 
-export async function createDocument(ctx: Ctx, input: NewDocument): Promise<Document> {
+export async function createDocument(ctx: Ctx, input: NewDocument, exec?: DbExec): Promise<Document> {
   if (input.storageId != null) assertOwnStorageId(ctx, input.storageId);
   if (input.thumbStorageId != null) assertOwnStorageId(ctx, input.thumbStorageId);
-  return scopedInsert(ctx, documents, "DOC", input, rowToDocument);
+  return scopedInsert(ctx, documents, "DOC", input, rowToDocument, undefined, exec);
 }
 
 // Creates a document in a DIFFERENT org than the caller's active one — used when a
@@ -129,11 +129,12 @@ export async function createDocumentForOrg(
   ctx: Ctx,
   targetOrgId: string,
   input: NewDocument,
+  exec?: DbExec,
 ): Promise<Document> {
   await assertOrgAdmin(ctx, targetOrgId);
   if (input.storageId != null) assertOwnStorageId({ orgId: targetOrgId }, input.storageId);
   if (input.thumbStorageId != null) assertOwnStorageId({ orgId: targetOrgId }, input.thumbStorageId);
-  return scopedInsert(ctx, documents, "DOC", input, rowToDocument, { orgId: targetOrgId });
+  return scopedInsert(ctx, documents, "DOC", input, rowToDocument, { orgId: targetOrgId }, exec);
 }
 
 // A null value clears that (nullable) column — the API v1 "" → clear rule relies on it.

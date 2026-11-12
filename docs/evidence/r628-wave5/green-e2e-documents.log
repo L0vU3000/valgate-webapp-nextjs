@@ -1,0 +1,58 @@
+
+[WebServer] (node:36591) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+[WebServer] (Use `node --trace-deprecation ...` to show where the warning was created)
+
+[WebServer] (node:36549) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+◇ injected env (19) from .env.local // tip: ⌁ auth for agents [www.vestauth.com]
+◇ injected env (0) from .env.e2e // tip: ⌁ auth for agents [www.vestauth.com]
+(node:36513) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✓ E2E pre-run cleanup — removed 0 properties, 0 professionals, 0 work orders, 0 drafts
+✓ E2E harness ready — DB reachable, migrations applied, seed present
+◇ injected env (0) from .env.local // tip: ⌘ enable debugging { debug: true }
+◇ injected env (0) from .env.e2e // tip: ⌘ suppress logs { quiet: true }
+
+Running 6 tests using 1 worker
+
+◇ injected env (0) from .env.local // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+
+◇ injected env (0) from .env.e2e // tip: ⌁ auth for agents [www.vestauth.com]
+
+[1/6] [chromium] › e2e/documents.spec.ts:13:7 › F — Documents & folders › F1: create folder → persists after reload
+
+[chromium] › e2e/documents.spec.ts:13:7 › F — Documents & folders › F1: create folder → persists after reload
+(node:36604) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[2/6] [chromium] › e2e/documents.spec.ts:44:7 › F — Documents & folders › F2: upload file → appears in list
+[3/6] [chromium] › e2e/documents.spec.ts:78:7 › F — Documents & folders › F3: per-file delete → confirm → removed
+
+[WebServer] uploadDocument Error: forbidden
+[WebServer]     at scopedInsert (lib/services/_crud.ts:65:26)
+[WebServer]     at async uploadDocument (app/actions/documents.ts:217:21)
+[WebServer]   63 |       .where(and(eq(properties.orgId, values.orgId), eq(properties.id, values.propertyId)))
+[WebServer]   64 |       .limit(1);
+[WebServer] > 65 |     if (!property) throw new Error("forbidden");
+[WebServer]      |                          ^
+[WebServer]   66 |   }
+[WebServer]   67 |   const [row] = await exec.insert(table).values(values as never).returning();
+[WebServer]   68 |   return rowTo(row as R);
+[4/6] [chromium] › e2e/documents.spec.ts:105:7 › F — Documents & folders › F4: bulk delete → typed DELETE → removed
+[5/6] [chromium] › e2e/documents.spec.ts:139:7 › F — Documents & folders › F5: folder delete → files move to root (not destroyed)
+[6/6] [chromium] › e2e/documents.spec.ts:167:7 › F — Documents & folders › F6: cancelling a queued upload → file never appears (B2.11)
+✓ E2E teardown — removed 0 throwaway test client(s)
+  6 passed (34.5s)

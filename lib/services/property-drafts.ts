@@ -4,7 +4,7 @@ import { db } from "@/lib/db/client";
 import { propertyDrafts, propertyDraftFiles } from "@/lib/db/schema";
 import { convertRowToDb } from "@/lib/db/column-classifier";
 import { toDomain, type Ctx } from "@/lib/services/_mapping";
-import { scopedInsert, requireMember } from "@/lib/services/_crud";
+import { scopedInsert, requireMember, assertOrgAdmin, type DbExec } from "@/lib/services/_crud";
 import { assertCanMutate } from "@/lib/services/_mapping";
 // storage.ts exports this as `deleteStorageObject`; aliased to keep the
 // call sites below short and unchanged after the v1.0.2 merge renamed it.
@@ -116,6 +116,8 @@ export async function createPropertyDraft(
   input: { title: string; step: number; form: Record<string, unknown> },
   targetOrgId?: string,
 ): Promise<PropertyDraft> {
+  // B3.11: targetOrgId comes from the client; only an owner of that org may draft into it.
+  if (targetOrgId && targetOrgId !== ctx.orgId) await assertOrgAdmin(ctx, targetOrgId);
   return scopedInsert(ctx, propertyDrafts, "DRFT", input, rowToDraft, targetOrgId ? { orgId: targetOrgId } : undefined);
 }
 
@@ -245,10 +247,10 @@ export async function removeDraftFile(ctx: Ctx, fileId: string): Promise<boolean
 // and DOES NOT touch S3. This is the SUBMIT path: by the time it runs, the S3 objects have been
 // handed to the new documents rows, so deleting them would orphan the property's files. Kept
 // strictly separate from deletePropertyDraft (the discard path), which DOES delete the S3 objects.
-export async function deleteDraftRowsOnly(ctx: Ctx, draftId: string): Promise<void> {
+export async function deleteDraftRowsOnly(ctx: Ctx, draftId: string, exec: DbExec = db): Promise<void> {
   assertCanMutate(ctx);
   requireMember(ctx);
-  await db.delete(propertyDrafts).where(and(
+  await exec.delete(propertyDrafts).where(and(
     eq(propertyDrafts.orgId, ctx.orgId),
     eq(propertyDrafts.userId, ctx.userId),
     eq(propertyDrafts.id, draftId),
@@ -259,13 +261,25 @@ export async function deleteDraftRowsOnly(ctx: Ctx, draftId: string): Promise<vo
 // the draft rows. Each documents row REUSES the staged file's storageId verbatim — the same S3
 // object, never re-keyed or re-uploaded (locked decision #5).
 //
-// Order is deliberate (and NOT one big transaction): insert every document first, then delete the
-// draft rows. So if a document insert throws, the draft + its files survive for a retry/cleanup;
-// and if the row-delete fails, the property + documents are already intact and only the draft
-// lingers (the 30-day cleanup will sweep it). The caller creates the property BEFORE calling this.
+// The photo merge, every document insert and the draft-row delete run in ONE transaction (B2.8).
+// A throw anywhere rolls all of it back, so the surviving draft never lists keys that live
+// documents or the gallery now use (discard/sweep would delete those bytes). The caller creates
+// the property BEFORE calling this.
 //
 // What can go wrong: a document insert can fail (validation, DB). We let it throw so the caller
 // surfaces a soft "files need a retry" notice — the property itself is already created.
+function draftFileToDocument(file: PropertyDraftFile, propertyId: string) {
+  return {
+    propertyId,
+    name: file.name,
+    kind: file.kind,
+    mimeType: file.mimeType ?? undefined,
+    sizeBytes: file.sizeBytes ?? undefined,
+    storageId: file.storageId,
+    uploadedAt: Date.now(),
+  };
+}
+
 export async function convertDraftToDocuments(
   ctx: Ctx,
   draftId: string,
@@ -277,27 +291,17 @@ export async function convertDraftToDocuments(
   const files = await listDraftFiles(ctx, draftId);
   const photos = files.filter((f) => f.kind === "photo");
 
-  if (photos.length > 0) {
-    const prop = await svcGetProperty(ctx, propertyId);
+  const prop = photos.length > 0 ? await svcGetProperty(ctx, propertyId) : null;
+  await db.transaction(async (tx) => {
     if (prop) {
       const patch = computePhotoMergePatch(prop.photoStorageIds ?? [], prop.coverStorageId, photos.map((f) => f.storageId));
-      if (patch) await svcUpdateProperty(ctx, propertyId, patch);
+      if (patch) await svcUpdateProperty(ctx, propertyId, patch, tx);
     }
-  }
-
-  for (const file of files) {
-    await svcCreateDocument(ctx, {
-      propertyId,
-      name: file.name,
-      kind: file.kind,
-      mimeType: file.mimeType ?? undefined,
-      sizeBytes: file.sizeBytes ?? undefined,
-      storageId: file.storageId,
-      uploadedAt: Date.now(),
-    });
-  }
-
-  await deleteDraftRowsOnly(ctx, draftId);
+    for (const file of files) {
+      await svcCreateDocument(ctx, draftFileToDocument(file, propertyId), tx);
+    }
+    await deleteDraftRowsOnly(ctx, draftId, tx);
+  });
   return files.length;
 }
 
@@ -309,9 +313,8 @@ export async function convertDraftToDocuments(
 // each document in the TARGET org via createDocumentForOrg. Without this, the documents would
 // land in the manager's org and the client would never see their own property's files.
 //
-// Same fail-soft ordering as the single-org version: create documents first (each reuses its
-// S3 object verbatim — no re-upload), then delete the draft ROWS ONLY. If a document insert
-// throws, the draft and its files survive for a retry; the S3 objects are never deleted here.
+// Same single transaction as the single-org version: each document reuses its S3 object
+// verbatim, and a throw rolls back every insert so the draft survives intact for a retry.
 export async function convertDraftToDocumentsForOrg(
   ctx: Ctx,
   draftId: string,
@@ -324,27 +327,17 @@ export async function convertDraftToDocumentsForOrg(
   const files = await listDraftFiles(ctx, draftId);
   const photos = files.filter((f) => f.kind === "photo");
 
-  if (photos.length > 0) {
-    const prop = await svcGetPropertyForOrg(targetOrgId, propertyId);
+  const prop = photos.length > 0 ? await svcGetPropertyForOrg(targetOrgId, propertyId) : null;
+  await db.transaction(async (tx) => {
     if (prop) {
       const patch = computePhotoMergePatch(prop.photoStorageIds ?? [], prop.coverStorageId, photos.map((f) => f.storageId));
-      if (patch) await svcUpdatePropertyForOrg(ctx, targetOrgId, propertyId, patch);
+      if (patch) await svcUpdatePropertyForOrg(ctx, targetOrgId, propertyId, patch, tx);
     }
-  }
-
-  for (const file of files) {
-    await svcCreateDocumentForOrg(ctx, targetOrgId, {
-      propertyId,
-      name: file.name,
-      kind: file.kind,
-      mimeType: file.mimeType ?? undefined,
-      sizeBytes: file.sizeBytes ?? undefined,
-      storageId: file.storageId,
-      uploadedAt: Date.now(),
-    });
-  }
-
-  await deleteDraftRowsOnly(ctx, draftId);
+    for (const file of files) {
+      await svcCreateDocumentForOrg(ctx, targetOrgId, draftFileToDocument(file, propertyId), tx);
+    }
+    await deleteDraftRowsOnly(ctx, draftId, tx);
+  });
   return files.length;
 }
 

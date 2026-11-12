@@ -9,6 +9,9 @@ import { organizationMemberships, properties } from "@/lib/db/schema";
 
 type ScopedTable = PgTable & { orgId: AnyPgColumn; id: AnyPgColumn };
 
+// The global db or a transaction handle, so a caller can run several scoped writes atomically.
+export type DbExec = Pick<typeof db, "select" | "insert" | "update" | "delete">;
+
 export function requireMember(ctx: Ctx): void {
   if (!roleAtLeast(ctx.orgRole, "member")) throw new Error("forbidden");
 }
@@ -41,6 +44,7 @@ export async function scopedInsert<T, R = unknown>(
   input: Record<string, unknown>,
   rowTo: (row: R) => T,
   extra?: Record<string, unknown>,
+  exec: DbExec = db,
 ): Promise<T> {
   assertCanMutate(ctx); // D9 — demo mode refuses all writes
   requireMember(ctx);
@@ -55,12 +59,12 @@ export async function scopedInsert<T, R = unknown>(
   };
   if (typeof values.propertyId === "string") {
     if (typeof values.orgId !== "string") throw new Error("forbidden");
-    const [property] = await db.select({ id: properties.id }).from(properties)
+    const [property] = await exec.select({ id: properties.id }).from(properties)
       .where(and(eq(properties.orgId, values.orgId), eq(properties.id, values.propertyId)))
       .limit(1);
     if (!property) throw new Error("forbidden");
   }
-  const [row] = await db.insert(table).values(values as never).returning();
+  const [row] = await exec.insert(table).values(values as never).returning();
   return rowTo(row as R);
 }
 
@@ -71,12 +75,13 @@ export async function scopedUpdate<T, R = unknown>(
   patch: Record<string, unknown>,
   rowTo: (row: R) => T,
   touchUpdatedAt = false,
+  exec: DbExec = db,
 ): Promise<T | null> {
   assertCanMutate(ctx);
   requireMember(ctx);
   const dbPatch = convertRowToDb(table, patch);
   if (touchUpdatedAt) dbPatch.updatedAt = new Date();
-  const [row] = await db
+  const [row] = await exec
     .update(table)
     .set(dbPatch as never)
     .where(and(eq(table.orgId, ctx.orgId), eq(table.id, id)))

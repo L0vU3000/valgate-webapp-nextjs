@@ -1,0 +1,76 @@
+
+[WebServer] (node:32193) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+[WebServer] (Use `node --trace-deprecation ...` to show where the warning was created)
+
+[WebServer] (node:32175) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+◇ injected env (19) from .env.local // tip: ⌘ suppress logs { quiet: true }
+◇ injected env (0) from .env.e2e // tip: ⌁ auth for agents [www.vestauth.com]
+(node:32119) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✓ E2E pre-run cleanup — removed 0 properties, 0 professionals, 0 work orders, 0 drafts
+✓ E2E harness ready — DB reachable, migrations applied, seed present
+◇ injected env (0) from .env.local // tip: ⌁ auth for agents [www.vestauth.com]
+◇ injected env (0) from .env.e2e // tip: ◈ encrypted .env [www.dotenvx.com]
+
+Running 1 test using 1 worker
+
+◇ injected env (0) from .env.local // tip: ◈ secrets for agents [www.dotenvx.com]
+
+◇ injected env (0) from .env.e2e // tip: ⌁ auth for agents [www.vestauth.com]
+
+[1/1] [chromium] › e2e/documents.spec.ts:167:7 › F — Documents & folders › F6: cancelling a queued upload → file never appears (B2.11)
+
+[chromium] › e2e/documents.spec.ts:167:7 › F — Documents & folders › F6: cancelling a queued upload → file never appears (B2.11)
+(node:32251) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  1) [chromium] › e2e/documents.spec.ts:167:7 › F — Documents & folders › F6: cancelling a queued upload → file never appears (B2.11) › After reload only the first file exists 
+
+    Error: expect(locator).toHaveCount(expected) failed
+
+    Locator:  getByText('f6-second.pdf')
+    Expected: 0
+    Received: 1
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "toHaveCount" with timeout 5000ms
+      - waiting for getByText('f6-second.pdf')
+        14 × locator resolved to 1 element
+           - unexpected value "1"
+
+
+      213 |         await page.reload()
+      214 |         await expect(page.getByText('f6-first.pdf').first()).toBeVisible({ timeout: 15_000 })
+    > 215 |         await expect(page.getByText('f6-second.pdf')).toHaveCount(0)
+          |                                                       ^
+      216 |       })
+      217 |     } finally {
+      218 |       await cleanup(ids.propertyId)
+        at /Users/mintrose/Dev/Projects/work/Valgate/active/valgate/valgate-webapp-nextjs/.worktrees/r628-webapp-bugs-wave1/e2e/documents.spec.ts:215:55
+        at /Users/mintrose/Dev/Projects/work/Valgate/active/valgate/valgate-webapp-nextjs/.worktrees/r628-webapp-bugs-wave1/e2e/documents.spec.ts:212:7
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/documents-F-—-Documents-fo-e5879-→-file-never-appears-B2-11--chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/documents-F-—-Documents-fo-e5879-→-file-never-appears-B2-11--chromium/error-context.md
+
+
+✓ E2E teardown — removed 0 throwaway test client(s)
+  1 failed
+    [chromium] › e2e/documents.spec.ts:167:7 › F — Documents & folders › F6: cancelling a queued upload → file never appears (B2.11) 
