@@ -9,7 +9,8 @@ import {
 import { organizations } from "./identity";
 
 export const propertyTypeChoiceEnum = pgEnum("property_type_choice", [
-  "residential", "commercial", "multi-unit", "retail", "land", "industrial", "construction", "other",
+  // "none" last: ALTER TYPE ADD VALUE appends, so this order matches the database (0029).
+  "residential", "commercial", "multi-unit", "retail", "land", "industrial", "construction", "other", "none",
 ]);
 export const propertyStatusEnum = pgEnum("property_status", [
   "Rented", "Vacant", "For Sale", "Sold", "Archived", "Owner-Occupied",

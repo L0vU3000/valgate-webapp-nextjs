@@ -152,6 +152,7 @@ const PROPERTY_TYPES: { value: string; label: string }[] = [
   { value: "industrial", label: "Industrial" },
   { value: "construction", label: "Construction" },
   { value: "other", label: "Other" },
+  { value: "none", label: "None" },
 ];
 
 const TITLE_OPTIONS: { value: string; label: string; hint: string }[] = [
