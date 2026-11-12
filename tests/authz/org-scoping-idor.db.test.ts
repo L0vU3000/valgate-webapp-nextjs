@@ -44,7 +44,7 @@ import {
 
 // Service functions under test — these use the real Drizzle client and the real DB.
 import { getProperty } from "@/lib/services/properties";
-import { getDocument, listDocuments } from "@/lib/services/documents";
+import { getDocument, listDocuments, updateDocument } from "@/lib/services/documents";
 import { listProfessionals } from "@/lib/services/professionals";
 import { scopedDelete, scopedUpdate } from "@/lib/services/_crud";
 import { properties } from "@/lib/db/schema";
@@ -214,5 +214,14 @@ describe("professional/client IDOR — ORG-B cannot read ORG-A professionals", (
     // 'ORG-PHANTOM' owns nothing, so the list is empty — no ORG-0001 professionals leak through.
     const result = await listProfessionals(orgBOwnerCtx);
     expect(result).toHaveLength(0);
+  });
+});
+
+describe("storage-key IDOR", () => {
+  it("ORG-B cannot bind a document to an ORG-A storage key", async () => {
+    // The seeded dev org acts as B here: this document belongs to ctxB, so a row-level
+    // org predicate alone cannot stop it from adopting another org's object key.
+    const ctxB = orgAOwnerCtx;
+    await expect(updateDocument(ctxB, docId, { storageId: "ORG-A/DOC-0001/x.pdf" })).rejects.toThrow();
   });
 });

@@ -44,7 +44,8 @@ vi.mock("@/lib/services/documents", () => ({
   updateDocument: updateDocumentMock,
 }));
 vi.mock("@/lib/services/properties", () => ({ getProperty: getPropertyMock }));
-vi.mock("@/lib/services/storage", () => ({
+vi.mock("@/lib/services/storage", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/services/storage")>(),
   presignUpload: presignUploadMock,
   resolveDocumentUrl: resolveDocumentUrlMock,
 }));

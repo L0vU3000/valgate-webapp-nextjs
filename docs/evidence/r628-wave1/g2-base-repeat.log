@@ -1,0 +1,522 @@
+
+[WebServer] (node:96529) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:96607) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]    ▲ Next.js 15.5.15 (Turbopack)
+[WebServer]    - Local:        http://127.0.0.1:3069
+
+[WebServer]    - Network:      http://127.0.0.1:3069
+[WebServer]    - Environments: .env.local
+[WebServer]    - Experiments (use with caution):
+[WebServer]      · serverActions
+[WebServer]      · optimizePackageImports
+[WebServer]
+[WebServer]  ✓ Starting...
+
+[WebServer]  ✓ Compiled middleware in 205ms
+
+[WebServer]  ✓ Ready in 1238ms
+
+[WebServer]  ○ Compiling / ...
+
+
+[WebServer] (node:96613) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:96613) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+[WebServer]  ✓ Compiled / in 6s
+
+[WebServer]
+[WebServer]
+[WebServer] [Clerk]: You are running in keyless mode.
+[WebServer] You can claim your keys by visiting https://dashboard.clerk.com/apps/claim?framework=nextjs&token=x2dr2igwyqynqmynhh90zhwqq4jn73uxhekpz3jd&return_url=http%3A%2F%2Flocalhost%3A3069%2F
+[WebServer]
+
+
+[WebServer] (node:96607) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+◇ injected env (19) from .env.local // tip: ◈ encrypted .env [www.dotenvx.com]
+◇ injected env (0) from .env.e2e // tip: ◈ encrypted .env [www.dotenvx.com]
+(node:96260) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  GET / 200 in 6421ms
+
+✓ E2E pre-run cleanup — removed 0 properties, 0 professionals, 0 work orders, 0 drafts
+✓ E2E harness ready — DB reachable, migrations applied, seed present
+◇ injected env (0) from .env.local // tip: ◈ encrypted .env [www.dotenvx.com]
+◇ injected env (0) from .env.e2e // tip: ◈ secrets for agents [www.dotenvx.com]
+
+Running 10 tests using 1 worker
+
+
+(node:96639) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+◇ injected env (0) from .env.local // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+
+◇ injected env (0) from .env.e2e // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+
+[1/10] [chromium] › e2e/owners.spec.ts:92:7 › G — Owners / co-owners › G2: edit a co-owner → saves
+
+[chromium] › e2e/owners.spec.ts:92:7 › G — Owners / co-owners › G2: edit a co-owner → saves
+(node:96639) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+[WebServer]  ○ Compiling /property/[id]/ownership ...
+
+[WebServer]  ✓ Compiled /property/[id]/ownership in 1560ms
+
+
+[WebServer] (node:96665) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  GET /property/PROP-0721/ownership 200 in 3007ms
+
+
+[WebServer] (node:96674) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  POST /property/PROP-0721/ownership 200 in 297ms
+
+[WebServer]  POST /property/PROP-0721/ownership 200 in 123ms
+
+[WebServer]  POST /property/PROP-0721/ownership 200 in 135ms
+
+
+[WebServer] (node:96944) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  POST /property/PROP-0721/ownership 200 in 82ms
+
+[WebServer]  POST /property/PROP-0721/ownership 200 in 453ms
+
+[WebServer]  POST /property/PROP-0721/ownership 200 in 608ms
+
+
+(node:97022) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+◇ injected env (0) from .env.local // tip: ◈ secrets for agents [www.dotenvx.com]
+
+◇ injected env (0) from .env.e2e // tip: ⌘ override existing { override: true }
+
+[2/10] [chromium] › e2e/owners.spec.ts:92:7 › G — Owners / co-owners › G2: edit a co-owner → saves
+
+[chromium] › e2e/owners.spec.ts:92:7 › G — Owners / co-owners › G2: edit a co-owner → saves
+(node:97022) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+
+[WebServer] (node:97030) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  GET /property/PROP-0722/ownership 200 in 440ms
+
+
+[WebServer] (node:97038) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  POST /property/PROP-0722/ownership 200 in 250ms
+
+[WebServer]  POST /property/PROP-0722/ownership 200 in 120ms
+
+[WebServer]  POST /property/PROP-0722/ownership 200 in 109ms
+
+
+[WebServer] (node:97046) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  POST /property/PROP-0722/ownership 200 in 357ms
+
+[WebServer]  POST /property/PROP-0722/ownership 200 in 169ms
+
+[WebServer]  POST /property/PROP-0722/ownership 200 in 284ms
+
+
+(node:97054) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+◇ injected env (0) from .env.local // tip: ⌘ enable debugging { debug: true }
+
+◇ injected env (0) from .env.e2e // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+
+[3/10] [chromium] › e2e/owners.spec.ts:92:7 › G — Owners / co-owners › G2: edit a co-owner → saves
+
+[chromium] › e2e/owners.spec.ts:92:7 › G — Owners / co-owners › G2: edit a co-owner → saves
+(node:97054) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+
+[WebServer] (node:97064) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  GET /property/PROP-0723/ownership 200 in 458ms
+
+
+[WebServer] (node:97066) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  POST /property/PROP-0723/ownership 200 in 342ms
+
+[WebServer]  POST /property/PROP-0723/ownership 200 in 154ms
+
+[WebServer]  POST /property/PROP-0723/ownership 200 in 99ms
+
+
+[WebServer] (node:97071) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  POST /property/PROP-0723/ownership 200 in 125ms
+
+[WebServer]  POST /property/PROP-0723/ownership 200 in 341ms
+
+[WebServer]  POST /property/PROP-0723/ownership 200 in 262ms
+
+
+(node:97244) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+◇ injected env (0) from .env.local // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+
+◇ injected env (0) from .env.e2e // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+
+[4/10] [chromium] › e2e/owners.spec.ts:92:7 › G — Owners / co-owners › G2: edit a co-owner → saves
+
+[chromium] › e2e/owners.spec.ts:92:7 › G — Owners / co-owners › G2: edit a co-owner → saves
+(node:97244) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+
+[WebServer] (node:97434) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  GET /property/PROP-0724/ownership 200 in 497ms
+
+
+[WebServer] (node:97584) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  POST /property/PROP-0724/ownership 200 in 276ms
+
+[WebServer]  POST /property/PROP-0724/ownership 200 in 152ms
+
+[WebServer]  POST /property/PROP-0724/ownership 200 in 124ms
+
+
+[WebServer] (node:97586) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:97587) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  POST /property/PROP-0724/ownership 200 in 137ms
+
+[WebServer]  POST /property/PROP-0724/ownership 200 in 375ms
+
+[WebServer]  POST /property/PROP-0724/ownership 200 in 334ms
+
+
+(node:97628) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+◇ injected env (0) from .env.local // tip: ⌘ enable debugging { debug: true }
+
+◇ injected env (0) from .env.e2e // tip: ⌁ auth for agents [www.vestauth.com]
+
+[5/10] [chromium] › e2e/owners.spec.ts:92:7 › G — Owners / co-owners › G2: edit a co-owner → saves
+
+[chromium] › e2e/owners.spec.ts:92:7 › G — Owners / co-owners › G2: edit a co-owner → saves
+(node:97628) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+
+[WebServer] (node:97640) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  GET /property/PROP-0725/ownership 200 in 393ms
+
+
+[WebServer] (node:97644) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  POST /property/PROP-0725/ownership 200 in 290ms
+
+[WebServer]  POST /property/PROP-0725/ownership 200 in 162ms
+
+[WebServer]  POST /property/PROP-0725/ownership 200 in 138ms
+
+
+[WebServer] (node:97648) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  POST /property/PROP-0725/ownership 200 in 131ms
+
+[WebServer]  POST /property/PROP-0725/ownership 200 in 373ms
+
+[WebServer]  POST /property/PROP-0725/ownership 200 in 355ms
+
+
+(node:97989) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+◇ injected env (0) from .env.local // tip: ⌘ override existing { override: true }
+
+◇ injected env (0) from .env.e2e // tip: ⌘ override existing { override: true }
+
+[6/10] [chromium] › e2e/owners.spec.ts:92:7 › G — Owners / co-owners › G2: edit a co-owner → saves
+
+[chromium] › e2e/owners.spec.ts:92:7 › G — Owners / co-owners › G2: edit a co-owner → saves
+(node:97989) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+
+[WebServer] (node:97997) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  GET /property/PROP-0726/ownership 200 in 452ms
+
+
+[WebServer] (node:97998) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  POST /property/PROP-0726/ownership 200 in 291ms
+
+[WebServer]  POST /property/PROP-0726/ownership 200 in 103ms
+
+[WebServer]  POST /property/PROP-0726/ownership 200 in 98ms
+
+
+[WebServer] (node:98001) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  POST /property/PROP-0726/ownership 200 in 126ms
+
+[WebServer]  POST /property/PROP-0726/ownership 200 in 305ms
+
+[WebServer]  POST /property/PROP-0726/ownership 200 in 299ms
+
+
+(node:98003) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+◇ injected env (0) from .env.local // tip: ⌘ suppress logs { quiet: true }
+
+◇ injected env (0) from .env.e2e // tip: ⌘ suppress logs { quiet: true }
+
+[7/10] [chromium] › e2e/owners.spec.ts:92:7 › G — Owners / co-owners › G2: edit a co-owner → saves
+
+[chromium] › e2e/owners.spec.ts:92:7 › G — Owners / co-owners › G2: edit a co-owner → saves
+(node:98003) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+
+[WebServer] (node:98010) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  GET /property/PROP-0727/ownership 200 in 448ms
+
+
+[WebServer] (node:98015) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  POST /property/PROP-0727/ownership 200 in 281ms
+
+[WebServer]  POST /property/PROP-0727/ownership 200 in 137ms
+
+[WebServer]  POST /property/PROP-0727/ownership 200 in 143ms
+
+
+[WebServer] (node:98019) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  POST /property/PROP-0727/ownership 200 in 157ms
+
+[WebServer]  POST /property/PROP-0727/ownership 200 in 373ms
+
+[WebServer]  POST /property/PROP-0727/ownership 200 in 319ms
+
+
+(node:98024) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+◇ injected env (0) from .env.local // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+
+◇ injected env (0) from .env.e2e // tip: ◈ secrets for agents [www.dotenvx.com]
+
+[8/10] [chromium] › e2e/owners.spec.ts:92:7 › G — Owners / co-owners › G2: edit a co-owner → saves
+
+[chromium] › e2e/owners.spec.ts:92:7 › G — Owners / co-owners › G2: edit a co-owner → saves
+(node:98024) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+
+[WebServer] (node:98034) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  GET /property/PROP-0728/ownership 200 in 456ms
+
+
+[WebServer] (node:98036) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  POST /property/PROP-0728/ownership 200 in 374ms
+
+[WebServer]  POST /property/PROP-0728/ownership 200 in 217ms
+
+
+[WebServer] (node:98038) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  POST /property/PROP-0728/ownership 200 in 268ms
+
+  1) [chromium] › e2e/owners.spec.ts:92:7 › G — Owners / co-owners › G2: edit a co-owner → saves › Advance to the co-owners step
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('dialog').getByRole('heading', { name: 'Co-owners' })
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByRole('dialog').getByRole('heading', { name: 'Co-owners' })
+
+
+      120 |         // Loan fields are all optional — leaving Loan Term empty must not block Continue.
+      121 |         await dialog.getByRole('button', { name: /continue/i }).click()
+    > 122 |         await expect(dialog.getByRole('heading', { name: 'Co-owners' })).toBeVisible({ timeout: 5_000 })
+          |                                                                          ^
+      123 |       })
+      124 |
+      125 |       await test.step('Rename the seeded co-owner and save', async () => {
+        at /Users/mintrose/Dev/Projects/work/Valgate/active/valgate/valgate-webapp-nextjs/.worktrees/r628-baseline/e2e/owners.spec.ts:122:74
+        at /Users/mintrose/Dev/Projects/work/Valgate/active/valgate/valgate-webapp-nextjs/.worktrees/r628-baseline/e2e/owners.spec.ts:108:7
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/owners-G-—-Owners-co-owners-G2-edit-a-co-owner-→-saves-chromium-repeat7/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/owners-G-—-Owners-co-owners-G2-edit-a-co-owner-→-saves-chromium-repeat7/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/owners-G-—-Owners-co-owners-G2-edit-a-co-owner-→-saves-chromium-repeat7/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/owners-G-—-Owners-co-owners-G2-edit-a-co-owner-→-saves-chromium-repeat7/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+
+(node:98046) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+◇ injected env (0) from .env.local // tip: ⌘ suppress logs { quiet: true }
+
+◇ injected env (0) from .env.e2e // tip: ⌁ auth for agents [www.vestauth.com]
+
+[9/10] [chromium] › e2e/owners.spec.ts:92:7 › G — Owners / co-owners › G2: edit a co-owner → saves
+
+[chromium] › e2e/owners.spec.ts:92:7 › G — Owners / co-owners › G2: edit a co-owner → saves
+(node:98046) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+
+[WebServer] (node:98053) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  GET /property/PROP-0729/ownership 200 in 510ms
+
+
+[WebServer] (node:98057) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  POST /property/PROP-0729/ownership 200 in 319ms
+
+[WebServer]  POST /property/PROP-0729/ownership 200 in 156ms
+
+[WebServer]  POST /property/PROP-0729/ownership 200 in 139ms
+
+
+[WebServer] (node:98061) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  POST /property/PROP-0729/ownership 200 in 74ms
+
+[WebServer]  POST /property/PROP-0729/ownership 200 in 412ms
+
+[WebServer]  POST /property/PROP-0729/ownership 200 in 390ms
+
+
+(node:98086) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+◇ injected env (0) from .env.local // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+
+◇ injected env (0) from .env.e2e // tip: ⌁ auth for agents [www.vestauth.com]
+
+[10/10] [chromium] › e2e/owners.spec.ts:92:7 › G — Owners / co-owners › G2: edit a co-owner → saves
+
+[chromium] › e2e/owners.spec.ts:92:7 › G — Owners / co-owners › G2: edit a co-owner → saves
+(node:98086) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+
+[WebServer] (node:98197) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  GET /property/PROP-0730/ownership 200 in 417ms
+
+
+[WebServer] (node:98326) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  POST /property/PROP-0730/ownership 200 in 308ms
+
+[WebServer]  POST /property/PROP-0730/ownership 200 in 118ms
+
+[WebServer]  POST /property/PROP-0730/ownership 200 in 112ms
+
+
+[WebServer] (node:98487) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  POST /property/PROP-0730/ownership 200 in 156ms
+
+[WebServer]  POST /property/PROP-0730/ownership 200 in 338ms
+
+[WebServer]  POST /property/PROP-0730/ownership 200 in 267ms
+
+✓ E2E teardown — removed 0 throwaway test client(s)
+  1 failed
+    [chromium] › e2e/owners.spec.ts:92:7 › G — Owners / co-owners › G2: edit a co-owner → saves ────
+  9 passed (57.9s)

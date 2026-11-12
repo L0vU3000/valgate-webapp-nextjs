@@ -1,0 +1,109 @@
+
+[WebServer] (node:82300) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:82905) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]    ▲ Next.js 15.5.15 (Turbopack)
+[WebServer]    - Local:        http://127.0.0.1:3068
+
+[WebServer]    - Network:      http://127.0.0.1:3068
+[WebServer]    - Environments: .env.local
+[WebServer]    - Experiments (use with caution):
+[WebServer]      · serverActions
+[WebServer]      · optimizePackageImports
+[WebServer]
+[WebServer]  ✓ Starting...
+
+[WebServer]  ✓ Compiled middleware in 210ms
+
+[WebServer]  ✓ Ready in 1242ms
+
+[WebServer]  ○ Compiling / ...
+
+
+[WebServer] (node:83980) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:83980) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+[WebServer]  ✓ Compiled / in 6.9s
+
+[WebServer]
+[WebServer]
+[WebServer] [Clerk]: You are running in keyless mode.
+[WebServer] You can claim your keys by visiting https://dashboard.clerk.com/apps/claim?framework=nextjs&token=dsn45rk8gx81fixsf8j8mfq0z75zrtex7ubcndv4&return_url=http%3A%2F%2Flocalhost%3A3068%2F
+[WebServer]
+
+
+[WebServer] (node:82905) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+◇ injected env (19) from .env.local // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+◇ injected env (0) from .env.e2e // tip: ⌘ enable debugging { debug: true }
+(node:82295) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  GET / 200 in 7322ms
+
+✓ E2E pre-run cleanup — removed 0 properties, 0 professionals, 0 work orders, 0 drafts
+✓ E2E harness ready — DB reachable, migrations applied, seed present
+◇ injected env (0) from .env.local // tip: ⌘ override existing { override: true }
+◇ injected env (0) from .env.e2e // tip: ⌁ auth for agents [www.vestauth.com]
+
+Running 1 test using 1 worker
+
+
+(node:84890) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+◇ injected env (0) from .env.local // tip: ⌘ enable debugging { debug: true }
+
+◇ injected env (0) from .env.e2e // tip: ⌘ suppress logs { quiet: true }
+
+[1/1] [chromium] › e2e/owners.spec.ts:92:7 › G — Owners / co-owners › G2: edit a co-owner → saves
+
+[chromium] › e2e/owners.spec.ts:92:7 › G — Owners / co-owners › G2: edit a co-owner → saves
+(node:84890) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+[WebServer]  ○ Compiling /property/[id]/ownership ...
+
+[WebServer]  ✓ Compiled /property/[id]/ownership in 1442ms
+
+
+[WebServer] (node:84931) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  GET /property/PROP-0715/ownership 200 in 3064ms
+
+
+[WebServer] (node:84935) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  POST /property/PROP-0715/ownership 200 in 451ms
+
+[WebServer]  POST /property/PROP-0715/ownership 200 in 518ms
+
+
+[WebServer] (node:84937) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  POST /property/PROP-0715/ownership 200 in 196ms
+
+
+[WebServer] (node:84939) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  POST /property/PROP-0715/ownership 200 in 171ms
+
+[WebServer]  POST /property/PROP-0715/ownership 200 in 424ms
+
+[WebServer]  POST /property/PROP-0715/ownership 200 in 333ms
+
+✓ E2E teardown — removed 0 throwaway test client(s)
+  1 passed (18.2s)

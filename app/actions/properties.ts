@@ -5,7 +5,7 @@ import { requireCtx } from "@/lib/auth/ctx";
 import type { ActionResult } from "@/app/actions/_result";
 import { revalidateFeTag, TOO_MANY_REQUESTS } from "@/app/actions/_result";
 import { bustCache } from "@/lib/cache/bust";
-import { NewPropertySchema, PropertyPatchSchema } from "@/lib/data/types/property";
+import { NewPropertySchema, ClientPropertyPatchSchema } from "@/lib/data/types/property";
 import type { Property } from "@/lib/data/types/property";
 import type { PropertyValuation } from "@/lib/data/types/property-valuation";
 import type { Lease } from "@/lib/data/types/lease";
@@ -66,7 +66,7 @@ export async function createPropertyForOrg(
 }
 
 export async function updateProperty(id: string, patch: unknown): Promise<ActionResult<Property>> {
-  const parsed = PropertyPatchSchema.safeParse(patch);
+  const parsed = ClientPropertyPatchSchema.safeParse(patch);
   if (!parsed.success) return { ok: false, error: "Invalid property" };
   const ctx = await requireCtx();
   if (!(await allowed(actionLimiter, ctx.userId, "updateProperty"))) return TOO_MANY_REQUESTS;

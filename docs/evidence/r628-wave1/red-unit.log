@@ -1,0 +1,172 @@
+The plugin "vite-tsconfig-paths" is detected. Vite now supports tsconfig paths resolution natively via the resolve.tsconfigPaths option. You can remove the plugin and set resolve.tsconfigPaths: true in your Vite config instead.
+
+ RUN  v4.1.8 /Users/mintrose/Dev/Projects/work/Valgate/active/valgate/valgate-webapp-nextjs/.worktrees/r628-webapp-bugs-wave1
+
+stdout | lib/services/verification-state-machine.test.ts
+◇ injected env (22) from .env.local // tip: ⌘ enable debugging { debug: true }
+
+ ❯ lib/services/verification-state-machine.test.ts (21 tests | 1 failed) 5ms
+   × the client property patch schema drops verification fields 2ms
+stdout | lib/api/v1/auth.test.ts
+◇ injected env (22) from .env.local // tip: ◈ secrets for agents [www.dotenvx.com]
+
+ ❯ lib/api/v1/auth.test.ts (14 tests | 2 failed) 13ms
+     × refuses the demo ctx in production 4ms
+     × refuses the demo ctx with a real Clerk key 1ms
+stdout | lib/services/client-invitations.test.ts
+◇ injected env (22) from .env.local // tip: ⌘ suppress logs { quiet: true }
+
+ ❯ lib/services/client-invitations.test.ts (4 tests | 4 failed) 8ms
+     × stays pending and throws when the client membership is not yet visible 5ms
+     × stays pending and throws when the org mirror is missing 0ms
+     × stays pending and throws when promotion fails 0ms
+     × marks accepted only after the client promotion and mirror succeed 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  lib/services/client-invitations.test.ts > invitation acceptance retry boundary > stays pending and throws when the client membership is not yet visible
+AssertionError: promise resolved "undefined" instead of rejecting
+
+- Expected:
+Error {
+  "message": "rejected promise",
+}
+
++ Received:
+undefined
+
+ ❯ lib/services/client-invitations.test.ts:55:51
+     53| describe("invitation acceptance retry boundary", () => {
+     54|   it("stays pending and throws when the client membership is not yet v…
+     55|     await expect(handleInvitationAccepted("inv_1")).rejects.toThrow();
+       |                                                   ^
+     56|     expectPending();
+     57|     expect(promote).not.toHaveBeenCalled();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯
+
+ FAIL  lib/services/client-invitations.test.ts > invitation acceptance retry boundary > stays pending and throws when the org mirror is missing
+AssertionError: promise resolved "undefined" instead of rejecting
+
+- Expected:
+Error {
+  "message": "rejected promise",
+}
+
++ Received:
+undefined
+
+ ❯ lib/services/client-invitations.test.ts:62:51
+     60|   it("stays pending and throws when the org mirror is missing", async …
+     61|     selectQueue[1] = [];
+     62|     await expect(handleInvitationAccepted("inv_1")).rejects.toThrow();
+       |                                                   ^
+     63|     expectPending();
+     64|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/7]⎯
+
+ FAIL  lib/services/client-invitations.test.ts > invitation acceptance retry boundary > stays pending and throws when promotion fails
+AssertionError: promise resolved "undefined" instead of rejecting
+
+- Expected:
+Error {
+  "message": "rejected promise",
+}
+
++ Received:
+undefined
+
+ ❯ lib/services/client-invitations.test.ts:70:51
+     68|     selectQueue.push([{ clerkUserId: "user_manager" }]);
+     69|     promote.mockRejectedValue(new Error("Clerk unavailable"));
+     70|     await expect(handleInvitationAccepted("inv_1")).rejects.toThrow();
+       |                                                   ^
+     71|     expectPending();
+     72|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/7]⎯
+
+ FAIL  lib/services/client-invitations.test.ts > invitation acceptance retry boundary > marks accepted only after the client promotion and mirror succeed
+AssertionError: expected 10 to be greater than 13
+ ❯ lib/services/client-invitations.test.ts:79:49
+     77|     await handleInvitationAccepted("inv_1");
+     78|     expect(setMock).toHaveBeenCalledWith(expect.objectContaining({ sta…
+     79|     expect(setMock.mock.invocationCallOrder[0]).toBeGreaterThan(upsert…
+       |                                                 ^
+     80|   });
+     81| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/7]⎯
+
+ FAIL  lib/services/verification-state-machine.test.ts > the client property patch schema drops verification fields
+TypeError: Cannot read properties of undefined (reading 'parse')
+ ❯ lib/services/verification-state-machine.test.ts:68:60
+     66|
+     67|  it("the client property patch schema drops verification fields", () =…
+     68|   const result = propertySchemas.ClientPropertyPatchSchema.parse({ ren…
+       |                                                            ^
+     69|   expect(result).not.toHaveProperty("rentalVerified");
+     70|   expect(result).toEqual({ name: "x" });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/7]⎯
+
+ FAIL  lib/api/v1/auth.test.ts > API demo context policy > refuses the demo ctx in production
+AssertionError: promise resolved "{ ok: true, ctx: { …(3) } }" instead of rejecting
+
+- Expected
++ Received
+
+- Error {
+-   "message": "rejected promise",
++ {
++   "ctx": {
++     "orgId": "ORG-0001",
++     "orgRole": "owner",
++     "userId": "USR-0001",
++   },
++   "ok": true,
+  }
+
+ ❯ lib/api/v1/auth.test.ts:212:35
+    210|   it("refuses the demo ctx in production", async () => {
+    211|     vi.stubEnv("NODE_ENV", "production");
+    212|     await expect(resolveApiV1Ctx()).rejects.toThrow("DEMO_MODE refused…
+       |                                   ^
+    213|   });
+    214|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/7]⎯
+
+ FAIL  lib/api/v1/auth.test.ts > API demo context policy > refuses the demo ctx with a real Clerk key
+AssertionError: promise resolved "{ ok: true, ctx: { …(3) } }" instead of rejecting
+
+- Expected
++ Received
+
+- Error {
+-   "message": "rejected promise",
++ {
++   "ctx": {
++     "orgId": "ORG-0001",
++     "orgRole": "owner",
++     "userId": "USR-0001",
++   },
++   "ok": true,
+  }
+
+ ❯ lib/api/v1/auth.test.ts:218:35
+    216|     vi.stubEnv("NODE_ENV", "development");
+    217|     vi.stubEnv("CLERK_SECRET_KEY", "sk_test_real_key");
+    218|     await expect(resolveApiV1Ctx()).rejects.toThrow("DEMO_MODE refused…
+       |                                   ^
+    219|   });
+    220|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/7]⎯
+
+
+ Test Files  3 failed (3)
+      Tests  7 failed | 32 passed (39)
+   Start at  13:33:54
+   Duration  537ms (transform 243ms, setup 78ms, import 573ms, tests 26ms, environment 0ms)

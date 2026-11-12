@@ -8,7 +8,7 @@ import { scopedInsert, requireMember } from "@/lib/services/_crud";
 import { assertCanMutate } from "@/lib/services/_mapping";
 // storage.ts exports this as `deleteStorageObject`; aliased to keep the
 // call sites below short and unchanged after the v1.0.2 merge renamed it.
-import { deleteStorageObject as deleteObject } from "@/lib/services/storage";
+import { assertOwnStorageId, deleteStorageObject as deleteObject } from "@/lib/services/storage";
 import { createDocument as svcCreateDocument, createDocumentForOrg as svcCreateDocumentForOrg } from "@/lib/services/documents";
 import {
   getProperty as svcGetProperty,
@@ -189,6 +189,7 @@ export async function stageDraftFile(
     storageId: string;
   },
 ): Promise<PropertyDraftFile> {
+  assertOwnStorageId(ctx, input.storageId);
   const owningDraft = await getPropertyDraft(ctx, draftId);
   if (!owningDraft) throw new Error("draft not found"); // not theirs, or doesn't exist
   return scopedInsert(ctx, propertyDraftFiles, "DRFF", { ...input, draftId }, rowToDraftFile);

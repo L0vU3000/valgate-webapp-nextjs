@@ -1,0 +1,73 @@
+
+[WebServer] (node:57558) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:57743) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:58078) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:58078) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+
+[WebServer] (node:57743) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+◇ injected env (19) from .env.local // tip: ⌘ suppress logs { quiet: true }
+◇ injected env (0) from .env.e2e // tip: ⌘ enable debugging { debug: true }
+(node:57345) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✓ E2E pre-run cleanup — removed 0 properties, 0 professionals, 0 work orders, 0 drafts
+✓ E2E harness ready — DB reachable, migrations applied, seed present
+◇ injected env (0) from .env.local // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+◇ injected env (0) from .env.e2e // tip: ⌘ suppress logs { quiet: true }
+
+Running 1 test using 1 worker
+
+
+(node:58189) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+◇ injected env (0) from .env.local // tip: ⌘ suppress logs { quiet: true }
+
+◇ injected env (0) from .env.e2e // tip: ⌘ enable debugging { debug: true }
+
+[1/1] [chromium] › e2e/owners.spec.ts:92:7 › G — Owners / co-owners › G2: edit a co-owner → saves
+
+[chromium] › e2e/owners.spec.ts:92:7 › G — Owners / co-owners › G2: edit a co-owner → saves
+(node:58189) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+
+[WebServer] (node:58198) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:58207) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:58210) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+  1) [chromium] › e2e/owners.spec.ts:92:7 › G — Owners / co-owners › G2: edit a co-owner → saves › Advance to the co-owners step
+
+    Test timeout of 30000ms exceeded.
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/owners-G-—-Owners-co-owners-G2-edit-a-co-owner-→-saves-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/owners-G-—-Owners-co-owners-G2-edit-a-co-owner-→-saves-chromium/error-context.md
+
+
+✓ E2E teardown — removed 0 throwaway test client(s)
+  1 failed
+    [chromium] › e2e/owners.spec.ts:92:7 › G — Owners / co-owners › G2: edit a co-owner → saves ────

@@ -572,12 +572,6 @@ export async function handleInvitationAccepted(clerkInvitationId: string): Promi
     return;
   }
 
-  // Mark the handoff as accepted immediately so duplicate webhook deliveries are no-ops.
-  await db
-    .update(clientHandoffs)
-    .set({ status: "accepted", acceptedAt: new Date(), updatedAt: new Date() })
-    .where(eq(clientHandoffs.id, handoff.id));
-
   // The name shown to the manager in the accept notification. Starts as the label the
   // manager typed at onboarding; becomes the client's chosen name if they set one below.
   let displayName = handoff.clientName ?? "Your client";
@@ -594,7 +588,7 @@ export async function handleInvitationAccepted(clerkInvitationId: string): Promi
 
   if (!orgRow) {
     logger.error("handleInvitationAccepted: org not found in Neon mirror", { orgId: handoff.orgId });
-    return;
+    throw new Error("Invitation organization not yet mirrored");
   }
 
   const clerk = await clerkClient();
@@ -614,12 +608,12 @@ export async function handleInvitationAccepted(clerkInvitationId: string): Promi
 
   if (!clientClerkUserId) {
     // The membership webhook hasn't synced yet — Clerk will retry this event, so we
-    // log and return. The JIT path in upsertMembership will backfill the mirror later.
+    // throw so the webhook answers 500 and Clerk retries this event.
     logger.warn("handleInvitationAccepted: client membership not yet visible in Clerk, will retry", {
       handoffId: handoff.id,
       clientEmail: handoff.clientEmail,
     });
-    return;
+    throw new Error("Invitation client membership not yet visible");
   }
 
   // Option A — the client owns their own display name. If they set a name during signup,
@@ -692,7 +686,7 @@ export async function handleInvitationAccepted(clerkInvitationId: string): Promi
 
   if (!managerUser) {
     logger.error("handleInvitationAccepted: manager user not found", { managerUserId: handoff.managerUserId });
-    return;
+    throw new Error("Invitation manager not yet mirrored");
   }
 
   // STEP 1 — Promote the client to org:admin FIRST (before any demotion/removal).
@@ -710,8 +704,14 @@ export async function handleInvitationAccepted(clerkInvitationId: string): Promi
       error: String(err),
       handoffId: handoff.id,
     });
-    return;
+    throw err;
   }
+
+  // The client now owns the portfolio in Clerk and the mirror; redelivery can safely stop.
+  await db
+    .update(clientHandoffs)
+    .set({ status: "accepted", acceptedAt: new Date(), updatedAt: new Date() })
+    .where(eq(clientHandoffs.id, handoff.id));
 
   // STEP 2 — Apply the manager access model chosen at onboarding.
   const model = handoff.managerAccessModel ?? "approval";

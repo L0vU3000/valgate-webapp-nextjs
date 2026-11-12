@@ -1,0 +1,130 @@
+{
+  "candidate": [
+    {
+      "trace_directory": "owners-G-\u2014-Owners-co-owners-G2-edit-a-co-owner-\u2192-saves-chromium",
+      "actions": [
+        {
+          "type": "before",
+          "callId": "pw:api@49",
+          "title": "Click getByRole('dialog').locator('label').filter({ hasText: 'Tenancy in Common' })",
+          "startTime": 14840.193
+        },
+        {
+          "type": "before",
+          "callId": "pw:api@52",
+          "title": "Click getByRole('dialog').locator('label').filter({ hasText: 'Pro-Rata by Share' })",
+          "startTime": 15679.697
+        },
+        {
+          "type": "after",
+          "callId": "pw:api@49",
+          "endTime": 15670.237
+        },
+        {
+          "type": "after",
+          "callId": "pw:api@52",
+          "endTime": 40814.529,
+          "error": "Error: locator.click: Test timeout of 30000ms exceeded.\nCall log:\n  - waiting for getByRole('dialog').locator('label').filter({ hasText: 'Pro-Rata by Share' })\n    - locator resolved to <label class=\"flex items-center gap-2.5 px-4 py-3 rounded-lg border cursor-pointer transition-all duration-150 border-slate-200 hover:border-slate-300 hover:bg-slate-50\">\u2026</label>\n  - attempting click action\n    - waiting for element to be visible, enabled and stable\n  - element was detached from the DOM, retrying\n"
+        }
+      ],
+      "wizard_loads": [
+        {
+          "started_ms": 14837.279,
+          "duration_ms": 530.6859999999999,
+          "status": 200,
+          "request_body": "[\"PROP-0716\"]",
+          "response_ok": true,
+          "record_is_null": true,
+          "has_coowners": true
+        },
+        {
+          "started_ms": 15369.341,
+          "duration_ms": 312.18800000000005,
+          "status": 200,
+          "request_body": "[\"PROP-0716\"]",
+          "response_ok": true,
+          "record_is_null": true,
+          "has_coowners": true
+        }
+      ]
+    }
+  ],
+  "base": [
+    {
+      "trace_directory": "owners-G-\u2014-Owners-co-owners-G2-edit-a-co-owner-\u2192-saves-chromium-repeat7",
+      "actions": [
+        {
+          "type": "before",
+          "callId": "pw:api@49",
+          "title": "Click getByRole('dialog').locator('label').filter({ hasText: 'Tenancy in Common' })",
+          "startTime": 44068.361
+        },
+        {
+          "type": "before",
+          "callId": "pw:api@52",
+          "title": "Click getByRole('dialog').locator('label').filter({ hasText: 'Pro-Rata by Share' })",
+          "startTime": 44406.255
+        },
+        {
+          "type": "after",
+          "callId": "pw:api@49",
+          "endTime": 44399.871
+        },
+        {
+          "type": "after",
+          "callId": "pw:api@52",
+          "endTime": 44442.409
+        }
+      ],
+      "wizard_loads": [
+        {
+          "started_ms": 44056.581,
+          "duration_ms": 222.045,
+          "status": 200,
+          "request_body": "[\"PROP-0728\"]",
+          "response_ok": true,
+          "record_is_null": true,
+          "has_coowners": true
+        },
+        {
+          "started_ms": 44280.44,
+          "duration_ms": 273.847,
+          "status": 200,
+          "request_body": "[\"PROP-0728\"]",
+          "response_ok": true,
+          "record_is_null": true,
+          "has_coowners": true
+        }
+      ],
+      "steps": [
+        {
+          "type": "before",
+          "callId": "pw:api@53",
+          "title": "Click getByRole('dialog').getByRole('button', { name: /continue/i })",
+          "startTime": 44443.032
+        },
+        {
+          "type": "before",
+          "callId": "pw:api@55",
+          "title": "Click getByRole('dialog').getByRole('button', { name: /continue/i })",
+          "startTime": 44493.256
+        },
+        {
+          "type": "after",
+          "callId": "pw:api@53",
+          "endTime": 44485.428
+        },
+        {
+          "type": "after",
+          "callId": "pw:api@55",
+          "endTime": 44555.638
+        }
+      ],
+      "failure": {
+        "callId": "expect@56",
+        "endTime": 49568.468,
+        "error": "Error: expect(locator).toBeVisible() failed\n\nLocator: getByRole('dialog').getByRole('heading', { name: 'Co-owners' })\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n  - Expect \"toBeVisible\" with timeout 5000ms\n  - waiting for getByRole('dialog').getByRole('heading', { name: 'Co-owners' })\n"
+      }
+    }
+  ]
+}

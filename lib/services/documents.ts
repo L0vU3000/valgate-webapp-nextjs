@@ -9,7 +9,7 @@ import type { SuggestedUpdate } from "@/lib/services/property-suggestions";
 import type { DocumentCategory } from "@/lib/services/document-classify";
 import { toDomain, type Ctx } from "@/lib/services/_mapping";
 import { scopedInsert, scopedUpdate, scopedDelete, assertOrgAdmin } from "@/lib/services/_crud";
-import { deleteStorageObject } from "@/lib/services/storage";
+import { assertOwnStorageId, deleteStorageObject } from "@/lib/services/storage";
 
 const rowToDocument = (r: typeof documents.$inferSelect): Document =>
   DocumentSchema.parse(toDomain(documents, r)); // C6/C7
@@ -102,6 +102,8 @@ export async function getDocument(ctx: Ctx, id: string): Promise<Document | null
 }
 
 export async function createDocument(ctx: Ctx, input: NewDocument): Promise<Document> {
+  if (input.storageId != null) assertOwnStorageId(ctx, input.storageId);
+  if (input.thumbStorageId != null) assertOwnStorageId(ctx, input.thumbStorageId);
   return scopedInsert(ctx, documents, "DOC", input, rowToDocument);
 }
 
@@ -122,6 +124,8 @@ export async function createDocumentForOrg(
   input: NewDocument,
 ): Promise<Document> {
   await assertOrgAdmin(ctx, targetOrgId);
+  if (input.storageId != null) assertOwnStorageId({ orgId: targetOrgId }, input.storageId);
+  if (input.thumbStorageId != null) assertOwnStorageId({ orgId: targetOrgId }, input.thumbStorageId);
   return scopedInsert(ctx, documents, "DOC", input, rowToDocument, { orgId: targetOrgId });
 }
 
@@ -131,6 +135,8 @@ export async function updateDocument(
   id: string,
   patch: { [K in keyof DocumentPatch]?: DocumentPatch[K] | null },
 ): Promise<Document | null> {
+  if (patch.storageId != null) assertOwnStorageId(ctx, patch.storageId);
+  if (patch.thumbStorageId != null) assertOwnStorageId(ctx, patch.thumbStorageId);
   return scopedUpdate(ctx, documents, id, patch, rowToDocument, false);
 }
 

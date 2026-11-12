@@ -1,4 +1,5 @@
 import "server-only";
+import { demoCtxOrNull } from "@/lib/auth/demo-ctx";
 import { auth } from "@clerk/nextjs/server";
 import type { NextResponse } from "next/server";
 import { ctxFromMcpAuth } from "@/mcp-server/ctxFor";
@@ -27,11 +28,10 @@ export type ApiV1AuthKind = "read" | "write";
  * Writes pass kind "write" so they do not share the GET budget.
  */
 export async function resolveApiV1Ctx(kind: ApiV1AuthKind = "read"): Promise<ApiV1AuthResult> {
-  // Staging preview: short-circuit Clerk entirely when running with demo credentials.
-  // Skip during tests so mock-based Clerk assertions still run.
-  if (process.env.NODE_ENV !== "test" && (process.env.STAGING_DEMO_MODE === "true" || process.env.DEMO_MODE === "true")) {
-    const demoCtx: Ctx = { userId: "USR-0001", orgId: "ORG-0001", orgRole: "owner" };
-    return { ok: true, ctx: demoCtx };
+  // Preserve mocked auth under Vitest; runtime demo access uses the web's refusal policy.
+  if (process.env.NODE_ENV !== "test") {
+    const demoCtx = demoCtxOrNull();
+    if (demoCtx) return { ok: true, ctx: demoCtx };
   }
 
   // acceptsToken: "session_token" accepts a standard Clerk session token carried either as

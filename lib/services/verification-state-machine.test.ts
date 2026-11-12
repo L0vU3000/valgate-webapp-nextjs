@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { nextStatus, canTransition } from "./verification-state-machine";
+import * as propertySchemas from "@/lib/data/types/property";
 import type { VerificationStatus } from "@/lib/data/types/pillar-verification";
 
 describe("verification state machine", () => {
@@ -61,4 +62,20 @@ describe("verification state machine", () => {
       },
     );
   });
+});
+
+it("the client property patch schema drops verification fields", () => {
+  const result = propertySchemas.ClientPropertyPatchSchema.parse({ rentalVerified: true, name: "x" });
+  expect(result).not.toHaveProperty("rentalVerified");
+  expect(result).toEqual({ name: "x" });
+});
+
+it.each(["rental", "estate", "location", "financials"])("client patches drop all %s verification metadata", (pillar) => {
+  const result = propertySchemas.ClientPropertyPatchSchema.parse({
+    name: "x", [`${pillar}Verified`]: true, [`${pillar}VerifiedAt`]: 123,
+    [`${pillar}EvidenceDocIds`]: ["DOC-0001"],
+    photoStorageIds: ["foreign/key"], documentStorageIds: ["foreign/key"],
+    coverStorageId: "foreign/key", clientId: "CLI-0001",
+  });
+  expect(result).toEqual({ name: "x" });
 });

@@ -150,3 +150,11 @@ export const NewPropertySchema = PropertySchema.omit({
 export type NewProperty = z.infer<typeof NewPropertySchema>;
 export const PropertyPatchSchema = NewPropertySchema.partial();
 export type PropertyPatch = z.infer<typeof PropertyPatchSchema>;
+
+export const ClientPropertyPatchSchema = PropertyPatchSchema.omit({
+  rentalVerified: true, rentalVerifiedAt: true, rentalEvidenceDocIds: true,
+  estateVerified: true, estateVerifiedAt: true, estateEvidenceDocIds: true,
+  locationVerified: true, locationVerifiedAt: true, locationEvidenceDocIds: true,
+  financialsVerified: true, financialsVerifiedAt: true, financialsEvidenceDocIds: true,
+  photoStorageIds: true, documentStorageIds: true, coverStorageId: true, clientId: true,
+});

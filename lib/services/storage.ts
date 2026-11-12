@@ -8,6 +8,15 @@ import { MAX_BYTES, ALLOWED_MIME, KMZ_MIME, KMZ_MAX_BYTES } from "@/lib/upload-c
 
 export { MAX_BYTES, ALLOWED_MIME };
 
+export function isOrgStorageId(storageId: string, orgId: string): boolean {
+  return storageId.startsWith(`${orgId}/`);
+}
+
+export function assertOwnStorageId(ctx: Pick<Ctx, "orgId">, storageId: string): void {
+  if (!storageId.startsWith("_storage/") && !isOrgStorageId(storageId, ctx.orgId))
+    throw new Error("forbidden");
+}
+
 function assertStorageConfigured(): { bucket: string; region: string; accessKeyId: string; secretAccessKey: string } {
   const { STORAGE_BUCKET: bucket, STORAGE_REGION: region, STORAGE_ACCESS_KEY_ID: accessKeyId, STORAGE_SECRET_ACCESS_KEY: secretAccessKey } = env;
   if (!bucket || !region || !accessKeyId || !secretAccessKey)

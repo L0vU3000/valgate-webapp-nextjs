@@ -1,0 +1,9 @@
+The plugin "vite-tsconfig-paths" is detected. Vite now supports tsconfig paths resolution natively via the resolve.tsconfigPaths option. You can remove the plugin and set resolve.tsconfigPaths: true in your Vite config instead.
+
+ RUN  v4.1.8 /Users/mintrose/Dev/Projects/work/Valgate/active/valgate/valgate-webapp-nextjs/.worktrees/r628-webapp-bugs-wave1
+
+
+ Test Files  110 passed (110)
+      Tests  1028 passed (1028)
+   Start at  13:57:25
+   Duration  7.61s (transform 9.15s, setup 2.18s, import 40.09s, tests 3.42s, environment 14ms)

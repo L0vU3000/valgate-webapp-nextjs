@@ -1,0 +1,77 @@
+The plugin "vite-tsconfig-paths" is detected. Vite now supports tsconfig paths resolution natively via the resolve.tsconfigPaths option. You can remove the plugin and set resolve.tsconfigPaths: true in your Vite config instead.
+
+ RUN  v4.1.8 /Users/mintrose/Dev/Projects/work/Valgate/active/valgate/valgate-webapp-nextjs/.worktrees/r628-webapp-bugs-wave1
+
+stdout | lib/services/storage-ownership.test.ts
+◇ injected env (22) from .env.local // tip: ⌘ enable debugging { debug: true }
+
+stdout | lib/services/verification-state-machine.test.ts
+◇ injected env (22) from .env.local // tip: ◈ encrypted .env [www.dotenvx.com]
+
+stdout | lib/services/client-invitations.test.ts
+◇ injected env (22) from .env.local // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+
+stdout | lib/api/v1/auth.test.ts
+◇ injected env (22) from .env.local // tip: ⌁ auth for agents [www.vestauth.com]
+
+ ✓ lib/services/verification-state-machine.test.ts > verification state machine > submit > transitions unverified -> verified 1ms
+ ✓ lib/services/verification-state-machine.test.ts > verification state machine > submit > transitions rejected -> verified 0ms
+ ✓ lib/services/verification-state-machine.test.ts > verification state machine > submit > transitions revoked -> verified 0ms
+ ✓ lib/services/verification-state-machine.test.ts > verification state machine > submit > throws on illegal submit from pending_review 1ms
+ ✓ lib/services/verification-state-machine.test.ts > verification state machine > submit > throws on illegal submit from verified 0ms
+ ✓ lib/services/verification-state-machine.test.ts > verification state machine > approve > transitions pending_review -> verified 0ms
+ ✓ lib/services/verification-state-machine.test.ts > verification state machine > approve > throws on illegal approve from unverified 0ms
+ ✓ lib/services/verification-state-machine.test.ts > verification state machine > approve > throws on illegal approve from rejected 0ms
+ ✓ lib/services/verification-state-machine.test.ts > verification state machine > approve > throws on illegal approve from revoked 0ms
+ ✓ lib/services/verification-state-machine.test.ts > verification state machine > approve > throws on illegal approve from verified 0ms
+ ✓ lib/services/verification-state-machine.test.ts > verification state machine > reject > transitions pending_review -> rejected 0ms
+ ✓ lib/services/verification-state-machine.test.ts > verification state machine > reject > transitions verified -> rejected 0ms
+ ✓ lib/services/verification-state-machine.test.ts > verification state machine > reject > throws on illegal reject from unverified 0ms
+ ✓ lib/services/verification-state-machine.test.ts > verification state machine > reject > throws on illegal reject from rejected 0ms
+ ✓ lib/services/verification-state-machine.test.ts > verification state machine > reject > throws on illegal reject from revoked 0ms
+ ✓ lib/services/verification-state-machine.test.ts > verification state machine > revoke > transitions verified -> revoked 0ms
+ ✓ lib/services/verification-state-machine.test.ts > verification state machine > revoke > throws on illegal revoke from unverified 0ms
+ ✓ lib/services/verification-state-machine.test.ts > verification state machine > revoke > throws on illegal revoke from pending_review 0ms
+ ✓ lib/services/verification-state-machine.test.ts > verification state machine > revoke > throws on illegal revoke from rejected 0ms
+ ✓ lib/services/verification-state-machine.test.ts > verification state machine > revoke > throws on illegal revoke from revoked 0ms
+ ✓ lib/services/verification-state-machine.test.ts > the client property patch schema drops verification fields 2ms
+ ✓ lib/services/verification-state-machine.test.ts > client patches drop all rental verification metadata 0ms
+ ✓ lib/services/verification-state-machine.test.ts > client patches drop all estate verification metadata 0ms
+ ✓ lib/services/verification-state-machine.test.ts > client patches drop all location verification metadata 0ms
+ ✓ lib/services/verification-state-machine.test.ts > client patches drop all financials verification metadata 0ms
+ ✓ lib/api/v1/auth.test.ts > resolveApiV1Ctx > returns a generic 401 when there is no authenticated Clerk user 5ms
+ ✓ lib/api/v1/auth.test.ts > resolveApiV1Ctx > uses acceptsToken: session_token so a Bearer session token (not just a cookie) is accepted 1ms
+ ✓ lib/api/v1/auth.test.ts > resolveApiV1Ctx > returns a generic 401 (never the caught error's message) when ctxFromMcpAuth cannot resolve a Ctx 1ms
+ ✓ lib/api/v1/auth.test.ts > resolveApiV1Ctx > returns 429 when the dedicated read-API rate limiter rejects the resolved user 0ms
+ ✓ lib/api/v1/auth.test.ts > resolveApiV1Ctx > uses the tighter write limiter when kind is write 0ms
+ ✓ lib/api/v1/auth.test.ts > resolveApiV1Ctx > resolves ok:true with the Ctx when auth, org resolution, and rate limit all succeed 0ms
+ ✓ lib/api/v1/auth.test.ts > resolveApiV1Ctx > forwards the session token's active org so a multi-org caller reads the org they picked 0ms
+ ✓ lib/api/v1/auth.test.ts > resolveApiV1Ctx > fails closed when the active org has no mirrored Valgate row 0ms
+ ✓ lib/api/v1/auth.test.ts > resolveApiV1Ctx > still refuses to auto-create a user when resolving a write ctx 0ms
+ ✓ lib/api/v1/auth.test.ts > API demo context policy > refuses the demo ctx in production 1ms
+ ✓ lib/api/v1/auth.test.ts > API demo context policy > refuses the demo ctx with a real Clerk key 0ms
+ ✓ lib/api/v1/auth.test.ts > API demo context policy > retains DEMO_MODE=true usage in development 0ms
+ ✓ lib/api/v1/auth.test.ts > API demo context policy > does not bypass mocked auth when vitest pins NODE_ENV=test 0ms
+ ✓ lib/api/v1/auth.test.ts > API demo context policy > retains the explicit staging preview exception 0ms
+ ✓ lib/services/client-invitations.test.ts > invitation acceptance retry boundary > stays pending and throws when the client membership is not yet visible 2ms
+ ✓ lib/services/client-invitations.test.ts > invitation acceptance retry boundary > stays pending and throws when the org mirror is missing 0ms
+ ✓ lib/services/client-invitations.test.ts > invitation acceptance retry boundary > stays pending and throws when promotion fails 0ms
+ ✓ lib/services/client-invitations.test.ts > invitation acceptance retry boundary > stays pending and throws when the manager mirror is missing 0ms
+ ✓ lib/services/client-invitations.test.ts > invitation acceptance retry boundary > stays pending when the promotion mirror write fails 0ms
+ ✓ lib/services/client-invitations.test.ts > invitation acceptance retry boundary > leaves already accepted handoffs alone on redelivery 0ms
+ ✓ lib/services/client-invitations.test.ts > invitation acceptance retry boundary > marks accepted only after the client promotion and mirror succeed 2ms
+ ✓ lib/services/storage-ownership.test.ts > storage ownership at the persistence boundary > allows own keys and legacy local references 1ms
+ ✓ lib/services/storage-ownership.test.ts > storage ownership at the persistence boundary > refuses foreign or unscoped key ORG-A/DOC-0001/x.pdf 0ms
+ ✓ lib/services/storage-ownership.test.ts > storage ownership at the persistence boundary > refuses foreign or unscoped key ORG-B-other/x.pdf 0ms
+ ✓ lib/services/storage-ownership.test.ts > storage ownership at the persistence boundary > refuses foreign or unscoped key x.pdf 0ms
+ ✓ lib/services/storage-ownership.test.ts > storage ownership at the persistence boundary > document create and update guard storageId 0ms
+ ✓ lib/services/storage-ownership.test.ts > storage ownership at the persistence boundary > document create and update guard thumbStorageId 0ms
+ ✓ lib/services/storage-ownership.test.ts > storage ownership at the persistence boundary > property updates guard every photoStorageIds entry 0ms
+ ✓ lib/services/storage-ownership.test.ts > storage ownership at the persistence boundary > property updates guard every documentStorageIds entry 0ms
+ ✓ lib/services/storage-ownership.test.ts > storage ownership at the persistence boundary > guards both property cover write paths 0ms
+ ✓ lib/services/storage-ownership.test.ts > storage ownership at the persistence boundary > refuses a foreign staged draft file before looking up the draft 0ms
+
+ Test Files  4 passed (4)
+      Tests  56 passed (56)
+   Start at  13:40:12
+   Duration  692ms (transform 389ms, setup 102ms, import 1.25s, tests 29ms, environment 0ms)

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // ---------------------------------------------------------------------------
 // resolveApiV1Ctx is the single auth seam for every HTTP API v1 route:
@@ -47,6 +47,13 @@ vi.mock("@/lib/ratelimit", () => ({
 vi.mock("@/lib/logger", () => ({
   logger: loggerMock,
 }));
+
+vi.mock("@/lib/env", () => ({ env: {
+  get DEMO_MODE() { return process.env.DEMO_MODE === "true"; },
+  get CLERK_SECRET_KEY() { return process.env.CLERK_SECRET_KEY; },
+} }));
+
+afterEach(() => vi.unstubAllEnvs());
 
 import { resolveApiV1Ctx } from "./auth";
 
@@ -190,5 +197,45 @@ describe("resolveApiV1Ctx", () => {
       requestedOrgId: undefined,
       provisionIfMissing: false,
     });
+  });
+});
+
+describe("API demo context policy", () => {
+  beforeEach(() => {
+    vi.stubEnv("STAGING_DEMO_MODE", "false");
+    vi.stubEnv("CLERK_SECRET_KEY", "demo-no-clerk");
+    vi.stubEnv("DEMO_MODE", "true");
+  });
+
+  it("refuses the demo ctx in production", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    await expect(resolveApiV1Ctx()).rejects.toThrow("DEMO_MODE refused in production");
+  });
+
+  it("refuses the demo ctx with a real Clerk key", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("CLERK_SECRET_KEY", "sk_test_real_key");
+    await expect(resolveApiV1Ctx()).rejects.toThrow("DEMO_MODE refused when a real CLERK_SECRET_KEY is set");
+  });
+
+  it("retains DEMO_MODE=true usage in development", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    await expect(resolveApiV1Ctx()).resolves.toEqual({ ok: true, ctx: CTX });
+    expect(authMock).not.toHaveBeenCalled();
+  });
+
+  it("does not bypass mocked auth when vitest pins NODE_ENV=test", async () => {
+    vi.stubEnv("NODE_ENV", "test");
+    authMock.mockResolvedValue({ userId: null });
+    const result = await resolveApiV1Ctx();
+    expect(result.ok).toBe(false);
+    expect(authMock).toHaveBeenCalled();
+  });
+
+  it("retains the explicit staging preview exception", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("STAGING_DEMO_MODE", "true");
+    vi.stubEnv("CLERK_SECRET_KEY", "sk_test_real_key");
+    await expect(resolveApiV1Ctx()).resolves.toEqual({ ok: true, ctx: CTX });
   });
 });

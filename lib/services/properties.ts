@@ -15,7 +15,17 @@ import { toDomain, nextId, assertCanMutate, type Ctx } from "@/lib/services/_map
 import { scopedUpdate, scopedDelete, requireMember, assertOrgAdmin } from "@/lib/services/_crud";
 import { convertRowToDb } from "@/lib/db/column-classifier";
 import { listDocuments } from "@/lib/services/documents";
-import { deleteStorageObject } from "@/lib/services/storage";
+import { assertOwnStorageId, deleteStorageObject } from "@/lib/services/storage";
+
+function assertPropertyStorage(ctx: Pick<Ctx, "orgId">, media: {
+  photoStorageIds?: string[] | null;
+  documentStorageIds?: string[] | null;
+  coverStorageId?: string | null;
+}): void {
+  for (const key of [...(media.photoStorageIds ?? []), ...(media.documentStorageIds ?? [])])
+    assertOwnStorageId(ctx, key);
+  if (media.coverStorageId != null) assertOwnStorageId(ctx, media.coverStorageId);
+}
 
 const rowToProperty = (r: typeof properties.$inferSelect): Property =>
   PropertySchema.parse(toDomain(properties, r)); // C6/C7
@@ -104,6 +114,7 @@ export async function getPropertyForOrg(orgId: string, id: string): Promise<Prop
 export async function createProperty(ctx: Ctx, input: NewProperty): Promise<Property> {
   assertCanMutate(ctx);
   requireMember(ctx);
+  assertPropertyStorage(ctx, input);
   const id = await nextId("PROP", properties);
   const now = Date.now();
   const merged = PropertySchema.parse({
@@ -125,6 +136,7 @@ export async function createProperty(ctx: Ctx, input: NewProperty): Promise<Prop
 export async function createPropertyForOrg(ctx: Ctx, targetOrgId: string, input: NewProperty): Promise<Property> {
   assertCanMutate(ctx);
   await assertOrgAdmin(ctx, targetOrgId);
+  assertPropertyStorage({ orgId: targetOrgId }, input);
   const id = await nextId("PROP", properties);
   const now = Date.now();
   const merged = PropertySchema.parse({
@@ -149,6 +161,7 @@ export async function updateProperty(
   id: string,
   patch: { [K in keyof PropertyPatch]?: PropertyPatch[K] | null },
 ): Promise<Property | null> {
+  assertPropertyStorage(ctx, patch);
   return scopedUpdate(ctx, properties, id, { ...patch, updatedAt: Date.now() }, rowToProperty, true);
 }
 
@@ -165,6 +178,7 @@ export async function updatePropertyForOrg(
 ): Promise<Property | null> {
   assertCanMutate(ctx);
   await assertOrgAdmin(ctx, targetOrgId);
+  assertPropertyStorage({ orgId: targetOrgId }, patch);
   const dbPatch = convertRowToDb(properties, { ...patch, updatedAt: Date.now() });
   const [row] = await db.update(properties)
     .set(dbPatch as never)
@@ -183,6 +197,7 @@ export async function setCoverPhoto(
   id: string,
   coverStorageId: string | null,
 ): Promise<Property | null> {
+  if (coverStorageId != null) assertOwnStorageId(ctx, coverStorageId);
   return scopedUpdate(ctx, properties, id, { coverStorageId }, rowToProperty, true);
 }
 

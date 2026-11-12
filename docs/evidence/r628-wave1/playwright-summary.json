@@ -1,0 +1,49 @@
+{
+  "base": "b54589e6f1f273eca5151e3f5bbf4ee524617556",
+  "stats": {
+    "startTime": "2026-11-12T06:37:11.620Z",
+    "duration": 311442.148,
+    "expected": 28,
+    "skipped": 44,
+    "unexpected": 5,
+    "flaky": 0
+  },
+  "terminal_counts": {
+    "passed": 28,
+    "failed": 5,
+    "skipped": 36,
+    "did_not_run": 8
+  },
+  "failures": [
+    {
+      "file": "add-property.spec.ts",
+      "line": 72,
+      "title": "C0: landing \u2192 Step 0 with no advisor dialog, \"Enter manually\" reaches the wizard",
+      "status": "timedOut"
+    },
+    {
+      "file": "intake.spec.ts",
+      "line": 43,
+      "title": "D1: \"Add photos\" stages the photo and it comes back from storage",
+      "status": "timedOut"
+    },
+    {
+      "file": "owners.spec.ts",
+      "line": 92,
+      "title": "G2: edit a co-owner \u2192 saves",
+      "status": "timedOut"
+    },
+    {
+      "file": "photos.spec.ts",
+      "line": 37,
+      "title": "E1: upload a photo \u2192 appears in grid",
+      "status": "failed"
+    },
+    {
+      "file": "portfolio.spec.ts",
+      "line": 141,
+      "title": "B8-B10: cascade deep-check + set-null survivors + activity row",
+      "status": "failed"
+    }
+  ]
+}

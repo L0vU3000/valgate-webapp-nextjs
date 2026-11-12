@@ -1,0 +1,29 @@
+{
+  "candidate": "3daae8f0c5d2f35748a4857c3deb51d1824db681",
+  "base": "b54589e6f1f273eca5151e3f5bbf4ee524617556",
+  "candidate_port": 3068,
+  "base_port": 3069,
+  "same_environment_values": true,
+  "files": [
+    {
+      "path": "components/feature-unlock/FeatureUnlockWizard.tsx",
+      "equal": true,
+      "sha256": "107009e813340bc59907fa92107d90a7bb1fbd65e4cb1de98d17c7f9f98c7e57"
+    },
+    {
+      "path": "components/feature-unlock/pillars/OwnershipUnlock.tsx",
+      "equal": true,
+      "sha256": "ad5368fd2492114b25d752722f68e86caf277b9202826fb2956fbccf40dfdfa1"
+    },
+    {
+      "path": "e2e/owners.spec.ts",
+      "equal": true,
+      "sha256": "7909e9e102e00a70724d88562c3cc1a413ffbffda07c80a2aee954994e41b1e3"
+    },
+    {
+      "path": "app/actions/ownership-records.ts",
+      "equal": true,
+      "sha256": "d1b9dec37cfd69e09b47f88869b61574f4d41246667d0f6b635e37fdeba0a59e"
+    }
+  ]
+}

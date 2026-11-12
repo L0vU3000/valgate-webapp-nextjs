@@ -1,0 +1,66 @@
+{
+  "source_candidate": "3daae8f0c5d2f35748a4857c3deb51d1824db681",
+  "stats": {
+    "startTime": "2026-11-12T06:57:24.372Z",
+    "duration": 265881.49700000003,
+    "expected": 29,
+    "skipped": 44,
+    "unexpected": 4,
+    "flaky": 0
+  },
+  "terminal_counts": {
+    "passed": 29,
+    "failed": 4,
+    "skipped": 36,
+    "did_not_run": 8
+  },
+  "failures": [
+    {
+      "file": "add-property.spec.ts",
+      "line": 72,
+      "title": "C0: landing \u2192 Step 0 with no advisor dialog, \"Enter manually\" reaches the wizard",
+      "status": "unexpected",
+      "results": [
+        "timedOut"
+      ]
+    },
+    {
+      "file": "intake.spec.ts",
+      "line": 43,
+      "title": "D1: \"Add photos\" stages the photo and it comes back from storage",
+      "status": "unexpected",
+      "results": [
+        "timedOut"
+      ]
+    },
+    {
+      "file": "photos.spec.ts",
+      "line": 37,
+      "title": "E1: upload a photo \u2192 appears in grid",
+      "status": "unexpected",
+      "results": [
+        "failed"
+      ]
+    },
+    {
+      "file": "portfolio.spec.ts",
+      "line": 141,
+      "title": "B8-B10: cascade deep-check + set-null survivors + activity row",
+      "status": "unexpected",
+      "results": [
+        "failed"
+      ]
+    }
+  ],
+  "g2": [
+    {
+      "file": "owners.spec.ts",
+      "line": 92,
+      "title": "G2: edit a co-owner \u2192 saves",
+      "status": "expected",
+      "results": [
+        "passed"
+      ]
+    }
+  ]
+}

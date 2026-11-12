@@ -82,8 +82,5 @@ export function toNewDocument(propertyId: string, body: DocumentCompleteBody): N
   };
 }
 
-// Completion accepts only storage ids in the caller's org namespace. The upload
-// ticket is the normal source; the namespace check prevents cross-org binding.
-export function isOrgStorageId(storageId: string, orgId: string): boolean {
-  return storageId.startsWith(`${orgId}/`);
-}
+// Completion keeps its strict S3 namespace check; legacy local ids are service-only.
+export { isOrgStorageId } from "@/lib/services/storage";

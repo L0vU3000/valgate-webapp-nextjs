@@ -1,0 +1,12 @@
+import { defineConfig } from "@playwright/test";
+import base from "./playwright.config";
+export default defineConfig({
+  ...base,
+  use: { ...base.use, baseURL: "http://localhost:3068" },
+  webServer: {
+    command: "DEMO_MODE=true DEMO_ALLOW_WRITES=true CLERK_SECRET_KEY=demo-no-clerk NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY= UPSTASH_REDIS_REST_URL= UPSTASH_REDIS_REST_TOKEN= next dev --turbopack -H 127.0.0.1 -p 3068",
+    url: "http://localhost:3068",
+    reuseExistingServer: false,
+    timeout: 120_000,
+  },
+});
