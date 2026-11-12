@@ -42,6 +42,22 @@ describe("submitPropertyAction address/coords guard", () => {
     expect(createProperty).toHaveBeenCalledTimes(1);
   });
 
+  // R637: Quick Add offers "None" (propertyTypeChoiceSchema.options); fullPropertySchema used to
+  // hardcode the old 8 values and refused it with "Please select a property type".
+  it("accepts type \"none\" and creates the property with it", async () => {
+    const res = await submitPropertyAction({ ...valid, propertyType: "none", mapCenter: [104.9282, 11.5564] });
+    expect(res.ok).toBe(true);
+    expect(createProperty.mock.calls[0][0].type).toBe("none");
+  });
+
+  it("still requires a type: blank or unknown is refused before createProperty", async () => {
+    for (const propertyType of ["", "castle"]) {
+      const res = await submitPropertyAction({ ...valid, propertyType, mapCenter: [104.9282, 11.5564] });
+      expect(res).toEqual({ ok: false, error: "Please select a property type" });
+    }
+    expect(createProperty).not.toHaveBeenCalled();
+  });
+
   it("passes the picked centre through as lat/lng (not the centroid fallback)", async () => {
     await submitPropertyAction({ ...valid, mapCenter: [104.9282, 11.5564] });
     const input = createProperty.mock.calls[0][0];
