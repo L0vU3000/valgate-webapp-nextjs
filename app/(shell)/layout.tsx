@@ -1,5 +1,5 @@
 import { ShellLayout } from "@/components/layout/ShellLayout";
-import { requireCtx } from "@/lib/auth/ctx";
+import { requireShellCtx } from "@/lib/auth/ctx";
 import { stampLastActiveAt } from "@/lib/services/identity-sync";
 import { listProperties } from "@/lib/services/properties";
 import { listNotifications } from "@/lib/services/notifications";
@@ -19,7 +19,7 @@ export default async function ShellGroupLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const authCtx = await requireCtx();
+  const authCtx = await requireShellCtx();
   // Track owner-side activity so managers see presence dots in the Pro sidebar.
   await stampLastActiveAt(authCtx.userId);
 

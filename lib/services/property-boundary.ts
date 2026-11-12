@@ -22,7 +22,7 @@ import {
 import { updateProperty } from "@/lib/services/properties";
 import { assertCanMutate, type Ctx } from "@/lib/services/_mapping";
 import { createDocument } from "@/lib/services/documents";
-import { putKmz } from "@/lib/services/storage";
+import { putKmz, deleteStorageObject } from "@/lib/services/storage";
 import { KMZ_MIME } from "@/lib/upload-constants";
 import type { BoundaryGeometry } from "@/lib/data/types/land-parcel";
 
@@ -211,6 +211,9 @@ export async function attachBoundary(
       category: "Other",
       description: "Land boundary (KMZ)",
       uploadedAt: Date.now(),
+    }).catch(async (err) => {
+      await deleteStorageObject(storageId); // don't orphan the stored bytes (B2.6); never throws
+      throw err;
     });
     documentId = doc.id;
   }

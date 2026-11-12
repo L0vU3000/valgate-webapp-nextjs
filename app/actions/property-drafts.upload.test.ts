@@ -27,9 +27,10 @@ const presignUpload = vi.fn(async () => ({
   fields: FAKE_FIELDS,
   storageId: "ORG-0001/DOC-0001/photo.jpg",
 }));
+const deleteStorageObject = vi.fn<(storageId: string) => Promise<boolean>>(async () => true);
 vi.mock("@/lib/services/storage", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/services/storage")>();
-  return { ...actual, presignUpload };
+  return { ...actual, presignUpload, deleteStorageObject };
 });
 
 const stageDraftFile = vi.fn(async () => {
@@ -108,5 +109,31 @@ describe("uploadDraftFileAction — S3 failure diagnostics", () => {
     expect(consoleErrorSpy).toHaveBeenCalled();
     const logged = JSON.stringify(consoleErrorSpy.mock.calls);
     expect(logged.length).toBeLessThan(20_000);
+  });
+});
+
+// B2.6 / B2.15: the S3 POST succeeded, so a failed row insert must not leave the object orphaned.
+describe("uploadDraftFileAction — stored object cleanup", () => {
+  beforeEach(() => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("", { status: 200 })));
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+    deleteStorageObject.mockClear();
+  });
+
+  it.each([
+    ["the row insert fails", new Error("insert failed")],
+    ["the draft is gone (late staged upload)", new Error("draft not found")],
+  ])("deletes the stored object when %s", async (_label, err) => {
+    stageDraftFile.mockRejectedValueOnce(err);
+    const formData = new FormData();
+    formData.set("file", fakeFile());
+    const result = await uploadDraftFileAction("DRAFT-1", "document", formData);
+    expect(result.ok).toBe(false);
+    expect(deleteStorageObject).toHaveBeenCalledTimes(1);
+    expect(deleteStorageObject).toHaveBeenCalledWith("ORG-0001/DOC-0001/photo.jpg");
   });
 });

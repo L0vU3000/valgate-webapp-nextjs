@@ -18,7 +18,7 @@ import {
 import { decideSuggestion } from "@/lib/services/property-suggestions";
 import { getProperty as svcGetProperty } from "@/lib/services/properties";
 import { getFolder as svcGetFolder } from "@/lib/services/folders";
-import { presignUpload, resolveDocumentUrl } from "@/lib/services/storage";
+import { presignUpload, resolveDocumentUrl, deleteStorageObject } from "@/lib/services/storage";
 import { logActivity } from "@/lib/services/activity";
 import { bustCache } from "@/lib/cache/bust";
 
@@ -193,6 +193,7 @@ export async function uploadDocument(
   const folderId = formData.get("folderId");
   const ctx = await requireCtx();
   if (!(await allowed(actionLimiter, ctx.userId, "uploadDocument"))) return TOO_MANY_REQUESTS;
+  let storedId: string | undefined; // set once bytes are in S3, so a failed insert can delete them
   try {
     const property = await svcGetProperty(ctx, propertyId);
     if (!property) return { ok: false, error: "Property not found" };
@@ -210,6 +211,7 @@ export async function uploadDocument(
     uploadBody.append("file", file);
     const uploadResponse = await fetch(presigned.url, { method: "POST", body: uploadBody });
     if (!uploadResponse.ok) return { ok: false, error: "Could not upload file to storage" };
+    storedId = presigned.storageId;
     // 3. Record the document row pointing at the stored object.
     const kind: "photo" | "document" = file.type.startsWith("image/") ? "photo" : "document";
     const created = await svcCreateDocument(ctx, {
@@ -227,6 +229,8 @@ export async function uploadDocument(
     return { ok: true, data: created };
   } catch (err) {
     console.error("uploadDocument", err);
+    // ponytail: best-effort, never throws; abandoned v1 tickets still need a bucket lifecycle rule.
+    if (storedId) await deleteStorageObject(storedId);
     return { ok: false, error: "Could not upload document" };
   }
 }

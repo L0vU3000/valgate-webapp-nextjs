@@ -5,7 +5,7 @@ import { requireCtx } from "@/lib/auth/ctx";
 import type { ActionResult } from "@/app/actions/_result";
 import { actionLimiter, allowed } from "@/lib/ratelimit";
 import { revalidateFeTag, TOO_MANY_REQUESTS } from "@/app/actions/_result";
-import { presignUpload, resolveDocumentUrl, describeFailedUpload } from "@/lib/services/storage";
+import { presignUpload, resolveDocumentUrl, describeFailedUpload, deleteStorageObject } from "@/lib/services/storage";
 import { ALLOWED_MIME, MAX_BYTES } from "@/lib/upload-constants";
 import {
   listPropertyDrafts,
@@ -171,6 +171,7 @@ export async function uploadDraftFileAction(
   if (file.size > MAX_BYTES) return { ok: false, error: "File is over the 10 MB limit" };
   const ctx = await requireCtx();
   if (!(await allowed(actionLimiter, ctx.userId, "uploadDraftFileAction"))) return TOO_MANY_REQUESTS;
+  let storedId: string | undefined; // set once bytes are in S3, so a failed stage can delete them
   try {
     // 1. Reserve an S3 key and presigned POST target.
     const presigned = await presignUpload(ctx, {
@@ -188,6 +189,7 @@ export async function uploadDraftFileAction(
       console.error("uploadDraftFileAction: S3 rejected upload", describeFailedUpload(uploadRes, bodyText));
       return { ok: false, error: "Could not upload file to storage" };
     }
+    storedId = presigned.storageId;
     // 3. Record the draft-file row pointing at the stored object.
     const staged = await stageDraftFile(ctx, draftId, {
       kind,
@@ -200,6 +202,8 @@ export async function uploadDraftFileAction(
     return { ok: true, data: toFileView(staged) };
   } catch (err) {
     console.error("uploadDraftFileAction", err);
+    // Covers a failed insert and a draft discarded mid-upload (B2.15). Best-effort, never throws.
+    if (storedId) await deleteStorageObject(storedId);
     return { ok: false, error: "Could not upload file" };
   }
 }

@@ -7,7 +7,7 @@ const mocks = vi.hoisted(() => ({
   allowed: vi.fn(),
   getDocument: vi.fn(),
   getFolder: vi.fn(),
-  getProperty: vi.fn(), presignUpload: vi.fn(), createDocument: vi.fn(),
+  getProperty: vi.fn(), presignUpload: vi.fn(), createDocument: vi.fn(), deleteStorageObject: vi.fn(),
   updateDocument: vi.fn(),
   revalidateFeTag: vi.fn(),
   bustCache: vi.fn(),
@@ -23,7 +23,7 @@ vi.mock("@/lib/services/documents", () => ({
   createDocument: mocks.createDocument,
 }));
 vi.mock("@/lib/services/folders", () => ({ getFolder: mocks.getFolder }));
-vi.mock("@/lib/services/storage", () => ({ presignUpload: mocks.presignUpload }));
+vi.mock("@/lib/services/storage", () => ({ presignUpload: mocks.presignUpload, deleteStorageObject: mocks.deleteStorageObject }));
 vi.mock("@/lib/services/properties", () => ({ getProperty: mocks.getProperty }));
 vi.mock("@/lib/services/activity", () => ({}));
 
@@ -124,5 +124,26 @@ it("refuses a foreign property before presigning or uploading bytes", async () =
     expect(mocks.createDocument).not.toHaveBeenCalled();
   } finally {
     uploadFetch.mockRestore();
+  }
+});
+
+// B2.6: bytes are stored before the row; a failed insert must delete them, not orphan them.
+it("deletes the stored object when the row insert fails", async () => {
+  mocks.getProperty.mockResolvedValue({ id: document.propertyId });
+  mocks.presignUpload.mockResolvedValue({ url: "http://uploads.invalid", fields: {}, storageId: document.storageId });
+  mocks.createDocument.mockRejectedValue(new Error("insert failed"));
+  mocks.deleteStorageObject.mockResolvedValue(true);
+  const data = new FormData();
+  data.append("file", new File(["pdf"], "test.pdf", { type: "application/pdf" }));
+  const uploadFetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("", { status: 200 }));
+  const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
+  try {
+    const result = await uploadDocument(document.propertyId, data);
+    expect(result.ok).toBe(false);
+    expect(mocks.deleteStorageObject).toHaveBeenCalledTimes(1);
+    expect(mocks.deleteStorageObject).toHaveBeenCalledWith(document.storageId);
+  } finally {
+    uploadFetch.mockRestore();
+    quiet.mockRestore();
   }
 });

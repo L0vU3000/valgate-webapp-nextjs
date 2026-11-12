@@ -2,9 +2,10 @@ import "server-only"; // C1
 import { cache } from "react";
 import { demoCtxOrNull } from "@/lib/auth/demo-ctx";
 import { auth, currentUser } from "@clerk/nextjs/server";
-import { eq } from "drizzle-orm";
+import { redirect } from "next/navigation";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { users, organizations } from "@/lib/db/schema";
+import { users, organizations, organizationMemberships } from "@/lib/db/schema";
 import { upsertOrg, upsertUser, upsertMembership, ourOrgId, ourUserId, normaliseRole } from "@/lib/services/identity-sync";
 import { isManagerFromAccountType } from "@/lib/auth/account-type";
 import type { Ctx } from "@/lib/services/_mapping";
@@ -42,6 +43,18 @@ async function resolveCtx(): Promise<Ctx> {
     // ponytail: org name = Clerk id as placeholder; webhook fills in real name/slug
     await upsertOrg({ id: orgId, name: orgId, slug: null });
     await upsertMembership({ clerkOrgId: orgId, clerkUserId: userId, role: orgRole ?? "org:member" });
+  } else {
+    // Both mirrors exist but the membership row may not (missed organizationMembership.created):
+    // web would work off the Clerk claim while /api/v1 and /mcp, which trust the mirror, 401.
+    // Only a MISSING row is backfilled; a removed/suspended row is the webhook's verdict and a
+    // stale session token must not resurrect it.
+    const [membership] = await db.select({ status: organizationMemberships.status })
+      .from(organizationMemberships)
+      .where(and(eq(organizationMemberships.userId, existingUser.id), eq(organizationMemberships.orgId, existingOrg.id)))
+      .limit(1);
+    if (!membership) {
+      await upsertMembership({ clerkOrgId: orgId, clerkUserId: userId, role: orgRole ?? "org:member" });
+    }
   }
 
   return {
@@ -53,6 +66,21 @@ async function resolveCtx(): Promise<Ctx> {
 
 // Memoized per server request: Clerk auth() + identity-sync DB checks run once per request instead of 3+; each new request gets a fresh memo (no cross-user leak).
 export const requireCtx = cache(resolveCtx);
+
+/**
+ * requireCtx for shell layouts. A signed-in session with no active org (removed mid-session,
+ * zero memberships, finalize without an org claim) goes to /login/tasks, which picks an org or
+ * offers sign-out, instead of the error page whose "Back to home" repeats the failure.
+ * Any other error (e.g. DEMO_MODE refused) still rethrows and fails closed.
+ */
+export async function requireShellCtx(): Promise<Ctx> {
+  try {
+    return await requireCtx();
+  } catch (err) {
+    if (isUnauthenticatedError(err)) redirect("/login/tasks");
+    throw err;
+  }
+}
 
 /**
  * True when requireCtx failed because there is no signed-in user (or no active org).

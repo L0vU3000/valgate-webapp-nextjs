@@ -1,0 +1,13 @@
+{
+  "config": "playwright.r628.local.config.ts (copied from ../r628-wave1/playwright-config.txt, removed after run)",
+  "env": "DEMO_MODE=true PLAYWRIGHT_AUTH= PLAYWRIGHT_HTML_OPEN=never CLERK_SECRET_KEY=demo-no-clerk NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=",
+  "collected": 78, "passed": 30, "failed": 4, "skipped": 36, "didNotRun": 8, "durationMin": 4.7,
+  "failed_tests": [
+    {"id": "C0", "identity": "retired wizard: 'get started' button timeout", "baseline": "known red since b54589e"},
+    {"id": "D1", "identity": "fails in step 'Walk the wizard to Step 4' (retired wizard), before any upload", "baseline": "known red since b54589e"},
+    {"id": "E1", "identity": "photo upload: Cover/Property photo img not visible", "baseline": "known red since b54589e"},
+    {"id": "B8-B10", "identity": "S3 HeadObjectCommand error in e2e/helpers/verify.ts:51", "baseline": "known red since b54589e"}
+  ],
+  "new_failures": 0,
+  "matches_wave3": true
+}

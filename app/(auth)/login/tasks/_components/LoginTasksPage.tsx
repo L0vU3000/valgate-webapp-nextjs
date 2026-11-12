@@ -14,13 +14,15 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { AuthBrandPanel } from "@/components/auth/AuthBrandPanel";
 import { AuthFooter } from "@/components/auth/AuthFooter";
+import { Button } from "@/components/ui/button";
+import { activateDefaultOrgWithRetry } from "../../../_lib/activate-default-org";
 import { selectBestOrganization } from "../../../_lib/org-utils";
 import { resolveRedirectUrl, resolveLoginTaskAction } from "../../../_lib/resolve-redirect-url";
 
 export function LoginTasksPage() {
   const { isLoaded, session } = useSession();
   const { isLoaded: isAuthLoaded, orgId } = useAuth();
-  const { setActive } = useClerk();
+  const { setActive, signOut } = useClerk();
   const { isLoaded: isOrgListLoaded, userMemberships } = useOrganizationList({ userMemberships: true });
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -66,10 +68,12 @@ export function LoginTasksPage() {
           return;
         }
 
-        await setActive({ organization: bestOrgId });
-        if (!cancelled) router.replace(redirectUrl);
-      } catch {
-        if (!cancelled) {
+        // setActive can reject transiently right after finalize; retry before giving up.
+        const { success } = await activateDefaultOrgWithRetry({ clerkOrgId: bestOrgId, setActive });
+        if (cancelled) return;
+        if (success) {
+          router.replace(redirectUrl);
+        } else {
           toast.error("We could not open your workspace. Please try signing in again.");
           setIsOrgUnavailable(true);
         }
@@ -86,26 +90,7 @@ export function LoginTasksPage() {
   }, [isLoaded, isAuthLoaded, isOrgListLoaded, session, orgId, router, redirectUrl, setActive, userMemberships]);
 
   if (isOrgUnavailable) {
-    return (
-      <div className="flex min-h-dvh w-full font-sans">
-        <div className="flex flex-1">
-          <AuthBrandPanel />
-          <div className="flex flex-1 items-center justify-center bg-surface-base px-4 py-6 sm:px-6 sm:py-12 lg:px-24 overflow-y-auto">
-            <div className="w-full max-w-[440px] text-center space-y-4">
-              <h1 className="text-2xl font-semibold text-foreground">Workspace unavailable</h1>
-              <p className="text-muted-foreground">
-                We couldn&apos;t find an active workspace associated with your account.
-                Please contact your administrator for access.
-              </p>
-              <div className="pt-4">
-                {/* Sign out removed to prevent login loop */}
-              </div>
-            </div>
-          </div>
-        </div>
-        <AuthFooter />
-      </div>
-    );
+    return <WorkspaceUnavailable onSignOut={() => void signOut({ redirectUrl: "/login" })} />;
   }
 
   if (!isLoaded || !session?.currentTask || resolving) {
@@ -144,6 +129,31 @@ export function LoginTasksPage() {
         </div>
       </div>
 
+      <AuthFooter />
+    </div>
+  );
+}
+
+// Dead end without a way out: the shell's only sign-out sits behind the org this user can't open,
+// so sign-out lives here (signing out lands on /login signed-out, which middleware doesn't bounce).
+export function WorkspaceUnavailable({ onSignOut }: { onSignOut: () => void }) {
+  return (
+    <div className="flex min-h-dvh w-full font-sans">
+      <div className="flex flex-1">
+        <AuthBrandPanel />
+        <div className="flex flex-1 items-center justify-center bg-surface-base px-4 py-6 sm:px-6 sm:py-12 lg:px-24 overflow-y-auto">
+          <div className="w-full max-w-[440px] text-center space-y-4">
+            <h1 className="text-2xl font-semibold text-foreground">Workspace unavailable</h1>
+            <p className="text-muted-foreground">
+              We couldn&apos;t find an active workspace associated with your account.
+              Please contact your administrator for access.
+            </p>
+            <div className="pt-4">
+              <Button type="button" variant="outline" onClick={onSignOut}>Sign out</Button>
+            </div>
+          </div>
+        </div>
+      </div>
       <AuthFooter />
     </div>
   );
