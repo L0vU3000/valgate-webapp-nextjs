@@ -3,7 +3,7 @@ import { and, asc, count, eq, gt, or } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { documents } from "@/lib/db/schema";
 import { encodeCursor, decodeCursor } from "@/lib/pagination/cursor";
-import { DocumentSchema, type Document } from "@/lib/data/types/document";
+import { DocumentSchema, NewDocumentSchema, type Document } from "@/lib/data/types/document";
 import type { NewDocument, DocumentPatch } from "@/lib/data/types/document";
 import type { SuggestedUpdate } from "@/lib/services/property-suggestions";
 import type { DocumentCategory } from "@/lib/services/document-classify";
@@ -108,10 +108,18 @@ export async function getDocumentByStorageId(ctx: Ctx, storageId: string): Promi
   return row ? rowToDocument(row) : null;
 }
 
+// O10: validated BEFORE scopedInsert. rowToDocument parses only after the insert commits, so a bad
+// document threw with its row already written and the caller's cleanup then deleted that row's bytes.
+// Nulls are dropped first because the read side maps null to absent; required columns have no defaults.
+function assertValidNewDocument(input: NewDocument): void {
+  NewDocumentSchema.parse(Object.fromEntries(Object.entries(input).filter(([, v]) => v != null)));
+}
+
 // id: an id pre-minted before a transaction opened (see convertDraftToDocuments); default mints one.
 export async function createDocument(ctx: Ctx, input: NewDocument, exec?: DbExec, id?: string): Promise<Document> {
   if (input.storageId != null) assertOwnStorageId(ctx, input.storageId);
   if (input.thumbStorageId != null) assertOwnStorageId(ctx, input.thumbStorageId);
+  assertValidNewDocument(input);
   return scopedInsert(ctx, documents, "DOC", input, rowToDocument, id ? { id } : undefined, exec);
 }
 
@@ -136,6 +144,7 @@ export async function createDocumentForOrg(
   await assertOrgAdmin(ctx, targetOrgId, exec);
   if (input.storageId != null) assertOwnStorageId({ orgId: targetOrgId }, input.storageId);
   if (input.thumbStorageId != null) assertOwnStorageId({ orgId: targetOrgId }, input.thumbStorageId);
+  assertValidNewDocument(input);
   return scopedInsert(ctx, documents, "DOC", input, rowToDocument, { orgId: targetOrgId, ...(id ? { id } : {}) }, exec);
 }
 

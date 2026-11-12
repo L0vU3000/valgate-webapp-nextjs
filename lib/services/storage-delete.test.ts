@@ -28,6 +28,15 @@ it("deleteStorageObjects batches into DeleteObjects of 1000 and skips legacy ids
   expect(batches.flat()).toEqual(keys);
 });
 
+// O9: after a draft conversion the same key is in photoStorageIds AND a documents row.
+it("deleteStorageObjects sends a duplicated key once", async () => {
+  sendMock.mockResolvedValue({});
+  await deleteStorageObjects(["ORG-A/DOC-1/p.jpg", "ORG-A/DOC-2/f.pdf", "ORG-A/DOC-1/p.jpg"]);
+  expect(sendMock).toHaveBeenCalledTimes(1);
+  expect(sendMock.mock.calls[0][0].input.Delete.Objects.map((o: { Key: string }) => o.Key))
+    .toEqual(["ORG-A/DOC-1/p.jpg", "ORG-A/DOC-2/f.pdf"]);
+});
+
 it("deleteStorageObjects never throws: a failed batch is logged and the rest still run", async () => {
   const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
   sendMock.mockRejectedValueOnce(new Error("s3 down")).mockResolvedValueOnce({ Errors: [{ Key: "ORG-A/x", Code: "AccessDenied" }] });

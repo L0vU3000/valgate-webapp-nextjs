@@ -176,7 +176,8 @@ export async function deleteStorageObject(storageId: string): Promise<boolean> {
 // instead of one round trip per key, so a large property delete fits a serverless timeout. Same
 // best-effort contract: never throws, logs a failed batch or a per-key error, and skips legacy ids.
 export async function deleteStorageObjects(storageIds: string[]): Promise<void> {
-  const keys = storageIds.filter((id) => !id.startsWith("_storage/"));
+  // O9: deduped. After a draft conversion one key is in photoStorageIds and in a documents row.
+  const keys = [...new Set(storageIds)].filter((id) => !id.startsWith("_storage/"));
   if (keys.length === 0) return;
   let s3: ReturnType<typeof getS3>;
   try {

@@ -1,0 +1,14 @@
+{
+  "gate": "DEMO playwright (canonical env, playwright-config from r628-wave1)",
+  "collected": 79,
+  "passed": 31, "failed": 4, "skipped": 36, "didNotRun": 8, "duration": "4.5m",
+  "baseline": "docs/evidence/r628-wave6/playwright-demo.log (31P/4F/36S/8DNR)",
+  "failures": [
+    {"test": "add-property.spec.ts:72 C0", "error": "locator.click: Test timeout of 30000ms exceeded", "at": "add-property.spec.ts:75:5, :78:98", "identityMatch": "wave6"},
+    {"test": "intake.spec.ts:43 D1", "error": "Test timeout (walk to Step 4)", "identityMatch": "wave6"},
+    {"test": "photos.spec.ts:37 E1", "error": "expect(locator).toBeVisible() failed", "at": "photos.spec.ts:60:5, :73:9", "identityMatch": "wave6"},
+    {"test": "portfolio.spec.ts:141 B8-B10", "error": "assertS3ObjectGone", "at": "helpers/verify.ts:51:5, portfolio.spec.ts:169:7, :170:29", "identityMatch": "wave6"}
+  ],
+  "newFailures": 0,
+  "tempConfigRemoved": true
+}

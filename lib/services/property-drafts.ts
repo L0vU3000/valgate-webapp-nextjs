@@ -341,6 +341,8 @@ export async function convertDraftToDocumentsForOrg(
 
   // The ForOrg services run assertOrgAdmin on tx too (O5), so nothing in here leaves the tx connection.
   await db.transaction(async (tx) => {
+    // O8: first statement, so a non-admin is rejected before FOR UPDATE locks the foreign property row.
+    await assertOrgAdmin(ctx, targetOrgId, tx);
     const patch = await lockedPhotoMergePatch(tx, targetOrgId, propertyId, photos);
     if (patch) await svcUpdatePropertyForOrg(ctx, targetOrgId, propertyId, patch, tx);
     for (const [i, file] of files.entries()) {
