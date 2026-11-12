@@ -16,6 +16,7 @@ import { nextId, assertCanMutate } from "@/lib/services/_mapping";
 import type { Ctx } from "@/lib/services/_mapping";
 import { roleAtLeast } from "@/lib/services/_mapping";
 import { upsertMembership, upsertOrg } from "@/lib/services/identity-sync";
+import { clerkOrgMemberRoles } from "@/lib/services/org-members";
 import { logger } from "@/lib/logger";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -32,9 +33,9 @@ import { logger } from "@/lib/logger";
 //
 // Permission mapping (locked, plan §2):
 //   requested "view" → Clerk role "org:viewer" → Neon mirror role "viewer"
-//   requested "full" → Clerk role "org:admin"  → Neon mirror role "owner"
-//     (the built-in Clerk admin role; normaliseRole() collapses org:admin → owner.
-//      Capability-wise owner ⊇ admin, so a "full" manager can fully mutate the org.)
+//   requested "full" → Clerk role "org:valgate_admin" → Neon mirror role "admin"
+//     Both grants remain read-only under owner-only mutation rules. Never grant
+//     org:admin here: that built-in Clerk role resolves to the portfolio owner.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -51,8 +52,8 @@ export class AccessError extends Error {
 }
 
 // Maps a requested access level to the Clerk role string we grant.
-function clerkRoleForLevel(level: "view" | "full"): "org:viewer" | "org:admin" {
-  return level === "full" ? "org:admin" : "org:viewer";
+function clerkRoleForLevel(level: "view" | "full") {
+  return clerkOrgMemberRoles[level === "full" ? "admin" : "viewer"];
 }
 
 // A human label for an access level, for notification copy.
@@ -274,7 +275,7 @@ export async function requestAccess(
   inviteCode: string,
   level: "view" | "full",
 ): Promise<{ requestId: string }> {
-  assertCanMutate(); // D9 — refuse writes in DEMO_MODE
+  assertCanMutate(ctx); // D9 — refuse writes in DEMO_MODE
   await requireManager(ctx);
 
   // Discovery is code-based: find the owner org whose invite_code matches.
@@ -553,7 +554,7 @@ export async function getInviteCode(ctx: Ctx): Promise<string | null> {
  */
 export async function getOrCreateInviteCode(ctx: Ctx): Promise<string> {
   requireOwnerAdmin(ctx);
-  assertCanMutate(); // D9 — refuse writes in DEMO_MODE (this can persist a new code)
+  assertCanMutate(ctx); // D9 — refuse writes in DEMO_MODE (this can persist a new code)
 
   const [org] = await db
     .select({ inviteCode: organizations.inviteCode })
@@ -580,7 +581,7 @@ export async function getOrCreateInviteCode(ctx: Ctx): Promise<string> {
  */
 export async function regenerateInviteCode(ctx: Ctx): Promise<string> {
   requireOwnerAdmin(ctx);
-  assertCanMutate(); // D9 — refuse writes in DEMO_MODE
+  assertCanMutate(ctx); // D9 — refuse writes in DEMO_MODE
 
   const code = generateInviteCode();
   await db
@@ -705,7 +706,7 @@ export async function listManagersForOwner(ctx: Ctx): Promise<GrantedManager[]> 
  */
 export async function approveAccessRequest(ctx: Ctx, requestId: string): Promise<void> {
   requireOwnerAdmin(ctx);
-  assertCanMutate(); // D9 — refuse writes in DEMO_MODE
+  assertCanMutate(ctx); // D9 — refuse writes in DEMO_MODE
 
   // Load the request and verify it belongs to this org and is still pending.
   const [request] = await db
@@ -825,7 +826,7 @@ export async function approveAccessRequest(ctx: Ctx, requestId: string): Promise
  */
 export async function denyAccessRequest(ctx: Ctx, requestId: string): Promise<void> {
   requireOwnerAdmin(ctx);
-  assertCanMutate(); // D9 — refuse writes in DEMO_MODE
+  assertCanMutate(ctx); // D9 — refuse writes in DEMO_MODE
 
   const result = await db
     .update(accessRequests)

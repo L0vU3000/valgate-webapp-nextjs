@@ -2,7 +2,7 @@ import "server-only";
 import { and, eq, notInArray, isNotNull, sql, countDistinct } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { clientHandoffs, clients, organizations, properties } from "@/lib/db/schema";
-import { nextId, type Ctx } from "@/lib/services/_mapping";
+import { assertCanMutate, nextId, type Ctx } from "@/lib/services/_mapping";
 
 // Cap: a manager cannot have more than this many unconfirmed client portfolios.
 // "Unconfirmed" = the client has not accepted yet — this covers drafts (not invited
@@ -223,6 +223,7 @@ export async function setClientStatusRecord(
   clientId: string,
   status: "active" | "inactive",
 ): Promise<string | null> {
+  assertCanMutate(ctx);
   const updated = await db
     .update(clients)
     .set({ status, updatedAt: new Date() })
@@ -242,6 +243,7 @@ export async function updateClientRecord(
   clientId: string,
   patch: { name: string; email: string | null; clientType: "Individual" | "Corporate" },
 ): Promise<boolean> {
+  assertCanMutate(ctx);
   const updated = await db
     .update(clients)
     .set({

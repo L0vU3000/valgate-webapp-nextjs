@@ -29,6 +29,45 @@ import { clickContinue, fillAddress, reachStep2 } from './helpers/wizard'
 // cannot trip strict mode or keep C4's count from dropping.
 const DRAFT_NAME = `E2E Draft ${Date.now()}`
 
+// The wizard is retired on main. Smoke covers its redirect and the active map Quick Add flow.
+test('retired add-property route redirects to portfolio', { tag: '@smoke' }, async ({ page }) => {
+  const response = await page.goto('/add-property')
+  expect(response?.ok()).toBe(true)
+  await expect(page).toHaveURL(/\/portfolio$/)
+  await expect(page.getByRole('heading', { name: 'Portfolio', exact: true })).toBeVisible()
+})
+
+test('Quick Add cannot confirm a document without coordinates', { tag: '@smoke' }, async ({ page }) => {
+  // The scan contract explicitly returns null when a document has no resolvable location.
+  // Stub the paid provider response while keeping the real UI and its coordinate guard.
+  await page.route('**/api/add-property/scan', (route) => route.fulfill({
+    json: {
+      ok: true,
+      extracted: { propertyName: 'E2E Coordinates Guard', propertyType: 'residential' },
+      lowConfidence: [],
+      coords: null,
+      address: null,
+    },
+  }))
+  await page.goto('/app')
+  await expect(page).toHaveURL(/\/app$/)
+  await expect(page.getByText('Loading map…', { exact: true })).toBeHidden()
+  await page.getByRole('button', { name: 'Quick Add a property on the map', exact: true }).click()
+  await page.locator('input[type="file"]').setInputFiles('e2e/fixtures/test-photo.jpg')
+
+  const panel = page.getByRole('region', { name: 'Add a property from these documents', exact: true })
+  await expect(panel).toBeVisible()
+  await expect(panel.getByRole('status')).toHaveText(/^Read\s*·/)
+  await expect(panel.getByLabel('Property name', { exact: true })).toHaveValue('E2E Coordinates Guard')
+  await expect(panel.getByLabel('Property type', { exact: true })).toHaveValue('residential')
+  await expect(panel.getByText(
+    'No location yet — tap the map where this property is, or search for its address.',
+    { exact: true },
+  )).toBeVisible()
+  await expect(panel.getByRole('button', { name: 'Place the pin to continue', exact: true })).toBeDisabled()
+  await expect(panel.getByRole('button', { name: 'Confirm location', exact: true })).toHaveCount(0)
+})
+
 test.describe.serial('C — Add property', () => {
   test('C0: landing → Step 0 with no advisor dialog, "Enter manually" reaches the wizard', async ({ page }) => {
     test.info().annotations.push({ type: 'checklist', description: 'C0 — no advisor interstitial' })

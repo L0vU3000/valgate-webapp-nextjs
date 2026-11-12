@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
+  Building2,
   Check,
   Smartphone,
   User,
@@ -17,15 +18,17 @@ import type { SettingsPageData, NotifChannels } from "../queries";
 import type { ProfilePageData } from "../../profile/queries";
 import { saveNotificationPreference, saveUserPreferences } from "../actions";
 import { ManagersSection } from "./ManagersSection";
+import { OrganizationSection } from "./OrganizationSection";
 import { ProfileSection } from "./ProfileSection";
 
 // Section identifiers. `group` splits the left-nav into Account (the user) and
 // App (app setup); `adminOnly` items (Managers) render only when the data is
-// present (owner/admin org role).
+// present (owner/admin org role), `ownerOnly` items (Sharing) only for owners.
 type SectionId =
   | "profile"
   | "security"
   | "managers"
+  | "sharing"
   | "notifications"
   | "preferences";
 
@@ -35,12 +38,14 @@ type NavItem = {
   icon: React.ElementType;
   group: "account" | "app";
   adminOnly?: boolean;
+  ownerOnly?: boolean;
 };
 
 const NAV_ITEMS: NavItem[] = [
   { id: "profile", label: "Profile", icon: User, group: "account" },
   { id: "security", label: "Security", icon: Shield, group: "account" },
   { id: "managers", label: "Managers", icon: Users, group: "account", adminOnly: true },
+  { id: "sharing", label: "Sharing", icon: Building2, group: "app", ownerOnly: true },
   { id: "notifications", label: "Notifications", icon: Bell, group: "app" },
   { id: "preferences", label: "Preferences", icon: SlidersHorizontal, group: "app" },
 ];
@@ -56,8 +61,10 @@ export function SettingsPage({
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  // Which sections actually exist for this user (Managers is owner/admin only).
-  const items = NAV_ITEMS.filter((item) => !item.adminOnly || data.managersData);
+  // Which sections actually exist for this user (Managers is owner/admin only, Sharing owner only).
+  const items = NAV_ITEMS.filter(
+    (item) => (!item.adminOnly || data.managersData) && (!item.ownerOnly || data.orgMembersData),
+  );
 
   // Seed the active section from ?section=, falling back to Profile if the
   // param is missing or points at a section this user can't see.
@@ -106,6 +113,9 @@ export function SettingsPage({
               {active === "profile" && <ProfileSection data={profileData} />}
               {active === "security" && <SecuritySection />}
               {active === "managers" && data.managersData && <ManagersSection initialData={data.managersData} />}
+              {active === "sharing" && data.orgMembersData && (
+                <OrganizationSection data={data.orgMembersData} />
+              )}
               {active === "notifications" && (
                 <NotificationsSection rows={data.notificationRows} defaultNotifications={data.defaultNotifications} />
               )}

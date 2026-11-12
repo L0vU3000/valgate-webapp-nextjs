@@ -4,7 +4,7 @@ import type { PgTable } from "drizzle-orm/pg-core";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { convertRowToDb } from "@/lib/db/column-classifier";
 import { db } from "@/lib/db/client";
-import { nextId, roleAtLeast, assertCanMutate, type Ctx } from "@/lib/services/_mapping";
+import { nextId, roleAtLeast, assertCanMutate, MutationDeniedError, type Ctx } from "@/lib/services/_mapping";
 import { organizationMemberships } from "@/lib/db/schema";
 
 type ScopedTable = PgTable & { orgId: AnyPgColumn; id: AnyPgColumn };
@@ -29,8 +29,8 @@ export async function assertOrgAdmin(ctx: Ctx, targetOrgId: string): Promise<voi
       ),
     )
     .limit(1);
-  if (!row || !roleAtLeast(row.role as Ctx["orgRole"], "admin")) {
-    throw new Error("forbidden");
+  if (!row || row.role !== "owner") {
+    throw new MutationDeniedError();
   }
 }
 
@@ -42,7 +42,7 @@ export async function scopedInsert<T, R = unknown>(
   rowTo: (row: R) => T,
   extra?: Record<string, unknown>,
 ): Promise<T> {
-  assertCanMutate(); // D9 — demo mode refuses all writes
+  assertCanMutate(ctx); // D9 — demo mode refuses all writes
   requireMember(ctx);
   const id = await nextId(prefix, table);
   const dbValues = convertRowToDb(table, input);
@@ -65,7 +65,7 @@ export async function scopedUpdate<T, R = unknown>(
   rowTo: (row: R) => T,
   touchUpdatedAt = false,
 ): Promise<T | null> {
-  assertCanMutate();
+  assertCanMutate(ctx);
   requireMember(ctx);
   const dbPatch = convertRowToDb(table, patch);
   if (touchUpdatedAt) dbPatch.updatedAt = new Date();
@@ -78,7 +78,7 @@ export async function scopedUpdate<T, R = unknown>(
 }
 
 export async function scopedDelete(ctx: Ctx, table: ScopedTable, id: string): Promise<void> {
-  assertCanMutate();
+  assertCanMutate(ctx);
   requireAdmin(ctx);
   await db.delete(table).where(and(eq(table.orgId, ctx.orgId), eq(table.id, id)));
 }

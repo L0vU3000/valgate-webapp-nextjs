@@ -3,15 +3,14 @@
 // import each other — this file exists to break that import cycle.
 import "server-only";
 import type { PropertyTypeChoice, NewProperty } from "@/lib/data/types/property";
+import { clerkOrgMemberRoles } from "@/lib/services/org-members";
 
 // Phase 6: three-tier portfolio role.
 export type PortfolioRole = "admin" | "member" | "viewer";
 
 // Maps our PortfolioRole to the Clerk org role string.
 export function clerkRoleForPortfolioRole(role: PortfolioRole): string {
-  if (role === "admin") return "org:admin";
-  if (role === "member") return "org:member";
-  return "org:viewer";
+  return clerkOrgMemberRoles[role];
 }
 
 export type PropertyStub = {

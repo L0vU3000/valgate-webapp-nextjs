@@ -104,7 +104,7 @@ export async function createClientPortfolioWithInvitees(
     managerAccessModel?: "approval" | "full" | "remove";
   },
 ): Promise<CreatePortfolioResult> {
-  assertCanMutate();
+  assertCanMutate(ctx);
 
   // Cap guard: block before doing any Clerk work.
   const unconfirmed = await countUnconfirmedClients(ctx.userId);
@@ -285,7 +285,7 @@ export async function addPortfolioInvitees(
   invitees: Array<{ email: string; role: PortfolioRole; name?: string }>,
   sendNow: boolean,
 ): Promise<{ added: number }> {
-  assertCanMutate();
+  assertCanMutate(ctx);
   await assertOrgAdmin(ctx, orgId);
 
   const [orgRow] = await db
@@ -357,7 +357,7 @@ export async function changeMemberRole(
   memberClerkUserId: string,
   role: PortfolioRole,
 ): Promise<void> {
-  assertCanMutate();
+  assertCanMutate(ctx);
   await assertOrgAdmin(ctx, orgId);
 
   const [orgRow] = await db
@@ -396,7 +396,7 @@ export async function changeInviteeRole(
   handoffId: string,
   role: PortfolioRole,
 ): Promise<void> {
-  assertCanMutate();
+  assertCanMutate(ctx);
   const handoff = await getOwnHandoff(ctx, handoffId);
 
   if (handoff.status === "draft" || handoff.status === "revoked") {
@@ -476,7 +476,7 @@ export async function removePortfolioMember(
   orgId: string,
   memberClerkUserId: string,
 ): Promise<void> {
-  assertCanMutate();
+  assertCanMutate(ctx);
   await assertOrgAdmin(ctx, orgId);
 
   // Resolve the member's Neon userId from their Clerk id.

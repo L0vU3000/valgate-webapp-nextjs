@@ -51,7 +51,7 @@ export async function submitVerification(
   docIds: string[],
   ownershipRecordId?: string,
 ): Promise<PillarVerification> {
-  assertCanMutate();
+  assertCanMutate(ctx);
   requireMember(ctx);
 
   // ponytail: nextId uses module-level db, not tx — gaps on rollback are fine (ids are unique+monotonic, not gapless)
@@ -131,7 +131,7 @@ export async function revokeVerification(
   pillar: Pillar,
   ownershipRecordId?: string,
 ): Promise<PillarVerification> {
-  assertCanMutate();
+  assertCanMutate(ctx);
   requireMember(ctx);
 
   // ponytail: nextId outside tx — gap on rollback is fine
