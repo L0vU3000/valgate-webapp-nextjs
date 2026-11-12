@@ -1,0 +1,263 @@
+The plugin "vite-tsconfig-paths" is detected. Vite now supports tsconfig paths resolution natively via the resolve.tsconfigPaths option. You can remove the plugin and set resolve.tsconfigPaths: true in your Vite config instead.
+
+ RUN  v4.1.8 /Users/mintrose/Dev/Projects/work/Valgate/active/valgate/valgate-webapp-nextjs/.worktrees/r628-webapp-bugs-wave1
+
+stdout | app/actions/documents.test.ts
+◇ injected env (22) from .env.local // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+
+ ❯ app/actions/documents.test.ts (7 tests | 1 failed) 19ms
+   × refuses a foreign property before presigning or uploading bytes 14ms
+stdout | lib/api/v1/documents.write.route.test.ts
+◇ injected env (22) from .env.local // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+
+ ❯ lib/api/v1/documents.write.route.test.ts (14 tests | 4 failed) 16ms
+     × rejects completion when the object was never uploaded 4ms
+     × completing the same storageId twice returns the existing document 1ms
+     × uses the uploaded object's MIME and size instead of client claims 2ms
+     × refuses reuse of an existing key on a different property 1ms
+stdout | app/api/documents/[id]/summarize/route.test.ts
+◇ injected env (22) from .env.local // tip: ◈ encrypted .env [www.dotenvx.com]
+
+ ❯ app/api/documents/[id]/summarize/route.test.ts (7 tests | 3 failed) 14ms
+   × fails without a model call when the stored file cannot be fetched (summary) 4ms
+   × fails without a model call when the stored file cannot be fetched (translate) 2ms
+   × fails without a model call when the stored file cannot be fetched (suggest) 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  app/actions/documents.test.ts > refuses a foreign property before presigning or uploading bytes
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ app/actions/documents.test.ts:122:23
+    120|   try {
+    121|     const result = await uploadDocument("PROP-FOREIGN", data);
+    122|     expect(result.ok).toBe(false);
+       |                       ^
+    123|     expect(mocks.presignUpload).not.toHaveBeenCalled();
+    124|     expect(mocks.createDocument).not.toHaveBeenCalled();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
+
+ FAIL  lib/api/v1/documents.write.route.test.ts > POST /api/v1/properties/{id}/documents/complete > rejects completion when the object was never uploaded
+AssertionError: expected 201 to be 400 // Object.is equality
+
+- Expected
++ Received
+
+- 400
++ 201
+
+ ❯ lib/api/v1/documents.write.route.test.ts:190:29
+    188|     statObjectMock.mockResolvedValue(null);
+    189|     const response = await completeUpload(jsonRequest("/complete", { .…
+    190|     expect(response.status).toBe(400);
+       |                             ^
+    191|     expect(createDocumentMock).not.toHaveBeenCalled();
+    192|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/8]⎯
+
+ FAIL  lib/api/v1/documents.write.route.test.ts > POST /api/v1/properties/{id}/documents/complete > completing the same storageId twice returns the existing document
+AssertionError: expected 201 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 201
+
+ ❯ lib/api/v1/documents.write.route.test.ts:199:27
+    197|     const second = await completeUpload(jsonRequest("/complete", { ...…
+    198|     expect(first.status).toBe(201);
+    199|     expect(second.status).toBe(200);
+       |                           ^
+    200|     expect(await second.json()).toEqual(await first.json());
+    201|     expect(createDocumentMock).toHaveBeenCalledTimes(1);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/8]⎯
+
+ FAIL  lib/api/v1/documents.write.route.test.ts > POST /api/v1/properties/{id}/documents/complete > uses the uploaded object's MIME and size instead of client claims
+AssertionError: expected "vi.fn()" to be called with arguments: [ { userId: 'USR-0001', …(2) }, …(1) ]
+
+Received:
+
+  1st vi.fn() call:
+
+@@ -2,11 +2,17 @@
+    {
+      "orgId": "ORG-0001",
+      "orgRole": "owner",
+      "userId": "USR-0001",
+    },
+-   ObjectContaining {
+-     "kind": "photo",
+-     "mimeType": "image/jpeg",
+-     "sizeBytes": 17,
++   {
++     "category": "Title",
++     "description": "Title deed",
++     "kind": "document",
++     "mimeType": "application/pdf",
++     "name": "deed.pdf",
++     "propertyId": "PROP-0001",
++     "sizeBytes": 4,
++     "storageId": "ORG-0001/DOC-0007/deed.pdf",
++     "uploadedAt": 1794468107994,
+    },
+  ]
+
+
+Number of calls: 1
+
+ ❯ lib/api/v1/documents.write.route.test.ts:208:32
+    206|     const response = await completeUpload(jsonRequest("/complete", { .…
+    207|     expect(response.status).toBe(201);
+    208|     expect(createDocumentMock).toHaveBeenCalledWith(OWNER_CTX, expect.…
+       |                                ^
+    209|   });
+    210|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/8]⎯
+
+ FAIL  lib/api/v1/documents.write.route.test.ts > POST /api/v1/properties/{id}/documents/complete > refuses reuse of an existing key on a different property
+AssertionError: expected 201 to be 400 // Object.is equality
+
+- Expected
++ Received
+
+- 400
++ 201
+
+ ❯ lib/api/v1/documents.write.route.test.ts:214:29
+    212|     getDocumentByStorageIdMock.mockResolvedValue({ ...DOCUMENT, proper…
+    213|     const response = await completeUpload(jsonRequest("/complete", { .…
+    214|     expect(response.status).toBe(400);
+       |                             ^
+    215|     expect(createDocumentMock).not.toHaveBeenCalled();
+    216|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/8]⎯
+
+ FAIL  app/api/documents/[id]/summarize/route.test.ts > fails without a model call when the stored file cannot be fetched (summary)
+AssertionError: expected "vi.fn()" to not be called at all, but actually been called 1 times
+
+Received:
+
+  1st vi.fn() call:
+
+    Array [
+      Object {
+        "messages": Array [
+          Object {
+            "content": Array [
+              [Object],
+              [Object],
+            ],
+            "role": "user",
+          },
+        ],
+        "model": undefined,
+        "schema": ZodObject {
+          "decode": [Function anonymous],
+          "decodeAsync": [Function anonymous],
+          "def": Object {
+            "shape": Object {
+              "keyFields": [ZodArray],
+              "pageCount": [ZodNumber],
+              "summary": [ZodString],
+            },
+            "type": "object",
+          },
+          "encode": [Function anonymous],
+          "encodeAsync": [Function anonymous],
+          "parse": [Function anonymous],
+          "parseAsync": [Function anonymous],
+          "safeDecode": [Function anonymous],
+          "safeDecodeAsync": [Function anonymous],
+          "safeEncode": [Function anonymous],
+          "safeEncodeAsync": [Function anonymous],
+          "safeParse": [Function anonymous],
+          "safeParseAsync": [Function anonymous],
+          "spa": [Function anonymous],
+          "toJSONSchema": [Function anonymous],
+          "type": "object",
+        },
+      },
+    ]
+
+
+Number of calls: 1
+
+ ❯ app/api/documents/[id]/summarize/route.test.ts:129:34
+    127|   const response = await POST(request, ctxParams("DOC-0001"));
+    128|   expect(response.status).toBe(500);
+    129|   expect(generateObjectMock).not.toHaveBeenCalled();
+       |                                  ^
+    130|   expect(scanDocumentMock).not.toHaveBeenCalled();
+    131|   if (mode === "summary") expect(setDocumentAiStatusMock).toHaveBeenLa…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/8]⎯
+
+ FAIL  app/api/documents/[id]/summarize/route.test.ts > fails without a model call when the stored file cannot be fetched (translate)
+AssertionError: expected 200 to be 500 // Object.is equality
+
+- Expected
++ Received
+
+- 500
++ 200
+
+ ❯ app/api/documents/[id]/summarize/route.test.ts:128:27
+    126|   const request = new NextRequest("http://localhost/api/documents/DOC-…
+    127|   const response = await POST(request, ctxParams("DOC-0001"));
+    128|   expect(response.status).toBe(500);
+       |                           ^
+    129|   expect(generateObjectMock).not.toHaveBeenCalled();
+    130|   expect(scanDocumentMock).not.toHaveBeenCalled();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/8]⎯
+
+ FAIL  app/api/documents/[id]/summarize/route.test.ts > fails without a model call when the stored file cannot be fetched (suggest)
+AssertionError: expected "vi.fn()" to not be called at all, but actually been called 1 times
+
+Received:
+
+  1st vi.fn() call:
+
+    Array [
+      Uint8Array [
+        109,
+        105,
+        115,
+        115,
+        105,
+        110,
+        103,
+      ],
+      "application/pdf",
+    ]
+
+
+Number of calls: 1
+
+ ❯ app/api/documents/[id]/summarize/route.test.ts:130:32
+    128|   expect(response.status).toBe(500);
+    129|   expect(generateObjectMock).not.toHaveBeenCalled();
+    130|   expect(scanDocumentMock).not.toHaveBeenCalled();
+       |                                ^
+    131|   if (mode === "summary") expect(setDocumentAiStatusMock).toHaveBeenLa…
+    132|   else expect(setDocumentAiStatusMock).not.toHaveBeenCalled();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/8]⎯
+
+
+ Test Files  3 failed (3)
+      Tests  8 failed | 20 passed (28)
+   Start at  14:21:47
+   Duration  597ms (transform 278ms, setup 80ms, import 788ms, tests 49ms, environment 0ms)

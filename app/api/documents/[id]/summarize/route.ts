@@ -134,6 +134,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // raw file straight to the model (gpt-4o-mini accepts PDF and image inputs — no OCR step).
     const fileUrl = await resolveDocumentUrl(doc.storageId);
     const response = await fetch(fileUrl);
+    if (!response.ok) throw new Error("file fetch failed");
     const fileBytes = new Uint8Array(await response.arrayBuffer());
 
     if (suggesting) {

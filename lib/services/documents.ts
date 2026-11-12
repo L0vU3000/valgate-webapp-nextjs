@@ -101,6 +101,13 @@ export async function getDocument(ctx: Ctx, id: string): Promise<Document | null
   return row ? rowToDocument(row) : null;
 }
 
+export async function getDocumentByStorageId(ctx: Ctx, storageId: string): Promise<Document | null> {
+  const [row] = await db.select().from(documents)
+    .where(and(eq(documents.orgId, ctx.orgId), eq(documents.storageId, storageId)))
+    .limit(1);
+  return row ? rowToDocument(row) : null;
+}
+
 export async function createDocument(ctx: Ctx, input: NewDocument): Promise<Document> {
   if (input.storageId != null) assertOwnStorageId(ctx, input.storageId);
   if (input.thumbStorageId != null) assertOwnStorageId(ctx, input.thumbStorageId);

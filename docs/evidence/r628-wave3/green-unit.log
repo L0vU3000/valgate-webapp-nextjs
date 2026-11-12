@@ -1,0 +1,61 @@
+The plugin "vite-tsconfig-paths" is detected. Vite now supports tsconfig paths resolution natively via the resolve.tsconfigPaths option. You can remove the plugin and set resolve.tsconfigPaths: true in your Vite config instead.
+
+ RUN  v4.1.8 /Users/mintrose/Dev/Projects/work/Valgate/active/valgate/valgate-webapp-nextjs/.worktrees/r628-webapp-bugs-wave1
+
+stdout | lib/api/v1/documents.write.route.test.ts
+◇ injected env (22) from .env.local // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+
+stdout | app/actions/documents.test.ts
+◇ injected env (22) from .env.local // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+
+stdout | app/api/documents/[id]/summarize/route.test.ts
+◇ injected env (22) from .env.local // tip: ⌘ enable debugging { debug: true }
+
+stdout | lib/services/storage-stat.test.ts
+◇ injected env (22) from .env.local // tip: ⌘ suppress logs { quiet: true }
+
+ ✓ app/actions/documents.test.ts > updateDocument folder changes > preserves an explicit null through validation so the service clears the folder 3ms
+ ✓ app/actions/documents.test.ts > updateDocument folder changes > moves a document to a folder in the same org and property 1ms
+ ✓ app/actions/documents.test.ts > updateDocument folder changes > rejects a folder in another property before updating 0ms
+ ✓ app/actions/documents.test.ts > updateDocument folder changes > rejects a folder missing from the caller's org before updating 0ms
+ ✓ app/actions/documents.test.ts > updateDocument folder changes > rejects a document missing from the caller's org before checking the folder 0ms
+ ✓ app/actions/documents.test.ts > updateDocument folder changes > keeps unrelated patches working without a folder lookup 0ms
+ ✓ app/actions/documents.test.ts > refuses a foreign property before presigning or uploading bytes 13ms
+stderr | lib/api/v1/documents.write.route.test.ts > /api/v1/properties/{id}/documents/{documentId} > fails closed when URL resolution throws
+GET /api/v1/properties/[id]/documents/[documentId] failed {"error":"SECRET-STORAGE-ERROR"}
+
+ ✓ lib/api/v1/documents.write.route.test.ts > POST /api/v1/properties/{id}/documents > returns 401 before touching the property or storage service 3ms
+ ✓ lib/api/v1/documents.write.route.test.ts > POST /api/v1/properties/{id}/documents > returns a bounded presigned upload ticket 2ms
+ ✓ lib/api/v1/documents.write.route.test.ts > POST /api/v1/properties/{id}/documents > rejects unsupported MIME types before issuing a ticket 1ms
+ ✓ lib/api/v1/documents.write.route.test.ts > POST /api/v1/properties/{id}/documents/complete > rejects completion when the object was never uploaded 1ms
+ ✓ lib/api/v1/documents.write.route.test.ts > POST /api/v1/properties/{id}/documents/complete > completing the same storageId twice returns the existing document 1ms
+ ✓ lib/api/v1/documents.write.route.test.ts > POST /api/v1/properties/{id}/documents/complete > uses the uploaded object's MIME and size instead of client claims 1ms
+ ✓ lib/api/v1/documents.write.route.test.ts > POST /api/v1/properties/{id}/documents/complete > refuses reuse of an existing key on a different property 0ms
+ ✓ lib/api/v1/documents.write.route.test.ts > POST /api/v1/properties/{id}/documents/complete > rejects invalid stored-object metadata {"mimeType":"application/x-secret","sizeBytes":4} 0ms
+ ✓ lib/api/v1/documents.write.route.test.ts > POST /api/v1/properties/{id}/documents/complete > rejects invalid stored-object metadata {"mimeType":"application/pdf","sizeBytes":0} 0ms
+ ✓ lib/api/v1/documents.write.route.test.ts > POST /api/v1/properties/{id}/documents/complete > rejects invalid stored-object metadata {"mimeType":"application/pdf","sizeBytes":20971520} 0ms
+ ✓ lib/api/v1/documents.write.route.test.ts > POST /api/v1/properties/{id}/documents/complete > rejects invalid stored-object metadata {} 0ms
+ ✓ lib/api/v1/documents.write.route.test.ts > POST /api/v1/properties/{id}/documents/complete > records the upload and returns only the public document DTO 1ms
+ ✓ lib/api/v1/documents.write.route.test.ts > POST /api/v1/properties/{id}/documents/complete > rejects a storage id from another org 0ms
+ ✓ lib/api/v1/documents.write.route.test.ts > /api/v1/properties/{id}/documents/{documentId} > resolves a document URL without exposing storage ids 0ms
+ ✓ lib/api/v1/documents.write.route.test.ts > /api/v1/properties/{id}/documents/{documentId} > renames only public fields and strips storage/property ids 0ms
+ ✓ lib/api/v1/documents.write.route.test.ts > /api/v1/properties/{id}/documents/{documentId} > blocks a viewer from deleting a document 0ms
+ ✓ lib/api/v1/documents.write.route.test.ts > /api/v1/properties/{id}/documents/{documentId} > deletes the document and records the activity for an admin 0ms
+ ✓ lib/api/v1/documents.write.route.test.ts > /api/v1/properties/{id}/documents/{documentId} > fails closed when URL resolution throws 0ms
+ ✓ lib/services/storage-stat.test.ts > statObject > returns the actual S3 object metadata 3ms
+ ✓ lib/services/storage-stat.test.ts > statObject > returns null for a missing object 0ms
+ ✓ lib/services/storage-stat.test.ts > statObject > propagates S3 status 403 instead of reporting missing bytes 0ms
+ ✓ lib/services/storage-stat.test.ts > statObject > propagates S3 status 500 instead of reporting missing bytes 0ms
+ ✓ lib/services/storage-stat.test.ts > statObject > propagates transport failures 0ms
+ ✓ app/api/documents/[id]/summarize/route.test.ts > POST /api/documents/[id]/summarize > returns 401 when the caller is not signed in, before looking up the document 4ms
+ ✓ app/api/documents/[id]/summarize/route.test.ts > POST /api/documents/[id]/summarize > returns 429 when the paid-model limiter blocks the caller 1ms
+ ✓ app/api/documents/[id]/summarize/route.test.ts > POST /api/documents/[id]/summarize > returns 400 when the path id is blank or whitespace 1ms
+ ✓ app/api/documents/[id]/summarize/route.test.ts > POST /api/documents/[id]/summarize > returns 404 when the document is missing or belongs to another org 1ms
+ ✓ app/api/documents/[id]/summarize/route.test.ts > fails without a model call when the stored file cannot be fetched (summary) 1ms
+ ✓ app/api/documents/[id]/summarize/route.test.ts > fails without a model call when the stored file cannot be fetched (translate) 0ms
+ ✓ app/api/documents/[id]/summarize/route.test.ts > fails without a model call when the stored file cannot be fetched (suggest) 0ms
+
+ Test Files  4 passed (4)
+      Tests  37 passed (37)
+   Start at  14:24:17
+   Duration  661ms (transform 393ms, setup 97ms, import 1.28s, tests 47ms, environment 0ms)

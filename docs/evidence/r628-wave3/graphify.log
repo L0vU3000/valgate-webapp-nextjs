@@ -1,0 +1,15 @@
+Re-extracting code files in . (no LLM needed)...
+  AST extraction: 100/842 uncached files (11%) [10 workers]
+  AST extraction: 200/842 uncached files (23%) [10 workers]
+  AST extraction: 300/842 uncached files (35%) [10 workers]
+  AST extraction: 400/842 uncached files (47%) [10 workers]
+  AST extraction: 500/842 uncached files (59%) [10 workers]
+  AST extraction: 600/842 uncached files (71%) [10 workers]
+  AST extraction: 700/842 uncached files (83%) [10 workers]
+  AST extraction: 800/842 uncached files (95%) [10 workers]
+  AST extraction: 2534/2534 files (100%) [10 workers]
+[graphify watch] Skipped graph.html: Graph has 17215 nodes - too large for HTML viz (limit: 5000). Use --no-viz, raise GRAPHIFY_VIZ_NODE_LIMIT, or reduce input size.
+[graphify watch] Rebuilt: 17215 nodes, 30976 edges, 1064 communities
+[graphify watch] graph.json and GRAPH_REPORT.md updated in graphify-out
+Code graph updated. For doc/paper/image changes run /graphify --update in your AI assistant.
+Tip: set GEMINI_API_KEY or GOOGLE_API_KEY to use Gemini for semantic extraction.

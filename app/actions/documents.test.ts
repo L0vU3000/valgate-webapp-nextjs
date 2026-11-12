@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   allowed: vi.fn(),
   getDocument: vi.fn(),
   getFolder: vi.fn(),
+  getProperty: vi.fn(), presignUpload: vi.fn(), createDocument: vi.fn(),
   updateDocument: vi.fn(),
   revalidateFeTag: vi.fn(),
   bustCache: vi.fn(),
@@ -19,12 +20,14 @@ vi.mock("@/lib/cache/bust", () => ({ bustCache: mocks.bustCache }));
 vi.mock("@/lib/services/documents", () => ({
   getDocument: mocks.getDocument,
   updateDocument: mocks.updateDocument,
+  createDocument: mocks.createDocument,
 }));
 vi.mock("@/lib/services/folders", () => ({ getFolder: mocks.getFolder }));
-vi.mock("@/lib/services/storage", () => ({}));
+vi.mock("@/lib/services/storage", () => ({ presignUpload: mocks.presignUpload }));
+vi.mock("@/lib/services/properties", () => ({ getProperty: mocks.getProperty }));
 vi.mock("@/lib/services/activity", () => ({}));
 
-import { updateDocument } from "./documents";
+import { updateDocument, uploadDocument } from "./documents";
 
 const ctx: Ctx = { userId: "USR-0001", orgId: "ORG-0001", orgRole: "owner" };
 const document: Document = {
@@ -105,4 +108,21 @@ describe("updateDocument folder changes", () => {
     expect(mocks.getFolder).not.toHaveBeenCalled();
     expect(mocks.updateDocument).toHaveBeenCalledWith(ctx, document.id, { name: "title.pdf" });
   });
+});
+
+it("refuses a foreign property before presigning or uploading bytes", async () => {
+  mocks.getProperty.mockResolvedValue(null);
+  const data = new FormData();
+  data.append("file", new File(["pdf"], "test.pdf", { type: "application/pdf" }));
+  mocks.presignUpload.mockResolvedValue({ url: "http://uploads.invalid", fields: {}, storageId: document.storageId });
+  mocks.createDocument.mockResolvedValue(document);
+  const uploadFetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("", { status: 200 }));
+  try {
+    const result = await uploadDocument("PROP-FOREIGN", data);
+    expect(result.ok).toBe(false);
+    expect(mocks.presignUpload).not.toHaveBeenCalled();
+    expect(mocks.createDocument).not.toHaveBeenCalled();
+  } finally {
+    uploadFetch.mockRestore();
+  }
 });

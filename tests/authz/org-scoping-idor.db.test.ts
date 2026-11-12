@@ -44,10 +44,12 @@ import {
 
 // Service functions under test — these use the real Drizzle client and the real DB.
 import { getProperty } from "@/lib/services/properties";
-import { getDocument, listDocuments, updateDocument } from "@/lib/services/documents";
+import { getDocument, listDocuments, updateDocument, createDocument, getDocumentByStorageId } from "@/lib/services/documents";
 import { listProfessionals } from "@/lib/services/professionals";
 import { scopedDelete, scopedUpdate } from "@/lib/services/_crud";
-import { properties } from "@/lib/db/schema";
+import { db } from "@/lib/db/client";
+import { eq } from "drizzle-orm";
+import { properties, organizations } from "@/lib/db/schema";
 import type { Ctx } from "@/lib/services/_mapping";
 
 // ── Synthetic Ctx objects ─────────────────────────────────────────────────────
@@ -72,12 +74,14 @@ const orgBOwnerCtx: Ctx = {
 
 let propId = "";
 let docId  = "";
+const writableOrgB = `ORG-E2E-${crypto.randomUUID()}`;
 
 beforeAll(async () => {
   // Clone PROP-0001 into a fresh throwaway row under ORG-0001 (= ORG-A).
   // withDocument seeds one document row so we can test document IDOR too.
   const ids = await createThrowawayProperty({ withDocument: true });
   propId = ids.propertyId;
+  await db.insert(organizations).values({ id: writableOrgB, clerkOrgId: `org_e2e_${crypto.randomUUID()}`, name: "E2E storage IDOR" });
   docId  = ids.documentId ?? "";
 
   if (!docId) {
@@ -89,6 +93,7 @@ afterAll(async () => {
   // Delete the throwaway property.  ON DELETE CASCADE removes the seeded document too.
   // Leaves the DB exactly as it was before this test file ran.
   await cleanup(propId);
+  await db.delete(organizations).where(eq(organizations.id, writableOrgB));
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -224,4 +229,21 @@ describe("storage-key IDOR", () => {
     const ctxB = orgAOwnerCtx;
     await expect(updateDocument(ctxB, docId, { storageId: "ORG-A/DOC-0001/x.pdf" })).rejects.toThrow();
   });
+});
+
+it("ORG-B cannot create a document on an ORG-A property", async () => {
+  const ctxB: Ctx = { userId: "USR-0001", orgId: writableOrgB, orgRole: "owner" };
+  await expect(createDocument(ctxB, {
+    propertyId: propId, name: "cross-org.pdf", kind: "document", storageId: `${writableOrgB}/DOC-TEST/cross-org.pdf`, uploadedAt: Date.now(),
+  })).rejects.toThrow("forbidden");
+});
+
+it("can still create a document on its own property", async () => {
+  const created = await createDocument(orgAOwnerCtx, {
+    propertyId: propId, name: "own.pdf", kind: "document", storageId: "ORG-0001/DOC-TEST/own.pdf", uploadedAt: Date.now(),
+  });
+  expect(created.propertyId).toBe(propId);
+  expect(created.name).toBe("own.pdf");
+  expect((await getDocumentByStorageId(orgAOwnerCtx, created.storageId))?.id).toBe(created.id);
+  expect(await getDocumentByStorageId({ ...orgAOwnerCtx, orgId: writableOrgB }, created.storageId)).toBeNull();
 });

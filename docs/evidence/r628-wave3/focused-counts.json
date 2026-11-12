@@ -1,0 +1,6 @@
+{
+  "app/actions/documents.test.ts": 7,
+  "lib/api/v1/documents.write.route.test.ts": 18,
+  "lib/services/storage-stat.test.ts": 5,
+  "app/api/documents/[id]/summarize/route.test.ts": 7
+}

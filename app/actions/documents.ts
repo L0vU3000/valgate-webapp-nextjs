@@ -16,6 +16,7 @@ import {
   setDocumentSuggestions as svcSetDocumentSuggestions,
 } from "@/lib/services/documents";
 import { decideSuggestion } from "@/lib/services/property-suggestions";
+import { getProperty as svcGetProperty } from "@/lib/services/properties";
 import { getFolder as svcGetFolder } from "@/lib/services/folders";
 import { presignUpload, resolveDocumentUrl } from "@/lib/services/storage";
 import { logActivity } from "@/lib/services/activity";
@@ -193,6 +194,8 @@ export async function uploadDocument(
   const ctx = await requireCtx();
   if (!(await allowed(actionLimiter, ctx.userId, "uploadDocument"))) return TOO_MANY_REQUESTS;
   try {
+    const property = await svcGetProperty(ctx, propertyId);
+    if (!property) return { ok: false, error: "Property not found" };
     // 1. Reserve a storage slot and get a presigned POST target.
     const presigned = await presignUpload(ctx, {
       name: file.name,

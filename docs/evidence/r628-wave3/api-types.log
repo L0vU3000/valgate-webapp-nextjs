@@ -1,0 +1,11 @@
+
+> valgate-webapp-nextjs@0.1.0 api:generate-ts
+> openapi-typescript docs/api-spec/valgate-api-v1.yaml -o lib/api/v1/generated-types.ts
+
+✨ openapi-typescript 7.13.0
+🚀 docs/api-spec/valgate-api-v1.yaml → lib/api/v1/generated-types.ts [51.8ms]
+
+> valgate-webapp-nextjs@0.1.0 api:check-ts
+> node scripts/check-api-types.mjs
+
+api-contract PASS — lib/api/v1/generated-types.ts matches docs/api-spec/valgate-api-v1.yaml

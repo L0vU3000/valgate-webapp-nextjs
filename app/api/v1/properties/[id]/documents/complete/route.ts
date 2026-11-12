@@ -11,8 +11,9 @@ import {
 import { toDocumentListItemDto } from "@/lib/api/v1/dto";
 import { logger } from "@/lib/logger";
 import { getProperty } from "@/lib/services/properties";
-import { createDocument } from "@/lib/services/documents";
+import { createDocument, getDocumentByStorageId } from "@/lib/services/documents";
 import { assertCanMutate, roleAtLeast } from "@/lib/services/_mapping";
+import { statObject } from "@/lib/services/storage";
 import { describeError } from "@/lib/api/v1/describe-error";
 
 export const dynamic = "force-dynamic";
@@ -43,9 +44,18 @@ export async function POST(
     }
 
     assertCanMutate();
+    const existing = await getDocumentByStorageId(authResult.ctx, parsed.body.storageId);
+    if (existing) {
+      if (existing.propertyId !== id) return apiError(400, "invalid_request", "Invalid document upload.");
+      return NextResponse.json(toDocumentListItemDto(existing), { status: 200 });
+    }
+    const storedObject = await statObject(parsed.body.storageId);
+    if (!storedObject) return apiError(400, "invalid_request", "Invalid document upload.");
+    const verified = parseDocumentCompleteBody({ ...parsed.body, ...storedObject });
+    if (!verified.ok) return apiError(400, "invalid_request", "Invalid document upload.");
     const created = await createDocument(
       authResult.ctx,
-      toNewDocument(id, parsed.body),
+      toNewDocument(id, verified.body),
     );
     return NextResponse.json(toDocumentListItemDto(created), { status: 201 });
   } catch (err) {

@@ -224,6 +224,9 @@ export interface paths {
          * @description Creates the document row after the direct upload succeeded. `storageId` must start
          *     with the caller's org id (`{orgId}/...`) — the ticket from POST
          *     /properties/{id}/documents is the normal source; anything else is a 400.
+         *     The stored object must exist for a new row; its actual MIME type and size are
+         *     validated and used instead of the client's claims. Repeating a completed upload
+         *     for the same property returns the existing document with 200.
          *     Requires role `member` or above.
          */
         post: operations["completeDocumentUpload"];
@@ -1370,6 +1373,15 @@ export interface operations {
             };
         };
         responses: {
+            /** @description Document already recorded for this upload and property */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentListItemDtoV1"];
+                };
+            };
             /** @description Document created */
             201: {
                 headers: {

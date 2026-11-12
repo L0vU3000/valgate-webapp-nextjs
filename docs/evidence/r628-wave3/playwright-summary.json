@@ -1,0 +1,69 @@
+{
+  "parent_wave2": "16951948d92631e95ed6d05ad875827320796870",
+  "stats": {
+    "startTime": "2026-11-12T07:24:54.387Z",
+    "duration": 272179.311,
+    "expected": 30,
+    "skipped": 44,
+    "unexpected": 4,
+    "flaky": 0
+  },
+  "terminal_counts": {
+    "passed": 30,
+    "failed": 4,
+    "skipped": 36,
+    "did_not_run": 8
+  },
+  "failures": [
+    {
+      "file": "add-property.spec.ts",
+      "line": 72,
+      "title": "C0: landing \u2192 Step 0 with no advisor dialog, \"Enter manually\" reaches the wizard",
+      "status": "unexpected"
+    },
+    {
+      "file": "intake.spec.ts",
+      "line": 43,
+      "title": "D1: \"Add photos\" stages the photo and it comes back from storage",
+      "status": "unexpected"
+    },
+    {
+      "file": "photos.spec.ts",
+      "line": 37,
+      "title": "E1: upload a photo \u2192 appears in grid",
+      "status": "unexpected"
+    },
+    {
+      "file": "portfolio.spec.ts",
+      "line": 141,
+      "title": "B8-B10: cascade deep-check + set-null survivors + activity row",
+      "status": "unexpected"
+    }
+  ],
+  "ownership": [
+    {
+      "file": "owners.spec.ts",
+      "line": 33,
+      "title": "G1: add co-owner \u2192 appears, split updates",
+      "status": "expected"
+    },
+    {
+      "file": "owners.spec.ts",
+      "line": 92,
+      "title": "G2: edit a co-owner \u2192 saves",
+      "status": "expected"
+    },
+    {
+      "file": "owners.spec.ts",
+      "line": 146,
+      "title": "G2b: a late duplicate initial response preserves wizard navigation",
+      "status": "expected"
+    },
+    {
+      "file": "owners.spec.ts",
+      "line": 196,
+      "title": "G3: remove co-owner \u2192 owner gone, split empties",
+      "status": "expected"
+    }
+  ]
+}

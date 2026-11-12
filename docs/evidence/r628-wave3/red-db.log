@@ -1,0 +1,70 @@
+◇ injected env (22) from .env.local // tip: ◈ secrets for agents [www.dotenvx.com]
+The plugin "vite-tsconfig-paths" is detected. Vite now supports tsconfig paths resolution natively via the resolve.tsconfigPaths option. You can remove the plugin and set resolve.tsconfigPaths: true in your Vite config instead.
+
+ RUN  v4.1.8 /Users/mintrose/Dev/Projects/work/Valgate/active/valgate/valgate-webapp-nextjs/.worktrees/r628-webapp-bugs-wave1
+
+(node:2749) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+(Use `node --trace-warnings ...` to show where the warning was created)
+stdout | tests/authz/org-scoping-idor.db.test.ts
+◇ injected env (0) from .env.local // tip: ◈ secrets for agents [www.dotenvx.com]
+◇ injected env (0) from .env.e2e // tip: ◈ secrets for agents [www.dotenvx.com]
+
+ ❯ |db| tests/authz/org-scoping-idor.db.test.ts (14 tests | 1 failed) 1969ms
+   × ORG-B cannot create a document on an ORG-A property 104ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |db| tests/authz/org-scoping-idor.db.test.ts > ORG-B cannot create a document on an ORG-A property
+AssertionError: promise resolved "{ id: 'DOC-0504', …(20) }" instead of rejecting
+
+- Expected
++ Received
+
+- Error {
+-   "message": "rejected promise",
++ {
++   "aiKeyFields": undefined,
++   "aiStatus": undefined,
++   "aiSuggestions": undefined,
++   "aiSummary": undefined,
++   "category": undefined,
++   "description": undefined,
++   "expiresAt": undefined,
++   "extension": undefined,
++   "folderId": undefined,
++   "id": "DOC-0504",
++   "kind": "document",
++   "mimeType": undefined,
++   "name": "cross-org.pdf",
++   "pageCount": undefined,
++   "propertyId": "PROP-0784",
++   "sizeBytes": undefined,
++   "storageId": "ORG-E2E-cfd05797-c1d8-425d-9e73-e4c2466915c5/DOC-TEST/cross-org.pdf",
++   "thumbStorageId": undefined,
++   "uploadedAt": 1794468016982,
++   "uploadedBy": undefined,
++   "verifies": undefined,
+  }
+
+ ❯ tests/authz/org-scoping-idor.db.test.ts:238:5
+    236|   await expect(createDocument(ctxB, {
+    237|     propertyId: propId, name: "cross-org.pdf", kind: "document", stora…
+    238|   })).rejects.toThrow("forbidden");
+       |     ^
+    239| });
+    240|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 13 passed (14)
+   Start at  14:20:14
+   Duration  2.64s (transform 159ms, setup 0ms, import 569ms, tests 1.97s, environment 0ms)

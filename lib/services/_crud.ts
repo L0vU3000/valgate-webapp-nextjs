@@ -5,7 +5,7 @@ import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { convertRowToDb } from "@/lib/db/column-classifier";
 import { db } from "@/lib/db/client";
 import { nextId, roleAtLeast, assertCanMutate, MutationDeniedError, type Ctx } from "@/lib/services/_mapping";
-import { organizationMemberships } from "@/lib/db/schema";
+import { organizationMemberships, properties } from "@/lib/db/schema";
 
 type ScopedTable = PgTable & { orgId: AnyPgColumn; id: AnyPgColumn };
 
@@ -53,6 +53,13 @@ export async function scopedInsert<T, R = unknown>(
     userId: ctx.userId,
     ...extra,
   };
+  if (typeof values.propertyId === "string") {
+    if (typeof values.orgId !== "string") throw new Error("forbidden");
+    const [property] = await db.select({ id: properties.id }).from(properties)
+      .where(and(eq(properties.orgId, values.orgId), eq(properties.id, values.propertyId)))
+      .limit(1);
+    if (!property) throw new Error("forbidden");
+  }
   const [row] = await db.insert(table).values(values as never).returning();
   return rowTo(row as R);
 }

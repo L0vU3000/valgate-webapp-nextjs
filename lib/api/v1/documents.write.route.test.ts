@@ -11,6 +11,8 @@ const {
   listDocumentsPageMock,
   logActivityMock,
   presignUploadMock,
+  statObjectMock,
+  getDocumentByStorageIdMock,
   resolveApiV1CtxMock,
   resolveDocumentUrlMock,
   roleAtLeastMock,
@@ -24,6 +26,8 @@ const {
   listDocumentsPageMock: vi.fn(),
   logActivityMock: vi.fn(),
   presignUploadMock: vi.fn(),
+  statObjectMock: vi.fn(),
+  getDocumentByStorageIdMock: vi.fn(),
   resolveApiV1CtxMock: vi.fn(),
   resolveDocumentUrlMock: vi.fn(),
   roleAtLeastMock: vi.fn(),
@@ -38,6 +42,7 @@ vi.mock("@/lib/services/_mapping", () => ({
 vi.mock("@/lib/services/activity", () => ({ logActivity: logActivityMock }));
 vi.mock("@/lib/services/documents", () => ({
   createDocument: createDocumentMock,
+  getDocumentByStorageId: getDocumentByStorageIdMock,
   deleteDocument: deleteDocumentMock,
   getDocument: getDocumentMock,
   listDocumentsPage: listDocumentsPageMock,
@@ -47,6 +52,7 @@ vi.mock("@/lib/services/properties", () => ({ getProperty: getPropertyMock }));
 vi.mock("@/lib/services/storage", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/lib/services/storage")>(),
   presignUpload: presignUploadMock,
+  statObject: statObjectMock,
   resolveDocumentUrl: resolveDocumentUrlMock,
 }));
 
@@ -121,6 +127,8 @@ beforeEach(() => {
   getDocumentMock.mockResolvedValue(DOCUMENT);
   presignUploadMock.mockResolvedValue(TICKET);
   createDocumentMock.mockResolvedValue(DOCUMENT);
+  getDocumentByStorageIdMock.mockResolvedValue(null);
+  statObjectMock.mockResolvedValue({ mimeType: "application/pdf", sizeBytes: 4 });
   updateDocumentMock.mockResolvedValue(DOCUMENT);
   deleteDocumentMock.mockResolvedValue(DOCUMENT);
   resolveDocumentUrlMock.mockResolvedValue("https://files.example/deed.pdf");
@@ -176,6 +184,49 @@ describe("POST /api/v1/properties/{id}/documents", () => {
 });
 
 describe("POST /api/v1/properties/{id}/documents/complete", () => {
+  it("rejects completion when the object was never uploaded", async () => {
+    statObjectMock.mockResolvedValue(null);
+    const response = await completeUpload(jsonRequest("/complete", { ...uploadBody, storageId: TICKET.storageId }), propertyParams());
+    expect(response.status).toBe(400);
+    expect(createDocumentMock).not.toHaveBeenCalled();
+  });
+
+  it("completing the same storageId twice returns the existing document", async () => {
+    getDocumentByStorageIdMock.mockResolvedValueOnce(null).mockResolvedValueOnce(DOCUMENT);
+    const first = await completeUpload(jsonRequest("/complete", { ...uploadBody, storageId: TICKET.storageId }), propertyParams());
+    const second = await completeUpload(jsonRequest("/complete", { ...uploadBody, storageId: TICKET.storageId }), propertyParams());
+    expect(first.status).toBe(201);
+    expect(second.status).toBe(200);
+    expect(await second.json()).toEqual(await first.json());
+    expect(createDocumentMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses the uploaded object's MIME and size instead of client claims", async () => {
+    statObjectMock.mockResolvedValue({ mimeType: "image/jpeg", sizeBytes: 17 });
+    const response = await completeUpload(jsonRequest("/complete", { ...uploadBody, storageId: TICKET.storageId }), propertyParams());
+    expect(response.status).toBe(201);
+    expect(createDocumentMock).toHaveBeenCalledWith(OWNER_CTX, expect.objectContaining({ kind: "photo", mimeType: "image/jpeg", sizeBytes: 17 }));
+  });
+
+  it("refuses reuse of an existing key on a different property", async () => {
+    getDocumentByStorageIdMock.mockResolvedValue({ ...DOCUMENT, propertyId: "PROP-OTHER" });
+    const response = await completeUpload(jsonRequest("/complete", { ...uploadBody, storageId: TICKET.storageId }), propertyParams());
+    expect(response.status).toBe(400);
+    expect(createDocumentMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { mimeType: "application/x-secret", sizeBytes: 4 },
+    { mimeType: "application/pdf", sizeBytes: 0 },
+    { mimeType: "application/pdf", sizeBytes: 20 * 1024 * 1024 },
+    { mimeType: undefined, sizeBytes: undefined },
+  ])("rejects invalid stored-object metadata %j", async (metadata) => {
+    statObjectMock.mockResolvedValue(metadata);
+    const response = await completeUpload(jsonRequest("/complete", { ...uploadBody, storageId: TICKET.storageId }), propertyParams());
+    expect(response.status).toBe(400);
+    expect(createDocumentMock).not.toHaveBeenCalled();
+  });
+
   it("records the upload and returns only the public document DTO", async () => {
     const response = await completeUpload(
       jsonRequest("/api/v1/properties/PROP-0001/documents/complete", {

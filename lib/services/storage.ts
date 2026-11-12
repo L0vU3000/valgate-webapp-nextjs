@@ -1,5 +1,5 @@
 import "server-only"; // C1
-import { S3Client, GetObjectCommand, DeleteObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, S3ServiceException, HeadObjectCommand, GetObjectCommand, DeleteObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { createPresignedPost } from "@aws-sdk/s3-presigned-post";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { env } from "@/lib/env";
@@ -125,6 +125,17 @@ export function describeFailedUpload(
   const bounded =
     redacted.length > MAX_LOGGED_BODY_LENGTH ? `${redacted.slice(0, MAX_LOGGED_BODY_LENGTH)}…[truncated]` : redacted;
   return { status: res.status, statusText: res.statusText, body: bounded };
+}
+
+export async function statObject(storageId: string): Promise<{ mimeType: string | undefined; sizeBytes: number | undefined } | null> {
+  const { client, bucket } = getS3();
+  try {
+    const object = await client.send(new HeadObjectCommand({ Bucket: bucket, Key: storageId }));
+    return { mimeType: object.ContentType, sizeBytes: object.ContentLength };
+  } catch (err) {
+    if (err instanceof S3ServiceException && err.$metadata.httpStatusCode === 404) return null;
+    throw err;
+  }
 }
 
 export async function resolveDocumentUrl(storageId: string): Promise<string> {

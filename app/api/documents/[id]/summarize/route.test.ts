@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { NextRequest } from "next/server";
 import type { Ctx } from "@/lib/services/_mapping";
 
@@ -10,12 +10,13 @@ import type { Ctx } from "@/lib/services/_mapping";
 
 const CTX: Ctx = { userId: "USR-0001", orgId: "ORG-0001", orgRole: "owner" };
 
-const { resolveRouteCtxMock, getDocumentMock, allowedMock, setDocumentAiStatusMock } = vi.hoisted(
+const { resolveRouteCtxMock, getDocumentMock, allowedMock, setDocumentAiStatusMock, generateObjectMock, scanDocumentMock } = vi.hoisted(
   () => ({
     resolveRouteCtxMock: vi.fn(),
     getDocumentMock: vi.fn(),
     allowedMock: vi.fn(),
     setDocumentAiStatusMock: vi.fn(),
+    generateObjectMock: vi.fn(), scanDocumentMock: vi.fn(),
   }),
 );
 
@@ -43,6 +44,12 @@ vi.mock("@/lib/ratelimit", () => ({
 vi.mock("@/lib/log", () => ({
   log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
+
+vi.mock("ai", () => ({ generateObject: generateObjectMock }));
+vi.mock("@/lib/services/ai-model", () => ({ documentAiConfigured: () => true, documentModel: vi.fn(), summaryModelSlug: () => "test" }));
+vi.mock("@/lib/services/document-scan", () => ({ scanDocument: scanDocumentMock }));
+vi.mock("@/lib/services/properties", () => ({ getProperty: vi.fn() }));
+afterEach(() => vi.unstubAllGlobals());
 
 import { POST } from "./route";
 
@@ -109,4 +116,18 @@ describe("POST /api/documents/[id]/summarize", () => {
     expect(getDocumentMock).toHaveBeenCalledWith(CTX, "DOC-9999");
     expect(setDocumentAiStatusMock).not.toHaveBeenCalled();
   });
+});
+
+it.each(["summary", "translate", "suggest"])("fails without a model call when the stored file cannot be fetched (%s)", async (mode) => {
+  getDocumentMock.mockResolvedValue({ id: "DOC-0001", propertyId: "PROP-0001", storageId: "ORG-0001/DOC-0001/x.pdf", mimeType: "application/pdf" });
+  generateObjectMock.mockResolvedValue({ object: { summary: "x", keyFields: [], pageCount: 1 } });
+  scanDocumentMock.mockResolvedValue({ extracted: {} });
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("missing", { status: 404 })));
+  const request = new NextRequest("http://localhost/api/documents/DOC-0001/summarize", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mode }) });
+  const response = await POST(request, ctxParams("DOC-0001"));
+  expect(response.status).toBe(500);
+  expect(generateObjectMock).not.toHaveBeenCalled();
+  expect(scanDocumentMock).not.toHaveBeenCalled();
+  if (mode === "summary") expect(setDocumentAiStatusMock).toHaveBeenLastCalledWith(CTX, "DOC-0001", "failed");
+  else expect(setDocumentAiStatusMock).not.toHaveBeenCalled();
 });
