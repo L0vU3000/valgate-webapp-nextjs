@@ -1,0 +1,500 @@
+
+[WebServer] (node:62377) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:62416) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:62837) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:62837) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+
+[WebServer] (node:62416) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+◇ injected env (19) from .env.local // tip: ◈ encrypted .env [www.dotenvx.com]
+◇ injected env (0) from .env.e2e // tip: ⌘ enable debugging { debug: true }
+(node:62043) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✓ E2E pre-run cleanup — removed 0 properties, 0 professionals, 0 work orders, 0 drafts
+✓ E2E harness ready — DB reachable, migrations applied, seed present
+◇ injected env (0) from .env.local // tip: ◈ encrypted .env [www.dotenvx.com]
+◇ injected env (0) from .env.e2e // tip: ⌘ enable debugging { debug: true }
+
+Running 78 tests using 1 worker
+
+
+(node:63653) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+◇ injected env (0) from .env.local // tip: ⌘ suppress logs { quiet: true }
+
+◇ injected env (0) from .env.e2e // tip: ⌘ override existing { override: true }
+
+[1/78] [chromium] › e2e/activity.spec.ts:11:8 › J — Activity log › J1: /activity page loads and lists events
+[2/78] [chromium] › e2e/activity.spec.ts:26:7 › J — Activity log › J2: archive action creates activity row
+
+[chromium] › e2e/activity.spec.ts:26:7 › J — Activity log › J2: archive action creates activity row
+(node:63653) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+[3/78] [chromium] › e2e/activity.spec.ts:70:7 › J — Activity log › J3: property delete leaves activity row (property_id gone, row survives)
+[4/78] [chromium] › e2e/activity.spec.ts:90:7 › J — Activity log › J4: estate timeline renders without regression
+[5/78] [chromium] › e2e/add-property.spec.ts:33:5 › retired add-property route redirects to portfolio @smoke
+[6/78] [chromium] › e2e/add-property.spec.ts:40:5 › Quick Add cannot confirm a document without coordinates @smoke
+[7/78] [chromium] › e2e/add-property.spec.ts:72:7 › C — Add property › C0: landing → Step 0 with no advisor dialog, "Enter manually" reaches the wizard
+  1) [chromium] › e2e/add-property.spec.ts:72:7 › C — Add property › C0: landing → Step 0 with no advisor dialog, "Enter manually" reaches the wizard › Landing "Get Started" reveals Step 0 directly — no dialog in between
+
+    Test timeout of 30000ms exceeded.
+
+    Error: locator.click: Test timeout of 30000ms exceeded.
+    Call log:
+      - waiting for getByRole('button', { name: /get started/i }).filter({ visible: true }).first()
+        - waiting for" http://localhost:3068/portfolio" navigation to finish...
+        - navigated to "http://localhost:3068/portfolio"
+
+
+      76 |       await page.goto('/add-property')
+      77 |       await expect(page).not.toHaveURL(/\/login/)
+    > 78 |       await page.getByRole('button', { name: /get started/i }).filter({ visible: true }).first().click()
+         |                                                                                                  ^
+      79 |
+      80 |       // Step 0 is a plain method-choice screen, not gated behind an interstitial.
+      81 |       await expect(page.getByRole('alertdialog').or(page.getByRole('dialog'))).toHaveCount(0)
+        at /Users/mintrose/Dev/Projects/work/Valgate/active/valgate/valgate-webapp-nextjs/.worktrees/r628-webapp-bugs-wave1/e2e/add-property.spec.ts:78:98
+        at /Users/mintrose/Dev/Projects/work/Valgate/active/valgate/valgate-webapp-nextjs/.worktrees/r628-webapp-bugs-wave1/e2e/add-property.spec.ts:75:5
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/add-property-C-—-Add-prope-b3af1-manually-reaches-the-wizard-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/add-property-C-—-Add-prope-b3af1-manually-reaches-the-wizard-chromium/error-context.md
+
+
+[8/78] [chromium] › e2e/add-property.spec.ts:92:7 › C — Add property › C1: full multi-step flow → success screen with property code
+[9/78] [chromium] › e2e/add-property.spec.ts:147:7 › C — Add property › C2: per-step validation blocks empty name
+[10/78] [chromium] › e2e/add-property.spec.ts:164:7 › C — Add property › C3: save draft → resume from Step 0
+[11/78] [chromium] › e2e/add-property.spec.ts:196:7 › C — Add property › C4: delete a draft → confirm modal → draft removed
+
+(node:67005) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+◇ injected env (0) from .env.local // tip: ⌘ enable debugging { debug: true }
+
+◇ injected env (0) from .env.e2e // tip: ⌘ enable debugging { debug: true }
+
+[12/78] [chromium] › e2e/cross-cutting.spec.ts:10:7 › P — Cross-cutting safety › P1: archive requires confirm modal (undo tier)
+
+[chromium] › e2e/cross-cutting.spec.ts:10:7 › P — Cross-cutting safety › P1: archive requires confirm modal (undo tier)
+(node:67005) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+[13/78] [chromium] › e2e/cross-cutting.spec.ts:29:7 › P — Cross-cutting safety › P2: delete requires typed name (not just clicking OK)
+[14/78] [chromium] › e2e/cross-cutting.spec.ts:57:7 › P — Cross-cutting safety › P3: no raw error strings leak to UI on action failure
+
+[WebServer] (node:67025) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[15/78] [chromium] › e2e/cross-cutting.spec.ts:74:7 › P — Cross-cutting safety › P4: no console errors during the delete flow
+
+[WebServer]  ⨯ [Error: aborted] { code: 'ECONNRESET', digest: '3800572486' }
+
+[WebServer] (node:67030) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[chromium] › e2e/cross-cutting.spec.ts:74:7 › P — Cross-cutting safety › P4: no console errors during the delete flow
+[P4 requestfailed] https://related-eagle-9419.clerk.accounts.dev/npm/@clerk/ui@1/dist/ui.browser.js — net::ERR_FAILED
+
+[P4 requestfailed] https://related-eagle-9419.clerk.accounts.dev/npm/@clerk/clerk-js@6/dist/clerk.browser.js — net::ERR_FAILED
+
+[P4 requestfailed] https://related-eagle-9419.clerk.accounts.dev/npm/@clerk/clerk-js@6/dist/clerk.browser.js — net::ERR_FAILED
+
+[P4 requestfailed] https://related-eagle-9419.clerk.accounts.dev/npm/@clerk/clerk-js@6/dist/clerk.browser.js — net::ERR_FAILED
+
+[P4 requestfailed] http://localhost:3068/portfolio — net::ERR_ABORTED
+
+[P4 requestfailed] https://related-eagle-9419.clerk.accounts.dev/npm/@clerk/clerk-js@6/dist/clerk.browser.js — net::ERR_FAILED
+
+[P4 requestfailed] https://related-eagle-9419.clerk.accounts.dev/npm/@clerk/clerk-js@6/dist/clerk.browser.js — net::ERR_FAILED
+
+[P4 requestfailed] http://localhost:3068/portfolio — net::ERR_ABORTED
+
+[P4 requestfailed] http://localhost:3068/portfolio?_rsc=ukf67 — net::ERR_ABORTED
+
+[16/78] [chromium] › e2e/cross-cutting.spec.ts:145:7 › P — Cross-cutting safety › P5: db:migrate shows nothing pending
+[17/78] [chromium] › e2e/cross-cutting.spec.ts:164:8 › P — Cross-cutting safety › P-IDOR: org A cannot access org B resources
+[18/78] [chromium] › e2e/cross-cutting.spec.ts:168:8 › P — Cross-cutting safety › P-ROLE: viewer/member cannot delete (hidden in UI + rejected server-side)
+[19/78] [chromium] › e2e/dashboard.spec.ts:8:7 › I — Dashboard & misc › I0: app dashboard renders portfolio summary @smoke
+[20/78] [chromium] › e2e/dashboard.spec.ts:30:8 › I — Dashboard & misc › I1: alerts — dismiss one → Undo toast restores it
+[21/78] [chromium] › e2e/dashboard.spec.ts:34:8 › I — Dashboard & misc › I2: "Dismiss all" → Undo toast restores all
+[22/78] [chromium] › e2e/dashboard.spec.ts:38:7 › I — Dashboard & misc › I3: analytics page loads without error
+[23/78] [chromium] › e2e/dashboard.spec.ts:48:7 › I — Dashboard & misc › I4: estate-planning page loads without error
+[24/78] [chromium] › e2e/dashboard.spec.ts:58:7 › I — Dashboard & misc › I5: settings page loads without error
+[25/78] [chromium] › e2e/directory.spec.ts:16:7 › H — Directory › H1: add a professional → appears in list
+[26/78] [chromium] › e2e/directory.spec.ts:64:7 › H — Directory › H2: edit a professional → saves
+[27/78] [chromium] › e2e/directory.spec.ts:102:7 › H — Directory › H3: delete a professional → confirm → removed
+[28/78] [chromium] › e2e/documents.spec.ts:13:7 › F — Documents & folders › F1: create folder → persists after reload
+
+[WebServer] (node:67204) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:67357) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:67439) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:67542) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[29/78] [chromium] › e2e/documents.spec.ts:44:7 › F — Documents & folders › F2: upload file → appears in list
+
+[WebServer]  ⨯ [Error: aborted] { code: 'ECONNRESET', digest: '3800572486' }
+
+[WebServer] (node:67565) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:67601) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[30/78] [chromium] › e2e/documents.spec.ts:78:7 › F — Documents & folders › F3: per-file delete → confirm → removed
+
+[WebServer] (node:67603) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] uploadDocument Error: Failed query: insert into "documents" ("id", "org_id", "user_id", "property_id", "folder_id", "name", "kind", "mime_type", "extension", "size_bytes", "storage_id", "thumb_storage_id", "category", "description", "uploaded_by", "uploaded_at", "verifies", "ai_status", "ai_summary", "ai_key_fields", "ai_suggestions", "page_count", "expires_at") values ($1, $2, $3, $4, default, $5, $6, $7, default, $8, $9, default, default, default, default, $10, default, default, default, default, default, default, default) returning "id", "org_id", "user_id", "property_id", "folder_id", "name", "kind", "mime_type", "extension", "size_bytes", "storage_id", "thumb_storage_id", "category", "description", "uploaded_by", "uploaded_at", "verifies", "ai_status", "ai_summary", "ai_key_fields", "ai_suggestions", "page_count", "expires_at"
+[WebServer] params: DOC-0502,ORG-0001,USR-0001,PROP-0769,test-doc.pdf,document,application/pdf,281,ORG-0001/DOC-0501/test-doc.pdf,2026-11-12T07:14:18.752Z
+[WebServer]     at async scopedInsert (lib/services/_crud.ts:56:17)
+[WebServer]     at async uploadDocument (app/actions/documents.ts:212:21)
+[WebServer]   54 |     ...extra,
+[WebServer]   55 |   };
+[WebServer] > 56 |   const [row] = await db.insert(table).values(values as never).returning();
+[WebServer]      |                 ^
+[WebServer]   57 |   return rowTo(row as R);
+[WebServer]   58 | }
+[WebServer]   59 | {
+[WebServer]   query: 'insert into "documents" ("id", "org_id", "user_id", "property_id", "folder_id", "name", "kind", "mime_type", "extension", "size_bytes", "storage_id", "thumb_storage_id", "category", "description", "uploaded_by", "uploaded_at", "verifies", "ai_status", "ai_summary", "ai_key_fields", "ai_suggestions", "page_count", "expires_at") values ($1, $2, $3, $4, default, $5, $6, $7, default, $8, $9, default, default, default, default, $10, default, default, default, default, default, default, default) returning "id", "org_id", "user_id", "property_id", "folder_id", "name", "kind", "mime_type", "extension", "size_bytes", "storage_id", "thumb_storage_id", "category", "description", "uploaded_by", "uploaded_at", "verifies", "ai_status", "ai_summary", "ai_key_fields", "ai_suggestions", "page_count", "expires_at"',
+[WebServer]   params: [Array],
+[WebServer]   [cause]: error: insert or update on table "documents" violates foreign key constraint "documents_property_id_properties_id_fk"
+[WebServer]       at async scopedInsert (lib/services/_crud.ts:56:17)
+[WebServer]       at async uploadDocument (app/actions/documents.ts:212:21)
+[WebServer]     54 |     ...extra,
+[WebServer]     55 |   };
+[WebServer]   > 56 |   const [row] = await db.insert(table).values(values as never).returning();
+[WebServer]        |                 ^
+[WebServer]     57 |   return rowTo(row as R);
+[WebServer]     58 | }
+[WebServer]     59 | {
+[WebServer]     length: 307,
+[WebServer]     severity: 'ERROR',
+[WebServer]     code: '23503',
+[WebServer]     detail: 'Key (property_id)=(PROP-0769) is not present in table "properties".',
+[WebServer]     hint: undefined,
+[WebServer]     position: undefined,
+[WebServer]     internalPosition: undefined,
+[WebServer]     internalQuery: undefined,
+[WebServer]     where: undefined,
+[WebServer]     schema: 'public',
+[WebServer]     table: 'documents',
+[WebServer]     column: undefined,
+[WebServer]     dataType: undefined,
+[WebServer]     constraint: 'documents_property_id_properties_id_fk',
+[WebServer]     file: 'ri_triggers.c',
+[WebServer]     line: '2772',
+[WebServer]     routine: 'ri_ReportViolation'
+[WebServer]   }
+[WebServer] }
+
+[WebServer] (node:67608) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:67612) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[31/78] [chromium] › e2e/documents.spec.ts:105:7 › F — Documents & folders › F4: bulk delete → typed DELETE → removed
+
+[WebServer] (node:67616) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:67659) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:67958) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:67960) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[32/78] [chromium] › e2e/documents.spec.ts:139:7 › F — Documents & folders › F5: folder delete → files move to root (not destroyed)
+
+[WebServer] (node:67965) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:67968) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:67969) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[33/78] [chromium] › e2e/homepage.spec.ts:9:5 › homepage loads and has a title @smoke
+[34/78] [chromium] › e2e/homepage.spec.ts:18:5 › homepage is visible — not a blank screen @smoke
+
+[WebServer]  ⨯ [Error: aborted] { code: 'ECONNRESET', digest: '3800572486' }
+[35/78] [chromium] › e2e/intake.spec.ts:43:7 › D — Add-property intake (Step 4 file actions) › D1: "Add photos" stages the photo and it comes back from storage
+  2) [chromium] › e2e/intake.spec.ts:43:7 › D — Add-property intake (Step 4 file actions) › D1: "Add photos" stages the photo and it comes back from storage › Walk the wizard to Step 4 (photos and documents)
+
+    Test timeout of 120000ms exceeded.
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/intake-D-—-Add-property-in-d312e--it-comes-back-from-storage-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/intake-D-—-Add-property-in-d312e--it-comes-back-from-storage-chromium/error-context.md
+
+
+[36/78] [chromium] › e2e/intake.spec.ts:94:7 › D — Add-property intake (Step 4 file actions) › D2: "Upload" stages the document and it comes back from storage
+
+(node:77885) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+◇ injected env (0) from .env.local // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+
+◇ injected env (0) from .env.e2e // tip: ◈ secrets for agents [www.dotenvx.com]
+
+[37/78] [chromium] › e2e/owners.spec.ts:33:7 › G — Owners / co-owners › G1: add co-owner → appears, split updates
+
+[chromium] › e2e/owners.spec.ts:33:7 › G — Owners / co-owners › G1: add co-owner → appears, split updates
+(node:77885) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+
+[WebServer] (node:77904) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:77907) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:77908) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[38/78] [chromium] › e2e/owners.spec.ts:92:7 › G — Owners / co-owners › G2: edit a co-owner → saves
+
+[WebServer] (node:78256) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:78259) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:78260) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[39/78] [chromium] › e2e/owners.spec.ts:146:7 › G — Owners / co-owners › G2b: a late duplicate initial response preserves wizard navigation
+
+[WebServer] (node:78274) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:78278) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:78282) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[40/78] [chromium] › e2e/owners.spec.ts:196:7 › G — Owners / co-owners › G3: remove co-owner → owner gone, split empties
+
+[WebServer] (node:78286) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:78287) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:78311) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[41/78] [chromium] › e2e/photos.spec.ts:37:7 › E — Photos › E1: upload a photo → appears in grid
+
+[WebServer] (node:79458) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:79489) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+  3) [chromium] › e2e/photos.spec.ts:37:7 › E — Photos › E1: upload a photo → appears in grid › Set file on hidden input and confirm photo appears
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('img', { name: 'Cover photo' }).or(getByRole('img', { name: /^Property photo \d+$/ })).first()
+    Expected: visible
+    Timeout: 15000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 15000ms
+      - waiting for getByRole('img', { name: 'Cover photo' }).or(getByRole('img', { name: /^Property photo \d+$/ })).first()
+
+
+      71 |           .or(page.getByRole('img', { name: /^Property photo \d+$/ }))
+      72 |           .first(),
+    > 73 |       ).toBeVisible({ timeout: 15_000 })
+         |         ^
+      74 |     })
+      75 |   })
+      76 |
+        at /Users/mintrose/Dev/Projects/work/Valgate/active/valgate/valgate-webapp-nextjs/.worktrees/r628-webapp-bugs-wave1/e2e/photos.spec.ts:73:9
+        at /Users/mintrose/Dev/Projects/work/Valgate/active/valgate/valgate-webapp-nextjs/.worktrees/r628-webapp-bugs-wave1/e2e/photos.spec.ts:60:5
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/photos-E-—-Photos-E1-upload-a-photo-→-appears-in-grid-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/photos-E-—-Photos-E1-upload-a-photo-→-appears-in-grid-chromium/error-context.md
+
+    Error Context: test-results/photos-E-—-Photos-E1-upload-a-photo-→-appears-in-grid-chromium/error-context.md
+
+
+[42/78] [chromium] › e2e/photos.spec.ts:77:7 › E — Photos › E2: delete a photo → confirm modal → gone
+[43/78] [chromium] › e2e/photos.spec.ts:105:7 › E — Photos › E3: set-cover → chosen photo becomes cover
+[44/78] [chromium] › e2e/photos.spec.ts:129:7 › E — Photos › E4: empty state shown when property has no photos
+
+(node:79890) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+◇ injected env (0) from .env.local // tip: ⌘ suppress logs { quiet: true }
+
+◇ injected env (0) from .env.e2e // tip: ⌁ auth for agents [www.vestauth.com]
+
+[45/78] [chromium] › e2e/portfolio.spec.ts:14:7 › B — Portfolio › B1: portfolio loads in DEMO_MODE — no login redirect
+[46/78] [chromium] › e2e/portfolio.spec.ts:29:7 › B — Portfolio › B2-B3: action menu (…) shows View / Edit / Archive / Delete
+
+[chromium] › e2e/portfolio.spec.ts:29:7 › B — Portfolio › B2-B3: action menu (…) shows View / Edit / Archive / Delete
+(node:79890) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+[47/78] [chromium] › e2e/portfolio.spec.ts:53:7 › B — Portfolio › B4-B5: archive → restore cycle
+[48/78] [chromium] › e2e/portfolio.spec.ts:108:7 › B — Portfolio › B6-B7: delete dialog disabled until name typed exactly
+[49/78] [chromium] › e2e/portfolio.spec.ts:141:7 › B — Portfolio › B8-B10: cascade deep-check + set-null survivors + activity row
+  4) [chromium] › e2e/portfolio.spec.ts:141:7 › B — Portfolio › B8-B10: cascade deep-check + set-null survivors + activity row › DB: S3 file removed (skips if STORAGE_BUCKET not set)
+
+    Unknown: UnknownError
+
+       at helpers/verify.ts:51
+
+      49 |   let gone = false
+      50 |   try {
+    > 51 |     await client.send(new HeadObjectCommand({ Bucket: bucket, Key: storageId }))
+         |     ^
+      52 |   } catch (e: any) {
+      53 |     if (e.name === 'NotFound' || e.$metadata?.httpStatusCode === 404) gone = true
+      54 |     else throw e
+        at ProtocolLib.getErrorSchemaOrThrowBaseException (/Users/mintrose/Dev/Projects/work/Valgate/active/valgate/valgate-webapp-nextjs/.worktrees/r628-webapp-bugs-wave1/node_modules/@aws-sdk/core/dist-cjs/submodules/protocols/index.js:72:67)
+        at S3RestXmlProtocol.handleError (/Users/mintrose/Dev/Projects/work/Valgate/active/valgate/valgate-webapp-nextjs/.worktrees/r628-webapp-bugs-wave1/node_modules/@aws-sdk/core/dist-cjs/submodules/protocols/index.js:1843:65)
+        at S3RestXmlProtocol.deserializeResponse (/Users/mintrose/Dev/Projects/work/Valgate/active/valgate/valgate-webapp-nextjs/.worktrees/r628-webapp-bugs-wave1/node_modules/@smithy/core/dist-cjs/submodules/protocols/index.js:343:24)
+        at /Users/mintrose/Dev/Projects/work/Valgate/active/valgate/valgate-webapp-nextjs/.worktrees/r628-webapp-bugs-wave1/node_modules/@smithy/core/dist-cjs/submodules/schema/index.js:27:24
+        at /Users/mintrose/Dev/Projects/work/Valgate/active/valgate/valgate-webapp-nextjs/.worktrees/r628-webapp-bugs-wave1/node_modules/@aws-sdk/middleware-sdk-s3/dist-cjs/index.js:387:20
+        at /Users/mintrose/Dev/Projects/work/Valgate/active/valgate/valgate-webapp-nextjs/.worktrees/r628-webapp-bugs-wave1/node_modules/@smithy/middleware-retry/dist-cjs/index.js:300:46
+        at /Users/mintrose/Dev/Projects/work/Valgate/active/valgate/valgate-webapp-nextjs/.worktrees/r628-webapp-bugs-wave1/node_modules/@aws-sdk/middleware-sdk-s3/dist-cjs/index.js:64:28
+        at /Users/mintrose/Dev/Projects/work/Valgate/active/valgate/valgate-webapp-nextjs/.worktrees/r628-webapp-bugs-wave1/node_modules/@aws-sdk/middleware-sdk-s3/dist-cjs/index.js:91:20
+        at /Users/mintrose/Dev/Projects/work/Valgate/active/valgate/valgate-webapp-nextjs/.worktrees/r628-webapp-bugs-wave1/node_modules/@aws-sdk/middleware-logger/dist-cjs/index.js:5:26
+        at assertS3ObjectGone (/Users/mintrose/Dev/Projects/work/Valgate/active/valgate/valgate-webapp-nextjs/.worktrees/r628-webapp-bugs-wave1/e2e/helpers/verify.ts:51:5)
+        at /Users/mintrose/Dev/Projects/work/Valgate/active/valgate/valgate-webapp-nextjs/.worktrees/r628-webapp-bugs-wave1/e2e/portfolio.spec.ts:170:29
+        at /Users/mintrose/Dev/Projects/work/Valgate/active/valgate/valgate-webapp-nextjs/.worktrees/r628-webapp-bugs-wave1/e2e/portfolio.spec.ts:169:7
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/portfolio-B-—-Portfolio-B8-74c70-null-survivors-activity-row-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/portfolio-B-—-Portfolio-B8-74c70-null-survivors-activity-row-chromium/error-context.md
+
+
+[50/78] [chromium] › e2e/pro-clients.spec.ts:21:7 › K — Pro Clients › K1: onboard a client → created in active book
+[51/78] [chromium] › e2e/pro-clients.spec.ts:58:7 › K — Pro Clients › K2: archive client → leaves active book, DB activity row
+[52/78] [chromium] › e2e/pro-clients.spec.ts:95:7 › K — Pro Clients › K3: reactivate client → back in active book
+[53/78] [chromium] › e2e/pro-compliance.spec.ts:15:7 › N — Pro Compliance › N0: compliance page loads
+[54/78] [chromium] › e2e/pro-compliance.spec.ts:25:7 › N — Pro Compliance › N1: resolve safety risk → confirm modal required first
+[55/78] [chromium] › e2e/pro-compliance.spec.ts:47:7 › N — Pro Compliance › N2: "Show resolved" toggle → resolved risks appear
+[56/78] [chromium] › e2e/pro-compliance.spec.ts:93:7 › N — Pro Compliance › N3: certifications section renders
+[57/78] [chromium] › e2e/pro-register.spec.ts:25:7 › O — Pro Properties Register › O0: properties register page loads
+[58/78] [chromium] › e2e/pro-register.spec.ts:35:7 › O — Pro Properties Register › O1: search filter narrows results
+[59/78] [chromium] › e2e/pro-register.spec.ts:71:7 › O — Pro Properties Register › O2: client filter works
+[60/78] [chromium] › e2e/pro-register.spec.ts:94:7 › O — Pro Properties Register › O3: footer shows honest count — no silent truncation
+[61/78] [chromium] › e2e/pro-rent.spec.ts:10:7 › L — Pro Rent & Collections › L0: rent page loads without redirect
+[62/78] [chromium] › e2e/pro-rent.spec.ts:20:7 › L — Pro Rent & Collections › L1: log payment → confirm summary shown before submit
+[63/78] [chromium] › e2e/pro-rent.spec.ts:49:7 › L — Pro Rent & Collections › L2: mark paid → Undo toast visible
+[64/78] [chromium] › e2e/pro-rent.spec.ts:72:7 › L — Pro Rent & Collections › L3: lease renewal dialog shows projected end date
+[65/78] [chromium] › e2e/pro-workorders.spec.ts:35:7 › M — Pro Work Orders › M0: work orders page loads
+[66/78] [chromium] › e2e/pro-workorders.spec.ts:45:7 › M — Pro Work Orders › M1: create work order → appears in list
+[67/78] [chromium] › e2e/pro-workorders.spec.ts:70:7 › M — Pro Work Orders › M2: assign vendor → picker → assigned
+[68/78] [chromium] › e2e/pro-workorders.spec.ts:109:7 › M — Pro Work Orders › M3: Start → status InProgress
+[69/78] [chromium] › e2e/pro-workorders.spec.ts:129:7 › M — Pro Work Orders › M4: Resolve — confirm modal required before closing
+[70/78] [chromium] › e2e/pro-workorders.spec.ts:156:7 › M — Pro Work Orders › M5: Cancel → confirm modal → Cancelled pill → drops from active queue
+
+(node:80844) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+◇ injected env (0) from .env.local // tip: ⌘ override existing { override: true }
+
+◇ injected env (0) from .env.e2e // tip: ⌁ auth for agents [www.vestauth.com]
+
+[71/78] [chromium] › e2e/property-tabs.spec.ts:27:7 › D — Property detail tabs › D0: property detail page loads
+
+[chromium] › e2e/property-tabs.spec.ts:27:7 › D — Property detail tabs › D0: property detail page loads
+(node:80844) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+
+[WebServer] (node:80855) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[72/78] [chromium] › e2e/property-tabs.spec.ts:38:7 › D — Property detail tabs › D1: Overview — edit profile → save → persists after reload
+
+[WebServer]  ⨯ [Error: aborted] { code: 'ECONNRESET', digest: '3800572486' }
+
+[WebServer] (node:80869) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:80870) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:80880) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[73/78] [chromium] › e2e/property-tabs.spec.ts:76:7 › D — Property detail tabs › D2: quick-action stub buttons are gone
+[74/78] [chromium] › e2e/property-tabs.spec.ts:88:8 › D — Property detail tabs › D3: Export Data downloads CSV with real data
+[75/78] [chromium] › e2e/property-tabs.spec.ts:92:8 › D — Property detail tabs › D4: Financials — edit → save → persists
+[76/78] [chromium] › e2e/property-tabs.spec.ts:115:8 › D — Property detail tabs › D5: Rental — edit → save
+[77/78] [chromium] › e2e/property-tabs.spec.ts:140:8 › D — Property detail tabs › D6: recent activity panel on property shows its events
+[78/78] [chromium] › e2e/property-tabs.spec.ts:144:7 › D — Property detail tabs › D7: verification revoke — typed REVOKE dialog, status flips
+
+[WebServer] (node:80883) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:80885) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:80887) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+✓ E2E teardown — removed 0 throwaway test client(s)
+  4 failed
+    [chromium] › e2e/add-property.spec.ts:72:7 › C — Add property › C0: landing → Step 0 with no advisor dialog, "Enter manually" reaches the wizard
+    [chromium] › e2e/intake.spec.ts:43:7 › D — Add-property intake (Step 4 file actions) › D1: "Add photos" stages the photo and it comes back from storage
+    [chromium] › e2e/photos.spec.ts:37:7 › E — Photos › E1: upload a photo → appears in grid ───────
+    [chromium] › e2e/portfolio.spec.ts:141:7 › B — Portfolio › B8-B10: cascade deep-check + set-null survivors + activity row
+  36 skipped
+  8 did not run
+  30 passed (4.6m)

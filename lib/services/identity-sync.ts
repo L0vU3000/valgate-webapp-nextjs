@@ -134,11 +134,15 @@ export async function upsertMembership(data: {
 }
 
 export async function removeMembership(data: { clerkOrgId: string; clerkUserId: string }): Promise<void> {
-  const orgId = await ourOrgId(data.clerkOrgId);
-  const userId = await ourUserId(data.clerkUserId);
+  const [org] = await db.select({ id: organizations.id }).from(organizations)
+    .where(eq(organizations.clerkOrgId, data.clerkOrgId)).limit(1);
+  if (!org) return;
+  const [user] = await db.select({ id: users.id }).from(users)
+    .where(eq(users.clerkUserId, data.clerkUserId)).limit(1);
+  if (!user) return;
   await db.update(organizationMemberships)
     .set({ status: "removed", removedAt: new Date(), updatedAt: new Date() })
-    .where(and(eq(organizationMemberships.orgId, orgId), eq(organizationMemberships.userId, userId)));
+    .where(and(eq(organizationMemberships.orgId, org.id), eq(organizationMemberships.userId, user.id)));
 }
 
 // Clerk deleted the org/user (M2). Never hard-delete the mirror row — domain rows FK to org_id

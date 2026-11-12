@@ -1,0 +1,92 @@
+
+[WebServer] (node:37297) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:37300) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:37418) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:37418) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+
+[WebServer] (node:37300) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+◇ injected env (19) from .env.local // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+◇ injected env (0) from .env.e2e // tip: ⌁ auth for agents [www.vestauth.com]
+(node:37296) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✓ E2E pre-run cleanup — removed 0 properties, 0 professionals, 0 work orders, 0 drafts
+✓ E2E harness ready — DB reachable, migrations applied, seed present
+◇ injected env (0) from .env.local // tip: ◈ encrypted .env [www.dotenvx.com]
+◇ injected env (0) from .env.e2e // tip: ◈ secrets for agents [www.dotenvx.com]
+
+Running 1 test using 1 worker
+
+
+(node:38141) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+◇ injected env (0) from .env.local // tip: ⌁ auth for agents [www.vestauth.com]
+
+◇ injected env (0) from .env.e2e // tip: ◈ encrypted .env [www.dotenvx.com]
+
+[1/1] [chromium] › e2e/owners.spec.ts:146:7 › G — Owners / co-owners › G2b: a late duplicate initial response preserves wizard navigation
+
+[chromium] › e2e/owners.spec.ts:146:7 › G — Owners / co-owners › G2b: a late duplicate initial response preserves wizard navigation
+(node:38141) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+
+[WebServer] (node:38488) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:38504) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+[WebServer] (node:38514) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+  1) [chromium] › e2e/owners.spec.ts:146:7 › G — Owners / co-owners › G2b: a late duplicate initial response preserves wizard navigation
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('dialog').getByRole('heading', { name: 'Co-owners' })
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByRole('dialog').getByRole('heading', { name: 'Co-owners' })
+
+
+      183 |       await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+      184 |       await dialog.getByRole('button', { name: /continue/i }).click();
+    > 185 |       await expect(dialog.getByRole('heading', { name: 'Co-owners' })).toBeVisible();
+          |                                                                        ^
+      186 |       await expect(dialog.getByPlaceholder('Full name *').first()).toHaveValue('E2E Co-Owner');
+      187 |       expect(initialRequests).toBe(1);
+      188 |     } finally {
+        at /Users/mintrose/Dev/Projects/work/Valgate/active/valgate/valgate-webapp-nextjs/.worktrees/r628-webapp-bugs-wave1/e2e/owners.spec.ts:185:72
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/owners-G-—-Owners-co-owner-11474-preserves-wizard-navigation-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/owners-G-—-Owners-co-owner-11474-preserves-wizard-navigation-chromium/error-context.md
+
+
+✓ E2E teardown — removed 0 throwaway test client(s)
+  1 failed
+    [chromium] › e2e/owners.spec.ts:146:7 › G — Owners / co-owners › G2b: a late duplicate initial response preserves wizard navigation

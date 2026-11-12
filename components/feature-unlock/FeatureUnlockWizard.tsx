@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -66,16 +66,32 @@ export function FeatureUnlockWizard<TSchema extends ZodTypeAny>({
     defaultValues: {} as FormValues,
   });
 
+  const loadVersion = useRef(0);
+  const pendingLoad = useRef<{
+    propertyId: string;
+    config: typeof config;
+    promise: ReturnType<typeof config.loadInitial>;
+  } | null>(null);
+
   const loadData = useCallback((forPropertyId?: string) => {
     const pid = forPropertyId ?? activePropertyId;
+    const version = ++loadVersion.current;
     setPhase("loading");
     setError(null);
     setDidChange(false);
     setStepIndex(0);
 
-    config
-      .loadInitial({ propertyId: pid })
+    // StrictMode can run the open effect twice; share the pending read while
+    // allowing only the current navigation's callback to initialize the form.
+    let request = pendingLoad.current;
+    if (!request || request.propertyId !== pid || request.config !== config) {
+      request = { propertyId: pid, config, promise: config.loadInitial({ propertyId: pid }) };
+      pendingLoad.current = request;
+    }
+    const currentRequest = request;
+    request.promise
       .then((initial) => {
+        if (version !== loadVersion.current) return;
         form.reset(initial.values as FormValues);
         setEntityId(initial.entityId);
         if (startAt === "verification" && initial.entityId) {
@@ -86,21 +102,28 @@ export function FeatureUnlockWizard<TSchema extends ZodTypeAny>({
         }
       })
       .catch(() => {
-        setPhase("load-error");
+        if (version === loadVersion.current) setPhase("load-error");
+      })
+      .finally(() => {
+        if (pendingLoad.current === currentRequest) pendingLoad.current = null;
       });
   }, [config, form, activePropertyId, startAt]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      pendingLoad.current = null;
+      return;
+    }
     if (properties && properties.length > 0) {
       setSelectedPropertyId(propertyId);
       setActivePropertyId(propertyId);
       setPropertySearch("");
       setPhase("select-property");
     } else {
-      loadData();
+      loadData(propertyId);
     }
-  }, [open]);
+    return () => { loadVersion.current++; };
+  }, [open, propertyId, config, startAt]);
 
   const currentValues = form.watch();
   const allSteps = config.steps;

@@ -182,9 +182,15 @@ export async function POST(req: NextRequest) {
     }
 
     case "organizationMembership.deleted": {
-      const org = d.organization as { id: string };
-      const pub = d.public_user_data as { user_id: string };
-      await removeMembership({ clerkOrgId: org.id, clerkUserId: pub.user_id });
+      const org = d.organization as { id?: string } | undefined;
+      const pub = d.public_user_data as { user_id?: string } | undefined;
+      const clerkOrgId = org?.id;
+      const clerkUserId = pub?.user_id;
+      if (!clerkOrgId || !clerkUserId) {
+        log.warn("clerk.webhook.membership_missing_ids", { type: evt.type });
+        break;
+      }
+      await removeMembership({ clerkOrgId, clerkUserId });
       break;
     }
 

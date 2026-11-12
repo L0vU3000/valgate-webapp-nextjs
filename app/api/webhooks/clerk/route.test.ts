@@ -19,6 +19,10 @@ const {
   ensureManagerHomeOrganizationForClerkUserMock,
   ensureOwnerHomeOrganizationForClerkUserMock,
   getUserMock,
+  selectQueue,
+  selectMock,
+  updateMock,
+  setMock,
 } = vi.hoisted(() => ({
   verifyWebhookMock: vi.fn(),
   upsertUserMock: vi.fn(),
@@ -32,6 +36,10 @@ const {
   ensureManagerHomeOrganizationForClerkUserMock: vi.fn(),
   ensureOwnerHomeOrganizationForClerkUserMock: vi.fn(),
   getUserMock: vi.fn(),
+  selectQueue: [] as { id: string }[][],
+  selectMock: vi.fn(),
+  updateMock: vi.fn(),
+  setMock: vi.fn(),
 }));
 
 vi.mock("@clerk/nextjs/webhooks", () => ({
@@ -44,15 +52,21 @@ vi.mock("@clerk/nextjs/server", () => ({
   }),
 }));
 
-vi.mock("@/lib/services/identity-sync", () => ({
-  upsertUser: upsertUserMock,
-  upsertOrg: upsertOrgMock,
-  upsertMembership: upsertMembershipMock,
-  removeMembership: removeMembershipMock,
-  deactivateOrg: deactivateOrgMock,
-  deactivateUser: deactivateUserMock,
-  hasActiveMembershipForClerkUser: hasActiveMembershipForClerkUserMock,
-}));
+vi.mock("@/lib/db/client", () => ({ db: { select: selectMock, update: updateMock } }));
+
+vi.mock("@/lib/services/identity-sync", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/services/identity-sync")>();
+  removeMembershipMock.mockImplementation(actual.removeMembership);
+  return {
+    upsertUser: upsertUserMock,
+    upsertOrg: upsertOrgMock,
+    upsertMembership: upsertMembershipMock,
+    removeMembership: removeMembershipMock,
+    deactivateOrg: deactivateOrgMock,
+    deactivateUser: deactivateUserMock,
+    hasActiveMembershipForClerkUser: hasActiveMembershipForClerkUserMock,
+  };
+});
 
 vi.mock("@/lib/services/client-onboarding", () => ({
   handleInvitationAccepted: handleInvitationAcceptedMock,
@@ -88,6 +102,14 @@ function webhookRequest(): NextRequest {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  selectQueue.length = 0;
+  selectMock.mockImplementation(() => {
+    const rows = selectQueue.shift() ?? [];
+    const builder = { from: () => builder, where: () => builder, limit: async () => rows };
+    return builder;
+  });
+  setMock.mockReturnValue({ where: async () => undefined });
+  updateMock.mockReturnValue({ set: setMock });
   upsertUserMock.mockResolvedValue(undefined);
   upsertOrgMock.mockResolvedValue(undefined);
   upsertMembershipMock.mockResolvedValue(undefined);
@@ -279,5 +301,44 @@ describe("POST /api/webhooks/clerk", () => {
     const orgOrder = upsertOrgMock.mock.invocationCallOrder[0];
     const memOrder = upsertMembershipMock.mock.invocationCallOrder[0];
     expect(orgOrder).toBeLessThan(memOrder);
+  });
+});
+
+describe("membership deletion is idempotent across mirror gaps", () => {
+  it.each(["org", "user"])("organizationMembership.deleted for an unmirrored %s returns 200", async (missing) => {
+    verifyWebhookMock.mockResolvedValue({ type: "organizationMembership.deleted", data: {
+      organization: { id: CLERK_ORG_ID }, public_user_data: { user_id: CLERK_USER_ID },
+    } });
+    if (missing === "org") selectQueue.push([]);
+    else selectQueue.push([{ id: "ORG-0001" }], []);
+    const response = await POST(webhookRequest());
+    expect(response.status).toBe(200);
+    expect(updateMock).not.toHaveBeenCalled();
+  });
+
+  it.each([{}, { organization: {} }, { organization: { id: CLERK_ORG_ID } }, { public_user_data: { user_id: CLERK_USER_ID } }])("ignores membership deletion with missing ids: %j", async (data) => {
+    verifyWebhookMock.mockResolvedValue({ type: "organizationMembership.deleted", data });
+    const response = await POST(webhookRequest());
+    expect(response.status).toBe(200);
+    expect(removeMembershipMock).not.toHaveBeenCalled();
+    expect(selectMock).not.toHaveBeenCalled();
+  });
+
+  it("marks an existing mirrored membership removed", async () => {
+    verifyWebhookMock.mockResolvedValue({ type: "organizationMembership.deleted", data: {
+      organization: { id: CLERK_ORG_ID }, public_user_data: { user_id: CLERK_USER_ID },
+    } });
+    selectQueue.push([{ id: "ORG-0001" }], [{ id: "USR-0001" }]);
+    const response = await POST(webhookRequest());
+    expect(response.status).toBe(200);
+    expect(setMock).toHaveBeenCalledWith(expect.objectContaining({ status: "removed", removedAt: expect.any(Date) }));
+  });
+
+  it("propagates database failures for webhook retry", async () => {
+    verifyWebhookMock.mockResolvedValue({ type: "organizationMembership.deleted", data: {
+      organization: { id: CLERK_ORG_ID }, public_user_data: { user_id: CLERK_USER_ID },
+    } });
+    selectMock.mockImplementationOnce(() => { throw new Error("database unavailable"); });
+    await expect(POST(webhookRequest())).rejects.toThrow("database unavailable");
   });
 });

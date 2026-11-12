@@ -143,6 +143,56 @@ test.describe('G — Owners / co-owners', () => {
     }
   })
 
+  test('G2b: a late duplicate initial response preserves wizard navigation', async ({ page }, testInfo) => {
+    const ids = await createThrowawayProperty({ withCoOwner: true });
+    let initialRequests = 0;
+    let releaseLate: () => void = () => undefined;
+    const lateResponseGate = new Promise<void>((resolve) => { releaseLate = resolve; });
+    const deliveries: Promise<void>[] = [];
+    await page.route(`**/property/${ids.propertyId}/ownership`, async (route) => {
+      const req = route.request();
+      if (req.method() !== 'POST' || req.postData() !== JSON.stringify([ids.propertyId])) {
+        await route.continue();
+        return;
+      }
+      initialRequests++;
+      const responseNumber = initialRequests;
+      const delivery = (async () => {
+        const response = await route.fetch();
+        expect(response.status()).toBe(200);
+        if (responseNumber > 1) await lateResponseGate;
+        await route.fulfill({ response });
+      })();
+      deliveries.push(delivery);
+      await delivery;
+    });
+
+    try {
+      await page.goto(`/property/${ids.propertyId}/ownership`);
+      await page.getByRole('button', { name: /unlock feature|edit ownership|edit split/i }).first().click();
+      const dialog = page.getByRole('dialog');
+      await dialog.locator('label').filter({ hasText: 'Tenancy in Common' }).click();
+      await dialog.locator('label').filter({ hasText: 'Pro-Rata by Share' }).click();
+      await dialog.getByRole('button', { name: /continue/i }).click();
+      await expect(dialog.getByRole('heading', { name: 'Loan & financing' })).toBeVisible();
+
+      // Old StrictMode duplicate is held until the person has left Structure.
+      // A deduplicating loader issues one request, so there is no second result to release.
+      releaseLate();
+      await Promise.all(deliveries);
+      await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+      await dialog.getByRole('button', { name: /continue/i }).click();
+      await expect(dialog.getByRole('heading', { name: 'Co-owners' })).toBeVisible();
+      await expect(dialog.getByPlaceholder('Full name *').first()).toHaveValue('E2E Co-Owner');
+      expect(initialRequests).toBe(1);
+    } finally {
+      releaseLate();
+      await Promise.allSettled(deliveries);
+      await testInfo.attach('initial-load-count', { body: JSON.stringify({ initialRequests }), contentType: 'application/json' });
+      await cleanup(ids.propertyId);
+    }
+  });
+
   test('G3: remove co-owner → owner gone, split empties', async ({ page }) => {
     test.info().annotations.push({ type: 'checklist', description: 'G3 — remove co-owner / split rebalance' })
     const ids = await createThrowawayProperty({ withCoOwner: true })
