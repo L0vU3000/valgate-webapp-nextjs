@@ -1,0 +1,118 @@
+{
+ "count": 1051,
+ "market": {
+  "total": 1051,
+  "median": 600,
+  "p20": 400,
+  "p80": 1600,
+  "sqm_median": 8,
+  "currency": {
+   "code": "usd",
+   "sign": "$",
+   "rate": 1
+  },
+  "districts": [
+   {
+    "value": "Chak Angrae Leu",
+    "name": "Chak Angrae Leu",
+    "count": 370,
+    "median": 650
+   },
+   {
+    "value": "Boeung Tumpun",
+    "name": "Boeung Tumpun",
+    "count": 257,
+    "median": 493
+   },
+   {
+    "value": "Chak Angrae Kraom",
+    "name": "Chak Angrae Kraom",
+    "count": 151,
+    "median": 1500
+   },
+   {
+    "value": "Boeung Tumpun 1",
+    "name": "Boeung Tumpun 1",
+    "count": 94,
+    "median": 450
+   },
+   {
+    "value": "Stueng Mean chey",
+    "name": "Stueng Mean chey",
+    "count": 77,
+    "median": 525
+   },
+   {
+    "value": "Stueng Mean chey 1",
+    "name": "Stueng Mean chey 1",
+    "count": 52,
+    "median": 400
+   },
+   {
+    "value": "Boeung Tumpun 2",
+    "name": "Boeung Tumpun 2",
+    "count": 24,
+    "median": 550
+   },
+   {
+    "value": "Stueng Mean chey 2",
+    "name": "Stueng Mean chey 2",
+    "count": 10,
+    "median": 500
+   }
+  ]
+ },
+ "results": [
+  {
+   "id": 269611,
+   "headline": "Shophouse for Rent I Borey Peng Huoth The Star Diamond || 60M BLVD",
+   "address": "Chak Angrae Kraom, Meanchey, Phnom Penh",
+   "address_latitude": 11.55,
+   "address_longitude": 104.91667,
+   "url": "/boreys/borey-peng-huoth-the-star-diamond/4-bed-5-bath-shophouse-269611/",
+   "display_price": "POA",
+   "display_rent": "$750",
+   "display_price_per_sqm_with_unit": "POA",
+   "display_rent_per_sqm_with_unit": "$1/m²",
+   "images": [
+    {
+     "url": "https://images.realestate.com.kh/__sized__/listings/2026-10/beaux-arts-facade-under-blue-skies-thumbnail-1040x780-70.jpeg"
+    }
+   ]
+  },
+  {
+   "id": 269551,
+   "headline": "Cozy Studio for Rent | 60m Boulevard | Phnom Penh",
+   "address": "Chak Angrae Leu, Meanchey, Phnom Penh",
+   "address_latitude": 11.522133799937592,
+   "address_longitude": 104.92861062835743,
+   "url": "/new-developments/rf-city-miro/1-bed-1-bath-condo-269551/",
+   "display_price": "POA",
+   "display_rent": "$350",
+   "display_price_per_sqm_with_unit": "POA",
+   "display_rent_per_sqm_with_unit": "POA",
+   "images": [
+    {
+     "url": "https://images.realestate.com.kh/__sized__/listings/2026-10/photo_2026-10-21_10-16-33-6-thumbnail-1040x780-70.jpeg"
+    }
+   ]
+  },
+  {
+   "id": 269546,
+   "headline": "R&F City High Floor River View 1BR | Home Theater + KTV | Near Hun Sen Blvd.",
+   "address": "Chak Angrae Leu, Meanchey, Phnom Penh",
+   "address_latitude": 11.51758750454755,
+   "address_longitude": 104.92919883185687,
+   "url": "/rent/chak-angrae-leu/1-bath-condo-269546/",
+   "display_price": "POA",
+   "display_rent": "$650",
+   "display_price_per_sqm_with_unit": "POA",
+   "display_rent_per_sqm_with_unit": "$8.33/m²",
+   "images": [
+    {
+     "url": "https://images.realestate.com.kh/__sized__/listings/2026-10/mmexport1655566730757-thumbnail-1040x780-70.jpeg"
+    }
+   ]
+  }
+ ]
+}

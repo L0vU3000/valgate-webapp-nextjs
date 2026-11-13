@@ -1,0 +1,17 @@
+{
+ "count": 0,
+ "market": {
+  "total": 0,
+  "median": 0,
+  "p20": 0,
+  "p80": 0,
+  "sqm_median": 0,
+  "currency": {
+   "code": "usd",
+   "sign": "$",
+   "rate": 1
+  },
+  "districts": []
+ },
+ "results": []
+}

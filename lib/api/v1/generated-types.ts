@@ -416,6 +416,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/properties/{id}/market-landscape": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get realestate.com.kh market data around one property's pin
+         * @description Area sale/rent statistics (median, p20-p80) for the property's district, the province's
+         *     top-district medians, and up to 12 of the newest listings in the property's commune
+         *     (district fallback), sorted by distance from the pin. Fetched live from realestate.com.kh,
+         *     cached 1 h per area and 6 h per province.
+         *
+         *     FLAG-GATED: off unless the server env var `MARKET_LANDSCAPE_ENABLED=true`. Off means a 200
+         *     with `coverage: "disabled"`, empty data fields, and no outbound call. Prod stays off until
+         *     written permission from realestate.com.kh is on file (vault/decisions/market-landscape-legal.md).
+         *
+         *     Coordinates come from the stored, org-scoped property, never the query string. A
+         *     property that does not exist, or exists in another org, is a plain 404. An upstream or
+         *     lookup failure is a 502 (retry), never an empty area.
+         */
+        get: operations["getPropertyMarketLandscape"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -919,6 +950,67 @@ export interface components {
             annualPropertyTax?: number;
             taxAssessmentValue?: number;
             annualInsurance?: number;
+        };
+        /** @description One tab's (sale or rent) area statistics as the portal reports them. */
+        MarketTabStatsV1: {
+            total: number;
+            median: number;
+            p20: number;
+            p80: number;
+            sqmMedian: number | null;
+            currency: string;
+        };
+        MarketLandscapeListingV1: {
+            id: number;
+            /** @enum {string} */
+            tab: "sale" | "rent";
+            headline: string;
+            address: string;
+            /** @description Null when the portal only has an approximate (placeholder) location. */
+            lat: number | null;
+            lng: number | null;
+            /** @description Metres from the property's pin. Null whenever lat/lng are null. */
+            distanceM: number | null;
+            priceLabel: string | null;
+            pricePerSqmLabel: string | null;
+            imageUrl: string | null;
+            /** @description Absolute realestate.com.kh listing link. */
+            url: string;
+        };
+        /**
+         * @description `coverage` other than "ok" means every data field is empty (area null, stats null,
+         *     lists empty): "disabled" (flag off), "unsupported" (pin outside Cambodia), "unmatched"
+         *     (no pin or no known district).
+         */
+        MarketLandscapeDtoV1: {
+            /** @enum {string} */
+            coverage: "ok" | "unmatched" | "unsupported" | "disabled";
+            area: null | {
+                district: string;
+                commune: string | null;
+                province: string;
+                /** @description The area the listings came from (the commune, or the district as a fallback). */
+                listingsArea: string;
+            };
+            stats: {
+                sale: null | components["schemas"]["MarketTabStatsV1"];
+                rent: null | components["schemas"]["MarketTabStatsV1"];
+            };
+            /** @description The province's top districts by sale-listing count (at most 8). */
+            districtMedians: {
+                name: string;
+                count: number;
+                median: number;
+            }[];
+            listings: components["schemas"]["MarketLandscapeListingV1"][];
+            /** @description Attribution. Clients must show "Data © realestate.com.kh" with the data. */
+            source: {
+                /** @enum {string} */
+                name: "realestate.com.kh";
+                url: string;
+                /** Format: date-time */
+                fetchedAt: string;
+            };
         };
         ErrorEnvelope: {
             error: {
@@ -1706,6 +1798,41 @@ export interface operations {
             404: components["responses"]["NotFound"];
             429: components["responses"]["RateLimited"];
             500: components["responses"]["InternalError"];
+        };
+    };
+    getPropertyMarketLandscape: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Property ID */
+                id: components["parameters"]["PropertyIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Market landscape (check `coverage` before reading data fields) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarketLandscapeDtoV1"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            /** @description Market data could not be loaded (upstream outage or lookup failure); retry */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
         };
     };
 }

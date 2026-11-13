@@ -9,6 +9,8 @@ import Supercluster from "supercluster";
 import { env } from "@/lib/env";
 import { useShellContext } from "@/components/layout/shell-context";
 import type { Property } from "@/lib/data/types/property";
+import type { LandscapeListing } from "@/lib/market-landscape";
+import { marketFeatures, marketKeyOf } from "@/components/map/market-markers";
 import { addBoundaryLayer, BOUNDARY_SOURCE_ID } from "@/components/map/boundary-layer";
 import { boundarySides, formatMeters, ringSpanM, type ParcelMeasurement, type ParcelSide } from "@/lib/data/derivations/boundary-sides";
 import type { BoundaryGeometry } from "@/lib/data/types/land-parcel";
@@ -29,7 +31,7 @@ import {
  */
 export type MapRenderer = "mapbox" | "maplibre";
 
-import type { AnyMap, AnyMarker } from "@/components/map/types";
+import type { AnyMap, AnyMarker, AnyGeoJSONFeature } from "@/components/map/types";
 
 const CAMBODIA_CENTER: [number, number] = [104.9, 12.5];
 const CAMBODIA_ZOOM = 7;
@@ -139,6 +141,13 @@ interface MapViewProps {
    */
   showMeasurements?: boolean;
   className?: string;
+  /**
+   * Portal listings (realestate.com.kh) around the selected property, drawn as Airbnb-style white
+   * price pills, never clustered — each pill is its own marker and overlap is fine (Airbnb does the
+   * same). Approximate rows (null coordinates) are dropped by `marketFeatures`. The drawer panel keeps the
+   * full list — pills are only the map-facing half.
+   */
+  marketListings?: LandscapeListing[];
 }
 
 export function MapView({
@@ -151,6 +160,7 @@ export function MapView({
   initialCamera,
   onCameraChange,
   showMeasurements = false,
+  marketListings = [],
   className,
 }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -163,6 +173,40 @@ export function MapView({
   // be findable by updateClusters, which is called from map `move` long after that first render.
   const propertiesRef = useRef(properties);
   propertiesRef.current = properties;
+  // Same latest-value discipline as propertiesRef: cluster handlers bound at mount read pills that
+  // only arrive after mount, and updateClusters runs on every `move`.
+  const marketListingsRef = useRef(marketListings);
+  marketListingsRef.current = marketListings;
+  // The one open listing card. Tapping a different pill swaps it (Airbnb pattern); pills never
+  // stack cards, so a single slot is all the state this needs.
+  const openMarketRef = useRef<{ key: string; pill: HTMLElement; card: HTMLElement } | null>(null);
+
+  function closeMarketCard() {
+    const open = openMarketRef.current;
+    if (!open) return;
+    open.card.remove();
+    open.pill.style.background = "var(--color-surface-base, #fff)";
+    open.pill.style.color = "var(--color-foreground, #111)";
+    openMarketRef.current = null;
+  }
+
+  function toPropertyFeature(p: Property): GeoJSON.Feature<GeoJSON.Point, { id: string }> {
+    return {
+      type: "Feature" as const,
+      geometry: { type: "Point" as const, coordinates: [p.lng, p.lat] },
+      properties: { id: p.id },
+    };
+  }
+
+  /** The marker key for a Supercluster feature — routing happens ONCE, here. */
+  function markerKey(f: AnyGeoJSONFeature): string {
+    const p = f.properties ?? {};
+    return p.cluster
+      ? `cluster-${p.cluster_id}`
+      : p.kind === "market"
+        ? marketKeyOf(p.id as number)
+        : `point-${p.id}`;
+  }
 
   // Boundary geometry as a single FeatureCollection, derived from propertiesRef at draw time rather
   // than captured at mount — a boundary uploaded after mount must appear without remounting the map.
@@ -224,13 +268,7 @@ export function MapView({
 
       // Build cluster index once. `maxZoom` matches the map's own ceiling — see MAP_MAX_ZOOM.
       const index = new Supercluster({ radius: 60, maxZoom: MAP_MAX_ZOOM });
-      index.load(
-        propertiesRef.current.map((p) => ({
-          type: "Feature" as const,
-          geometry: { type: "Point" as const, coordinates: [p.lng, p.lat] },
-          properties: { id: p.id },
-        }))
-      );
+      index.load(propertiesRef.current.map(toPropertyFeature));
       clusterIndex.current = index;
 
       // Both renderers take the same camera options; only the style differs. `initialCamera` is what
@@ -359,25 +397,21 @@ export function MapView({
     (map as mapboxgl.Map).setStyle(mapboxStyle(isDark));
   }, [isDark]);
 
-  // Rebuild the cluster index when the property set changes — a property created by Quick Add lands
+  // Rebuild the cluster index when the inputs change — a property created by Quick Add lands
   // in the list but not in the index built on mount, so it would be in the sidebar and invisible on
-  // the map. updateClusters then diffs the new cluster set against the visible markers, which adds
+  // the map. Market pills bypass the Supercluster index and are added as individual markers.
+  // updateClusters then diffs the new cluster set against the visible markers, which adds
   // the new pin and animates the removed ones out.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !clusterIndex.current) return;
-    clusterIndex.current.load(
-      properties.map((p) => ({
-        type: "Feature" as const,
-        geometry: { type: "Point" as const, coordinates: [p.lng, p.lat] },
-        properties: { id: p.id },
-      }))
-    );
+    closeMarketCard();
+    clusterIndex.current.load(properties.map(toPropertyFeature));
     updateClusters(map);
-    // updateClusters is redeclared every render; depending on it would loop. The property list is
-    // the only real input.
+    // updateClusters is redeclared every render; depending on it would loop. The property list and
+    // the listing set are the only real inputs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [properties]);
+  }, [properties, marketListings]);
 
   // Update marker highlight when selectedId changes
   useEffect(() => {
@@ -448,6 +482,134 @@ export function MapView({
       circle.style.transform = "scale(1)";
     });
     return wrapper;
+  }
+
+  /**
+   * A market pill and its tap-to-open listing card, one DOM element: Airbnb's map-listing pattern
+   * (verified against Mobbin screens 24072f6f / 4f8dca21 — white price pills, selected pill dark,
+   * photo card docked at the pin). The card is built on click and lives inside the pill's marker
+   * wrapper, so the map camera moves it for free; it dies with the marker.
+   */
+  function createMarketElement(listing: LandscapeListing): { wrapper: HTMLElement } {
+    const pill = document.createElement("div");
+    pill.setAttribute("data-market-pill", "true");
+    pill.setAttribute("role", "button");
+    pill.setAttribute("tabindex", "0");
+    pill.textContent = listing.priceLabel ?? (listing.tab === "sale" ? "For sale" : "For rent");
+    pill.style.cssText = `
+      white-space: nowrap; cursor: pointer;
+      padding: 3px 7px; border-radius: 9999px;
+      border: 1px solid var(--color-border-default, rgba(0,0,0,0.12));
+      background: var(--color-surface-base, #fff);
+      color: var(--color-foreground, #111);
+      font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.2;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    `;
+
+    const wrapper = document.createElement("div");
+    wrapper.appendChild(pill);
+
+    const paintSelected = (on: boolean) => {
+      pill.style.background = on ? "var(--color-foreground, #111827)" : "var(--color-surface-base, #fff)";
+      pill.style.color = on ? "var(--color-surface-base, #fff)" : "var(--color-foreground, #111)";
+    };
+
+    const toggle = () => {
+      const key = marketKeyOf(listing.id);
+      if (openMarketRef.current) {
+        const wasOpen = openMarketRef.current.key === key;
+        closeMarketCard();
+        if (wasOpen) return;
+      }
+      paintSelected(true);
+      openMarketRef.current = { key, pill, card: createMarketCard(listing, wrapper) };
+    };
+    pill.addEventListener("click", (e) => {
+      e.stopPropagation();
+      toggle();
+    });
+    pill.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        toggle();
+      }
+    });
+
+    return { wrapper };
+  }
+
+  /** The listing preview card. Anchor: directly above its pill, centered on it — the same tooltip
+   * anchoring the property pin uses. Near a viewport edge it can overhang; accepted for ≤12 pills
+   * (the drawer list is the always-visible fallback). */
+  function createMarketCard(listing: LandscapeListing, wrapper: HTMLElement): HTMLElement {
+    const card = document.createElement("div");
+    card.setAttribute("role", "dialog");
+    card.setAttribute("aria-label", `Market listing: ${listing.headline}`);
+    card.style.cssText = `
+      position: absolute; bottom: calc(100% + 10px); left: 50%; transform: translateX(-50%);
+      width: 224px; border-radius: 12px; overflow: hidden;
+      background: var(--color-surface-base, #fff);
+      border: 1px solid var(--color-border-default, rgba(0,0,0,0.12));
+      box-shadow: 0 10px 28px rgba(0,0,0,0.22);
+      z-index: 20;
+    `;
+    if (listing.imageUrl) {
+      const img = document.createElement("img");
+      img.src = listing.imageUrl;
+      img.alt = listing.headline;
+      img.loading = "lazy";
+      img.style.cssText = "display:block; width:100%; height:104px; object-fit:cover;";
+      card.appendChild(img);
+    }
+    const body = document.createElement("div");
+    body.style.cssText = "padding: 8px 10px 10px; display: flex; flex-direction: column; gap: 4px;";
+
+    const tag = document.createElement("span");
+    tag.style.cssText =
+      "align-self: flex-start; padding: 1px 6px; border-radius: 4px; font-size: 9.6px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; background: var(--color-surface-sunken, #f1f4f8); color: var(--color-secondary, #5b6b7b);";
+    tag.textContent = listing.tab === "sale" ? "Sale" : "Rent";
+
+    const headline = document.createElement("p");
+    headline.style.cssText =
+      "margin: 0; font-size: 12px; font-weight: 600; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;";
+    headline.textContent = listing.headline;
+
+    const meta = document.createElement("p");
+    meta.style.cssText = "margin: 0; font-size: 10.5px; color: var(--color-secondary, #5b6b7b); tabular-nums;";
+    meta.textContent =
+      listing.distanceM === null
+        ? "Location approximate"
+        : `${listing.distanceM < 1000 ? `${listing.distanceM} m` : `${(listing.distanceM / 1000).toFixed(1)} km`} from this property`;
+
+    const link = document.createElement("a");
+    link.href = listing.url;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.textContent = "View on realestate.com.kh";
+    link.style.cssText =
+      "font-size: 10.5px; text-decoration: underline; color: var(--color-interactive-primary, #2563eb);";
+
+    body.append(tag, headline, meta, link);
+    card.appendChild(body);
+
+    const close = document.createElement("button");
+    close.type = "button";
+    close.setAttribute("aria-label", "Close listing preview");
+    close.textContent = "✕";
+    close.style.cssText =
+      "position: absolute; top: 6px; right: 6px; width: 22px; height: 22px; border-radius: 50%; background: var(--color-surface-base, #fff); border: 1px solid var(--color-border-default, rgba(0,0,0,0.12)); cursor: pointer; font-size: 11px; line-height: 1; color: var(--color-foreground, #111);";
+    card.appendChild(close);
+
+    // Card clicks must not read as pill clicks: without stopping them, tapping the card would
+    // bubble to the pill's own toggle and immediately close what just opened.
+    card.addEventListener("click", (e) => e.stopPropagation());
+    close.addEventListener("click", (e) => {
+      e.stopPropagation();
+      closeMarketCard();
+    });
+    link.addEventListener("click", (e) => e.stopPropagation());
+    wrapper.appendChild(card);
+    return card;
   }
 
   function createPinElement(p: Property): { wrapper: HTMLElement } {
@@ -530,6 +692,7 @@ export function MapView({
   // them, and the next updateClusters stacks a fresh marker on top. That is the glitch: duplicates
   // that never go away, one more per style switch.
   function clearMarkers() {
+    closeMarketCard();
     exitingMarkersRef.current.forEach((e) => {
       clearTimeout(e.timeout);
       e.marker.remove();
@@ -672,16 +835,17 @@ export function MapView({
       bounds.getNorth(),
     ];
     const zoom = Math.floor(ml.getZoom());
-    const clusters = clusterIndex.current.getClusters(bbox, zoom);
+    // Market pills bypass the index: every pill is always its own marker, so they never fold into
+    // a property badge. Property pins keep clustering.
+    const clusters: ReturnType<Supercluster["getClusters"]> = [
+      ...clusterIndex.current.getClusters(bbox, zoom),
+      ...marketFeatures(marketListingsRef.current),
+    ];
 
     // Determine which keys should be visible
     const nextKeys = new Set<string>();
     for (const f of clusters) {
-      nextKeys.add(
-        f.properties.cluster
-          ? `cluster-${f.properties.cluster_id}`
-          : `point-${f.properties.id}`
-      );
+      nextKeys.add(markerKey(f));
     }
 
     const canvas = ml.getCanvas();
@@ -739,31 +903,35 @@ export function MapView({
     for (const [key, marker] of activeMarkersRef.current) {
       if (!nextKeys.has(key) && !exitingMarkersRef.current.has(key)) {
         activeMarkersRef.current.delete(key);
-        const isPin = key.startsWith("point-");
+        const isPill = key.startsWith("point-market-");
+        const isPin = !isPill && key.startsWith("point-");
         const markerEl = marker.getElement();
+        // A pill's inner element differs from a property pin's, but they share the same exit
+        // animations — `point-*` covers both, only the query target differs.
         const innerEl = markerEl.querySelector<HTMLElement>(
-          isPin ? "[data-pin]" : "[data-cluster-circle]"
+          isPill ? "[data-market-pill]" : isPin ? "[data-pin]" : "[data-cluster-circle]"
         );
         if (innerEl) {
+          const pinish = isPin || isPill; // pills exit like pins, just with a different inner node
           const lngLat = marker.getLngLat() as unknown as MapLibreLngLat;
           const offScreen = isOffScreen(lngLat);
           if (!offScreen) {
             const target = nearestIncomingCluster(lngLat);
-            if (isPin && target) {
+            if (pinish && target) {
               innerEl.style.setProperty("--pin-tx", `${target.dx}px`);
               innerEl.style.setProperty("--pin-ty", `${target.dy}px`);
               innerEl.style.animation = "pin-converge-exit 220ms cubic-bezier(0.4, 0, 1, 1) both";
-            } else if (!isPin && target) {
+            } else if (!pinish && target) {
               innerEl.style.setProperty("--cluster-tx", `${target.dx}px`);
               innerEl.style.setProperty("--cluster-ty", `${target.dy}px`);
               innerEl.style.animation = "cluster-converge-exit 220ms cubic-bezier(0.4, 0, 1, 1) both";
             } else {
-              innerEl.style.animation = isPin
+              innerEl.style.animation = pinish
                 ? "pin-exit 180ms cubic-bezier(0.4, 0, 1, 1) both"
                 : "cluster-exit 220ms cubic-bezier(0.4, 0, 1, 1) both";
             }
           } else {
-            innerEl.style.animation = isPin
+            innerEl.style.animation = pinish
               ? "pin-exit 180ms cubic-bezier(0.4, 0, 1, 1) both"
               : "cluster-exit 220ms cubic-bezier(0.4, 0, 1, 1) both";
           }
@@ -771,6 +939,7 @@ export function MapView({
         const timeout = setTimeout(() => {
           marker.remove();
           exitingMarkersRef.current.delete(key);
+          if (openMarketRef.current?.key === key) openMarketRef.current = null;
           if (isPin) {
             pinMarkersRef.current.delete(key.replace("point-", ""));
           }
@@ -782,9 +951,7 @@ export function MapView({
     // Add new markers
     for (const f of clusters) {
       const isCluster = f.properties.cluster;
-      const key = isCluster
-        ? `cluster-${f.properties.cluster_id}`
-        : `point-${f.properties.id}`;
+      const key = markerKey(f);
 
       // Already visible — skip
       if (activeMarkersRef.current.has(key)) continue;
@@ -795,11 +962,11 @@ export function MapView({
         clearTimeout(entry.timeout);
         exitingMarkersRef.current.delete(key);
         const innerEl = entry.marker.getElement().querySelector<HTMLElement>(
-          "[data-cluster-circle], [data-pin]"
+          "[data-cluster-circle], [data-pin], [data-market-pill]"
         );
         if (innerEl) innerEl.style.animation = "";
         activeMarkersRef.current.set(key, entry.marker);
-        if (key.startsWith("point-")) {
+        if (key.startsWith("point-") && !key.startsWith("point-market-")) {
           const id = key.replace("point-", "");
           pinMarkersRef.current.set(id, entry.marker);
         }
@@ -841,6 +1008,26 @@ export function MapView({
           const z = Math.min(expansion, MAP_MAX_ZOOM);
           map.easeTo({ center: [lng, lat], zoom: z });
         });
+        activeMarkersRef.current.set(key, m);
+      } else if ((f.properties as { kind?: string }).kind === "market") {
+        const listing = marketListingsRef.current.find((l) => l.id === (f.properties as { id: number }).id);
+        if (!listing) continue; // listings changed mid-diff; next updateClusters reconciles
+        const { wrapper } = createMarketElement(listing);
+        const pill = wrapper.querySelector<HTMLElement>("[data-market-pill]");
+        if (pill) {
+          // Pills bypass the Supercluster index; reuse the pin entrance animation from a nearby
+          // exiting cluster when available, with a random stagger so twins don't pop in lockstep.
+          const origin = nearestExitingCluster(new LL(lng, lat));
+          const delay = Math.floor(Math.random() * 80);
+          if (origin) {
+            pill.style.setProperty("--pin-ox", `${origin.dx}px`);
+            pill.style.setProperty("--pin-oy", `${origin.dy}px`);
+            pill.style.animation = `pin-emerge 300ms cubic-bezier(0.16, 1, 0.3, 1) ${delay}ms both`;
+          } else {
+            pill.style.animation = `pin-appear 280ms cubic-bezier(0.16, 1, 0.3, 1) ${delay}ms both`;
+          }
+        }
+        const m = new Mk({ element: wrapper, anchor: "center" }).setLngLat([lng, lat]).addTo(map);
         activeMarkersRef.current.set(key, m);
       } else {
         const property = propertiesRef.current.find((p) => p.id === f.properties.id)!;
