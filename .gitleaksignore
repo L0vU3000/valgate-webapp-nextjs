@@ -1,0 +1,10 @@
+# gitleaks false positives: the identifier `resolveApiV1Ctx` in R628 wave-1 unit-test evidence log (no secrets).
+58b7286ac8a8068bbd9aef85098347d389b144c1:docs/evidence/r628-wave1/green-unit.log:generic-api-key:42
+58b7286ac8a8068bbd9aef85098347d389b144c1:docs/evidence/r628-wave1/green-unit.log:generic-api-key:43
+58b7286ac8a8068bbd9aef85098347d389b144c1:docs/evidence/r628-wave1/green-unit.log:generic-api-key:44
+58b7286ac8a8068bbd9aef85098347d389b144c1:docs/evidence/r628-wave1/green-unit.log:generic-api-key:45
+58b7286ac8a8068bbd9aef85098347d389b144c1:docs/evidence/r628-wave1/green-unit.log:generic-api-key:46
+58b7286ac8a8068bbd9aef85098347d389b144c1:docs/evidence/r628-wave1/green-unit.log:generic-api-key:47
+58b7286ac8a8068bbd9aef85098347d389b144c1:docs/evidence/r628-wave1/green-unit.log:generic-api-key:48
+58b7286ac8a8068bbd9aef85098347d389b144c1:docs/evidence/r628-wave1/green-unit.log:generic-api-key:49
+58b7286ac8a8068bbd9aef85098347d389b144c1:docs/evidence/r628-wave1/green-unit.log:generic-api-key:50
