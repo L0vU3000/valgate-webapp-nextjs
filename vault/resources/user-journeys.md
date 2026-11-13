@@ -33,6 +33,11 @@ intend to build + the verification model" see `docs/feature-requirements.md`.
 - **Public docs** — shareable public property record.
 
 ## Manager (Pro) journeys — `/pro/*`
+
+> **DISABLED (owner decision 2026-11-09).** The cockpit is off; the wanted
+> feature from this space is **shared organisations** (family members view one
+> portfolio, read-only) — see `docs/plans/SHARED-ORG-PLAN.md`. Sections below
+> describe the machinery that stays, not a shipped UI.
 - **Dashboard** — cockpit overview.
 - **Clients** (`/pro/clients`) — unified list, invite (20-cap), status badge,
   drill into `/pro/clients/[clientId]`.

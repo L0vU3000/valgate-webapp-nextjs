@@ -171,6 +171,8 @@ const isPublicRoute = createRouteMatcher([
   "/mcp(.*)",
   "/.well-known/(.*)",
   "/",
+  // Marketing pitch page (dual-product landing, static-rendered): unauthenticated by design.
+  "/product(.*)",
 ]);
 
 // API v1 (/api/v1/*) is NOT publicly accessible — kept separate from isPublicRoute so "public"
