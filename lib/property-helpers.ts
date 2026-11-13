@@ -1,5 +1,6 @@
 import {
   Home,
+  CircleDashed,
   Building2,
   Store,
   LandPlot,
@@ -19,6 +20,7 @@ export const TYPE_LABEL: Record<PropertyTypeChoice, string> = {
   industrial:   "Industrial",
   construction: "Construction",
   other:        "Other",
+  none:         "None",
 };
 
 export const TYPE_ICON: Record<PropertyTypeChoice, LucideIcon> = {
@@ -30,6 +32,7 @@ export const TYPE_ICON: Record<PropertyTypeChoice, LucideIcon> = {
   industrial:   Factory,
   construction: HardHat,
   other:        MoreHorizontal,
+  none:         CircleDashed,
 };
 
 export const TYPE_COLOR: Record<PropertyTypeChoice, string> = {
@@ -41,6 +44,7 @@ export const TYPE_COLOR: Record<PropertyTypeChoice, string> = {
   industrial:   "bg-sky-100 text-sky-600",
   construction: "bg-amber-100 text-amber-600",
   other:        "bg-indigo-100 text-indigo-600",
+  none:         "bg-slate-100 text-slate-500",
 };
 
 export function typeBadgeClasses(type: PropertyTypeChoice): string {
@@ -53,6 +57,7 @@ export function typeBadgeClasses(type: PropertyTypeChoice): string {
     case "industrial":   return "bg-sky-50 text-sky-600";
     case "construction": return "bg-amber-50 text-amber-600";
     case "other":        return "bg-indigo-50 text-indigo-600";
+    case "none":         return "bg-slate-50 text-slate-500";
   }
 }
 

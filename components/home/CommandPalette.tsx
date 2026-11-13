@@ -32,6 +32,7 @@ import {
   DialogTitle,
 } from "../ui/dialog";
 import { cn } from "../ui/utils";
+import { TYPE_LABEL } from "@/lib/property-helpers";
 import { useIsMobile } from "../ui/use-mobile";
 import type {
   PropertyListItem,
@@ -234,7 +235,7 @@ export function CommandPalette({
                             progressClass(p.progress),
                           )}
                         />
-                        {p.type} · {p.province}
+                        {TYPE_LABEL[p.type]} · {p.province}
                       </p>
                       <span className="text-xs font-mono font-medium text-foreground/60 shrink-0">
                         {p.buy}

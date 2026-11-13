@@ -1,16 +1,8 @@
+import { propertyTypeChoiceSchema } from "@/lib/data/types/property";
 import { MONTH_REGEX } from "@/lib/data/types/property-valuation";
 import type { ColumnConfig, EntityType } from "@/lib/services/ingestion/types";
 
-const TYPE_OPTIONS = [
-  { value: "residential", label: "residential" },
-  { value: "commercial", label: "commercial" },
-  { value: "multi-unit", label: "multi-unit" },
-  { value: "retail", label: "retail" },
-  { value: "land", label: "land" },
-  { value: "industrial", label: "industrial" },
-  { value: "construction", label: "construction" },
-  { value: "other", label: "other" },
-];
+const TYPE_OPTIONS = propertyTypeChoiceSchema.options.map((value) => ({ value, label: value }));
 
 const STATUS_OPTIONS = [
   { value: "", label: "—" },

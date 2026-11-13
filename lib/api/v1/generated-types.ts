@@ -829,7 +829,7 @@ export interface components {
         PropertyCreateBody: {
             name: string;
             /** @enum {string} */
-            type: "residential" | "commercial" | "multi-unit" | "retail" | "land" | "industrial" | "construction" | "other";
+            type: "residential" | "commercial" | "multi-unit" | "retail" | "land" | "industrial" | "construction" | "other" | "none";
             /** @enum {string} */
             status: "Rented" | "Vacant" | "For Sale" | "Sold" | "Archived" | "Owner-Occupied";
             lat: number;
@@ -880,7 +880,7 @@ export interface components {
         PropertyPatchBody: {
             name?: string;
             /** @enum {string} */
-            type?: "residential" | "commercial" | "multi-unit" | "retail" | "land" | "industrial" | "construction" | "other";
+            type?: "residential" | "commercial" | "multi-unit" | "retail" | "land" | "industrial" | "construction" | "other" | "none";
             /** @enum {string} */
             status?: "Rented" | "Vacant" | "For Sale" | "Sold" | "Archived" | "Owner-Occupied";
             lat?: number;

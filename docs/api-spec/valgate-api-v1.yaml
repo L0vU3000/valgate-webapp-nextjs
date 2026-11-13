@@ -1567,7 +1567,7 @@ components:
           minLength: 1
         type:
           type: string
-          enum: [residential, commercial, multi-unit, retail, land, industrial, construction, other]
+          enum: [residential, commercial, multi-unit, retail, land, industrial, construction, other, none]
         status:
           type: string
           enum: [Rented, Vacant, For Sale, Sold, Archived, Owner-Occupied]
@@ -1662,7 +1662,7 @@ components:
           minLength: 1
         type:
           type: string
-          enum: [residential, commercial, multi-unit, retail, land, industrial, construction, other]
+          enum: [residential, commercial, multi-unit, retail, land, industrial, construction, other, none]
         status:
           type: string
           enum: [Rented, Vacant, For Sale, Sold, Archived, Owner-Occupied]

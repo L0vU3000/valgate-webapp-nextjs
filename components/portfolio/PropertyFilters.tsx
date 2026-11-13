@@ -28,6 +28,7 @@ const TYPE_DOT: Record<string, string> = {
   industrial:   "bg-sky-400",
   construction: "bg-amber-400",
   other:        "bg-indigo-400",
+  none:         "bg-slate-400",
 };
 
 const TYPE_OPTIONS: FilterOption[] = [
