@@ -1,0 +1,48 @@
+{
+  "activity": [
+    {
+      "amountNumeric": null,
+      "at": 1700000000000,
+      "kind": "payment",
+      "propertyName": "Phnom Penh home",
+      "title": "Payment recorded"
+    }
+  ],
+  "attention": [
+    {
+      "dueAt": null,
+      "kind": "risk",
+      "propertyName": "Phnom Penh home",
+      "status": "Overdue",
+      "title": "Open risk"
+    }
+  ],
+  "collectedAmountNumeric": null,
+  "currency": null,
+  "depositHeldNumeric": null,
+  "documentCount": 2,
+  "dueCount": 2,
+  "expectedAmountNumeric": null,
+  "history": [],
+  "monthLabel": "Nov 2023",
+  "nextPayoutAmountNumeric": null,
+  "nextPayoutAt": null,
+  "occupancyPercent": 50,
+  "occupiedCount": 1,
+  "overdueAmountNumeric": null,
+  "overdueCount": 1,
+  "paidCount": 1,
+  "tenancies": [
+    {
+      "currency": "USD",
+      "monthlyRentNumeric": 1200.5,
+      "propertyId": "PROP-0001",
+      "propertyName": "Phnom Penh home",
+      "status": "paid",
+      "tenantName": null
+    }
+  ],
+  "tenancyCount": 1,
+  "totalCount": 2,
+  "upcoming": []
+}

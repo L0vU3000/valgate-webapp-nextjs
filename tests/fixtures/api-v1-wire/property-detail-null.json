@@ -1,0 +1,14 @@
+{
+  "coverPhoto": null,
+  "createdAt": 1699913600000,
+  "currency": null,
+  "id": "PROP-0002",
+  "lat": 11.5564,
+  "lng": 104.9282,
+  "name": "Unpriced land",
+  "priceNumeric": null,
+  "status": "Vacant",
+  "title": "—",
+  "totalArea": "120",
+  "type": "land"
+}
