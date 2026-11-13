@@ -314,6 +314,83 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
+  # Coordinator note to R648 spec (2026-11-13): new org document DTO category is
+  # the existing seven-value enum OR null. Null means uncategorized (UI: Unsorted).
+  # Summary has exactly those seven keys plus uncategorized, zero-filled and
+  # summing to total; uncategorized counts category IS NULL. D1/D3 stay frozen.
+  # Existing per-property routes/DTOs remain unchanged this round. Kind derives
+  # from the MIME image/ prefix (photo), otherwise document.
+  /documents:
+    get:
+      operationId: listOrgDocuments
+      summary: List documents across the caller's organization
+      description: |
+        Org-scoped keyset page ordered uploadedAt DESC, id DESC. Same read role gate
+        as the per-property list. Pass nextCursor unchanged to fetch the next page.
+        Invalid limit, category, kind or cursor returns 400 invalid_request.
+        Null category is the uncategorized bucket (the UI label is Unsorted).
+        Kind is derived from MIME: image/* is photo, everything else is document.
+      parameters:
+        - $ref: "#/components/parameters/LimitQuery"
+        - $ref: "#/components/parameters/CursorQuery"
+        - name: category
+          in: query
+          schema:
+            type: string
+            enum: [Title, Rental, Photos, Legal, Financial, Estate, Other, uncategorized]
+          description: An existing category, or uncategorized for NULL category rows.
+        - name: kind
+          in: query
+          schema:
+            type: string
+            enum: [photo, document]
+      responses:
+        "200":
+          description: Paginated organization document list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrgDocumentsPageDto"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /documents/summary:
+    get:
+      operationId: getDocumentsSummary
+      summary: Count documents and properties in the caller's organization
+      description: |
+        Counts all matching documents, distinct properties with matching documents,
+        and exactly eight zero-filled category buckets. Bucket counts sum to total.
+        uncategorized counts NULL category rows; it is not a new category enum value.
+        Optional kind uses MIME derivation: image/* is photo, otherwise document.
+      parameters:
+        - name: kind
+          in: query
+          schema:
+            type: string
+            enum: [photo, document]
+      responses:
+        "200":
+          description: Organization document counts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentsSummaryDto"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
   /properties/{id}/documents:
     get:
       operationId: listPropertyDocuments
@@ -1030,6 +1107,106 @@ components:
           type: [number, "null"]
           minimum: 0
 
+    OrgDocumentListItemDto:
+      type: object
+      required: [id, propertyId, propertyName, name, kind, category, uploadedAt, expiresAt, status]
+      description: |
+        Organization document metadata with the property name. Null category means Unsorted. Storage ids, uploader, verification, and AI-summary
+        internals are never included.
+      properties:
+        id:
+          type: string
+        propertyId:
+          type: string
+        propertyName:
+          type: string
+        folderId:
+          type: [string, "null"]
+        name:
+          type: string
+        kind:
+          type: string
+          enum: [photo, document]
+          description: Derived from the MIME type on upload — `photo` for `image/*`, else `document`.
+        mimeType:
+          type: [string, "null"]
+        extension:
+          type: [string, "null"]
+        sizeBytes:
+          type: [integer, "null"]
+        category:
+          oneOf:
+            - type: string
+              enum: [Title, Rental, Photos, Legal, Financial, Estate, Other]
+            - type: "null"
+        description:
+          type: [string, "null"]
+        uploadedAt:
+          type: integer
+          description: Unix timestamp (milliseconds)
+        expiresAt:
+          type: [integer, "null"]
+          description: Unix timestamp (milliseconds) when the document lapses. Null when it has no expiry.
+        status:
+          type: [string, "null"]
+          enum: [expired, expiring, valid, null]
+          description: |
+            Derived from `expiresAt` on every read (never stored). `expired` at or after
+            `expiresAt`, `expiring` within 30 days of it, else `valid`. Null when there is no expiry.
+
+    OrgDocumentsPageDto:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrgDocumentListItemDto"
+        nextCursor:
+          type: [string, "null"]
+          description: Opaque cursor for the next page. Null if no more pages.
+
+    DocumentsSummaryDto:
+      type: object
+      required: [total, propertyCount, byCategory]
+      properties:
+        total:
+          type: integer
+          minimum: 0
+        propertyCount:
+          type: integer
+          minimum: 0
+          description: Distinct properties with documents matching the kind filter.
+        byCategory:
+          type: object
+          additionalProperties: false
+          required: [Title, Rental, Photos, Legal, Financial, Estate, Other, uncategorized]
+          description: Exactly eight zero-filled buckets summing to total. uncategorized counts NULL categories.
+          properties:
+            Title:
+              type: integer
+              minimum: 0
+            Rental:
+              type: integer
+              minimum: 0
+            Photos:
+              type: integer
+              minimum: 0
+            Legal:
+              type: integer
+              minimum: 0
+            Financial:
+              type: integer
+              minimum: 0
+            Estate:
+              type: integer
+              minimum: 0
+            Other:
+              type: integer
+              minimum: 0
+            uncategorized:
+              type: integer
+              minimum: 0
     DocumentListItemDtoV1:
       type: object
       required: [id, propertyId, name, kind, category, uploadedAt, expiresAt, status]
