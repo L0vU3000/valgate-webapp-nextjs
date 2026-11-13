@@ -22,3 +22,19 @@ GET /api/v1/properties/PROP-NOPE/market-landscape → 404
 
 Not captured: `unsupported` (no seeded property outside Cambodia) and the error/retry state —
 both covered by unit tests (`lib/services/market-landscape.test.ts`, route test).
+
+## Flag gate (read before enabling)
+
+`GET /api/v1/properties/{id}/market-landscape` (spec: `docs/api-spec/valgate-api-v1.yaml`,
+`MarketLandscapeDtoV1`) and the map drawer's Market section are **off unless the server env var
+`MARKET_LANDSCAPE_ENABLED=true`** is set. Unset or any other value returns a 200 with
+`coverage: "disabled"` and makes no outbound call.
+
+- **Production:** keep it unset until written permission from realestate.com.kh is on file. Their
+  terms bar automated access and republication, and robots.txt disallows `/api/`. See
+  `vault/decisions/market-landscape-legal.md`.
+- **Staging:** the owner decides. Staging is the Vercel **Preview** scope of `valgate-webapp`, fed
+  from Infisical `staging` `/web` by the `vercel-preview-web` sync (auto-sync off; see
+  `docs/SECRETS-INFISICAL.md`). Add `MARKET_LANDSCAPE_ENABLED=true` there and run the sync, or set it
+  in Vercel Preview limited to branch `staging` (plain Preview turns it on for every PR preview too).
+  Then redeploy staging. Never set it in Production or in Infisical `prod`.

@@ -14,6 +14,7 @@ export const PROPERTY_TYPES = [
   "industrial",
   "construction",
   "other",
+  "none",
 ] as const;
 
 export const OWNERSHIP_STATUSES = [
@@ -28,17 +29,7 @@ export const editPropertySchema = step2Schema
   .merge(step3Schema)
   .extend({
     propertyType: z
-      .enum([
-        "residential",
-        "commercial",
-        "multi-unit",
-        "retail",
-        "land",
-        "industrial",
-        "construction",
-        "other",
-        "",
-      ])
+      .enum([...PROPERTY_TYPES, ""])
       .optional(),
     status: z.enum(["Rented", "Vacant", "For Sale", "Sold"]).optional(),
   });

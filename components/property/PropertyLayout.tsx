@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { ChevronLeft, MoreVertical, LayoutGrid, Eye, DollarSign, Key, Globe, Archive, Pencil, Bell } from "lucide-react";
 import type { Property } from "@/lib/data/types/property";
+import { TYPE_LABEL } from "@/lib/property-helpers";
 import { usePropertyShell } from "@/components/property/PropertyShellContext";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -87,7 +88,7 @@ export function PropertyLayout({ activeTab, children, property, progress, onProg
           <span className="hidden sm:inline text-muted-foreground text-[14px]">Property</span>
           <span className="hidden sm:inline text-muted-foreground text-[14px]">/</span>
           <span className="text-foreground text-[15px] sm:text-[16px] truncate" style={{ fontWeight: 600 }}>
-            {property.code} {property.type}
+            {property.code} {TYPE_LABEL[property.type]}
           </span>
         </div>
         {/*

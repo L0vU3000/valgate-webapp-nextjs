@@ -1,16 +1,9 @@
 import { z } from "zod";
+import { propertyTypeChoiceSchema } from "@/lib/data/types/property";
 
 export const step1Schema = z.object({
-  propertyType: z.enum([
-    "residential",
-    "commercial",
-    "multi-unit",
-    "retail",
-    "land",
-    "industrial",
-    "construction",
-    "other",
-  ], { message: "Please select a property type" }),
+  // Required (no blank choice), but "none" is a valid choice — Quick Add offers it (R637).
+  propertyType: z.enum(propertyTypeChoiceSchema.options, { message: "Please select a property type" }),
 });
 
 export const step2Schema = z.object({

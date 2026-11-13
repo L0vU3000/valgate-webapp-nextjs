@@ -13,7 +13,18 @@ vi.mock("@/lib/services/properties", () => ({ getProperty: getPropertyMock }));
 vi.mock("@/lib/services/market-landscape", () => ({ getMarketLandscape: landscapeMock }));
 
 import { GET } from "@/app/api/v1/properties/[id]/market-landscape/route";
-import { emptyLandscape } from "@/lib/market-landscape";
+import { emptyLandscape, type MarketLandscapeDTO } from "@/lib/market-landscape";
+import type { components } from "@/lib/api/v1/generated-types";
+
+// Contract: what the route serves (every coverage except internal-only "unavailable", which is a
+// 502) must be exactly the OpenAPI MarketLandscapeDtoV1. Checked both ways by `npm run typecheck`;
+// a field added to either side without the other stops compiling.
+type Wire = components["schemas"]["MarketLandscapeDtoV1"];
+type Served = Omit<MarketLandscapeDTO, "coverage"> & {
+  coverage: Exclude<MarketLandscapeDTO["coverage"], "unavailable">;
+};
+export const servedIsWire = (x: Served): Wire => x;
+export const wireIsServed = (x: Wire): Served => x;
 
 const CTX: Ctx = { userId: "USR-0001", orgId: "ORG-0001", orgRole: "owner" };
 const PROPERTY = { id: "PROP-0001", lat: 11.5262, lng: 104.9146, addressLine: "Chak Angre Leu, Meanchey" };

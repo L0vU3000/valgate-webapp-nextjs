@@ -24,6 +24,7 @@ export const propertyTypeChoiceSchema = z.enum([
   "industrial",
   "construction",
   "other",
+  "none", // owner has not chosen a type (R637); displayed as "None"
 ]);
 export type PropertyTypeChoice = z.infer<typeof propertyTypeChoiceSchema>;
 

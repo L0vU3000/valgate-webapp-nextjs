@@ -182,6 +182,14 @@ describe("parseCreateBody / toNewProperty", () => {
     expect(parseCreateBody({ ...VALID_CREATE, type: "castle" }).ok).toBe(false);
     expect(parseCreateBody({ ...VALID_CREATE, lat: 99 }).ok).toBe(false);
   });
+
+  it("accepts type \"none\" (R637: owner has not chosen a type) and stores it as-is", () => {
+    const parsed = parseCreateBody({ ...VALID_CREATE, type: "none" });
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) throw new Error("expected success");
+    expect(toNewProperty(parsed.body).type).toBe("none");
+    expect(parseCreateBody({ ...VALID_CREATE, type: "None" }).ok).toBe(false);
+  });
 });
 
 describe("parsePatchBody / toPropertyPatch", () => {
@@ -214,6 +222,14 @@ describe("parsePatchBody / toPropertyPatch", () => {
     if (!parsed.ok) throw new Error("expected success");
 
     expect(toPropertyPatch(parsed.body)).toEqual({});
+  });
+
+  it("accepts type \"none\" and rejects an unknown type", () => {
+    const parsed = parsePatchBody({ type: "none" });
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) throw new Error("expected success");
+    expect(toPropertyPatch(parsed.body)).toEqual({ type: "none" });
+    expect(parsePatchBody({ type: "castle" }).ok).toBe(false);
   });
 });
 

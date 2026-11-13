@@ -49,6 +49,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { formatBytes } from "@/lib/format";
+import { TYPE_LABEL } from "@/lib/property-helpers";
 import { DevFileButton } from "@/components/dev/DevFileButton";
 import { createDummyPdf } from "@/lib/dev-tools";
 
@@ -1022,7 +1023,7 @@ export function PropertyDocumentsPage({ property, documents: dbDocuments = [], f
               Documents
             </h1>
             <p className="text-slate-500 text-base mt-2">
-              {files.length} files · {property.code} {property.type}
+              {files.length} files · {property.code} {TYPE_LABEL[property.type]}
             </p>
 
             {/* The page's one add affordance: a centred Quick add pill that arms into the options in

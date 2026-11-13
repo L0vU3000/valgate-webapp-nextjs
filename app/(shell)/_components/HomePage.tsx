@@ -28,6 +28,7 @@ import {
   progressClass,
   progressBgClass,
   titleToVariant,
+  TYPE_LABEL,
 } from "@/lib/property-helpers";
 import type {
   HomeProperty,
@@ -939,8 +940,8 @@ export function HomePage({
                       <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500 mb-0.5">
                         Type
                       </p>
-                      <p className="text-sm font-medium text-foreground capitalize">
-                        {drawerProperty.type}
+                      <p className="text-sm font-medium text-foreground">
+                        {TYPE_LABEL[drawerProperty.type]}
                       </p>
                     </div>
                     <div>

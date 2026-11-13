@@ -204,6 +204,13 @@
       "when": 1791965237226,
       "tag": "0028_document_ai_suggestions",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1791980000000,
+      "tag": "0029_property_type_none",
+      "breakpoints": true
     }
   ]
 }
