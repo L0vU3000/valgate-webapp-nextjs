@@ -949,6 +949,8 @@
   --interactive-secondary-hover:  #E8EAED;
   --interactive-secondary-text:   #14181B;
   --brand-subtle:                 #DBEAFE;
+  --brand:                        #2563EB;
+  --brand-deep:                   #004AC6;
 
   /* Status — Success */
   --status-success:        #059669;
@@ -1056,6 +1058,8 @@
   --interactive-secondary-hover:  #202334;
   --interactive-secondary-text:   #EEF2F8;
   --brand-subtle:                 #1E3A8A;
+  --brand:                        #3B82F6;
+  --brand-deep:                   #004AC6;
 
   /* Status — Success */
   --status-success:        #10B981;
@@ -1175,6 +1179,8 @@
   --color-interactive-secondary-hover: var(--interactive-secondary-hover);
   --color-interactive-secondary-text:  var(--interactive-secondary-text);
   --color-brand-subtle:                var(--brand-subtle);
+  --color-brand:                       var(--brand);
+  --color-brand-deep:                  var(--brand-deep);
 
   /* Status → bg/text/border-status-*-* */
   --color-status-success:        var(--status-success);
