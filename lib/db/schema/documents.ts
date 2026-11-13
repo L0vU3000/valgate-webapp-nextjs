@@ -52,6 +52,7 @@ export const documents = pgTable("documents", {
   expiresAt: timestamp("expires_at", { withTimezone: true }),
 }, (t) => [
   index("ix_documents_org").on(t.orgId),
+  index("ix_documents_org_uploaded_id").on(t.orgId, t.uploadedAt.desc(), t.id.desc()),
   index("ix_documents_property").on(t.propertyId),
   index("ix_documents_folder").on(t.folderId),
 ]);

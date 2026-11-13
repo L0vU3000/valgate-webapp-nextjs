@@ -178,6 +178,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List documents across the caller's organization
+         * @description Org-scoped keyset page ordered uploadedAt DESC, id DESC. Same read role gate
+         *     as the per-property list. Pass nextCursor unchanged to fetch the next page.
+         *     Invalid limit, category, kind or cursor returns 400 invalid_request.
+         *     Null category is the uncategorized bucket (the UI label is Unsorted).
+         *     Kind is derived from MIME: image/* is photo, everything else is document.
+         */
+        get: operations["listOrgDocuments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/documents/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Count documents and properties in the caller's organization
+         * @description Counts all matching documents, distinct properties with matching documents,
+         *     and exactly eight zero-filled category buckets. Bucket counts sum to total.
+         *     uncategorized counts NULL category rows; it is not a new category enum value.
+         *     Optional kind uses MIME derivation: image/* is photo, otherwise document.
+         */
+        get: operations["getDocumentsSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/properties/{id}/documents": {
         parameters: {
             query?: never;
@@ -557,6 +604,58 @@ export interface components {
             taxAssessmentValue: number | null;
             annualInsurance: number | null;
         } & components["schemas"]["PropertyListItemDtoV1"];
+        /**
+         * @description Organization document metadata with the property name. Null category means Unsorted. Storage ids, uploader, verification, and AI-summary
+         *     internals are never included.
+         */
+        OrgDocumentListItemDto: {
+            id: string;
+            propertyId: string;
+            propertyName: string;
+            folderId?: string | null;
+            name: string;
+            /**
+             * @description Derived from the MIME type on upload — `photo` for `image/*`, else `document`.
+             * @enum {string}
+             */
+            kind: "photo" | "document";
+            mimeType?: string | null;
+            extension?: string | null;
+            sizeBytes?: number | null;
+            category: ("Title" | "Rental" | "Photos" | "Legal" | "Financial" | "Estate" | "Other") | null;
+            description?: string | null;
+            /** @description Unix timestamp (milliseconds) */
+            uploadedAt: number;
+            /** @description Unix timestamp (milliseconds) when the document lapses. Null when it has no expiry. */
+            expiresAt: number | null;
+            /**
+             * @description Derived from `expiresAt` on every read (never stored). `expired` at or after
+             *     `expiresAt`, `expiring` within 30 days of it, else `valid`. Null when there is no expiry.
+             * @enum {string|null}
+             */
+            status: "expired" | "expiring" | "valid" | null;
+        };
+        OrgDocumentsPageDto: {
+            items: components["schemas"]["OrgDocumentListItemDto"][];
+            /** @description Opaque cursor for the next page. Null if no more pages. */
+            nextCursor: string | null;
+        };
+        DocumentsSummaryDto: {
+            total: number;
+            /** @description Distinct properties with documents matching the kind filter. */
+            propertyCount: number;
+            /** @description Exactly eight zero-filled buckets summing to total. uncategorized counts NULL categories. */
+            byCategory: {
+                Title: number;
+                Rental: number;
+                Photos: number;
+                Legal: number;
+                Financial: number;
+                Estate: number;
+                Other: number;
+                uncategorized: number;
+            };
+        };
         /**
          * @description Public document metadata. Storage ids, uploader, verification, and AI-summary
          *     internals are never included.
@@ -1376,6 +1475,64 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listOrgDocuments: {
+        parameters: {
+            query?: {
+                /** @description Number of items per page (1-100). Defaults to 20. Anything else is a 400. */
+                limit?: components["parameters"]["LimitQuery"];
+                /** @description Opaque cursor from the previous page's `nextCursor`. Never construct or decode it yourself. */
+                cursor?: components["parameters"]["CursorQuery"];
+                /** @description An existing category, or uncategorized for NULL category rows. */
+                category?: "Title" | "Rental" | "Photos" | "Legal" | "Financial" | "Estate" | "Other" | "uncategorized";
+                kind?: "photo" | "document";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated organization document list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgDocumentsPageDto"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthorized"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getDocumentsSummary: {
+        parameters: {
+            query?: {
+                kind?: "photo" | "document";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Organization document counts */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentsSummaryDto"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthorized"];
             429: components["responses"]["RateLimited"];
             500: components["responses"]["InternalError"];
         };

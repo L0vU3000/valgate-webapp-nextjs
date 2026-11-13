@@ -30,6 +30,8 @@ identity/org resolution as MCP (`ctxFromMcpAuth`) rather than duplicating auth l
 | GET | `/api/v1/me` | The caller's own profile |
 | GET | `/api/v1/properties` | Opaque-cursor page of the caller's org's properties |
 | GET | `/api/v1/properties/{id}` | A single property's detail, org-scoped |
+| GET | `/api/v1/documents` | Filtered opaque-cursor page across the caller's organization |
+| GET | `/api/v1/documents/summary` | Organization document counts by category and distinct property |
 | GET | `/api/v1/properties/{id}/documents` | Opaque-cursor page of one property's documents, org-scoped |
 | POST | `/api/v1/properties/{id}/documents` | Issue a direct object-storage upload ticket |
 | POST | `/api/v1/properties/{id}/documents/complete` | Record a completed direct upload |
@@ -94,6 +96,55 @@ Response body (`PropertyDetailDto`): the list fields above (including `lat`/`lng
 A property that doesn't exist and a property that exists in a **different** org are
 indistinguishable here — both return a plain 404. The lookup is org-scoped
 (`WHERE orgId = ctx.orgId`), so there is no separate "exists but not yours" case to leak.
+
+### `GET /api/v1/documents`
+
+Lists documents across properties in the authenticated caller's organization, ordered
+by `uploadedAt DESC, id DESC`. Uses the same read authorization and rate limiter as
+the per-property list, including viewer access.
+
+Query parameters:
+
+- `limit`: plain integer 1–100, default 20.
+- `cursor`: opaque `nextCursor` from the previous page, passed unchanged.
+- `category`: `Title`, `Rental`, `Photos`, `Legal`, `Financial`, `Estate`, `Other`, or
+  `uncategorized` (rows whose category is null).
+- `kind`: `photo` for MIME types starting with `image/`, otherwise `document`
+  (including missing MIME types). Filters combine with category.
+
+Returns `{ items: [OrgDocumentListItemDto, ...], nextCursor: string | null }`.
+The item carries the existing public document metadata plus `propertyName: string`;
+its required `category` is the existing enum **or null**. Storage identifiers,
+uploader identifiers and AI internals are excluded. Invalid filter values, limit
+or cursor return `400 invalid_request`; absent authentication returns 401.
+
+### `GET /api/v1/documents/summary`
+
+Optional `kind` uses the same MIME derivation and validation as the org list.
+Returns `DocumentsSummaryDto`:
+
+```json
+{
+  "total": 0,
+  "propertyCount": 0,
+  "byCategory": {
+    "Title": 0, "Rental": 0, "Photos": 0, "Legal": 0,
+    "Financial": 0, "Estate": 0, "Other": 0, "uncategorized": 0
+  }
+}
+```
+
+`propertyCount` counts distinct properties with matching documents. All counts are
+org-scoped and use one aggregate query. Exactly eight category keys always appear,
+including zeros, and sum to `total`.
+
+**Coordinator note to the R648 spec (2026-11-13):** category on the new org document
+DTO is nullable on the wire; null is the virtual `uncategorized` bucket, which iOS
+labels “Unsorted”. The seven enum values remain frozen (D1/D3). Summary counts
+`category IS NULL` under `uncategorized`; the Postgres enum cannot store off-enum
+values. The existing per-property route, its YAML DTO and `DocumentListItemDto`
+are unchanged this round. MIME `image/` prefix means photo; everything else means
+document.
 
 ### `GET /api/v1/properties/{id}/documents`
 

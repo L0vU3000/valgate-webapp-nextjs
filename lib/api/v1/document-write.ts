@@ -6,7 +6,8 @@ import { clearValue } from "@/lib/api/v1/property-write";
 const documentNameSchema = z.string().trim().min(1).max(255);
 const mimeTypeSchema = z.string().refine((value) => ALLOWED_MIME.has(value), "Unsupported MIME type.");
 const sizeBytesSchema = z.number().int().positive().max(MAX_BYTES);
-const categorySchema = z.enum(["Title", "Rental", "Photos", "Legal", "Financial", "Estate", "Other"]);
+export const DOCUMENT_CATEGORIES = ["Title", "Rental", "Photos", "Legal", "Financial", "Estate", "Other"] as const;
+const categorySchema = z.enum(DOCUMENT_CATEGORIES);
 const descriptionSchema = z.string().max(2_000).optional();
 
 const uploadFields = {

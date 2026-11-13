@@ -1,7 +1,12 @@
 import "server-only"; // C1
-import { and, asc, count, eq, gt, or } from "drizzle-orm";
+import { and, asc, count, countDistinct, desc, eq, gt, isNull, like, lt, notLike, or, sql } from "drizzle-orm";
+import { z } from "zod";
 import { db } from "@/lib/db/client";
-import { documents } from "@/lib/db/schema";
+import { documents, properties } from "@/lib/db/schema";
+import { DOCUMENT_CATEGORIES } from "@/lib/api/v1/document-write";
+import { documentStatus } from "@/lib/api/v1/dto";
+import type { components } from "@/lib/api/v1/generated-types";
+import type { DocumentsSummaryQuery, OrgDocumentsQuery } from "@/lib/api/v1/documents-query";
 import { encodeCursor, decodeCursor } from "@/lib/pagination/cursor";
 import { DocumentSchema, type Document } from "@/lib/data/types/document";
 import type { NewDocument, DocumentPatch } from "@/lib/data/types/document";
@@ -28,6 +33,87 @@ export async function listDocuments(ctx: Ctx, propertyId?: string): Promise<Docu
 export async function countDocuments(ctx: Ctx): Promise<number> {
   const [row] = await db.select({ n: count() }).from(documents).where(eq(documents.orgId, ctx.orgId)); // C3
   return row?.n ?? 0;
+}
+
+type OrgDocumentListItemDto = components["schemas"]["OrgDocumentListItemDto"];
+type DocumentsSummaryDto = components["schemas"]["DocumentsSummaryDto"];
+
+const OrgDocumentCursorSchema = z.object({
+  uploadedAt: z.number().int().min(0).max(8_640_000_000_000_000),
+  id: z.string().min(1),
+});
+
+function documentKindCondition(kind: DocumentsSummaryQuery["kind"]) {
+  if (kind === "photo") return like(documents.mimeType, "image/%");
+  if (kind === "document") return or(isNull(documents.mimeType), notLike(documents.mimeType, "image/%"));
+  return undefined;
+}
+
+export async function listOrgDocumentsPage(
+  ctx: Ctx,
+  opts: Omit<OrgDocumentsQuery, "cursor"> & { cursor?: string | null },
+): Promise<{ items: OrgDocumentListItemDto[]; nextCursor: string | null }> {
+  const conditions = [eq(documents.orgId, ctx.orgId), documentKindCondition(opts.kind)];
+  if (opts.category === "uncategorized") conditions.push(isNull(documents.category));
+  else if (opts.category !== undefined) conditions.push(eq(documents.category, opts.category));
+
+  if (opts.cursor !== undefined && opts.cursor !== null) {
+    const parsed = OrgDocumentCursorSchema.safeParse(decodeCursor(opts.cursor, ["uploadedAt", "id"]));
+    if (!parsed.success) throw new Error("invalid_cursor");
+    const after = new Date(parsed.data.uploadedAt);
+    conditions.push(or(
+      lt(documents.uploadedAt, after),
+      and(eq(documents.uploadedAt, after), lt(documents.id, parsed.data.id)),
+    ));
+  }
+
+  const rows = await db.select({
+    id: documents.id,
+    propertyId: documents.propertyId,
+    folderId: documents.folderId,
+    name: documents.name,
+    kind: sql<OrgDocumentListItemDto["kind"]>`case when ${documents.mimeType} like 'image/%' then 'photo' else 'document' end`,
+    mimeType: documents.mimeType,
+    extension: documents.extension,
+    sizeBytes: documents.sizeBytes,
+    category: documents.category,
+    description: documents.description,
+    uploadedAt: documents.uploadedAt,
+    expiresAt: documents.expiresAt,
+    propertyName: properties.name,
+  }).from(documents)
+    .innerJoin(properties, and(eq(documents.propertyId, properties.id), eq(properties.orgId, ctx.orgId)))
+    .where(and(...conditions))
+    .orderBy(desc(documents.uploadedAt), desc(documents.id))
+    .limit(opts.limit + 1);
+
+  const hasMore = rows.length > opts.limit;
+  const items = rows.slice(0, opts.limit).map((row): OrgDocumentListItemDto => ({
+    ...row,
+    uploadedAt: row.uploadedAt.getTime(),
+    expiresAt: row.expiresAt?.getTime() ?? null,
+    status: documentStatus(row.expiresAt?.getTime()),
+  }));
+  const last = items.at(-1);
+  return {
+    items,
+    nextCursor: hasMore && last ? encodeCursor({ uploadedAt: last.uploadedAt, id: last.id }) : null,
+  };
+}
+
+export async function summarizeOrgDocuments(ctx: Ctx, opts: DocumentsSummaryQuery): Promise<DocumentsSummaryDto> {
+  // One aggregate gives total, distinct properties and every bucket the same DB snapshot.
+  // PostgreSQL's category enum admits only the seven frozen values or NULL.
+  const buckets = DOCUMENT_CATEGORIES.map((category) =>
+    sql`${category}::text, count(*) filter (where ${documents.category} = ${category})`,
+  );
+  buckets.push(sql`'uncategorized', count(*) filter (where ${documents.category} is null)`);
+  const [summary] = await db.select({
+    total: count(),
+    propertyCount: countDistinct(documents.propertyId),
+    byCategory: sql<DocumentsSummaryDto["byCategory"]>`json_build_object(${sql.join(buckets, sql`, `)})`,
+  }).from(documents).where(and(eq(documents.orgId, ctx.orgId), documentKindCondition(opts.kind)));
+  return summary;
 }
 
 // Cursor shape for listDocumentsPage — the same (uploadedAt, id) tuple listDocuments already
