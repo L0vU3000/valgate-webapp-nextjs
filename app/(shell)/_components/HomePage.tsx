@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import {
@@ -20,6 +20,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { getPropertyCoverUrl } from "@/app/actions/property-photos";
+import { MarketLandscapePanel } from "@/components/map/MarketLandscapePanel";
+import { useMarketLandscape } from "@/components/map/useMarketLandscape";
 import { pickHeroImage } from "@/lib/property-hero";
 import { cn } from "@/components/ui/utils";
 import {
@@ -410,6 +412,20 @@ export function HomePage({
     (closingKey ? initialProperties.find((p) => p.id === closingKey) : null);
   const isDrawerClosing = !selectedProperty && closingKey !== null;
 
+  // Market landscape around the open property — one fetch, two surfaces: the drawer's Market
+  // section (stats + list) and the map's price pills. Null while the drawer is fully closed, so
+  // no request runs with nothing selected.
+  const market = useMarketLandscape(drawerProperty?.id ?? null);
+  const marketListings = useMemo(
+    () =>
+      // No property open (drawer fully closed) → empty pills; during the close animation and while
+      // a fetch is in flight the pills leave with the drawer rather than lingering.
+      !drawerProperty || market.state.status !== "done" || market.state.data.coverage !== "ok"
+        ? []
+        : market.state.data.listings,
+    [market.state, drawerProperty],
+  );
+
   // Drawer hero: real cover photo → the property's static map → placeholder (via the
   // shared ladder). Replaces the old hardcoded stock image. The map url mirrors the
   // overview hero's Mapbox static-image format.
@@ -517,6 +533,7 @@ export function HomePage({
           properties={initialProperties}
           selectedId={selectedPin}
           onSelectProperty={handlePinClick}
+          marketListings={marketListings}
           onMapLoaded={() => setMapLoaded(true)}
           onMapReady={(map) => {
             mapRef.current = map;
@@ -1066,6 +1083,13 @@ export function HomePage({
                     </div>
                   </div>
                 </section>
+
+                {/* Section: Market — realestate.com.kh around this pin */}
+                <MarketLandscapePanel
+                  propertyId={drawerProperty.id}
+                  state={market.state}
+                  onRetry={market.retry}
+                />
 
                 {/* Section: Financials */}
                 <section>

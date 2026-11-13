@@ -62,6 +62,13 @@ export const env = createEnv({
       .enum(["true", "false"])
       .default("false")
       .transform((v) => v === "true"),
+    // Market landscape (realestate.com.kh listings + stats around a pin). OFF unless explicitly
+    // "true": the portal's robots.txt disallows /api/ and re-use permission is still being sought
+    // by the owner, so absent means the route answers `coverage: "disabled"` with no outbound call.
+    MARKET_LANDSCAPE_ENABLED: z
+      .enum(["true", "false"])
+      .default("false")
+      .transform((v) => v === "true"),
   },
   client: {
     NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: z.string().min(1).optional(),
@@ -101,6 +108,7 @@ export const env = createEnv({
     RESEND_FROM_EMAIL: process.env.RESEND_FROM_EMAIL,
     MCP_ALLOWED_OAUTH_CLIENT_IDS: process.env.MCP_ALLOWED_OAUTH_CLIENT_IDS,
     MCP_ALLOW_ANY_OAUTH_CLIENT: process.env.MCP_ALLOW_ANY_OAUTH_CLIENT,
+    MARKET_LANDSCAPE_ENABLED: process.env.MARKET_LANDSCAPE_ENABLED,
     NEXT_PUBLIC_MAPBOX_TOKEN: process.env.NEXT_PUBLIC_MAPBOX_TOKEN,
     NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
   },

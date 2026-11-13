@@ -1,0 +1,82 @@
+{
+ "count": 216,
+ "market": {
+  "total": 216,
+  "median": 119999,
+  "p20": 77529,
+  "p80": 437400,
+  "sqm_median": 1696,
+  "currency": {
+   "code": "usd",
+   "sign": "$",
+   "rate": 1
+  },
+  "districts": [
+   {
+    "value": "Meanchey",
+    "name": "Meanchey",
+    "count": 215,
+    "median": 119999
+   },
+   {
+    "value": "Dangkao",
+    "name": "Dangkao",
+    "count": 1,
+    "median": 149888
+   }
+  ]
+ },
+ "results": [
+  {
+   "id": 269694,
+   "headline": "1-Bedrooms Condo for Sale at Urban Village Phase 2 | $45,000",
+   "address": "Chak Angrae Leu, Meanchey, Phnom Penh",
+   "address_latitude": 11.55,
+   "address_longitude": 104.91667,
+   "url": "/new-developments/urban-village-phase-2/1-bed-1-bath-condo-269694/",
+   "display_price": "$45,000",
+   "display_rent": "POA",
+   "display_price_per_sqm_with_unit": "$900/m²",
+   "display_rent_per_sqm_with_unit": "POA",
+   "images": [
+    {
+     "url": "https://images.realestate.com.kh/__sized__/listings/2026-11/photo_7_2026-11-02_09-36-24-thumbnail-1040x780-70.jpeg"
+    }
+   ]
+  },
+  {
+   "id": 269653,
+   "headline": "✨ Elevate Your Living: Exclusive High-Floor Corner Duplex Unit ✨",
+   "address": "Chak Angrae Leu, Meanchey, Phnom Penh",
+   "address_latitude": 11.55,
+   "address_longitude": 104.91667,
+   "url": "/new-developments/urban-village-phase-2/2-bed-2-bath-condo-269653/",
+   "display_price": "$88,888",
+   "display_rent": "POA",
+   "display_price_per_sqm_with_unit": "$1,155/m²",
+   "display_rent_per_sqm_with_unit": "POA",
+   "images": [
+    {
+     "url": "https://images.realestate.com.kh/__sized__/listings/2026-10/download-5_y6cFCNy-thumbnail-1040x780-70.jpeg"
+    }
+   ]
+  },
+  {
+   "id": 269650,
+   "headline": "✨ Elevate Your Living: Exclusive High-Floor Corner Duplex Unit ✨",
+   "address": "Chak Angrae Leu, Meanchey, Phnom Penh",
+   "address_latitude": 11.55,
+   "address_longitude": 104.91667,
+   "url": "/new-developments/urban-village-phase-2/2-bed-2-bath-condo-269650/",
+   "display_price": "$88,888",
+   "display_rent": "POA",
+   "display_price_per_sqm_with_unit": "$1,154/m²",
+   "display_rent_per_sqm_with_unit": "POA",
+   "images": [
+    {
+     "url": "https://images.realestate.com.kh/__sized__/listings/2026-10/download-5_kFacuoB-thumbnail-1040x780-70.jpeg"
+    }
+   ]
+  }
+ ]
+}
